@@ -286,6 +286,9 @@ private:
             uint64_t m_Created;
             uint64_t m_Destroyed;
             uint64_t m_Invoked;
+            uint64_t get_Sum() const {
+                return m_Created + m_Destroyed + m_Invoked;
+            }
         } m_Contract;
     };
 
@@ -509,30 +512,65 @@ private:
             return j;
         }
 
-        json jInfo = json::array();
+        json jInfo_L = json::array();
+        json jInfo_R = json::array();
 
-        jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height) });
-        jInfo.push_back({ MakeTableHdr("Total Work"), szCw });
-        jInfo.push_back({ MakeTableHdr("Last block Timestamp"),MakeTypeObj("time", c.m_Full.m_TimeStamp) });
-        jInfo.push_back({ MakeTableHdr("Last block Subsidy"), MakeObjAmount(Rules::get_Emission(c.m_Full.m_Height)) });
+        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height)  });
+        jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
+        jInfo_L.push_back({ MakeTableHdr("Total Work"), szCw });
+
+        {
+            Difficulty::Raw df;
+            _nodeBackend.m_Cursor.m_DifficultyNext.Unpack(df);
+            PrintDifficulty(szCw, df);
+        }
+        jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), szCw });
+
+        StateData sd;
+        if (_nodeBackend.m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)
+            _nodeBackend.get_DB().get_StateExtra(_nodeBackend.m_Cursor.m_Sid.m_Row, &sd, sizeof(sd));
+        else
+            ZeroObject(sd);
 
         char szBuf[uintBigFor<uint64_t>::Type::nTxtLen10Max / 3 * 4 + 2];
-        auto len = uintBigFrom(_nodeBackend.m_Extra.m_ShieldedOutputs).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
+        TxoID nOuts = get_NumOuts(_nodeBackend.m_Extra.m_Txos, _nodeBackend.m_Cursor.m_Full.m_Height);
 
-        jInfo.push_back({ MakeTableHdr("Total shielded outputs"), szBuf });
 
-        len = uintBigFrom(_nodeBackend.m_Extra.m_Txos - _nodeBackend.m_Extra.m_TxosTreasury - c.m_Full.m_Height - Rules::HeightGenesis + 1).PrintDecimal(szBuf);
+        auto len = uintBigFrom(sd.m_Totals.m_Kernels).PrintDecimal(szBuf);
         ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo.push_back({ MakeTableHdr("Total TXOs"), szBuf });
-        
+        jInfo_R.push_back({ MakeTableHdr("Transactions"), szBuf });
+
+        jInfo_R.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
+
+        len = uintBigFrom(nOuts).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo_R.push_back({ MakeTableHdr("TXOs"), szBuf });
+
+        len = uintBigFrom(nOuts - sd.m_Totals.m_InputsMW).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo_R.push_back({ MakeTableHdr("UTXOs"), szBuf });
+
+        len = uintBigFrom(sd.m_Totals.m_Shielded.m_Outputs).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo_R.push_back({ MakeTableHdr("Shielded Outs"), szBuf });
+
+        len = uintBigFrom(sd.m_Totals.m_Shielded.m_Inputs).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo_R.push_back({ MakeTableHdr("Shielded Ins"), szBuf });
+
+        len = uintBigFrom(sd.m_Totals.m_Contract.get_Sum()).PrintDecimal(szBuf);
+        ExpanedNumWithCommas(szBuf, szBuf, len);
+        jInfo_R.push_back({ MakeTableHdr("Contracts Invoked"), szBuf });
+
+
+        jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
 
         AmountBig::Type valAmount;
         Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, c.m_Full.m_Height));
-        jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valAmount) });
+        jInfo_L.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valAmount) });
 
         Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, MaxHeight));
-        jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
+        jInfo_L.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
 
         PrepareTreasureSchedule();
         if (!m_mapTreasury.empty())
@@ -549,14 +587,17 @@ private:
                 pPrev = &(*it);
             }
 
-            jInfo.push_back({ MakeTableHdr("Treasury total"), MakeObjAmount(valTotal) });
-            jInfo.push_back({ MakeTableHdr("Treasury released"), MakeObjAmount(pPrev ? pPrev->m_Total : 0) });
+            jInfo_L.push_back({ MakeTableHdr("Treasury Released"), MakeObjAmount(pPrev ? pPrev->m_Total : 0) });
+            jInfo_L.push_back({ MakeTableHdr("Treasury Total"), MakeObjAmount(valTotal) });
 
             if (pPrev)
-                jInfo.push_back({ MakeTableHdr("Treasury Prev release"), MakeObjHeight(pPrev->m_Key) });
+                jInfo_L.push_back({ MakeTableHdr("Treasury Prev release"), MakeObjHeight(pPrev->m_Key) });
             if (pNext)
-                jInfo.push_back({ MakeTableHdr("Treasury Next release"), MakeObjHeight(pNext->m_Key) });
+                jInfo_L.push_back({ MakeTableHdr("Treasury Next release"), MakeObjHeight(pNext->m_Key) });
         }
+
+        json jInfo = json::array();
+        jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTable(std::move(jInfo_R)) });
 
         auto jRet = MakeTable(std::move(jInfo));
 
@@ -1932,6 +1973,63 @@ private:
         return ExpanedNumWithCommas(sz, sz, len);
     }
 
+    void AddTotals(json& res, const Totals& t1, const Totals& t0, TxoID txo1, TxoID txo0)
+    {
+        // Fees
+        {
+            auto val = t0.m_Fee;
+            val.Negate();
+            val += t1.m_Fee;
+            res.push_back(MakeObjAmount(val));
+            res.push_back(MakeObjAmount(t1.m_Fee));
+        }
+
+        // Txs
+        res.push_back(t1.m_Kernels - t0.m_Kernels);
+        res.push_back(t1.m_Kernels);
+        // MW  outputs
+        res.push_back(txo1 - txo0);
+        res.push_back(txo1);
+        // MW  inputs
+        res.push_back(t1.m_InputsMW - t0.m_InputsMW);
+        res.push_back(t1.m_InputsMW);
+        // UTXOs
+        res.push_back(static_cast<int64_t>((txo1 - txo0) - (t1.m_InputsMW - t0.m_InputsMW)));
+        res.push_back(txo1 - t1.m_InputsMW);
+        // Shielded outputs
+        res.push_back(t1.m_Shielded.m_Outputs);
+        //res.push_back(t1.m_Shielded.m_Outputs - t0.m_Shielded.m_Outputs);
+        // Shielded inputs
+        res.push_back(t1.m_Shielded.m_Inputs);
+        //res.push_back(t1.m_Shielded.m_Inputs - t0.m_Shielded.m_Inputs);
+        // Contracts
+        res.push_back(t1.m_Contract.get_Sum());
+    }
+
+    TxoID get_NumOuts(TxoID val, Height h)
+    {
+        if (h < Rules::HeightGenesis)
+        {
+            // treasury
+            if (val) // treasury handled?
+                val--;
+
+            return val;
+        }
+            
+
+        return val - (h - Rules::HeightGenesis + 1u + 1u); // treasury artificial gap
+    }
+
+    TxoID get_NumOuts(const NodeDB::StateID& sid)
+    {
+        TxoID val = (sid.m_Height < Rules::HeightGenesis) ?
+            _nodeBackend.m_Extra.m_TxosTreasury :
+            _nodeBackend.get_DB().get_StateTxos(sid.m_Row);
+
+        return get_NumOuts(val, sid.m_Height);
+    }
+
     json get_hdrs(uint64_t hMax, uint64_t nMax) override
     {
         std::setmin(nMax, 2048u);
@@ -1944,6 +2042,19 @@ private:
             MakeTableHdr("Hash"),
             MakeTableHdr("Difficulty"),
             MakeTableHdr("Chainwork"),
+            MakeTableHdr("Fees"),
+            MakeTableHdr(""),
+            MakeTableHdr("Txs"),
+            MakeTableHdr(""),
+            MakeTableHdr("MW.Outs"),
+            MakeTableHdr(""),
+            MakeTableHdr("MW.Ins"),
+            MakeTableHdr(""),
+            MakeTableHdr("UTXOs"),
+            MakeTableHdr(""),
+            MakeTableHdr("Sh.Outs"),
+            MakeTableHdr("Sh.Ins"),
+            MakeTableHdr("Contract calls"),
             }));
 
         
@@ -1958,6 +2069,12 @@ private:
             sid.m_Row = db.FindActiveStateStrict(hMax);
 
             Merkle::Hash hv;
+
+            StateData pTots[2];
+            uint32_t iIdxTots = 0;
+            db.get_StateExtra(sid.m_Row, pTots, sizeof(StateData));
+
+            TxoID txos = get_NumOuts(sid);
 
             while (true)
             {
@@ -1983,19 +2100,36 @@ private:
                 PrintDifficulty(szCw, s.m_ChainWork);
                 jRow.push_back(szCw);
 
+                bool bDone = false;
+
+                iIdxTots = !iIdxTots;
+
+                if (db.get_Prev(sid))
+                    db.get_StateExtra(sid.m_Row, pTots + iIdxTots, sizeof(StateData));
+                else
+                {
+                    ZeroObject(pTots[!iIdxTots]);
+                    ZeroObject(sid);
+                    bDone = true;
+                }
+
+                TxoID txos0 = get_NumOuts(sid);
+
+                AddTotals(jRow, pTots[!iIdxTots].m_Totals, pTots[iIdxTots].m_Totals, txos, txos0);
+
                 jRet.push_back(std::move(jRow));
 
                 if (!--nMax)
                 {
                     hMore = sid.m_Height - 1;
-                    break;
+                    bDone = true;
                 }
 
-                if (!db.get_Prev(sid))
+                if (bDone)
                     break;
 
-
                 hv = s.m_Prev;
+                txos = txos0;
             }
         }
 
@@ -2095,7 +2229,7 @@ private:
                 jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(id.m_Height) });
                 jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
                 jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
-                jInfo.push_back({ MakeTableHdr("Hash-Prev"), MakeObjBlob(blockState.m_Prev) });
+                //jInfo.push_back({ MakeTableHdr("Hash-Prev"), MakeObjBlob(blockState.m_Prev) });
 
                 Difficulty::Raw d;
                 blockState.m_PoW.m_Difficulty.Unpack(d);
@@ -2106,7 +2240,36 @@ private:
 
                 PrintDifficulty(szCw, blockState.m_ChainWork);
                 jInfo.push_back({ MakeTableHdr("Chainwork"), szCw });
-                jInfo.push_back({ MakeTableHdr("Subsidy"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
+                jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
+
+                struct FeeCalculator :public TxKernel::IWalker {
+                    AmountBig::Type m_Fees = Zero;
+                    bool OnKrn(const TxKernel& krn) override {
+                        m_Fees +=  uintBigFrom(krn.m_Fee);
+                        return true;
+                    }
+                } fc;
+                fc.Process(txe.m_vKernels); // probably cheaper than fetching stats of this and prev blocks, and taking the diff
+
+                jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(fc.m_Fees) });
+
+                AmountBig::Type valAmount;
+                Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, height));
+                jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valAmount) });
+
+                PrepareTreasureSchedule();
+                if (!m_mapTreasury.empty())
+                {
+                    auto it = m_mapTreasury.upper_bound(height, TresEntry::Comparator());
+                    const TresEntry* pPrev = nullptr;
+                    if (m_mapTreasury.begin() != it)
+                    {
+                        --it;
+                        pPrev = &(*it);
+                    }
+
+                    jInfo.push_back({ MakeTableHdr("Treasury Released"), MakeObjAmount(pPrev ? pPrev->m_Total : 0) });
+                }
 
                 out["info"] = MakeTable(std::move(jInfo));
             }
