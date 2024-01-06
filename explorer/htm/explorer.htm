@@ -196,9 +196,9 @@ table, th, td {
 
 	function Obj2Html(obj)
 	{
-		if (!obj)
+		if (obj == null)
 			return "";
-			
+
 		if (Array.isArray(obj))
 		{
 			let txt = "<ul>";
@@ -766,7 +766,7 @@ table, th, td {
 	else if (type == "contract")
 	{
 		xmlhttp.onload = DisplayContractState;
-		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=200");
 		xmlhttp.send();
 	}
 	else if (type == "hdrs")
