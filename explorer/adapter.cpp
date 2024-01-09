@@ -78,13 +78,6 @@ const char* uint256_to_hex(char* buf, const ECC::uintBig& n) {
     return p;
 }
 
-const char* difficulty_to_hex(char* buf, const Difficulty& d) {
-    ECC::uintBig raw;
-    d.Unpack(raw);
-    return uint256_to_hex(buf, raw);
-}
-
-
 
 } //namespace
 
@@ -475,12 +468,102 @@ private:
         }
     }
 
+    struct NiceDecimal
+    {
+        static uint32_t ExpandCommas(char* sz, uint32_t len)
+        {
+            const uint32_t nGroupLen = 3;
+            // szDst and szSrc may be the same
+            if (len)
+            {
+                uint32_t numCommas = (len - 1) / nGroupLen;
+                uint32_t pos = len;
+                len += numCommas;
+                sz[len] = 0;
+
+                while (numCommas)
+                {
+                    pos -= nGroupLen;
+                    memmove(sz + pos + numCommas, sz + pos, nGroupLen);
+                    sz[pos + (--numCommas)] = ',';
+                }
+
+                memmove(sz, sz, pos);
+            }
+
+            return len;
+        }
+
+        template <typename T>
+        static uint32_t Print(char* sz, T val)
+        {
+            uint32_t digs = 1u;
+            for (T val2 = val; val2 /= 10; )
+                digs++;
+
+            auto ret = digs;
+
+            for (sz[digs] = 0; digs--; val /= 10)
+                sz[digs] = '0' + (val % 10);
+
+            return ret;
+        }
+
+        template <uint32_t nBytes>
+        static uint32_t Print(char* sz, const uintBig_t<nBytes>& x)
+        {
+            return x.PrintDecimal(sz);
+        }
+
+        template <uint32_t nBytes> struct Str
+        {
+            static const uint32_t s_MaxLen = 10 * ((nBytes + 2) / 3); // upper bound
+            char m_sz[s_MaxLen + 1];
+
+            operator const char* () const
+            {
+                return m_sz;
+            }
+        };
+
+        template <typename T>
+        static Str<sizeof(T)> Make(const T& x, bool bExpandCommas)
+        {
+            Str<sizeof(T)> ret;
+            uint32_t nLen = Print(ret.m_sz, x);
+            if (bExpandCommas)
+                nLen = ExpandCommas(ret.m_sz, nLen);
+
+            assert(nLen < _countof(ret.m_sz));
+            return ret;
+        }
+
+        static Str<sizeof(Difficulty::Raw)> MakeDifficulty(const Difficulty::Raw& d)
+        {
+            // print integer part only. Ok for mainnet.
+            Difficulty::Raw dInt;
+            d.ShiftRight(Difficulty::s_MantissaBits, dInt);
+            return Make(dInt, true);
+        }
+
+        static Str<sizeof(Difficulty::Raw)> MakeDifficulty(const Difficulty& d)
+        {
+            Difficulty::Raw dr;
+            d.Unpack(dr);
+            return MakeDifficulty(dr);
+        }
+    };
+
+    template <typename T>
+    NiceDecimal::Str<sizeof(T)> MakeDecimal(const T& x) const
+    {
+        bool bExpand = true; // TODO
+        return NiceDecimal::Make(x, bExpand);
+    }
+
     json get_status() override {
 
         const auto& c = _nodeBackend.m_Cursor;
-
-        char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
-        PrintDifficulty(szCw, c.m_Full.m_ChainWork);
 
         if (Mode::Legacy == m_Mode)
         {
@@ -506,7 +589,7 @@ private:
                     { "height", c.m_Full.m_Height },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, c.m_ID.m_Hash) },
-                    { "chainwork",  szCw },
+                    { "chainwork",  NiceDecimal::MakeDifficulty(c.m_Full.m_ChainWork).m_sz },
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
@@ -520,14 +603,8 @@ private:
 
         jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height)  });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
-        jInfo_L.push_back({ MakeTableHdr("Total Work"), szCw });
-
-        {
-            Difficulty::Raw df;
-            _nodeBackend.m_Cursor.m_DifficultyNext.Unpack(df);
-            PrintDifficulty(szCw, df);
-        }
-        jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), szCw });
+        jInfo_L.push_back({ MakeTableHdr("Total Work"), NiceDecimal::MakeDifficulty(c.m_Full.m_ChainWork).m_sz });
+        jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
         StateData sd;
         if (_nodeBackend.m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)
@@ -535,36 +612,16 @@ private:
         else
             ZeroObject(sd);
 
-        char szBuf[uintBigFor<uint64_t>::Type::nTxtLen10Max / 3 * 4 + 2];
         TxoID nOuts = get_NumOuts(_nodeBackend.m_Extra.m_Txos, _nodeBackend.m_Cursor.m_Full.m_Height);
 
 
-        auto len = uintBigFrom(sd.m_Totals.m_Kernels).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("Transactions"), szBuf });
-
+        jInfo_R.push_back({ MakeTableHdr("Transactions"), MakeDecimal(sd.m_Totals.m_Kernels).m_sz });
         jInfo_R.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
-
-        len = uintBigFrom(nOuts).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("TXOs"), szBuf });
-
-        len = uintBigFrom(nOuts - sd.m_Totals.m_InputsMW).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("UTXOs"), szBuf });
-
-        len = uintBigFrom(sd.m_Totals.m_Shielded.m_Outputs).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("Shielded Outs"), szBuf });
-
-        len = uintBigFrom(sd.m_Totals.m_Shielded.m_Inputs).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("Shielded Ins"), szBuf });
-
-        len = uintBigFrom(sd.m_Totals.m_Contract.get_Sum()).PrintDecimal(szBuf);
-        ExpanedNumWithCommas(szBuf, szBuf, len);
-        jInfo_R.push_back({ MakeTableHdr("Contracts Invoked"), szBuf });
-
+        jInfo_R.push_back({ MakeTableHdr("TXOs"), MakeDecimal(nOuts).m_sz });
+        jInfo_R.push_back({ MakeTableHdr("UTXOs"), MakeDecimal(nOuts - sd.m_Totals.m_InputsMW).m_sz });
+        jInfo_R.push_back({ MakeTableHdr("Shielded Outs"), MakeDecimal(sd.m_Totals.m_Shielded.m_Outputs).m_sz });
+        jInfo_R.push_back({ MakeTableHdr("Shielded Ins"), MakeDecimal(sd.m_Totals.m_Shielded.m_Inputs).m_sz });
+        jInfo_R.push_back({ MakeTableHdr("Contracts Invoked"), MakeDecimal(sd.m_Totals.m_Contract.get_Sum()).m_sz });
 
         jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
 
@@ -1942,40 +1999,6 @@ private:
         return MakeTable(std::move(jAssets));
     }
 
-    static uint32_t ExpanedNumWithCommas(char* szDst, const char* szSrc, uint32_t len)
-    {
-        const uint32_t nGroupLen = 3;
-        // szDst and szSrc may be the same
-        if (len)
-        {
-            uint32_t numCommas = (len - 1) / nGroupLen;
-            uint32_t pos = len;
-            len += numCommas;
-
-            while (numCommas)
-            {
-                pos -= nGroupLen;
-                memmove(szDst + pos + numCommas, szSrc + pos, nGroupLen);
-                szDst[pos + (--numCommas)] = ',';
-            }
-
-            memmove(szDst, szSrc, pos);
-        }
-
-        szDst[len] = 0;
-        return len;
-    }
-
-    uint32_t PrintDifficulty(char* sz, const Difficulty::Raw& d)
-    {
-        // print integer part only. Ok for mainnet.
-        Difficulty::Raw dInt;
-        dInt.SetDiv(d, uintBigFor<uint32_t>::Type(1u << Difficulty::s_MantissaBits));
-
-        uint32_t len = dInt.PrintDecimal(sz);
-        return ExpanedNumWithCommas(sz, sz, len);
-    }
-
     void AddTotals(json& res, const Totals& t1, const Totals& t0, TxoID txo1, TxoID txo0)
     {
         // Fees
@@ -2093,15 +2116,8 @@ private:
                 jRow.push_back(MakeTypeObj("time", s.m_TimeStamp));
                 jRow.push_back(MakeObjBlob(hv));
 
-                Difficulty::Raw d;
-                s.m_PoW.m_Difficulty.Unpack(d);
-
-                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
-                PrintDifficulty(szCw, d);
-                jRow.push_back(szCw);
-
-                PrintDifficulty(szCw, s.m_ChainWork);
-                jRow.push_back(szCw);
+                jRow.push_back(NiceDecimal::MakeDifficulty(s.m_PoW.m_Difficulty).m_sz);
+                jRow.push_back(NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz);
 
                 bool bDone = false;
 
@@ -2234,15 +2250,9 @@ private:
                 jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
                 //jInfo.push_back({ MakeTableHdr("Hash-Prev"), MakeObjBlob(blockState.m_Prev) });
 
-                Difficulty::Raw d;
-                blockState.m_PoW.m_Difficulty.Unpack(d);
+                jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(blockState.m_PoW.m_Difficulty).m_sz });
 
-                char szCw[ECC::uintBig::nTxtLen10Max / 3 * 4 + 2];
-                PrintDifficulty(szCw, d);
-                jInfo.push_back({ MakeTableHdr("Difficulty"), szCw });
-
-                PrintDifficulty(szCw, blockState.m_ChainWork);
-                jInfo.push_back({ MakeTableHdr("Chainwork"), szCw });
+                jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(blockState.m_ChainWork).m_sz });
                 jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
 
                 struct FeeCalculator :public TxKernel::IWalker {
