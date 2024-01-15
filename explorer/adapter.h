@@ -45,7 +45,7 @@ struct IAdapter {
     virtual json get_block(uint64_t height) = 0;
     virtual json get_block_by_kernel(const Blob& key) = 0;
     virtual json get_blocks(uint64_t startHeight, uint64_t n) = 0;
-    virtual json get_hdrs(uint64_t hMax, uint64_t nMax) = 0;
+    virtual json get_hdrs(uint64_t hMax, uint64_t nMax, bool bRel, bool bAbs) = 0;
     virtual json get_peers() = 0;
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

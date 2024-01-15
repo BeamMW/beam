@@ -548,6 +548,16 @@ table, th, td {
 
 		text += MakeCollapsibleEnd();
 
+		j = jData["totals"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Totals");
+			text += "<table>";
+			text += Obj2Html_TableRows(j["value"]);
+			text += "</table>";
+			text += MakeCollapsibleEnd();
+		}
+
 		j = jData["assets"];
 		if (j)
 		{
