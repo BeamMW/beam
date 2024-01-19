@@ -25,13 +25,10 @@ void get_DH_Key(Secp::Scalar& res, PubKey& pkShared, const Secp::Point& ptShared
     ImportScalar(res, pkShared.m_X);
 }
 
-void XcodeMsg(const PubKey& pkShared, uint8_t* pMsg, uint32_t nMsg)
+void XcodeMsg(HashProcessor::Base& hp, uint8_t* pMsg, uint32_t nMsg)
 {
     if (!nMsg)
         return;
-
-    HashProcessor::Sha256 hp;
-    hp << pkShared.m_X;
 
     while (true)
     {
@@ -49,6 +46,17 @@ void XcodeMsg(const PubKey& pkShared, uint8_t* pMsg, uint32_t nMsg)
 
         hp << hv;
     }
+}
+
+void XcodeMsg(const PubKey& pkShared, uint8_t* pMsg, uint32_t nMsg)
+{
+    if (!nMsg)
+        return;
+
+    HashProcessor::Sha256 hp;
+    hp << pkShared.m_X;
+
+    XcodeMsg(hp, pMsg, nMsg);
 }
 
 struct AnonScanner

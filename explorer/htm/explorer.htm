@@ -76,10 +76,15 @@ table, th, td {
 	{
 		return "<tt>" + txt + "</tt>";
 	}
+	
+	function UrlBlock(h)
+	{
+		return UrlSelfWithID("block", h, "");
+	}
 
 	function MakeBlock(h)
 	{
-		return MakeRef(UrlSelfWithID("block", h, ""), MakeMonospace(h));
+		return MakeRef(UrlBlock(h), MakeMonospace(h));
 	}
 
 	function MakeCellAmount(amount, extra)
@@ -196,9 +201,9 @@ table, th, td {
 
 	function Obj2Html(obj)
 	{
-		if (!obj)
+		if (obj == null)
 			return "";
-			
+
 		if (Array.isArray(obj))
 		{
 			let txt = "<ul>";
@@ -418,9 +423,64 @@ table, th, td {
 		return text;
 	}
 
+	function MakeTblAssets(j)
+	{
+		let text = "\
+<table>\n\
+	<th>Aid</th>\n\
+	<th>Owner</th>\n\
+	<th>Deposit</th>\n\
+	<th>Supply</th>\n\
+	<th>Lock-Height</th>\n\
+	<th>Metadata</th>\n\
+";
+
+		let jTbl = j["value"];
+		
+		// skip 1st row
+		for (let iRow = 1; iRow < jTbl.length; iRow++)
+		{
+			const jRow = jTbl[iRow];
+			text += "<tr>";
+
+			text += MakeCell(MakeAsset(jRow[0]["value"]));
+			text += MakeCell(Obj2Html(jRow[1]));
+			text += MakeCellAmount(jRow[2]["value"]);
+			text += MakeCellAmount(jRow[3]["value"]);
+			text += MakeCell(MakeBlock(jRow[4]));
+			text += MakeCell(Obj2Html(jRow[5]));
+			
+			text += "</tr>";
+		}
+		
+	
+		text += "</table>"
+		return text;
+	}
+
+	function MakeCAs(h)
+	{
+		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets") + "</h3>";
+	}
+
 	function DisplayBlock()
 	{
 		let text = "";
+		
+		text += "<span style='font-size:50px;'>";
+		if (g_CurrentID > 0)
+		{
+			text += MakeRef(UrlBlock(g_CurrentID - 1), MakeMonospace("&larr;"));
+			text += " ";
+			text += MakeMonospace(g_CurrentID);
+		}
+		else
+			text += "Treasury";
+
+		text += " ";
+		text += MakeRef(UrlBlock(g_CurrentID - 1 + 2), MakeMonospace("&rarr;"));
+		text += "</span>"
+
 		const jData = JSON.parse(this.responseText);
 
 		let j = jData["info"];
@@ -508,44 +568,25 @@ table, th, td {
 
 		text += MakeCollapsibleEnd();
 
+		j = jData["totals"];
+		if (j)
+		{
+			text += MakeCollapsibleBegin("Totals");
+			text += "<table>";
+			text += Obj2Html_TableRows(j["value"]);
+			text += "</table>";
+			text += MakeCollapsibleEnd();
+		}
+
 		j = jData["assets"];
 		if (j)
 		{
 			text += MakeCollapsibleBegin("Assets state");
-		
-			text += "\
-<table>\n\
-	<th>Aid</th>\n\
-	<th>Owner</th>\n\
-	<th>Deposit</th>\n\
-	<th>Supply</th>\n\
-	<th>Lock-Height</th>\n\
-	<th>Metadata</th>\n\
-";
-
-			jTbl = j["value"];
-		
-			// skip 1st row
-			for (let iRow = 1; iRow < jTbl.length; iRow++)
-			{
-				const jRow = jTbl[iRow];
-				text += "<tr>";
-
-				text += MakeCell(MakeAsset(jRow[0]["value"]));
-				text += MakeCell(Obj2Html(jRow[1]));
-				text += MakeCellAmount(jRow[2]["value"]);
-				text += MakeCellAmount(jRow[3]["value"]);
-				text += MakeCell(MakeBlock(jRow[4]));
-				text += MakeCell(Obj2Html(jRow[5]));
-			
-				text += "</tr>";
-			}
-		
-	
-			text += "</table>"
-	
+			text += MakeTblAssets(j);
 			text += MakeCollapsibleEnd();
 		}
+		else
+			text += MakeCAs(g_CurrentID);
 
 		SetContent(text);
 	}
@@ -699,12 +740,38 @@ table, th, td {
 		SetContent(text);
 	}
 	
+	function DisplayStatus()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = MakeCollapsibleBegin("Blockchain status");
+		text += Obj2Html(jData);
+		text += MakeCollapsibleEnd();
+
+		text += "<h3>" + MakeRef(UrlSelf("contracts", ""), "Contracts") + "</h3>";
+		text += MakeCAs(jData["h"]);
+		text += "<h3>" + MakeRef(UrlSelf("hdrs", ""), "Recent block headers") + "</h3>";
+
+		SetContent(text);
+	}
+
+	function DisplayAssets()
+	{
+		const jData = JSON.parse(this.responseText);
+	
+		let text = "<h2>Assets state for height " + MakeBlock(g_CurrentID) + "</h2>\n";
+		text += MakeTblAssets(jData);
+
+		SetContent(text);
+	}
+
 
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
 	g_CurrentID = args.get("id");
 	
-	let urlPrefix = "http://localhost:17328/";
+	//let urlPrefix = "http://localhost:17328/";
+	let urlPrefix = "http://116.203.118.51:8100/";
 	let urlSuffix = "?exp_am=1";
 	
 	const hMax = args.get("hMax");
@@ -729,19 +796,31 @@ table, th, td {
 	else if (type == "contract")
 	{
 		xmlhttp.onload = DisplayContractState;
-		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID);
+		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=200");
 		xmlhttp.send();
 	}
 	else if (type == "hdrs")
 	{
 		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix);
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&nMax=100");
+		xmlhttp.send();
+	}
+	else if (type == "contracts")
+	{
+		xmlhttp.onload = DisplayContracts;
+		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.send();
+	}
+	else if (type == "assets")
+	{
+		xmlhttp.onload = DisplayAssets;
+		xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
 		xmlhttp.send();
 	}
 	else
 	{
-		xmlhttp.onload = DisplayContracts;
-		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+		xmlhttp.onload = DisplayStatus;
+		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
 		xmlhttp.send();
 	}
 

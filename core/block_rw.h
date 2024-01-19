@@ -18,7 +18,24 @@
 
 namespace beam
 {
+	struct BlobEncoder
+	{
+		ECC::NoLeak<Merkle::Hash> m_hvSecret;
+
+		void SetPassword(const std::string&);
+		void SetPassword(const Blob&);
+
+		ByteBuffer Encrypt(const Blob&);
+		void Encrypt(ByteBuffer&); // in-place, also securely erases prev contents
+		bool Decrypt(Blob&);
+
+	private:
+		typedef uintBig_t<8> MacValue;
+		void XCrypt(MacValue&, uint32_t nSize, bool bEnc) const;
+	};
+
 	struct KeyString
+		:public BlobEncoder
 	{
 		std::string m_sRes;
 		std::string m_sMeta;
@@ -28,8 +45,6 @@ namespace beam
 		void ExportP(const Key::IPKdf&);
 		bool Import(ECC::HKdf&);
 		bool Import(ECC::HKdfPub&);
-		void SetPassword(const std::string&);
-		void SetPassword(const Blob&);
 
 	private:
 		typedef uintBig_t<8> MacValue;

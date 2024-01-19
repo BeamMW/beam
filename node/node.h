@@ -38,14 +38,15 @@ struct Node
 		virtual void OnStateChanged() {}
 		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
 		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
+		virtual ILongAction* GetLongActionHandler() { return nullptr; }
 
-        enum Error
-        {
+		enum Error
+		{
 			Unknown,
 			TimeDiffToLarge
-        };
+		};
 
-        virtual void OnSyncError(Error error = Unknown) {}
+		virtual void OnSyncError(Error error = Unknown) {}
 	};
 
 	struct Config
@@ -172,7 +173,17 @@ struct Node
 
 		Key::Index m_nMinerSubIndex = 0;
 
-		std::vector<Key::IPKdf::Ptr> m_vExtraOwners;
+		struct Accounts
+		{
+			std::vector<Key::IPKdf::Ptr> m_vAdd; // new accounts to add
+
+			struct Del
+			{
+				std::set<std::string> m_Eps; // endpoints to delete
+				bool m_All = false; // delete all saved accounts
+			} m_Del;
+
+		} m_Accounts;
 
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
@@ -200,7 +211,7 @@ struct Node
 	} m_SyncStatus;
 
 	uint32_t get_AcessiblePeerCount() const; // all the peers with known addresses. Including temporarily banned
-    const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
+	const PeerManager::AddrSet& get_AcessiblePeerAddrs() const;
 
 	bool m_UpdatedFromPeers = false;
 	bool m_PostStartSynced = false;
@@ -216,7 +227,7 @@ struct Node
 
 	uint8_t OnTransaction(Transaction::Ptr&&, std::unique_ptr<Merkle::Hash>&&, const PeerID*, bool bFluff, std::ostream* pExtraInfo);
 
-        // for step-by-step tests
+		// for step-by-step tests
 	void GenerateFakeBlocks(uint32_t n);
 
 	TxPool::Fluff m_TxPool;
@@ -317,7 +328,7 @@ private:
 	void InitKeys();
 	void InitIDs();
 	void RefreshAccounts();
-	void AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
+	struct AccountRefreshCtx;
 	void MaybeGenerateRecovery();
 
 	struct Wanted

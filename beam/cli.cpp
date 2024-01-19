@@ -433,9 +433,9 @@ int main(int argc, char* argv[])
 					if (vm.count(cli::MULTI_OWNER_KEYS))
 					{
 						auto vKeys = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
-						assert(vKeys.empty());
+						assert(!vKeys.empty());
 
-						auto& vRes = node.m_Keys.m_vExtraOwners; // alias
+						auto& vRes = node.m_Keys.m_Accounts.m_vAdd; // alias
 						assert(vRes.empty());
 
 						std::vector<std::string> vPasses;
@@ -464,6 +464,17 @@ int main(int argc, char* argv[])
 							vRes.push_back(ImportPKeyStrict(vKeys[vRes.size()], blob));
 						}
 					}
+
+					if (vm.count(cli::OWNER_KEY_REMOVE_EP))
+					{
+						auto vEps = vm[cli::OWNER_KEY_REMOVE_EP].as<std::vector<std::string> >();
+						assert(!vEps.empty());
+
+						for (auto& ep : vEps)
+							node.m_Keys.m_Accounts.m_Del.m_Eps.insert(std::move(ep));
+					}
+
+					node.m_Keys.m_Accounts.m_Del.m_All = vm[cli::OWNER_KEY_REMOVE_ALL].as<bool>();
 
 					if (vm.count(cli::MINER_JOB_LATENCY))
 						node.m_Cfg.m_Timeout.m_MiningSoftRestart_ms = vm[cli::MINER_JOB_LATENCY].as<uint32_t>();

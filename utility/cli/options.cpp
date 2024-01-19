@@ -137,6 +137,8 @@ namespace beam
         const char* MINER_KEY = "miner_key";
         const char* MULTI_OWNER_KEYS = "extra_owners";
         const char* MULTI_PASSES = "extra_pass";
+        const char* OWNER_KEY_REMOVE_EP = "remove_owner";
+        const char* OWNER_KEY_REMOVE_ALL = "remove_all_owners";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
         const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
@@ -425,6 +427,8 @@ namespace beam
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
             (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")
+            (cli::OWNER_KEY_REMOVE_EP, po::value<vector<string> >(), "Remove extra Owner key")
+            (cli::OWNER_KEY_REMOVE_ALL, po::value<bool>()->default_value(false), "Remove all extra owner keys")
             (cli::LOG_UTXOS, po::value<bool>()->default_value(false), "Log recovered UTXOs (make sure the log file is not exposed)")
             (cli::FAST_SYNC, po::value<bool>(), "Fast sync on/off (override horizons)")
             (cli::GENERATE_RECOVERY_PATH, po::value<string>(), "Recovery file to generate immediately after start")

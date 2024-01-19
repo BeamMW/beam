@@ -206,16 +206,15 @@ namespace beam
 	void KeyString::Export(void* p, uint32_t nData, uint8_t nCode)
 	{
 		ByteBuffer bb;
-		bb.resize(sizeof(MacValue) + nData + 1 + m_sMeta.size());
-		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+		bb.resize(nData + 1 + m_sMeta.size());
 
-		bb[sizeof(MacValue)] = nCode;
-		memcpy(&bb.at(1) + sizeof(MacValue), p, nData);
-		memcpy(&bb.at(1) + sizeof(MacValue) + nData, m_sMeta.c_str(), m_sMeta.size());
+		bb[0] = nCode;
+		memcpy(&bb.at(1), p, nData);
+		memcpy(&bb.at(1) + nData, m_sMeta.c_str(), m_sMeta.size());
 
-		XCrypt(mv, static_cast<uint32_t>(nData + 1 + m_sMeta.size()), true);
+		Encrypt(bb);
 
-		m_sRes = EncodeBase64(&bb.at(0), bb.size());
+		m_sRes = EncodeBase64(&bb.front(), bb.size());
 	}
 
 	bool KeyString::Import(ECC::HKdf& v)
@@ -239,27 +238,72 @@ namespace beam
 		bool bInvalid = false;
 		ByteBuffer bb = DecodeBase64(m_sRes.c_str(), &bInvalid);
 
-		if (bInvalid || (bb.size() < sizeof(MacValue) + 1 + nData))
+		if (bInvalid)
 			return false;
 
-		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
-		MacValue mvOrg = mv;
-
-		XCrypt(mv, static_cast<uint32_t>(bb.size() - sizeof(mv)), false);
-
-		if ((mv != mvOrg) || (bb[sizeof(MacValue)] != nCode))
+		Blob blob = bb;
+		if (!Decrypt(blob))
 			return false;
 
-		memcpy(p, &bb.at(1) + sizeof(MacValue), nData);
+		if (blob.n < nData + 1)
+			return false;
 
-		m_sMeta.resize(bb.size() - (sizeof(MacValue) + 1 + nData));
+		auto pDec = (const uint8_t*) blob.p;
+		if (*pDec != nCode)
+			return false;
+
+		memcpy(p, pDec + 1, nData);
+
+		m_sMeta.resize(blob.n - (nData + 1));
 		if (!m_sMeta.empty())
-			memcpy(&m_sMeta.front(), &bb.at(1) + sizeof(MacValue) + nData, m_sMeta.size());
+			memcpy(&m_sMeta.front(), pDec + (nData + 1), m_sMeta.size());
 
 		return true;
 	}
 
-	void KeyString::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
+	/////////////
+	// BlobEncoder
+	ByteBuffer BlobEncoder::Encrypt(const Blob& b)
+	{
+		ByteBuffer bb;
+		bb.resize(sizeof(MacValue) + b.n);
+		MacValue& mv = reinterpret_cast<MacValue&>(bb.at(0));
+
+		memcpy(&bb.front() + sizeof(MacValue), b.p, b.n);
+
+		XCrypt(mv, static_cast<uint32_t>(b.n), true);
+
+		return bb;
+	}
+
+	void BlobEncoder::Encrypt(ByteBuffer& b)
+	{
+		auto res = Encrypt(Blob(b));
+
+		ECC::SecureErase(&b.front(), static_cast<uint32_t>(b.size()));
+		b.swap(res);
+	}
+
+	bool BlobEncoder::Decrypt(Blob& x)
+	{
+		if (x.n < sizeof(MacValue))
+			return false;
+
+		MacValue& mv = Cast::NotConst(*reinterpret_cast<const MacValue*>(x.p));
+		MacValue mvOrg = mv;
+
+		XCrypt(mv, static_cast<uint32_t>(x.n - sizeof(mv)), false);
+
+		if (mv != mvOrg)
+			return false;
+
+		((const uint8_t*&) x.p) += sizeof(mv);
+		x.n -= sizeof(mv);
+
+		return true;
+	}
+
+	void BlobEncoder::XCrypt(MacValue& mv, uint32_t nSize, bool bEnc) const
 	{
 		static_assert(AES::s_KeyBytes == sizeof(m_hvSecret.V), "");
 		AES::Encoder enc;
@@ -287,12 +331,12 @@ namespace beam
 		mv = hvIV.V;
 	}
 
-	void KeyString::SetPassword(const std::string& s)
+	void BlobEncoder::SetPassword(const std::string& s)
 	{
 		SetPassword(Blob(s.data(), static_cast<uint32_t>(s.size())));
 	}
 
-	void KeyString::SetPassword(const Blob& b)
+	void BlobEncoder::SetPassword(const Blob& b)
 	{
 		int nRes = pkcs5_pbkdf2(
 			reinterpret_cast<const uint8_t*>(b.p),

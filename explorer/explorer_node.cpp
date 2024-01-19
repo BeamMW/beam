@@ -68,6 +68,7 @@ int main(int argc, char* argv[]) {
         setup_node(node, options);
         explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
         node.Initialize();
+        adapter->Initialize();
         explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile, options.whitelist);
         LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
         reactor->run();

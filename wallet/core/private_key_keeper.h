@@ -96,6 +96,7 @@ namespace beam::wallet
                 CoinID m_Cid; // weak schemes (V0, BB21) isn't supported for trustless wallet
                 Output::User m_User;
                 Output::Ptr m_pResult;
+                Asset::ID m_AidMax = 1u;
 
                 CreateOutput() { ZeroObject(m_User); }
             };
@@ -105,7 +106,7 @@ namespace beam::wallet
             {
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
-                bool m_HideAssetAlways = true;
+                Asset::ID m_AidMax = 1u;
 
                 TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:
@@ -186,7 +187,7 @@ namespace beam::wallet
 
                 // sent value and asset are derived from the tx balance (ins - outs)
                 ShieldedTxo::User m_User;
-                bool m_HideAssetAlways = true;
+                Asset::ID m_AidMax = 1u;
             };
 
             struct DisplayEndpoint

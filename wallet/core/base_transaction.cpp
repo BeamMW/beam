@@ -246,7 +246,7 @@ namespace beam::wallet
         {
             SetParameter(TxParameterID::Status, TxStatus::Registering);
             SetParameter(TxParameterID::KernelProofHeight, Zero);
-            SetParameter(TxParameterID::KernelUnconfirmedHeight, height);
+            SetParameter(TxParameterID::KernelUnconfirmedHeight, Zero);
             SetParameter(TxParameterID::TransactionRegistered, Zero);
             return true;
         }

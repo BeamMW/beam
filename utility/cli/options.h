@@ -100,6 +100,8 @@ namespace beam
         extern const char* KEY_MINE;  // deprecated
         extern const char* MULTI_OWNER_KEYS;
         extern const char* MULTI_PASSES;
+        extern const char* OWNER_KEY_REMOVE_EP;
+        extern const char* OWNER_KEY_REMOVE_ALL;
         extern const char* MINER_KEY;
         extern const char* MINER_JOB_LATENCY;
         extern const char* MINE_ONLINE;

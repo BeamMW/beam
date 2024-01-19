@@ -468,6 +468,9 @@ namespace beam::wallet
         TxoID get_ShieldedOuts() const;
         void set_ShieldedOuts(TxoID);
 
+        Asset::ID get_AidMax() const;
+        void set_AidMax(Asset::ID);
+
         uint8_t get_MaxPrivacyLockTimeLimitHours() const;
         void set_MaxPrivacyLockTimeLimitHours(uint8_t);
 

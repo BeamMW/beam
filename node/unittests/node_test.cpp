@@ -796,6 +796,31 @@ namespace beam
 			db.get_CacheState(cs);
 			verify_test(cs.m_SizeCurrent == 0);
 		}
+
+		{
+			// accounts
+			NodeDB::WalkerAccount::DataPlus acc;
+			Merkle::Hash hv3 = 5u;
+			acc.m_Owner = hv3;
+			acc.m_hTxoHi = 10;
+			acc.m_iAccount = 1;
+			acc.m_Serif = 6u;
+			db.InsertAccount(acc);
+
+			acc.m_hTxoHi = 99;
+			db.SetAccountTxoHi(acc);
+
+			NodeDB::WalkerAccount wlk;
+			db.EnumAccounts(wlk);
+			verify_test(wlk.MoveNext());
+
+			verify_test(wlk.m_Data.m_iAccount == acc.m_iAccount);
+			verify_test(wlk.m_Data.m_hTxoHi == acc.m_hTxoHi);
+			verify_test(wlk.m_Data.m_Serif == acc.m_Serif);
+			verify_test(!wlk.m_Data.m_Owner.cmp(acc.m_Owner));
+
+			verify_test(!wlk.MoveNext());
+		}
 	}
 
 #ifdef WIN32
@@ -1958,7 +1983,7 @@ namespace beam
 					sdp.m_Output.m_User.m_Sender = 165U;
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
-					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle, true); // generate asset proof, though it's not CA
+					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
 
 					pKrn->MsgToID();
 
@@ -2038,7 +2063,7 @@ namespace beam
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
 				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
-				pKrn->Sign(p, 0, true); // hide asset, although it's beam
+				pKrn->Sign(p, 0);
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
@@ -3021,7 +3046,7 @@ namespace beam
 
 		node.m_Cfg.m_Treasury = g_Treasury;
 
-		node.m_Keys.m_vExtraOwners.push_back(cl.m_Wallet2.m_pKdf);
+		node.m_Keys.m_Accounts.m_vAdd.push_back(cl.m_Wallet2.m_pKdf);
 
 		ByteBuffer bufParser;
 		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
@@ -3128,7 +3153,7 @@ namespace beam
 		verify_test(wlk.m_Recovered);
 
 		wlk.m_Recovered = 0;
-		wlk.m_pKey = node.m_Keys.m_vExtraOwners.front().get();
+		wlk.m_pKey = node.get_Processor().m_vAccounts[1].m_pOwner.get();
 		node2.get_Processor().EnumTxos(wlk);
 		verify_test(wlk.m_Recovered);
 

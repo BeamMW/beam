@@ -759,15 +759,34 @@ void TestExportImportTx()
     tr2.m_myAddr = wa2.m_BbsAddr;
     walletDB->saveTx(tr2); // without MyAddressID
 
+    TxDescription tr3( TxID{ {79, 8, 9, 13} }, TxType::PushTransaction ); // lelanatus
+    tr3.m_amount = 71;
+    tr3.m_minHeight = 285;
+    tr3.m_createTime = 4628;
+    tr3.m_modifyTime = 45285;
+    tr3.m_status = TxStatus::Completed;
+    walletDB->saveTx(tr3);
+
     auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);
     WALLET_CHECK(walletDB->getTxHistory().size() == 1);
+    WALLET_CHECK(walletDB->getTxHistory(TxType::PushTransaction).size() == 1);
     WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
     auto _tr = walletDB->getTx(tr.m_txId);
     WALLET_CHECK(_tr.is_initialized());
     WALLET_CHECK(_tr.value().m_createTime == tr.m_createTime);
     WALLET_CHECK(_tr.value().m_minHeight == tr.m_minHeight);
     WALLET_CHECK(walletDB->getTxHistory().size() == 2);
+    WALLET_CHECK(walletDB->getTxHistory(TxType::PushTransaction).size() == 1);
+
+    walletDB->deleteTx(tr.m_txId);
+    walletDB->deleteTx(tr2.m_txId);
+    walletDB->deleteTx(tr3.m_txId);
+    WALLET_CHECK(walletDB->getTxHistory().size() == 0);
+    WALLET_CHECK(walletDB->getTxHistory(TxType::PushTransaction).size() == 0);
+    WALLET_CHECK(storage::ImportDataFromJson(*walletDB, &exported[0], exported.size()));
+    WALLET_CHECK(walletDB->getTxHistory().size() == 2);
+    WALLET_CHECK(walletDB->getTxHistory(TxType::PushTransaction).size() == 1);
 
     storage::setTxParameter(
         *walletDB,

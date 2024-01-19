@@ -601,6 +601,21 @@ namespace beam::wallet
         auto pShared = std::make_shared<HandlerInOuts::Shared>();
         pShared->m_Remaining = 0;
 
+        Asset::ID aidMax = m_Tx.GetWalletDB()->get_AidMax();
+        std::setmax(aidMax, 1u); // insist on hiding asset type anyway
+
+        // in case aidMax wasn't updated - make sure it covers our coins used in this tx (could also use all owned coins)
+        for (const auto& cid : m_Coins.m_Output)
+            std::setmax(aidMax, cid.m_AssetID);
+
+        for (const auto& cid : m_Coins.m_Input)
+            std::setmax(aidMax, cid.m_AssetID);
+
+        for (const auto& ins : m_Coins.m_InputShielded)
+            std::setmax(aidMax, ins.m_AssetID);
+
+        Asset::Proof::Params::Override po(aidMax);
+
         // outputs
         for (const auto& cid : m_Coins.m_Output)
         {

@@ -1565,7 +1565,7 @@ void TestShielded()
 			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
 			sig.m_k.m_Value.Inv();
 
-			m.m_HideAssetAlways = !m.m_HideAssetAlways;
+			m.m_AidMax = !m.m_AidMax;
 		}
 
 		verify_test(kkw.InvokeOnBoth(m) == KeyKeeperHwEmu::Status::Success);

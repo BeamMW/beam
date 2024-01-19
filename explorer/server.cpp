@@ -776,7 +776,10 @@ OnRequest(hdrs)
     Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
     uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
 
-    return _backend.get_hdrs(hTop, n);
+    bool bRel = !!_currentUrl.get_int_arg("rel", 1);
+    bool bAbs = !!_currentUrl.get_int_arg("rel", 0);
+
+    return _backend.get_hdrs(hTop, n, bRel, bAbs);
 }
 
 OnRequest(peers)
@@ -822,6 +825,12 @@ OnRequest(asset)
     uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
     return _backend.get_asset_history((uint32_t) aid, hMin, hMax, nMaxOps);
+}
+
+OnRequest(assets)
+{
+    auto height = _currentUrl.get_int_arg("height", 0);
+    return _backend.get_assets_at(height);
 }
 
 bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message, bool isHtml)

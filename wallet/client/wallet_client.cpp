@@ -803,9 +803,9 @@ namespace beam::wallet
                     void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override {
                         _wc->getAsync()->makeIWTCall([this, error, peercnt]() -> boost::any {
                             if (error.empty()) {
-                                LOG_INFO() << "IPFS Status: peercnt " << peercnt;
+                                LOG_INFO() << "IPFS Status: peers count " << peercnt;
                             } else {
-                                LOG_INFO() << "IPFS Status: peercnt " << peercnt << ", error: " << error;
+                                LOG_INFO() << "IPFS Status: peers count " << peercnt << ", error: " << error;
                             }
                             _wc->m_ipfsError = error;
                             _wc->m_ipfsPeerCnt = static_cast<unsigned int>(peercnt);
@@ -1939,11 +1939,7 @@ namespace beam::wallet
     {
         if (auto s = m_nodeNetwork.lock())
         {
-            if (!(s->setNodeAddress(addr)))
-            {
-                LOG_ERROR() << "Unable to resolve node address: " << addr;
-                onWalletError(ErrorType::HostResolvedError);
-            }
+            s->setNodeAddress(addr);
         }
         else
         {
@@ -2689,7 +2685,7 @@ namespace beam::wallet
             --m_trustedConnectionCount;
         }
 
-        postFunctionToClientContext([this, isTrusted = m_trustedConnectionCount > 0 && m_trustedConnectionCount == m_connectedNodesCount]()
+        postFunctionToClientContext([this, isTrusted = m_trustedConnectionCount > 0/* && m_trustedConnectionCount == m_connectedNodesCount*/]()
         {
             m_isConnectionTrusted = isTrusted;
         });

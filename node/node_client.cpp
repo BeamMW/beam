@@ -39,7 +39,8 @@ namespace
             auto nodePath = pathFromStdString(nodePathStr);
             auto appDataPath = nodePath.parent_path();
 
-            if (!boost::filesystem::exists(appDataPath))
+            if (!boost::filesystem::exists(appDataPath) || 
+                !boost::filesystem::exists(nodePath))
             {
                 return;
             }
@@ -119,6 +120,11 @@ namespace beam
         }
     }
 
+    void NodeClient::setBeforeStartAction(std::function<void()> action)
+    {
+        m_beforeStartAction = std::move(action);
+    }
+
     void NodeClient::setKdf(beam::Key::IKdf::Ptr kdf)
     {
         m_pKdf = kdf;
@@ -156,6 +162,10 @@ namespace beam
         {
             try
             {
+                if (m_beforeStartAction)
+                {
+                    m_beforeStartAction();
+                }
                 removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
                 Rules::Scope scopeRules(m_rules);
                 auto reactor = io::Reactor::create();
@@ -291,7 +301,7 @@ namespace beam
 
             LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
-            class MyObserver final : public Node::IObserver
+            class MyObserver final : public Node::IObserver, public ILongAction
             {
             public:
                 MyObserver(Node& node, NodeClient& model)
@@ -321,14 +331,7 @@ namespace beam
                         m_model.m_observer->onStartedNode();
                     }
 
-                    // make sure no overflow during conversion from SyncStatus to int,int.
-                    const auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
-                    while (s.m_Total > threshold)
-                    {
-                        s.m_Total >>= 1;
-                        s.m_Done >>= 1;
-                    }
-
+                    AdjustProgress(s.m_Done, s.m_Total);
                     m_model.m_observer->onSyncProgressUpdated(static_cast<int>(s.m_Done), static_cast<int>(s.m_Total));
                 }
 
@@ -342,10 +345,58 @@ namespace beam
                     m_model.m_observer->onInitProgressUpdated(done, total);
                 }
 
+                ILongAction* GetLongActionHandler() override
+                {
+                    return this;
+                }
+
+                void Reset(const char* sz, uint64_t nTotal) override
+                {
+                    SetTotal(nTotal);
+                    m_Last_ms = GetTime_ms();
+                }
+
+                void SetTotal(uint64_t nTotal) override
+                {
+                    m_Total = nTotal;
+                }
+
+                bool OnProgress(uint64_t pos) override
+                {
+                    if (m_model.m_shouldTerminateModel)
+                    {
+                        return false;
+                    }
+                    uint32_t dt_ms = GetTime_ms() - m_Last_ms;
+                    const uint32_t nWindow_ms = 1000; // 1 sec
+                    uint32_t n = dt_ms / nWindow_ms;
+                    if (n)
+                    {
+                        m_Last_ms += n * nWindow_ms;
+                        uint64_t total = m_Total;
+                        AdjustProgress(pos, total);
+                        m_model.m_observer->onSyncProgressUpdated(static_cast<int>(pos), static_cast<int>(total));
+                    }
+                    return true;
+                }
+            private:
+                void AdjustProgress(uint64_t& done, uint64_t& total)
+                {
+                    // make sure no overflow during conversion from SyncStatus to int,int.
+                    constexpr auto threshold = static_cast<unsigned int>(std::numeric_limits<int>::max());
+                    while (total > threshold)
+                    {
+                        total >>= 1;
+                        done >>= 1;
+                    }
+                }
+
             private:
                 Node& m_node;
                 NodeClient& m_model;
                 Height m_Done0 = MaxHeight;
+                uint64_t m_Total = 0;
+                uint32_t m_Last_ms = 0;
                 bool m_reportedStarted = false;
             } obs(node, *this);
 

@@ -107,6 +107,7 @@ public:
 			StateSetInputs,
 			StateGetInputs,
 			StateSetTxosAndExtra,
+			StateSetExtra,
 			StateSetRB,
 			StateGetTxos,
 			StateFindByTxos,
@@ -134,7 +135,7 @@ public:
 			AccountDel,
 			AccountIns,
 			AccountEnum,
-			AccountGet,
+			AccountUpdTxoHi,
 			PeerAdd,
 			PeerDel,
 			PeerEnum,
@@ -356,6 +357,7 @@ public:
 
 	void set_StateTxosAndExtra(uint64_t rowid, const TxoID*, const Blob* pExtra, const Blob* pRB);
 	void set_StateRB(uint64_t rowid, const Blob& rb);
+	void set_StateExtra(uint64_t rowid, const Blob* pExtra);
 
 	void SetStateBlock(uint64_t rowid, const Blob& bodyP, const Blob& bodyE, const PeerID&);
 	void GetStateBlock(uint64_t rowid, ByteBuffer* pP, ByteBuffer* pE, ByteBuffer* pRB);
@@ -438,23 +440,28 @@ public:
 
 	struct WalkerAccount {
 		Recordset m_Rs;
+
 		struct Data
 		{
 			AccountIndex m_iAccount;
-			Merkle::Hash m_OwnerID;
 			Merkle::Hash m_Serif;
 			Height m_hTxoHi;
+		};
 
+		struct DataPlus
+			:public Data
+		{
+			Blob m_Owner; // either OwnerID (older format) or OwnerKey
 		} m_Data;
 
 		bool MoveNext();
 	};
 
-	void InsertAccount(const WalkerAccount::Data&);
+	void InsertAccount(const WalkerAccount::DataPlus&);
 	void DeleteAccountOnly(AccountIndex);
 	void DeleteAccountWithEvents(AccountIndex);
 	void EnumAccounts(WalkerAccount&);
-	void GetAccount(WalkerAccount&);
+	void SetAccountTxoHi(WalkerAccount::Data&);
 
 	void EnumEvents(WalkerEvent&, AccountIndex, Height hMin);
 	void FindEvents(WalkerEvent&, AccountIndex, const Blob& key); // in case of duplication the most recently added comes first

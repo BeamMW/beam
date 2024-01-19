@@ -88,11 +88,11 @@ void NodeProcessor::Initialize(const char* szPath)
 	Initialize(szPath, sp);
 }
 
-void NodeProcessor::Initialize(const char* szPath, const StartParams& sp)
+void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongAction* pExternalHandler)
 {
 	m_DB.Open(szPath);
 	m_DbTx.Start(m_DB);
-
+	m_pExternalHandler = pExternalHandler;
 	if (sp.m_CheckIntegrity)
 	{
 		LOG_INFO() << "DB integrity check...";
@@ -470,6 +470,14 @@ void NodeProcessor::CommitDB()
 	{
 		CommitMappingAndDB();
 		m_DbTx.Start(m_DB);
+	}
+}
+
+void NodeProcessor::RollbackDB()
+{
+	if (m_DbTx.IsInProgress())
+	{
+		m_DbTx.Rollback();
 	}
 }
 
@@ -1214,12 +1222,22 @@ struct NodeProcessor::MultiAssetContext
 
 		std::vector<ECC::Scalar::Native> m_vKs;
 
-		virtual bool IsValid(ECC::Point::Native& hGen, const Asset::Proof&) override;
+		virtual bool IsValid(Height, ECC::Point::Native& hGen, const Asset::Proof&) override;
 	};
 
 private:
 
-	Asset::Proof::CmList m_Lst;
+	struct List
+		:public Sigma::CmList
+	{
+		Asset::ID m_Begin;
+		bool get_At(ECC::Point::Storage& pt_s, uint32_t iIdx) override
+		{
+			Asset::Base(m_Begin + iIdx).get_GeneratorSafe(pt_s);
+			return true;
+		}
+
+	} m_Lst;
 
 	virtual Sigma::CmList& get_List() override
 	{
@@ -1235,22 +1253,31 @@ private:
 	}
 };
 
-bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(ECC::Point::Native& hGen, const Asset::Proof& p)
+bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(Height hScheme, ECC::Point::Native& hGen, const Asset::Proof& p)
 {
 	assert(ECC::InnerProduct::BatchContext::s_pInstance);
 	ECC::InnerProduct::BatchContext& bc = *ECC::InnerProduct::BatchContext::s_pInstance;
 
-	const Sigma::Cfg& cfg = Rules::get().CA.m_ProofCfg;
+	const Rules& r = Rules::get();
+	const Sigma::Cfg& cfg = r.CA.m_ProofCfg;
 	uint32_t N = cfg.get_N();
-	assert(N);
+	if (!N)
+		return false; // ?!
 
 	m_vKs.resize(N); // will allocate if empty
 	memset0(&m_vKs.front(), sizeof(ECC::Scalar::Native) * N);
 
-	if (!p.IsValid(hGen, bc, &m_vKs.front()))
+	if (!p.IsValidPrepare(hGen, bc, &m_vKs.front()))
 		return false;
 
-	m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
+	if (hScheme >= r.pForks[6].m_Height)
+	{
+		m_Ctx.Add(0, 1, &m_vKs.front());
+		m_Ctx.Add(p.m_Begin + 1u, N - 1, &m_vKs.front() + 1);
+	}
+	else
+		m_Ctx.Add(p.m_Begin, N, &m_vKs.front());
+
 	return true;
 }
 
@@ -1955,7 +1982,7 @@ struct LongActionPlus
 	LongAction m_La;
 	bool m_Logging;
 
-	LongActionPlus(const char* sz, Height h, Height hTrg)
+	LongActionPlus(const char* sz, Height h, Height hTrg, ILongAction* pExternalHandler)
 	{
 		assert(hTrg > h);
 		auto dh = hTrg - h;
@@ -1964,7 +1991,7 @@ struct LongActionPlus
 			m_Logging = false;
 			return;
 		}
-
+		m_La.m_pExternal = pExternalHandler;
 		m_Logging = true;
 		m_La.Reset(sz, dh);
 	}
@@ -1981,7 +2008,7 @@ Height NodeProcessor::RaiseFossil(Height hTrg)
 	if (hTrg <= m_Extra.m_Fossil)
 		return 0;
 
-	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg);
+	LongActionPlus la("Raising Fossil...", m_Extra.m_Fossil, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 
@@ -2015,7 +2042,7 @@ Height NodeProcessor::RaiseTxoLo(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoLo)
 		return 0;
 
-	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg);
+	LongActionPlus la("Raising TxoLo...", m_Extra.m_TxoLo, hTrg, m_pExternalHandler);
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
@@ -2059,7 +2086,7 @@ Height NodeProcessor::RaiseTxoHi(Height hTrg)
 	if (hTrg <= m_Extra.m_TxoHi)
 		return 0;
 
-	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg);
+	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi, hTrg, m_pExternalHandler);
 
 
 	Height hRet = 0;
@@ -2564,7 +2591,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 	void SetAssetHi(const NodeProcessor& np)
 	{
-		m_AssetHi = static_cast<Asset::ID>(np.m_Mmr.m_Assets.m_Count);
+		m_AssetHi = np.get_AidMax();
 	}
 
 	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
@@ -2638,34 +2665,37 @@ bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
 		return false;
 	}
 
-	if (!td.IsValid())
-	{
-		LOG_WARNING() << "Treasury validation failed";
-		return false;
-	}
-
-	std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
-
-	std::ostringstream os;
-	os << "Treasury check. Total bursts=" << vBursts.size();
-
-	for (size_t i = 0; i < vBursts.size(); i++)
-	{
-		const Treasury::Data::Burst& b = vBursts[i];
-		os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
-	}
-
-	LOG_INFO() << os.str();
-
 	return true;
 }
 
 bool NodeProcessor::HandleTreasury(const Blob& blob)
 {
 	assert(!IsTreasuryHandled());
+
 	Treasury::Data td;
 	if (!ExtractTreasury(blob, td))
 		return false;
+
+	if (!td.IsValid())
+	{
+		LOG_WARNING() << "Treasury validation failed";
+		return false;
+	}
+
+	{
+		std::vector<Treasury::Data::Burst> vBursts = td.get_Bursts();
+
+		std::ostringstream os;
+		os << "Treasury check. Total bursts=" << vBursts.size();
+
+		for (size_t i = 0; i < vBursts.size(); i++)
+		{
+			const Treasury::Data::Burst& b = vBursts[i];
+			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+		}
+
+		LOG_INFO() << os.str();
+	}
 
 	BlockInterpretCtx bic(0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
@@ -3607,7 +3637,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 	};
 
 	{
-		LongAction la("Rescanning owned Txos...", 0);
+		LongAction la("Rescanning owned Txos...", 0, m_pExternalHandler);
 
 		TxoRecover wlk(rec);
 		wlk.m_pLa = &la;
@@ -3626,7 +3656,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs = 0;
 
-		LongAction la("Rescanning shielded Txos...", 0);
+		LongAction la("Rescanning shielded Txos...", 0, m_pExternalHandler);
 
 		struct MyKrnWalker
 			:public KrnWalkerRecognize
@@ -3638,8 +3668,12 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 			bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 			{
+				TxoID nOuts = m_Rec.m_Extra.m_ShieldedOutputs;
+
 				for (uint32_t iAcc = 0; iAcc < m_nAcc; iAcc++)
 				{
+					m_Rec.m_Extra.m_ShieldedOutputs = nOuts;
+
 					m_Rec.m_Handler.m_pAccount = m_pAcc + iAcc;
 
 					if (!KrnWalkerRecognize::ProcessHeight(rowID, v))
@@ -3659,7 +3693,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 		EnumKernels(wlkKrn, HeightRange(h0, m_Cursor.m_Sid.m_Height));
 
 		assert(m_Extra.m_ShieldedOutputs == nOuts);
-		nOuts; // supporess unused var warning in release
+		nOuts; // suppress unused var warning in release
 	}
 }
 
@@ -6552,7 +6586,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	{
 		if (bc.m_Fees)
 		{
-			bb.AddFees(bc.m_Fees, pOutp);
+			{
+				Asset::Proof::Params::Override po(get_AidMax());
+				bb.AddFees(bc.m_Fees, pOutp);
+			}
 			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
 
@@ -6955,7 +6992,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkTxo.m_pLa)
-		wlkTxo.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkTxo.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxoID id1 = get_TxosBefore(hr.m_Min);
 	Height h = hr.m_Min - 1; // don't care about overflow
@@ -6977,8 +7014,9 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 				assert(wlk.m_ID < id1);
 			}
 
-			if (wlkTxo.m_pLa)
-				wlkTxo.m_pLa->OnProgress(h - hr.m_Min);
+			if (wlkTxo.m_pLa &&
+				!wlkTxo.m_pLa->OnProgress(h - hr.m_Min))
+				throw std::runtime_error("EnumTxos interrupted");
 		}
 
 		if (!wlkTxo.OnTxo(wlk, h))
@@ -6995,7 +7033,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkKrn.m_pLa)
-		wlkKrn.m_pLa->m_Total = hr.m_Max - hr.m_Min + 1;
+		wlkKrn.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
 	TxVectors::Eternal txve;
 
@@ -7010,8 +7048,9 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 		if (!wlkKrn.ProcessHeight(rowID, txve.m_vKernels))
 			return false;
 
-		if (wlkKrn.m_pLa)
-			wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1);
+		if (wlkKrn.m_pLa &&
+			!wlkKrn.m_pLa->OnProgress(wlkKrn.m_Height - hr.m_Min + 1))
+			throw std::runtime_error("EnumKernels interrupted");
 	}
 
 	return true;
@@ -7097,7 +7136,7 @@ void NodeProcessor::InitializeUtxos()
 		}
 	};
 
-	LongAction la("Rebuilding mapped image...", 0);
+	LongAction la("Rebuilding mapped image...", 0, m_pExternalHandler);
 
 	Walker wlk(*this);
 	wlk.m_pLa = &la;
@@ -7305,7 +7344,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 
 void NodeProcessor::RebuildNonStd()
 {
-	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height);
+	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Height, m_pExternalHandler);
 
 	// Delete all asset info, contracts, shielded, and replay everything
 	m_Mapped.m_Contract.Clear();

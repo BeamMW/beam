@@ -262,6 +262,7 @@ class NodeProcessor
 
 	void AdjustManualRollbackHeight(Height&);
 	void ManualRollbackInternal(Height);
+	ILongAction* m_pExternalHandler = nullptr;
 
 public:
 
@@ -283,9 +284,9 @@ public:
 	};
 
 	void Initialize(const char* szPath);
-	void Initialize(const char* szPath, const StartParams&);
+	void Initialize(const char* szPath, const StartParams&, ILongAction* pExternalHandler = nullptr);
 
-    static bool ExtractTreasury(const Blob&, Treasury::Data&);
+	static bool ExtractTreasury(const Blob&, Treasury::Data&);
 	static void get_MappingPath(std::string&, const char*);
 
 	NodeProcessor();
@@ -543,6 +544,7 @@ public:
 	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
+	void RollbackDB();
 
 	void EnumCongestions();
 	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
@@ -826,6 +828,10 @@ public:
 
 	} m_Mmr;
 
+	Asset::ID get_AidMax() const {
+		return (Asset::ID) m_Mmr.m_Assets.m_Count;
+	}
+
 	TxoID get_ShieldedInputs() const {
 		return m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
 	}
@@ -841,7 +847,8 @@ public:
 				Type m_Value;
 				bool operator < (const Key& x) const { return m_Value < x.m_Value; }
 				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Key)
-			} m_Key;
+			};
+			Key m_Key;
 
 			struct Mru
 				:public boost::intrusive::list_base_hook<>

@@ -31,7 +31,8 @@
     macro(swap_totals) \
     macro(contracts) \
     macro(contract) \
-    macro(asset)
+    macro(asset) \
+    macro(assets)
 
 namespace beam { namespace explorer {
 

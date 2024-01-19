@@ -42,7 +42,7 @@ namespace beam::wallet
         [[nodiscard]] static Ptr AnyThread_create(HandlerPtr);
 
         /// \exception std::runtime_error
-        /// \breief Calling thread becomes the `ServiceThread`
+        /// \brief Calling thread becomes the `ServiceThread`
         virtual void ServiceThread_start(asio_ipfs::config config) = 0;
 
         /// \exception std::runtime_error

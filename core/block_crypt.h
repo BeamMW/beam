@@ -55,18 +55,28 @@ namespace beam
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
 
-	struct LongAction
+	struct ILongAction
 	{
-		uint32_t m_Last_ms;
-		uint64_t m_Total;
+		virtual void Reset(const char*, uint64_t nTotal) = 0;
+		virtual void SetTotal(uint64_t nTotal) = 0;
+		virtual bool OnProgress(uint64_t pos) = 0;
+	};
+	struct LongAction : ILongAction
+	{
+		uint32_t m_Last_ms = 0;
+		uint64_t m_Total = 0;
+		ILongAction *m_pExternal = nullptr;
 
-		LongAction(const char* sz, uint64_t nTotal) {
+		LongAction(const char* sz, uint64_t nTotal, ILongAction *pExternal = nullptr)
+			: m_pExternal(pExternal)
+		{
 			Reset(sz, nTotal);
 		}
-		LongAction() {}
+		LongAction() = default;
 
-		void Reset(const char*, uint64_t nTotal);
-		void OnProgress(uint64_t pos);
+		void Reset(const char*, uint64_t nTotal) final;
+		void SetTotal(uint64_t nTotal) final;
+		bool OnProgress(uint64_t pos) final;
 	};
 
 	void HeightAdd(Height& trg, Height val); // saturates if overflow
@@ -178,6 +188,9 @@ namespace beam
 			void get_Generator(ECC::Point::Native&) const;
 			void get_Generator(ECC::Point::Storage&) const;
 			void get_Generator(ECC::Point::Native&, ECC::Point::Storage&) const;
+
+			void get_GeneratorSafe(ECC::Point::Storage&) const; // works for aid=0
+			static const ECC::Point::Compact& get_H();
 		};
 
 		struct Metadata
@@ -230,25 +243,51 @@ namespace beam
 		{
 			typedef std::unique_ptr<Proof> Ptr;
 
+			struct Params
+			{
+				static Asset::ID s_AidMax_Global;
+				static thread_local Asset::ID s_AidMax_Override;
+
+				static Asset::ID Make(Asset::ID aid, bool bHideAlways) {
+					return aid ? aid : bHideAlways ? 1 : 0;
+				}
+
+				static Asset::ID get_AidMax(Height hScheme); // returns 0 if no need to hide
+				static Asset::ID get_AidMax();
+
+				static bool IsNeeded(Asset::ID aid, Height hScheme) {
+					return aid || get_AidMax(hScheme);
+				}
+
+				struct Override
+				{
+					Asset::ID m_Prev;
+
+					Override(Asset::ID aid)
+					{
+						m_Prev = s_AidMax_Override;
+						s_AidMax_Override = aid + 1;
+
+					}
+					~Override()
+					{
+						s_AidMax_Override = m_Prev;
+					}
+				};
+			};
+
 			Asset::ID m_Begin; // 1st element
 			ECC::Point m_hGen;
 
-			bool IsValid(ECC::Point::Native& hGen) const; // for testing only, in real-world cases batch verification should be used!
-			bool IsValid(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
-			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed = nullptr);
-			void Create(ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Hash::Value* phvSeed = nullptr);
-			void Create(ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID, const ECC::Point::Native& gen);
+			bool IsValid(Height, ECC::Point::Native& hGen) const; // for testing only, in real-world cases batch verification should be used!
+			bool IsValidPrepare(ECC::Point::Native& hGen, ECC::InnerProduct::BatchContext& bc, ECC::Scalar::Native* pKs) const;
+			void Create(Height, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Point::Native& gen, const ECC::Hash::Value* phvSeed = nullptr);
+			void Create(Height, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID, const ECC::Hash::Value* phvSeed = nullptr);
+			void Create(Height, ECC::Point::Native& genBlinded, const ECC::Scalar::Native& skGen, Asset::ID, const ECC::Point::Native& gen);
 
 			static void ModifySk(ECC::Scalar::Native& skInOut, const ECC::Scalar::Native& skGen, Amount val);
 
 			static void Expose(ECC::Oracle&, Height hScheme, const Ptr&);
-
-			struct CmList
-				:public Sigma::CmList
-			{
-				Asset::ID m_Begin;
-				virtual bool get_At(ECC::Point::Storage&, uint32_t iIdx) override;
-			};
 
 			void Clone(Ptr&) const;
 
@@ -269,12 +308,11 @@ namespace beam
 					}
 				};
 
-				virtual bool IsValid(ECC::Point::Native& hGen, const Proof&) = 0;
+				virtual bool IsValid(Height, ECC::Point::Native& hGen, const Proof&) = 0;
 			};
 
 		private:
-			uint32_t SetBegin(Asset::ID, const ECC::Scalar::Native& skGen);
-			static const ECC::Point::Compact& get_H();
+			struct CmList;
 		};
 	};
 
@@ -1187,7 +1225,7 @@ namespace beam
 			ECC::Hash::Value m_hvShieldedState;
 		} m_NotSerialized;
 
-		void Sign(Lelantus::Prover&, Asset::ID aid, bool bHideAssetAlways = true);
+		void Sign(Lelantus::Prover&, Asset::ID aids);
 
 		virtual ~TxKernelShieldedInput() {}
 		virtual Subtype::Enum get_Subtype() const override;

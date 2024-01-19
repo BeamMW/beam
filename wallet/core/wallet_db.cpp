@@ -1012,6 +1012,7 @@ namespace beam::wallet
         const char* SystemStateIDName = "SystemStateID";
         const char* LastUpdateTimeName = "LastUpdateTime";
         const char* kStateSummaryShieldedOutsDBPath = "StateSummaryShieldedOuts";
+        const char* kStateSummaryAssetsMaxDBPath = "StateSummaryAidMax";
         const char* kMaxPrivacyLockTimeLimitHours = "MaxPrivacyLockTimeLimitHours";
         constexpr char kIsTreasuryHandled[] = "IsTreasuryHandled";
         constexpr char kNeedToRequestBodies[] = "NeedToRequestBodies";
@@ -1319,7 +1320,7 @@ namespace beam::wallet
 
             CreateAddressesTable(db, LASER_ADDRESSES_NAME);
 
-            LOG_INFO() << "Create laser tables";
+            LOG_DEBUG() << "Create laser tables";
         }
 
         void CreateAssetsTable(sqlite3* db)
@@ -3065,6 +3066,19 @@ namespace beam::wallet
         storage::setVar(*this, kStateSummaryShieldedOutsDBPath, val);
     }
 
+    Asset::ID IWalletDB::get_AidMax() const
+    {
+        Asset::ID ret = 0;
+        storage::getVar(*this, kStateSummaryAssetsMaxDBPath, ret);
+        return ret;
+    }
+
+    void IWalletDB::set_AidMax(Asset::ID val)
+    {
+        storage::setVar(*this, kStateSummaryAssetsMaxDBPath, val);
+    }
+
+
     uint8_t IWalletDB::get_MaxPrivacyLockTimeLimitHours() const
     {
         uint8_t ret = kDefaultMaxPrivacyLockTimeLimitHours;
@@ -4141,7 +4155,10 @@ namespace beam::wallet
             storage::setTxParameter(*this, p.m_txId, TxParameterID::MinHeight, p.m_minHeight, false);
         }
         storage::setTxParameter(*this, p.m_txId, TxParameterID::PeerAddr, p.m_peerAddr, false);
-        storage::setTxParameter(*this, p.m_txId, TxParameterID::MyAddr, p.m_myAddr, false);
+        if (p.m_myAddr != Zero)
+        {
+            storage::setTxParameter(*this, p.m_txId, TxParameterID::MyAddr, p.m_myAddr, false);
+        }
         storage::setTxParameter(*this, p.m_txId, TxParameterID::Message, p.m_message, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::CreateTime, p.m_createTime, false);
         storage::setTxParameter(*this, p.m_txId, TxParameterID::ModifyTime, p.m_modifyTime, false);
@@ -6765,8 +6782,8 @@ namespace beam::wallet
                         continue;
                     }
 
-                    WalletID wid;
-                    if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt == paramsMap.end() || !wid.FromBuf(idIt->second.m_value))
+                    WalletID wid(Zero);
+                    if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt != paramsMap.end() && !wid.FromBuf(idIt->second.m_value))
                     {
                         LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                         ++errorsCount;
@@ -6777,18 +6794,19 @@ namespace beam::wallet
                        txtype == TxType::AssetIssue ||
                        txtype == TxType::AssetReg ||
                        txtype == TxType::AssetUnreg ||
-                       txtype == TxType::AssetInfo)
+                       txtype == TxType::AssetInfo )
                     {
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume";
+                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume/lelanutus";
                             ++errorsCount;
                             continue;
                         }
-                    } else
+                    }
+                    else
                     {
-                        if (!wid.IsValid())
+                        if (wid != Zero && !wid.IsValid())
                         {
                             LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                             ++errorsCount;
@@ -7089,7 +7107,13 @@ namespace beam::wallet
             outputParams.m_User.m_pMessage[0] = m_pMessage[0];
             outputParams.m_User.m_pMessage[1] = m_pMessage[1];
             outputParams.Restore_kG(m_VoucherSharedSecret);
-            outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle, m_HideAssetAlways);
+
+            {
+                Asset::Proof::Params::Override po(Asset::Proof::Params::Make(0, m_HideAssetAlways)); // KernelID should not depend on specific Asset::Proof structure, in particular the selected window.
+                // We should only know if it's present
+                
+                outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle);
+            }
 
             nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));

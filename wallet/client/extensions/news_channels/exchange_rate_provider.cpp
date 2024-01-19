@@ -24,7 +24,7 @@ namespace beam::wallet
         {
             {
                 beam::wallet::PrintableAmount amount(rate.m_rate, true /*show decimal point*/);
-                LOG_DEBUG() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
+                LOG_VERBOSE() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
                     << amount << " " << rate.m_to.m_value;
             }
         }
