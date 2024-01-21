@@ -3515,11 +3515,11 @@ bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpre
 		Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
 
 		const auto& r = Rules::get();
-		if (!r.Evm.Beam2Wei)
+		if (!r.Evm.Groth2Wei)
 			return false;
 
 		EvmProcessor::Word wSubsidy;
-		wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Beam2Wei); // won't overflow
+		wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Groth2Wei); // won't overflow
 
 		// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
 		EvmProcessor::Address addr;
