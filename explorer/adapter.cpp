@@ -267,8 +267,28 @@ private:
     {
         AmountBig::Type m_Fee;
 
-        uint64_t m_Kernels; // top-level, excluding nested
-        uint64_t m_InputsMW; // outputs are known 
+        struct CountAndSize
+        {
+            uint64_t m_Count;
+            uint64_t m_Size;
+
+            template <typename T>
+            void OnObj(const T& obj)
+            {
+                SerializerSizeCounter ssc;
+                ssc & obj;
+
+                m_Size += ssc.m_Counter.m_Value;
+                m_Count++;
+            }
+        };
+
+        CountAndSize m_Kernels; // top-level, excluding nested
+
+        struct MW {
+            CountAndSize m_Inputs;
+            CountAndSize m_Outputs;
+        } m_MW;
 
         struct Shielded {
             uint64_t m_Inputs;
@@ -283,77 +303,10 @@ private:
                 return m_Created + m_Destroyed + m_Invoked;
             }
         } m_Contract;
-    };
 
-    struct StateData
-    {
-        NodeProcessor::StateExtra::Full m_Extra0;
-        Totals m_Totals;
-    };
-
-#pragma pack (pop)
-
-    void EnsureHaveCumulativeStats()
-    {
-        auto& proc = _node.get_Processor();
-        auto& db = proc.get_DB();
-
-        if (proc.m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
-            return;
-
-        typedef std::pair<uint64_t, NodeProcessor::StateExtra::Full> RowPlusExtra;
-        std::list<RowPlusExtra> lst;
-
-        LongAction la("Calculating totals...", proc.m_Cursor.m_Full.m_Height);
-
-        StateData sd;
-
-        for (uint64_t row = proc.m_Cursor.m_Sid.m_Row; ; )
+        void OnHiLevelKrn(const TxKernel::Ptr& pKrn)
         {
-            uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
-            if (nSize >= sizeof(sd))
-                break;
-
-            assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
-
-            lst.emplace_back();
-            lst.back().first = row;
-            lst.back().second = sd.m_Extra0;
-
-            if (!db.get_Prev(row))
-                break;
-
-            la.OnProgress(lst.size());
-        }
-
-        std::vector<NodeDB::StateInput> vIns;
-        TxVectors::Eternal txe;
-        ByteBuffer bbE;
-
-        la.SetTotal(lst.size());
-
-        for (; !lst.empty(); lst.pop_back())
-        {
-            la.OnProgress(la.m_Total - lst.size());
-
-            auto& x = lst.back();
-            db.get_StateInputs(x.first, vIns);
-            db.GetStateBlock(x.first, nullptr, &bbE, nullptr);
-
-            try {
-		        Deserializer der;
-		        der.reset(bbE);
-		        der & txe;
-	        }
-	        catch (const std::exception& exc0) {
-                CorruptionException exc;
-                exc.m_sErr = exc0.what();
-                throw exc;
-	        }
-
-            // update totals
-            sd.m_Totals.m_InputsMW += vIns.size();
-            sd.m_Totals.m_Kernels += txe.m_vKernels.size();
+            m_Kernels.OnObj(pKrn);
 
             struct MyWalker
                 :public TxKernel::IWalker
@@ -379,11 +332,11 @@ private:
                         break;
 
                     case TxKernel::Subtype::ContractInvoke:
-                        {
-                            const auto& krnEx = krn.CastTo_ContractInvoke();
-                            ((krnEx.m_iMethod > 1u) ? m_Totals.m_Contract.m_Invoked : m_Totals.m_Contract.m_Destroyed)++;
-                        }
-                        break;
+                    {
+                        const auto& krnEx = krn.CastTo_ContractInvoke();
+                        ((krnEx.m_iMethod > 1u) ? m_Totals.m_Contract.m_Invoked : m_Totals.m_Contract.m_Destroyed)++;
+                    }
+                    break;
 
                     default:
                         break; // suppress warning
@@ -392,9 +345,167 @@ private:
                     return true;
                 }
 
-            } wlk(sd.m_Totals);
+            } wlk(*this);
 
-            wlk.Process(txe.m_vKernels);
+            wlk.Process(*pKrn);
+        }
+
+        void OnHiLevelKrnls(const std::vector<TxKernel::Ptr>& vec)
+        {
+            for (const auto& pKrn : vec)
+                OnHiLevelKrn(pKrn);
+        }
+
+        void OnMwOuts(const std::vector<Output::Ptr>& vec)
+        {
+            for (const auto& pOutp : vec)
+                m_MW.m_Outputs.OnObj(*pOutp);
+        }
+
+    };
+
+    struct StateData
+    {
+        NodeProcessor::StateExtra::Full m_Extra0;
+        Totals m_Totals;
+    };
+
+#pragma pack (pop)
+
+
+    void get_TreasuryTotals(Totals& ret)
+    {
+        auto& db = _node.get_Processor().get_DB();
+
+        Blob blob(&ret, sizeof(ret));
+        if (db.ParamGet(NodeDB::ParamID::TreasuryTotals, nullptr, &blob, nullptr))
+            return;
+
+        ZeroObject(ret);
+
+        if (Rules::get().TreasuryChecksum == Zero)
+            return;
+
+        Treasury::Data td;
+        if (!get_Treasury(td))
+            return;
+
+        for (const auto& tg : td.m_vGroups)
+        {
+            ret.OnMwOuts(tg.m_Data.m_vOutputs);
+            ret.OnHiLevelKrnls(tg.m_Data.m_vKernels);
+        }
+
+        db.ParamSet(NodeDB::ParamID::TreasuryTotals, nullptr, &blob);
+    }
+
+    void OnTotalsTxo(Totals::CountAndSize& dst, NodeDB::WalkerTxo& wlk)
+    {
+        dst.m_Count++;
+        dst.m_Size += wlk.m_Value.n;
+    }
+
+    void get_StateTotals(StateData& sd, const NodeDB::StateID& sid)
+    {
+        if (sid.m_Height >= Rules::HeightGenesis)
+            _nodeBackend.get_DB().get_StateExtra(sid.m_Row, &sd, sizeof(sd));
+        else
+            get_TreasuryTotals(sd.m_Totals);
+    }
+
+    void EnsureHaveCumulativeStats()
+    {
+        auto& proc = _node.get_Processor();
+        auto& db = proc.get_DB();
+
+        if (proc.m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+            return;
+
+        typedef std::pair<uint64_t, NodeProcessor::StateExtra::Full> RowPlusExtra;
+        std::list<RowPlusExtra> lst;
+
+        LongAction la("Calculating totals...", proc.m_Cursor.m_Full.m_Height);
+
+        StateData sd;
+
+        TxoID txos = proc.m_Extra.m_TxosTreasury;
+
+        for (uint64_t row = proc.m_Cursor.m_Sid.m_Row; ; )
+        {
+            uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
+            if (nSize >= sizeof(sd))
+            {
+                if (!lst.empty())
+                    txos = db.get_StateTxos(row);
+                break;
+            }
+
+            assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
+
+            lst.emplace_back();
+            lst.back().first = row;
+            lst.back().second = sd.m_Extra0;
+
+            if (!db.get_Prev(row))
+            {
+                get_TreasuryTotals(sd.m_Totals);
+                break;
+            }
+
+            la.OnProgress(lst.size());
+        }
+
+        std::vector<NodeDB::StateInput> vIns;
+        TxVectors::Eternal txe;
+        ByteBuffer bbE;
+
+        la.SetTotal(lst.size());
+
+        for (; !lst.empty(); lst.pop_back())
+        {
+            la.OnProgress(la.m_Total - lst.size());
+
+            auto& x = lst.back();
+            db.GetStateBlock(x.first, nullptr, &bbE, nullptr);
+
+            try {
+		        Deserializer der;
+		        der.reset(bbE);
+		        der & txe;
+	        }
+	        catch (const std::exception& exc0) {
+                CorruptionException exc;
+                exc.m_sErr = exc0.what();
+                throw exc;
+	        }
+
+            // kernels
+            sd.m_Totals.OnHiLevelKrnls(txe.m_vKernels);
+
+            // inputs
+            db.get_StateInputs(x.first, vIns);
+            for (const auto& inp : vIns)
+            {
+                NodeDB::WalkerTxo wlk;
+                _node.get_Processor().get_DB().TxoGetValue(wlk, inp.get_ID());
+
+                OnTotalsTxo(sd.m_Totals.m_MW.m_Inputs, wlk);
+            }
+
+            // outputs
+            NodeDB::WalkerTxo wlk;
+            db.EnumTxos(wlk, txos);
+
+            txos = db.get_StateTxos(x.first);
+            
+            while (wlk.MoveNext())
+            {
+                if (wlk.m_ID >= txos)
+                    break;
+
+                OnTotalsTxo(sd.m_Totals.m_MW.m_Outputs, wlk);
+            }
+
 
             sd.m_Extra0 = x.second;
             Blob blobSd(&sd, sizeof(sd));
@@ -425,6 +536,14 @@ private:
 
     intrusive::multiset_autoclear<TresEntry> m_mapTreasury;
 
+    bool get_Treasury(Treasury::Data& td)
+    {
+        ByteBuffer buf;
+        return
+            _nodeBackend.get_DB().ParamGet(NodeDB::ParamID::Treasury, nullptr, nullptr, &buf) &&
+            NodeProcessor::ExtractTreasury(buf, td);
+    }
+
     void PrepareTreasureSchedule()
     {
         if (!m_mapTreasury.empty())
@@ -433,13 +552,8 @@ private:
         if (Rules::get().TreasuryChecksum == Zero)
             return;
 
-        ByteBuffer buf;
-        _nodeBackend.get_DB().ParamGet(NodeDB::ParamID::Treasury, nullptr, nullptr, &buf);
-        if (buf.empty())
-            return;
-
         Treasury::Data td;
-        if (!NodeProcessor::ExtractTreasury(buf, td))
+        if (!get_Treasury(td))
             return;
 
         auto tb = td.get_Bursts();
@@ -633,10 +747,7 @@ private:
         jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
         StateData sd;
-        if (_nodeBackend.m_Cursor.m_Sid.m_Height >= Rules::HeightGenesis)
-            _nodeBackend.get_DB().get_StateExtra(_nodeBackend.m_Cursor.m_Sid.m_Row, &sd, sizeof(sd));
-        else
-            ZeroObject(sd);
+        get_StateTotals(sd, _nodeBackend.m_Cursor.m_Sid);
 
         jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
 
@@ -2024,31 +2135,6 @@ private:
         }
     };
 
-
-    TxoID get_NumOuts(TxoID val, Height h)
-    {
-        if (h < Rules::HeightGenesis)
-        {
-            // treasury
-            if (val) // treasury handled?
-                val--;
-
-            return val;
-        }
-            
-
-        return val - (h - Rules::HeightGenesis + 1u + 1u); // treasury artificial gap
-    }
-
-    TxoID get_NumOuts(const NodeDB::StateID& sid)
-    {
-        TxoID val = (sid.m_Height < Rules::HeightGenesis) ?
-            _nodeBackend.m_Extra.m_TxosTreasury :
-            _nodeBackend.get_DB().get_StateTxos(sid.m_Row);
-
-        return get_NumOuts(val, sid.m_Height);
-    }
-
     json get_hdrs(uint64_t hMax, uint64_t nMax, bool bRel, bool bAbs) override
     {
         std::setmin(nMax, 2048u);
@@ -2088,9 +2174,7 @@ private:
 
             StateData pTots[2];
             uint32_t iIdxTots = 0;
-            db.get_StateExtra(sid.m_Row, pTots, sizeof(StateData));
-
-            TxoID txos = get_NumOuts(sid);
+            get_StateTotals(pTots[iIdxTots], sid);
 
             while (true)
             {
@@ -2112,16 +2196,13 @@ private:
 
                 iIdxTots = !iIdxTots;
 
-                if (db.get_Prev(sid))
-                    db.get_StateExtra(sid.m_Row, pTots + iIdxTots, sizeof(StateData));
-                else
+                if (!db.get_Prev(sid))
                 {
-                    ZeroObject(pTots[!iIdxTots]);
                     ZeroObject(sid);
                     bDone = true;
                 }
 
-                TxoID txos0 = get_NumOuts(sid);
+                get_StateTotals(pTots[iIdxTots], sid);
 
                 const auto& t1 = pTots[!iIdxTots].m_Totals;
                 const auto& t0 = pTots[iIdxTots].m_Totals;
@@ -2137,11 +2218,11 @@ private:
                 }
 
                 // Txs
-                af.PushValWithTotal(jRow, MakeDecimal(t1.m_Kernels).m_sz, MakeDecimalDelta(t1.m_Kernels - t0.m_Kernels).m_sz);
+                af.PushValWithTotal(jRow, MakeDecimal(t1.m_Kernels.m_Count).m_sz, MakeDecimalDelta(t1.m_Kernels.m_Count - t0.m_Kernels.m_Count).m_sz);
                 // MW  outputs
-                af.PushValWithTotal(jRow, MakeDecimal(txos).m_sz, MakeDecimalDelta(txos - txos0).m_sz);
+                af.PushValWithTotal(jRow, MakeDecimal(t1.m_MW.m_Outputs.m_Count).m_sz, MakeDecimalDelta(t1.m_MW.m_Outputs.m_Count - t0.m_MW.m_Outputs.m_Count).m_sz);
                 // MW  inputs
-                af.PushValWithTotal(jRow, MakeDecimal(t1.m_InputsMW).m_sz, MakeDecimalDelta(t1.m_InputsMW - t0.m_InputsMW).m_sz);
+                af.PushValWithTotal(jRow, MakeDecimal(t1.m_MW.m_Inputs.m_Count).m_sz, MakeDecimalDelta(t1.m_MW.m_Inputs.m_Count - t0.m_MW.m_Inputs.m_Count).m_sz);
                 // Shielded outputs
                 af.PushValWithTotal(jRow, MakeDecimal(t1.m_Shielded.m_Outputs).m_sz, MakeDecimalDelta(t1.m_Shielded.m_Outputs - t0.m_Shielded.m_Outputs).m_sz);
                 // Shielded inputs
@@ -2162,7 +2243,6 @@ private:
                     break;
 
                 hv = s.m_Prev;
-                txos = txos0;
             }
         }
 
@@ -2177,18 +2257,12 @@ private:
     json MakeTotals(const NodeDB::StateID& sid, const Block::SystemState::Full& s)
     {
         StateData sd;
-
-        if (sid.m_Height >= Rules::HeightGenesis)
-            _nodeBackend.get_DB().get_StateExtra(sid.m_Row, &sd, sizeof(sd));
-        else
-            ZeroObject(sd);
-
-        TxoID nOuts = get_NumOuts(sid);
+        get_StateTotals(sd, sid);
 
         json jInfo = json::array();
-        jInfo.push_back({ MakeTableHdr("Transactions"), MakeDecimal(sd.m_Totals.m_Kernels).m_sz });
-        jInfo.push_back({ MakeTableHdr("TXOs"), MakeDecimal(nOuts).m_sz });
-        jInfo.push_back({ MakeTableHdr("UTXOs"), MakeDecimal(nOuts - sd.m_Totals.m_InputsMW).m_sz });
+        jInfo.push_back({ MakeTableHdr("Transactions"), MakeDecimal(sd.m_Totals.m_Kernels.m_Count).m_sz });
+        jInfo.push_back({ MakeTableHdr("TXOs"), MakeDecimal(sd.m_Totals.m_MW.m_Outputs.m_Count).m_sz });
+        jInfo.push_back({ MakeTableHdr("UTXOs"), MakeDecimal(sd.m_Totals.m_MW.m_Outputs.m_Count - sd.m_Totals.m_MW.m_Inputs.m_Count).m_sz });
         jInfo.push_back({ MakeTableHdr("Shielded Outs"), MakeDecimal(sd.m_Totals.m_Shielded.m_Outputs).m_sz });
         jInfo.push_back({ MakeTableHdr("Shielded Ins"), MakeDecimal(sd.m_Totals.m_Shielded.m_Inputs).m_sz });
         jInfo.push_back({ MakeTableHdr("Contracts Invoked"), MakeDecimal(sd.m_Totals.m_Contract.get_Sum()).m_sz });
@@ -2203,6 +2277,13 @@ private:
 
         Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, MaxHeight));
         jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
+
+        // size estimation
+        uint64_t nSizeEternal = sd.m_Totals.m_Kernels.m_Size;
+        nSizeEternal += static_cast<uint64_t>(sizeof(Block::SystemState::Sequence::Element)) * (s.m_Height - Rules::HeightGenesis + 1);
+
+        jInfo.push_back({ MakeTableHdr("Size Compressed"), MakeDecimal(nSizeEternal + sd.m_Totals.m_MW.m_Outputs.m_Size - sd.m_Totals.m_MW.m_Inputs.m_Size).m_sz });
+        jInfo.push_back({ MakeTableHdr("Size Archive"), MakeDecimal(nSizeEternal + sd.m_Totals.m_MW.m_Outputs.m_Size + sd.m_Totals.m_MW.m_Inputs.m_Count * sizeof(ECC::Point)).m_sz });
 
         PrepareTreasureSchedule();
         if (!m_mapTreasury.empty())
@@ -2365,6 +2446,14 @@ private:
         }
 
         out["outputs"] = std::move(outputs);
+
+        NodeDB::StateID sid;
+        ZeroObject(sid);
+
+        Block::SystemState::Full s;
+        ZeroObject(s);
+
+        out["totals"] = MakeTotals(sid, s);
     }
 
 
