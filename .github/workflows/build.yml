@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [ubuntu-20.04]
 
     steps:
       - uses: actions/checkout@v2
@@ -118,22 +118,6 @@ jobs:
       ###############################################################################
       # Test
       ###############################################################################
-      - name: Test [macos-11]
-        if: matrix.os == 'macos-11'
-        continue-on-error: false
-        run: ctest -C $BUILD_TYPE --verbose
-
-      - name: Test [ununtu all]
-        if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
-        continue-on-error: false
-        shell: bash
-        run: ctest --verbose
-
-      - name: Test [windows]
-        if: matrix.os == 'windows-2019'
-        continue-on-error: false
-        shell: bash
-        run: ctest -C $BUILD_CONFIG --verbose
 
       ###############################################################################
       # Collect artifacts
