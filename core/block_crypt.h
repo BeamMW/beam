@@ -421,7 +421,7 @@ namespace beam
 
 		struct
 		{
-			uint64_t Beam2Wei; // set to 0 to disable EVM
+			uint64_t Groth2Wei; // set to 0 to disable EVM
 		} Evm;
 
 		void SetNetworkParams();
