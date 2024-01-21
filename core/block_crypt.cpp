@@ -2145,7 +2145,7 @@ namespace beam
 
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^10 groth
-		Evm.Beam2Wei = 10000;
+		Evm.Groth2Wei = 10000;
 
 		static_assert(static_cast<int>(Network::mainnet) == 0);
 		assert(Network::mainnet == m_Network);
@@ -2431,7 +2431,7 @@ namespace beam
 		oracle
 			<< "fork6"
 			<< pForks[6].m_Height
-			<< Evm.Beam2Wei
+			<< Evm.Groth2Wei
 			>> pForks[6].m_Hash;
 	}
 
