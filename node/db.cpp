@@ -844,7 +844,12 @@ bool NodeDB::ParamGet(uint32_t ID, uint64_t* p0, Blob* p1, ByteBuffer* p2 /* = N
 		if (rs.IsNull(1))
 			return false;
 
-		memcpy(Cast::NotConst(p1->p), rs.get_BlobStrict(1, p1->n), p1->n);
+		Blob x;
+		rs.get(1, x);
+		if (x.n != p1->n)
+			return false;
+
+		memcpy(Cast::NotConst(p1->p), x.p, x.n);
 	}
 	if (p2)
 		rs.get(1, *p2);
