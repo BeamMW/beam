@@ -69,7 +69,7 @@ namespace beam {
 			Word m_Difficulty;
 			Word m_GasLimit;
 			Address m_Coinbase;
-			uint32_t m_Timestamp;
+			Timestamp m_Timestamp;
 		};
 
 
