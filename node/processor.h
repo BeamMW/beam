@@ -900,6 +900,23 @@ public:
 	};
 	bool ExecInDependentContext(IWorker&, const Merkle::Hash*, const TxPool::Dependent&);
 
+	struct EvmAccount
+	{
+#pragma pack (push, 1)
+		struct Base
+		{
+			ECC::uintBig m_Balance_Wei;
+		};
+
+		struct User
+			:public Base
+		{
+			uintBigFor<uint64_t>::Type m_Nonce;
+		};
+
+#pragma pack (pop)
+	};
+
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);

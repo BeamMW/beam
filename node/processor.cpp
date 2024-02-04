@@ -2586,6 +2586,20 @@ struct NodeProcessor::BlockInterpretCtx
 		uint32_t m_iCurrentInvokeExtraInfo = 0;
 	};
 
+
+	struct MyEvmProcessor
+		:public VmProcessorBase
+		,public EvmProcessor
+	{
+		IStorage* GetContractData(const Address&, bool bCreate) override;
+		Height get_Height() override;
+		bool get_BlockHeader(BlockHeader&, Height) override;
+
+
+		using VmProcessorBase::VmProcessorBase;
+		void InvokeGuarded(const TxKernelEvmInvoke&);
+	};
+
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
@@ -3519,46 +3533,31 @@ bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpre
 {
 	if (bic.m_Fwd)
 	{
-		bool bAdd;
-		Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
+		BlockInterpretCtx::MyEvmProcessor proc(bic, *this);
 
-		const auto& r = Rules::get();
-		if (!r.Evm.Groth2Wei)
-			return false;
-
-		EvmProcessor::Word wSubsidy;
-		wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Groth2Wei); // won't overflow
-
-		// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
-		EvmProcessor::Address addr;
-		if (!addr.FromPubKey(krn.m_From))
-			return false;
-
-		if (krn.m_Subsidy > 0)
+		try
 		{
-			// transfer to balance
+			proc.InvokeGuarded(krn);
+			return true;
 		}
-
-		if (krn.m_To != Zero)
+		catch (const std::exception& e)
 		{
-			// invoke evm
-		}
+			bic.m_TxStatus = proto::TxStatus::ContractFailFirst;
 
-		if (krn.m_Subsidy < 0)
-		{
-			// withdraw from the balance
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << e.what();
 		}
-
-		// if no balance on account, and it's a user account - delete it
-		// otherwise increment nonce and save
+		
+		proc.UndoVars();
+		return false;
 	}
 	else
 	{
-		// undo changes
+		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
+		proc.UndoVars();
 	}
 
-
-	return false; // not impl
+	return true;
 }
 
 
@@ -5039,6 +5038,101 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	}
 
 	return bRes;
+}
+
+void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKernelEvmInvoke& krn)
+{
+	const auto& r = Rules::get();
+	if (!r.Evm.Groth2Wei)
+		Exc::Fail("Evm disabled");
+
+	bool bAdd;
+	Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
+
+	EvmProcessor::Word wSubsidy, wLimit;
+	wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Groth2Wei); // won't overflow
+	wLimit = uintBigFrom(krn.m_Fee) * uintBigFrom(r.Evm.Groth2Wei);
+
+	EvmProcessor::Address aFrom;
+	if (!aFrom.FromPubKey(krn.m_From))
+		Exc::Fail("bad from");
+
+	// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
+	auto& e = m_Bic.get_ContractVar(aFrom, m_Proc.m_DB);
+	bool bWasEmpty = e.m_Data.empty();
+
+	EvmAccount::User ua;
+	if (!bWasEmpty)
+	{
+		if (e.m_Data.size() != sizeof(ua))
+			Exc::Fail("attempt to call non-user account");
+
+		memcpy(&ua, &e.m_Data.front(), sizeof(ua));
+	}
+	else
+		ZeroObject(ua);
+
+	{
+		uint64_t val;
+		ua.m_Nonce.Export(val);
+		if (val != krn.m_Nonce)
+			Exc::Fail("nonce gap");
+
+		ua.m_Nonce.Inc();
+	}
+
+	if (valUns && bAdd)
+	{
+		ua.m_Balance_Wei += wSubsidy;
+		if (ua.m_Balance_Wei < wSubsidy)
+			Exc::Fail("balance overflow");
+	}
+
+	ContractDataSaveWithRecovery(e, Blob(&ua, sizeof(ua)));
+
+	if (krn.m_To != Zero)
+	{
+
+	}
+
+	if (!bAdd)
+	{
+		wSubsidy.Negate();
+		ua.m_Balance_Wei += wSubsidy;
+
+		if (ua.m_Balance_Wei >= wSubsidy)
+			Exc::Fail("balance underflow");
+
+		ContractDataSaveWithRecovery(e, Blob(&ua, sizeof(ua)));
+	}
+}
+
+Height NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_Height()
+{
+	return m_Bic.m_Height - 1;
+}
+
+bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_BlockHeader(BlockHeader& res, Height h)
+{
+	Block::SystemState::Full s;
+	s.m_Height = h;
+	m_Proc.get_HdrAt(s);
+
+	if (!m_Proc.get_HdrAt(s))
+		return false;
+
+	s.get_Hash(res.m_Hash);
+	s.m_PoW.m_Difficulty.Unpack(res.m_Difficulty);
+	res.m_GasLimit = Zero;
+	Cast::Down<uintBig_t<EvmProcessor::Address::nBytes> >(res.m_Coinbase) = Zero;
+	res.m_Timestamp = s.m_TimeStamp;
+
+	return true;
+}
+
+EvmProcessor::IStorage* NodeProcessor::BlockInterpretCtx::MyEvmProcessor::GetContractData(const Address&, bool bCreate)
+{
+	return nullptr; // TODO
 }
 
 struct NodeProcessor::ProcessorInfoParser
