@@ -2518,13 +2518,12 @@ struct NodeProcessor::BlockInterpretCtx
 	typedef std::multiset<Blob> BlobPtrSet; // like BlobMap, but buffers are not allocated/copied
 	BlobPtrSet m_KrnIDs; // mirrors kernel ID DB table in temporary mode
 
-	struct BvmProcessor
-		:public bvm2::ProcessorContract
+	struct VmProcessorBase
 	{
 		BlockInterpretCtx& m_Bic;
 		NodeProcessor& m_Proc;
 
-		uint32_t m_AssetEvtSubIdx = 0;
+		VmProcessorBase(BlockInterpretCtx& bic, NodeProcessor& db);
 
 		struct RecoveryTag {
 			typedef uint8_t Type;
@@ -2539,7 +2538,26 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type Recharge = 8;
 		};
 
-		BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& db);
+		void ContractDataInsert(const Blob& key, const Blob&);
+		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
+		void ContractDataDel(const Blob& key, const Blob& valOld);
+
+		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
+
+		void ContractDataSaveWithRecovery(BlobMap::Entry&, const Blob&);
+
+		void UndoVars();
+	};
+
+	struct BvmProcessor
+		:public VmProcessorBase
+		,public bvm2::ProcessorContract
+	{
+
+		uint32_t m_AssetEvtSubIdx = 0;
+
+		using VmProcessorBase::VmProcessorBase;
+
 
 		virtual void LoadVar(const Blob& key, Blob& res) override;
 		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
@@ -2559,14 +2577,6 @@ struct NodeProcessor::BlockInterpretCtx
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
 		bool Invoke(const bvm2::ContractID&, uint32_t iMethod, const TxKernelContractControl&);
-
-		void UndoVars();
-
-		void ContractDataInsert(const Blob& key, const Blob&);
-		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
-		void ContractDataDel(const Blob& key, const Blob& valOld);
-
-		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
 
 		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
@@ -3456,7 +3466,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 	}
 	else
 	{
-		BlockInterpretCtx::BvmProcessor proc(bic, *this);
+		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
 		proc.UndoVars();
 	}
 
@@ -3500,7 +3510,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	}
 	else
 	{
-		BlockInterpretCtx::BvmProcessor proc(bic, *this);
+		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
 		proc.UndoVars();
 	}
 
@@ -4936,7 +4946,7 @@ bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key,
 	return true;
 }
 
-NodeProcessor::BlockInterpretCtx::BvmProcessor::BvmProcessor(BlockInterpretCtx& bic, NodeProcessor& proc)
+NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpretCtx& bic, NodeProcessor& proc)
 	:m_Bic(bic)
 	,m_Proc(proc)
 {
@@ -5321,13 +5331,22 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
+	ContractDataSaveWithRecovery(e, data);
+
+	return nOldSize;
+}
+
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataSaveWithRecovery(BlobMap::Entry& e, const Blob& data)
+{
 	if (Blob(e.m_Data) != data)
 	{
+		auto key = e.ToBlob();
+
 		RecoveryTag::Type nTag = RecoveryTag::Insert;
 
 		if (data.n)
 		{
-			if (nOldSize)
+			if (e.m_Data.size())
 			{
 				nTag = RecoveryTag::Update;
 				ContractDataUpdate(key, data, e.m_Data);
@@ -5340,31 +5359,29 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key
 		}
 		else
 		{
-			assert(nOldSize);
+			assert(e.m_Data.size());
 			ContractDataDel(key, e.m_Data);
 		}
 
 		BlockInterpretCtx::Ser ser(m_Bic);
-		ser & nTag;
-		ser & key.n;
+		ser& nTag;
+		ser& key.n;
 		ser.WriteRaw(key.p, key.n);
-		if (nOldSize)
+		if (e.m_Data.size())
 			ser & e.m_Data;
 
 		data.Export(e.m_Data);
 	}
-
-	return nOldSize;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataInsert(const Blob& key, const Blob& data)
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataInsert(const Blob& key, const Blob& data)
 {
 	ContractDataToggleTree(key, data, true);
 	if (!m_Bic.m_Temporary)
 		m_Proc.m_DB.ContractDataInsert(key, data);
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
 {
 	ContractDataToggleTree(key, val, true);
 	ContractDataToggleTree(key, valOld, false);
@@ -5372,7 +5389,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataUpdate(const Bl
 		m_Proc.m_DB.ContractDataUpdate(key, val);
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataDel(const Blob& key, const Blob& valOld)
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataDel(const Blob& key, const Blob& valOld)
 {
 	ContractDataToggleTree(key, valOld, false);
 	if (!m_Bic.m_Temporary)
@@ -5420,7 +5437,7 @@ void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, 
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
 {
 	if (!m_Bic.m_SkipDefinition)
 		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
@@ -5552,7 +5569,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	return true;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::UndoVars()
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 {
 	ByteBuffer key;
 	for (RecoveryTag::Type nTag = 0; ; )
