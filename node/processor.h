@@ -914,7 +914,15 @@ public:
 			uintBigFor<uint64_t>::Type m_Nonce;
 		};
 
+		struct Contract
+			:public Base
+		{
+			ECC::uintBig m_CodeID;
+		};
+
 #pragma pack (pop)
+
+		static_assert(sizeof(User) != sizeof(Contract), "");
 	};
 
 private:

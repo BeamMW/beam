@@ -2595,6 +2595,7 @@ struct NodeProcessor::BlockInterpretCtx
 		Height get_Height() override;
 		bool get_BlockHeader(BlockHeader&, Height) override;
 
+		static void UpdateBalance(EvmAccount::Base& x, const EvmProcessor::Word& val, bool bAdd);
 
 		using VmProcessorBase::VmProcessorBase;
 		void InvokeGuarded(const TxKernelEvmInvoke&);
@@ -5040,18 +5041,36 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	return bRes;
 }
 
+void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::UpdateBalance(EvmAccount::Base& x, const EvmProcessor::Word& val, bool bAdd)
+{
+	if (bAdd)
+	{
+		x.m_Balance_Wei += val;
+		if (x.m_Balance_Wei < val)
+			Exc::Fail("balance overflow");
+	}
+	else
+	{
+		auto val2 = val;
+		val2.Negate();
+		x.m_Balance_Wei += val2;
+
+		if (x.m_Balance_Wei > val2)
+			Exc::Fail("balance underflow");
+	}
+}
+
 void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKernelEvmInvoke& krn)
 {
 	const auto& r = Rules::get();
-	if (!r.Evm.Groth2Wei)
+	if (!r.Evm.Groth2Wei || !r.Evm.BaseGasPrice)
 		Exc::Fail("Evm disabled");
 
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
 
-	EvmProcessor::Word wSubsidy, wLimit;
+	EvmProcessor::Word wSubsidy;
 	wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Groth2Wei); // won't overflow
-	wLimit = uintBigFrom(krn.m_Fee) * uintBigFrom(r.Evm.Groth2Wei);
 
 	EvmProcessor::Address aFrom;
 	if (!aFrom.FromPubKey(krn.m_From))
@@ -5059,10 +5078,9 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 
 	// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
 	auto& e = m_Bic.get_ContractVar(aFrom, m_Proc.m_DB);
-	bool bWasEmpty = e.m_Data.empty();
 
 	EvmAccount::User ua;
-	if (!bWasEmpty)
+	if (!e.m_Data.empty())
 	{
 		if (e.m_Data.size() != sizeof(ua))
 			Exc::Fail("attempt to call non-user account");
@@ -5082,29 +5100,82 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 	}
 
 	if (valUns && bAdd)
-	{
-		ua.m_Balance_Wei += wSubsidy;
-		if (ua.m_Balance_Wei < wSubsidy)
-			Exc::Fail("balance overflow");
-	}
+		UpdateBalance(ua, wSubsidy, true);
+
+	UpdateBalance(ua, krn.m_Amount, false);
 
 	ContractDataSaveWithRecovery(e, Blob(&ua, sizeof(ua)));
 
 	if (krn.m_To != Zero)
 	{
+		EvmProcessor::Word wPay, wGas;
+		wPay = uintBigFrom(krn.m_Fee) * uintBigFrom(r.Evm.Groth2Wei);
+		wGas.SetDiv(wPay, uintBigFrom(r.Evm.BaseGasPrice));
 
+		uint64_t nGas = 0;
+
+		if (wGas.get_Order() >= (sizeof(nGas) * 8))
+			nGas = static_cast<uint64_t>(-1); // max
+		else
+			wGas.ExportWord<(wGas.nBytes / sizeof(nGas)) - 1>(nGas);
+
+		if (nGas < r.Evm.MinTxGasUnits)
+			Exc::Fail("gaw too low");
+
+		auto& e2 = m_Bic.get_ContractVar(krn.m_To, m_Proc.m_DB);
+		bool bUser = true;
+		if (e2.m_Data.empty())
+			ZeroObject(ua);
+		else
+		{
+			if (e2.m_Data.size() == sizeof(ua))
+				memcpy(&ua, &e2.m_Data.front(), sizeof(ua));
+			else
+				bUser = false;
+		}
+
+		if (bUser)
+		{
+			// tx to user
+			UpdateBalance(ua, krn.m_Amount, true);
+			ContractDataSaveWithRecovery(e2, Blob(&ua, sizeof(ua)));
+		}
+		else
+		{
+			// contract
+			if (e2.m_Data.size() != sizeof(EvmAccount::Contract))
+				OnCorrupted();
+
+			EvmAccount::Contract ca;
+			memcpy(&ca, &e.m_Data.front(), sizeof(ca));
+
+			UpdateBalance(ca, krn.m_Amount, true);
+			ContractDataSaveWithRecovery(e2, Blob(&ca, sizeof(ca)));
+
+			static_assert(sizeof(krn.m_To) == sizeof(Address), "");
+			const auto& aContract = Cast::Up<Address>(krn.m_To);
+
+			IStorage* pS = GetContractData(aContract, false);
+
+			Reset();
+			auto& f = PushFrame(*pS);
+			f.m_Args.m_Buf = krn.m_Args;
+			f.m_Args.m_CallValue = krn.m_Amount;
+			f.m_Gas = nGas;
+			m_Caller = aFrom;
+
+			while (!m_lstFrames.empty())
+				RunOnce();
+		}
 	}
 
 	if (!bAdd)
 	{
-		wSubsidy.Negate();
-		ua.m_Balance_Wei += wSubsidy;
-
-		if (ua.m_Balance_Wei >= wSubsidy)
-			Exc::Fail("balance underflow");
-
+		memcpy(&ua, &e.m_Data.front(), sizeof(ua)); // update user. (could be changed by now)
+		UpdateBalance(ua, wSubsidy, false);
 		ContractDataSaveWithRecovery(e, Blob(&ua, sizeof(ua)));
 	}
+
 }
 
 Height NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_Height()
