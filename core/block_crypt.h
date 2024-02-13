@@ -457,7 +457,21 @@ namespace beam
 
 		struct
 		{
+			// 1 eth == 10^18 wei == 10^9 gwei
+			// Block limit is 30 mln gas units.
+			// Simple transaction cost is 21K gas units
+			// 1 gas unit base price is 100 gwei = 10^-7 eth
+
+			// So, here's our interpretation of the above.
+			// - Gas is drawn from the BVM charge (which is 100 mln per block) at 1:1 ratio, i.e. bvm and evm would use this shared limit
+			// - Tx gas limit is calculated from the kernel fee (w.r.t. groth/wei conversion ratio)
+			// - All tx gas is always consumed. All goes to miner, nothing is burned
+			// - Min tx gas price is alwas required (for basic account access).
+			// - We assume always base fee (i.e. no dynamic raise of gas price when more than half of block limit is used).
+
 			uint64_t Groth2Wei; // set to 0 to disable EVM
+			uint64_t BaseGasPrice; // 100 gwei
+			uint64_t MinTxGasUnits;
 		} Evm;
 
 		void SetNetworkParams();
