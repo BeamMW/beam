@@ -2145,7 +2145,9 @@ namespace beam
 
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^10 groth
-		Evm.Groth2Wei = 10000;
+		Evm.Groth2Wei = 100000;
+		Evm.BaseGasPrice = 100ull * 1'000'000'000ull;
+		Evm.MinTxGasUnits = 21000;
 
 		static_assert(static_cast<int>(Network::mainnet) == 0);
 		assert(Network::mainnet == m_Network);
