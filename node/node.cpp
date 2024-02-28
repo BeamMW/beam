@@ -4067,15 +4067,15 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
 
         Serializer ser, serCvt;
 
-        for (db.EnumEvents(wlk, m_pAccount->m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Height)
+        for (db.EnumEvents(wlk, m_pAccount->m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Pos.m_Height)
         {
-            if ((nCount >= proto::Event::s_Max) && (wlk.m_Height != hLast))
+            if ((nCount >= proto::Event::s_Max) && (wlk.m_Pos.m_Height != hLast))
                 break;
 
-			if (p.IsFastSync() && (wlk.m_Height > p.m_SyncData.m_h0))
+			if (p.IsFastSync() && (wlk.m_Pos.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            ser & wlk.m_Height;
+            ser & wlk.m_Pos.m_Height;
             ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
             nCount++;   
@@ -5409,7 +5409,7 @@ void Node::PrintTxos()
         NodeDB::WalkerEvent wlk;
         for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
         {
-            os << "\tHeight=" << wlk.m_Height << ", ";
+            os << "\tHeight=" << wlk.m_Pos.m_Height << ", ";
             p.ProceedOnce(wlk.m_Body);
             os << std::endl;
         }

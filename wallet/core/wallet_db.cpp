@@ -2906,7 +2906,6 @@ namespace beam::wallet
                     evt.m_User = user;
 
                     Serializer ser;
-                    ser& uintBigFrom(NodeProcessor::EventKey::s_IdxOutput);
                     ser& evt.s_Type;
                     ser& evt;
 

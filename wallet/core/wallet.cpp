@@ -1270,9 +1270,9 @@ namespace beam::wallet
         {
         }
 
-        void InsertEvent(Height h, const Blob& b, const Blob& k) override
+        void InsertEvent(const HeightPos& pos, const Blob& b, const Blob& k) override
         {
-            m_Wallet.m_WalletDB->insertEvent(h, b, k);
+            m_Wallet.m_WalletDB->insertEvent(pos.m_Height, b, k);
         }
 /*
         struct WalletDBWalkerEvent : NodeProcessor::Recognizer::WalkerEventBase
@@ -1304,9 +1304,6 @@ namespace beam::wallet
                     return false;
                 m_CurrentEvent = std::move(m_Events.front());
                 m_Body = Blob(m_CurrentEvent.m_Body);
-                // skip index
-                m_Body.n -= sizeof(NodeDB::EventIndexType);
-                ((const uint8_t*&)m_Body.p) += sizeof(NodeDB::EventIndexType);
                 m_Events.pop();
                 return true;
             }
@@ -1330,9 +1327,6 @@ namespace beam::wallet
             m_Wallet.m_WalletDB->visitEvents(0, key, [&handler, &bFound](Height h, ByteBuffer&& b)
             {
                 Blob body = b;
-                // skip index
-                body.n -= sizeof(NodeDB::EventIndexType);
-                ((const uint8_t*&) body.p) += sizeof(NodeDB::EventIndexType);
 
                 if (!handler.OnEvent(h, body))
                     return true; // continue
@@ -1390,7 +1384,7 @@ namespace beam::wallet
 
                     for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
                     {
-                        recognizer.Recognize(td.m_vGroups[iG].m_Data, r.m_Height, 0, false);
+                        recognizer.RecognizeBlock(td.m_vGroups[iG].m_Data, 0, false);
                     }
                 }
 
@@ -1435,7 +1429,9 @@ namespace beam::wallet
         der.reset(b.m_Eternal);
         der& Cast::Down<TxVectors::Eternal>(block);
         PreprocessBlock(block);
-        recognizer.Recognize(block, h, 0, false);
+
+        recognizer.m_Pos.m_Height = h;
+        recognizer.RecognizeBlock(block, 0, false);
         SetEventsHeight(h);
         ++m_BlocksDone;
     }

@@ -2798,9 +2798,9 @@ struct NodeProcessor::MyRecognizer
 			event = Cast::Down<NodeDB::AssetEvt>(wlk);
 		}
 
-		void InsertEvent(Height h, const Blob& b, const Blob& key) override
+		void InsertEvent(const HeightPos& pos, const Blob& b, const Blob& key) override
 		{
-			m_Proc.m_DB.InsertEvent(m_pAccount->m_iAccount, h, b, key);
+			m_Proc.m_DB.InsertEvent(m_pAccount->m_iAccount, pos, b, key);
 		}
 
 		bool FindEvents(const Blob& key, Recognizer::IEventHandler& h) override
@@ -2808,7 +2808,7 @@ struct NodeProcessor::MyRecognizer
 			NodeDB::WalkerEvent wlk;
 			for (m_Proc.m_DB.FindEvents(wlk, m_pAccount->m_iAccount, key); wlk.MoveNext(); )
 			{
-				if (h.OnEvent(wlk.m_Height, wlk.m_Body))
+				if (h.OnEvent(wlk.m_Pos.m_Height, wlk.m_Body))
 					return true;
 			}
 
@@ -3064,7 +3064,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		for (const auto& acc : m_vAccounts)
 		{
 			rec.m_Handler.m_pAccount = &acc;
-			rec.m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
+			rec.m_Recognizer.m_Pos = sid.m_Height;
+			rec.m_Recognizer.RecognizeBlock(block, bic.m_ShieldedOuts);
 		}
 
 		Serializer ser;
@@ -3145,27 +3146,28 @@ bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt)
 }
 
 template <typename TEvt>
-void NodeProcessor::Recognizer::AddEventInternal(Height h, EventKey::IndexType nIdx, const TEvt& evt, const Blob& key)
+void NodeProcessor::Recognizer::AddEventInternal(const TEvt& evt, const Blob& key)
 {
 	Serializer ser;
-	ser & uintBigFrom(nIdx);
 	ser & TEvt::s_Type;
 	ser & evt;
 
-	m_Handler.InsertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
-	m_Handler.OnEvent(h, evt);
+	m_Handler.InsertEvent(m_Pos, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), key);
+	m_Pos.m_Pos++;
+
+	m_Handler.OnEvent(m_Pos.m_Height, evt);
 }
 
 template <typename TEvt, typename TKey>
-void NodeProcessor::Recognizer::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt, const TKey& key)
+void NodeProcessor::Recognizer::AddEvent(const TEvt& evt, const TKey& key)
 {
-	AddEventInternal(h, nIdx, evt, Blob(&key, sizeof(key)));
+	AddEventInternal(evt, Blob(&key, sizeof(key)));
 }
 
 template <typename TEvt>
-void NodeProcessor::Recognizer::AddEvent(Height h, EventKey::IndexType nIdx, const TEvt& evt)
+void NodeProcessor::Recognizer::AddEvent(const TEvt& evt)
 {
-	AddEventInternal(h, nIdx, evt, Blob(nullptr, 0));
+	AddEventInternal(evt, Blob(nullptr, 0));
 }
 
 NodeProcessor::Recognizer::Recognizer(IHandler& h, Extra& extra)
@@ -3175,22 +3177,22 @@ NodeProcessor::Recognizer::Recognizer(IHandler& h, Extra& extra)
 
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts)
+void NodeProcessor::Recognizer::RecognizeBlock(const TxVectors::Full& block, uint32_t shieldedOuts, bool validateShieldedOuts)
 {
 	assert(m_Handler.m_pAccount);
 	const auto& acc = *m_Handler.m_pAccount;
 
 	// recognize all
 	for (size_t i = 0; i < block.m_vInputs.size(); i++)
-		Recognize(*block.m_vInputs[i], height);
+		Recognize(*block.m_vInputs[i]);
 
 	for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-		Recognize(*block.m_vOutputs[i], height, *acc.m_pOwner);
+		Recognize(*block.m_vOutputs[i], *acc.m_pOwner);
 
 	if (!acc.m_vSh.empty())
 	{
 		KrnWalkerRecognize wlkKrn(*this);
-		wlkKrn.m_Height = height;
+		wlkKrn.m_Height = m_Pos.m_Height;
 
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs -= shieldedOuts;
@@ -3204,7 +3206,7 @@ void NodeProcessor::Recognizer::Recognize(const TxVectors::Full& block, Height h
 	}
 }
 
-void NodeProcessor::Recognizer::Recognize(const Input& x, Height h)
+void NodeProcessor::Recognizer::Recognize(const Input& x)
 {
 	const EventKey::Utxo& key = x.m_Commitment;
 	proto::Event::Utxo evt;
@@ -3217,14 +3219,14 @@ void NodeProcessor::Recognizer::Recognize(const Input& x, Height h)
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, EventKey::s_IdxInput, evt);
+	AddEvent(evt);
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelStd&, Height, uint32_t)
+void NodeProcessor::Recognizer::Recognize(const TxKernelStd&, uint32_t)
 {
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, uint32_t)
 {
 	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
 	key.m_Y |= EventKey::s_FlagShielded;
@@ -3235,14 +3237,14 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, Height
 
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(evt);
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelContractCreate& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelContractCreate&, uint32_t)
 {
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke&, uint32_t)
 {
 }
 
@@ -3268,7 +3270,7 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		m_Rec.Recognize(Cast::Up<TxKernel##name>(krn), m_Height, m_nKrnIdx); \
+		m_Rec.Recognize(Cast::Up<TxKernel##name>(krn), m_nKrnIdx); \
 		break;
 
 	BeamKernelsAll(THE_MACRO)
@@ -3281,7 +3283,7 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 	return true;
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, uint32_t)
 {
 	TxoID nID = m_Extra.m_ShieldedOutputs++;
 
@@ -3299,7 +3301,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Heigh
 		ECC::Oracle oracle;
 		oracle << v.m_Msg;
 
-		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, h, oracle))
+		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, m_Pos.m_Height, oracle))
 			continue;
 
 		proto::Event::Shielded evt;
@@ -3311,22 +3313,22 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, Heigh
 		EventKey::Shielded key = pars.m_Ticket.m_SpendPk;
 		key.m_Y |= EventKey::s_FlagShielded;
 
-		AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
+		AddEvent(evt, key);
 		break;
 	}
 }
 
-void NodeProcessor::Recognizer::Recognize(const Output& x, Height h, Key::IPKdf& keyViewer)
+void NodeProcessor::Recognizer::Recognize(const Output& x, Key::IPKdf& keyViewer)
 {
 	CoinID cid;
 	Output::User user;
-	if (!x.Recover(h, keyViewer, cid, &user))
+	if (!x.Recover(m_Pos.m_Height, keyViewer, cid, &user))
 		return;
 
 	// filter-out dummies
 	if (cid.IsDummy())
 	{
-		m_Handler.OnDummy(cid, h);
+		m_Handler.OnDummy(cid, m_Pos.m_Height);
 		return;
 	}
 
@@ -3335,14 +3337,14 @@ void NodeProcessor::Recognizer::Recognize(const Output& x, Height h, Key::IPKdf&
 	evt.m_Flags = proto::Event::Flags::Add;
 	evt.m_Cid = cid;
 	evt.m_Commitment = x.m_Commitment;
-	evt.m_Maturity = x.get_MinMaturity(h);
+	evt.m_Maturity = x.get_MinMaturity(m_Pos.m_Height);
 	evt.m_User = user;
 
 	const EventKey::Utxo& key = x.m_Commitment;
-	AddEvent(h, EventKey::s_IdxOutput, evt, key);
+	AddEvent(evt, key);
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, uint32_t nKrnIdx)
 {
 	assert(m_Handler.m_pAccount);
 	const auto& acc = *m_Handler.m_pAccount;
@@ -3359,18 +3361,18 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetCreate& v, Height h
 	evt.m_EmissionChange = 0; // no change upon creation
 
 	NodeDB::AssetEvt wlk;
-	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	m_Handler.AssetEvtsGetStrict(wlk, m_Pos.m_Height, nKrnIdx);
 	assert(wlk.m_ID > Asset::s_MaxCount);
 
 	evt.m_Info.m_ID = wlk.m_ID - Asset::s_MaxCount;
-	evt.m_Info.m_LockHeight = h;
+	evt.m_Info.m_LockHeight = m_Pos.m_Height;
 	TemporarySwap<ByteBuffer> ts(Cast::NotConst(v).m_MetaData.m_Value, evt.m_Info.m_Metadata.m_Value);
 	evt.m_Info.m_Owner = v.m_Owner;
 	evt.m_Info.m_Value = Zero;
-	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(h);
+	evt.m_Info.m_Deposit = Rules::get().get_DepositForCA(m_Pos.m_Height);
 	evt.m_Info.SetCid(nullptr);
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt, key);
+	AddEvent(evt, key);
 }
 
 void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
@@ -3380,7 +3382,7 @@ void NodeProcessor::AssetDataPacked::set_Strict(const Blob& blob)
 	memcpy(this, blob.p, sizeof(*this));
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
@@ -3390,7 +3392,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, 
 	evt.m_EmissionChange = v.m_Value;
 
 	NodeDB::AssetEvt wlk;
-	m_Handler.AssetEvtsGetStrict(wlk, h, nKrnIdx);
+	m_Handler.AssetEvtsGetStrict(wlk, m_Pos.m_Height, nKrnIdx);
 	assert(wlk.m_ID == evt.m_Info.m_ID);
 
 	AssetDataPacked adp;
@@ -3400,10 +3402,10 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetEmit& v, Height h, 
 	adp.m_LockHeight.Export(evt.m_Info.m_LockHeight);
 	evt.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // not used anyway
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(evt);
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, uint32_t nKrnIdx)
 {
 	proto::Event::AssetCtl evt;
 	if (!FindEvent(v.m_Owner, evt))
@@ -3415,7 +3417,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, Height 
 	evt.m_Info.m_Value = Zero;
 	evt.m_Info.m_Deposit = v.get_Deposit();
 
-	AddEvent(h, EventKey::s_IdxKernel + nKrnIdx, evt);
+	AddEvent(evt);
 }
 
 bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
@@ -3567,8 +3569,10 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 			evt.m_Maturity = outp.get_MinMaturity(hCreate);
 			evt.m_User = user;
 
+			m_Rec.m_Recognizer.m_Pos.m_Height = hCreate;
+			// don't reset the Pos.Index. Its value is not important, it only should be monotonic
 			const EventKey::Utxo& key = outp.m_Commitment;
-			m_Rec.m_Recognizer.AddEvent(hCreate, EventKey::s_IdxOutput, evt, key);
+			m_Rec.m_Recognizer.AddEvent(evt, key);
 
 			m_Total++;
 
@@ -3577,7 +3581,8 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 			else
 			{
 				evt.m_Flags = 0;
-				m_Rec.m_Recognizer.AddEvent(wlk.m_SpendHeight, EventKey::s_IdxInput, evt);
+				m_Rec.m_Recognizer.m_Pos.m_Height = wlk.m_SpendHeight;
+				m_Rec.m_Recognizer.AddEvent(evt);
 			}
 
 			return true;
@@ -3617,6 +3622,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 			bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) override
 			{
 				TxoID nOuts = m_Rec.m_Extra.m_ShieldedOutputs;
+				m_Rec.m_Pos.m_Height = m_Height;
 
 				for (uint32_t iAcc = 0; iAcc < m_nAcc; iAcc++)
 				{

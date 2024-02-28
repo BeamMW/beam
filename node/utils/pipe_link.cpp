@@ -522,7 +522,7 @@ void Manager::LocalContext::SyncCoins()
         NodeDB::WalkerEvent wlk;
         for (proc.get_DB().EnumEvents(wlk, proc.m_vAccounts.front().m_iAccount, m_hCoinsEvtNext); wlk.MoveNext(); )
         {
-            parser.m_Height = wlk.m_Height;
+            parser.m_Height = wlk.m_Pos.m_Height;
             parser.ProceedOnce(wlk.m_Body);
         }
     }
