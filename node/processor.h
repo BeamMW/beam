@@ -724,12 +724,6 @@ public:
 
 		// Utxo and Shielded use the same key type, hence the following flag (OR-ed with Y coordinate) makes the difference
 		static const uint8_t s_FlagShielded = 2;
-
-		typedef NodeDB::EventIndexType IndexType;
-
-		static const IndexType s_IdxInput = 0;
-		static const IndexType s_IdxOutput = 1;
-		static const IndexType s_IdxKernel = 2;
 	};
 
 	struct ShieldedBase
@@ -780,7 +774,7 @@ public:
 			virtual void OnDummy(const CoinID&, Height) {}
 			virtual void OnEvent(Height, const proto::Event::Base&) {}
 			virtual void AssetEvtsGetStrict(NodeDB::AssetEvt& event, Height h, uint32_t nKrnIdx) {}
-			virtual void InsertEvent(Height h, const Blob& b, const Blob& key) {}
+			virtual void InsertEvent(const HeightPos&, const Blob& b, const Blob& key) {}
 			virtual bool FindEvents(const Blob& key, IEventHandler&) { return false; }
 		};
 		Recognizer(IHandler& h, Extra& extra);
@@ -788,26 +782,28 @@ public:
 		IHandler& m_Handler;
 		Extra& m_Extra;
 
-		void Recognize(const TxVectors::Full& block, Height height, uint32_t shieldedOuts, bool validateShieldedOuts = true);
+		void RecognizeBlock(const TxVectors::Full& block, uint32_t shieldedOuts, bool validateShieldedOuts = true);
 
-		void Recognize(const Input&, Height);
-		void Recognize(const Output&, Height, Key::IPKdf&);
+		void Recognize(const Input&);
+		void Recognize(const Output&, Key::IPKdf&);
 
-#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, Height, uint32_t);
+#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, uint32_t nKrnIdx);
 		BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
 		template <typename TKey, typename TEvt>
 		bool FindEvent(const TKey&, TEvt&);
 
+		HeightPos m_Pos; // incremented when event is added
+
 		template <typename TEvt, typename TKey>
-		void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&, const TKey&);
+		void AddEvent(const TEvt&, const TKey&);
 
 		template <typename TEvt>
-		void AddEvent(Height, EventKey::IndexType nIdx, const TEvt&);
+		void AddEvent(const TEvt&);
 	private:
 		template <typename TEvt>
-		void AddEventInternal(Height, EventKey::IndexType nIdx, const TEvt&, const Blob& key);
+		void AddEventInternal(const TEvt&, const Blob& key);
 	};
 
 	struct MyRecognizer;

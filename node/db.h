@@ -423,18 +423,29 @@ public:
 
 	void assert_valid(); // diagnostic, for tests only
 
-	typedef uint32_t EventIndexType;
 	typedef uint32_t AccountIndex;
 
-	void InsertEvent(AccountIndex, Height, const Blob&, const Blob& key); // body must start with the uintBigFor<EventIndexType>
-	void DeleteEventsFrom(Height);
+	void InsertEvent(AccountIndex, const HeightPos&, const Blob&, const Blob& key);
+	void DeleteEventsFrom(AccountIndex, Height);
+
+
+#pragma pack (push, 1)
+	struct HeightPosPacked
+	{
+		uintBigFor<Height>::Type m_Height;
+		uintBigFor<uint32_t>::Type m_Idx;
+		void put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos);
+		static void get(NodeDB::Recordset& rs, int iCol, HeightPos& pos);
+	};
+#pragma pack (pop)
+
 
 	struct WalkerEvent {
 		Recordset m_Rs;
-		Height m_Height;
-		uintBigFor<EventIndexType>::Type m_Index;
+		HeightPos m_Pos;
 		Blob m_Body;
 		Blob m_Key;
+		HeightPosPacked m_bufPos;
 
 		bool MoveNext();
 	};
@@ -747,16 +758,6 @@ public:
 
 	void StreamsDelAll(StreamType::Enum t0, StreamType::Enum t1);
 
-#pragma pack (push, 1)
-	struct HeightPosPacked
-	{
-		uintBigFor<Height>::Type m_Height;
-		uintBigFor<uint32_t>::Type m_Idx;
-		void put(NodeDB::Recordset& rs, int iCol, const HeightPos& pos);
-		static void get(NodeDB::Recordset& rs, int iCol, HeightPos& pos);
-	};
-#pragma pack (pop)
-
 	struct ContractLog
 	{
 		struct Entry
@@ -841,7 +842,7 @@ private:
 	void CreateTables28();
 	void CreateTables30();
 	void CreateTables31();
-	void CreateTables34();
+	void CreateTables36();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
