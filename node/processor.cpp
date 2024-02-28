@@ -2851,6 +2851,8 @@ std::string NodeProcessor::Account::get_Endpoint() const
 
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
 {
+	uint32_t t0_ms = GetTime_ms();
+
 	if (s.m_Height == m_ManualSelection.m_Sid.m_Height)
 	{
 		Merkle::Hash hv;
@@ -2879,6 +2881,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
 		return false;
 	}
+
+	uint32_t t1_ms = GetTime_ms();
+
 
 	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
 	if (bFirstTime)
@@ -2914,6 +2919,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		}
 	}
 
+	uint32_t t2_ms = GetTime_ms();
+
 	TxoID id0 = m_Extra.m_Txos;
 
 	BlockInterpretCtx bic(sid.m_Height, true);
@@ -2943,6 +2950,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	{
 		assert(m_Extra.m_Txos > id0);
 	}
+
+	uint32_t t3_ms = GetTime_ms();
+
 
 	EvaluatorEx ev(*this);
 	ev.set_Kernels(block);
@@ -3014,6 +3024,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 	if (bOk)
 	{
+		uint32_t t4_ms = GetTime_ms();
+
 		m_Cursor.m_hvKernels = ev.m_hvKernels;
 		m_Cursor.m_bKernels = true;
 
@@ -3058,6 +3070,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		if (!v.empty())
 			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
 
+		uint32_t t5_ms = GetTime_ms();
+
 		// recognize all
 		MyRecognizer rec(*this);
 
@@ -3066,6 +3080,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			rec.m_Handler.m_pAccount = &acc;
 			rec.m_Recognizer.Recognize(block, sid.m_Height, bic.m_ShieldedOuts);
 		}
+
+		uint32_t t6_ms = GetTime_ms();
 
 		Serializer ser;
 		bic.m_Rollback.clear();
@@ -3082,12 +3098,27 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
 
+		uint32_t t7_ms = GetTime_ms();
+
 		m_RecentStates.Push(sid.m_Row, s);
 
 		cf.Do(*this, sid.m_Height);
 
 		if (bic.m_pvC)
 			bic.AddKrnInfo(ser, m_DB);
+
+		uint32_t t8_ms = GetTime_ms();
+
+		LOG_INFO() << "Block " << sid.m_Height << " tm stats: "
+			<< (t1_ms - t0_ms) << ", "
+			<< (t2_ms - t0_ms) << ", "
+			<< (t3_ms - t0_ms) << ", "
+			<< (t4_ms - t0_ms) << ", "
+			<< (t5_ms - t0_ms) << ", "
+			<< (t6_ms - t0_ms) << ", "
+			<< (t7_ms - t0_ms) << ", "
+			<< (t8_ms - t0_ms);
+
 	}
 	else
 	{
