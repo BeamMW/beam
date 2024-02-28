@@ -5801,7 +5801,10 @@ void NodeProcessor::RollbackTo(Height h)
 	EnumTxos(wlk2, HeightRange(h + 1, m_Cursor.m_Sid.m_Height));
 
 	m_DB.TxoDelFrom(id0);
-	m_DB.DeleteEventsFrom(h + 1);
+
+	for (const auto& acc : m_vAccounts)
+		m_DB.DeleteEventsFrom(acc.m_iAccount, h + 1);
+
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 	m_DB.ShieldedOutpDelFrom(h + 1);
 	m_DB.KrnInfoDel(HeightRange(h + 1, m_Cursor.m_Sid.m_Height));

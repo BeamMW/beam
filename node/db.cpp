@@ -1952,12 +1952,13 @@ void NodeDB::InsertEvent(AccountIndex iAccount, const HeightPos& pos, const Blob
 	TestChanged1Row();
 }
 
-void NodeDB::DeleteEventsFrom(Height h)
+void NodeDB::DeleteEventsFrom(AccountIndex iAccount, Height h)
 {
-	Recordset rs(*this, Query::EventDelByHeight, "DELETE FROM " TblEvents " WHERE " TblEvents_Pos ">=?");
+	Recordset rs(*this, Query::EventDelByHeight, "DELETE FROM " TblEvents " WHERE " TblEvents_Account "=? AND " TblEvents_Pos ">=?");
+	rs.put(0, iAccount);
 
 	HeightPosPacked buf;
-	buf.put(rs, 0, HeightPos(h));
+	buf.put(rs, 1, HeightPos(h));
 
 	rs.Step();
 }

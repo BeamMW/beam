@@ -426,7 +426,7 @@ public:
 	typedef uint32_t AccountIndex;
 
 	void InsertEvent(AccountIndex, const HeightPos&, const Blob&, const Blob& key);
-	void DeleteEventsFrom(Height);
+	void DeleteEventsFrom(AccountIndex, Height);
 
 
 #pragma pack (push, 1)
