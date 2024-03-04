@@ -275,7 +275,7 @@ struct AppGlobal
 
         if (!Env::VarReader::Read_T(key, Cast::Down<Global>(*this)))
         {
-            OnError("no such a contract");
+            OnError("no such contract");
             return false;
         }
 

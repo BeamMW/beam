@@ -209,7 +209,7 @@ struct StatePlus
         if (Env::VarReader::Read_T(key, Cast::Down<Gallery::State>(*this)))
             return true;
 
-        OnError("no such a contract");
+        OnError("no such contract");
         return false;
     }
 };
