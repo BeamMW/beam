@@ -1013,7 +1013,7 @@ namespace
             auto pAddr = walletDB->getAddressByToken(sToken);
             if (!pAddr)
             {
-                std::cout << "No such an address" << std::endl;
+                std::cout << "No such address" << std::endl;
                 return 1;
             }
 
