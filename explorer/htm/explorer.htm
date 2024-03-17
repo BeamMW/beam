@@ -1,33 +1,417 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-.collapsible {
-  background-color: #777;
-  color: white;
-  cursor: pointer;
-  padding: 18px;
-  width: 100%;
-  border: none;
-  text-align: left;
-  outline: none;
-  font-size: 15px;
-}
 
-.collapsible:hover {
-  background-color: #555;
-}
+	/* GENERAL ELEMENTS */
+	* {
+  		box-sizing: border-box; /* Width and height will always include padding and border */
+		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
+	}
+	html {
+ 		font-size: 62.5%; /* Since default browser font size is 16px, this sets an easy 1rem = 10px */
+	}
+	:root {
+ 		background: #d0daff; /* Default background color for all pages */
+	}
+	p {
+		font-size: 1.6rem;
+		margin: 5px;
+	}
+	ul {
+		font-size: 1.4rem;
+		padding-right: 10px;
+	}
+	h1 {
+		font-size: 3.2rem;
+		text-align: center;
+		margin: 10px 0px 10px 0px;
+	}
+	h2 {
+		font-size: 2.4rem;
+		text-align: left;
+		margin: 20px 0px 15px 0px;
+	}
+	h3 {
+		font-size: 1.9rem;
+		text-align: left;
+		color: #17204e;
+		margin: 15px 0px 10px 0px;
+	}
+	h3 a {
+		color: #17204e;
+	}
+	h3::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+		color: #17204e;
+	}
+	.blockHeight {
+		font-family: monospace;
+	}
+	.blockTitle {
+		text-decoration: none;
+		font-size: 3rem;
+	}
+	.blockTitle a {
+		text-decoration: none;
+	}
+	.assetName {
+		color: black;
+		white-space: nowrap; /* Never wrap text */
+	}
+	.assetName a {
+		color: black; /* Keep links in black */
+	}
+	.metadata {
+		font-family: monospace;
+		font-size: 1.2rem;
+		display: inline-block; /* Needed to allow setting a max-width */
+		max-width: 100ch; /* Wrap long strings after 100 characters */
+		word-wrap: break-word; /* Allow breaking words to next line */
+	}
+	.bool {
+		font-family: monospace;
+		font-size: 1.4rem;
+		color: black;
+	}
+	.bool.yes {
+		color: green; /* True in green */
+	}
+	.bool.no {
+		color: blue; /* False in blue */
+	}
+	.time {
+		white-space: nowrap; /* Never wrap text */
+		font-size: 1.4rem;
+	}
+	.cid {
+		font-family: monospace;
+		font-size: 1.2rem;
+		color: black;
+	}
+	.cid a {
+		color: black; /* Keep links black */
+		text-decoration-line: underline;
+		text-decoration-color: grey; /* Use a light underline color */
+	}
+	.cidTitle {
+		font-family: monospace;
+	}
+	.id {
+		font-family: monospace;
+		font-size: 1.2rem;
+	}
+	.blob {
+		font-family: monospace;
+		font-size: 1.2rem;
+	}
+	.commitment {
+		font-family: monospace;
+		font-size: 1.2rem;
+	}
+	.amount {
+		font-family: monospace;
+		font-size: 1.5rem;
+		color: green;
+	}
+	.amount.pos {
+		color: green; /* Positive values in green */
+	}
+	.amount.neg {
+		color: blue; /* Negative values in blue */
+	}
+	.th {
+		/* Not sure yet how to use this class (these "headers" can appear in rows or in columns)... */
+	}
+	.more {
+		font-weight: bold;
+		color: #17204e;
+	}
+	.more a {
+		color: #17204e;
+	}
+	.more::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+		color: #17204e;
+	}
+
+	/* FORMAT TABLES */
+	table, td, th {
+		color: black; /* Default text color */
+		font-size: 1.5rem; /* Default text size */
+		border: 1px solid #ddd; /* Thin grey border */
+		border-collapse: collapse; /* Join table and cell borders as one single line */
+		padding: 5px; /* Add a small padding */
+	}
+	table thead > tr {
+		background-color: #b8bbd8; /* Background color for table headers already declared as such ("thead" tag) */
+	}
+	th {
+		white-space: nowrap; /* Never wrap header text */
+	}
+	.tableGeneric {
+		/* Nothing special */
+	}
+	.tableUTXO, .tableKernels {
+		min-width: 100ch; /* Just to keep them balanced (inputs, outputs, kernels) */
+		margin: 5px;
+	}
+	.tableSummary, .tableTotals {
+		min-width: 70ch; /* Just to keep them balanced */
+	}
+	.tableOwned_compact, .tableOwned_full {
+		width: 100%; /* Occupy full width of the column they appear in */
+	}
+	.tableFunds_compact, .tableFunds_full {
+		width: 100%; /* Occupy full width of the column they appear in */
+	}
+	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory {
+		/* Nothing special */
+	}
+	.divTableStatus, .divTableBlocks {
+		/* Dirty hack added to wrap and detect some special types of generic tables... */
+	}
+	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
+	table tbody > tr:nth-child(odd) { background-color: #fff; }
+	table tbody > tr:nth-child(even) { background-color: #eee; }
+
+	/* TITLE BANNER */
+	.banner {
+		width: 97vw;
+		display: table;
+		background-color: #a7acd9;
+		border-radius: 0.5em; /* Slightly round corners */
+		padding: 5px 10px 5px 10px;
+		text-align: center;
+	}
+	#BeamLogo {
+		display: table-cell;
+		vertical-align: middle;
+		text-align: left;
+		min-height: 60px;
+		min-width: 60px;
+	}
+	#BeamTitle {
+		display: table-cell;
+		vertical-align: middle;
+		text-align: center;
+		font-size: 2.8rem;
+		color: #17204e;
+		width: 100%;
+		white-space: nowrap; /* Never wrap text */
+		padding: 5px 10px 5px 10px;
+	}
+	#Version {
+		font-size: 1rem;
+		color: #525252;
+	}
+	#Navigation {
+		display: table-cell;
+		vertical-align: middle;
+		text-align: center;
+		font-size: 2rem;
+		color: #525252;
+		padding: 0px 10px 0px 10px;
+	}
+	#Navigation a {
+		color: #525252;
+		text-decoration-line: none;
+	}
+	#TopButton {
+		display: none; /* Hidden by default */
+		position: fixed; /* Fixed/sticky position */
+		bottom: 10px; /* Bottom of the page */
+		right: 10px; /* Right side of the page */
+		z-index: 99; /* Make sure it does not overlap */
+		cursor: pointer; /* Mouse pointer on hover */
+		border: none; /* Remove borders */
+		outline: none; /* Remove outline */
+		border-radius: 50%; /* Round button */
+		background-color: black; /* Background color */
+		opacity: 0.15; /* Very transparent */
+		text-align: center;
+		font-size: 1.5rem;
+		color: white; /* Text color */
+		padding: 10px; /* Some padding */
+	}
+	#TopButton:hover {
+		opacity: 0.9; /* Less transparent on hover */
+		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
+	}
+	.footer, .footer a {
+		width: 97vw;
+		text-align: center;
+		font-size: 1.2rem;
+		color: #17204e;
+		text-decoration: none;
+		font-weight: bold;
+		white-space: nowrap; /* Never wrap text */
+		padding: 20px 5px 0px 5px;
+	}
+	.footer::before {
+		content: "\25b8"; /* Nice useless decoration ;-) */
+		color: #17204e;
+	}
+	.footer::after {
+		content: "\25c2"; /* Nice useless decoration ;-) */
+		color: #17204e;
+	}
+
+	/* COLLAPSIBLE BLOCKS */
+	.collapsible {
+		display: block; 
+		width: fit-content; /* Will have the width of its full content */
+	}
+	.collapsible-checkbox {
+	    display: none; /* Hide the actual checkbox (clicking will happen on its label only) */
+	}
+	/* Normal collapsible header */
+	.collapsible-label {
+		display: block;
+		width: 100%; /* Uses all the content width */
+		max-width: 97vw; /* But no more than the screen width (when collapsed) */
+		white-space: nowrap; /* Never wrap text */
+		cursor: pointer;
+		font-size: 1.5rem;
+		margin: 15px 0px 0px 0px;
+		color: white;
+		background-color: #777ebc;
+		padding: 10px;
+		border: none;
+		text-align: left;
+		outline: none;
+		border-radius: 0.5em; /* Slightly round corners */
+	}
+	.collapsible-label:hover {
+		background-color: #555fb8;
+	}
+	/* Smaller compact collapsible header */
+	.collapsible-label.small {
+		display: block;
+		width: fit-content; /* Uses only its own needed width */
+		font-size: 1.2rem;
+		color: black;
+		background-color: #b8bbd8;
+		margin: 0px 0px 0px 0px;
+		padding: 2px 5px 2px 5px;
+		border-radius: 0.25em; /* Slightly round corners */
+	}
+	.collapsible-label.small:hover {
+		background-color: #8c94e0;
+	}
+	.collapsible-checkbox:checked + .collapsible-label {
+		border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
+		border-bottom-left-radius: 0; /* ...just because it's nice! :-) */
+		max-width: unset; /* No limit on width when expanded */
+	}
+	/* Collapsible symbols */
+	.collapsible-label::before {
+		content: '\002b \00a0'; /* Add plus sign when collapsed */
+		color: #bababa;
+		font-weight: bold;
+	}
+	.collapsible-label.small::before {
+		color: black; /* Use black sign for small collapsible */
+	}
+	.collapsible-checkbox:checked + .collapsible-label::before {
+		content: '\2212 \00a0'; /* Add minus sign when expanded */
+	}
+	/* Collapsible content */
+	.collapsible-content {
+		display: block;
+		width: 100%;
+		height: 0px; /* Hide by collapsing its height only (thus maitaining its horizontal space) */
+		overflow: hidden;
+		background-color: white;
+	}
+	.collapsible-content.small {
+		display: none; /* Hide completely for small collapsibles (width is not maintained) */
+		background-color: unset; /* No specific background color for small collapsibles */
+	}
+	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content {
+		height: unset;  /* Show content's full height */
+		border: 0.5px solid #777ebc; /* Add a thin border */
+	}
+	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content.small {
+		display: block; /* Show content */
+		border: none; /* No border for small collapsibles */
+	}
+
+	/* SORT AND SEARCH HEADERS IN TABLES
+	/* Header row when filters are off */
+	.filtersOff, .filtersNot {
+		background-color: #b8bbd8 !important; /* Background for all table headers */
+	}
+	.filtersOff:hover {
+		cursor: pointer; /* Change mouse to pointer to show it's clickable */
+		background-color: #9ca2d2 !important; /* Background for table header */
+	}
+	/* Header row when filters are on */
+	.filtersOn {
+		background-color: #9ca2d2 !important; /* Background for table header */
+	}
+	.filtersOff th, .filtersOff td, .filtersOn th, .filtersOn td, .filtersNot th, .filtersNot td, .headerCell {
+		text-align: center;
+		white-space: nowrap; /* Don't wrap header text */
+		font-weight: bold;
+	}
+	
+	/* SORT OPTIONS IN HEADERS */
+	.sortable {
+		cursor: pointer; /* Change mouse pointer to show it's clickable */
+	}
+	/* Add sorting indicators */
+	.sortable::before {
+		content: '\21c5 \00a0'; /* Symbol when not sorted */
+		color: #666;
+	}
+	.sortable.asc::before {
+		content: '\25bc \00a0'; /* Symbol when sorted ascending */
+		color: #e7e7e7;
+	}
+	.sortable.desc::before {
+		content: '\25b2 \00a0'; /* Symbol when sorted descending */
+		color: #e7e7e7;
+	}
+
+	/* SEARCH OPTIONS IN HEADERS */
+	.searchable {
+		visibility: hidden; /* Search fields are hidden by default */
+		width: 90%;
+		max-width: 20ch;
+		min-width: 5ch;
+		border-radius: 0.25em; /* Slightly round corners */
+		border: 1px solid #ddd; /* White border */
+		background-color: #afb3d8;
+		padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
+	}
+	/* Search fields on hover */
+	.headerCell:hover .searchable {
+		visibility: visible; /* Make it appear when hover */
+	}
+	/* Search fields with content */
+	.searchable:not(:placeholder-shown) {
+		visibility: visible; /* Keep it visible */
+		max-width: 90%; /* Extend to full width */
+		background-color: #b8bbd8; /* Use a lighter background */
+	}
+	/* Search fields on focus */
+	.searchable:focus {
+		visibility: visible; /* Keep it visible */
+		max-width: 90%; /* Extend to full width */
+		outline: none; /* Avoid the browser default focus outline */
+		border: 1px solid #555; /* Darker border */
+	}
+	
 </style>
 </head>
 
 <body>
 
-<p id="my_content">loading...</p>
+<p id="my_content">Loading...</p>
 
 <script>
 
@@ -66,15 +450,15 @@ table, th, td {
 		if (!amount)
 			return "";
 
-		let clr = "green";
+		let type = "amount pos";
 		if (amount[0] == '-')
-			clr = "blue";
-		return "<tt style=\"color:" + clr + "\">" + amount + "</tt>";
+			type = "amount neg";
+		return AddClass(amount,type);
 	}
 
-	function MakeMonospace(txt)
+	function AddClass(txt,className)
 	{
-		return "<tt>" + txt + "</tt>";
+		return "<span class='" + className + "'>" + txt + "</span>";
 	}
 	
 	function UrlBlock(h)
@@ -84,7 +468,7 @@ table, th, td {
 
 	function MakeBlock(h)
 	{
-		return MakeRef(UrlBlock(h), MakeMonospace(h));
+		return AddClass(MakeRef(UrlBlock(h), h), "blockHeight");
 	}
 
 	function MakeCellAmount(amount, extra)
@@ -95,13 +479,13 @@ table, th, td {
 	function MakeAsset(aid)
 	{
 		if (aid == 0)
-			return "Beam";
-		return MakeRef(UrlSelfWithID("aid", aid, ""), "Asset-" + aid);
+			return AddClass("Beam", "assetName");
+		return AddClass(MakeRef(UrlSelfWithID("aid", aid, ""), "Asset-" + aid), "assetName");
 	}
 	
 	function MakeCid(cid)
 	{
-		return MakeRef(UrlSelfWithID("contract", cid, ""), MakeMonospace(cid));
+		return AddClass(MakeRef(UrlSelfWithID("contract", cid, ""), cid), "cid");
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -109,7 +493,21 @@ table, th, td {
 		if (!jFunds)
 			return "";
 
-		let text = "<table style=\"width:100%\">";
+		let text = "";
+
+		// Make collapsible and add some headers if more than a few lines
+		let maxRows = 5;
+		if (jFunds.length < maxRows) {
+			text += "<table class='tableFunds_compact'>";
+		} else {
+			text += MakeCollapsibleBegin(jFunds.length + "&nbsp;assets", "unchecked", "small");
+			text += "<table class='tableFunds_full'>\n\
+					<thead><tr>\n\
+						<th>Asset</th>\n\
+						<th>Amount</th>\n\
+					</tr></thead>\n";
+		}
+
 		for (let iF = 0; iF < jFunds.length; iF++)
 		{
 			const jFR = jFunds[iF];
@@ -119,6 +517,9 @@ table, th, td {
 			text += "</tr>"
 		}
 		text += "</table>";
+		if (jFunds.length < maxRows) {
+			text += MakeCollapsibleEnd();
+		}
 		return text;
 	}
 	
@@ -157,7 +558,7 @@ table, th, td {
 			return MakeCid(obj.value);
 
 		if (obj.type == "th")
-			return "<p>" + Obj2Html(obj.value) + "</p>";
+			return AddClass(Obj2Html(obj.value), "th");
 
 		if (obj.type == "amount")
 			return MakeAmountClr(obj.value);
@@ -165,7 +566,7 @@ table, th, td {
 		if (obj.type == "table")
 		{
 			const jTbl = obj.value;
-			let text = "<table style=\"width:100%\" align=\"right\">";
+			let text = "<table class='tableGeneric'>";
 			
 			text += Obj2Html_TableRows(jTbl);
 			
@@ -179,13 +580,13 @@ table, th, td {
 			return MakeAsset(obj.value);
 
 		if (obj.type == "height")
-			return MakeBlock(obj.value);
+			return AddClass(MakeBlock(obj.value), "blockHeight");
 
 		if (obj.type == "blob")
-			return MakeMonospace(obj.value);
+			return AddClass(obj.value, "blob");
 
 		if (obj.type == "bool")
-			return (obj.value > 0) ? "yes" : "no";
+			return (obj.value > 0) ? AddClass("yes", "bool yes") : AddClass("no", "bool no");
 
 		if (obj.type == "time")
 		{
@@ -193,7 +594,7 @@ table, th, td {
 			let diff = d.getTimezoneOffset();
 			d = new Date((obj.value - diff * 60) * 1000);
 			let txt = d.toISOString().split('T');
-			return txt[0] + ' ' + txt[1].split('.')[0];
+			return AddClass(txt[0] + ' ' + txt[1].split('.')[0], "time");
 		}
 
 		return "";
@@ -242,13 +643,27 @@ table, th, td {
 	
 	function SetContent(text)
 	{
-		document.getElementById("my_content").innerHTML = text;
-		
-		var coll = document.getElementsByClassName("collapsible");
+		// Fixed banner on all pages
+		let banner = "\
+			<div class='banner'>\n\
+				<span id='BeamLogo'>\n\
+					<a href='" + window.location.pathname + "' title='Main'>\n\
+						<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='42 42 460 460'><!-- A variaion of the BEAM logo --><defs><style>.cls-1 {fill: #0b1624;} .cls-2 {fill: #24c1ff;} .cls-3 {fill: #0b76ff;} .cls-4 {fill: #39fff2;} .cls-5 {fill: #00e2c2;} .cls-6 {fill: url(#Ray1_gradient);} .cls-7 {fill: url(#Ray2_gradient);} .cls-8 {fill: url(#Ray3_gradient);} .cls-9 {fill: url(#Ray4_gradient);} </style><linearGradient id='Ray1_gradient' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Ray2_gradient' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Ray3_gradient' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Ray4_gradient' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><g id='logo_in_circle' data-name='logo in circle'><circle id='circle' class='cls-1' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' class='cls-2' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' class='cls-3' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' class='cls-4' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' class='cls-5' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' class='cls-6' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' class='cls-7' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' class='cls-8' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' class='cls-9' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></g></svg>\n\
+					</a>\n\
+				</span>\n\
+				<h1 id='BeamTitle'>Beam Smart Explorer <span id='Version'>v0.3</span></h1>\n\
+				<span id='Navigation'><a href='' title='Reload'>&orarr;</a><br><a href='javascript:history.back();' title='Back'>&larr;</a></span>\n\
+			</div>\n\
+			<div>\n\
+				<button onclick='topFunction();'' id='TopButton' title='Top'>&#9650;</button>\n\
+			</div>";
 
-		for (let i = 0; i < coll.length; i++) {
-		  coll[i].addEventListener("click", ToggleCollapsible);
-		}
+		let footer = "<div class='footer'><a href='https://www.beam.mw'>www.beam.mw</a></div>";
+
+		document.getElementById("my_content").innerHTML = banner + text + footer;
+		
+		// Add option for adding filters to the first row of long tables
+		addFilterOption();
 	}
 	
 	let g_CurrentID = "";
@@ -257,14 +672,16 @@ table, th, td {
 	function DisplayContracts()
 	{
 		let text = "\
-<h2>List of all deployed contracts</h2>\n\
-<table>\n\
-	<th>Cid</th>\n\
-	<th>Kind</th>\n\
-	<th>Deploy Height</th>\n\
-	<th>Locked Funds</th>\n\
-	<th>Owned Assets</th>\n\
-";
+		<h2>Deployed contracts</h2>\n\
+		<table class='tableContracts'>\n\
+			<thead><tr>\n\
+				<th>Cid</th>\n\
+				<th>Kind</th>\n\
+				<th>Deploy Height</th>\n\
+				<th>Locked Funds</th>\n\
+				<th>Owned Assets</th>\n\
+			</tr></thead>\n\
+		";
 
 		const jData = JSON.parse(this.responseText);
 		const jTbl = jData["value"];
@@ -287,18 +704,35 @@ table, th, td {
 			const jOwned = jRow[4]["value"];
 			if (jOwned)
 			{
-				text += "<table style=\"width:100%\">";
+				// Make collapsible and add some headers if more than a few lines
+				let maxRows = 5;
+				if (jOwned.length < maxRows) {
+					text += "<table class='tableOwned_compact'>";
+				} else {
+					text += MakeCollapsibleBegin(jOwned.length + "&nbsp;owned", "unchecked", "small");
+					text += "<table class='tableOwned_full'>\n\
+							<thead><tr>\n\
+								<th>Asset</th>\n\
+								<th>Description</th>\n\
+								<th>Amount</th>\n\
+							</tr></thead>\n";
+				}
+
 				for (let iF = 0; iF < jOwned.length; iF++)
 				{
 					const jFR = jOwned[iF];
 					text += "<tr>";
 					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style=\"width:10%\"");
-					text += MakeCell(jFR[1]);
+					text += MakeCell(MakeCollapsibleBegin("[description]", "", "small")
+									+ AddClass(jFR[1], "metadata")
+									+ MakeCollapsibleEnd());
 					text += MakeCellAmount(jFR[2]["value"], " style=\"width:40%\"");
 					text += "</tr>"
 				}
 				text += "</table>";
-			
+				if (jOwned.length < maxRows) {
+					text += MakeCollapsibleEnd();
+				}
 			}
 
 			text += "</td>";
@@ -315,14 +749,16 @@ table, th, td {
 	function DisplayAssetHistory()
 	{
 		let text = "\
-<h2>Asset " + g_CurrentID + " history</h2>\n\
-<table>\n\
-	<th>Height</th>\n\
-	<th>Event</th>\n\
-	<th>Amount</th>\n\
-	<th>Total Amount</th>\n\
-	<th>Extra</th>\n\
-";
+		<h2>History of Asset " + g_CurrentID + "</h2>\n\
+		<table class='tableAssetHistory'>\n\
+			<thead><tr>\n\
+				<th>Height</th>\n\
+				<th>Event</th>\n\
+				<th>Amount</th>\n\
+				<th>Total Amount</th>\n\
+				<th>Extra</th>\n\
+			</tr></thead>\n\
+		";
 
 		const jData = JSON.parse(this.responseText);
 		const jTblObj = jData["Asset history"];
@@ -351,45 +787,47 @@ table, th, td {
 	function MakeTableTxos(jTbl, isInp)
 	{
 		let text = "\
-<table>\n\
-	<th>Commitment</th>\n";
+		<table class='tableUTXO'>\n\
+			<thead><tr>\n\
+				<th>Commitment</th>\n";
 	
-	if (isInp)
-		text += "<th>Height</th>\n";
-	else
-		text += "<th>Spent</th>\n";
-	
-	text += "\
-	<th>Maturity</th>\n\
-	<th>Extra</th>\n\
-";
+		if (isInp)
+			text += "<th>Height</th>\n";
+		else
+			text += "<th>Spent</th>\n";
+		
+		text += "\
+				<th>Maturity</th>\n\
+				<th>Extra</th>\n\
+			</tr></thead>\n\
+		";
 
 		for (let i = 0; i < jTbl.length; i++)
 		{
 			let jRow = jTbl[i];
 			text += "<tr>";
 
-			text += MakeCell(MakeMonospace(jRow["commitment"]));
+			text += MakeCell(AddClass(jRow["commitment"], "commitment"));
 			delete jRow.commitment;
 	
 			let j = jRow[isInp ? "height" : "spent"];
 	
 			if (j != null)
 			{
-				text += MakeCell(MakeBlock(j));
+				text += MakeCellRA(MakeBlock(j));
 				delete jRow.height;
 			}
 			else
-				text += MakeCell("");
+				text += MakeCellRA("");
 
 			j = jRow["Maturity"];
 			if (j)
 			{
-				text += MakeCell(Obj2Html(j));
+				text += MakeCellRA(Obj2Html(j));
 				delete jRow.Maturity;
 			}
 			else
-				text += MakeCell("");
+				text += MakeCellRA("");
 				
 			let txtExtra = "";
 	
@@ -426,14 +864,16 @@ table, th, td {
 	function MakeTblAssets(j)
 	{
 		let text = "\
-<table>\n\
-	<th>Aid</th>\n\
-	<th>Owner</th>\n\
-	<th>Deposit</th>\n\
-	<th>Supply</th>\n\
-	<th>Lock-Height</th>\n\
-	<th>Metadata</th>\n\
-";
+		<table class='tableAssets'>\n\
+			<thead><tr>\n\
+				<th>Aid</th>\n\
+				<th>Owner</th>\n\
+				<th>Deposit</th>\n\
+				<th>Supply</th>\n\
+				<th>Lock-Height</th>\n\
+				<th>Metadata</th>\n\
+			</tr></thead>\n\
+		";
 
 		let jTbl = j["value"];
 		
@@ -447,8 +887,8 @@ table, th, td {
 			text += MakeCell(Obj2Html(jRow[1]));
 			text += MakeCellAmount(jRow[2]["value"]);
 			text += MakeCellAmount(jRow[3]["value"]);
-			text += MakeCell(MakeBlock(jRow[4]));
-			text += MakeCell(Obj2Html(jRow[5]));
+			text += MakeCellRA(MakeBlock(jRow[4]));
+			text += MakeCell(AddClass((jRow[5]), "metadata"));
 			
 			text += "</tr>";
 		}
@@ -467,19 +907,19 @@ table, th, td {
 	{
 		let text = "";
 		
-		text += "<span style='font-size:50px;'>";
+		text += "<h2 class='blockTitle'>";
 		if (g_CurrentID > 0)
 		{
-			text += MakeRef(UrlBlock(g_CurrentID - 1), MakeMonospace("&larr;"));
+			text += MakeRef(UrlBlock(g_CurrentID - 1), "&larr;");
 			text += " ";
-			text += MakeMonospace(g_CurrentID);
+			text += "Block " + AddClass(g_CurrentID, "blockHeight");
 		}
 		else
 			text += "Treasury";
 
 		text += " ";
-		text += MakeRef(UrlBlock(g_CurrentID - 1 + 2), MakeMonospace("&rarr;"));
-		text += "</span>"
+		text += MakeRef(UrlBlock(g_CurrentID - 1 + 2), "&rarr;");
+		text += "</h2>"
 
 		const jData = JSON.parse(this.responseText);
 
@@ -487,14 +927,13 @@ table, th, td {
 		if (j)
 		{
 			text += MakeCollapsibleBegin("Block Summary");
-			text += "<table>";
+			text += "<table class='tableSummary'>";
 			text += Obj2Html_TableRows(j["value"]);
 			text += "</table>";
-		
 			text += MakeCollapsibleEnd();
 		}
 
-		text += MakeCollapsibleBegin("Block contents");
+		text += MakeCollapsibleBegin("Block content");
 	
 		j = jData["inputs"];
 		if (j)
@@ -517,12 +956,14 @@ table, th, td {
 			text += "<h3>Kernels</h3>\n";
 
 			text += "\
-<table>\n\
-	<th>ID</th>\n\
-	<th>Fee</th>\n\
-	<th>Height</th>\n\
-	<th>Extra</th>\n\
-";
+			<table class='tableKernels'>\n\
+				<thead><tr>\n\
+					<th>ID</th>\n\
+					<th>Fee</th>\n\
+					<th>Height</th>\n\
+					<th>Extra</th>\n\
+				</tr></thead>\n\
+			";
 
 		
 			for (let i = 0; i < jTbl.length; i++)
@@ -530,7 +971,7 @@ table, th, td {
 				let jRow = jTbl[i];
 				text += "<tr>";
 
-				text += MakeCell(MakeMonospace(jRow["id"]));
+				text += MakeCell(AddClass(jRow["id"], "id"));
 				text += MakeCellRA(Obj2Html(jRow["fee"]));
 			
 				let txtH = "";
@@ -572,7 +1013,7 @@ table, th, td {
 		if (j)
 		{
 			text += MakeCollapsibleBegin("Totals");
-			text += "<table>";
+			text += "<table class='tableTotals'>";
 			text += Obj2Html_TableRows(j["value"]);
 			text += "</table>";
 			text += MakeCollapsibleEnd();
@@ -605,6 +1046,8 @@ table, th, td {
 		return retVal;
 	}
 
+	var rowHeight = ""; // Used to remember and repeat the latest row height (and avoid using rowspans in the CallHistoryAddRow function).
+	var rowNbr; // Used to number the subsequent rows.
 	function CallHistoryAddRow(jRow, depth, numRows)
 	{
 		let text = "";
@@ -625,8 +1068,18 @@ table, th, td {
 		{
 			text += "<tr>";
 			
-			if (depth == 0)
-				text += MakeCellEx(MakeBlock(jRow[0]), " rowSpan=" + numRows);
+			//if (depth == 0)
+			//	text += MakeCellEx(MakeBlock(jRow[0]), " rowSpan=" + numRows);
+
+			// We replace here the use of "rowspan" with a simple repetition to allow filtering and sorting
+			if (depth == 0) {
+				text += MakeCell(MakeBlock(jRow[0]));
+				rowHeight = jRow[0]; // Save it to repeat it on subsequent rows with same height
+				rowNbr = 1; // Start numbering subsequent rows
+			} else {
+				rowNbr++;
+				text += MakeCell(MakeBlock(rowHeight) + "&nbsp;(" + rowNbr + ")");
+			}
 
 			text += MakeCell(Obj2Html(jRow[1]));
 			text += MakeCell(Obj2Html(jRow[2]));
@@ -642,25 +1095,21 @@ table, th, td {
 		return text;
 	}
 	
-	function ToggleCollapsible()
+	function MakeCollapsibleBegin(title, checked="checked", variant="")
 	{
-		//this.classList.toggle("active");
-		var content = this.nextElementSibling;
-		if (content.style.display === "none") {
-		  content.style.display = "block";
-		} else {
-		  content.style.display = "none";
-		}
-	}
-	
-	function MakeCollapsibleBegin(title)
-	{
-		return "<button type=\"button\" class=\"collapsible\">" + title + "</button><div class=\"content\">";
+		// Create a random ID (to connect the checkbox to its label)
+		let someId = "id_" + Math.floor(Math.random() * 1000000);
+		// Create a checkbox, its label and a div for the collapsible content
+		return "<div class='collapsible'>\n\
+					<input type='checkbox' id='" + someId + "' class='collapsible-checkbox' " + checked + ">\n\
+					<label for='" + someId + "' class='collapsible-label " + variant + "'>" + title + "</label>\n\
+					<div class='collapsible-content " + variant + "'>\n";
 	}
 	
 	function MakeCollapsibleEnd()
 	{
-		return "</div>";
+		// Close the opened divs
+		return "</div></div>\n";
 	}
 	
 	function MakeMoreLink(jTblObj)
@@ -673,27 +1122,29 @@ table, th, td {
 		let args = urlObj.searchParams;
 		
 		for (let key in jMore)
-			args.set(key, jMore[key]);
+			args.set(key, jMore[key] + 1);
 			
-		return "<p>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
+		return "<p class='more'>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
 	}
 
 	function DisplayContractState()
 	{
 		let text = "\
-<h2>Contract " + MakeMonospace(g_CurrentID) + "</h2>\n";
+		<h2>Contract " + AddClass(g_CurrentID, "cidTitle") + "</h2>\n";
 
 	text += MakeCollapsibleBegin("Call history") + "\
-<table>\n\
-	<th>Height</th>\n\
-	<th>Cid</th>\n\
-	<th>Kind</th>\n\
-	<th>Method</th>\n\
-	<th>Arguments</th>\n\
-	<th>Funds</th>\n\
-	<th>Emisison</th>\n\
-	<th>Keys</th>\n\
-";
+	<table class='tableCallHistory'>\n\
+		<thead><tr>\n\
+			<th>Height</th>\n\
+			<th>Cid</th>\n\
+			<th>Kind</th>\n\
+			<th>Method</th>\n\
+			<th>Arguments</th>\n\
+			<th>Funds</th>\n\
+			<th>Emisison</th>\n\
+			<th>Keys</th>\n\
+		</tr></thead>\n\
+	";
 
 		const jData = JSON.parse(this.responseText);
 		const jTblObj = jData["Calls history"];
@@ -702,7 +1153,7 @@ table, th, td {
 		// skip 1st row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
 		{
-			text += "<tr><td colspan=99></td></tr>";
+			//text += "<tr><td colspan=99></td></tr>";
 			text += CallHistoryAddRow(jTbl[iRow], 0, get_CallRows(jTbl[iRow]));
 		}
 	
@@ -734,7 +1185,10 @@ table, th, td {
 	{
 		const jData = JSON.parse(this.responseText);
 	
-		let text = Obj2Html(jData);
+		let text = "<h2>Block headers</h2>";
+		text += "<div class='divTableBlocks'>";
+		text += Obj2Html(jData);
+		text += "</div>";
 		text += MakeMoreLink(jData);
 
 		SetContent(text);
@@ -744,13 +1198,15 @@ table, th, td {
 	{
 		const jData = JSON.parse(this.responseText);
 	
-		let text = MakeCollapsibleBegin("Blockchain status");
-		text += Obj2Html(jData);
-		text += MakeCollapsibleEnd();
-
-		text += "<h3>" + MakeRef(UrlSelf("contracts", ""), "Contracts") + "</h3>";
+		let text = "<h3>" + MakeRef(UrlSelf("hdrs", ""), "Recent Block Headers") + "</h3>";
 		text += MakeCAs(jData["h"]);
-		text += "<h3>" + MakeRef(UrlSelf("hdrs", ""), "Recent block headers") + "</h3>";
+		text += "<h3>" + MakeRef(UrlSelf("contracts", ""), "Deployed Contracts") + "</h3>";
+
+		text += MakeCollapsibleBegin("Blockchain status");
+		text += "<div class='divTableStatus'>"; // Added to avoid adding filters to these specific tables...
+		text += Obj2Html(jData);
+		text += "</div>"
+		text += MakeCollapsibleEnd();
 
 		SetContent(text);
 	}
@@ -823,6 +1279,181 @@ table, th, td {
 		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
 		xmlhttp.send();
 	}
+
+	// ALLOW ADDING FILTERS TO FIRST ROW OF ALL LONG TABLES
+	function addFilterOption() {
+		for (let myTable of document.getElementsByTagName("table")) {
+			// Ignore tables of certain known classes
+			if (!myTable.classList.contains("tableTotals") && !myTable.classList.contains("tableSummary") && !myTable.closest('.divTableStatus')) {
+				let myRow = myTable.rows[0];
+				// Apply only to tables with more than a 5 lines
+				if (myTable.rows.length > 5) {
+					myRow.classList.add("filtersOff");
+					myRow.addEventListener("click", addSortAndSearch);			
+				} else {
+					// If *all* cells of the first row have a span with a "th" class, still mark the row as a "header" (but without filters)
+					if (myRow.querySelectorAll("td > span.th").length == myRow.cells.length) {
+						myRow.classList.add("filtersNot");
+					}
+				}
+			}
+		}
+	}
+
+	// ADD SORT AND SEARCH FILTERS TO FIRST ROW OF A GIVEN TABLE
+	function addSortAndSearch(e)
+	{
+		// Get element of the event (the first row)
+		let myRow = e.currentTarget;
+
+		// Replace previous class and remove event
+		myRow.classList.remove("filtersOff");
+		myRow.classList.add("filtersOn");
+		myRow.removeEventListener("click", addSortAndSearch);
+
+		// Apply to each cell of the first row (whether 'th' or 'td', it doesn't matter)
+		for (let myHeader of myRow.cells) {
+			// Wrap each header text into a div (will be clickable for sorting),
+			// and then add a search input field below it.
+			let myHTML = myHeader.innerHTML;
+			myHeader.innerHTML = "\
+					<div class='headerCell'>\n\
+						<div class='sortable'>" + myHTML + "</div>\n\
+						<input type='text' class='searchable' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'>\n\
+					</div>\n";
+			// Add event listeners to both elements
+			myHeader.querySelector(".sortable").addEventListener("click", sortTable);
+			myHeader.querySelector(".searchable").addEventListener("keyup", filterTable);
+		}
+	}
+
+	// SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
+	function sortTable(e) {
+		// Declare variables
+		let input, col, tr, table, dir, rows, switching, i, x, y, xVal, yVal, shouldSwitch, switchcount = 0;
+
+		// Get element, table and column number of the event
+		input = e.currentTarget;
+		col = input.closest('th,td').cellIndex;
+		tr = input.closest('tr');
+		table = input.closest('table');
+
+		// Set the default sorting direction as descending
+		// (or switch to ascending if already sorted descending)
+		dir = (input.classList.contains("desc")) ? "asc" : "desc";
+
+		// Reset all sorting classes in this table headers
+		for (let myHeader of tr.getElementsByClassName("sortable")) {
+			myHeader.className = "sortable";
+		}
+
+		// Make an array with the table rows
+		rows = table.rows;
+		let rowsArray = Array.from(rows);
+		// Remove the first row (the headers)
+		rowsArray.shift();
+
+		// Make an array from the content of the each cell of the selected column
+		let colArray = rowsArray.map(function(item, index) {
+			// Get the content of the cell in the column being sorted
+			let myCell = item.getElementsByTagName("td")[col];
+			// Get its value and remove comas (for numbers to be recognized as such).
+			// Also add its initial row index (will allow reordering the table rows).
+			let valArray = [myCell.innerText.replace(/,/g,''), index];
+			return valArray;
+		});
+
+		// We initialise two collators for sorting:
+		// One for "alphabetical sorting" (character by character, insensitive to case and accents).
+		// One for "natural sorting" (same, except numbers are treated numerically: "Asset-1" < "Asset-2" < "Asset-10").
+		let collator1 = Intl.Collator("en-US", {numeric: false, sensitivity: "base", usage: "sort", ignorePunctuation: "false"});
+		let collator2 = Intl.Collator("en-US", {numeric: true, sensitivity: "base", usage: "sort", ignorePunctuation: "false"});
+
+		// Sort the array (in ascending order by default)
+		colArray.sort(function([a,b],[c,d]) {
+			// Compare as numbers
+			if (!isNaN(a) && !isNaN(c)) {return a - c}
+			// Compare as address
+			else if (/^[a-fA-F0-9]*$/.test(a) && /^[a-fA-F0-9]*$/.test(c)) {return collator1.compare(a,c)}
+			// Compare as other strings
+			else {return collator2.compare(a,c)}
+		});
+		// Reverse the array for descending order
+		if (dir == "desc") {colArray.reverse();}
+		
+		// Remark: The parent of a row is a tbody (even if not explictely defined)
+		let tbody = rows[1].parentNode;
+		// Loop through the array of sorted cells to reorder the table rows
+		for (let sortedCol of colArray) {
+			// Move each corresponding row to the end of the table.
+			tbody.appendChild(rowsArray[sortedCol[1]]);
+		}
+
+		// Update class by adding the sorting direction
+		input.className = "sortable " + dir;
+	}
+
+	// FILTER ROWS ACCORDING TO A SEARCH STRING
+	function filterTable(e) {
+		// Declare variables
+		let table, rows, input, filter, i, j, td, txtValue, status;
+		
+		// Get table and rows
+		table = e.currentTarget.closest('table');
+		rows = table.rows;
+		
+		// Initialize results array with all 1 (= all rows are visible)
+		let results = new Array(rows.length).fill(1);
+
+		// Loop on all header cells (so that multiple searches can be combined!)
+		for (j = 0; j < (rows[0].cells.length); j++) {
+			// Get search input field
+			input = rows[0].cells[j].querySelector(".searchable");
+			// Get search query (we use toUpperCase() to perform a case-insensitive search)
+			filter = input.value.toUpperCase();
+			// Apply search query if it's non-empty
+			if (filter != "") {
+				// Loop on all rows (except header)
+				for (i = 1; i < (rows.length); i++) {
+					// Only test cell if the row is not already marked as hidden
+					if (results[i] != 0) {
+						// Get cell
+						td = rows[i].cells[j];
+						if (td) {
+							// Get cell content
+							txtValue = td.textContent || td.innerText;
+							// Mark row as hidden if there is no match
+							if (txtValue.toUpperCase().indexOf(filter) == -1) {
+								results[i] = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+		// Apply final results by hidding all needed rows
+		for (i = 1; i < (rows.length); i++) {
+			status = (results[i] == 0) ? "collapse" : "visible";
+			rows[i].style.visibility = status;
+		}
+	}
+
+	// SCROLL BACK TO TOP
+	window.onscroll = function() {scrollFunction()};
+	// When the user scrolls down 40px from the top, show the button
+	function scrollFunction() {
+		let mybutton = document.getElementById("TopButton");
+		if (document.body.scrollTop > 40 || document.documentElement.scrollTop > 40) {
+			mybutton.style.display = "block";
+		} else {
+			mybutton.style.display = "none";
+		}
+	}
+	// When the user clicks on the button, scroll to the top of the document
+	function topFunction() {
+		document.body.scrollTop = 0; // For Safari
+		document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+	} 
 
 </script>
 
