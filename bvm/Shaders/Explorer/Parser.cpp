@@ -25,6 +25,7 @@ namespace Testnet {
 #include "../dao-core-testnet/contract.h"
 }
 #include "../minter/contract.h"
+#include "../blackhole/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -196,6 +197,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Faucet, Faucet::s_SID) \
 	macro(Faucet2, Faucet2::s_SID) \
 	macro(Minter, Minter::s_SID) \
+	macro(BlackHole, BlackHole::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -2223,6 +2225,19 @@ void ParserContext::OnState_Minter()
 	// TODO - tokens list
 }
 
+void ParserContext::OnMethod_BlackHole()
+{
+	switch (m_iMethod)
+	{
+	case BlackHole::Method::Deposit::s_iMethod:
+		OnMethod("Deposit");
+		break;
+	}
+}
+
+void ParserContext::OnState_BlackHole()
+{
+}
 
 void ParserContext::WriteAmmSettings(const Amm::Settings& stg)
 {
