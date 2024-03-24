@@ -1003,21 +1003,28 @@ namespace
     {
         auto walletDB = OpenDataBase(vm);
 
+        WalletAddress wa;
+
         string sToken = vm[cli::WALLET_ADDR].as<string>();
-        auto pAddr = walletDB->getAddressByToken(sToken);
-        if (!pAddr)
+        if (sToken.empty() || (sToken == "*"))
+            walletDB->getDefaultAddressAlways(wa);
+        else
         {
-            std::cout << "No such an address" << std::endl;
-            return 1;
+            auto pAddr = walletDB->getAddressByToken(sToken);
+            if (!pAddr)
+            {
+                std::cout << "No such address" << std::endl;
+                return 1;
+            }
+
+            wa = std::move(*pAddr);
         }
 
-        const auto& addr = *pAddr;
-
         std::cout
-            << kAddrListAddress << addr.m_Token << std::endl
-            << kAddrListEndpoint << std::to_base58(addr.m_Endpoint) << std::endl;
+            << kAddrListAddress << wa.m_Token << std::endl
+            << kAddrListEndpoint << std::to_base58(wa.m_Endpoint) << std::endl;
 
-        if (!addr.isOwn())
+        if (!wa.isOwn())
         {
             std::cout << "Address not owned" << std::endl;
             return 1;
@@ -1031,7 +1038,7 @@ namespace
         }
 
         IPrivateKeyKeeper2::Method::DisplayEndpoint m;
-        m.m_iEndpoint = addr.m_OwnID;
+        m.m_iEndpoint = wa.m_OwnID;
         auto st = pKk->InvokeSync(m);
         if (IPrivateKeyKeeper2::Status::Success != st)
         {

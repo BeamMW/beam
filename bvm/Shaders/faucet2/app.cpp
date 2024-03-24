@@ -189,7 +189,7 @@ ON_METHOD(user, view_params)
 
     Faucet2::State s;
     if (!Env::VarReader::Read_T(k, s))
-        return OnError("no such a contract");
+        return OnError("no such contract");
 
     {
         Env::DocGroup gr("params");

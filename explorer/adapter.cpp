@@ -2235,7 +2235,7 @@ private:
 
                 if (!--nMax)
                 {
-                    hMore = sid.m_Height - 1;
+                    hMore = sid.m_Height;
                     bDone = true;
                 }
 

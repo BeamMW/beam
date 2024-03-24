@@ -246,7 +246,7 @@ struct PoolsWalker
     {
         if (Move())
             return true;
-        OnError("no such a pool");
+        OnError("no such pool");
         return false;
     }
 

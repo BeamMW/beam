@@ -168,7 +168,7 @@ struct ProposalWrap
         if (MoveNext())
             return true;
 
-        OnError("no such a proposal");
+        OnError("no such proposal");
         return false;
     }
 

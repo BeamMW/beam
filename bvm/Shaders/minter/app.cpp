@@ -83,7 +83,7 @@ bool LoadSettings(Settings& s, const ContractID& cid)
     if (Env::VarReader::Read_T(k, s))
         return true;
 
-    OnError("no such a contract");
+    OnError("no such contract");
     return false;
 }
 
@@ -250,7 +250,7 @@ ON_METHOD(view_token)
             wlk.PrintIsOwned();
         }
         else
-            OnError("no such a token");
+            OnError("no such token");
     }
     else
         PrintTokens(cid, false);
@@ -348,7 +348,7 @@ ON_METHOD(withdraw)
     TokenWalker wlk;
     wlk.Enum(cid, aid);
     if (!wlk.MoveNext())
-        return OnError("no such a token");
+        return OnError("no such token");
 
     if (!wlk.m_IsOwned)
         return OnError("not owner");
