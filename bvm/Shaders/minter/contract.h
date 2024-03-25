@@ -72,7 +72,7 @@ namespace Minter
         {
             static const uint32_t s_iMethod = 2;
 
-            Token m_Result; // seto to 0 if no such token
+            Token m_Result; // set to 0 if no such token
         };
 
         struct CreateToken :public Base
