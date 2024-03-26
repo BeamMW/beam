@@ -1046,8 +1046,8 @@
 		return retVal;
 	}
 
-	var rowHeight = ""; // Used to remember and repeat the latest row height (and avoid using rowspans in the CallHistoryAddRow function).
-	var rowNbr; // Used to number the subsequent rows.
+	//var rowHeight = ""; // Used to remember and repeat the latest row height (and avoid using rowspans in the CallHistoryAddRow function).
+	//var rowNbr; // Used to number the subsequent rows.
 	function CallHistoryAddRow(jRow, depth, numRows)
 	{
 		let text = "";
@@ -1074,11 +1074,12 @@
 			// We replace here the use of "rowspan" with a simple repetition to allow filtering and sorting
 			if (depth == 0) {
 				text += MakeCell(MakeBlock(jRow[0]));
-				rowHeight = jRow[0]; // Save it to repeat it on subsequent rows with same height
-				rowNbr = 1; // Start numbering subsequent rows
+				//rowHeight = jRow[0]; // Save it to repeat it on subsequent rows with same height
+				//rowNbr = 1; // Start numbering subsequent rows
 			} else {
-				rowNbr++;
-				text += MakeCell(MakeBlock(rowHeight) + "&nbsp;(" + rowNbr + ")");
+				//rowNbr++;
+				//text += MakeCell(MakeBlock(rowHeight) + "&nbsp;(" + rowNbr + ")");
+				text += MakeCell("");
 			}
 
 			text += MakeCell(Obj2Html(jRow[1]));
@@ -1122,7 +1123,7 @@
 		let args = urlObj.searchParams;
 		
 		for (let key in jMore)
-			args.set(key, jMore[key] + 1);
+			args.set(key, jMore[key]);
 			
 		return "<p class='more'>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
 	}
