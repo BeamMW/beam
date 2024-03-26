@@ -33,8 +33,8 @@ BEAM is a Confidential Cryptocurrency and DeFi Platform
 
 ### JOIN OUR COMMUNITIES 
 
-Telegram: [English](https://t.me/BeamPrivacy) | [Русский](https://t.me/Beam_RU) | [中文](https://t.me/beamchina) | [日本語](https://t.me/beamjp)
-[twitter](https://twitter.com/beamprivacy) | [medium](https://medium.com/beam-mw) | [reddit](https://www.reddit.com/r/beamprivacy/) | [gitter](https://gitter.im/beamprivacy/Lobby) | [bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [youtube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
+Telegram: [English](https://t.me/BeamPrivacy) | [Русский](https://t.me/Beam_RU) | [中文](https://t.me/beamchina) | [日本語](https://t.me/beamjp) <br>
+[Discord](https://discord.com/invite/fwfArUqpfh) | [Twitter/X](https://twitter.com/beamprivacy) | [Medium](https://medium.com/beam-mw) | [Reddit](https://www.reddit.com/r/beamprivacy/) | [Gitter](https://gitter.im/beamprivacy/Lobby) | [Bitcointalk](https://bitcointalk.org/index.php?topic=5052151.0) | [YouTube](https://www.youtube.com/channel/UCddqBnfSPWibf4f8OnEJm_w?)
 
 ### Community projects
 
