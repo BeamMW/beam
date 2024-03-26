@@ -97,7 +97,7 @@ namespace bvm2 {
 			{
 				Blake2b(const void* pPersonal, uint32_t nPersonal, uint32_t nResultSize)
 				{
-					BEAM_VERIFY(Init(pPersonal, nPersonal, nResultSize)); // should no fail with internally specified params
+					BEAM_VERIFY(Init(pPersonal, nPersonal, nResultSize)); // should not fail with internally specified params
 				}
 			};
 		};
