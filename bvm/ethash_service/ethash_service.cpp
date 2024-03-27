@@ -176,7 +176,7 @@ namespace
     {
         GetProof::Response res;
         std::string sEpoch = std::to_string(data.epoch);
-        LOG_DEBUG() << "Gettring proof for epoch: " << sEpoch;
+        LOG_DEBUG() << "Getting proof for epoch: " << sEpoch;
         res.datasetCount = beam::EthashUtils::GenerateProof(
             data.epoch,
             (m_DataPath + sEpoch + ".cache").c_str(),
