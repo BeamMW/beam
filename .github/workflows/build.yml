@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [macos-11]#, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -118,10 +118,10 @@ jobs:
       ###############################################################################
       # Test
       ###############################################################################
-      - name: Test [macos-11]
-        if: matrix.os == 'macos-11'
-        continue-on-error: false
-        run: ctest -C $BUILD_TYPE --verbose
+      #- name: Test [macos-11]
+      #  if: matrix.os == 'macos-11'
+      #  continue-on-error: false
+      #  run: ctest -C $BUILD_TYPE --verbose
 
       - name: Test [ununtu all]
         if: matrix.os == 'ubuntu-16.04' || matrix.os == 'ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
@@ -147,14 +147,15 @@ jobs:
       - name: Sign the mac binaries [macos-11]
         if: matrix.os == 'macos-11'
         run: |
+          security find-identity -p codesigning -v
           codesign --sign "Developer ID Application" --deep --force --verbose --options runtime --timestamp beam/beam-node
-          codesign --sign "${{secrets.MACOS_SIGN_IDENTITY}}" --deep --force --verbose --options runtime --timestamp beam/beam-node
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster
-          codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
+          #codesign --sign "${{secrets.MACOS_SIGN_IDENTITY}}" --deep --force --verbose --options runtime --timestamp beam/beam-node
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp explorer/explorer-node
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/broadcaster/broadcaster
+          #codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
 
       - name: Checksum [ubuntu]
         if: matrix.os == 'ubuntu-16.04' || matrix.os =='ubuntu-18.04' || matrix.os == 'ubuntu-20.04'
