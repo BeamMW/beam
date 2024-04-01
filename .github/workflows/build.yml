@@ -147,6 +147,8 @@ jobs:
       - name: Sign the mac binaries [macos-11]
         if: matrix.os == 'macos-11'
         run: |
+          codesign --sign "Developer ID Application" --deep --force --verbose --options runtime --timestamp beam/beam-node
+          codesign --sign "${{secrets.MACOS_SIGN_IDENTITY}}" --deep --force --verbose --options runtime --timestamp beam/beam-node
           codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp beam/beam-node
           codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/cli/beam-wallet
           codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp wallet/api/wallet-api
