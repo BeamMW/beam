@@ -167,7 +167,7 @@ static bool data_from_number_token(data_chunk& out_data,
     }
 }
 
-// The removal of spaces in v3 data is a compatability break with our v2.
+// The removal of spaces in v3 data is a compatibility break with our v2.
 bool operation::from_string(const std::string& mnemonic)
 {
     reset();

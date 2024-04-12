@@ -91,7 +91,7 @@ std::streambuf::int_type unicode_streambuf::overflow(
     std::streambuf::int_type character)
 {
     // Add a single explicitly read byte to the buffer.
-    // The narrow buffer is underexposed by 1 byte to accomodate this.
+    // The narrow buffer is underexposed by 1 byte to accommodate this.
     if (character != traits_type::eof())
     {
         *pptr() = static_cast<char>(character);
