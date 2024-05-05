@@ -78,7 +78,7 @@ ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
     try {
         o = json::parse(bufc, bufc + bufSize);
     } catch (const std::exception& e) {
-        LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(bufc, bufc + (bufSize > 1024 ? 1024 : bufSize));
+        BEAM_LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(bufc, bufc + (bufSize > 1024 ? 1024 : bufSize));
         return message_corrupted;
     }
     return no_error;
@@ -98,7 +98,7 @@ ResultCode parse_base(const json& o, Message& m) {
         m.method = get_method(m.method_str);
         if (m.method == 0) return unknown_method;
     } catch (const std::exception& e) {
-        LOG_ERROR() << "json parse: " << e.what();
+        BEAM_LOG_ERROR() << "json parse: " << e.what();
         return message_corrupted;
     }
     return no_error;
@@ -252,7 +252,7 @@ bool parse_json_msg(const void* buf, size_t bufSize, ParserCallback& callback) {
         default:break;
         }
     } catch (const std::exception& e) {
-        LOG_ERROR() << "json parse: " << e.what();
+        BEAM_LOG_ERROR() << "json parse: " << e.what();
     }
     return false;
 }

@@ -1062,10 +1062,10 @@ vector<Coin> SelectCoins(IWalletDB::Ptr db, Amount amount, bool printCoins = tru
         sum += coin.m_ID.m_Value;
         if (printCoins)
         {
-            LOG_INFO() << coin.m_ID.m_Value;
+            BEAM_LOG_INFO() << coin.m_ID.m_Value;
         }
     }
-    LOG_INFO() << "sum = " << sum << " change = " << sum - amount;
+    BEAM_LOG_INFO() << "sum = " << sum << " change = " << sum - amount;
     WALLET_CHECK(amount <= sum);
 #ifdef NDEBUG
     WALLET_CHECK(sw.milliseconds() <= 1000);
@@ -1706,9 +1706,9 @@ void TestShieldedStatus2()
 
 int main() 
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();

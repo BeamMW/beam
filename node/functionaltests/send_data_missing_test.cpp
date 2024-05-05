@@ -34,7 +34,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 void TestNodeConnection::OnDisconnect(const DisconnectReason&)
 {
-	LOG_INFO() << "Ok: connection is reset";
+	BEAM_LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();
 }
 
@@ -42,14 +42,14 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send DataMissing message";
+		BEAM_LOG_INFO() << "Send DataMissing message";
 		Send(proto::DataMissing(Zero));
 	});
 }
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

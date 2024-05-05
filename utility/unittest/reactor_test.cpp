@@ -50,7 +50,7 @@ void error_codes_test() {
     std::string str;
 #define XX(code, _) \
     str = format_io_error("", "", 0, EC_ ## code); \
-    LOG_VERBOSE() << str; \
+    BEAM_LOG_VERBOSE() << str; \
     assert(str.find(unknown_descr) == string::npos);
 
     UV_ERRNO_MAP(XX)
@@ -58,9 +58,9 @@ void error_codes_test() {
 }
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     reactor_start_stop();

@@ -102,7 +102,7 @@ namespace beam::wallet
         }
         catch(...)
         {
-            LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << request;
+            BEAM_LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << request;
         }
 
         const auto err = formError(rpcId, code, errorText);
@@ -177,7 +177,7 @@ namespace beam::wallet
         auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
-            LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
+            BEAM_LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
             return ApiSyncMode::DoneSync;
         }
 
@@ -186,7 +186,7 @@ namespace beam::wallet
             FilterRequest(messageCopy);
 
             const auto message = messageCopy.dump(1, '\t');
-            LOG_VERBOSE() << "executeAPIRequest:\n" << message;
+            BEAM_LOG_VERBOSE() << "executeAPIRequest:\n" << message;
         }
 
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, &pinfo] () -> ApiSyncMode {

@@ -198,7 +198,7 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
                 return a + kElectrumSeparateSymbol + b;
             });
 
-            LOG_INFO() << "seed = " << strSeed;
+            BEAM_LOG_INFO() << "seed = " << strSeed;
         }
 
         settings.SetElectrumConnectionOptions(electrumSettings);
@@ -318,7 +318,7 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
             }
         }
 
-        LOG_ERROR() << "unknown parameter";
+        BEAM_LOG_ERROR() << "unknown parameter";
         return -1;
     }
 
@@ -330,7 +330,7 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB)
 
     if (!isChanged && !settings.IsInitialized())
     {
-        LOG_INFO() << "settings should be specified.";
+        BEAM_LOG_INFO() << "settings should be specified.";
         return -1;
     }
 
@@ -393,11 +393,11 @@ void ShowSwapSettings(const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
         }
         stream << "Active connection: " << bitcoin::to_string(settings.GetCurrentConnectionType()) << '\n';
 
-        LOG_INFO() << stream.str();
+        BEAM_LOG_INFO() << stream.str();
         return;
     }
 
-    LOG_INFO() << GetCoinName(swapCoin) << " settings are not initialized.";
+    BEAM_LOG_INFO() << GetCoinName(swapCoin) << " settings are not initialized.";
 }
 
 int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, wallet::AtomicSwapCoin swapCoin)
@@ -449,7 +449,7 @@ int SetEthSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, 
 
     if (!isChanged && !settings.IsInitialized())
     {
-        LOG_INFO() << "settings should be specified.";
+        BEAM_LOG_INFO() << "settings should be specified.";
         return -1;
     }
 
@@ -488,11 +488,11 @@ void ShowEthSettings(const IWalletDB::Ptr& walletDB)
         stream << "Account index: " << settings.m_accountIndex << '\n';
         stream << "Should connect: " << settings.m_shouldConnect << '\n';
 
-        LOG_INFO() << stream.str();
+        BEAM_LOG_INFO() << stream.str();
         return;
     }
 
-    LOG_INFO() << GetCoinName(AtomicSwapCoin::Ethereum) << " settings are not initialized.";
+    BEAM_LOG_INFO() << GetCoinName(AtomicSwapCoin::Ethereum) << " settings are not initialized.";
 }
 
 template<typename SettingsProvider, typename Bridge, typename BridgeHolder>
@@ -976,7 +976,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         const auto& readyForTokenizeTxParams =
             PrepareSwapTxParamsForTokenization(mirroredTxParams);
         auto swapTxToken = std::to_string(readyForTokenizeTxParams);
-        LOG_INFO() << "Swap token: " << swapTxToken;
+        BEAM_LOG_INFO() << "Swap token: " << swapTxToken;
     }
     return currentTxID;
 }
@@ -1113,7 +1113,7 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     if (!isAccepted)
     {
-        LOG_INFO() << "Swap rejected!";
+        BEAM_LOG_INFO() << "Swap rejected!";
         return boost::none;
     }
 

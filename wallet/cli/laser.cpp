@@ -35,7 +35,7 @@ void LaserObserver::OnOpened(const laser::ChannelIDPtr& chID)
     }
     else if (m_vm.count(cli::LASER_WAIT))
     {
-        LOG_INFO() << boost::format(kLaserMessageChannelServed)
+        BEAM_LOG_INFO() << boost::format(kLaserMessageChannelServed)
                    % to_hex(chID->m_pData, chID->nBytes);
     }
     LaserShow(m_walletDB);
@@ -43,7 +43,7 @@ void LaserObserver::OnOpened(const laser::ChannelIDPtr& chID)
 
 void LaserObserver::OnOpenFailed(const laser::ChannelIDPtr& chID)
 {
-    LOG_ERROR() << boost::format(kLaserErrorOpenFailed)
+    BEAM_LOG_ERROR() << boost::format(kLaserErrorOpenFailed)
                 % to_hex(chID->m_pData, chID->nBytes);
     io::Reactor::get_Current().stop();
 }
@@ -54,7 +54,7 @@ void LaserObserver::OnClosed(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_INFO() << boost::format(kLaserMessageClosed)
+    BEAM_LOG_INFO() << boost::format(kLaserMessageClosed)
                % to_hex(chID->m_pData, chID->nBytes);
     LaserShow(m_walletDB); 
 }
@@ -65,7 +65,7 @@ void LaserObserver::OnCloseFailed(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_ERROR() << boost::format(kLaserMessageCloseFailed)
+    BEAM_LOG_ERROR() << boost::format(kLaserMessageCloseFailed)
                 % to_hex(chID->m_pData, chID->nBytes);
 }
 
@@ -79,13 +79,13 @@ void LaserObserver::OnUpdateFinished(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_INFO() << boost::format(kLaserMessageUpdateFinished)
+    BEAM_LOG_INFO() << boost::format(kLaserMessageUpdateFinished)
                % to_hex(chID->m_pData, chID->nBytes);
 }
 
 void LaserObserver::OnTransferFailed(const laser::ChannelIDPtr& chID)
 {
-    LOG_ERROR() << boost::format(kLaserErrorTransferFailed)
+    BEAM_LOG_ERROR() << boost::format(kLaserErrorTransferFailed)
                 % to_hex(chID->m_pData, chID->nBytes);
 }
 
@@ -95,7 +95,7 @@ void LaserObserver::OnExpired(const laser::ChannelIDPtr& chID)
     {
         io::Reactor::get_Current().stop();
     }
-    LOG_INFO() << boost::format(kLaserMessageExpired)
+    BEAM_LOG_INFO() << boost::format(kLaserMessageExpired)
                % to_hex(chID->m_pData, chID->nBytes);
     LaserShow(m_walletDB); 
 }
@@ -111,7 +111,7 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
     {
         if (!vm.count(cli::LASER_TARGET_ADDR))
         {
-            LOG_ERROR() << kErrorReceiverAddrMissing;
+            BEAM_LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
         receiverWalletID->FromHex(vm[cli::LASER_TARGET_ADDR].as<string>());
@@ -119,13 +119,13 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
 
     if (!vm.count(cli::LASER_AMOUNT_MY))
     {
-        LOG_ERROR() << kLaserErrorMyAmountMissing;
+        BEAM_LOG_ERROR() << kLaserErrorMyAmountMissing;
         return false;
     }
 
     if (!vm.count(cli::LASER_AMOUNT_TARGET))
     {
-        LOG_ERROR() << kLaserErrorTrgAmountMissing;
+        BEAM_LOG_ERROR() << kLaserErrorTrgAmountMissing;
         return false;
     }
 
@@ -139,7 +139,7 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
 
     if (*aMy == 0 && *aTrg == 0)
     {
-        LOG_ERROR() << "My amount and Remote side amount are Zero";
+        BEAM_LOG_ERROR() << "My amount and Remote side amount are Zero";
         return false;
     }
 
@@ -153,13 +153,13 @@ bool LoadLaserParams(const po::variables_map& vm, laser::Mediator& mediator,
         *fee = vm[cli::LASER_FEE].as<Nonnegative<Amount>>().value;
         if (*fee < feeMin)
         {
-            LOG_ERROR() << "Failed to initiate the operation. The minimum fee is " << feeMin << " groth.";
+            BEAM_LOG_ERROR() << "Failed to initiate the operation. The minimum fee is " << feeMin << " groth.";
             return false;
         }
     }
     else
     {
-        LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << feeMin;
+        BEAM_LOG_INFO() << "\"--" << cli::LASER_FEE << "\" param is not specified, using default fee = " << feeMin;
         *fee = feeMin;
     }
 
@@ -231,7 +231,7 @@ bool LaserOpen(const MediatorPtr& laser,
 
     if (!LoadLaserParams(vm, *laser, &aMy, &aTrg, &fee, &receiverWalletID))
     {
-        LOG_ERROR() << kLaserErrorParamsRead;
+        BEAM_LOG_ERROR() << kLaserErrorParamsRead;
         return false;
     }
 
@@ -248,7 +248,7 @@ bool LaserWait(const MediatorPtr& laser,
 
     if (!LoadLaserParams(vm, *laser, &aMy, &aTrg, &fee, &receiverWalletID, true))
     {
-        LOG_ERROR() << kLaserErrorParamsRead;
+        BEAM_LOG_ERROR() << kLaserErrorParamsRead;
         return false;
     }
 
@@ -267,7 +267,7 @@ bool LaserServe(const MediatorPtr& laser,
 
     if (channelIDs.empty())
     {
-        LOG_ERROR() << "Channels not specified";
+        BEAM_LOG_ERROR() << "Channels not specified";
         return false;
     }
 
@@ -277,7 +277,7 @@ bool LaserServe(const MediatorPtr& laser,
         if (laser->Serve(channelID)) ++count;
     }
 
-    LOG_INFO() << "Listen: " << count
+    BEAM_LOG_INFO() << "Listen: " << count
                << (count == 1 ? " channel" : " channels");
     return count != 0;
 }
@@ -287,7 +287,7 @@ bool LaserTransfer(const MediatorPtr& laser,
 {
     if (!vm.count(cli::LASER_CHANNEL_ID))
     {
-        LOG_ERROR() << kLaserErrorChannelIdMissing;
+        BEAM_LOG_ERROR() << kLaserErrorChannelIdMissing;
         return false;
     }
 
@@ -296,7 +296,7 @@ bool LaserTransfer(const MediatorPtr& laser,
     Amount amount = static_cast<ECC::Amount>(std::round(myAmount));
     if (!amount)
     {
-        LOG_ERROR() << kErrorZeroAmount;
+        BEAM_LOG_ERROR() << kErrorZeroAmount;
         return false;
     }
 
@@ -310,7 +310,7 @@ void LaserShow(const IWalletDB::Ptr& walletDB)
     auto channels = walletDB->loadLaserChannels();
     if (channels.empty())
     {
-        LOG_INFO() << "You has no laser channels yet";
+        BEAM_LOG_INFO() << "You has no laser channels yet";
         return;
     }
 
@@ -350,7 +350,7 @@ bool LaserDrop(const MediatorPtr& laser,
 
     if (channelIDs.empty())
     {
-        LOG_ERROR() << "Channels not specified";
+        BEAM_LOG_ERROR() << "Channels not specified";
         return false;
     }
 
@@ -360,7 +360,7 @@ bool LaserDrop(const MediatorPtr& laser,
         if (laser->Close(channelID)) ++count;
     }
 
-    LOG_INFO() << "Close sceduled for: " << count
+    BEAM_LOG_INFO() << "Close sceduled for: " << count
                << (count == 1 ? " channel" : " channels");
     return count != 0;
 }
@@ -373,7 +373,7 @@ bool LaserClose(const MediatorPtr& laser,
     
     if (channelIDs.empty())
     {
-        LOG_ERROR() << "Channels not specified";
+        BEAM_LOG_ERROR() << "Channels not specified";
         return false;
     }
 
@@ -383,7 +383,7 @@ bool LaserClose(const MediatorPtr& laser,
         if (laser->GracefulClose(channelID)) ++count;
     }
 
-    LOG_INFO() << "Close sceduled for: " << count
+    BEAM_LOG_INFO() << "Close sceduled for: " << count
                << (count == 1 ? " channel" : " channels");
     return count != 0;
 }
@@ -396,7 +396,7 @@ bool LaserDelete(const MediatorPtr& laser,
 
     if (channelIDs.empty())
     {
-        LOG_ERROR() << "Channels not specified";
+        BEAM_LOG_ERROR() << "Channels not specified";
         return false;
     }
 
@@ -406,7 +406,7 @@ bool LaserDelete(const MediatorPtr& laser,
         if (laser->Delete(channelID)) ++count;
     }
 
-    LOG_INFO() << "Deleted: " << count
+    BEAM_LOG_INFO() << "Deleted: " << count
                << (count == 1 ? " channel" : " channels");
     return count != 0;
 }

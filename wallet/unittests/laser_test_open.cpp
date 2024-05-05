@@ -34,9 +34,9 @@ using namespace std;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -62,19 +62,19 @@ int main()
         observer_1.onOpened =
             [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser OPEN: first opened";
+            BEAM_LOG_INFO() << "Test laser OPEN: first opened";
             channel_1 = chID;
         };
         observer_2.onOpened =
             [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser OPEN: second opened";
+            BEAM_LOG_INFO() << "Test laser OPEN: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed =
             [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser OPEN: open failed";
+            BEAM_LOG_INFO() << "Test laser OPEN: open failed";
             WALLET_CHECK(false);
         };
         laserFirst->AddObserver(&observer_1);
@@ -86,7 +86,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser OPEN: time expired";
+                BEAM_LOG_ERROR() << "Test laser OPEN: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -129,7 +129,7 @@ int main()
                 val2 += AmountBig::Type(channelSecond->get_amountMy() + nFeeSecond * 3);
                 WALLET_CHECK(totals_2.Unspent == val2);
 
-                LOG_INFO() << "Test laser OPEN: finished";
+                BEAM_LOG_INFO() << "Test laser OPEN: finished";
                 io::Reactor::get_Current().stop();
             }
         };

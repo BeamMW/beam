@@ -29,13 +29,13 @@ struct WalletDBObserver : IWalletDbObserver {
         LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
     void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
-        LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
+        BEAM_LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
     void onSystemStateChanged(const Block::SystemState::ID& stateID)  {
-        LOG_INFO() << _who << " " << __FUNCTION__;
+        BEAM_LOG_INFO() << _who << " " << __FUNCTION__;
     }
     void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {
-        LOG_INFO() << _who << " " << __FUNCTION__;
+        BEAM_LOG_INFO() << _who << " " << __FUNCTION__;
     }
 
     WalletDBObserver(std::string who) : _who(std::move(who)) {}
@@ -128,10 +128,10 @@ WaitHandle run_node(const NodeParams& params) {
                 node.m_Cfg.m_Connect.push_back(params.connectTo);
             } else {
                 ReadTreasury(node.m_Cfg.m_Treasury, "_sender_");
-                LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_Treasury.size();
+                BEAM_LOG_INFO() << "Treasury blocs read: " << node.m_Cfg.m_Treasury.size();
             }
 
-            LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+            BEAM_LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
             node.Initialize();
 
@@ -214,24 +214,24 @@ void test_offline(bool twoNodes) {
 }
 
 int test_one_node() {
-    LOG_INFO() << "\n====================== 1 node 2 wallets";
+    BEAM_LOG_INFO() << "\n====================== 1 node 2 wallets";
     int ret = 0;
     try {
         test_offline(false);
     } catch (const std::exception& e) {
-        LOG_ERROR() << "Exception: " << e.what();
+        BEAM_LOG_ERROR() << "Exception: " << e.what();
         ret = 1;
     }
     return ret;
 }
 
 int test_two_nodes() {
-    LOG_INFO() << "\n====================== 2 nodes 2 wallets";
+    BEAM_LOG_INFO() << "\n====================== 2 nodes 2 wallets";
     int ret = 0;
     try {
         test_offline(true);
     } catch (const std::exception& e) {
-        LOG_ERROR() << "Exception: " << e.what();
+        BEAM_LOG_ERROR() << "Exception: " << e.what();
         ret = 2;
     }
     return ret;
@@ -242,9 +242,9 @@ int test_two_nodes() {
 int main(int argc, char* argv[]) {
     using namespace beam;
 
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     logger->set_header_formatter(

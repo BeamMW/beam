@@ -33,7 +33,7 @@ namespace beam::wallet
             auto guard = wguard.lock();
             if (!guard)
             {
-                LOG_WARNING() << "API destroyed before shader response received.";
+                BEAM_LOG_WARNING() << "API destroyed before shader response received.";
                 return;
             }
             Height refreshHeight = h;

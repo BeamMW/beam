@@ -168,7 +168,7 @@ namespace beam
                 ctx.use_tmp_dh_file(options.dhParamsPath);
             }
         }
-        LOG_INFO() << "Listening websocket protocol on port " << options.port;
+        BEAM_LOG_INFO() << "Listening websocket protocol on port " << options.port;
         _iocThread = std::make_shared<MyThread>([this, port = options.port, reactor]()
         {
             HandlerCreator creator = [this, reactor](WebSocketServer::SendFunc func, WebSocketServer::CloseFunc closeFunc) -> auto
@@ -187,12 +187,12 @@ namespace beam
 
     WebSocketServer::~WebSocketServer()
     {
-        LOG_INFO() << "Stopping websocket server...";
+        BEAM_LOG_INFO() << "Stopping websocket server...";
         _ioc.stop();
         if (_iocThread && _iocThread->joinable())
         {
             _iocThread->join();
         }
-        LOG_INFO() << "Websocket server stopped";
+        BEAM_LOG_INFO() << "Websocket server stopped";
     }
 }

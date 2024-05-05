@@ -90,7 +90,7 @@ namespace beam::wallet
         {
             builder.Sign();
 
-            LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner
+            BEAM_LOG_INFO() << GetTxID() << " Registering asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner
                 << ". Cost is " << PrintableAmount(valDeposit, false)
                 << ". Fee is " << PrintableAmount(builder.m_Fee, false);
         }
@@ -126,7 +126,7 @@ namespace beam::wallet
 
         if (GetState<State>() == State::KernelConfirmation)
         {
-            LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner << " successfully registered";
+            BEAM_LOG_INFO() << GetTxID() << " Asset with the owner ID " << builder.m_pKrn->CastTo_AssetCreate().m_Owner << " successfully registered";
             SetState(State::AssetConfirmation);
             ConfirmAsset();
             return;

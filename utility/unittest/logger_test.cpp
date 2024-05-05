@@ -32,21 +32,21 @@ static size_t custom_header_formatter(char* buf, size_t maxSize, const char* tim
 }
 
 void test_logger_1() {
-    auto logger = Logger::create(LOG_LEVEL_WARNING, LOG_LEVEL_DEBUG, LOG_LEVEL_WARNING, "Zzzzz");
+    auto logger = Logger::create(BEAM_LOG_LEVEL_WARNING, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_WARNING, "Zzzzz");
     logger->set_header_formatter(custom_header_formatter);
     logger->set_time_format("%T", false);
 
-    LOG_CRITICAL() << "Let's die";
-    LOG_ERROR() << "Not so bad at all, here is " << format_timestamp("%y-%m-%d.%T", local_timestamp_msec());
-    LOG_WARNING() << "Don't be afraid: " << 223322223;
+    BEAM_LOG_CRITICAL() << "Let's die";
+    BEAM_LOG_ERROR() << "Not so bad at all, here is " << format_timestamp("%y-%m-%d.%T", local_timestamp_msec());
+    BEAM_LOG_WARNING() << "Don't be afraid: " << 223322223;
     XXX xxx;
-    LOG_INFO() << xxx;
+    BEAM_LOG_INFO() << xxx;
     LOG_DEBUG() << "YYY";
-    LOG_VERBOSE() << "ZZZ";
+    BEAM_LOG_VERBOSE() << "ZZZ";
 }
 
 void test_ndc_1() {
-    auto logger = Logger::create(LOG_LEVEL_WARNING, LOG_LEVEL_DEBUG, LOG_LEVEL_WARNING, "Zzzzz");
+    auto logger = Logger::create(BEAM_LOG_LEVEL_WARNING, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_WARNING, "Zzzzz");
     logger->set_header_formatter(custom_header_formatter);
     CHECKPOINT_CREATE (6);
     CHECKPOINT_ADD() << "ssss" << 333 << 555;
@@ -55,7 +55,7 @@ void test_ndc_1() {
     std::string zzz("Blablabla");
     CHECKPOINT_ADD() << &zzz; // constraint: objects captured by ptr in checkpoints
     CHECKPOINT (3333, 44444, 5555, 66666, 77777, 88888);
-    LOG_ERROR() << FlushAllCheckpoints();
+    BEAM_LOG_ERROR() << FlushAllCheckpoints();
 }
 
 void test_ndc_2(bool exc)
@@ -72,7 +72,7 @@ void test_ndc_2(bool exc)
                 if (exc) throw("xxx");
                 CHECKPOINT("Sending a file. Path:", "C:\\Blablabla.bin");
                 {
-                    LOG_ERROR() << "Can't open file. Error:" << EACCES << FlushAllCheckpoints();
+                    BEAM_LOG_ERROR() << "Can't open file. Error:" << EACCES << FlushAllCheckpoints();
                 }
             }
         }

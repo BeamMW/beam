@@ -113,7 +113,7 @@ namespace {
 
             nErrors += (int)expected.size();
         } catch (const std::exception& e) {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
             nErrors = 255;
         }
 
@@ -123,9 +123,9 @@ namespace {
 } //namespace
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     auto res = http_client_test(false);

@@ -49,7 +49,7 @@ void TestNodeConnection::GenerateTests()
 			// Kernels
 			gen.GenerateKernel(4);
 
-            LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+            BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 			Send(gen.GetTransaction());
 		});
@@ -60,7 +60,7 @@ void TestNodeConnection::GenerateTests()
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 	TestNodeConnection connection(argc, argv);
 

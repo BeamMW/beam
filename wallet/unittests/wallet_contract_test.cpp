@@ -310,7 +310,7 @@ void TestContract()
 
 int main()
 {
-    const auto logLevel = LOG_LEVEL_DEBUG;
+    const auto logLevel = BEAM_LOG_LEVEL_DEBUG;
     const auto logger = beam::Logger::create(logLevel, logLevel);
     io::Reactor::Ptr reactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*reactor);

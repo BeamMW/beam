@@ -3209,7 +3209,7 @@ namespace beam
 
 		verify_test((p.m_SpendKeys.size() == 1) && p.m_Utxos && p.m_UtxosCA && p.m_Assets && p.m_ShieldedOuts && p.m_ShieldedIns);
 
-		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 		node.PrintTxos();
 
 		NodeProcessor& proc = node.get_Processor();
@@ -3871,7 +3871,7 @@ void TestAll()
 
 	bool bClientProtoOnly = false;
 
-	//auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	//auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
 		beam::PrintEmissionSchedule();
 
@@ -3959,7 +3959,7 @@ void TestAll()
 	beam::TestNodeClientProto();
 
 	{
-		auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 
 		{
 			// test migration

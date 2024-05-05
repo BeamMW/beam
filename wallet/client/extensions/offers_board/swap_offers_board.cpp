@@ -174,7 +174,7 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
         auto responseTime = offer.GetParameter<Height>(TxParameterID::PeerResponseTime);
         auto minimalHeight = offer.GetParameter<Height>(TxParameterID::MinHeight);
 
-        LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
+        BEAM_LOG_INFO() << offer.m_txId << " Publish offer.\n\t"
             << "isBeamSide: " << (*isBeamSide ? "false" : "true") << "\n\t"
             << "swapCoin: " << std::to_string(*swapCoin) << "\n\t"
             << "amount: " << *amount << "\n\t"
@@ -200,7 +200,7 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
 {
     if (newOffer.m_coin >= AtomicSwapCoin::Unknown || newOffer.m_status > SwapOfferStatus::Failed)
     {
-        LOG_WARNING() << "offer board message is invalid";
+        BEAM_LOG_WARNING() << "offer board message is invalid";
         return false;
     }
 
@@ -213,7 +213,7 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
         {
             if (!newOffer.IsValid())
             {
-                LOG_WARNING() << "incoming offer is invalid";
+                BEAM_LOG_WARNING() << "incoming offer is invalid";
                 return false;
             }
             if (isOfferExpired(newOffer))
@@ -336,7 +336,7 @@ void SwapOffersBoard::updateOfferStatus(const TxID& offerTxID, SwapOfferStatus n
  */
 void SwapOffersBoard::sendUpdateToNetwork(const SwapOffer& offer) const
 {
-    LOG_INFO() << offer.m_txId << " offer status updated to " << std::to_string(offer.m_status);
+    BEAM_LOG_INFO() << offer.m_txId << " offer status updated to " << std::to_string(offer.m_status);
 
     auto it = m_ownAddresses.find(offer.m_publisherId);
     

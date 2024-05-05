@@ -395,7 +395,7 @@ void NodeDB::Open(const char* szPath)
 
 		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
 
-			LOG_INFO() << "DB migrate from " << 18;
+			BEAM_LOG_INFO() << "DB migrate from " << 18;
 			MigrateFrom18();
 			// no break;
 
@@ -406,7 +406,7 @@ void NodeDB::Open(const char* szPath)
 		case 20: // Deprecated Shielded table created.
 			CreateTables20();
 
-			LOG_INFO() << "DB migrate from " << 20;
+			BEAM_LOG_INFO() << "DB migrate from " << 20;
 			MigrateFrom20();
 			// no break;
 
@@ -2996,7 +2996,7 @@ void NodeDB::AssetSetValue(Asset::ID id, const AmountBig::Type& val, Height hLoc
 void NodeDB::MigrateFrom18()
 {
 	{
-		LOG_INFO() << "Resetting peer ratings...";
+		BEAM_LOG_INFO() << "Resetting peer ratings...";
 
 		std::vector<WalkerPeer::Data> v;
 

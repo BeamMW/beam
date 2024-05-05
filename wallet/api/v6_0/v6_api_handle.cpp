@@ -828,7 +828,7 @@ namespace beam::wallet
 
     void V6Api::onHandleInvokeContract(const JsonRpcId &id, InvokeContract&& data)
     {
-        LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
+        BEAM_LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
 
         if (!contracts->IsDone())
@@ -853,7 +853,7 @@ namespace beam::wallet
             auto guard = wguard.lock();
             if (!guard)
             {
-                LOG_WARNING() << "API destroyed before shader response received.";
+                BEAM_LOG_WARNING() << "API destroyed before shader response received.";
                 return;
             }
 
@@ -883,7 +883,7 @@ namespace beam::wallet
             auto guard = wguard.lock();
             if (!guard)
             {
-                LOG_WARNING() << "API destroyed before shader response received.";
+                BEAM_LOG_WARNING() << "API destroyed before shader response received.";
                 return;
             }
 
@@ -914,7 +914,7 @@ namespace beam::wallet
             auto guard = wguard.lock();
             if (!guard)
             {
-                LOG_WARNING() << "API destroyed before shader response received.";
+                BEAM_LOG_WARNING() << "API destroyed before shader response received.";
                 return;
             }
 
@@ -950,7 +950,7 @@ namespace beam::wallet
         auto guard = _guard.lock();
         if (!guard)
         {
-            LOG_WARNING() << "API destroyed before fly client response received.";
+            BEAM_LOG_WARNING() << "API destroyed before fly client response received.";
             return;
         }
 

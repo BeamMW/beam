@@ -196,16 +196,16 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     // handles deserialization errors, may optionally notify the logic about that
     void on_protocol_error(uint64_t fromStream, ProtocolError error) override {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << static_cast<int32_t>(error) << ")";
+        BEAM_LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << static_cast<int32_t>(error) << ")";
     }
 
     // handles network errors, may optionally notify the logic about that
     void on_connection_error(uint64_t fromStream, io::ErrorCode errorCode) override {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << io::error_str(errorCode) << ")";
+        BEAM_LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << io::error_str(errorCode) << ")";
     }
 
     void on_unexpected_msg(uint64_t fromStream, MsgType type) override {
-        LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << unsigned(type) << ")";
+        BEAM_LOG_ERROR() << __FUNCTION__ << "(" << fromStream << "," << unsigned(type) << ")";
     }
 
     io::SharedBuffer map_file(const char* path) {
@@ -213,7 +213,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         try {
             ret = io::map_file_read_only(path);
         } catch (const std::exception& e) {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
         }
         return ret;
     }
@@ -227,7 +227,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
             // not needed any more (in this test)
             msgToSend.clear();
         } else {
-            LOG_ERROR() << "No connection";
+            BEAM_LOG_ERROR() << "No connection";
             // add some handling
         }
     }
@@ -246,7 +246,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
             // not needed any more (in this test)
             msgToSend.clear();
         } else {
-            LOG_ERROR() << "No connection";
+            BEAM_LOG_ERROR() << "No connection";
             // add some handling
         }
     }
@@ -268,7 +268,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
         io::SharedBuffer buf = map_file(res.filename.c_str());
         auto h = checksum(buf);
         if (h != res.checksum) {
-            LOG_ERROR() << "Response checksum mismatch";
+            BEAM_LOG_ERROR() << "Response checksum mismatch";
         }
 
         proxy.handle_response(someId, std::move(res));
@@ -323,7 +323,7 @@ struct EventDrivenAppLogic : INetworkToLogic {
 
     void on_timer() {
         if (++counter > 2) {
-            LOG_INFO() << "stopping";
+            BEAM_LOG_INFO() << "stopping";
             stop();
             return;
         }
@@ -336,14 +336,14 @@ struct EventDrivenAppLogic : INetworkToLogic {
     }
 
     void handle_request(PeerLocator from, Request&& req) override {
-        LOG_INFO() << "Request from " << from << " f=" << req.filename;
+        BEAM_LOG_INFO() << "Request from " << from << " f=" << req.filename;
         Response res;
         res.filename = req.filename;
         if (proxy) proxy->send_response(from, std::move(res));
     }
 
     void handle_response(PeerLocator from, Response&& res) override {
-        LOG_INFO() << "Response from " << from << " f=" << res.filename << " s=" << res.file.size;
+        BEAM_LOG_INFO() << "Response from " << from << " f=" << res.filename << " s=" << res.file.size;
     }
 };
 
@@ -368,9 +368,9 @@ struct App {
 };
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     try {
@@ -383,20 +383,20 @@ int main() {
         // client
         App app2(io::Address::localhost().port(port), false, 731);
 
-        LOG_INFO() << "Starting apps";
+        BEAM_LOG_INFO() << "Starting apps";
 
         app1.run();
         app2.run();
 
-        LOG_INFO() << "Waiting";
+        BEAM_LOG_INFO() << "Waiting";
 
         app1.wait();
         app2.wait();
 
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     } catch (const std::exception& e) {
-        LOG_ERROR() << "Exception: " << e.what();
+        BEAM_LOG_ERROR() << "Exception: " << e.what();
     } catch (...) {
-        LOG_ERROR() << "Unknown exception";
+        BEAM_LOG_ERROR() << "Unknown exception";
     }
 }

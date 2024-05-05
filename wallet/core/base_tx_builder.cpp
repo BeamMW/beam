@@ -248,7 +248,7 @@ namespace beam::wallet
 
                 if (val < 0)
                 {
-                    LOG_ERROR()
+                    BEAM_LOG_ERROR()
                         << m_Builder.m_Tx.GetTxID()
                         << "[" << m_Builder.m_SubTxID << "]"
                         << " Missing "
@@ -365,7 +365,7 @@ namespace beam::wallet
             else
             {
                 auto message("Coin with ID: " + toString(coin.m_ID) + " is unreachable.");
-                LOG_ERROR() << message;
+                BEAM_LOG_ERROR() << message;
                 throw TransactionFailedException(true, TxFailureReason::NoInputs, message.c_str());
             }
         }
@@ -710,7 +710,7 @@ namespace beam::wallet
             m_Count += nExtra;
         }
 
-        LOG_INFO() << "ShieldedInput window N=" << m_N << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID << ", PoolSize=" << nShieldedCurrently;
+        BEAM_LOG_INFO() << "ShieldedInput window N=" << m_N << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID << ", PoolSize=" << nShieldedCurrently;
 
         b.m_Tx.GetGateway().get_shielded_list(b.m_Tx.GetTxID(), m_Wnd0, m_Count,
             [pHandler = shared_from_this(), weakTx = b.m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
@@ -740,7 +740,7 @@ namespace beam::wallet
     {
         if (msg.m_Items.size() > m_Count)
         {
-            LOG_ERROR() << "ShieldedList message returned more coins than requested " << TRACE(msg.m_Items.size()) << TRACE(m_Count);
+            BEAM_LOG_ERROR() << "ShieldedList message returned more coins than requested " << TRACE(msg.m_Items.size()) << TRACE(m_Count);
             return false;
         }
 
@@ -769,7 +769,7 @@ namespace beam::wallet
         {
             if (m_Wnd0 || (nItems <= m_Method.m_iIdx))
             {
-                LOG_ERROR() << "ShieldedList message returned unexpected data " << TRACE(m_Wnd0) << TRACE(nItems) << TRACE(m_Method.m_iIdx);
+                BEAM_LOG_ERROR() << "ShieldedList message returned unexpected data " << TRACE(m_Wnd0) << TRACE(nItems) << TRACE(m_Method.m_iIdx);
                 return false;
             }
 

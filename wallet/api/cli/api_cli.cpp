@@ -115,7 +115,7 @@ namespace
 
             if (!parsed)
             {
-                LOG_ERROR() << "ACL parsing error, line " << curLine;
+                BEAM_LOG_ERROR() << "ACL parsing error, line " << curLine;
                 return boost::none;
             }
 
@@ -125,11 +125,11 @@ namespace
 
         if (keys.empty())
         {
-            LOG_WARNING() << "ACL file is empty";
+            BEAM_LOG_WARNING() << "ACL file is empty";
         }
         else
         {
-            LOG_INFO() << "ACL file successfully loaded";
+            BEAM_LOG_INFO() << "ACL file successfully loaded";
         }
 
         return ApiACL(keys);
@@ -200,7 +200,7 @@ namespace
             {
                 if (error.empty())
                 {
-                    LOG_INFO() << "IPFS peers count: " << peercnt;
+                    BEAM_LOG_INFO() << "IPFS peers count: " << peercnt;
                     return;
                 }
 
@@ -229,7 +229,7 @@ namespace
             }
             catch(std::runtime_error& err)
             {
-                LOG_ERROR() << err.what();
+                BEAM_LOG_ERROR() << err.what();
                 return false;
             }
         }
@@ -287,7 +287,7 @@ namespace
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         void start()
         {
-            LOG_INFO() << "Start server on " << _bindAddress;
+            BEAM_LOG_INFO() << "Start server on " << _bindAddress;
 
             try
             {
@@ -300,7 +300,7 @@ namespace
             }
             catch (const std::exception& e)
             {
-                LOG_ERROR() << "cannot start server: " << e.what();
+                BEAM_LOG_ERROR() << "cannot start server: " << e.what();
             }
         }
 
@@ -366,7 +366,7 @@ namespace
                 {
                     if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
                     {
-                        LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                        BEAM_LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
                         return;
                     }
                 }
@@ -419,14 +419,14 @@ namespace
             {
                 if (errorCode != 0)
                 {
-                    LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
+                    BEAM_LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
                     closeConnection();
                     return false;
                 }
 
                 if (!_lineProtocol.new_data_from_stream(data, size))
                 {
-                    LOG_INFO() << "stream corrupted";
+                    BEAM_LOG_INFO() << "stream corrupted";
                     closeConnection();
                     return false;
                 }
@@ -529,7 +529,7 @@ namespace
                     // all sync functions should already have sent response
                     std::stringstream ss;
                     ss << "API sync method has not called SendAPIResponse, request: " << data;
-                    LOG_ERROR() << ss.str();
+                    BEAM_LOG_ERROR() << ss.str();
 
                     closeConnection();
                     throw std::runtime_error(ss.str());
@@ -567,7 +567,7 @@ namespace
                     if (!result) ok = false;
                 }
                 else {
-                    LOG_ERROR() << "cannot create response";
+                    BEAM_LOG_ERROR() << "cannot create response";
                 }
 
                 _headers.clear();
@@ -742,8 +742,8 @@ int main(int argc, char* argv[])
         auto cfgApi = ReadCfgFromFile(vm, desc);
         vm.notify();
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
 
         const auto path = boost::filesystem::system_complete("./logs");
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "api_", path.string());
@@ -751,12 +751,12 @@ int main(int argc, char* argv[])
         // Since ReadCfg outputs file name to std::cout print also to logs
         if (cfgCommon)
         {
-            LOG_INFO() << "Wallet API common config read from: " << *cfgCommon;
+            BEAM_LOG_INFO() << "Wallet API common config read from: " << *cfgCommon;
         }
 
         if (cfgApi)
         {
-            LOG_INFO() << "Wallet API config read from: " << *cfgApi;
+            BEAM_LOG_INFO() << "Wallet API config read from: " << *cfgApi;
         }
 
         io::Address node_addr;
@@ -773,14 +773,14 @@ int main(int argc, char* argv[])
 
             getRulesOptions(vm);
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            BEAM_LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+            BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             
             if (options.useAcl)
             {
                 if (!(boost::filesystem::exists(options.aclPath) && (acl = loadACL(options.aclPath))))
                 {
-                    LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
+                    BEAM_LOG_ERROR() << "ACL file not loaded, path is: " << options.aclPath;
                     return -1;
                 }
             }
@@ -790,14 +790,14 @@ int main(int argc, char* argv[])
                 const auto& certPath = connectionOptions.tls.certPath;
                 if (certPath.empty() || !boost::filesystem::exists(certPath))
                 {
-                    LOG_ERROR() << "TLS certificate not found, path is: " << certPath;
+                    BEAM_LOG_ERROR() << "TLS certificate not found, path is: " << certPath;
                     return -1;
                 }
 
                 const auto& keyPath = connectionOptions.tls.keyPath;
                 if (keyPath.empty() || !boost::filesystem::exists(keyPath))
                 {
-                    LOG_ERROR() << "TLS private key not found, path is: " << keyPath;
+                    BEAM_LOG_ERROR() << "TLS private key not found, path is: " << keyPath;
                     return -1;
                 }
             }
@@ -816,7 +816,7 @@ int main(int argc, char* argv[])
                     }
                     else
                     {
-                        LOG_ERROR() << "IP address not added to whitelist: " << item;
+                        BEAM_LOG_ERROR() << "IP address not added to whitelist: " << item;
                         return -1;
                     }
                 }
@@ -824,31 +824,31 @@ int main(int argc, char* argv[])
 
             if (vm.count(cli::NODE_ADDR) == 0)
             {
-                LOG_ERROR() << "node address should be specified";
+                BEAM_LOG_ERROR() << "node address should be specified";
                 return -1;
             }
 
             if (!node_addr.resolve(options.nodeURI.c_str()))
             {
-                LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
+                BEAM_LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
                 return -1;
             }
 
             if (!WalletDB::isInitialized(options.walletPath))
             {
-                LOG_ERROR() << "Wallet not found, path is: " << options.walletPath;
+                BEAM_LOG_ERROR() << "Wallet not found, path is: " << options.walletPath;
                 return -1;
             }
 
             SecString pass;
             if (!beam::read_wallet_pass(pass, vm))
             {
-                LOG_ERROR() << "Please, provide password for the wallet.";
+                BEAM_LOG_ERROR() << "Please, provide password for the wallet.";
                 return -1;
             }
 
             walletDB = WalletDB::open(options.walletPath, pass);
-            LOG_INFO() << "wallet successfully opened...";
+            BEAM_LOG_INFO() << "wallet successfully opened...";
 
             // this should be exactly CLI flag value to print correct error messages
             // Rules::CA.Enabled would be checked as well but later
@@ -870,18 +870,18 @@ int main(int argc, char* argv[])
         
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            BEAM_LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
             uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
-                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                BEAM_LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
 
         uint32_t responseTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responseTime_s * 1000)
         {
-            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than "
+            BEAM_LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than "
                           << uint32_t(responseTime_s / 3600)
                           << " hours may cause transaction problems.";
         }
@@ -914,7 +914,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-            LOG_INFO() << "IPFS is not enabled. IPFS node will be not started.";
+            BEAM_LOG_INFO() << "IPFS is not enabled. IPFS node will be not started.";
         }
         #endif
 
@@ -947,7 +947,7 @@ int main(int argc, char* argv[])
             }
         }
         #endif
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     }
     // DO NOT USE LOG_ below. Logger is dead here
     catch (const DatabaseException& e)

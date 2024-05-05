@@ -55,7 +55,7 @@ namespace beam::wallet
                 }
                 else
                 {
-                    LOG_WARNING() << "Unable to resolve node address: " << addr;
+                    BEAM_LOG_WARNING() << "Unable to resolve node address: " << addr;
                 }
             }
             if (!m_Cfg.m_vNodes.empty())
@@ -66,17 +66,17 @@ namespace beam::wallet
                 return;
             }
 
-            LOG_WARNING() << "User-specified nodes cannot be resolved.";
+            BEAM_LOG_WARNING() << "User-specified nodes cannot be resolved.";
             if (!m_fallbackAddresses.empty())
             {
-                LOG_WARNING() << "Attempting to connect to fallback nodes";
+                BEAM_LOG_WARNING() << "Attempting to connect to fallback nodes";
                 // try to solve DNS problem with known ip addresses
                 std::copy(m_fallbackAddresses.begin(), m_fallbackAddresses.end(), std::back_inserter(m_Cfg.m_vNodes));
                 Connect();
             }
             else 
             {
-                LOG_WARNING() << "There are no fallback nodes. Trying to re-connect in " << RECONNECTION_TIMEOUT << " ms";
+                BEAM_LOG_WARNING() << "There are no fallback nodes. Trying to re-connect in " << RECONNECTION_TIMEOUT << " ms";
                 tryToConnect();
             }
         });

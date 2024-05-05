@@ -56,7 +56,7 @@ namespace beam::wallet
 
                 if (!isInternalSource && !tx->IsTxParameterExternalSettable(p.first, subTxID))
                 {
-                    LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
+                    BEAM_LOG_WARNING() << tx->GetTxID() << "Attempt to set internal tx parameter: " << static_cast<int>(p.first);
                     continue;
                 }
 
@@ -89,7 +89,7 @@ namespace beam::wallet
         {
             if (receiverAddr->isOwn() && receiverAddr->isExpired())
             {
-                LOG_ERROR() << "Can't send to the expired address.";
+                BEAM_LOG_ERROR() << "Can't send to the expired address.";
                 throw ReceiverAddressExpiredException();
             }
 
@@ -377,7 +377,7 @@ namespace beam::wallet
     {
         if (m_AsyncUpdateCounter == 0)
         {
-            LOG_VERBOSE() << "Async update started!";
+            BEAM_LOG_VERBOSE() << "Async update started!";
         }
         ++m_AsyncUpdateCounter;
     }
@@ -386,7 +386,7 @@ namespace beam::wallet
     {
         if (--m_AsyncUpdateCounter == 0)
         {
-            LOG_VERBOSE() << "Async update finished!";
+            BEAM_LOG_VERBOSE() << "Async update finished!";
             if (m_UpdateCompleted)
             {
                 m_UpdateCompleted();
@@ -533,7 +533,7 @@ namespace beam::wallet
             pVal->m_Msg.m_ID = kernelID;
 
             if (PostReqUnique(*pVal))
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for kernel: " << pVal->m_Msg.m_ID;
+                BEAM_LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for kernel: " << pVal->m_Msg.m_ID;
         }
     }
 
@@ -545,7 +545,7 @@ namespace beam::wallet
 
         if (PostReq(*pVal))
         {
-            LOG_INFO() << " Get proof for kernel: " << kernelID;
+            BEAM_LOG_INFO() << " Get proof for kernel: " << kernelID;
         }
     }
 
@@ -559,7 +559,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-           LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
+           BEAM_LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with the owner ID: " << ownerID;
         }
     }
 
@@ -573,7 +573,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-            LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
+            BEAM_LOG_INFO() << txID << "[" << subTxID << "]" << " Get proof for asset with id: " << assetId;
         }
     }
 
@@ -587,7 +587,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-            LOG_INFO() << "Get proof for asset with id: " << assetId;
+            BEAM_LOG_INFO() << "Get proof for asset with id: " << assetId;
         }
     }
 
@@ -608,7 +608,7 @@ namespace beam::wallet
 
             if (PostReqUnique(*pVal))
             {
-                LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << msg.m_ID;
+                BEAM_LOG_INFO() << txID << "[" << subTxID << "]" << " Get details for kernel: " << msg.m_ID;
             }
         }
     }
@@ -640,7 +640,7 @@ namespace beam::wallet
 
         if (PostReq(*pVal))
         {
-            LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
+            BEAM_LOG_INFO() << txId << " Get shielded list, start_index = " << startIndex << ", count = " << count;
         }
     }
 
@@ -654,7 +654,7 @@ namespace beam::wallet
 
         if (PostReqUnique(*pVal))
         {
-            LOG_INFO() << txId << " Get proof of shielded output.";
+            BEAM_LOG_INFO() << txId << " Get proof of shielded output.";
         }
     }
 
@@ -767,7 +767,7 @@ namespace beam::wallet
                 if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
                  || !CanDetectCoins())                                  // The wallet has no ability to recognize received shielded coin
                 {
-                    LOG_ERROR() << "Cannot send voucher" << TRACE(pKeyKeeper) << TRACE(CanDetectCoins());
+                    BEAM_LOG_ERROR() << "Cannot send voucher" << TRACE(pKeyKeeper) << TRACE(CanDetectCoins());
                     FailVoucherRequest(msg.m_From, myID);
                     return; 
                 }
@@ -777,7 +777,7 @@ namespace beam::wallet
 
                 if (!nCount)
                 {
-                    LOG_ERROR() << "Cannot send voucher" << TRACE(nCount);
+                    BEAM_LOG_ERROR() << "Cannot send voucher" << TRACE(nCount);
                     FailVoucherRequest(msg.m_From, myID);
                     return; //?!
                 }
@@ -804,7 +804,7 @@ namespace beam::wallet
                 msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
                 if (res.empty())
                 {
-                    LOG_WARNING() << "Received an empty voucher list";
+                    BEAM_LOG_WARNING() << "Received an empty voucher list";
                     FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
@@ -812,14 +812,14 @@ namespace beam::wallet
                 auto address = m_WalletDB->getAddress(msg.m_From);
                 if (!address.is_initialized())
                 {
-                    LOG_WARNING() << "Received vouchers for unknown address: " << std::to_string(msg.m_From);
+                    BEAM_LOG_WARNING() << "Received vouchers for unknown address: " << std::to_string(msg.m_From);
                     FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
 
                 if (!IsValidVoucherList(res, address->m_Endpoint))
                 {
-                    LOG_WARNING() << "Invalid voucher list received";
+                    BEAM_LOG_WARNING() << "Invalid voucher list received";
                     FailTxWaitingForVouchers(msg.m_From);
                     return;
                 }
@@ -930,7 +930,7 @@ namespace beam::wallet
             }
             catch (const std::exception& exc)
             {
-                LOG_WARNING() << "Special msg failed: " << exc.what();
+                BEAM_LOG_WARNING() << "Special msg failed: " << exc.what();
             }
         }
         else
@@ -943,7 +943,7 @@ namespace beam::wallet
     {
         LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
         if (!r.m_Res.m_ExtraInfo.empty())
-            LOG_WARNING() << "Extra info: " << r.m_Res.m_ExtraInfo;
+            BEAM_LOG_WARNING() << "Extra info: " << r.m_Res.m_ExtraInfo;
 
         auto it = m_ActiveTransactions.find(r.m_TxID);
         if (it != m_ActiveTransactions.end())
@@ -966,7 +966,7 @@ namespace beam::wallet
 
     void Wallet::CancelTransaction(const TxID& txId)
     {
-        LOG_INFO() << txId << " Canceling tx";
+        BEAM_LOG_INFO() << txId << " Canceling tx";
 
         if (auto it = m_ActiveTransactions.find(txId); it != m_ActiveTransactions.end())
         {
@@ -974,20 +974,20 @@ namespace beam::wallet
         }
         else
         {
-            LOG_WARNING() << "Transaction already inactive";
+            BEAM_LOG_WARNING() << "Transaction already inactive";
         }
     }
 
     void Wallet::DeleteTransaction(const TxID& txId)
     {
-        LOG_INFO() << "deleting tx " << txId;
+        BEAM_LOG_INFO() << "deleting tx " << txId;
         if (auto it = m_ActiveTransactions.find(txId); it == m_ActiveTransactions.end())
         {
             m_WalletDB->deleteTx(txId);
         }
         else
         {
-            LOG_WARNING() << "Cannot delete running transaction";
+            BEAM_LOG_WARNING() << "Cannot delete running transaction";
         }
     }
 
@@ -1154,7 +1154,7 @@ namespace beam::wallet
     void Wallet::ProcessAssetInfo(const Asset::Full& info, Height height, const std::string& logPrefix)
     {
         m_WalletDB->saveAsset(info, height);
-        LOG_INFO() << logPrefix << (logPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
+        BEAM_LOG_INFO() << logPrefix << (logPrefix.empty() ? "" : " ") << "Received proof for Asset with ID " << info.m_ID;
 
         if (Key::IKdf::Ptr maserKdf = m_WalletDB->get_MasterKdf())
         {
@@ -1168,7 +1168,7 @@ namespace beam::wallet
         }
         else
         {
-            LOG_WARNING() << logPrefix << "Unable to get master key. Asset's " << info.m_ID << " ownership won't be checked.";
+            BEAM_LOG_WARNING() << logPrefix << "Unable to get master key. Asset's " << info.m_ID << " ownership won't be checked.";
         }
 
         if (const auto wasset = m_WalletDB->findAsset(info.m_ID))
@@ -1693,7 +1693,7 @@ namespace beam::wallet
             std::copy_n(data->m_TxID.m_pData, sizeof(TxID), c.m_createTxId->begin());
         }
 
-        LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        BEAM_LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << hMaturity << (bAdd ? " Confirmed" : " Spent") << ", Height=" << h;
 
         if (bAdd)
         {
@@ -1709,7 +1709,7 @@ namespace beam::wallet
                 {
                     c.m_status = Coin::Status::Outgoing;
                     c.m_spentTxId = txid;
-                    LOG_INFO() << "CoinID: " << c.m_ID << " marked as Outgoing";
+                    BEAM_LOG_INFO() << "CoinID: " << c.m_ID << " marked as Outgoing";
                 }
             }
         }
@@ -1767,13 +1767,13 @@ namespace beam::wallet
             {
                 shieldedCoin->m_Status = ShieldedCoin::Status::Outgoing;;
                 shieldedCoin->m_spentTxId = txid;
-                LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << " marked as Outgoing";
+                BEAM_LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << " marked as Outgoing";
             }
         }
 
         m_WalletDB->saveShieldedCoin(*shieldedCoin);
 
-        LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
+        BEAM_LOG_INFO() << "Shielded output, ID: " << shieldedEvt.m_TxoID << (isAdd ? " Confirmed" : " Spent") << ", Height=" << h;
         RestoreTransactionFromShieldedCoin(*shieldedCoin);
     }
 
@@ -1784,7 +1784,7 @@ namespace beam::wallet
 
         Block::SystemState::ID id;
         sTip.get_ID(id);
-        LOG_INFO() << "Rolled back to " << id;
+        BEAM_LOG_INFO() << "Rolled back to " << id;
 
         m_WalletDB->setSystemStateID(id);
         m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
@@ -1862,7 +1862,7 @@ namespace beam::wallet
 
         if (bHashChanged || (h != hh.m_Height))
         {
-            LOG_INFO() << "Events Serif changed: " << (bHashChanged ? "new Hash, " : "") << "Height=" << h << (bMustRescan ? ", Resyncing" : "");
+            BEAM_LOG_INFO() << "Events Serif changed: " << (bHashChanged ? "new Hash, " : "") << "Height=" << h << (bMustRescan ? ", Resyncing" : "");
 
             hh.m_Height = h;
             storage::setVar(*m_WalletDB, szEvtSerif, hh);
@@ -1884,7 +1884,7 @@ namespace beam::wallet
         for (uint32_t i = 0; i < nCount; i++)
             os << "\n\t" << pHv[i];
 
-        LOG_INFO() << os.str();
+        BEAM_LOG_INFO() << os.str();
 
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
             it->second->OnDependentStateChanged();
@@ -1939,7 +1939,7 @@ namespace beam::wallet
 
         Block::SystemState::ID id;
         sTip.get_ID(id);
-        LOG_INFO() << "Sync up to " << id;
+        BEAM_LOG_INFO() << "Sync up to " << id;
 
         if (!SyncRemains())
         {
@@ -1963,7 +1963,7 @@ namespace beam::wallet
 
     void Wallet::OnTipUnchanged()
     {
-        LOG_INFO() << "Tip has not been changed";
+        BEAM_LOG_INFO() << "Tip has not been changed";
 
         RequestBodies();
 
@@ -1979,7 +1979,7 @@ namespace beam::wallet
 
         if (!m_WalletDB->get_CommitmentSafe(pReq->m_Msg.m_Utxo, coin.m_ID))
         {
-            LOG_WARNING() << "You cannot get utxo commitment without private key";
+            BEAM_LOG_WARNING() << "You cannot get utxo commitment without private key";
             return;
         }
 
@@ -2039,7 +2039,7 @@ namespace beam::wallet
             ZeroObject(id);
 
         m_WalletDB->setSystemStateID(id);
-        LOG_INFO() << "Current state is " << id;
+        BEAM_LOG_INFO() << "Current state is " << id;
         NotifySyncProgress();
 
         if (!IsValidTimeStamp(sTip.m_TimeStamp))
@@ -2107,7 +2107,7 @@ namespace beam::wallet
         auto done = GetSyncDone();
         assert(done <= total);
         int p = static_cast<int>((done * 100) / total);
-        LOG_INFO() << "Synchronizing with node: " << p << "% (" << done << "/" << total << ")";
+        BEAM_LOG_INFO() << "Synchronizing with node: " << p << "% (" << done << "/" << total << ")";
 
         NotifySyncProgress();
     }
@@ -2200,7 +2200,7 @@ namespace beam::wallet
 
             if (pTx->GetType() != msg.m_Type)
             {
-                LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
+                BEAM_LOG_WARNING() << msg.m_TxID << " Parameters for invalid tx type";
                 return;
             }
 
@@ -2256,7 +2256,7 @@ namespace beam::wallet
         {
             if (m_ssHandler == nullptr)
             {
-                LOG_WARNING() << "DexSimpleSwap tx is received but feature is disabled. " << "TxID is " << msg.m_TxID;
+                BEAM_LOG_WARNING() << "DexSimpleSwap tx is received but feature is disabled. " << "TxID is " << msg.m_TxID;
                 return;
             }
         }
@@ -2268,7 +2268,7 @@ namespace beam::wallet
                 if (!m_ssHandler->acceptIncomingDexSS(msg))
                 {
                     // TODO:DEX create tx and fail tx with rejected reason to make the peer not wait
-                    LOG_INFO() << "Incoming DexSimpleSwap rejected. "
+                    BEAM_LOG_INFO() << "Incoming DexSimpleSwap rejected. "
                                << "DexOrderID [" << msg.GetParameterOrDefault<DexOrderID>(TxParameterID::ExternalDexOrderID) << "] "
                                << "TxID " << msg.m_TxID;
                     return;
@@ -2302,13 +2302,13 @@ namespace beam::wallet
             if (msg.m_Type == TxType::DexSimpleSwap)
             {
                 m_ssHandler->onDexTxCreated(msg, pTx);
-                LOG_INFO() << "Incoming DexSimpleSwap accepted. TxID is " << msg.m_TxID;
+                BEAM_LOG_INFO() << "Incoming DexSimpleSwap accepted. TxID is " << msg.m_TxID;
             }
         }
         else
         {
             assert(false);
-            LOG_WARNING() << "Unsupported TX Type requested via SBBS: "
+            BEAM_LOG_WARNING() << "Unsupported TX Type requested via SBBS: "
                           << " type: " << static_cast<unsigned int>(msg.m_Type)
                           << " txid: " << msg.m_TxID;
             return;
@@ -2320,7 +2320,7 @@ namespace beam::wallet
         auto it = m_TxCreators.find(type);
         if (it == m_TxCreators.end())
         {
-            LOG_WARNING() << id << " Unsupported type of transaction: " << static_cast<int>(type);
+            BEAM_LOG_WARNING() << id << " Unsupported type of transaction: " << static_cast<int>(type);
             return wallet::BaseTransaction::Ptr();
         }
 
@@ -2338,7 +2338,7 @@ namespace beam::wallet
         auto it = m_TxCreators.find(*type);
         if (it == m_TxCreators.end())
         {
-            LOG_ERROR() << *parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
+            BEAM_LOG_ERROR() << *parameters.GetTxID() << " Unsupported type of transaction: " << static_cast<int>(*type);
             return BaseTransaction::Ptr();
         }
 
@@ -2511,7 +2511,7 @@ namespace beam::wallet
         }
 
         if (!storage::setTxParameter(*m_WalletDB, id, TxParameterID::IsContractNotificationMarkedAsRead, true, true))
-            LOG_ERROR() << "Can't mark application notification as read.";
+            BEAM_LOG_ERROR() << "Can't mark application notification as read.";
     }
 
     void Wallet::sendInstantSbbsMessage(beam::Timestamp timestamp, const WalletID& peerID, const WalletID& myID, ByteBuffer&& message)

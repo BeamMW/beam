@@ -54,27 +54,27 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		msg.m_Description.get_ID(m_ID);
 		m_IsInit = true;
 
-		LOG_INFO() << "NewTip: " << m_ID;
+		BEAM_LOG_INFO() << "NewTip: " << m_ID;
 
 		m_IsSendWrongMsg = true;
 
-		LOG_INFO() << "Send wrong GetMined message";
+		BEAM_LOG_INFO() << "Send wrong GetMined message";
 		Send(proto::GetMined{ m_ID.m_Height + 5 });
 	}
 }
 
 void TestNodeConnection::OnMsg(proto::Mined&& msg)
 {
-	LOG_INFO() << "Mined";
+	BEAM_LOG_INFO() << "Mined";
 	if (m_IsSendWrongMsg)
 	{
 		if (msg.m_Entries.empty())
 		{
-			LOG_INFO() << "Ok: received empty list";
+			BEAM_LOG_INFO() << "Ok: received empty list";
 		}
 		else
 		{
-			LOG_INFO() << "Failed: list is not empty";
+			BEAM_LOG_INFO() << "Failed: list is not empty";
 			m_Failed = true;
 			io::Reactor::get_Current().stop();
 			return;
@@ -82,7 +82,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 				
 		m_IsSendWrongMsg = false;
 
-		LOG_INFO() << "Send GetMined message";
+		BEAM_LOG_INFO() << "Send GetMined message";
         proto::GetMined msgOut;
         msgOut.m_HeightMin = m_ID.m_Height - 1000;
 		Send(msgOut);
@@ -92,11 +92,11 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 
 	if (!msg.m_Entries.empty())
 	{
-		LOG_INFO() << "Ok: list is not empty";
+		BEAM_LOG_INFO() << "Ok: list is not empty";
 	}
 	else
 	{
-		LOG_INFO() << "Failed: list is empty";
+		BEAM_LOG_INFO() << "Failed: list is empty";
 		m_Failed = true;
 	}
 	
@@ -105,7 +105,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

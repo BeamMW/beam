@@ -108,7 +108,7 @@ namespace beam::wallet
         }
         else
         {
-            LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
+            BEAM_LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
         }
 
         m_Tx.SendTxParametersStrict(std::move(msg));
@@ -244,7 +244,7 @@ namespace beam::wallet
 
                 Height maxResponseHeight = 0;
                 if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight)) {
-                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                    BEAM_LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                 }
             }
             else
@@ -290,7 +290,7 @@ namespace beam::wallet
             if (hasEndpoints)
                 ss << ", my EP: " << std::to_base58(myEndpoint) << ", peer EP: " << std::to_base58(peerEndpoint);
 
-            LOG_INFO() << ss.str();
+            BEAM_LOG_INFO() << ss.str();
             builder.SaveCoins();
         }
 

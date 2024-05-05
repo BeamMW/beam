@@ -35,37 +35,37 @@ int AppsApiUI::test()
 
 void AppsApiUI::sendApproved(const std::string& request)
 {
-    LOG_INFO() << "Contract send approved: " << getAppName() << ", " << getAppId() << ", " << request;
+    BEAM_LOG_INFO() << "Contract send approved: " << getAppName() << ", " << getAppId() << ", " << request;
     AnyThread_callWalletApiDirectly(request);
 }
 
 void AppsApiUI::sendRejected(const std::string& request)
 {
-    LOG_INFO() << "Contract send rejected: " << getAppName() << ", " << getAppId() << ", " << request;
+    BEAM_LOG_INFO() << "Contract send rejected: " << getAppName() << ", " << getAppId() << ", " << request;
     AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
 }
 
 void AppsApiUI::contractInfoApproved(const std::string& request)
 {
-    LOG_INFO() << "Contract tx approved: " << getAppName() << ", " << getAppId() << ", " << request;
+    BEAM_LOG_INFO() << "Contract tx approved: " << getAppName() << ", " << getAppId() << ", " << request;
     AnyThread_callWalletApiDirectly(request);
 }
 
 void AppsApiUI::contractInfoRejected(const std::string& request)
 {
-    LOG_INFO() << "Contract tx rejected: " << getAppName() << ", " << getAppId() << ", " << request;
+    BEAM_LOG_INFO() << "Contract tx rejected: " << getAppName() << ", " << getAppId() << ", " << request;
     AnyThread_sendApiError(request, beam::wallet::ApiError::UserRejected, std::string());
 }
 
 void AppsApiUI::callWalletApi(const std::string& request)
 {
-    LOG_INFO() << "Call Wallet Api: " << getAppName() << ", " << getAppId() << ", " << request;
+    BEAM_LOG_INFO() << "Call Wallet Api: " << getAppName() << ", " << getAppId() << ", " << request;
     AnyThread_callWalletApiChecked(request);
 }
 
 void AppsApiUI::AnyThread_sendApiResponse(std::string&& result)
 {
-    LOG_INFO() << "Send Api Response: " << getAppName() << ", " << getAppId() << ", " << result;
+    BEAM_LOG_INFO() << "Send Api Response: " << getAppName() << ", " << getAppId() << ", " << result;
 
     JNIEnv* env = Android_JNI_getEnv();
 

@@ -150,7 +150,7 @@ void testAddress()
     {
         electrum.getRawChangeAddress([mainReactor, addresses](const bitcoin::IBridge::Error&, const std::string& addr)
         {
-            LOG_INFO() << "generated address = " << addr;
+            BEAM_LOG_INFO() << "generated address = " << addr;
 
             WALLET_CHECK(addresses.find(addr) != addresses.end());
         });
@@ -191,7 +191,7 @@ void testConnection()
 
         io::Result res = sslStream->write(request.data(), request.size());
         if (!res) {
-            LOG_ERROR() << error_str(res.error());
+            BEAM_LOG_ERROR() << error_str(res.error());
         }
     }, 2000, { true, false });
 
@@ -439,7 +439,7 @@ void testReconnectToInvalidAddresses()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_WARNING;
+    int logLevel = BEAM_LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();

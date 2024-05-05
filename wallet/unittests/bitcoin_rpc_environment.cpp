@@ -118,7 +118,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Server error " << io::error_str(errorCode);
+            BEAM_LOG_ERROR() << "Server error " << io::error_str(errorCode);
             stopServer();
         }
     }
@@ -147,7 +147,7 @@ private:
             }
             else
             {
-                LOG_ERROR() << "Request is wrong";
+                BEAM_LOG_ERROR() << "Request is wrong";
                 stopServer();
             }
         }
@@ -171,7 +171,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Cannot create response";
+            BEAM_LOG_ERROR() << "Cannot create response";
             stopServer();
         }
 

@@ -466,7 +466,7 @@ namespace beam::bitcoin
 
                     Result res = connection.m_stream->write(request.data(), request.size());
                     if (!res) {
-                        LOG_ERROR() << error_str(res.error());
+                        BEAM_LOG_ERROR() << error_str(res.error());
                     }
                     return true;
                 }
@@ -571,7 +571,7 @@ namespace beam::bitcoin
 
                         Result res = connection.m_stream->write(request.data(), request.size());
                         if (!res) {
-                            LOG_ERROR() << error_str(res.error());
+                            BEAM_LOG_ERROR() << error_str(res.error());
                         }
                         return true;
                     }
@@ -602,7 +602,7 @@ namespace beam::bitcoin
         request += "\n";
 
         auto settings = m_settingsProvider.GetSettings();
-        //LOG_INFO() << request;
+        //BEAM_LOG_INFO() << request;
         io::Address address;
         std::string host;
         {
@@ -622,7 +622,7 @@ namespace beam::bitcoin
             {
                 tryToChangeAddress();
 
-                LOG_ERROR() << "unable to resolve electrum address: " << electrumSettings.m_address;
+                BEAM_LOG_ERROR() << "unable to resolve electrum address: " << electrumSettings.m_address;
 
                 // TODO maybe to need async??
                 Error error{ IOError, "unable to resolve electrum address: " + electrumSettings.m_address };
@@ -667,7 +667,7 @@ namespace beam::bitcoin
                         {
                             std::string strResponse = std::string(static_cast<const char*>(data), size);
 
-                            //LOG_INFO() << "strResponse: " << strResponse;
+                            //BEAM_LOG_INFO() << "strResponse: " << strResponse;
                             try
                             {
                                 json reply = json::parse(strResponse);
@@ -700,7 +700,7 @@ namespace beam::bitcoin
                                             Result res = connection.m_stream->write(connection.m_request.data(), connection.m_request.size());
                                             if (!res)
                                             {
-                                                LOG_ERROR() << error_str(res.error());
+                                                BEAM_LOG_ERROR() << error_str(res.error());
                                             }
                                             return true;
                                         }
@@ -784,7 +784,7 @@ namespace beam::bitcoin
                 }
 
                 if (!res) {
-                    LOG_ERROR() << error_str(res.error());
+                    BEAM_LOG_ERROR() << error_str(res.error());
                 }
             }
             else
@@ -805,7 +805,7 @@ namespace beam::bitcoin
         if (result)
             return;
 
-        LOG_ERROR() << "error in Electrum::sendRequest: code = " << io::error_descr(result.error());
+        BEAM_LOG_ERROR() << "error in Electrum::sendRequest: code = " << io::error_descr(result.error());
 
         Error error{ IOError, std::string("error in Electrum::sendRequest: code = ") + io::error_descr(result.error()) };
         json tmp;

@@ -86,7 +86,7 @@ namespace beam::wallet
         auto& builder = *_builder;
         if (GetState<State>() == State::Initial)
         {
-            LOG_INFO()
+            BEAM_LOG_INFO()
                 << GetTxID()
                 << " "
                 << (_issue ? "Generating" : "Consuming")

@@ -62,14 +62,14 @@ private:
                 std::move(newStream)
             );
         } else {
-            LOG_ERROR() << "Server error " << io::error_str(errorCode);
+            BEAM_LOG_ERROR() << "Server error " << io::error_str(errorCode);
             g_stopEvent();
         }
     }
 
     bool on_request(uint64_t, const HttpMsgReader::Message& msg) {
         if (msg.what != HttpMsgReader::http_message || !msg.msg) {
-            LOG_ERROR() << "Request error";
+            BEAM_LOG_ERROR() << "Request error";
             g_stopEvent();
             return false;
         }
@@ -110,7 +110,7 @@ private:
             _theConnection->write_msg(_serialized);
             _theConnection->shutdown();
         } else {
-            LOG_ERROR() << "Cannot create response";
+            BEAM_LOG_ERROR() << "Cannot create response";
             g_stopEvent();
         }
 
@@ -145,14 +145,14 @@ public:
 private:
     void on_timer() {
         if (!_reactor.tcp_connect(io::Address::localhost().port(PORT), 333, BIND_THIS_MEMFN(on_connected), 1000, io::TlsConfig(_ssl, false))) {
-            LOG_ERROR() << "Connect failed";
+            BEAM_LOG_ERROR() << "Connect failed";
             g_stopEvent();
         }
     }
 
     void on_connected(uint64_t, io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
         if (errorCode != 0) {
-            LOG_ERROR() << "Connect failed, " << io::error_str(errorCode);
+            BEAM_LOG_ERROR() << "Connect failed, " << io::error_str(errorCode);
             g_stopEvent();
             return;
         }
@@ -179,14 +179,14 @@ private:
             _theConnection->write_msg(_serialized);
             _serialized.clear();
         } else {
-            LOG_ERROR() << "Cannot send request";
+            BEAM_LOG_ERROR() << "Cannot send request";
             g_stopEvent();
         }
     }
 
     bool on_response(uint64_t, const HttpMsgReader::Message& msg) {
         if (msg.what != HttpMsgReader::http_message || !msg.msg) {
-            LOG_ERROR() << __FUNCTION__ << " " << msg.error_str();
+            BEAM_LOG_ERROR() << __FUNCTION__ << " " << msg.error_str();
 
             if (msg.what == HttpMsgReader::connection_error && msg.connectionError == io::EC_EOF) {
                 _theConnection.reset();
@@ -204,12 +204,12 @@ private:
                 io::SharedBuffer fileContent = io::map_file_read_only(THIS_PATH.c_str());
                 if (fileContent.size == bodySize && !memcmp(body, fileContent.data, bodySize)) {
                     uncompleted = 0;
-                    LOG_INFO() << "file received successfully, size=" << bodySize;
+                    BEAM_LOG_INFO() << "file received successfully, size=" << bodySize;
                 } else {
-                    LOG_INFO() << "file receive error" << TRACE(bodySize) << TRACE(fileContent.size);
+                    BEAM_LOG_INFO() << "file receive error" << TRACE(bodySize) << TRACE(fileContent.size);
                 }
             } catch (const std::exception& e) {
-                LOG_ERROR() << e.what();
+                BEAM_LOG_ERROR() << e.what();
             }
         }
 
@@ -252,7 +252,7 @@ int http_server_test(bool ssl) {
         nErrors = client.uncompleted;
         LOG_DEBUG() << reactor.use_count();
     } catch (const std::exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
         nErrors = 255;
     }
 
@@ -263,9 +263,9 @@ int http_server_test(bool ssl) {
 } //namespace
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     int r = http_server_test(true);

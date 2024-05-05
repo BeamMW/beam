@@ -43,7 +43,7 @@ bool g_FirstRcv = true;
 int calc_errors() {
     int retCode=errorlevel + callbackCount + writecancelInProgress;
     if (retCode != 0) {
-        LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
+        BEAM_LOG_ERROR() << TRACE(errorlevel) << TRACE(callbackCount) << TRACE(writecancelInProgress);
         errorlevel=0;
         callbackCount=0;
         writecancelInProgress=0;
@@ -76,7 +76,7 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
         static const char* request = "GET / HTTP/1.0\r\nHost: " DOMAIN_NAME "\r\n\r\n";
         Result res = newStream->write(request, strlen(request));
         if (!res) {
-            LOG_ERROR() << error_str(res.error());
+            BEAM_LOG_ERROR() << error_str(res.error());
         }
         streams.emplace_back(move(newStream));
 
@@ -89,7 +89,7 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
 };
 
 int tcpclient_test(bool ssl) {
-    LOG_INFO() << __FUNCTION__ << TRACE(ssl);
+    BEAM_LOG_INFO() << __FUNCTION__ << TRACE(ssl);
     callbackCount = 3;
     g_FirstRcv = true;
     long reactorUseCount = 0;
@@ -134,7 +134,7 @@ int tcpclient_test(bool ssl) {
         reactorUseCount = reactor.use_count() - 1;
     }
     catch (const Exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 
     return reactorUseCount + calc_errors();
@@ -182,7 +182,7 @@ int tcpclient_writecancel_test() {
         streams.clear();
     }
     catch (const Exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 
     return calc_errors();
@@ -206,7 +206,7 @@ int tcpclient_unclosed_test() {
         for (uint64_t i=0; i<9; ++i) {
             auto result = reactor->tcp_connect(a, i, on_connected_dummy, 10000);
             if (!result) {
-                LOG_ERROR() << error_descr(result.error());
+                BEAM_LOG_ERROR() << error_descr(result.error());
                 ++errorlevel;
             }
         }
@@ -225,16 +225,16 @@ int tcpclient_unclosed_test() {
         streams.clear();
     }
     catch (const Exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 
     return calc_errors();
 }
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
 

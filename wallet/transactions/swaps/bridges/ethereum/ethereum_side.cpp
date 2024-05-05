@@ -158,7 +158,7 @@ bool EthereumSide::ConfirmLockTx()
 
                 if (amount != swapAmount)
                 {
-                    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
+                    BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
                         << " Unexpected amount, expected: " << swapAmount.str() << ", got: " << amount.str();
                     m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
@@ -171,7 +171,7 @@ bool EthereumSide::ConfirmLockTx()
 
                 if (txInputStr != lockTxDataStr)
                 {
-                    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
+                    BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
                         << " Transaction data does not match.";
                     m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidContract, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
@@ -180,7 +180,7 @@ bool EthereumSide::ConfirmLockTx()
             }
             catch (const std::exception& ex)
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to parse txInfo: " << ex.what();
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to parse txInfo: " << ex.what();
                 m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapFormatResponseError, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return;
@@ -202,7 +202,7 @@ bool EthereumSide::ConfirmLockTx()
             case ethereum::IBridge::ErrorType::InvalidResultFormat:
             case ethereum::IBridge::ErrorType::EthError:
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
                 m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidTransaction, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return;
@@ -325,7 +325,7 @@ bool EthereumSide::SendLockTx()
             case ethereum::IBridge::ErrorType::InvalidResultFormat:
             case ethereum::IBridge::ErrorType::EthError:
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Transaction is not valid.";
                 m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::InvalidTransaction, false, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return;
@@ -612,7 +612,7 @@ void EthereumSide::SetTxError(const ethereum::IBridge::Error& error, SubTxID sub
         return;
     }
 
-    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
+    BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
     switch (error.m_type)
     {
     case ethereum::IBridge::EmptyResult:

@@ -152,7 +152,7 @@ namespace beam
 		cl.SetTimer(timerInterval);
 
 		pReactor->run();
-        LOG_VERBOSE() << pReactor.use_count();
+        BEAM_LOG_VERBOSE() << pReactor.use_count();
 	}
 
     void TestP2pSane()
@@ -177,7 +177,7 @@ namespace beam
 				for (int i = 0; i < 15; i++)
 				{
 					msg.m_ID.m_Height = m_Out++;
-                    LOG_VERBOSE() << TRACE(msg.m_ID.m_Height);
+                    BEAM_LOG_VERBOSE() << TRACE(msg.m_ID.m_Height);
 					Send(msg);
 				}
 
@@ -206,7 +206,7 @@ namespace beam
 
 			virtual void OnMsg(proto::GetHdr&& msg) override
 			{
-                LOG_VERBOSE() << TRACE(m_In) << TRACE(msg.m_ID.m_Height);
+                BEAM_LOG_VERBOSE() << TRACE(m_In) << TRACE(msg.m_ID.m_Height);
 				if (msg.m_ID.m_Height != m_In)
 				{
                     printf("OnMsg gap: %u - %u\n", m_In, (uint32_t) msg.m_ID.m_Height);
@@ -254,9 +254,9 @@ namespace beam
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
 

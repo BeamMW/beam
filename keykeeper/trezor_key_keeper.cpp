@@ -230,12 +230,12 @@ namespace beam::wallet
 
                         //onError(message);
 
-                        LOG_ERROR() << "TREZOR FAIL REASON: " << message;
+                        BEAM_LOG_ERROR() << "TREZOR FAIL REASON: " << message;
                     });
 
                 trezor->callback_Success([&](const Message& msg, std::string session, size_t queue_size)
                     {
-                        LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
+                        BEAM_LOG_INFO() << "TREZOR SUCCESS: " << child_cast<Message, Success>(msg).message();
                     });
 
                 try
@@ -244,7 +244,7 @@ namespace beam::wallet
                 }
                 catch (std::runtime_error e)
                 {
-                    LOG_ERROR() << e.what();
+                    BEAM_LOG_ERROR() << e.what();
                     return nullptr;
                 }
             }           

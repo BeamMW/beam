@@ -17,7 +17,7 @@ public:
     ~ExternalPOWStub() override {
         stop();
         _thread.join();
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     }
 
 private:
@@ -93,14 +93,14 @@ private:
 
         auto cancelFn = [this, &job](bool)->bool {
             if (_changed.load()) {
-                LOG_INFO() << "job id=" << job.jobID << " cancelled";
+                BEAM_LOG_INFO() << "job id=" << job.jobID << " cancelled";
                 return true;
             }
             return false;
         };
 
         while (get_new_job(job)) {
-            LOG_INFO() << "solving job id=" << job.jobID
+            BEAM_LOG_INFO() << "solving job id=" << job.jobID
                        << " with nonce=" << job.pow.m_Nonce 
                        << " and difficulty=" << job.pow.m_Difficulty 
                        << " and height=" << job.height;

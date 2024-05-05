@@ -47,7 +47,7 @@ namespace beam::wallet
                 signHandler.m_data = msg.m_content;
                 if (token.getPublicKey() && !signHandler.IsValid(token.getPublicKey()->m_Pk))
                 {
-                    LOG_WARNING() << "offer board message signature is invalid";
+                    BEAM_LOG_WARNING() << "offer board message signature is invalid";
                     return boost::none;
                 }
                 return token.Unpack();
@@ -56,7 +56,7 @@ namespace beam::wallet
         catch(...)
         {
         }
-        LOG_WARNING() << "offer board message deserialization exception";
+        BEAM_LOG_WARNING() << "offer board message deserialization exception";
         return boost::none;
     }
 

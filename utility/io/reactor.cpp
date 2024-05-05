@@ -43,10 +43,10 @@ public:
 
     ~TcpConnectors() {
         if (!_connectRequests.empty()) {
-            LOG_ERROR() << "connect requests were not cancelled";
+            BEAM_LOG_ERROR() << "connect requests were not cancelled";
         }
         if (!_cancelledConnectRequests.empty()) {
-            LOG_ERROR() << "callbacks on cancelled requests were not called";
+            BEAM_LOG_ERROR() << "callbacks on cancelled requests were not called";
         }
     }
 
@@ -124,7 +124,7 @@ public:
     }
 
     void cancel_tcp_connect(uint64_t tag) {
-        LOG_VERBOSE() << TRACE(tag);
+        BEAM_LOG_VERBOSE() << TRACE(tag);
         auto it = _connectRequests.find(tag);
         if (it != _connectRequests.end()) {
             cancel_tcp_connect_impl(it);
@@ -196,7 +196,7 @@ private:
     }
 
     void connect_timeout_callback(uint64_t tag) {
-        LOG_VERBOSE() << TRACE(tag);
+        BEAM_LOG_VERBOSE() << TRACE(tag);
         auto it = _connectRequests.find(tag);
         if (it != _connectRequests.end()) {
             Reactor::ConnectCallback cb = it->second->callback;
@@ -359,7 +359,7 @@ Reactor::Reactor() :
 
     auto errorCode = (ErrorCode)uv_loop_init(&_loop);
     if (errorCode != 0) {
-        LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
+        BEAM_LOG_ERROR() << "cannot initialize uv loop, error=" << errorCode;
         IO_EXCEPTION(errorCode);
     }
 
@@ -380,7 +380,7 @@ Reactor::Reactor() :
 
     if (errorCode != 0) {
         uv_loop_close(&_loop);
-        LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
+        BEAM_LOG_ERROR() << "cannot initialize loop stop event, error=" << errorCode;
         IO_EXCEPTION(errorCode);
     }
 
@@ -575,7 +575,7 @@ TcpStream* Reactor::stream_connected(TcpStream* stream, uv_handle_t* h) {
 }
 
 TcpStream* Reactor::move_stream(TcpStream* newStream, TcpStream* oldStream) {
-    LOG_VERBOSE() << "move_stream() handle: " << static_cast<void*>(oldStream->_handle);
+    BEAM_LOG_VERBOSE() << "move_stream() handle: " << static_cast<void*>(oldStream->_handle);
     oldStream->disable_read();
     newStream->_handle = oldStream->_handle;
     newStream->_handle->data = newStream;
@@ -706,7 +706,7 @@ void Reactor::cancel_tcp_connect(uint64_t tag) {
 }
 
 void Reactor::async_close(uv_handle_t*& handle) {
-    LOG_VERBOSE() << "async_close " << TRACE(handle);
+    BEAM_LOG_VERBOSE() << "async_close " << TRACE(handle);
 
     if (!handle) return;
     handle->data = 0;

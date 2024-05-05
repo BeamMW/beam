@@ -80,7 +80,7 @@ namespace beam::wallet
 
         if (GetState<State>() == State::Initial)
         {
-            LOG_INFO()
+            BEAM_LOG_INFO()
                 << GetTxID()
                 << " Unregistering asset with the owner id " << builder.m_pidAsset
                 << ". Refund amount is " << PrintableAmount(wa.m_Deposit, false);
@@ -112,7 +112,7 @@ namespace beam::wallet
 
             if (wa.m_Value != Zero)
             {
-                LOG_INFO () << "AID " << wa.m_ID << " value " << AmountBig::get_Lo(wa.m_Value);
+                BEAM_LOG_INFO () << "AID " << wa.m_ID << " value " << AmountBig::get_Lo(wa.m_Value);
                 OnFailed(TxFailureReason::AssetInUse);
                 return;
             }

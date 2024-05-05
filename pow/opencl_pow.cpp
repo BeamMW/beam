@@ -122,7 +122,7 @@ namespace beam {
             stop();
             _thread.join();
             _minerThread.join();
-            LOG_INFO() << "OpenCLMiner is done";
+            BEAM_LOG_INFO() << "OpenCLMiner is done";
         }
 
     private:
@@ -224,21 +224,21 @@ namespace beam {
 
             
             
-            LOG_INFO() << "Setup OpenCL devices:";
-            LOG_INFO() << "=====================";
+            BEAM_LOG_INFO() << "Setup OpenCL devices:";
+            BEAM_LOG_INFO() << "=====================";
 
             _ClHost.setup(&_workProvider, _devices, cpuMine);
 
-            LOG_INFO() << "Waiting for work:";
-            LOG_INFO() << "==============================";
+            BEAM_LOG_INFO() << "Waiting for work:";
+            BEAM_LOG_INFO() << "==============================";
 
             while (!_workProvider.hasWork())
             {
                 this_thread::sleep_for(chrono::milliseconds(200));
             }
 
-            LOG_INFO() << "Start mining:";
-            LOG_INFO() << "=============";
+            BEAM_LOG_INFO() << "Start mining:";
+            BEAM_LOG_INFO() << "=============";
 
             _ClHost.startMining();
         }

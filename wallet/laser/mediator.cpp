@@ -179,7 +179,7 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
     {
         if (*chID != *inChID)
         {
-            LOG_ERROR() << "Unknown channel ID: "
+            BEAM_LOG_ERROR() << "Unknown channel ID: "
                         << to_hex(inChID->m_pData , inChID->nBytes);
             return;
         }
@@ -237,7 +237,7 @@ void Mediator::ListenClosedChannelsWithPossibleRollback()
         auto p_channelID = Channel::ChannelIdFromString(channelIdStr);
         if (!p_channelID)
         {
-            LOG_ERROR() << "Incorrect channel ID format: " << channelIdStr;
+            BEAM_LOG_ERROR() << "Incorrect channel ID format: " << channelIdStr;
             return;
         }
         auto channel = LoadChannelInternal(p_channelID);
@@ -251,7 +251,7 @@ void Mediator::WaitIncoming(Amount aMy, Amount aTrg, Amount fee)
 {
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
-        LOG_ERROR() << "Your available amount less then required.";
+        BEAM_LOG_ERROR() << "Your available amount less then required.";
         auto zeroID = std::make_shared<ChannelID>(Zero);
         for (auto observer : m_observers)
             observer->OnOpenFailed(zeroID);
@@ -316,13 +316,13 @@ bool Mediator::Serve(const std::string& channelID)
             auto channelIdStr = to_hex(p_channelID->m_pData, p_channelID->nBytes);
             if (!channel)
             {
-                LOG_ERROR() << "Unknown channel ID:  " << channelIdStr;
+                BEAM_LOG_ERROR() << "Unknown channel ID:  " << channelIdStr;
                 return;
             }
 
-            LOG_INFO() << "Channel " << channelIdStr <<" valid till: " << channel->get_LockHeight();
-            LOG_INFO() << "Channel " << channelIdStr <<" lock time for one side actions: " << channel->getLocktime();
-            LOG_INFO() << "Channel " << channelIdStr <<" expire after: " 
+            BEAM_LOG_INFO() << "Channel " << channelIdStr <<" valid till: " << channel->get_LockHeight();
+            BEAM_LOG_INFO() << "Channel " << channelIdStr <<" lock time for one side actions: " << channel->getLocktime();
+            BEAM_LOG_INFO() << "Channel " << channelIdStr <<" expire after: " 
                        << channel->get_LockHeight() + channel->getLocktime();
 
             if (channel->get_State() == beam::Lightning::Channel::State::Expired)
@@ -351,7 +351,7 @@ void Mediator::OpenChannel(Amount aMy,
 {
     if (!IsEnoughCoinsAvailable(aMy + fee))
     {
-        LOG_ERROR() << "Your available amount less then required.";
+        BEAM_LOG_ERROR() << "Your available amount less then required.";
         auto zeroID = std::make_shared<ChannelID>(Zero);
         for (auto observer : m_observers)
             observer->OnOpenFailed(zeroID);
@@ -361,7 +361,7 @@ void Mediator::OpenChannel(Amount aMy,
     auto addresses = m_pWalletDB->getAddresses(true, true);
     if (storage::isMyAddress(addresses, receiverWalletID))
     {
-        LOG_ERROR() << "Can't open channel on same DB as receiver";
+        BEAM_LOG_ERROR() << "Can't open channel on same DB as receiver";
         auto zeroID = std::make_shared<ChannelID>(Zero);
         for (auto observer : m_observers)
             observer->OnOpenFailed(zeroID);
@@ -390,14 +390,14 @@ bool Mediator::Close(const std::string& channelID)
     auto p_channelID = LoadChannel(channelID);
     if (!p_channelID)
     {
-        LOG_ERROR() << "Channel " << channelID << " restored with error";
+        BEAM_LOG_ERROR() << "Channel " << channelID << " restored with error";
         return false;
     }
 
     auto& channel = m_channels[p_channelID];
     if (!channel)
     {
-        LOG_ERROR() << "Channel " << channelID << " unexpected error";
+        BEAM_LOG_ERROR() << "Channel " << channelID << " unexpected error";
         return false;
     }
 
@@ -409,7 +409,7 @@ bool Mediator::Close(const std::string& channelID)
 
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
-        LOG_ERROR() << "Previous action with channel: " << channelID
+        BEAM_LOG_ERROR() << "Previous action with channel: " << channelID
                     << " is unfinished. Please, listen this channel till action complete.";
         return false;
     }
@@ -427,14 +427,14 @@ bool Mediator::GracefulClose(const std::string& channelID)
     auto p_channelID = LoadChannel(channelID);
     if (!p_channelID)
     {
-        LOG_ERROR() << "Channel " << channelID << " restored with error";
+        BEAM_LOG_ERROR() << "Channel " << channelID << " restored with error";
         return false;
     }
 
     auto& channel = m_channels[p_channelID];
     if (!channel)
     {
-        LOG_ERROR() << "Channel " << channelID << " unexpected error";
+        BEAM_LOG_ERROR() << "Channel " << channelID << " unexpected error";
         return false;
     }
 
@@ -447,7 +447,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
 
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
-        LOG_ERROR() << "Previous action with channel: " << channelID
+        BEAM_LOG_ERROR() << "Previous action with channel: " << channelID
                     << " is unfinished. Please, listen this channel till action complete.";
         return false;
     }
@@ -472,7 +472,7 @@ bool Mediator::Delete(const std::string& channelID)
     auto p_channelID = Channel::ChannelIdFromString(channelID);
     if (!p_channelID)
     {
-        LOG_ERROR() << "Incorrect channel ID format: " << channelID;
+        BEAM_LOG_ERROR() << "Incorrect channel ID format: " << channelID;
         return false;
     }
     auto channel = LoadChannelInternal(p_channelID);
@@ -481,13 +481,13 @@ bool Mediator::Delete(const std::string& channelID)
     auto state = channel->get_State();
     if (!CanBeDeleted(state))
     {
-        LOG_ERROR() << "Channel: " << channelID << " in active state now";
+        BEAM_LOG_ERROR() << "Channel: " << channelID << " in active state now";
         return false;
     }
 
     if (state == Lightning::Channel::State::Closed && !channel->IsSafeToForget())
     {
-        LOG_ERROR() << "Channel: " << channelID << " can be rolled back";
+        BEAM_LOG_ERROR() << "Channel: " << channelID << " can be rolled back";
         return false;
     }
 
@@ -499,11 +499,11 @@ bool Mediator::Delete(const std::string& channelID)
     m_channels.erase(p_channelID);
     if (m_pWalletDB->removeLaserChannel(p_channelID))
     {
-        LOG_INFO() << "Channel: " << channelID << " deleted";
+        BEAM_LOG_INFO() << "Channel: " << channelID << " deleted";
         return true;
     }
 
-    LOG_INFO() << "Channel: " << channelID << " not deleted";
+    BEAM_LOG_INFO() << "Channel: " << channelID << " not deleted";
     return false;
 }
 
@@ -541,7 +541,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     auto p_channelID = LoadChannel(channelID);
     if (!p_channelID) 
     {
-        LOG_ERROR() << "Channel " << channelID << " restored with error";
+        BEAM_LOG_ERROR() << "Channel " << channelID << " restored with error";
         return false;
     }
 
@@ -552,7 +552,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     auto myChannelAmount = channel->get_amountCurrentMy();
     if (myChannelAmount < amount)
     {
-        LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+        BEAM_LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelID << " failed\n"
                     << "My current channel balance is: "
                     << PrintableAmount(myChannelAmount, true);
@@ -580,7 +580,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
                 TransferInternal(amount, channel);
             });
         
-            LOG_INFO() << "Sync in progress...";
+            BEAM_LOG_INFO() << "Sync in progress...";
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
                         << " to channel: " << channelID << " is sceduled";
         }
@@ -594,11 +594,11 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
     }
     else if (channel && channel->get_State() == Lightning::Channel::State::Updating)
     {
-        LOG_ERROR() << "Previous transfer for channel: " << channelID << " is not completed.";
+        BEAM_LOG_ERROR() << "Previous transfer for channel: " << channelID << " is not completed.";
         return false;
     }
 
-    LOG_ERROR() << "Channel " << channelID << " is not OPEN.";
+    BEAM_LOG_ERROR() << "Channel " << channelID << " is not OPEN.";
     return false;
 }
 
@@ -625,34 +625,34 @@ bool Mediator::OnIncoming(const ChannelIDPtr& channelID,
     Amount fee;
     if (!dataIn.Get(fee, Lightning::Codes::Fee) || fee != m_feeAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_fee' detected";
+        BEAM_LOG_ERROR() << "Incoming connection with incorrect 'laser_fee' detected";
         return false;
     }
 
     Amount aMy;
     if (!dataIn.Get(aMy, Lightning::Codes::ValueYours) || aMy != m_myInAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_my_locked_amount' detected";
+        BEAM_LOG_ERROR() << "Incoming connection with incorrect 'laser_my_locked_amount' detected";
         return false;
     }
     
     Amount aTrg;
     if (!dataIn.Get(aTrg, Lightning::Codes::ValueMy) || aTrg != m_trgInAllowed)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'laser_remote_locked_amount' detected";
+        BEAM_LOG_ERROR() << "Incoming connection with incorrect 'laser_remote_locked_amount' detected";
         return false;
     }
 
     Height locktime;
     if (!dataIn.Get(locktime, Lightning::Codes::HLock) || locktime != m_Params.m_hLockTime)
     {
-        LOG_ERROR() << "Incoming connection with incorrect 'HLock' detected";
+        BEAM_LOG_ERROR() << "Incoming connection with incorrect 'HLock' detected";
         return false;
     }          
 
     Unsubscribe();
 
-    LOG_INFO() << "Create channel by incoming connection: "
+    BEAM_LOG_INFO() << "Create channel by incoming connection: "
                << to_hex(channelID->m_pData , channelID->nBytes);
 
     auto params = m_Params;
@@ -671,20 +671,20 @@ void Mediator::OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh)
     auto& channel = m_channels[chID];
     if (!channel)
     {
-        LOG_ERROR() << "Unknown channel ID:  " << to_hex(chID->m_pData, chID->nBytes);
+        BEAM_LOG_ERROR() << "Unknown channel ID:  " << to_hex(chID->m_pData, chID->nBytes);
         return;
     }
 
     channel->Subscribe();
     if (channel->Open(hOpenTxDh))
     {
-        LOG_INFO() << "Opening channel: "
+        BEAM_LOG_INFO() << "Opening channel: "
                    << to_hex(chID->m_pData, chID->nBytes);
         UpdateChannelExterior(channel);
         return;
     }
 
-    LOG_ERROR() << "Opening channel "
+    BEAM_LOG_ERROR() << "Opening channel "
                 << to_hex(chID->m_pData, chID->nBytes) << " fail";
 
     channel->Unsubscribe();
@@ -709,7 +709,7 @@ void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
     {
         if (channel->Transfer(amount))
         {
-            LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
+            BEAM_LOG_INFO() << "Transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr
                     << " started";
             UpdateChannelExterior(channel);
@@ -717,16 +717,16 @@ void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
         }
         else
         {
-            LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
+            BEAM_LOG_ERROR() << "Transfer: " << PrintableAmount(amount, true)
                         << " to channel: " << channelIdStr
                         << " failed";
         }
     }
     else
     {
-        LOG_ERROR() << "You can't transfer: " << PrintableAmount(amount, true)
+        BEAM_LOG_ERROR() << "You can't transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr;
-        LOG_ERROR() << "Current height: " << tip.m_Height + 1
+        BEAM_LOG_ERROR() << "Current height: " << tip.m_Height + 1
                     << " overtop channel lock height: " << channelLockHeight;
     }
        
@@ -770,7 +770,7 @@ void Mediator::CloseInternal(const ChannelIDPtr& chID)
         channel->Subscribe();
         return;
     }
-    LOG_ERROR() << "Can't close channel: " << to_hex(chID->m_pData, chID->nBytes);
+    BEAM_LOG_ERROR() << "Can't close channel: " << to_hex(chID->m_pData, chID->nBytes);
     for (auto observer : m_observers)
     {
         observer->OnCloseFailed(chID);
@@ -782,7 +782,7 @@ void Mediator::ClosingCompleted(const ChannelIDPtr& p_channelID)
     auto it = m_channels.find(p_channelID);
     if (it == m_channels.end()) return;
 
-    LOG_INFO() << "ClosingCompleted: "
+    BEAM_LOG_INFO() << "ClosingCompleted: "
                << to_hex(p_channelID->m_pData, p_channelID->nBytes);
     m_closedChannels.push_back(std::move(it->second));
     m_channels.erase(it);
@@ -805,7 +805,7 @@ ChannelIDPtr Mediator::LoadChannel(const std::string& channelID)
     auto p_channelID = Channel::ChannelIdFromString(channelID);
     if (!p_channelID)
     {
-        LOG_ERROR() << "Incorrect channel ID format: " << channelID;
+        BEAM_LOG_ERROR() << "Incorrect channel ID format: " << channelID;
         return nullptr;
     }
 
@@ -828,7 +828,7 @@ Channel::Ptr Mediator::LoadChannelInternal(const ChannelIDPtr& p_channelID)
     TLaserChannelEntity chDBEntity;
     if (!m_pWalletDB->getLaserChannel(p_channelID, &chDBEntity))
     {
-        LOG_INFO() << "Channel "
+        BEAM_LOG_INFO() << "Channel "
                    << to_hex(p_channelID->m_pData , p_channelID->nBytes)
                    << " not saved in DB";
         return nullptr;
@@ -838,7 +838,7 @@ Channel::Ptr Mediator::LoadChannelInternal(const ChannelIDPtr& p_channelID)
     auto myAddr = m_pWalletDB->getAddress(myWID, true);
     if (!myAddr)
     {
-        LOG_ERROR() << "Can't load address from DB: "
+        BEAM_LOG_ERROR() << "Can't load address from DB: "
                     << std::to_string(myWID);
         return nullptr;
     }
@@ -871,7 +871,7 @@ void Mediator::UpdateChannels()
         bool revisionDiscarded = false;
         if (state == Lightning::Channel::State::Updating && channel->IsUpdateStuck())
         {
-            LOG_WARNING() << "Update stuck, discarding last revision...";
+            BEAM_LOG_WARNING() << "Update stuck, discarding last revision...";
             channel->DiscardLastRevision();
             revisionDiscarded = true;
         }
@@ -879,7 +879,7 @@ void Mediator::UpdateChannels()
         bool closingDiscarded = false;
         if (state == Lightning::Channel::State::Closing1 && channel->IsGracefulCloseStuck())
         {
-            LOG_WARNING() << "Closing stuck, discarding last revision...";
+            BEAM_LOG_WARNING() << "Closing stuck, discarding last revision...";
             channel->DiscardLastRevision();
             closingDiscarded = true;
         }
@@ -968,7 +968,7 @@ bool Mediator::ValidateTip()
     Block::SystemState::ID id;
     tip.get_ID(id);
     m_pWalletDB->setSystemStateID(id);
-    LOG_INFO() << "LASER Current state is " << id;
+    BEAM_LOG_INFO() << "LASER Current state is " << id;
     return true;
 }
 
@@ -1006,7 +1006,7 @@ bool Mediator::IsInSync()
 void Mediator::ExpireChannel(const Channel::Ptr& channel)
 {
     const auto& p_channelID = channel->get_chID();
-    LOG_ERROR() << "Channel ID:  "
+    BEAM_LOG_ERROR() << "Channel ID:  "
                 << to_hex(p_channelID->m_pData, p_channelID->nBytes) << " lock height expired";
     channel->LogState();
     channel->UpdateRestorePoint();

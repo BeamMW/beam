@@ -26,7 +26,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -37,7 +37,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -58,7 +58,7 @@ namespace beam::wallet
                  auto guard = wguard.lock();
                  if (!guard)
                  {
-                     LOG_WARNING() << "API destroyed before IPFS response received.";
+                     BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                      return;
                  }
 
@@ -69,7 +69,7 @@ namespace beam::wallet
                  auto guard = wguard.lock();
                  if (!guard)
                  {
-                     LOG_WARNING() << "API destroyed before IPFS response received.";
+                     BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                      return;
                  }
 
@@ -90,7 +90,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -101,7 +101,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -122,7 +122,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -133,7 +133,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
                 sendError(id, ApiError::IPFSError, err);
@@ -153,7 +153,7 @@ namespace beam::wallet
               auto guard = wguard.lock();
               if (!guard)
               {
-                  LOG_WARNING() << "API destroyed before IPFS response received.";
+                  BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                   return;
               }
 
@@ -164,7 +164,7 @@ namespace beam::wallet
               auto guard = wguard.lock();
               if (!guard)
               {
-                  LOG_WARNING() << "API destroyed before IPFS response received.";
+                  BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                   return;
               }
               sendError(id, ApiError::IPFSError, err);
@@ -184,7 +184,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
 
@@ -195,7 +195,7 @@ namespace beam::wallet
                 auto guard = wguard.lock();
                 if (!guard)
                 {
-                    LOG_WARNING() << "API destroyed before IPFS response received.";
+                    BEAM_LOG_WARNING() << "API destroyed before IPFS response received.";
                     return;
                 }
                 sendError(id, ApiError::IPFSError, err);

@@ -32,9 +32,9 @@ const uint16_t PORT = 18443;
 }
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
 
@@ -66,13 +66,13 @@ int main() {
             request.body(data, strlen(data));
 
             request.callback([&reactor](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
-                LOG_INFO() << "response from " << id;
+                BEAM_LOG_INFO() << "response from " << id;
                 size_t sz = 0;
                 const void* body = msg.msg->get_body(sz);
                 json j = json::parse(std::string(static_cast<const char*>(body), sz));
 
-                LOG_INFO() << j;
-                LOG_INFO() << j["result"]["headers"];
+                BEAM_LOG_INFO() << j;
+                BEAM_LOG_INFO() << j["result"]["headers"];
                 reactor->stop();
                 return false;
             });
@@ -83,7 +83,7 @@ int main() {
         reactor->run();
     }
     catch (const std::exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 
     return 0;
