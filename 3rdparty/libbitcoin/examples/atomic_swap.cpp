@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -543,13 +543,16 @@ void testAtomicSwap(const boost::program_options::variables_map& vm)
     reactor->run();
 }
 
-int main(int argc, char* argv[]) {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
+int main(int argc, char* argv[]) try {
+    int logLevel{};
+
 #if LOG_VERBOSE_ENABLED
     logLevel = BEAM_LOG_LEVEL_VERBOSE;
+#else
+    logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
-    auto logger = Logger::create(logLevel, logLevel);
 
+    auto logger = Logger::create(logLevel, logLevel);
     /*
      -create senderAddress receiverAddress secretStr amount locktime
      -refund address txID amount locktime outputIndex redeemscript
@@ -613,5 +616,9 @@ int main(int argc, char* argv[]) {
 
     testAtomicSwap(vm);
 
+    return 0;
+}
+catch (const std::exception& e) {
+    BEAM_LOG_ERROR() << e.what();
     return 0;
 }

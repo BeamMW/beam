@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -90,32 +90,37 @@ namespace
     }
 }
 
-int main() {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
+int main() try {
+    int logLevel{};
+
 #if LOG_VERBOSE_ENABLED
     logLevel = BEAM_LOG_LEVEL_VERBOSE;
+#else
+    logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
+
     auto logger = Logger::create(logLevel, logLevel);
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+    Address address;
 
-    try {
-        io::Reactor::Ptr reactor = io::Reactor::create();
-        io::Reactor::Scope scope(*reactor);
-        
-        Address address;
-        /*address.resolve("testnet.hsmiths.com");
-        address.port(53012);*/
+#if 0
+    address.resolve("testnet.hsmiths.com");
+    address.port(53012);
 
-        /*address.resolve("testnet.qtornado.com");
-        address.port(51002);*/
-        address.resolve("testnet1.bauerj.eu");
-        address.port(50002);
+    address.resolve("testnet.qtornado.com");
+    address.port(51002);
+#endif
+    
+    address.resolve("testnet1.bauerj.eu");
+    address.port(50002);
 
-        reactor->tcp_connect(address, tag_ok, on_connected, 2000, io::TlsConfig(true));
-        reactor->run();
-    }
-    catch (const std::exception& e) {
-        BEAM_LOG_ERROR() << e.what();
-    }
+    reactor->tcp_connect(address, tag_ok, on_connected, 2000, io::TlsConfig(true));
+    reactor->run();
 
+    return 0;
+}
+catch (const std::exception& e) {
+    BEAM_LOG_ERROR() << e.what();
     return 0;
 }

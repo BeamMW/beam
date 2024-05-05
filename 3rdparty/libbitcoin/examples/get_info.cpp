@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,60 +31,60 @@ namespace
 const uint16_t PORT = 18443;
 }
 
-int main() {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
+int main() try {
+    int logLevel{};
+
 #if LOG_VERBOSE_ENABLED
     logLevel = BEAM_LOG_LEVEL_VERBOSE;
+#else
+    logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
+
     auto logger = Logger::create(logLevel, logLevel);
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    HttpClient client(*reactor);
+    {
+        std::string userWithPass("test:123");
+        libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
+        std::string auth("Basic " + libbitcoin::encode_base64(t));
+        std::string_view authView(auth);
+        static const HeaderPair headers[] = {
+            //{"Host", "127.0.0.1" },
+            //{"Connection", "close"},
+            {"Authorization", authView.data()}
+        };
+        const char *data = "{\"method\":\"getblockchaininfo\",\"params\":[]}\n";
 
-    try {
-        io::Reactor::Ptr reactor = io::Reactor::create();
-        HttpClient client(*reactor);
+        HttpClient::Request request;
+        io::Address a(io::Address::localhost(), PORT);
 
-        {
-            std::string userWithPass("test:123");
-            libbitcoin::data_chunk t(userWithPass.begin(), userWithPass.end());
-            std::string auth("Basic " + libbitcoin::encode_base64(t));
-            std::string_view authView(auth);
-            static const HeaderPair headers[] = {
-                //{"Host", "127.0.0.1" },
-                //{"Connection", "close"},
-                {"Authorization", authView.data()}
-            };
-            const char *data = "{\"method\":\"getblockchaininfo\",\"params\":[]}\n";
+        request.address(a);
+        request.connectTimeoutMsec(2000);
+        request.pathAndQuery("/");
+        request.headers(headers);
+        request.numHeaders(1);
+        request.method("POST");
+        request.body(data, strlen(data));
 
-            HttpClient::Request request;
-            io::Address a(io::Address::localhost(), PORT);
+        request.callback([&reactor](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
+            BEAM_LOG_INFO() << "response from " << id;
+            size_t sz = 0;
+            const void* body = msg.msg->get_body(sz);
+            json j = json::parse(std::string(static_cast<const char*>(body), sz));
 
-            request.address(a);
-            request.connectTimeoutMsec(2000);
-            request.pathAndQuery("/");
-            request.headers(headers);
-            request.numHeaders(1);
-            request.method("POST");
-            request.body(data, strlen(data));
+            BEAM_LOG_INFO() << j;
+            BEAM_LOG_INFO() << j["result"]["headers"];
+            reactor->stop();
+            return false;
+        });
 
-            request.callback([&reactor](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
-                BEAM_LOG_INFO() << "response from " << id;
-                size_t sz = 0;
-                const void* body = msg.msg->get_body(sz);
-                json j = json::parse(std::string(static_cast<const char*>(body), sz));
-
-                BEAM_LOG_INFO() << j;
-                BEAM_LOG_INFO() << j["result"]["headers"];
-                reactor->stop();
-                return false;
-            });
-
-            client.send_request(request);
-        }
-
-        reactor->run();
+        client.send_request(request);
     }
-    catch (const std::exception& e) {
-        BEAM_LOG_ERROR() << e.what();
-    }
+    reactor->run();
 
+    return 0;
+}
+catch (const std::exception& e) {
+    BEAM_LOG_ERROR() << e.what();
     return 0;
 }
