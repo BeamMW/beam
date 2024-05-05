@@ -19,7 +19,7 @@ target_link_libraries(websocket
         beam
 )
 
-target_compile_definitions(websocket PUBLIC _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+target_compile_definitions(websocket PUBLIC _SILENCE_ALL_CXX20_DEPRECATION_WARNINGS)
 
 if(MSVC)
     # to avoid 4702 warning here, until another workaround will be found

@@ -219,29 +219,29 @@ void TestStoreCoins()
 
 
     
-    int coinBase = 0;
-    int comission = 0;
-    int regular = 0;
-    walletDB->visitCoins([&coinBase, &comission, &regular](const Coin& coin)->bool
+    int coinbase_count = 0;
+    int comission_count = 0;
+    int regular_count = 0;
+    walletDB->visitCoins([&coinbase_count, &comission_count, &regular_count](const Coin& coin)->bool
     {
         if (coin.m_ID.m_Type == Key::Type::Coinbase)
         {
-            ++coinBase;
+            ++coinbase_count;
         }
         else if (coin.m_ID.m_Type == Key::Type::Comission)
         {
-            ++comission;
+            ++comission_count;
         }
         else if (coin.m_ID.m_Type == Key::Type::Regular)
         {
-            ++regular;
+            ++regular_count;
         }
         return true;
     });
 
-    WALLET_CHECK(coinBase == 6);
-    WALLET_CHECK(comission == 6);
-    WALLET_CHECK(regular == 10);
+    WALLET_CHECK(coinbase_count == 6);
+    WALLET_CHECK(comission_count == 6);
+    WALLET_CHECK(regular_count == 10);
 
     coins.clear();
     walletDB->visitCoins([&coins](const auto& coin)->bool
