@@ -410,7 +410,7 @@ bool Mediator::Close(const std::string& channelID)
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         LOG_ERROR() << "Previous action with channel: " << channelID
-                    << " is unfinished. Please, listen this channel till action complete.";
+                    << " is unfinished. Please, listen to this channel until action is complete.";
         return false;
     }
 
@@ -418,7 +418,7 @@ bool Mediator::Close(const std::string& channelID)
         CloseInternal(p_channelID);
     });
     
-    LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+    LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     return true;
 }
 
@@ -448,7 +448,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         LOG_ERROR() << "Previous action with channel: " << channelID
-                    << " is unfinished. Please, listen this channel till action complete.";
+                    << " is unfinished. Please, listen to this channel until action is complete.";
         return false;
     }
 
