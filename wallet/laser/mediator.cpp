@@ -457,7 +457,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
         m_actionsQueue.emplace_back([this, &channel] () {
             GracefulCloseInternal(channel);
         });
-        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+        LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     }
     else
     {
@@ -582,7 +582,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         
             LOG_INFO() << "Sync in progress...";
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
-                        << " to channel: " << channelID << " is sceduled";
+                        << " to channel: " << channelID << " is scheduled";
         }
         else
         {
