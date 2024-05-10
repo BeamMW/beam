@@ -410,7 +410,7 @@ bool Mediator::Close(const std::string& channelID)
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         BEAM_LOG_ERROR() << "Previous action with channel: " << channelID
-                    << " is unfinished. Please, listen this channel till action complete.";
+                    << " is unfinished. Please, listen to this channel until action is complete."
         return false;
     }
 
@@ -418,7 +418,7 @@ bool Mediator::Close(const std::string& channelID)
         CloseInternal(p_channelID);
     });
     
-    LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+    LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     return true;
 }
 
@@ -448,7 +448,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         BEAM_LOG_ERROR() << "Previous action with channel: " << channelID
-                    << " is unfinished. Please, listen this channel till action complete.";
+                    << " is unfinished. Please, listen to this channel until action is complete.";
         return false;
     }
 
@@ -457,7 +457,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
         m_actionsQueue.emplace_back([this, &channel] () {
             GracefulCloseInternal(channel);
         });
-        LOG_DEBUG() << "Closing channel: " << channelID << " is sceduled";
+        LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     }
     else
     {
@@ -582,7 +582,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
         
             BEAM_LOG_INFO() << "Sync in progress...";
             LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
-                        << " to channel: " << channelID << " is sceduled";
+                        << " to channel: " << channelID << " is scheduled";
         }
         else
         {

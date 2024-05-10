@@ -2751,7 +2751,7 @@ namespace
             auto walletDB = OpenDataBase(vm);
             if (HasActiveSwapTx(walletDB, swapCoin))
             {
-                BEAM_LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait untill transactions are completed and try again.";
+                BEAM_LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait until transactions are completed and try again.";
                 return -1;
             }
 
