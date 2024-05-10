@@ -410,7 +410,7 @@ bool Mediator::Close(const std::string& channelID)
     if (channel->get_State() != Lightning::Channel::State::Open)
     {
         BEAM_LOG_ERROR() << "Previous action with channel: " << channelID
-                    << " is unfinished. Please, listen to this channel until action is complete."
+            << " is unfinished. Please, listen to this channel until action is complete.";
         return false;
     }
 
