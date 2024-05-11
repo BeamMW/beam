@@ -40,7 +40,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with unsorded kernels";
+		BEAM_LOG_INFO() << "Run test with unsorded kernels";
 
 		TxGenerator gen = GenerateTx();
 		
@@ -53,7 +53,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with unsorted inputs";
+		BEAM_LOG_INFO() << "Run test with unsorted inputs";
 
 		TxGenerator gen = GenerateTx();
 
@@ -66,7 +66,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with unsorted outputs";
+		BEAM_LOG_INFO() << "Run test with unsorted outputs";
 
 		TxGenerator gen = GenerateTx();
 
@@ -79,7 +79,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with sorted inputs,outputs and kernels";
+		BEAM_LOG_INFO() << "Run test with sorted inputs,outputs and kernels";
 
 		TxGenerator gen = GenerateTx();
 		gen.Sort();
@@ -114,7 +114,7 @@ TxGenerator TestNodeConnection::GenerateTx()
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 	TestNodeConnection connection(argc, argv);
 

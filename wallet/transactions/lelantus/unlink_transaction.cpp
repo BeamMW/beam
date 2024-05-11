@@ -142,7 +142,7 @@ namespace beam::wallet::lelantus
 
     void UnlinkFundsTransaction::Cancel() 
     {
-        LOG_INFO() << "Canceling unlink transaction";
+        BEAM_LOG_INFO() << "Canceling unlink transaction";
         const auto state = GetState<State>();
         switch (state)
         {
@@ -190,7 +190,7 @@ namespace beam::wallet::lelantus
                 auto amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
                 if (amount <= fee)
                 {
-                    LOG_ERROR() << m_Context << "Cannot extract shielded coin, fee is to big.";
+                    BEAM_LOG_ERROR() << m_Context << "Cannot extract shielded coin, fee is to big.";
                     throw TransactionFailedException(false, TxFailureReason::ExtractFeeTooBig);
                 }
                 CreateInsertTransaction();
@@ -253,7 +253,7 @@ namespace beam::wallet::lelantus
                     m_Root.UpdateAsync();
                     break;
                 default:
-                    LOG_ERROR() << "Unexpected state: " << int(state);
+                    BEAM_LOG_ERROR() << "Unexpected state: " << int(state);
                     throw TransactionFailedException(false, TxFailureReason::Unknown);
                 }
 

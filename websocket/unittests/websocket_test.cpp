@@ -605,7 +605,7 @@ namespace
 
 int main()
 {
-    int logLevel = LOG_LEVEL_WARNING;
+    int logLevel = BEAM_LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     PlainWebsocketTest();

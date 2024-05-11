@@ -63,7 +63,7 @@ void Connection::PostRequestInternal(FlyClient::Request& r)
             }
             catch(const std::bad_cast&)
             {
-                LOG_ERROR()  << "### Bbs mesage out  ERROR ###";
+                BEAM_LOG_ERROR()  << "### Bbs mesage out  ERROR ###";
             }
             return;
         }

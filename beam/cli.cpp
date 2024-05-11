@@ -95,7 +95,7 @@ namespace
 						{
 							std::stringstream ss;
 							ss << "Websocket proxy failed to read, code=" << io::error_str(errorCode);
-							LOG_ERROR() << ss.str();
+							BEAM_LOG_ERROR() << ss.str();
 							m_wsClose(ss.str());
 							return false;
 						}
@@ -108,7 +108,7 @@ namespace
 			{
 				std::stringstream ss;
 				ss << "Websocket proxy failed connected to the node: " << io::error_str(errorCode);
-				LOG_ERROR() << ss.str();
+				BEAM_LOG_ERROR() << ss.str();
 				m_wsClose(ss.str());
 			}
 		}
@@ -206,7 +206,7 @@ namespace
 		{
 			var = vm[deprecatedName];
 			if (!var.empty())
-				LOG_WARNING() << "The \"" << deprecatedName << "\"" << " parameter is deprecated, use " << "\"" << name << "\" instead.";
+				BEAM_LOG_WARNING() << "The \"" << deprecatedName << "\"" << " parameter is deprecated, use " << "\"" << name << "\" instead.";
 		}
 
 		if (!var.empty()) {
@@ -249,7 +249,7 @@ private:
 			s.m_Done >>= 1;
 		}
 		int p = static_cast<int>((s.m_Done * 100) / s.m_Total);
-		LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
+		BEAM_LOG_INFO() << "Updating node: " << p << "% (" << s.m_Done << "/" << s.m_Total << ")";
 	}
 
 	Node* m_pNode;
@@ -314,8 +314,8 @@ int main(int argc, char* argv[])
 			return 0;
 		}
 
-		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
-		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+		int logLevel = getLogLevel(cli::LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
+		int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"
 #define LOG_FILES_PREFIX "node_"
@@ -332,14 +332,14 @@ int main(int argc, char* argv[])
 			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
 			Rules::get().UpdateChecksum();
-			LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-			LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+			BEAM_LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+			BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
 			auto port = vm[cli::PORT].as<uint16_t>();
 
 			if (!port)
 			{
-				LOG_ERROR() << "Port must be specified";
+				BEAM_LOG_ERROR() << "Port must be specified";
 				return -1;
 			}
 
@@ -413,7 +413,7 @@ int main(int argc, char* argv[])
 						SecString pass;
 						if (!beam::read_wallet_pass(pass, vm))
 						{
-							LOG_ERROR() << "Please, provide password for the keys.";
+							BEAM_LOG_ERROR() << "Please, provide password for the keys.";
 							return -1;
 						}
 
@@ -492,7 +492,7 @@ int main(int argc, char* argv[])
 						{
 							if (!addr.port())
 							{
-								LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
+								BEAM_LOG_WARNING() << "No port is specified for \"" << vPeers[i] << "\", the default value is " << port;
 								addr.port(port);
 							}
 
@@ -500,13 +500,13 @@ int main(int argc, char* argv[])
 						}
 						else
 						{
-							LOG_ERROR() << "unable to resolve: " << vPeers[i];
+							BEAM_LOG_ERROR() << "unable to resolve: " << vPeers[i];
 						}
 					}
 
 					node.m_Cfg.m_PeersPersistent = vm[cli::NODE_PEERS_PERSISTENT].as<bool>();
 
-					LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+					BEAM_LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
 					if (vm.count(cli::TREASURY_BLOCK))
 					{
@@ -516,7 +516,7 @@ int main(int argc, char* argv[])
 						else
 						{
 							if (!node.m_Cfg.m_Treasury.empty())
-								LOG_INFO() << "Treasury size: " << node.m_Cfg.m_Treasury.size();
+								BEAM_LOG_INFO() << "Treasury size: " << node.m_Cfg.m_Treasury.size();
 						}
 					}
 
@@ -586,9 +586,9 @@ int main(int argc, char* argv[])
 					if (vm.count(cli::GENERATE_RECOVERY_PATH))
 					{
 						string sPath = vm[cli::GENERATE_RECOVERY_PATH].as<string>();
-						LOG_INFO() << "Writing recovery info...";
+						BEAM_LOG_INFO() << "Writing recovery info...";
 						node.GenerateRecoveryInfo(sPath.c_str());
-						LOG_INFO() << "Recovery info written";
+						BEAM_LOG_INFO() << "Recovery info written";
 					}
 
 					if (vm.count(cli::RECOVERY_AUTO_PATH))
@@ -647,12 +647,12 @@ int main(int argc, char* argv[])
 		}
 		catch (const po::error& e)
 		{
-			LOG_ERROR() << e.what();
+			BEAM_LOG_ERROR() << e.what();
 			printHelp(visibleOptions);
 		}
 		catch (const std::runtime_error& e)
 		{
-			LOG_ERROR() << e.what();
+			BEAM_LOG_ERROR() << e.what();
 		}
 	}
 	catch (const std::exception& e)

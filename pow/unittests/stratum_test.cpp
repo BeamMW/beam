@@ -48,13 +48,13 @@ int json_creation_test() {
         Result x;
         auto code = parse_json_msg(buf.data, buf.size, x);
         if (code != 0) {
-            LOG_ERROR() << "parse_json_msg failed, error=" << get_result_msg(code);
+            BEAM_LOG_ERROR() << "parse_json_msg failed, error=" << get_result_msg(code);
             ++nErrors;
         } else if (x.id != r.id || x.method != r.method) {
-            LOG_ERROR() << "messages dont match";
+            BEAM_LOG_ERROR() << "messages dont match";
         }
     } catch (const std::exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
         nErrors = 255;
     }
 
@@ -109,9 +109,9 @@ void gen_examples() {
 } //namespace
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     auto res = json_creation_test();

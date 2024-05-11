@@ -72,7 +72,7 @@ namespace beam::wallet::lelantus
             ShieldedCoin& sc = *shieldedCoin;
             Asset::ID aid = sc.m_CoinID.m_AssetID;
 
-            LOG_INFO() << m_Context << " Extracting from shielded pool:"
+            BEAM_LOG_INFO() << m_Context << " Extracting from shielded pool:"
                 << " ID - " << shieldedId << ", amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, aid)
                 << ", receiving amount - " << PrintableAmount(sc.m_CoinID.m_Value, false, aid)
                 << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
@@ -147,7 +147,7 @@ namespace beam::wallet::lelantus
 
     void PullTransaction::RollbackTx()
     {
-        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
+        BEAM_LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         GetWalletDB()->restoreShieldedCoinsSpentByTx(GetTxID());
         GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
     }

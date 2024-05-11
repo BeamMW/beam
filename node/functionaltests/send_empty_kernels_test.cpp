@@ -40,7 +40,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with empty kernel";
+		BEAM_LOG_INFO() << "Run test with empty kernel";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -61,7 +61,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with normal and empty kernels";
+		BEAM_LOG_INFO() << "Run test with normal and empty kernels";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -86,7 +86,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with 2 empty kernels";
+		BEAM_LOG_INFO() << "Run test with 2 empty kernels";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -108,7 +108,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test without kernels";
+		BEAM_LOG_INFO() << "Run test without kernels";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -120,7 +120,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid = " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -128,7 +128,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Run test with kernel without input and output";
+		BEAM_LOG_INFO() << "Run test with kernel without input and output";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -137,7 +137,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid = " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid = " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -146,7 +146,7 @@ void TestNodeConnection::GenerateTests()
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

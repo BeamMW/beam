@@ -1599,7 +1599,7 @@ int main()
     ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
     prg.m_hv = 71U;
 
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
     Rules::get().FakePoW = true;
     Rules::get().pForks[1].m_Height = 6;

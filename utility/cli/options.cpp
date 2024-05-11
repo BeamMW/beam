@@ -842,11 +842,11 @@ namespace beam
     {
         const map<std::string, int> logLevels
         {
-            { cli::LOG_ERROR, LOG_LEVEL_ERROR },
-            { cli::LOG_WARNING, LOG_LEVEL_WARNING },
-            { cli::LOG_DEBUG, LOG_LEVEL_DEBUG },
-            { cli::INFO, LOG_LEVEL_INFO },
-            { cli::LOG_VERBOSE, LOG_LEVEL_VERBOSE }
+            { cli::LOG_ERROR, BEAM_LOG_LEVEL_ERROR },
+            { cli::LOG_WARNING, BEAM_LOG_LEVEL_WARNING },
+            { cli::LOG_DEBUG, BEAM_LOG_LEVEL_DEBUG },
+            { cli::INFO, BEAM_LOG_LEVEL_INFO },
+            { cli::LOG_VERBOSE, BEAM_LOG_LEVEL_VERBOSE }
         };
 
         if (vm.count(dstLog))

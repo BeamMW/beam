@@ -55,7 +55,7 @@ namespace beam::wallet
         }
         catch(...)
         {
-            LOG_WARNING() << "broadcast message signature deserialization exception";
+            BEAM_LOG_WARNING() << "broadcast message signature deserialization exception";
             return false;
         }
         signValidator.m_data = msg.m_content;

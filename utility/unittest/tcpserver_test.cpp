@@ -56,7 +56,7 @@ void tcpserver_test() {
                     assert(newStream);
                     wasAccepted = true;
                 } else {
-                    LOG_ERROR() << "Error code=" << errorCode;
+                    BEAM_LOG_ERROR() << "Error code=" << errorCode;
                 }
                 reactor->stop();
             }
@@ -74,14 +74,14 @@ void tcpserver_test() {
         LOG_DEBUG() << "reactor stopped";
     }
     catch (const std::exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 }
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     tcpserver_test();

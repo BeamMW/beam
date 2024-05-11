@@ -60,7 +60,7 @@ namespace beam::wallet
         }
         catch(std::exception& ex)
         {
-            LOG_WARNING() << "ValidateAPIVersion: " << ex.what();
+            BEAM_LOG_WARNING() << "ValidateAPIVersion: " << ex.what();
             return false;
         }
     }

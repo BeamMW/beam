@@ -38,9 +38,9 @@ const Amount kTransferFirst = 2000000;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -71,41 +71,41 @@ int main()
 
         observer_1.onOpened = [&channel_1, &laserFirst, &openedAt](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: first opened";
+            BEAM_LOG_INFO() << "Test laser SEND: first opened";
             channel_1 = chID;
             const auto& channelFirst = laserFirst->getChannel(channel_1);
             openedAt = channelFirst->m_pOpen->m_hOpened;
-            LOG_INFO() << "Test laser SEND: openedAt: " << openedAt;
+            BEAM_LOG_INFO() << "Test laser SEND: openedAt: " << openedAt;
         };
         observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: second opened";
+            BEAM_LOG_INFO() << "Test laser SEND: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: open failed";
+            BEAM_LOG_INFO() << "Test laser SEND: open failed";
             WALLET_CHECK(false);
         };
         observer_1.onClosed = [&laser1Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: first closed";
+            BEAM_LOG_INFO() << "Test laser SEND: first closed";
             laser1Closed = true;
         };
         observer_2.onClosed = [&laser2Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: second closed";
+            BEAM_LOG_INFO() << "Test laser SEND: second closed";
             laser2Closed = true;
         };
         observer_1.onCloseFailed = observer_2.onCloseFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: close failed";
+            BEAM_LOG_INFO() << "Test laser SEND: close failed";
             WALLET_CHECK(false);
         };
         observer_1.onUpdateFinished =
             [&channel_1, &laserFirst, &transfersCount, &transferInProgress](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: first updated";
+            BEAM_LOG_INFO() << "Test laser SEND: first updated";
 
             const auto& channelFirst = laserFirst->getChannel(channel_1);
             WALLET_CHECK(channelFirst->get_amountCurrentMy() ==
@@ -114,7 +114,7 @@ int main()
         };
         observer_2.onUpdateFinished = [&channel_2, &laserSecond, &transfersCount](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: second updated";
+            BEAM_LOG_INFO() << "Test laser SEND: second updated";
 
             const auto& channelSecond = laserSecond->getChannel(channel_2);
             WALLET_CHECK(channelSecond->get_amountCurrentMy() ==
@@ -122,7 +122,7 @@ int main()
         };
         observer_1.onTransferFailed = observer_2.onTransferFailed = [&transferInProgress](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: transfer failed";
+            BEAM_LOG_INFO() << "Test laser SEND: transfer failed";
             WALLET_CHECK(false);
             transferInProgress = false;
         };
@@ -134,7 +134,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser SEND: time expired";
+                BEAM_LOG_ERROR() << "Test laser SEND: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -156,14 +156,14 @@ int main()
             {
                 transferInProgress = true;
                 auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
-                LOG_INFO() << "Test laser SEND: first send to second";
+                BEAM_LOG_INFO() << "Test laser SEND: first send to second";
                 ++transfersCount;
                 WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
             }
 
             if (channel_1 && channel_2 && height > openedAt + 20 && !transferInProgress && !closeProcessStarted)
             {
-                LOG_INFO() << "Test laser SEND: closing";
+                BEAM_LOG_INFO() << "Test laser SEND: closing";
                 observer_1.onUpdateFinished = observer_2.onUpdateFinished = [](const laser::ChannelIDPtr& chID) {};
                 auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
                 WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
@@ -186,7 +186,7 @@ int main()
                 val2 += AmountBig::Type(kTransferFirst * transfersCount - fee);
                 WALLET_CHECK(totals_2_a.Unspent == val2);
 
-                LOG_INFO() << "Test laser SEND: finished";
+                BEAM_LOG_INFO() << "Test laser SEND: finished";
                 io::Reactor::get_Current().stop();
             }
 

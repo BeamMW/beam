@@ -85,19 +85,19 @@ void BaseTestNode::Run()
 
 void BaseTestNode::OnConnectedSecure()
 {
-	LOG_INFO() << "connection is succeded";
+	BEAM_LOG_INFO() << "connection is succeded";
 }
 
 void BaseTestNode::OnDisconnect(const DisconnectReason& reason)
 {
-	LOG_ERROR() << "problem with connecting to node: code = " << reason;
+	BEAM_LOG_ERROR() << "problem with connecting to node: code = " << reason;
 	m_Failed = true;
 	io::Reactor::get_Current().stop();
 }
 
 void BaseTestNode::OnMsg(proto::Authentication&& msg)
 {
-    LOG_INFO() << "proto::Authentication";
+    BEAM_LOG_INFO() << "proto::Authentication";
     proto::NodeConnection::OnMsg(std::move(msg));
 
     if (proto::IDType::Node == msg.m_IDType)
@@ -107,7 +107,7 @@ void BaseTestNode::OnMsg(proto::Authentication&& msg)
     {
         m_Timer->start(m_Timeout, false, [this]()
         {
-            LOG_INFO() << "Timeout";
+            BEAM_LOG_INFO() << "Timeout";
             io::Reactor::get_Current().stop();
             m_Failed = true;
         });

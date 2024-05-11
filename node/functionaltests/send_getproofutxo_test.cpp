@@ -35,7 +35,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 void TestNodeConnection::OnDisconnect(const DisconnectReason&)
 {
-	LOG_INFO() << "Ok: connection is reset";
+	BEAM_LOG_INFO() << "Ok: connection is reset";
 	io::Reactor::get_Current().stop();
 }
 
@@ -43,7 +43,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send GetProofUtxo message";
+		BEAM_LOG_INFO() << "Send GetProofUtxo message";
 		Send(proto::GetProofUtxo());
 	});
 }
@@ -52,11 +52,11 @@ void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
 {
 	if (msg.m_Proofs.empty())
 	{
-		LOG_INFO() << "ProofUtxo: Ok - list is empty";
+		BEAM_LOG_INFO() << "ProofUtxo: Ok - list is empty";
 	}
 	else
 	{
-		LOG_INFO() << "ProofUtxo: Failed - list is not empty";
+		BEAM_LOG_INFO() << "ProofUtxo: Failed - list is not empty";
 		m_Failed = true;
 	}
 	io::Reactor::get_Current().stop();
@@ -64,7 +64,7 @@ void TestNodeConnection::OnMsg(proto::ProofUtxo&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

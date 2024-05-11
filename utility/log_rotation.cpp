@@ -76,13 +76,13 @@ static void clean_old_logfiles_2(const std::string& directory, const std::string
         for (const auto& x : days) {
             if (x.first < cleanPeriodDays) continue; // skip specified working days
             for (auto& p : x.second) {
-                LOG_INFO() << "removing old log file " << p;
+                BEAM_LOG_INFO() << "removing old log file " << p;
                 boost::filesystem::remove_all(p);
             }
         }
 
     } catch (const boost::exception& e) {
-        LOG_ERROR() << "cleanup old logs failed, " << boost::diagnostic_information(e);
+        BEAM_LOG_ERROR() << "cleanup old logs failed, " << boost::diagnostic_information(e);
     } catch (...) {
         //~
     }

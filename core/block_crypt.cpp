@@ -3178,7 +3178,7 @@ namespace beam
 	{
 		m_Total = nTotal;
 		m_Last_ms = GetTime_ms();
-		LOG_INFO() << sz;
+		BEAM_LOG_INFO() << sz;
 		if (m_pExternal)
 			m_pExternal->Reset(sz, nTotal);
 	}
@@ -3210,7 +3210,7 @@ namespace beam
 					nDone = (uint32_t) (pos * 100ull / m_Total);
 			}
 
-			LOG_INFO() << "\t" << nDone << "%...";
+			BEAM_LOG_INFO() << "\t" << nDone << "%...";
 		}
 		if (m_pExternal)
 			return m_pExternal->OnProgress(pos);

@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -167,16 +167,16 @@ namespace
         request.body(requestData.data(), requestData.size());
         //request.body(data, strlen(data));
 
-        LOG_INFO() << requestData << "\n";
+        BEAM_LOG_INFO() << requestData << "\n";
 
         request.callback([callback](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
-            LOG_INFO() << "response from " << id;
+            BEAM_LOG_INFO() << "response from " << id;
             size_t sz = 0;
             const void* body = msg.msg->get_body(sz);
             if (sz > 0 && body)
             {
                 json j = json::parse(std::string(static_cast<const char*>(body), sz));
-                LOG_INFO() << j.dump(JSON_FORMAT_INDENT);
+                BEAM_LOG_INFO() << j.dump(JSON_FORMAT_INDENT);
 
                 callback(j);
             }
@@ -305,8 +305,8 @@ void AtomicSwapHelper::OnFundRawTransaction(const json& reply)
     m_fee = result["fee"].get<float>();      // calculate fee!
     m_valuePos = changePos ? 0 : 1;
 
-    LOG_INFO() << "error: " << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << "result: " << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << "error: " << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << "result: " << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     // signrawtransaction
     m_rpcClient->CallRPC("signrawtransactionwithwallet", { "\"" + hexTx + "\"" }, BIND_THIS_MEMFN(OnSignRawContactTx));
@@ -319,8 +319,8 @@ void AtomicSwapHelper::OnSignRawContactTx(const json& reply)
     const auto& result = reply["result"];
     auto hexTx = result["hex"].get<std::string>();
 
-    LOG_INFO() << "error: " << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << "result: " << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << "error: " << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << "result: " << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     // sendrawtransaction
     m_rpcClient->CallRPC("sendrawtransaction", { "\"" + hexTx + "\"" }, BIND_THIS_MEMFN(OnSendContractTx));
@@ -331,8 +331,8 @@ void AtomicSwapHelper::OnSendContractTx(const json& reply)
     // Parse reply
     const auto& error = reply["error"];
     const auto& result = reply["result"];
-    LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 }
 
 void AtomicSwapHelper::CreateRefundTx(const std::string& withdrawAddress
@@ -356,8 +356,8 @@ void AtomicSwapHelper::OnCreateRawRefundTx(const json& reply)
     const auto& error = reply["error"];
     const auto& result = reply["result"];
 
-    LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     libbitcoin::data_chunk tx_data;
     libbitcoin::decode_base16(tx_data, result.get<std::string>());
@@ -372,8 +372,8 @@ void AtomicSwapHelper::OnDumpSenderPrivateKey(const json& reply)
     const auto& error = reply["error"];
     const auto& result = reply["result"];
 
-    LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     libbitcoin::wallet::ec_private wallet_key(result.get<std::string>(), libbitcoin::wallet::ec_private::testnet_wif);
     libbitcoin::endorsement sig;
@@ -422,8 +422,8 @@ void AtomicSwapHelper::OnCreateRawRedeemTx(const json& reply)
     const auto& error = reply["error"];
     const auto& result = reply["result"];
 
-    LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     libbitcoin::data_chunk tx_data;
     libbitcoin::decode_base16(tx_data, result.get<std::string>());
@@ -438,8 +438,8 @@ void AtomicSwapHelper::OnDumpReceiverPrivateKey(const json& reply)
     const auto& error = reply["error"];
     const auto& result = reply["result"];
 
-    LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
-    LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << error.dump(JSON_FORMAT_INDENT) << "\n";
+    BEAM_LOG_INFO() << result.dump(JSON_FORMAT_INDENT) << "\n";
 
     libbitcoin::wallet::ec_private wallet_key(result.get<std::string>(), libbitcoin::wallet::ec_private::testnet_wif);
     libbitcoin::endorsement sig;
@@ -543,13 +543,16 @@ void testAtomicSwap(const boost::program_options::variables_map& vm)
     reactor->run();
 }
 
-int main(int argc, char* argv[]) {
-    int logLevel = LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
-#endif
-    auto logger = Logger::create(logLevel, logLevel);
+int main(int argc, char* argv[]) try {
+    int logLevel{};
 
+#if LOG_VERBOSE_ENABLED
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
+#else
+    logLevel = BEAM_LOG_LEVEL_DEBUG;
+#endif
+
+    auto logger = Logger::create(logLevel, logLevel);
     /*
      -create senderAddress receiverAddress secretStr amount locktime
      -refund address txID amount locktime outputIndex redeemscript
@@ -613,5 +616,9 @@ int main(int argc, char* argv[]) {
 
     testAtomicSwap(vm);
 
+    return 0;
+}
+catch (const std::exception& e) {
+    BEAM_LOG_ERROR() << e.what();
     return 0;
 }

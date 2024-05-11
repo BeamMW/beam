@@ -78,7 +78,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Server error " << io::error_str(errorCode);
+            BEAM_LOG_ERROR() << "Server error " << io::error_str(errorCode);
             //g_stopEvent();
             m_reactor.stop();
         }
@@ -104,7 +104,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Cannot create response";
+            BEAM_LOG_ERROR() << "Cannot create response";
             //g_stopEvent();
         }
 
@@ -117,7 +117,7 @@ private:
     {
         if (msg.what != HttpMsgReader::http_message)
         {
-            LOG_ERROR() << "TestBitcoinWallet, connection error: " << msg.error_str();
+            BEAM_LOG_ERROR() << "TestBitcoinWallet, connection error: " << msg.error_str();
             return {};
         }
 
@@ -225,7 +225,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Request is wrong";
+            BEAM_LOG_ERROR() << "Request is wrong";
             //g_stopEvent();
         }
 
@@ -391,7 +391,7 @@ private:
         }
         else
         {
-            LOG_ERROR() << "Server error " << io::error_str(errorCode);
+            BEAM_LOG_ERROR() << "Server error " << io::error_str(errorCode);
             m_reactor.stop();
         }
     }

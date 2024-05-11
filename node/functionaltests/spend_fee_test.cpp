@@ -70,7 +70,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 
-	LOG_INFO() << "NewTip: " << id;
+	BEAM_LOG_INFO() << "NewTip: " << id;
 
 	if (!m_IsInit)
 	{
@@ -104,11 +104,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 				{
 					if (isOk)
 					{
-						LOG_INFO() << "OK: utxo for fee is valid";
+						BEAM_LOG_INFO() << "OK: utxo for fee is valid";
 					}
 					else
 					{
-						LOG_INFO() << "Failed: utxo for fee is not valid";
+						BEAM_LOG_INFO() << "Failed: utxo for fee is not valid";
 						m_Failed = true;
 					}
 					io::Reactor::get_Current().stop();
@@ -120,11 +120,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 void TestNodeConnection::OnMsg(proto::Status&& msg)
 {
-	LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
+	BEAM_LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
 
 	if (proto::TxStatus::Ok != msg.m_Value)
 	{
-		LOG_INFO() << "Failed: tx is invalid";
+		BEAM_LOG_INFO() << "Failed: tx is invalid";
 		m_Failed = true;
 		io::Reactor::get_Current().stop();
 
@@ -134,7 +134,7 @@ void TestNodeConnection::OnMsg(proto::Status&& msg)
 
 void TestNodeConnection::OnMsg(proto::Mined&& msg)
 {
-	LOG_INFO() << "Mined";
+	BEAM_LOG_INFO() << "Mined";
 	bool isHaveFee = false;
 
 	for (const auto& mined : msg.m_Entries)
@@ -158,7 +158,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 					}
 					else
 					{
-						LOG_INFO() << "Failed: fee is invalid";
+						BEAM_LOG_INFO() << "Failed: fee is invalid";
 						io::Reactor::get_Current().stop();
 					}
 				}
@@ -169,14 +169,14 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 
 	if (!isHaveFee)
 	{
-		LOG_INFO() << "Failed: fee is absent";
+		BEAM_LOG_INFO() << "Failed: fee is absent";
 		io::Reactor::get_Current().stop();
 	}
 }
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

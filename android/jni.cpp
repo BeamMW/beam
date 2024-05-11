@@ -81,12 +81,12 @@ namespace
     {
         wallet::g_AssetsEnabled = true;
 
-        static auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
+        static auto logger = Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
         Rules::get().UpdateChecksum();
         
-        LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
-        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+        BEAM_LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
+        BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
     }
 
     std::map<Notification::Type,bool> initNotifications(bool initialValue)
@@ -363,7 +363,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
         if (!isValidMnemonic(phrases))
         {
-            LOG_ERROR() << "Invalid seed phrase provided: " << st;
+            BEAM_LOG_ERROR() << "Invalid seed phrase provided: " << st;
             return nullptr;
         }
 
@@ -423,7 +423,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
         return walletObj;
     }
 
-    LOG_ERROR() << "wallet creation error.";
+    BEAM_LOG_ERROR() << "wallet creation error.";
 
     return nullptr;
 }
@@ -497,7 +497,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
         return walletObj;
     }
 
-    LOG_ERROR() << "wallet not opened.";
+    BEAM_LOG_ERROR() << "wallet not opened.";
 
     return nullptr;
 }
@@ -613,7 +613,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
     auto txParameters = beam::wallet::ParseParameters(address);
     if (!txParameters)
     {
-        LOG_ERROR() << "Receiver Address is not valid!!!";
+        BEAM_LOG_ERROR() << "Receiver Address is not valid!!!";
         return;
     }
 
@@ -761,7 +761,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
 
     if (!walletID.FromHex(JString(env, addr).value()))
     {
-        LOG_ERROR() << "Address is not valid!!!";
+        BEAM_LOG_ERROR() << "Address is not valid!!!";
 
         return;
     }
@@ -782,7 +782,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(updateAddress)(JNIEnv *env, jo
         expirationStatus = WalletAddress::ExpirationStatus::AsIs;
         break;
     default:
-        LOG_ERROR() << "Address expiration is not valid!!!";
+        BEAM_LOG_ERROR() << "Address expiration is not valid!!!";
         return;
     }
 
@@ -796,7 +796,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
 
     if (!walletID.FromHex(JString(env, addr).value()))
     {
-        LOG_ERROR() << "Address is not valid!!!";
+        BEAM_LOG_ERROR() << "Address is not valid!!!";
         return;
     }
 
@@ -809,7 +809,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
 		expirationStatus = WalletAddress::ExpirationStatus::Expired;
     else
     {
-        LOG_ERROR() << "Address expiration is not valid!!!";
+        BEAM_LOG_ERROR() << "Address expiration is not valid!!!";
         return;
     }
 
@@ -847,7 +847,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteAddress)(JNIEnv *env, jo
     WalletID id(Zero);
     if (!id.FromHex(JString(env, walletID).value()))
     {
-        LOG_ERROR() << "Address is not valid!!!";
+        BEAM_LOG_ERROR() << "Address is not valid!!!";
         return;
     }
     walletModel->getAsync()->deleteAddress(id);
@@ -985,7 +985,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(switchOnOffNotifications)(JNIE
     if (notificationTypeEnum <= static_cast<int>(Notification::Type::SoftwareUpdateAvailable)
      || notificationTypeEnum > static_cast<int>(Notification::Type::TransactionCompleted))
     {
-        LOG_ERROR() << "Notification type is not valid!!!";
+        BEAM_LOG_ERROR() << "Notification type is not valid!!!";
     }
     
     walletModel->getAsync()->switchOnOffNotifications(static_cast<Notification::Type>(notificationTypeEnum), isActive);

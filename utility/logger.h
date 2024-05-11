@@ -42,14 +42,14 @@
 
 // API
 
-#define LOG_LEVEL_CRITICAL 6
-#define LOG_LEVEL_ERROR    5
-#define LOG_LEVEL_WARNING  4
-#define LOG_LEVEL_INFO     3
-#define LOG_LEVEL_DEBUG    2
-#define LOG_LEVEL_VERBOSE  1
+#define BEAM_LOG_LEVEL_CRITICAL 6
+#define BEAM_LOG_LEVEL_ERROR    5
+#define BEAM_LOG_LEVEL_WARNING  4
+#define BEAM_LOG_LEVEL_INFO     3
+#define BEAM_LOG_LEVEL_DEBUG    2
+#define BEAM_LOG_LEVEL_VERBOSE  1
 
-#define LOG_SINK_DISABLED  0
+#define BEAM_LOG_SINK_DISABLED  0
 
 // This stub will be optimized out;
 struct LogMessageStub {
@@ -58,27 +58,27 @@ struct LogMessageStub {
 };
 
 #if SHOW_CODE_LOCATION
-    #define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
+    #define BEAM_LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL, __FILE__, __LINE__, __FUNCTION__)
 #else
-    #define LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL)
+    #define BEAM_LOG_MESSAGE(LEVEL) if (beam::Logger::will_log(LEVEL)) beam::LogMessage(LEVEL)
 #endif
 
-#define LOG_CRITICAL() LOG_MESSAGE(LOG_LEVEL_CRITICAL)
-#define LOG_ERROR() LOG_MESSAGE(LOG_LEVEL_ERROR)
-#define LOG_WARNING() LOG_MESSAGE(LOG_LEVEL_WARNING)
-#define LOG_INFO() LOG_MESSAGE(LOG_LEVEL_INFO)
-#define LOG_UNHANDLED_EXCEPTION() LOG_ERROR() << "["<< __FILE__ << "] [" << __LINE__ << "] [" << __FUNCTION__ << "] unhandled exception. "
+#define BEAM_LOG_CRITICAL() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_CRITICAL)
+#define BEAM_LOG_ERROR() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_ERROR)
+#define BEAM_LOG_WARNING() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_WARNING)
+#define BEAM_LOG_INFO() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_INFO)
+#define BEAM_LOG_UNHANDLED_EXCEPTION() BEAM_LOG_ERROR() << "["<< __FILE__ << "] [" << __LINE__ << "] [" << __FUNCTION__ << "] unhandled exception. "
 
 #if LOG_DEBUG_ENABLED
-    #define LOG_DEBUG() LOG_MESSAGE(LOG_LEVEL_DEBUG)
+    #define LOG_DEBUG() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_DEBUG)
 #else
     #define LOG_DEBUG() LogMessageStub()
 #endif
 
 #if LOG_VERBOSE_ENABLED
-    #define LOG_VERBOSE() LOG_MESSAGE(LOG_LEVEL_VERBOSE)
+    #define BEAM_LOG_VERBOSE() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_VERBOSE)
 #else
-    #define LOG_VERBOSE() LogMessageStub()
+    #define BEAM_LOG_VERBOSE() LogMessageStub()
 #endif
 
 #define TRACE(var) " " #var "=" << var
@@ -91,9 +91,9 @@ namespace beam {
 
 // Logger options
 struct LoggerConfig {
-    int fileLevel=LOG_SINK_DISABLED;
-    int consoleLevel=LOG_LEVEL_DEBUG;
-    int flushLevel=LOG_LEVEL_WARNING;
+    int fileLevel=BEAM_LOG_SINK_DISABLED;
+    int consoleLevel=BEAM_LOG_LEVEL_DEBUG;
+    int flushLevel=BEAM_LOG_LEVEL_WARNING;
     std::string filePrefix;
 
     // ~etc rotation
@@ -132,13 +132,13 @@ public:
     /// RAII
     static std::shared_ptr<Logger> create(
         // flushes sinks if level >= flushLevel
-        int flushLevel=LOG_LEVEL_WARNING,
+        int flushLevel=BEAM_LOG_LEVEL_WARNING,
 
-        // default console minimal level, use LOG_SINK_DISABLED to disable console log
-        int consoleLevel=LOG_LEVEL_DEBUG,
+        // default console minimal level, use BEAM_LOG_SINK_DISABLED to disable console log
+        int consoleLevel=BEAM_LOG_LEVEL_DEBUG,
 
-        // default file logger minimal level, use LOG_SINK_DISABLED to disable file log
-        int fileLevel=LOG_SINK_DISABLED,
+        // default file logger minimal level, use BEAM_LOG_SINK_DISABLED to disable file log
+        int fileLevel=BEAM_LOG_SINK_DISABLED,
 
         // filename prefix, needed if file log enabled
         const std::string& fileNamePrefix = std::string(),

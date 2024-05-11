@@ -193,7 +193,7 @@ namespace beam::wallet
         {
             if (ex.what() && strlen(ex.what()))
             {
-                LOG_ERROR() << m_Context << " exception msg: " << ex.what();
+                BEAM_LOG_ERROR() << m_Context << " exception msg: " << ex.what();
             }
             OnFailed(ex.GetReason(), ex.ShouldNofify());
         }
@@ -201,7 +201,7 @@ namespace beam::wallet
         {
             if (ex.what() && strlen(ex.what()))
             {
-                LOG_ERROR() << m_Context << " exception msg: " << ex.what();
+                BEAM_LOG_ERROR() << m_Context << " exception msg: " << ex.what();
             }
             OnFailed(TxFailureReason::Unknown);
         }
@@ -234,7 +234,7 @@ namespace beam::wallet
         }
         else
         {
-            LOG_INFO() << m_Context << " You cannot cancel transaction in state: " << static_cast<int>(s);
+            BEAM_LOG_INFO() << m_Context << " You cannot cancel transaction in state: " << static_cast<int>(s);
         }
     }
 
@@ -264,7 +264,7 @@ namespace beam::wallet
 
     void BaseTransaction::RollbackTx()
     {
-        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
+        BEAM_LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         auto db = m_Context.GetWalletDB();
         db->restoreCoinsSpentByTx(GetTxID());
         db->deleteCoinsCreatedByTx(GetTxID());
@@ -317,7 +317,7 @@ namespace beam::wallet
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > maxHeight)
             {
-                LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                BEAM_LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
                 return true;
             }
@@ -330,7 +330,7 @@ namespace beam::wallet
             {
                 if (lastUnconfirmedHeight >= maxHeight)
                 {
-                    LOG_INFO() << m_Context << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
+                    BEAM_LOG_INFO() << m_Context << " Transaction expired. Last unconfirmeed height: " << lastUnconfirmedHeight << ", max kernel height: " << maxHeight;
                     OnFailed(TxFailureReason::TransactionExpired);
                     return true;
                 }
@@ -403,7 +403,7 @@ namespace beam::wallet
             }
         }
 
-        LOG_INFO() << m_Context << " Transaction completed";
+        BEAM_LOG_INFO() << m_Context << " Transaction completed";
         UpdateTxDescription(TxStatus::Completed);
         GetGateway().on_tx_completed(GetTxID());
     }
@@ -415,7 +415,7 @@ namespace beam::wallet
 
     void BaseTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
-        LOG_ERROR() << m_Context << " Failed. " << GetFailureMessage(reason);
+        BEAM_LOG_ERROR() << m_Context << " Failed. " << GetFailureMessage(reason);
 
         if (notify)
         {
@@ -635,7 +635,7 @@ namespace beam::wallet
 
     void BaseTransaction::LogFailedParameter(TxParameterID paramID, SubTxID subTxID) const
     {
-        LOG_ERROR() << GetTxID() << "[" << subTxID << "] Failed to get parameter: " << (int)paramID;
+        BEAM_LOG_ERROR() << GetTxID() << "[" << subTxID << "] Failed to get parameter: " << (int)paramID;
     }
 
     BaseTransaction::AssetCheckResult BaseTransaction::CheckAsset(Asset::ID assetId)

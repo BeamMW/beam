@@ -72,7 +72,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onSyncProgress failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onSyncProgress failed: " << e.what();
         }
     }
 
@@ -103,7 +103,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onSystemStateChanged failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onSystemStateChanged failed: " << e.what();
         }
     }
 
@@ -171,7 +171,7 @@ namespace beam::wallet
                     }
                     else
                     {
-                        LOG_WARNING() << "onAssetsChanged: failed to find asset " << aid << ", action" << std::to_string(action);
+                        BEAM_LOG_WARNING() << "onAssetsChanged: failed to find asset " << aid << ", action" << std::to_string(action);
                     }
                 }
             }
@@ -185,7 +185,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onAssetsChanged failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onAssetsChanged failed: " << e.what();
         }
     }
 
@@ -204,7 +204,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onAssetChanged failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onAssetChanged failed: " << e.what();
         }
     }
 
@@ -261,7 +261,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onCoinsChangedImp failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onCoinsChangedImp failed: " << e.what();
         }
     }
 
@@ -327,7 +327,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onAddressChanged failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onAddressChanged failed: " << e.what();
         }
     }
 
@@ -382,7 +382,7 @@ namespace beam::wallet
         }
         catch(std::exception& e)
         {
-            LOG_ERROR() << "V61Api::onTransactionChanged failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::onTransactionChanged failed: " << e.what();
         }
     }
 
@@ -409,7 +409,7 @@ namespace beam::wallet
         }
         catch (std::exception& e)
         {
-            LOG_ERROR() << "V61Api::sendConnectionStatus failed: " << e.what();
+            BEAM_LOG_ERROR() << "V61Api::sendConnectionStatus failed: " << e.what();
         }
     }
 

@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     }
 
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
+    auto logger = Logger::create(BEAM_LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
 
     clean_old_logfiles(LOG_FILES_DIR, FILES_PREFIX, options.logCleanupPeriod);
 
@@ -70,18 +70,18 @@ int main(int argc, char* argv[]) {
         node.Initialize();
         adapter->Initialize();
         explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile, options.whitelist);
-        LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
+        BEAM_LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
         reactor->run();
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     } catch (const std::exception& e) {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        BEAM_LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;
 	}
 	catch (const beam::CorruptionException& e) {
-		LOG_ERROR() << "Corruption: " << e.m_sErr;
+		BEAM_LOG_ERROR() << "Corruption: " << e.m_sErr;
 		retCode = 255;
     } catch (...) {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        BEAM_LOG_ERROR() << "NON_STD EXCEPTION";
         retCode = 255;
     }
     return retCode;
@@ -109,9 +109,9 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     cliOptions.add(createRulesOptionsDescription());
         
 #ifdef NDEBUG
-    o.logLevel = LOG_LEVEL_INFO;
+    o.logLevel = BEAM_LOG_LEVEL_INFO;
 #else
-    o.logLevel = LOG_LEVEL_DEBUG;
+    o.logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
 
 
@@ -227,8 +227,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 
 void setup_node(Node& node, const Options& o) {
     Rules::get().UpdateChecksum();
-    LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+    BEAM_LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+    BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     node.m_Cfg.m_sPathLocal = o.nodeDbFilename;
     node.m_Cfg.m_Listen.port(o.nodeListenTo.port());

@@ -28,7 +28,7 @@ int verify_server(int preverify_ok, X509_STORE_CTX* x509_ctx)
 {
     if (!preverify_ok) {
         int error = X509_STORE_CTX_get_error(x509_ctx);
-        LOG_ERROR() << "server verification error: " << error << " " << X509_verify_cert_error_string(error);
+        BEAM_LOG_ERROR() << "server verification error: " << error << " " << X509_verify_cert_error_string(error);
     }
     return preverify_ok;
 }
@@ -37,7 +37,7 @@ int verify_client(int preverify_ok, X509_STORE_CTX* x509_ctx)
 {
     if (!preverify_ok) {
         int error = X509_STORE_CTX_get_error(x509_ctx);
-        LOG_ERROR() << "client verification error: " << error << " " << X509_verify_cert_error_string(error);
+        BEAM_LOG_ERROR() << "client verification error: " << error << " " << X509_verify_cert_error_string(error);
     }
     return preverify_ok;
 }
@@ -72,7 +72,7 @@ void ssl_info(const SSL* ssl, int where, int ret)
         }
     }
 
-    LOG_VERBOSE() << TRACE(ssl) << "  " << ss.str();
+    BEAM_LOG_VERBOSE() << TRACE(ssl) << "  " << ss.str();
 }
 
 struct SSLInitializer {
@@ -95,7 +95,7 @@ SSLInitializer g_sslInitializer;
 
 SSL_CTX* init_ctx(bool isServer) {
     if (!g_sslInitializer.ok) {
-        LOG_ERROR() << "SSL init failed";
+        BEAM_LOG_ERROR() << "SSL init failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
@@ -103,11 +103,11 @@ SSL_CTX* init_ctx(bool isServer) {
 
     SSL_CTX* ctx = SSL_CTX_new(isServer ? SSLv23_server_method() : SSLv23_client_method());
     if (!ctx) {
-        LOG_ERROR() << "SSL_CTX_new failed";
+        BEAM_LOG_ERROR() << "SSL_CTX_new failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
     if (SSL_CTX_set_cipher_list(ctx, cipher_settings) != 1) {
-        LOG_ERROR() << "SSL_CTX_set_cipher_list failed";
+        BEAM_LOG_ERROR() << "SSL_CTX_set_cipher_list failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
@@ -133,7 +133,7 @@ bool load_system_certificate_authority(SSL_CTX* ctx)
         if (x509) {
             int i = X509_STORE_add_cert(store, x509);
             if (i == 0) {
-                LOG_ERROR() << "Failed to add certificate from system store";
+                BEAM_LOG_ERROR() << "Failed to add certificate from system store";
             }
             X509_free(x509);
         }
@@ -149,15 +149,15 @@ void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privK
     if (certFileName && privKeyFileName)
     {
         if (SSL_CTX_use_certificate_file(ctx, certFileName, SSL_FILETYPE_PEM) != 1) {
-            LOG_ERROR() << "SSL_CTX_use_certificate_file failed, " << certFileName;
+            BEAM_LOG_ERROR() << "SSL_CTX_use_certificate_file failed, " << certFileName;
             IO_EXCEPTION(EC_SSL_ERROR);
         }
         if (SSL_CTX_use_PrivateKey_file(ctx, privKeyFileName, SSL_FILETYPE_PEM) != 1) {
-            LOG_ERROR() << "SSL_CTX_use_PrivateKey_file failed " << privKeyFileName;
+            BEAM_LOG_ERROR() << "SSL_CTX_use_PrivateKey_file failed " << privKeyFileName;
             IO_EXCEPTION(EC_SSL_ERROR);
         }
         if (SSL_CTX_check_private_key(ctx) != 1) {
-            LOG_ERROR() << "SSL_CTX_check_private_key failed" << privKeyFileName;
+            BEAM_LOG_ERROR() << "SSL_CTX_check_private_key failed" << privKeyFileName;
             IO_EXCEPTION(EC_SSL_ERROR);
         }
     }
@@ -166,7 +166,7 @@ void setup_certificate(SSL_CTX* ctx, const char* certFileName, const char* privK
 void setup_verification_paths(SSL_CTX* ctx)
 {
     if (SSL_CTX_set_default_verify_paths(ctx) != 1) {
-        LOG_ERROR() << "SSL_CTX_set_default_verify_paths failed";
+        BEAM_LOG_ERROR() << "SSL_CTX_set_default_verify_paths failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 }
@@ -238,7 +238,7 @@ SSLIO::SSLIO(
 {
     _ssl = SSL_new(_ctx->get());
     if (!_ssl) {
-        LOG_ERROR() << "SSL_new failed";
+        BEAM_LOG_ERROR() << "SSL_new failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 
@@ -249,7 +249,7 @@ SSLIO::SSLIO(
     _rbio = BIO_new(BIO_s_mem());
     _wbio = BIO_new(BIO_s_mem());
     if (!_rbio || !_wbio) {
-        LOG_ERROR() << "BIO_new failed";
+        BEAM_LOG_ERROR() << "BIO_new failed";
         IO_EXCEPTION(EC_SSL_ERROR);
     }
 

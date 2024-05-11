@@ -62,7 +62,7 @@ namespace beam::wallet
                 [] (const boost::any&){
                 }
             );
-            LOG_INFO () << "AppsApi destroyed for " << _appName << ", " << _appId;
+            BEAM_LOG_INFO () << "AppsApi destroyed for " << _appName << ", " << _appId;
         }
 
     public:
@@ -109,7 +109,7 @@ namespace beam::wallet
                         catch(const std::runtime_error& err)
                         {
                             assert(false);
-                            LOG_ERROR() << "Failed to start IPFS node: " << err.what();
+                            BEAM_LOG_ERROR() << "Failed to start IPFS node: " << err.what();
                         }
                     }
                     #else
@@ -117,7 +117,7 @@ namespace beam::wallet
                     #endif
 
                     if (!hasIPFSNode) {
-                        LOG_INFO() << "IPFS Node is not running. IPFS would not be available for the '"
+                        BEAM_LOG_INFO() << "IPFS Node is not running. IPFS would not be available for the '"
                                    << appname << "' DApp";
                     }
 
@@ -148,7 +148,7 @@ namespace beam::wallet
                     #endif
 
                     wapi->_walletAPI = IWalletApi::CreateInstance(version, *wapi->_walletAPIProxy, data);
-                    LOG_INFO () << "AppsApi created for " << appid << ", " << appname << ", privileges " << privilegeLvl;
+                    BEAM_LOG_INFO () << "AppsApi created for " << appid << ", " << appname << ", privileges " << privilegeLvl;
                     cback(std::move(wapi));
                 }
             );
@@ -166,7 +166,7 @@ namespace beam::wallet
 
         void AnyThread_callWalletApiDirectly(const std::string& request)
         {
-            //LOG_INFO () << "AppsApi direct call for " << getAppName() << ", " << getAppId() << "): " << request;
+            //BEAM_LOG_INFO () << "AppsApi direct call for " << getAppName() << ", " << getAppId() << "): " << request;
 
             //
             // Do not assume thread here
@@ -189,7 +189,7 @@ namespace beam::wallet
                 IWalletApi::ParseResult data;
             };
 
-            // LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
+            // BEAM_LOG_INFO () << "AppsApi checked call for " << getAppName() << ", " << getAppId() << "): " << request;
             makeIWTCallGuarded(
                 [this, request]() mutable -> boost::any {
                     if (auto pres = _walletAPI->parseAPIRequest(request.c_str(), request.size()); pres)
@@ -211,7 +211,7 @@ namespace beam::wallet
 
                             if (pres->minfo.fee > 0 || !pres->minfo.spend.empty())
                             {
-                                LOG_INFO() << "Application called method " << acinfo.method << " that spends funds, but user consent is not handled";
+                                BEAM_LOG_INFO() << "Application called method " << acinfo.method << " that spends funds, but user consent is not handled";
                                 assert(false);
 
                                 AnyThread_sendApiError(request, ApiError::NotAllowedError, std::string());
@@ -222,14 +222,14 @@ namespace beam::wallet
                             return {};
                         }
 
-                        LOG_INFO() << "Application requested call of the not allowed method: " << pres->acinfo.method;
+                        BEAM_LOG_INFO() << "Application requested call of the not allowed method: " << pres->acinfo.method;
                         AnyThread_sendApiError(request, ApiError::NotAllowedError, std::string());
                         return {};
                     }
                     else
                     {
                         // parse failed, just log error and return. Error response is already sent back
-                        LOG_ERROR() << "WebAPP API parse failed: " << request;
+                        BEAM_LOG_ERROR() << "WebAPP API parse failed: " << request;
                         return {};
                     }
                 },
@@ -432,7 +432,7 @@ namespace beam::wallet
                     if (!locked)
                     {
                         // Can happen if user leaves the application
-                        LOG_WARNING() << "UIT send CSI arrived but apps api is already destroyed";
+                        BEAM_LOG_WARNING() << "UIT send CSI arrived but apps api is already destroyed";
                     }
 
                     info.push_back({"isEnough", csi.m_isEnought});

@@ -17,5 +17,5 @@ target_link_libraries(notifications
         wallet_core
 )
 
-target_compile_features(notifications PUBLIC cxx_std_17)
+target_compile_features(notifications PUBLIC cxx_std_20)
 

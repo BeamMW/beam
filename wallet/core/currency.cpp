@@ -51,7 +51,7 @@ namespace beam::wallet {
             }
             catch(const std::runtime_error& err)
             {
-                LOG_WARNING() << "Failed to parse asset id from currency: " << m_value
+                BEAM_LOG_WARNING() << "Failed to parse asset id from currency: " << m_value
                               << ", " << err.what();
             }
         }

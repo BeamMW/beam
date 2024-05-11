@@ -53,7 +53,7 @@ Read the [Contribution Guide](https://github.com/BeamMW/beam/wiki/Contribution-G
 Get Beam binaries here: http://beam.mw/downloads
 
 
-Boostrap nodes:
+Bootstrap nodes:
 
 eu-nodes.mainnet.beam.mw:8100
 

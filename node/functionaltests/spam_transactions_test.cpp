@@ -75,7 +75,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		m_Tests.push_back([this, i]()
 		{
-			LOG_INFO() << "Send big transaction";
+			BEAM_LOG_INFO() << "Send big transaction";
 			BeforeConnection(100 * (m_H + 2) + i);
 
 			Send(m_MsgTx);
@@ -93,7 +93,7 @@ void SendData(int argc, char* argv[], int h)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 	std::vector<std::future<void>> futures;
 

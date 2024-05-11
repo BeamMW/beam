@@ -84,7 +84,7 @@ namespace
 
     void HandleException(const std::exception& ex)
     {
-        LOG_ERROR() << ex.what();
+        BEAM_LOG_ERROR() << ex.what();
         EM_ASM
         (
             {
@@ -304,7 +304,7 @@ public:
         }
         else
         {
-            LOG_ERROR() << "Failed to call API, wallet is not running";
+            BEAM_LOG_ERROR() << "Failed to call API, wallet is not running";
         }
     }
 
@@ -317,7 +317,7 @@ public:
         }
         else
         {
-            LOG_ERROR() << "Failed to set result callback, wallet is not running";
+            BEAM_LOG_ERROR() << "Failed to set result callback, wallet is not running";
         }
     }
 
@@ -388,7 +388,7 @@ public:
     }
 
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node, Rules::Network network)
-        : m_Logger(beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG))
+        : m_Logger(beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG))
         , m_Reactor(io::Reactor::create())
         , m_DbPath(dbName)
         , m_Pass(pass)
@@ -471,7 +471,7 @@ public:
         AssertMainThread();
         if (!m_Client)
         {
-            LOG_ERROR() << "Client is not running";
+            BEAM_LOG_ERROR() << "Client is not running";
             return;
         }
         m_Client->getAsync()->makeIWTCall([this, request]()
@@ -552,7 +552,7 @@ public:
         AssertMainThread();
         if (!m_Client)
         {
-            LOG_WARNING() << "The client is stopped";
+            BEAM_LOG_WARNING() << "The client is stopped";
             return;
         }
         m_Client->getAsync()->makeIWTCall([this]()
@@ -677,7 +677,7 @@ public:
         if (version.empty())
         {
             const std::string errmsg = std::string("Unsupported api version requested: ") + apiver + "/" + minapiver;
-            LOG_WARNING() << errmsg;
+            BEAM_LOG_WARNING() << errmsg;
             cb(errmsg, val::undefined());
             return;
         }
@@ -689,7 +689,7 @@ public:
                 if (!wapi)
                 {
                     const char* errmsg = "CreateAppAPI: failed to create API";
-                    LOG_WARNING() << errmsg;
+                    BEAM_LOG_WARNING() << errmsg;
                     cb(errmsg, val::undefined());
                     return;
                 }
@@ -749,7 +749,7 @@ public:
         AssertMainThread();
         if (m_RecoveryCallback)
         {
-            LOG_WARNING() << "Recovery is in progress";
+            BEAM_LOG_WARNING() << "Recovery is in progress";
             return;
         }
         try
@@ -775,7 +775,7 @@ public:
         AssertMainThread();
         if (m_RecoveryCallback)
         {
-            LOG_WARNING() << "Recovery is in progress";
+            BEAM_LOG_WARNING() << "Recovery is in progress";
             return;
         }
         try
@@ -940,12 +940,12 @@ public:
         try
         {
             Rules::get().UpdateChecksum();
-            LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+            BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             return WalletDB::open(dbName, SecString(pass));
         }
         catch (const DatabaseException& ex)
         {
-            LOG_ERROR() << ex.what();
+            BEAM_LOG_ERROR() << ex.what();
             throw;
         }
     }
@@ -956,7 +956,7 @@ public:
         s_MountCB = cb;
         if (s_Mounted)
         {
-            LOG_WARNING() << "File systen is already mounted.";
+            BEAM_LOG_WARNING() << "File systen is already mounted.";
             return;
         }
         EM_ASM
@@ -988,7 +988,7 @@ private:
         }
         else
         {
-            LOG_WARNING() << "Callback for mount is not set";
+            BEAM_LOG_WARNING() << "Callback for mount is not set";
         }
     }
 

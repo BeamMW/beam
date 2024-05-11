@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <random>
-
-using namespace std;
 
 namespace beam
 {
@@ -83,7 +81,7 @@ namespace beam
 
     std::vector<uint8_t> decodeMnemonic(const WordList& words)
     {
-        const std::string sentence = boost::join(words, " ");
+        const auto sentence = boost::join(words, " ");
         std::vector<uint8_t> passphrase(sentence.begin(), sentence.end());
         std::vector<uint8_t> salt(passphrasePrefix.begin(), passphrasePrefix.end());
         std::vector<uint8_t> hash(sizeHash);
@@ -103,17 +101,17 @@ namespace beam
         return hash;
     }
 
-    bool isAllowedWord(const string& word, const Dictionary& dict)
+    bool isAllowedWord(const std::string& word, const Dictionary& dict)
     {
         auto predicate = [] (const char* left, const char* right) {
             return strcmp(left, right) < 0;
         };
-        assert(is_sorted(dict.begin(), dict.end(), predicate));
-        return binary_search(dict.begin(), dict.end(), word.c_str(), predicate);
+        assert(std::is_sorted(dict.begin(), dict.end(), predicate));
+        return std::binary_search(dict.begin(), dict.end(), word.c_str(), predicate);
     }
 
     bool isValidMnemonic(const WordList& words, const Dictionary& dict)
     {
-        return words.size() == WORD_COUNT && all_of(words.begin(), words.end(), [&dict](const string& w) {return isAllowedWord(w, dict); });
+        return words.size() == WORD_COUNT && std::all_of(words.begin(), words.end(), [&dict](const std::string& w) {return isAllowedWord(w, dict); });
     }
 }

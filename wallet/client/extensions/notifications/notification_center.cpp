@@ -42,11 +42,11 @@ namespace beam::wallet
         }
         catch(const std::exception& e)
         {
-            LOG_ERROR() << "Notifications loading failed: " << e.what();
+            BEAM_LOG_ERROR() << "Notifications loading failed: " << e.what();
         }
         catch(...)
         {
-            LOG_ERROR() << "Notifications loading failed.";
+            BEAM_LOG_ERROR() << "Notifications loading failed.";
         }
         
         for (const auto& notification : notifications)

@@ -19,20 +19,20 @@ namespace beam::wallet
     {
         for (const auto& pair: info.items())
         {
-            LOG_INFO () << prefix << pair.key() << " = " << pair.value();
+            BEAM_LOG_INFO () << prefix << pair.key() << " = " << pair.value();
         }
     }
 
     void printApproveLog(const std::string& preamble, const std::string& appid, const std::string& appname, const json& info, const json& amounts)
     {
-        LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
+        BEAM_LOG_INFO() << preamble << " (" << appname << ", " << appid << "):";
         printMap("\t", info);
 
         if (!amounts.empty())
         {
             for (const auto &amountMap : amounts)
             {
-                LOG_INFO() << "\tamount entry:";
+                BEAM_LOG_INFO() << "\tamount entry:";
                 printMap("\t\t", amountMap);
             }
         }

@@ -33,7 +33,7 @@ ProxyConnector::ProxyConnector(Reactor& r) :
 ProxyConnector::~ProxyConnector() {
     if (!_connectRequests.empty())
     {
-        LOG_ERROR() << "proxy connect requests were not cancelled";
+        BEAM_LOG_ERROR() << "proxy connect requests were not cancelled";
     }
 }
 

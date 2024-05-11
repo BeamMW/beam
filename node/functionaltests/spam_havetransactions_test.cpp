@@ -73,7 +73,7 @@ void TestNodeConnection::GenerateTests()
 	{
 		m_Timer->start(10, true, [this]
 		{
-			LOG_INFO() << "Send HaveTransaction: ind = " << m_Ind;
+			BEAM_LOG_INFO() << "Send HaveTransaction: ind = " << m_Ind;
 			Transaction::KeyType id;
 
 			SetRandom(id);
@@ -91,7 +91,7 @@ void SendData(int argc, char* argv[], int h)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 	//SendData(argc, argv, 1);
 	std::vector<std::future<void>> futures;

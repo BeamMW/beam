@@ -586,7 +586,7 @@ namespace beam::wallet
 
     void ContractTransaction::MyBuilder::OnRebuildFailed()
     {
-        LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT rebuild failed";
+        BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT rebuild failed";
         m_RebuildFailed = true;
         m_Tx.SetState(State::Registration);
     }
@@ -610,7 +610,7 @@ namespace beam::wallet
                 if (builder.IsHftPending())
                 {
                     builder.OnRebuildFailed();
-                    LOG_INFO() << "already pending";
+                    BEAM_LOG_INFO() << "already pending";
                     return true;
                 }
 
@@ -622,7 +622,7 @@ namespace beam::wallet
                 if ((builder.m_HftState.m_Variants.end() != it) && (it->m_Key.m_Height <= sTip.m_Height))
                 {
                     builder.OnRebuildFailed();
-                    LOG_INFO() << "waiting prev unconfirm";
+                    BEAM_LOG_INFO() << "waiting prev unconfirm";
                     return true;
                 }
 
@@ -633,7 +633,7 @@ namespace beam::wallet
                 // is it any different now?
                 if (builder.m_pParentCtx && (builder.m_pParentCtx->m_Hash == hvCtx))
                 {
-                    LOG_INFO() << "same state";
+                    BEAM_LOG_INFO() << "same state";
                     return false; // retry when the state changes
                 }
 
@@ -665,7 +665,7 @@ namespace beam::wallet
             if (aex.m_InvokeData.m_vec.empty())
             {
                 builder.OnRebuildFailed();
-                LOG_INFO() << "no invoke";
+                BEAM_LOG_INFO() << "no invoke";
                 return true;
             }
 
@@ -680,7 +680,7 @@ namespace beam::wallet
             if (!builder.m_pParentCtx)
             {
                 builder.OnRebuildFailed();
-                LOG_INFO() << "not HFT";
+                BEAM_LOG_INFO() << "not HFT";
                 return true;
             }
 
@@ -709,7 +709,7 @@ namespace beam::wallet
             if (bCheckLimits && !builder.IsSpendWithinLimits(fm))
             {
                 builder.OnRebuildFailed();
-                LOG_INFO() << "slippage too large";
+                BEAM_LOG_INFO() << "slippage too large";
 
                 if (builder.m_HftState.m_Variants.empty())
                 {
@@ -924,7 +924,7 @@ namespace beam::wallet
             catch (const std::exception& e)
             {
                 builder.OnRebuildFailed();
-                LOG_INFO() << "TxoID=" << GetTxID() << " error " << e.what();
+                BEAM_LOG_INFO() << "TxoID=" << GetTxID() << " error " << e.what();
             }
         }
 
@@ -940,7 +940,7 @@ namespace beam::wallet
 
             if (RetryHft())
             {
-                LOG_INFO() << "TxoID=" << GetTxID() << " Expired. Retrying HFT tx";
+                BEAM_LOG_INFO() << "TxoID=" << GetTxID() << " Expired. Retrying HFT tx";
                 UpdateAsync();
             }
             else
@@ -991,7 +991,7 @@ namespace beam::wallet
                 }
             }
 
-            LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirmed";
+            BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirmed";
 
             SetParameter(TxParameterID::KernelProofHeight, *pHeight);
             DeleteAsyncCtx();
@@ -1061,7 +1061,7 @@ namespace beam::wallet
                 return;
 
             SetParameter(TxParameterID::KernelUnconfirmedHeight, m_pAsyncCtx->m_hTipAtStart);
-            LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT unconfirmed at " << m_pAsyncCtx->m_hTipAtStart;
+            BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT unconfirmed at " << m_pAsyncCtx->m_hTipAtStart;
         }
 
         m_Tx.UpdateAsync();
@@ -1091,7 +1091,7 @@ namespace beam::wallet
         for (const auto& pKrn : m_pTransaction->m_vKernels)
             DependentContext::get_Ancestor(hv, hv, pKrn->m_Internal.m_ID);
 
-        LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT variant: " << *m_pNewCtx;
+        BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT variant: " << *m_pNewCtx;
     }
 
     void ContractTransaction::MyBuilder::ConfirmHfts(Height hLastUnconfirmed, Height hTip)
@@ -1128,7 +1128,7 @@ namespace beam::wallet
         }
 
         if (m_pAsyncCtx->m_Remaining)
-            LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirming variants: " << m_pAsyncCtx->m_Remaining;
+            BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT confirming variants: " << m_pAsyncCtx->m_Remaining;
     }
 
     int ContractTransaction::RegisterTx()

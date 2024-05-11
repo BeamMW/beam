@@ -636,7 +636,7 @@ void TestDirector::Run()
 
 void Test()
 {
-	//	auto logger = Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG);
+	//	auto logger = Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 
 	Rules::get().pForks[1].m_Height = 1;
 	Rules::get().pForks[2].m_Height = 1;

@@ -59,7 +59,7 @@ void TestAssets() {
     //
     // Assets issue
     //
-    LOG_INFO() << "\nPreparing for assets test...";
+    BEAM_LOG_INFO() << "\nPreparing for assets test...";
 
     beam::io::Reactor::Ptr reactor{beam::io::Reactor::create()};
     beam::io::Reactor::Scope scope(*reactor);
@@ -83,20 +83,20 @@ void TestAssets() {
     NodeObserver observer([&](){
         const auto cursor = node.get_Processor().m_Cursor;
         if (cursor.m_Sid.m_Height == Rules::get().pForks[1].m_Height) {
-            LOG_INFO () << "Reached fork 1...";
+            BEAM_LOG_INFO () << "Reached fork 1...";
         }
         if (cursor.m_Sid.m_Height == Rules::get().pForks[2].m_Height) {
-            LOG_INFO () << "Reached fork 2...";
+            BEAM_LOG_INFO () << "Reached fork 2...";
             reactor->stop();
             return;
         }
         if (waitBlock && cursor.m_Sid.m_Height == waitBlock) {
-            LOG_INFO () << "Reached block " << waitBlock << "...";
+            BEAM_LOG_INFO () << "Reached block " << waitBlock << "...";
             reactor->stop();
             return;
         }
         if (cursor.m_Sid.m_Height >= 100) {
-            LOG_INFO () << "Reached max allowed block...";
+            BEAM_LOG_INFO () << "Reached max allowed block...";
             WALLET_CHECK(!"Test should complete before block 100. Something went wrong.");
             reactor->stop();
             return;
@@ -109,7 +109,7 @@ void TestAssets() {
     auto ownerDB = createSqliteWalletDB("owner_wallet.db", false, true);
     TestWalletRig owner(ownerDB, stopReactor, TestWalletRig::RegularWithoutPoWBbs);
 
-    LOG_INFO() << "\nStarting node and waiting until fork2...";
+    BEAM_LOG_INFO() << "\nStarting node and waiting until fork2...";
     reactor->run();
 
     //
@@ -125,13 +125,13 @@ void TestAssets() {
     //
     storage::Totals totals(*receiverDB, false);
     const auto mined = AmountBig::get_Lo(totals.GetBeamTotals().Avail);
-    LOG_INFO() << "Beam mined " << PrintableAmount(mined);
+    BEAM_LOG_INFO() << "Beam mined " << PrintableAmount(mined);
 
     const auto deposit = Rules::get().CA.DepositForList2;
     const auto fee = Amount(100);
     const auto initial = Rules::get().CA.DepositForList2 * 2 + fee * 40; // 40 should be enough;
 
-    LOG_INFO() << "Beam necessary for test " << PrintableAmount(initial);
+    BEAM_LOG_INFO() << "Beam necessary for test " << PrintableAmount(initial);
     WALLET_CHECK(initial <= mined);
 
     //
@@ -168,7 +168,7 @@ void TestAssets() {
 
     TxDescription tx;
     auto runTest = [&](const char* name, const std::function<TxID ()>& test, int wcnt = 1, bool owner = true) {
-        LOG_INFO() << "\nTesting " << name << "...";
+        BEAM_LOG_INFO() << "\nTesting " << name << "...";
 
         helpers::StopWatch sw;
         sw.start();
@@ -176,7 +176,7 @@ void TestAssets() {
         const auto txid = test();
         reactor->run();
         sw.stop();
-        LOG_INFO() << name << ", elapsed time: " << sw.milliseconds() << "ms";
+        BEAM_LOG_INFO() << name << ", elapsed time: " << sw.milliseconds() << "ms";
 
         auto db = owner ? ownerDB : receiverDB;
         tx = getTx(db, txid);
@@ -216,7 +216,7 @@ void TestAssets() {
             .SetParameter(TxParameterID::MyAddr, receiver.m_BbsAddr)
             .SetParameter(TxParameterID::PeerAddr, owner.m_BbsAddr));
     }, 2, false);
-    LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
+    BEAM_LOG_INFO() << "Now owner has " << PrintableAmount(storage::Totals(*ownerDB, false).GetBeamTotals().Avail);
 
     // fee too small
     // TODO: Uncomment when we'll create base builder that checks fees. Now it is assumed to be checked by the CLI
@@ -633,13 +633,13 @@ void TestAssets() {
     //
     // At last we're done!
     //
-    LOG_INFO() << "Finished testing assets...";
+    BEAM_LOG_INFO() << "Finished testing assets...";
 }
 
 int main () {
-    const auto logLevel = LOG_LEVEL_DEBUG;
+    const auto logLevel = BEAM_LOG_LEVEL_DEBUG;
     const auto logger = beam::Logger::create(logLevel, logLevel);
-    LOG_INFO() << "Assets test - starting";
+    BEAM_LOG_INFO() << "Assets test - starting";
 
     auto& rules = beam::Rules::get();
     WALLET_CHECK(rules.CA.LockPeriod == rules.MaxRollback);
@@ -655,7 +655,7 @@ int main () {
 
     TestAssets();
 
-    LOG_INFO() << "Assets test - completed, failures: " << g_failureCount;
+    BEAM_LOG_INFO() << "Assets test - completed, failures: " << g_failureCount;
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;
 }

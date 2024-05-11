@@ -54,9 +54,9 @@ void Server::start_server() {
             _bindAddress,
             BIND_THIS_MEMFN(on_stream_accepted)
         );
-        LOG_INFO() << STS << "listens to " << _bindAddress;
+        BEAM_LOG_INFO() << STS << "listens to " << _bindAddress;
     } catch (const std::exception& e) {
-        LOG_ERROR() << STS << "cannot start server: " << e.what() << " restarting in  " << SERVER_RESTART_INTERVAL << " msec";
+        BEAM_LOG_ERROR() << STS << "cannot start server: " << e.what() << " restarting in  " << SERVER_RESTART_INTERVAL << " msec";
         _timers.set_timer(SERVER_RESTART_TIMER, SERVER_RESTART_INTERVAL, BIND_THIS_MEMFN(start_server));
     }
 }
@@ -75,7 +75,7 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
         {
             if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
             {
-                LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                BEAM_LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
                 return;
             }
         }
@@ -91,7 +91,7 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
             std::move(newStream)
         );
     } else {
-        LOG_ERROR() << STS << io::error_str(errorCode) << ", restarting server in  " << SERVER_RESTART_INTERVAL << " msec";
+        BEAM_LOG_ERROR() << STS << io::error_str(errorCode) << ", restarting server in  " << SERVER_RESTART_INTERVAL << " msec";
         _timers.set_timer(SERVER_RESTART_TIMER, SERVER_RESTART_INTERVAL, BIND_THIS_MEMFN(start_server));
     }
 }
@@ -865,7 +865,7 @@ bool Server::send(const HttpConnection::Ptr& conn, int code, const char* message
         }
         if (!result) ok = false;
     } else {
-        LOG_ERROR() << STS << "cannot create response";
+        BEAM_LOG_ERROR() << STS << "cannot create response";
     }
 
     _headers.clear();
@@ -903,7 +903,7 @@ void Server::IPAccessControl::refresh() {
                 _ips.insert(a.ip());
         }
     } catch (std::exception &e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
     }
 }
 

@@ -4683,7 +4683,7 @@ void TestAddressVersions()
 //        }
 //        else
 //        {
-//            LOG_ERROR() << "Error, invalid signature :(";
+//            BEAM_LOG_ERROR() << "Error, invalid signature :(";
 //        }
 //    }
 //}
@@ -4733,7 +4733,7 @@ void TestHWCommitment()
         WALLET_CHECK(keyKeeper.get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
 
         comm1 = pt2;
-        LOG_INFO() << "commitment is " << comm1;
+        BEAM_LOG_INFO() << "commitment is " << comm1;
 
         
         {
@@ -4762,7 +4762,7 @@ void TestHWCommitment()
         WALLET_CHECK(keyKeeper->get_Commitment(pt2, cid) == IPrivateKeyKeeper2::Status::Success);
         comm2 = pt2;
 
-        LOG_INFO() << "HW commitment is " << comm2;
+        BEAM_LOG_INFO() << "HW commitment is " << comm2;
 
         {
             ECC::Point::Native comm3;
@@ -4971,9 +4971,9 @@ void TestThreadPool()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_WARNING; 
+    int logLevel = BEAM_LOG_LEVEL_WARNING; 
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());

@@ -24,7 +24,7 @@ namespace beam::wallet
         {
             {
                 beam::wallet::PrintableAmount amount(rate.m_rate, true /*show decimal point*/);
-                LOG_VERBOSE() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
+                BEAM_LOG_VERBOSE() << "Exchange rate (updated " << format_timestamp(kTimeStampFormat3x3, rate.m_updateTime * 1000, false) << "): 1 " << rate.m_from.m_value << " = "
                     << amount << " " << rate.m_to.m_value;
             }
         }
@@ -125,12 +125,12 @@ namespace beam::wallet
         }
         catch(const std::exception& ex)
         {
-            LOG_WARNING() << "broadcast rate message processing exception: " << ex.what();
+            BEAM_LOG_WARNING() << "broadcast rate message processing exception: " << ex.what();
             return false;
         }
         catch(...)
         {
-            LOG_WARNING() << "broadcast rate message processing exception";
+            BEAM_LOG_WARNING() << "broadcast rate message processing exception";
             return false;
         }
     }

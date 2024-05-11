@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ namespace
 
     void on_connected(uint64_t tag, std::unique_ptr<TcpStream>&& newStream, ErrorCode status)
     {
-        LOG_INFO() << "on_connected";
+        BEAM_LOG_INFO() << "on_connected";
         if (newStream) {
             assert(status == EC_OK);
             newStream->enable_read(on_recv);
@@ -70,17 +70,17 @@ namespace
                 }
             }
             
-            LOG_INFO() << reverseHash;
+            BEAM_LOG_INFO() << reverseHash;
             std::string request = R"({"method":"blockchain.scripthash.get_balance","params":[")" + reverseHash +R"("], "id": "teste"})";
             request += "\n";
             
-            LOG_INFO() << request;
+            BEAM_LOG_INFO() << request;
             Result res = newStream->write(request.data(), request.size());
             if (!res) {
-                LOG_ERROR() << error_str(res.error());
+                BEAM_LOG_ERROR() << error_str(res.error());
             }
 
-            LOG_INFO() << "after write";
+            BEAM_LOG_INFO() << "after write";
             streams.emplace_back(move(newStream));
         }
         else {
@@ -90,32 +90,37 @@ namespace
     }
 }
 
-int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+int main() try {
+    int logLevel{};
+
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
+#else
+    logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
+
     auto logger = Logger::create(logLevel, logLevel);
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+    Address address;
 
-    try {
-        io::Reactor::Ptr reactor = io::Reactor::create();
-        io::Reactor::Scope scope(*reactor);
-        
-        Address address;
-        /*address.resolve("testnet.hsmiths.com");
-        address.port(53012);*/
+#if 0
+    address.resolve("testnet.hsmiths.com");
+    address.port(53012);
 
-        /*address.resolve("testnet.qtornado.com");
-        address.port(51002);*/
-        address.resolve("testnet1.bauerj.eu");
-        address.port(50002);
+    address.resolve("testnet.qtornado.com");
+    address.port(51002);
+#endif
+    
+    address.resolve("testnet1.bauerj.eu");
+    address.port(50002);
 
-        reactor->tcp_connect(address, tag_ok, on_connected, 2000, io::TlsConfig(true));
-        reactor->run();
-    }
-    catch (const std::exception& e) {
-        LOG_ERROR() << e.what();
-    }
+    reactor->tcp_connect(address, tag_ok, on_connected, 2000, io::TlsConfig(true));
+    reactor->run();
 
+    return 0;
+}
+catch (const std::exception& e) {
+    BEAM_LOG_ERROR() << e.what();
     return 0;
 }

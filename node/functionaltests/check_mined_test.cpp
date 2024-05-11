@@ -57,26 +57,26 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		Block::SystemState::ID id;
 		msg.m_Description.get_ID(id);
 
-		LOG_INFO() << "NewTip: " << id;
+		BEAM_LOG_INFO() << "NewTip: " << id;
 
 		m_IsInit = true;		
 
-		LOG_INFO() << "Send GetMined message";
+		BEAM_LOG_INFO() << "Send GetMined message";
 		Send(proto::GetMined{ msg.m_Description.m_Height - 1000 });
 	}
 }
 
 void TestNodeConnection::OnMsg(proto::Mined&& msg)
 {
-	LOG_INFO() << "Mined";	
+	BEAM_LOG_INFO() << "Mined";	
 
 	if (!msg.m_Entries.empty())
 	{
-		LOG_INFO() << "Ok: list is not empty";
+		BEAM_LOG_INFO() << "Ok: list is not empty";
 	}
 	else
 	{
-		LOG_INFO() << "Failed: list is empty";
+		BEAM_LOG_INFO() << "Failed: list is empty";
 		m_Failed = true;
 		io::Reactor::get_Current().stop();
 
@@ -94,11 +94,11 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 		{
 			if (isOk)
 			{
-				LOG_INFO() << "OK: utxo is valid";
+				BEAM_LOG_INFO() << "OK: utxo is valid";
 			}
 			else
 			{
-				LOG_INFO() << "Failed: utxo is not valid";
+				BEAM_LOG_INFO() << "Failed: utxo is not valid";
 				m_Failed = true;
 				
 			}
@@ -109,7 +109,7 @@ void TestNodeConnection::OnMsg(proto::Mined&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

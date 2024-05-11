@@ -33,7 +33,7 @@ namespace beam::wallet
     {
         if (vm.count(cli::AMOUNT) == 0)
         {
-            LOG_ERROR() << kErrorAmountMissing;
+            BEAM_LOG_ERROR() << kErrorAmountMissing;
             return false;
         }
 
@@ -46,13 +46,13 @@ namespace beam::wallet
 
             if (preciseAmount == 0)
             {
-                LOG_ERROR() << kErrorZeroAmount;
+                BEAM_LOG_ERROR() << kErrorZeroAmount;
                 return false;
             }
 
             if (preciseAmount < 0)
             {
-                LOG_ERROR() << (boost::format(kErrorNegativeAmount) % strAmount).str();
+                BEAM_LOG_ERROR() << (boost::format(kErrorNegativeAmount) % strAmount).str();
                 return false;
             }
 
@@ -61,7 +61,7 @@ namespace beam::wallet
             {
                 std::stringstream ssLimit;
                 ssLimit << PrintableAmount(limit, true, assetId);
-                LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
+                BEAM_LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
                 return false;
             }
 
@@ -69,8 +69,8 @@ namespace beam::wallet
         }
         catch (const std::runtime_error& err)
         {
-            LOG_ERROR() << "the argument ('" << strAmount << "') for option '--amount' is invalid.";
-            LOG_ERROR() << err.what();
+            BEAM_LOG_ERROR() << "the argument ('" << strAmount << "') for option '--amount' is invalid.";
+            BEAM_LOG_ERROR() << err.what();
             return false;
         }
 
@@ -91,7 +91,7 @@ namespace beam::wallet
             auto minFee = get_MinFee(wallet, hasShieldedOutputs);
             if (fee < minFee)
             {
-                LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
+                BEAM_LOG_ERROR() << (boost::format(kErrorFeeToLow) % minFee).str();
                 return false;
             }
         }
@@ -107,7 +107,7 @@ namespace beam::wallet
     {
         if (vm.find(cli::RECEIVER_ADDR) == vm.end())
         {
-            LOG_ERROR() << kErrorReceiverAddrMissing;
+            BEAM_LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
 
@@ -116,7 +116,7 @@ namespace beam::wallet
 
         if (!receiverParams)
         {
-            LOG_ERROR() << kErrorReceiverAddrMissing;
+            BEAM_LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
 
@@ -137,7 +137,7 @@ namespace beam::wallet
             }
             break;
         default:
-            LOG_ERROR() << kErrorReceiverAddrMissing;
+            BEAM_LOG_ERROR() << kErrorReceiverAddrMissing;
             return false;
         }
 

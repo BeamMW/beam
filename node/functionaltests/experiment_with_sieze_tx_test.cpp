@@ -22,7 +22,7 @@ using namespace ECC;
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 	HKdf kdf;
 
@@ -53,5 +53,5 @@ int main(int argc, char* argv[])
 	SerializerSizeCounter ssc;
 	ssc & generator.GetTransaction().m_Transaction;
 
-	LOG_INFO() << "size = " << ssc.m_Counter.m_Value;
+	BEAM_LOG_INFO() << "size = " << ssc.m_Counter.m_Value;
 }

@@ -39,7 +39,7 @@ TestNodeConnection::TestNodeConnection(int argc, char* argv[])
 
 bool TestNodeConnection::OnMsg2(proto::Status&& msg)
 {
-	LOG_INFO() << "Node returned: " << msg.m_Value;
+	BEAM_LOG_INFO() << "Node returned: " << msg.m_Value;
 	return true;
 }
 
@@ -48,11 +48,11 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 
-	LOG_INFO() << "NewTip: " << id;
+	BEAM_LOG_INFO() << "NewTip: " << id;
 
 	if (m_Height == 0)
 	{
-		LOG_INFO() << "Send NewTip with height = " << msg.m_Description.m_Height + 5;
+		BEAM_LOG_INFO() << "Send NewTip with height = " << msg.m_Description.m_Height + 5;
 		proto::NewTip newMsg;
 
 		newMsg.m_Description = msg.m_Description;
@@ -71,11 +71,11 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 	{
 		if (msg.m_Description.m_Height == m_Height)
 		{
-			LOG_INFO() << "Ok";
+			BEAM_LOG_INFO() << "Ok";
 		}
 		else
 		{
-			LOG_INFO() << "Failed";
+			BEAM_LOG_INFO() << "Failed";
 		}
 		io::Reactor::get_Current().stop();
 	}
@@ -85,7 +85,7 @@ bool TestNodeConnection::OnMsg2(proto::NewTip&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

@@ -214,7 +214,7 @@ namespace
         using proto::FlyClient::NetworkStd::NetworkStd;
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
-            LOG_ERROR() << kErrorConnectionFailed << ", reason: " << reason;
+            BEAM_LOG_ERROR() << kErrorConnectionFailed << ", reason: " << reason;
         };
     };
 
@@ -289,11 +289,11 @@ namespace
         ECC::Scalar::Native sk;
         PeerID pk;
 
-        LOG_INFO() << "Key generation requested";
+        BEAM_LOG_INFO() << "Key generation requested";
 
         if (!generateKeyPair(sk, pk))
         {
-            LOG_ERROR() << "key generation error";
+            BEAM_LOG_ERROR() << "key generation error";
             return -1;
         }
 
@@ -302,7 +302,7 @@ namespace
         std::cout << "Private key: " << skToPrint.str() << std::endl;
         std::cout << "Public key: " << pk.str() << std::endl;
 
-        LOG_INFO() << "Key pair successfully generated";
+        BEAM_LOG_INFO() << "Key pair successfully generated";
         boost::filesystem::remove(std::string(TEMP_DB_FILE_NAME));
 
         return 0;
@@ -310,30 +310,30 @@ namespace
 
     int transmitCommand(const po::variables_map& vm, const Options& options)
     {
-        LOG_INFO() << "Message transmit requested";
+        BEAM_LOG_INFO() << "Message transmit requested";
 
         if (vm.count(cli::NODE_ADDR) == 0)
         {
-            LOG_ERROR() << "node address should be specified";
+            BEAM_LOG_ERROR() << "node address should be specified";
             return -1;
         }
 
         if (vm.count(cli::MESSAGE_TYPE) == 0)
         {
-            LOG_ERROR() << "message type has to be specified";
+            BEAM_LOG_ERROR() << "message type has to be specified";
             return -1;
         }
 
         if (vm.count(cli::PRIVATE_KEY) == 0)
         {
-            LOG_ERROR() << "private key has to be specified";
+            BEAM_LOG_ERROR() << "private key has to be specified";
             return -1;
         }
 
         io::Address nodeAddress;
         if (!nodeAddress.resolve(options.nodeURI.c_str()))
         {
-            LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
+            BEAM_LOG_ERROR() << "unable to resolve node address: " << options.nodeURI;
             return -1;
         }
 
@@ -344,17 +344,17 @@ namespace
         
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
+            BEAM_LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
             uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
-                LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
+                BEAM_LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
         uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
-            LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+            BEAM_LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();
@@ -367,7 +367,7 @@ namespace
         ECC::Scalar::Native key;
         if (!BroadcastMsgCreator::stringToPrivateKey(options.privateKey, key))
         {
-            LOG_ERROR() << "Invalid private key.";
+            BEAM_LOG_ERROR() << "Invalid private key.";
             return -1;
         }
 
@@ -397,7 +397,7 @@ namespace
         }
         else
         {
-            LOG_ERROR() << "Invalid type of message: " << options.messageType;
+            BEAM_LOG_ERROR() << "Invalid type of message: " << options.messageType;
             return -1;
         }
 
@@ -421,7 +421,7 @@ namespace
         }
         else
         {
-            LOG_ERROR() << "Invalid message parameters";
+            BEAM_LOG_ERROR() << "Invalid message parameters";
             return -1;
         }
 
@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
     namespace po = boost::program_options;
 
     const auto path = boost::filesystem::system_complete("./logs");
-    auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "broadcast_", path.string());
+    auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "broadcast_", path.string());
 
     try
     {
@@ -501,8 +501,8 @@ int main(int argc, char* argv[])
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
         Rules::get().UpdateChecksum();
-        LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-        LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+        BEAM_LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
+        BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
         if (vm.count(cli::COMMAND) == 0)
         {
@@ -522,20 +522,20 @@ int main(int argc, char* argv[])
             }
             else
             {
-                LOG_ERROR() << "unknown command: " << command;
+                BEAM_LOG_ERROR() << "unknown command: " << command;
                 return -1;
             }
         }
 
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     }
     catch (const std::exception& e)
     {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        BEAM_LOG_ERROR() << "EXCEPTION: " << e.what();
     }
     catch (...)
     {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        BEAM_LOG_ERROR() << "NON_STD EXCEPTION";
     }
 
     return 0;

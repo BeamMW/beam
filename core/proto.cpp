@@ -721,7 +721,7 @@ void NodeConnection::OnMsg(Login&& msg)
 
                 Height hScheme = pFork[1].m_Height;
 
-                LOG_WARNING() << "Peer " << m_Connection->peer_address() << " incompatible with HF " << (nMyFork + 1) << ", Height=" << hScheme;
+                BEAM_LOG_WARNING() << "Peer " << m_Connection->peer_address() << " incompatible with HF " << (nMyFork + 1) << ", Height=" << hScheme;
 
                 Height hMinScheme = get_MinPeerFork();
                 if (hMinScheme >= hScheme)
@@ -730,7 +730,7 @@ void NodeConnection::OnMsg(Login&& msg)
 
             if (i + 1 != msg.m_Cfgs.size())
             {
-                LOG_WARNING() << "Peer " << m_Connection->peer_address() << " has unknown fork: " << msg.m_Cfgs[i + 1];
+                BEAM_LOG_WARNING() << "Peer " << m_Connection->peer_address() << " has unknown fork: " << msg.m_Cfgs[i + 1];
             }
 
 			OnLoginInternal(std::move(msg));
@@ -767,7 +767,7 @@ void NodeConnection::OnLoginInternal(Login&& msg)
     if (LoginFlags::Extension::Maximum != nExt)
     {
         bool bNewer = (nExt > LoginFlags::Extension::Maximum);
-        LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << nExt;
+        BEAM_LOG_WARNING() << "Peer " << m_Connection->peer_address() << " uses " << (bNewer ? "newer" : "older") << " ext: " << nExt;
 
         if (nExt < LoginFlags::Extension::Minimum)
             ThrowUnexpected("Legacy", NodeProcessingException::Type::Incompatible);

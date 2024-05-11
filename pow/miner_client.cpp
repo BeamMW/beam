@@ -84,7 +84,7 @@ private:
         Block::PoW pow;
         pow.m_Difficulty.m_Packed = job.difficulty;
 
-        LOG_INFO() << "new job here: id=" << job.id;
+        BEAM_LOG_INFO() << "new job here: id=" << job.id;
 
         if (!fill_job_info(job)) return false;
 
@@ -110,7 +110,7 @@ private:
 		Height h;
         _miner->get_last_found_block(jobID, h, _lastFoundBlock);
         if (jobID != _lastJobID) {
-            LOG_INFO() << "solution expired" << TRACE(jobID);
+            BEAM_LOG_INFO() << "solution expired" << TRACE(jobID);
             return IExternalPOW::solution_expired;
         }
 
@@ -118,10 +118,10 @@ private:
         //LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
 
         if (!_fakeSolver && !_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32, h)) {
-            LOG_ERROR() << "solution is invalid, id=" << _lastJobID;
+            BEAM_LOG_ERROR() << "solution is invalid, id=" << _lastJobID;
             return IExternalPOW::solution_rejected;
         }
-        LOG_INFO() << "block found id=" << _lastJobID;
+        BEAM_LOG_INFO() << "block found id=" << _lastJobID;
 
         _blockSent = false;
         send_last_found_block();
@@ -132,7 +132,7 @@ private:
         if (_blockSent || !_connection || !_connection->is_connected()) return;
         stratum::Solution sol(_lastJobID, _lastFoundBlock);
         if (!stratum::append_json_msg(_lineProtocol, sol)) {
-            LOG_ERROR() << "Internal error";
+            BEAM_LOG_ERROR() << "Internal error";
             _reactor.stop();
             return;
         }
@@ -141,23 +141,23 @@ private:
 
     bool on_stratum_error(stratum::ResultCode code) override {
         if (code == stratum::login_failed) {
-            LOG_ERROR() << "login to " << _serverAddress << " failed, try again later";
+            BEAM_LOG_ERROR() << "login to " << _serverAddress << " failed, try again later";
             return false;
         }
 
         // TODO what to do with other errors
-        LOG_ERROR() << "got stratum error: " << code << " " << stratum::get_result_msg(code);
+        BEAM_LOG_ERROR() << "got stratum error: " << code << " " << stratum::get_result_msg(code);
         return true;
     }
 
     bool on_unsupported_stratum_method(stratum::Method method) override {
-        LOG_INFO() << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
+        BEAM_LOG_INFO() << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
         return true;
     }
 
     void on_write(io::SharedBuffer&& msg) {
         if (_connection) {
-            LOG_VERBOSE() << "writing " << std::string((const char*)msg.data, msg.size - 1);
+            BEAM_LOG_VERBOSE() << "writing " << std::string((const char*)msg.data, msg.size - 1);
             auto result = _connection->write(msg);
             if (!result) {
                 on_disconnected(result.error());
@@ -170,15 +170,15 @@ private:
     }
 
     void on_disconnected(io::ErrorCode error) {
-        LOG_INFO() << "disconnected, error=" << io::error_str(error) << ", rescheduling";
+        BEAM_LOG_INFO() << "disconnected, error=" << io::error_str(error) << ", rescheduling";
         _connection.reset();
         _timer->start(RECONNECT_TIMEOUT, false, BIND_THIS_MEMFN(on_reconnect));
     }
 
     void on_reconnect() {
-        LOG_INFO() << "connecting to " << _serverAddress;
+        BEAM_LOG_INFO() << "connecting to " << _serverAddress;
         if (!_reactor.tcp_connect(_serverAddress, 1, BIND_THIS_MEMFN(on_connected), 10000, io::TlsConfig(_tls))) {
-            LOG_ERROR() << "connect attempt failed, rescheduling";
+            BEAM_LOG_ERROR() << "connect attempt failed, rescheduling";
             _timer->start(RECONNECT_TIMEOUT, false, BIND_THIS_MEMFN(on_reconnect));
         }
     }
@@ -189,13 +189,13 @@ private:
             return;
         }
 
-        LOG_INFO() << "connected to " << _serverAddress;
+        BEAM_LOG_INFO() << "connected to " << _serverAddress;
         _connection = std::move(newStream);
         _connection->enable_keepalive(2);
         _connection->enable_read(BIND_THIS_MEMFN(on_stream_data));
 
         if (!stratum::append_json_msg(_lineProtocol, stratum::Login(_apiKey))) {
-            LOG_ERROR() << "Internal error";
+            BEAM_LOG_ERROR() << "Internal error";
             _reactor.stop();
         }
         if (!_blockSent) {
@@ -211,7 +211,7 @@ private:
             return false;
         }
         if (!_lineProtocol.new_data_from_stream(data, size)) {
-            LOG_ERROR() << "closing connection";
+            BEAM_LOG_ERROR() << "closing connection";
             _reactor.stop();
             return false;
         }
@@ -226,7 +226,7 @@ struct Options {
     std::string serverAddress;
     bool no_tls=false;
     bool fake=false;
-    int logLevel=LOG_LEVEL_DEBUG;
+    int logLevel=BEAM_LOG_LEVEL_DEBUG;
     unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
 };
 
@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
     std::string logFilePrefix("miner_client_");
     logFilePrefix += std::to_string(uv_os_getpid());
     logFilePrefix += "_";
-    auto logger = Logger::create(LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix, "logs");
+    auto logger = Logger::create(BEAM_LOG_LEVEL_INFO, options.logLevel, options.logLevel, logFilePrefix, "logs");
     int retCode = 0;
     try {
         io::Reactor::Ptr reactor = io::Reactor::create();
@@ -258,12 +258,12 @@ int main(int argc, char* argv[]) {
         );
         StratumClient client(*reactor, connectTo, options.apiKey, options.no_tls, options.fake);
         reactor->run();
-        LOG_INFO() << "stopping...";
+        BEAM_LOG_INFO() << "stopping...";
     } catch (const std::exception& e) {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        BEAM_LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;
     } catch (...) {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        BEAM_LOG_ERROR() << "NON_STD EXCEPTION";
         retCode = 255;
     }
     return retCode;
@@ -281,12 +281,12 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     ;
 
 #ifdef NDEBUG
-    o.logLevel = LOG_LEVEL_DEBUG;
+    o.logLevel = BEAM_LOG_LEVEL_DEBUG;
 #else
 #if LOG_VERBOSE_ENABLED
-    o.logLevel = LOG_LEVEL_VERBOSE;
+    o.logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #else
-    o.logLevel = LOG_LEVEL_DEBUG;
+    o.logLevel = BEAM_LOG_LEVEL_DEBUG;
 #endif
 #endif
 

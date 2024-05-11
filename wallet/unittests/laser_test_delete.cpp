@@ -34,9 +34,9 @@ using namespace std;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -64,32 +64,32 @@ int main()
 
         observer_1.onOpened = [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: first opened";
+            BEAM_LOG_INFO() << "Test laser DELETE: first opened";
             channel_1 = chID;
         };
         observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: second opened";
+            BEAM_LOG_INFO() << "Test laser DELETE: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: open failed";
+            BEAM_LOG_INFO() << "Test laser DELETE: open failed";
             WALLET_CHECK(false);
         };
         observer_1.onClosed = [&laser1Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: first closed";
+            BEAM_LOG_INFO() << "Test laser DELETE: first closed";
             laser1Closed = true;
         };
         observer_2.onClosed = [&laser2Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: second closed";
+            BEAM_LOG_INFO() << "Test laser DELETE: second closed";
             laser2Closed = true;
         };
         observer_1.onCloseFailed = observer_2.onCloseFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DELETE: close failed";
+            BEAM_LOG_INFO() << "Test laser DELETE: close failed";
             WALLET_CHECK(false);
         };
         laserFirst->AddObserver(&observer_1);
@@ -99,7 +99,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser DELETE: time expired";
+                BEAM_LOG_ERROR() << "Test laser DELETE: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -114,7 +114,7 @@ int main()
             if (channel_1 && channel_2 && !closingStarted)
             {
                 closingStarted = true;
-                LOG_INFO() << "Test laser DELETE: closing started";
+                BEAM_LOG_INFO() << "Test laser DELETE: closing started";
                 auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
                 WALLET_CHECK(laserFirst->GracefulClose(channel1Str));
             }
@@ -122,7 +122,7 @@ int main()
             if (laser1Closed && laser2Closed && !closedAt)
             {
                 closedAt = height;
-                LOG_INFO() << "Test laser DELETE: before post lock reserve";
+                BEAM_LOG_INFO() << "Test laser DELETE: before post lock reserve";
                 auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
                 WALLET_CHECK(!laserFirst->Delete(channel1Str));
                 auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
@@ -131,7 +131,7 @@ int main()
 
             if (closedAt && height == closedAt + kPostLockReserve + 1)
             {
-                LOG_INFO() << "Test laser DELETE: after post lock reserve";
+                BEAM_LOG_INFO() << "Test laser DELETE: after post lock reserve";
                 auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
                 WALLET_CHECK(laserFirst->Delete(channel1Str));
                 auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);

@@ -34,9 +34,9 @@ using namespace std;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -63,32 +63,32 @@ int main()
 
         observer_1.onOpened = [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: first opened";
+            BEAM_LOG_INFO() << "Test laser DROP: first opened";
             channel_1 = chID;
         };
         observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: second opened";
+            BEAM_LOG_INFO() << "Test laser DROP: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: open failed";
+            BEAM_LOG_INFO() << "Test laser DROP: open failed";
             WALLET_CHECK(false);
         };
         observer_1.onClosed = [&laser1Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: first closed";
+            BEAM_LOG_INFO() << "Test laser DROP: first closed";
             laser1Closed = true;
         };
         observer_2.onClosed = [&laser2Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: second closed";
+            BEAM_LOG_INFO() << "Test laser DROP: second closed";
             laser2Closed = true;
         };
         observer_1.onCloseFailed = observer_2.onCloseFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser DROP: close failed";
+            BEAM_LOG_INFO() << "Test laser DROP: close failed";
             WALLET_CHECK(false);
         };
         laserFirst->AddObserver(&observer_1);
@@ -98,7 +98,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser DROP: time expired";
+                BEAM_LOG_ERROR() << "Test laser DROP: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -119,7 +119,7 @@ int main()
 
             if (laser1Closed && laser2Closed)
             {
-                LOG_INFO() << "Test laser CLOSE: finished";
+                BEAM_LOG_INFO() << "Test laser CLOSE: finished";
                 io::Reactor::get_Current().stop();
             }
 

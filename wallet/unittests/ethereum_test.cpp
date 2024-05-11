@@ -739,7 +739,7 @@ void testERC20MultipleApprove()
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
 
     testAddress();

@@ -34,9 +34,9 @@ using namespace std;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -79,7 +79,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser OPEN FAIL: time expired";
+                BEAM_LOG_ERROR() << "Test laser OPEN FAIL: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -93,7 +93,7 @@ int main()
 
             if (laser1Fail && laser2Fail)
             {
-                LOG_INFO() << "Test laser OPEN FAIL: finished";
+                BEAM_LOG_INFO() << "Test laser OPEN FAIL: finished";
                 io::Reactor::get_Current().stop();
             }
         };
