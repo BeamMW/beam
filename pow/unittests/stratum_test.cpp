@@ -44,7 +44,7 @@ int json_creation_test() {
         Result r("xxx", ResultCode(login_failed));
         append_json_msg(lineProtocol, r);
         io::SharedBuffer buf = io::normalize(m);
-        LOG_DEBUG() << to_string(buf);
+        BEAM_LOG_DEBUG() << to_string(buf);
         Result x;
         auto code = parse_json_msg(buf.data, buf.size, x);
         if (code != 0) {
@@ -93,11 +93,11 @@ void gen_examples() {
     append_json_msg(packer, res2);
 
     io::SharedBuffer buf = io::normalize(m);
-    LOG_DEBUG() << to_string(buf);
+    BEAM_LOG_DEBUG() << to_string(buf);
 
     LineProtocol reader(
         [](void* data, size_t size) -> bool {
-            LOG_DEBUG() << std::string((char*)data, size);
+            BEAM_LOG_DEBUG() << std::string((char*)data, size);
             return true;
         },
         [](io::SharedBuffer&& fragment) {}

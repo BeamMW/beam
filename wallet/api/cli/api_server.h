@@ -196,7 +196,7 @@ namespace beam
                     }
                 }
 
-                LOG_DEBUG() << "+peer " << peer;
+                BEAM_LOG_DEBUG() << "+peer " << peer;
 
                 checkConnections();
 
@@ -205,7 +205,7 @@ namespace beam
                     : createConnection<TcpApiConnection>(std::move(newStream));
             }
 
-            LOG_DEBUG() << "on_stream_accepted";
+            BEAM_LOG_DEBUG() << "on_stream_accepted";
         }
 
     private:
@@ -303,7 +303,7 @@ namespace beam
             {
                 if ((msg.what != HttpMsgReader::http_message || !msg.msg) && msg.what != HttpMsgReader::message_too_long)
                 {
-                    LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
+                    BEAM_LOG_DEBUG() << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
                     _connection->shutdown();
                     _server.closeConnection(id);
                     return false;

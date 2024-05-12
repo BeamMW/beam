@@ -33,14 +33,14 @@ void reactor_start_stop() {
         [reactor]() {
             this_thread::sleep_for(chrono::microseconds(300000));
             //usleep(300000);
-            LOG_DEBUG() << "stopping reactor from foreign thread...";
+            BEAM_LOG_DEBUG() << "stopping reactor from foreign thread...";
             reactor->stop();
         }
     );
 
-    LOG_DEBUG() << "starting reactor...";;
+    BEAM_LOG_DEBUG() << "starting reactor...";;
     reactor->run();
-    LOG_DEBUG() << "reactor stopped";
+    BEAM_LOG_DEBUG() << "reactor stopped";
 
     f.get();
 }

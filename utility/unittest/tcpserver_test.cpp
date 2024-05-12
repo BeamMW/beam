@@ -52,7 +52,7 @@ void tcpserver_test() {
             Address(serverIp, serverPort),
             [](TcpStream::Ptr&& newStream, int errorCode) {
                 if (errorCode == 0) {
-                    LOG_DEBUG() << "Stream accepted, socket=" << newStream->address().str() << " peer=" << newStream->peer_address().str();
+                    BEAM_LOG_DEBUG() << "Stream accepted, socket=" << newStream->address().str() << " peer=" << newStream->peer_address().str();
                     assert(newStream);
                     wasAccepted = true;
                 } else {
@@ -69,9 +69,9 @@ void tcpserver_test() {
             on_timer
         );
 
-        LOG_DEBUG() << "starting reactor...";
+        BEAM_LOG_DEBUG() << "starting reactor...";
         reactor->run();
-        LOG_DEBUG() << "reactor stopped";
+        BEAM_LOG_DEBUG() << "reactor stopped";
     }
     catch (const std::exception& e) {
         BEAM_LOG_ERROR() << e.what();

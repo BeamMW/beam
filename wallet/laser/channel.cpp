@@ -140,7 +140,7 @@ Amount Channel::SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asse
                         nDone += cid.m_Value;
                         return cid;
                     });
-    LOG_DEBUG() << "Amount selected: " << PrintableAmount(nDone, true) << " "
+    BEAM_LOG_DEBUG() << "Amount selected: " << PrintableAmount(nDone, true) << " "
                 << "Amount required: " << PrintableAmount(nDone, valRequired);
     return nDone;
 }
@@ -525,7 +525,7 @@ void Channel::LogState()
         return;
     }
 
-    LOG_DEBUG() << os.str();
+    BEAM_LOG_DEBUG() << os.str();
 }
 
 void Channel::Subscribe()

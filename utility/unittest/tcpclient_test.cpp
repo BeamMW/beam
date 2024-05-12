@@ -55,15 +55,15 @@ int calc_errors() {
 
 bool on_recv(ErrorCode what, void* data, size_t size) {
     if (data && size) {
-        LOG_DEBUG() << "RECEIVED " << size << " bytes";
-        //LOG_DEBUG() << "\n" << std::string((const char*)data, size);
+        BEAM_LOG_DEBUG() << "RECEIVED " << size << " bytes";
+        //BEAM_LOG_DEBUG() << "\n" << std::string((const char*)data, size);
 		if (g_FirstRcv)
 		{
 			g_FirstRcv = false;
 			--callbackCount;
 		}
     } else {
-        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(what);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(what);
     }
     return true;
 };
@@ -81,7 +81,7 @@ void on_connected (uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode st
         streams.emplace_back(move(newStream));
 
     } else {
-        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
         if (status == EC_ECONNREFUSED && tag != tag_refused) ++errorlevel;
         if (status == EC_ETIMEDOUT && tag != tag_timedout) ++errorlevel;
         --callbackCount;
@@ -124,12 +124,12 @@ int tcpclient_test(bool ssl) {
                 }
                 });
 
-            LOG_DEBUG() << "starting reactor...";
+            BEAM_LOG_DEBUG() << "starting reactor...";
             reactor->run();
-            LOG_DEBUG() << "reactor stopped";
+            BEAM_LOG_DEBUG() << "reactor stopped";
 
             streams.clear();
-            LOG_DEBUG() << TRACE(reactor.use_count());
+            BEAM_LOG_DEBUG() << TRACE(reactor.use_count());
         }
         reactorUseCount = reactor.use_count() - 1;
     }
@@ -141,7 +141,7 @@ int tcpclient_test(bool ssl) {
 }
 
 void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-    LOG_DEBUG() << "on_connected_writecancel: " << error_str(status);
+    BEAM_LOG_DEBUG() << "on_connected_writecancel: " << error_str(status);
     if (newStream) {
         assert(status == EC_OK);
         if (tag != tag_ok) ++errorlevel;
@@ -149,7 +149,7 @@ void on_connected_writecancel(uint64_t tag, unique_ptr<TcpStream>&& newStream, E
         newStream->write(request, strlen(request));
         writecancelInProgress=0;
     } else {
-        LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
     }
 };
 
@@ -173,11 +173,11 @@ int tcpclient_writecancel_test() {
             }
         });
 
-        LOG_DEBUG() << "starting reactor...";
+        BEAM_LOG_DEBUG() << "starting reactor...";
         reactor->run();
-        LOG_DEBUG() << "reactor stopped";
+        BEAM_LOG_DEBUG() << "reactor stopped";
 
-        LOG_DEBUG() << TRACE(reactor.use_count());
+        BEAM_LOG_DEBUG() << TRACE(reactor.use_count());
         reactor.reset();
         streams.clear();
     }
@@ -189,7 +189,7 @@ int tcpclient_writecancel_test() {
 }
 
 void on_connected_dummy(uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-    LOG_DEBUG() << "on_connected_dummy: " << error_str(status);
+    BEAM_LOG_DEBUG() << "on_connected_dummy: " << error_str(status);
 };
 
 int tcpclient_unclosed_test() {
@@ -218,9 +218,9 @@ int tcpclient_unclosed_test() {
         });
 
 
-        LOG_DEBUG() << "starting reactor...";
+        BEAM_LOG_DEBUG() << "starting reactor...";
         reactor->run();
-        LOG_DEBUG() << "reactor stopped";
+        BEAM_LOG_DEBUG() << "reactor stopped";
 
         streams.clear();
     }

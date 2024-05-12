@@ -41,7 +41,7 @@ struct FragmentedInput {
 
 int report(const char* fn, int errors) {
     if (errors) { BEAM_LOG_ERROR() << fn << " " << errors << " errors"; }
-    else { LOG_DEBUG() << fn << " ok"; }
+    else { BEAM_LOG_DEBUG() << fn << " ok"; }
     return errors;
 }
 #define REPORT(errors) report(__FUNCTION__, errors)
@@ -159,7 +159,7 @@ int test_multiple() {
         fragmentSize += 9;
     }
 
-    LOG_DEBUG() << __FUNCTION__ << TRACE(calls) << TRACE(corrupted);
+    BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(calls) << TRACE(corrupted);
 
     return REPORT(errors);
 }
@@ -206,7 +206,7 @@ int test_chunked() {
     reader.new_data_from_stream(io::EC_OK, st2.data(), st2.size());
     reader.new_data_from_stream(io::EC_OK, st3.data(), st3.size());
 
-    LOG_DEBUG() << __FUNCTION__ << TRACE(corrupted);
+    BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(corrupted);
 
     return REPORT(errors);
 }

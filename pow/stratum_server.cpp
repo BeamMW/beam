@@ -96,7 +96,7 @@ void Server::refresh_acl() {
 void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
     if (errorCode == 0) {
         auto peer = newStream->peer_address();
-        LOG_DEBUG() << STS << "+peer " << peer;
+        BEAM_LOG_DEBUG() << STS << "+peer " << peer;
         _connections[peer.u64()] = std::make_unique<Connection>(
             *this,
             peer.u64(),
@@ -150,7 +150,7 @@ bool Server::on_login(uint64_t from, const Login& login) {
 }
 
 bool Server::on_solution(uint64_t from, const Solution& sol) {
-	LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
+	BEAM_LOG_DEBUG() << TRACE(sol.nonce) << TRACE(sol.output);
 
 	if (_prefixDigits > 0) {
 	    const std::string& nonceprefix = _connections[from]->get_nonceprefix();

@@ -607,7 +607,7 @@ namespace beam::wallet
             pc.m_Signature = x.m_PaymentProofSignature;
             if (!pc.IsValid(x.m_Peer))
             {
-                LOG_DEBUG() << "Payment proof confimation failed";
+                BEAM_LOG_DEBUG() << "Payment proof confimation failed";
                 return Status::Unspecified;
             }
         }

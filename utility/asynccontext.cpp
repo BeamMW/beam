@@ -70,7 +70,7 @@ void AsyncContext::thread_func(AsyncContext::RunCallback&& beforeRun, AsyncConte
     block_signals_in_this_thread();
     attach_to_thread();
     _started = true;
-    LOG_DEBUG() << "starting, thread=" << get_thread_id();
+    BEAM_LOG_DEBUG() << "starting, thread=" << get_thread_id();
     try {
         if (beforeRun) beforeRun();
         _reactor->run();
@@ -82,7 +82,7 @@ void AsyncContext::thread_func(AsyncContext::RunCallback&& beforeRun, AsyncConte
         BEAM_LOG_CRITICAL() << "Unhandled non-std exception in child thread";
         assert(false && "exception in child thread");
     }
-    LOG_DEBUG() << "exiting, thread=" << get_thread_id();
+    BEAM_LOG_DEBUG() << "exiting, thread=" << get_thread_id();
     detach_from_thread();
 }
 

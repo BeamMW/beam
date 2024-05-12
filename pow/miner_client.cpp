@@ -67,7 +67,7 @@ public:
 
 private:
     bool on_raw_message(void* data, size_t size) {
-        LOG_DEBUG() << "got " << std::string((char*)data, size-1);
+        BEAM_LOG_DEBUG() << "got " << std::string((char*)data, size-1);
         return stratum::parse_json_msg(data, size, *this);
     }
 
@@ -101,7 +101,7 @@ private:
         if (res.code < 0) {
             return on_stratum_error(res.code);
         }
-        LOG_DEBUG() << "ignoring result message, code=" << res.code << " description=" << res.description;
+        BEAM_LOG_DEBUG() << "ignoring result message, code=" << res.code << " description=" << res.description;
         return true;
     }
 
@@ -115,7 +115,7 @@ private:
         }
 
         //char buf[72];
-        //LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
+        //BEAM_LOG_DEBUG() << "input=" << to_hex(buf, _lastJobInput.m_pData, 32);
 
         if (!_fakeSolver && !_lastFoundBlock.IsValid(_lastJobInput.m_pData, 32, h)) {
             BEAM_LOG_ERROR() << "solution is invalid, id=" << _lastJobID;
@@ -165,7 +165,7 @@ private:
                 _blockSent = true; //TODO ???
             }
         } else {
-            LOG_DEBUG() << "ignoring message, no connection";
+            BEAM_LOG_DEBUG() << "ignoring message, no connection";
         }
     }
 

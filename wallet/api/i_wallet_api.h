@@ -60,7 +60,7 @@ namespace beam::wallet
 
         virtual void onParseError(const json& msg)
         {
-            LOG_DEBUG() << "on API parse error: " << msg;
+            BEAM_LOG_DEBUG() << "on API parse error: " << msg;
             sendAPIResponse(msg);
         }
     };

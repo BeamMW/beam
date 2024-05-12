@@ -161,7 +161,7 @@ struct NetworkSide : public IErrorHandler, public ILogicToNetwork, public AsyncC
 
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
         if (errorCode == 0) {
-            LOG_DEBUG() << "Stream accepted";
+            BEAM_LOG_DEBUG() << "Stream accepted";
             if (!connection) {
                 connection = make_unique<Connection>(
                     protocol,
@@ -376,7 +376,7 @@ int main() {
     try {
         constexpr uint16_t port = 32123;
 
-        LOG_DEBUG() << "Creating apps";
+        BEAM_LOG_DEBUG() << "Creating apps";
 
         // server
         App app1(io::Address::localhost().port(port), true, 345);

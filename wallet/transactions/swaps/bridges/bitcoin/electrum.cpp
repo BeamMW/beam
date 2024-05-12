@@ -85,7 +85,7 @@ namespace beam::bitcoin
 
     void Electrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
     {
-        LOG_DEBUG() << "fundRawTransaction command";
+        BEAM_LOG_DEBUG() << "fundRawTransaction command";
 
         listUnspent([this, rawTx, feeRate, callback](const IBridge::Error& error, const std::vector<Electrum::Utxo>& coins)
         {
@@ -176,7 +176,7 @@ namespace beam::bitcoin
                             newTx.outputs().back().set_value(changeValue - newFee);
                         }
 
-                        LOG_DEBUG() << "electrum fundrawtransaction:  fee = " << newFee << ", size = " << newTx.serialized_size();
+                        BEAM_LOG_DEBUG() << "electrum fundrawtransaction:  fee = " << newFee << ", size = " << newTx.serialized_size();
                     }
 
                     for (auto p : resultPoints.points)
@@ -184,7 +184,7 @@ namespace beam::bitcoin
                         lockUtxo(encode_hash(p.hash()), p.index());
                     }
 
-                    LOG_DEBUG() << "electrum fundrawtransaction: weight = " << newTx.weight() << ", fee = " << fee << ", size = " << newTx.serialized_size();
+                    BEAM_LOG_DEBUG() << "electrum fundrawtransaction: weight = " << newTx.weight() << ", fee = " << fee << ", size = " << newTx.serialized_size();
 
                     callback(error, encode_base16(newTx.to_data()), changePosition);
                     return;
@@ -202,7 +202,7 @@ namespace beam::bitcoin
 
     void Electrum::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
     {
-        LOG_DEBUG() << "signRawTransaction command";
+        BEAM_LOG_DEBUG() << "signRawTransaction command";
 
         listUnspent([this, rawTx, callback](const IBridge::Error& error, const std::vector<Electrum::Utxo>& coins)
         {
@@ -233,14 +233,14 @@ namespace beam::bitcoin
                 return;
             }
 
-            LOG_DEBUG() << "electrum signRawTransaction: weight = " << tx.weight() << ", size = " << tx.serialized_size();
+            BEAM_LOG_DEBUG() << "electrum signRawTransaction: weight = " << tx.weight() << ", size = " << tx.serialized_size();
             callback(error, encode_base16(tx.to_data()), true);
         });
     }
 
     void Electrum::sendRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "sendRawTransaction command";
+        BEAM_LOG_DEBUG() << "sendRawTransaction command";
 
         sendRequest("blockchain.transaction.broadcast", "\"" + rawTx + "\"", [callback](IBridge::Error error, const json& result, uint64_t)
         {
@@ -266,7 +266,7 @@ namespace beam::bitcoin
 
     void Electrum::getRawChangeAddress(std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "getRawChangeAddress command";
+        BEAM_LOG_DEBUG() << "getRawChangeAddress command";
 
         Error error{ None, "" };
         auto privateKeys = generateMasterPrivateKeys(m_settingsProvider.GetSettings().GetElectrumConnectionOptions().m_secretWords);
@@ -284,7 +284,7 @@ namespace beam::bitcoin
         Timestamp locktime,
         std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "createRawTransaction command";
+        BEAM_LOG_DEBUG() << "createRawTransaction command";
         hash_digest utxoHash;
         decode_hash(utxoHash, contractTxId);
 
@@ -312,7 +312,7 @@ namespace beam::bitcoin
 
     void Electrum::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, Amount, uint32_t)> callback)
     {
-        //LOG_DEBUG() << "getTxOut command";
+        //BEAM_LOG_DEBUG() << "getTxOut command";
         sendRequest("blockchain.transaction.get", "\"" + txid + "\", true", [callback, outputIndex](IBridge::Error error, const json& result, uint64_t)
         {
             Amount value = 0;
@@ -362,7 +362,7 @@ namespace beam::bitcoin
 
     void Electrum::getBlockCount(std::function<void(const IBridge::Error&, uint64_t)> callback)
     {
-        //LOG_DEBUG() << "getBlockCount command";
+        //BEAM_LOG_DEBUG() << "getBlockCount command";
 
         sendRequest("blockchain.headers.subscribe", "", [callback](IBridge::Error error, const json& result, uint64_t)
         {
@@ -429,7 +429,7 @@ namespace beam::bitcoin
 
     void Electrum::getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback)
     {
-        //LOG_DEBUG() << "getDetailedBalance command";
+        //BEAM_LOG_DEBUG() << "getDetailedBalance command";
 
         size_t index = 0;
         Amount confirmed = 0;
@@ -529,7 +529,7 @@ namespace beam::bitcoin
 
     void Electrum::listUnspent(std::function<void(const Error&, const std::vector<Utxo>&)> callback)
     {
-        LOG_DEBUG() << "listunstpent command";
+        BEAM_LOG_DEBUG() << "listunstpent command";
         size_t index = 0;
         std::vector<Utxo> coins;
         auto privateKeys = generatePrivateKeyList();
@@ -973,7 +973,7 @@ namespace beam::bitcoin
                     }
                     else
                     {
-                        LOG_DEBUG() << "signRawTx: failed in lockingScript.create_endorsement";
+                        BEAM_LOG_DEBUG() << "signRawTx: failed in lockingScript.create_endorsement";
                         throw std::runtime_error("Transaction is not signed");
                     }
                     break;
@@ -982,7 +982,7 @@ namespace beam::bitcoin
 
             if (!isFoundCoin)
             {
-                LOG_DEBUG() << "signRawTx: coin is not found";
+                BEAM_LOG_DEBUG() << "signRawTx: coin is not found";
                 throw std::runtime_error("Transaction is not signed");
             }
         }

@@ -54,7 +54,7 @@ namespace beam::wallet
 
     void V6Api::onHandleCalcChange(const JsonRpcId& id, CalcChange&& data)
     {
-        LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
+        BEAM_LOG_DEBUG() << "CalcChange(id = " << id << " amount = " << data.amount << " asset_id = " << (data.assetId ? *data.assetId : 0) << ")";
 
         CoinsSelectionInfo csi = {0};
 
@@ -72,7 +72,7 @@ namespace beam::wallet
 
     void V6Api::onHandleChangePassword(const JsonRpcId& id, ChangePassword&& data)
     {
-        LOG_DEBUG() << "ChangePassword(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "ChangePassword(id = " << id << ")";
 
         getWalletDB()->changePassword(data.newPassword);
         doResponse(id, ChangePassword::Response{ });
@@ -80,7 +80,7 @@ namespace beam::wallet
 
     void V6Api::onHandleAddrList(const JsonRpcId& id, AddrList&& data)
     {
-        LOG_DEBUG() << "AddrList(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "AddrList(id = " << id << ")";
 
         auto walletDB = getWalletDB();
         auto all = walletDB->getAddresses(data.own);
@@ -104,7 +104,7 @@ namespace beam::wallet
 
     void V6Api::onHandleCreateAddress(const JsonRpcId& id, CreateAddress&& data)
     {
-        LOG_DEBUG() << "CreateAddress(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "CreateAddress(id = " << id << ")";
 
         if (!getWallet()->CanDetectCoins()
             && (data.type == TokenType::MaxPrivacy
@@ -143,7 +143,7 @@ namespace beam::wallet
 
     void V6Api::onHandleDeleteAddress(const JsonRpcId& id, DeleteAddress&& data)
     {
-        LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << data.token << ")";
+        BEAM_LOG_DEBUG() << "DeleteAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
         auto addr = walletDB->getAddressByToken(data.token);
@@ -167,7 +167,7 @@ namespace beam::wallet
 
     void V6Api::onHandleEditAddress(const JsonRpcId& id, EditAddress&& data)
     {
-        LOG_DEBUG() << "EditAddress(id = " << id << " address = " << data.token << ")";
+        BEAM_LOG_DEBUG() << "EditAddress(id = " << id << " address = " << data.token << ")";
 
         auto walletDB = getWalletDB();
         auto addr = walletDB->getAddressByToken(data.token);
@@ -199,7 +199,7 @@ namespace beam::wallet
 
     void V6Api::onHandleValidateAddress(const JsonRpcId& id, ValidateAddress&& data)
     {
-        LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
+        BEAM_LOG_DEBUG() << "ValidateAddress( address = " << data.token << ")";
 
         auto tokenType = GetTokenType(data.token);
         auto p = ParseParameters(data.token);
@@ -249,7 +249,7 @@ namespace beam::wallet
 
     void V6Api::onHandleSend(const JsonRpcId& id, Send&& data)
     {
-        LOG_DEBUG() << "Send(id = "   << id
+        BEAM_LOG_DEBUG() << "Send(id = "   << id
                     << " asset_id = " << (data.assetId ? *data.assetId : 0)
                     << " amount = "   << data.value
                     << " fee = "      << data.fee
@@ -361,7 +361,7 @@ namespace beam::wallet
     template<typename T>
     void V6Api::onHandleIssueConsume(bool issue, const JsonRpcId& id, T&& data)
     {
-        LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = " << data.assetId
+        BEAM_LOG_DEBUG() << (issue ? " Issue" : " Consume") << "(id = " << id << " asset_id = " << data.assetId
                     << " amount = " << data.value << " fee = " << data.fee
                     << ")";
         try
@@ -400,7 +400,7 @@ namespace beam::wallet
 
     void V6Api::onHandleGetAssetInfo(const JsonRpcId &id, GetAssetInfo&& data)
     {
-        LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
+        BEAM_LOG_DEBUG() << " GetAssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
 
         auto walletDB = getWalletDB();
         boost::optional<WalletAsset> info = walletDB->findAsset(data.assetId);
@@ -431,7 +431,7 @@ namespace beam::wallet
 
     void V6Api::onHandleTxAssetInfo(const JsonRpcId& id, TxAssetInfo&& data)
     {
-        LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
+        BEAM_LOG_DEBUG() << " AssetInfo" << "(id = " << id << " asset_id = " << data.assetId << ")";
         try
         {
             auto walletDB = getWalletDB();
@@ -461,7 +461,7 @@ namespace beam::wallet
 
     void V6Api::onHandleStatus(const JsonRpcId& id, Status&& data)
     {
-        LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+        BEAM_LOG_DEBUG() << "Status(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
         auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
@@ -489,9 +489,9 @@ namespace beam::wallet
 
     void V6Api::onHandleSplit(const JsonRpcId& id, Split&& data)
     {
-        LOG_DEBUG() << "Split(id = " << id << " asset_id " << (data.assetId ? *data.assetId : 0) << " coins = [";
-        for (auto& coin : data.coins) LOG_DEBUG() << coin << ",";
-        LOG_DEBUG() << "], fee = " << data.fee;
+        BEAM_LOG_DEBUG() << "Split(id = " << id << " asset_id " << (data.assetId ? *data.assetId : 0) << " coins = [";
+        for (auto& coin : data.coins) BEAM_LOG_DEBUG() << coin << ",";
+        BEAM_LOG_DEBUG() << "], fee = " << data.fee;
 
         try
         {
@@ -527,7 +527,7 @@ namespace beam::wallet
 
     void V6Api::onHandleTxCancel(const JsonRpcId& id, TxCancel&& data)
     {
-        LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+        BEAM_LOG_DEBUG() << "TxCancel(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
         auto walletDB = getWalletDB();
         auto wallet = getWallet();
@@ -556,7 +556,7 @@ namespace beam::wallet
 
     void V6Api::onHandleTxDelete(const JsonRpcId& id, TxDelete&& data)
     {
-        LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+        BEAM_LOG_DEBUG() << "TxDelete(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
 
         auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
@@ -591,7 +591,7 @@ namespace beam::wallet
 
     void V6Api::onHandleGetUtxo(const JsonRpcId& id, GetUtxo&& data)
     {
-        LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << getCAEnabled()
+        BEAM_LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << getCAEnabled()
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
                     << ")";
 
@@ -641,7 +641,7 @@ namespace beam::wallet
 
     void V6Api::onHandleWalletStatusApi(const JsonRpcId& id, WalletStatusApi&& data)
     {
-        LOG_DEBUG() << "WalletStatus(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "WalletStatus(id = " << id << ")";
 
         WalletStatusApi::Response response;
         auto walletDB = getWalletDB();
@@ -681,7 +681,7 @@ namespace beam::wallet
 
     void V6Api::onHandleGenerateTxId(const JsonRpcId& id, GenerateTxId&& data)
     {
-        LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "GenerateTxId(id = " << id << ")";
         doResponse(id, GenerateTxId::Response{ wallet::GenerateTxID() });
     }
 
@@ -718,7 +718,7 @@ namespace beam::wallet
 
     void V6Api::onHandleTxList(const JsonRpcId& id, TxList&& data)
     {
-        LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
+        BEAM_LOG_DEBUG() << "List(filter.status = " << (data.filter.status ? std::to_string((uint32_t)*data.filter.status) : "nul") << ")";
         helpers::StopWatch sw;
         sw.start();
         TxList::Response res;
@@ -766,12 +766,12 @@ namespace beam::wallet
         
         doResponse(id, res);
         sw.stop();
-        LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
+        BEAM_LOG_DEBUG() << "TxList  elapsed time: " << sw.milliseconds() << " ms\n";
     }
 
     void V6Api::onHandleExportPaymentProof(const JsonRpcId& id, ExportPaymentProof&& data)
     {
-        LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "ExportPaymentProof(id = " << id << ")";
 
         auto walletDB = getWalletDB();
         auto tx = walletDB->getTx(data.txId);
@@ -805,7 +805,7 @@ namespace beam::wallet
 
     void V6Api::onHandleVerifyPaymentProof(const JsonRpcId &id, VerifyPaymentProof&& data)
     {
-        LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "VerifyPaymentProof(id = " << id << ")";
         try
         {
             VerifyPaymentProof::Response response;
@@ -908,7 +908,7 @@ namespace beam::wallet
 
     void V6Api::onHandleProcessInvokeData(const JsonRpcId &id, ProcessInvokeData&& data)
     {
-        LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "ProcessInvokeData(id = " << id << ")";
         getContracts()->ProcessTxData(data.invokeData,
         [this, id, wguard = _weakSelf](const boost::optional<TxID>& txid, boost::optional<std::string>&& error) {
             auto guard = wguard.lock();
@@ -937,7 +937,7 @@ namespace beam::wallet
 
     void V6Api::onHandleBlockDetails(const JsonRpcId& id, BlockDetails&& data)
     {
-        LOG_DEBUG() << "BlockDetails(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "BlockDetails(id = " << id << ")";
 
         RequestHeaderMsg::Ptr request(new RequestHeaderMsg(id, _weakSelf, *this));
         request->m_Msg.m_Height = data.blockHeight;

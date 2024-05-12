@@ -68,7 +68,7 @@ bool EthereumSide::InitLockTime()
     auto height = m_blockCount;
     assert(height);
 
-    LOG_DEBUG() << "InitLockTime height = " << height;
+    BEAM_LOG_DEBUG() << "InitLockTime height = " << height;
 
     auto externalLockPeriod = height + GetLockTimeInBlocks();
     m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
@@ -82,7 +82,7 @@ bool EthereumSide::ValidateLockTime()
     assert(height);
     auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
 
-    LOG_DEBUG() << "ValidateLockTime height = " << height << " external = " << externalLockTime;
+    BEAM_LOG_DEBUG() << "ValidateLockTime height = " << height << " external = " << externalLockTime;
 
     if (externalLockTime <= height)
     {
@@ -132,7 +132,7 @@ bool EthereumSide::ConfirmLockTx()
 
             if (error.m_type != ethereum::IBridge::None)
             {
-                LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to get transaction: " << error.m_message;
+                BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to get transaction: " << error.m_message;
                 return;
             }
 
@@ -228,7 +228,7 @@ bool EthereumSide::ConfirmLockTx()
         if (confirmations != m_SwapLockTxConfirmations)
         {
             m_SwapLockTxConfirmations = confirmations;
-            LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
+            BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
                 << GetTxMinConfirmations(SubTxIndex::LOCK_TX) << " confirmations are received.";
             m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, SubTxIndex::LOCK_TX);
         }
@@ -292,7 +292,7 @@ void EthereumSide::GetWithdrawTxConfirmations(SubTxID subTxID)
         if (confirmations != m_WithdrawTxConfirmations)
         {
             m_WithdrawTxConfirmations = confirmations;
-            LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "] " << confirmations << "/"
+            BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "] " << confirmations << "/"
                 << GetTxMinConfirmations(subTxID) << " confirmations are received.";
             m_tx.SetParameter(TxParameterID::Confirmations, confirmations, true, subTxID);
         }
@@ -365,7 +365,7 @@ bool EthereumSide::SendLockTx()
                 {
                     if (error.m_type != ethereum::IBridge::None)
                     {
-                        LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to call ERC20::approve!";
+                        BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to call ERC20::approve!";
 
                         if (error.m_type == ethereum::IBridge::EthError ||
                             error.m_type == ethereum::IBridge::InvalidResultFormat)
@@ -449,7 +449,7 @@ bool EthereumSide::SendWithdrawTx(SubTxID subTxID)
             {
                 if (error.m_type != ethereum::IBridge::None)
                 {
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << " Failed to send withdraw TX: " << error.m_message;
+                    BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << " Failed to send withdraw TX: " << error.m_message;
                     m_isWithdrawTxSent = false;
                     // trying to resend
                     m_tx.UpdateOnNextTip();

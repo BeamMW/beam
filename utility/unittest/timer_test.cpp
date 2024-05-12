@@ -31,17 +31,17 @@ void timer_test() {
     Timer::Ptr timer = Timer::create(*reactor);
     int countdown = 5;
 
-    LOG_DEBUG() << "setting up one-shot timer";
+    BEAM_LOG_DEBUG() << "setting up one-shot timer";
     timer->start(
         300,
         false,
         [&countdown, &timer] {
-            LOG_DEBUG() << "starting periodic timer";
+            BEAM_LOG_DEBUG() << "starting periodic timer";
             timer->start(
                 111,
                 true,
                 [&countdown] {
-                    LOG_DEBUG() << countdown;
+                    BEAM_LOG_DEBUG() << countdown;
                     if (--countdown == 0)
                     reactor->stop();
                 }
@@ -49,9 +49,9 @@ void timer_test() {
         }
     );
 
-    LOG_DEBUG() << "Starting";
+    BEAM_LOG_DEBUG() << "Starting";
     reactor->run();
-    LOG_DEBUG() << "Stopping";
+    BEAM_LOG_DEBUG() << "Stopping";
 }
 
 CoarseTimer::Ptr ctimer;
@@ -62,7 +62,7 @@ void on_coarse_timer(uint64_t id) {
     usedIds.erase(id);
     // will cancel such ids
     assert(id % 3 != 0);
-    LOG_DEBUG() << "id=" << id;
+    BEAM_LOG_DEBUG() << "id=" << id;
     if (id > 200) {
         reactor->stop();
     } else {
@@ -94,9 +94,9 @@ void coarsetimer_test() {
         ctimer->cancel(i);
     }
 
-    LOG_DEBUG() << "Starting";
+    BEAM_LOG_DEBUG() << "Starting";
     reactor->run();
-    LOG_DEBUG() << "Stopping";
+    BEAM_LOG_DEBUG() << "Stopping";
 }
 
 int main() {

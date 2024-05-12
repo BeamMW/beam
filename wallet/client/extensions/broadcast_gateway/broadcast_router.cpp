@@ -220,7 +220,7 @@ void BroadcastRouter::on_protocol_error(uint64_t fromStream, ProtocolError error
              description = "receiving of msg type disabled for this stream";
              break;
      }
-     LOG_DEBUG() << "BroadcastRouter protocol: " << description;*/
+     BEAM_LOG_DEBUG() << "BroadcastRouter protocol: " << description;*/
 }
 
 /// unused

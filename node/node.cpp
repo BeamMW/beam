@@ -4420,7 +4420,7 @@ void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
     if (newStream)
     {
-        LOG_DEBUG() << "New peer connected: " << newStream->address();
+        BEAM_LOG_DEBUG() << "New peer connected: " << newStream->address();
         Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
         p->Accept(std::move(newStream));
 		p->m_Flags |= Peer::Flags::Accepted;
@@ -4568,7 +4568,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
             }
             catch (const std::exception& ex)
             {
-                LOG_DEBUG() << ex.what();
+                BEAM_LOG_DEBUG() << ex.what();
                 break;
             }
         }

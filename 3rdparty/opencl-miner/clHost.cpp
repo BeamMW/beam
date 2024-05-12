@@ -361,7 +361,7 @@ void clHost::startMining()
 	}
 
     cl::Event::waitForEvents(events);
-    LOG_DEBUG() << "Miner stopped";
+    BEAM_LOG_DEBUG() << "Miner stopped";
 }
 
 clHost::~clHost()

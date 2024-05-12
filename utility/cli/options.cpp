@@ -170,7 +170,7 @@ namespace beam
         const char* LOG_ERROR = "error";
         const char* LOG_WARNING = "warning";
         const char* LOG_INFO = "info";
-        const char* LOG_DEBUG = "debug";
+        const char* BEAM_LOG_DEBUG = "debug";
         const char* LOG_VERBOSE = "verbose";
         const char* LOG_CLEANUP_DAYS = "log_cleanup_days";
         const char* LOG_UTXOS = "log_utxos";
@@ -844,7 +844,7 @@ namespace beam
         {
             { cli::LOG_ERROR, BEAM_LOG_LEVEL_ERROR },
             { cli::LOG_WARNING, BEAM_LOG_LEVEL_WARNING },
-            { cli::LOG_DEBUG, BEAM_LOG_LEVEL_DEBUG },
+            { cli::BEAM_LOG_DEBUG, BEAM_LOG_LEVEL_DEBUG },
             { cli::INFO, BEAM_LOG_LEVEL_INFO },
             { cli::LOG_VERBOSE, BEAM_LOG_LEVEL_VERBOSE }
         };
