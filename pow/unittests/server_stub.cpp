@@ -57,7 +57,7 @@ IExternalPOW::BlockFoundResult got_new_block() {
 		Height h;
         server->get_last_found_block(blockId, h, POW);
         if (POW.IsValid(hash.m_pData, 32, h)) {
-            LOG_INFO() << "got valid block" << TRACE(blockId);
+            BEAM_LOG_INFO() << "got valid block" << TRACE(blockId);
             result = IExternalPOW::solution_accepted;
         }
         gen_new_job();
@@ -114,7 +114,7 @@ void run_with_node() {
 
     Rules::get().DA.Difficulty0 = 0;
     Rules::get().UpdateChecksum();
-    LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+    BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 
     Node node;
     node.m_Cfg.m_sPathLocal = "xxxxx";
@@ -147,7 +147,7 @@ void run_with_node() {
 int main(int argc, char* argv[]) {
     ECC::InitializeContext();
 
-    auto logger = Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_VERBOSE);
+    auto logger = Logger::create(BEAM_LOG_LEVEL_INFO, BEAM_LOG_LEVEL_VERBOSE);
     int retCode = 0;
     try {
         if (argc > 1 && argv[1] == std::string("-n")) {
@@ -155,12 +155,12 @@ int main(int argc, char* argv[]) {
         } else {
             run_without_node();
         }
-        LOG_INFO() << "Done";
+        BEAM_LOG_INFO() << "Done";
     } catch (const std::exception& e) {
-        LOG_ERROR() << "EXCEPTION: " << e.what();
+        BEAM_LOG_ERROR() << "EXCEPTION: " << e.what();
         retCode = 255;
     } catch (...) {
-        LOG_ERROR() << "NON_STD EXCEPTION";
+        BEAM_LOG_ERROR() << "NON_STD EXCEPTION";
         retCode = 255;
     }
     return retCode;

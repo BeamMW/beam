@@ -76,10 +76,10 @@ void AsyncContext::thread_func(AsyncContext::RunCallback&& beforeRun, AsyncConte
         _reactor->run();
         if (afterRun) afterRun();
     } catch (const std::exception& e) {
-        LOG_CRITICAL() << "Unhandled exception in child thread, what=" << e.what();
+        BEAM_LOG_CRITICAL() << "Unhandled exception in child thread, what=" << e.what();
         assert(false && "exception in child thread");
     } catch (...) {
-        LOG_CRITICAL() << "Unhandled non-std exception in child thread";
+        BEAM_LOG_CRITICAL() << "Unhandled non-std exception in child thread";
         assert(false && "exception in child thread");
     }
     LOG_DEBUG() << "exiting, thread=" << get_thread_id();

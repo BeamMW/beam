@@ -49,37 +49,37 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 		msg.m_Description.get_ID(m_ID);
 		m_IsInit = true;
 
-		LOG_INFO() << "NewTip: " << m_ID;
+		BEAM_LOG_INFO() << "NewTip: " << m_ID;
 
 
-		LOG_INFO() << "Send GetHdr message";
+		BEAM_LOG_INFO() << "Send GetHdr message";
 		Send(proto::GetHdr{ m_ID });
 	}
 }
 
 void TestNodeConnection::OnMsg(proto::Hdr&& msg)
 {
-	LOG_INFO() << "Ok: Header is received: height =  " << msg.m_Description.m_Height;
+	BEAM_LOG_INFO() << "Ok: Header is received: height =  " << msg.m_Description.m_Height;
 
-	LOG_INFO() << "Send GetBody message";
+	BEAM_LOG_INFO() << "Send GetBody message";
 	Send(proto::GetBody{ m_ID });
 }
 
 void TestNodeConnection::OnMsg(proto::Body&& )
 {
-	LOG_INFO() << "Ok: Body is received";
+	BEAM_LOG_INFO() << "Ok: Body is received";
 	proto::GetHdr hdrMsg;
 
 	hdrMsg.m_ID = m_ID;
 	hdrMsg.m_ID.m_Height += 2;
 
-	LOG_INFO() << "Send GetHdr with wrong ID";
+	BEAM_LOG_INFO() << "Send GetHdr with wrong ID";
 	Send(hdrMsg);
 }
 
 void TestNodeConnection::OnMsg(proto::DataMissing&& )
 {
-	LOG_INFO() << "Ok: DataMissing is received";
+	BEAM_LOG_INFO() << "Ok: DataMissing is received";
 
 	if (!m_IsSendWrongBody)
 	{
@@ -90,7 +90,7 @@ void TestNodeConnection::OnMsg(proto::DataMissing&& )
 		bodyMsg.m_ID = m_ID;
 		bodyMsg.m_ID.m_Height += 2;
 
-		LOG_INFO() << "Send GetBody with wrong ID";
+		BEAM_LOG_INFO() << "Send GetBody with wrong ID";
 		Send(bodyMsg);
 
 		return;
@@ -101,7 +101,7 @@ void TestNodeConnection::OnMsg(proto::DataMissing&& )
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

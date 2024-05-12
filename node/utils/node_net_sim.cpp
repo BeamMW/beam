@@ -935,7 +935,7 @@ int main_Guarded(int argc, char* argv[])
     io::Reactor::Scope scope(*pReactor);
     io::Reactor::GracefulIntHandler gih(*pReactor);
 
-    auto logger = beam::Logger::create(LOG_LEVEL_INFO, LOG_LEVEL_INFO);
+    auto logger = beam::Logger::create(BEAM_LOG_LEVEL_INFO, BEAM_LOG_LEVEL_INFO);
 
     const char szLocalMode[] = "local_mode";
 

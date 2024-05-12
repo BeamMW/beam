@@ -34,9 +34,9 @@ using namespace std;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -61,17 +61,17 @@ int main()
 
         observer_1.onOpened = [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: first opened";
+            BEAM_LOG_INFO() << "Test laser SEND: first opened";
             channel_1 = chID;
         };
         observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: second opened";
+            BEAM_LOG_INFO() << "Test laser SEND: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser SEND: open failed";
+            BEAM_LOG_INFO() << "Test laser SEND: open failed";
             WALLET_CHECK(false);
         };
 
@@ -82,7 +82,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser SEND: time expired";
+                BEAM_LOG_ERROR() << "Test laser SEND: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -97,10 +97,10 @@ int main()
             if (channel_1 && channel_2)
             {
                 auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
-                LOG_INFO() << "Test laser SEND: first send to second, amount more then locked in channel";
+                BEAM_LOG_INFO() << "Test laser SEND: first send to second, amount more then locked in channel";
                 WALLET_CHECK(!laserFirst->Transfer(1000000000, channel2Str));
 
-                LOG_INFO() << "Test laser SEND: finished";
+                BEAM_LOG_INFO() << "Test laser SEND: finished";
                 io::Reactor::get_Current().stop();
             }
         };

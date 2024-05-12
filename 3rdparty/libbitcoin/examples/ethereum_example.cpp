@@ -1,4 +1,4 @@
-// Copyright 2020 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -310,12 +310,16 @@ void TestTxToRLPFull()
     std::cout << "tx data: " << libbitcoin::encode_base16(tx.GetRawSigned(secret)) << "\n";
 }
 
-int main()
+int main() try
 {
     TestTxToRLP();
     TestTxToRLPFull();
 
     GenerateAddress(1);
 
+    return 0;
+}
+catch (const std::exception& e) {
+    std::cerr << e.what();
     return 0;
 }

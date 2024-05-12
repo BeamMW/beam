@@ -40,7 +40,7 @@ struct FragmentedInput {
 };
 
 int report(const char* fn, int errors) {
-    if (errors) { LOG_ERROR() << fn << " " << errors << " errors"; }
+    if (errors) { BEAM_LOG_ERROR() << fn << " " << errors << " errors"; }
     else { LOG_DEBUG() << fn << " ok"; }
     return errors;
 }
@@ -232,7 +232,7 @@ int test_query_strings() {
     if (!a.parse(q, dirs)) ++n; \
     else n = compare(a,b); \
     if ((n>0 && shouldBeValid) || (n==0 && !shouldBeValid)) { \
-        LOG_ERROR() << "compare failed, n=" << n << " " << __LINE__; errors += n; \
+        BEAM_LOG_ERROR() << "compare failed, n=" << n << " " << __LINE__; errors += n; \
     }} while(0)
 
     int errors = 0;
@@ -264,7 +264,7 @@ int test_query_strings() {
     q = "/xxx/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7?a=1111&b=22kkkk&cccc&dddd=qqqq#cbcbcb";
     static_assert(HttpUrl::MAX_PATH_ELEMENTS <= 15);
     if (parsed.parse(q, dirs)) {
-        LOG_ERROR() <<
+        BEAM_LOG_ERROR() <<
         ++errors;
     }
 
@@ -280,9 +280,9 @@ int test_query_strings() {
 } //namespace
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     int retCode = 0;
@@ -293,10 +293,10 @@ int main() {
         retCode += test_chunked();
         retCode += test_query_strings();
     } catch (const exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
         retCode = 255;
     } catch (...) {
-        LOG_ERROR() << "non-std exception";
+        BEAM_LOG_ERROR() << "non-std exception";
         retCode = 255;
     }
     return retCode;

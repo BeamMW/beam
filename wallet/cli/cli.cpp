@@ -150,7 +150,7 @@ namespace
         auto tx = walletDB->getTx(txID);
         if (!tx)
         {
-            LOG_WARNING() << "Can't get transaction details";
+            BEAM_LOG_WARNING() << "Can't get transaction details";
             return "";
         }
         const TxDescription& desc = *tx;
@@ -294,7 +294,7 @@ namespace
 
         IWalletDB::Ptr walletDB = WalletDB::open(walletPath, pass);
 
-        LOG_INFO() << kWalletOpenedMessage;
+        BEAM_LOG_INFO() << kWalletOpenedMessage;
         return walletDB;
     }
 
@@ -621,7 +621,7 @@ namespace
         }
         else
         {
-            LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid)
+            BEAM_LOG_ERROR() << boost::format(kErrorAddrExprTimeInvalid)
                         % cli::EXPIRATION_TIME
                         % expiration;
             return -1;
@@ -727,18 +727,18 @@ namespace
             }
             else
             {
-                LOG_ERROR() << kErrorWalletAlreadyInitialized;
+                BEAM_LOG_ERROR() << kErrorWalletAlreadyInitialized;
                 return -1;
             }
         }
 
-        LOG_INFO() << kStartMessage;
+        BEAM_LOG_INFO() << kStartMessage;
 
         SecString pass = GetPassword(vm);
 
         if (vm.count(cli::PASS) == 0 && !beam::confirm_wallet_pass(pass))
         {
-            LOG_ERROR() << kErrorWalletPwdNotMatch;
+            BEAM_LOG_ERROR() << kErrorWalletPwdNotMatch;
             return -1;
         }
 
@@ -752,7 +752,7 @@ namespace
             walletSeed.V = Zero;
             if (!ReadWalletSeed(walletSeed, vm, InitKind::GenerateSeed == kind))
             {
-                LOG_ERROR() << kErrorSeedPhraseFail;
+                BEAM_LOG_ERROR() << kErrorSeedPhraseFail;
                 return -1;
             }
 
@@ -762,11 +762,11 @@ namespace
 
         if (walletDB)
         {
-            LOG_INFO() << kWalletCreatedMessage;
+            BEAM_LOG_INFO() << kWalletCreatedMessage;
             walletDB->generateAndSaveDefaultAddress();
             return 0;
         }
-        LOG_ERROR() << kErrorWalletNotCreated;
+        BEAM_LOG_ERROR() << kErrorWalletNotCreated;
         return -1;
     }
 
@@ -911,7 +911,7 @@ namespace
         WordList phrase;
         if (generateNew)
         {
-            LOG_INFO() << kSeedPhraseReadTitle;
+            BEAM_LOG_INFO() << kSeedPhraseReadTitle;
             phrase = GeneratePhrase();
         }
         else if (vm.count(cli::SEED_PHRASE))
@@ -923,13 +923,13 @@ namespace
             if (phrase.size() != WORD_COUNT
                 || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase)))
             {
-                LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
+                BEAM_LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
                 return false;
             }
         }
         else
         {
-            LOG_ERROR() << kErrorSeedPhraseNotProvided;
+            BEAM_LOG_ERROR() << kErrorSeedPhraseNotProvided;
             return false;
         }
 
@@ -1751,7 +1751,7 @@ namespace
         auto txIdStr = vm[cli::TX_ID].as<string>();
         if (txIdStr.empty())
         {
-            LOG_ERROR() << kErrorTxIdParamReqired;
+            BEAM_LOG_ERROR() << kErrorTxIdParamReqired;
             return res;
         }
 
@@ -1764,7 +1764,7 @@ namespace
         }
         else
         {
-            LOG_ERROR() << boost::format(kErrorTxIdParamInvalid) % txIdStr;
+            BEAM_LOG_ERROR() << boost::format(kErrorTxIdParamInvalid) % txIdStr;
         }
         return res;
     }
@@ -1780,7 +1780,7 @@ namespace
         auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
-            LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
+            BEAM_LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
             return -1;
         }
 
@@ -1819,17 +1819,17 @@ namespace
         auto tx = walletDB->getTx(*txId);
         if (!tx)
         {
-            LOG_ERROR() << kErrorPpExportFailed;
+            BEAM_LOG_ERROR() << kErrorPpExportFailed;
             return -1;
         }
         if (!tx->m_sender || tx->m_selfTx)
         {
-            LOG_ERROR() << kErrorPpCannotExportForReceiver;
+            BEAM_LOG_ERROR() << kErrorPpCannotExportForReceiver;
             return -1;
         }
         if (tx->m_status != TxStatus::Completed)
         {
-            LOG_ERROR() << kErrorPpExportFailedTxNotCompleted;
+            BEAM_LOG_ERROR() << kErrorPpExportFailedTxNotCompleted;
             return -1;
         }
 
@@ -1864,7 +1864,7 @@ namespace
         }
         catch (const std::runtime_error & e)
         {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
             throw std::runtime_error(kErrorPpInvalid);
         }
 
@@ -1944,11 +1944,11 @@ namespace
         FStream f;
         if (f.Open(timestampedPath.c_str(), false) && f.write(data.data(), data.size()) == data.size())
         {
-            LOG_INFO() << kDataExportedMessage;
+            BEAM_LOG_INFO() << kDataExportedMessage;
             return true;
         }
 
-        LOG_ERROR() << kErrorExportDataFail;
+        BEAM_LOG_ERROR() << kErrorExportDataFail;
         return false;
     }
 
@@ -1964,14 +1964,14 @@ namespace
         ByteBuffer buffer;
         if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
         {
-            LOG_ERROR() << kErrorFileLocationParamReqired;
+            BEAM_LOG_ERROR() << kErrorFileLocationParamReqired;
             return -1;
         }
 
         auto path = vm[cli::IMPORT_EXPORT_PATH].as<string>();
         if (path.empty() || !LoadDataToImport(path, buffer))
         {
-            LOG_ERROR() << boost::format(kErrorImportPathInvalid)
+            BEAM_LOG_ERROR() << boost::format(kErrorImportPathInvalid)
                         % path;
             return -1;
         }
@@ -2009,7 +2009,7 @@ namespace
         explicit CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
-            LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
+            BEAM_LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
         };
     };
 
@@ -2018,7 +2018,7 @@ namespace
     {
         if (vm.count(cli::NODE_ADDR) == 0)
         {
-            LOG_ERROR() << kErrorNodeAddrNotSpecified;
+            BEAM_LOG_ERROR() << kErrorNodeAddrNotSpecified;
             return nullptr;
         }
 
@@ -2026,7 +2026,7 @@ namespace
         io::Address nodeAddress;
         if (!nodeAddress.resolve(nodeURI.c_str()))
         {
-            LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+            BEAM_LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
             return nullptr;
         }
 
@@ -2035,14 +2035,14 @@ namespace
             vm[cli::NODE_POLL_PERIOD].as<Nonnegative<uint32_t>>().value;
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
-            LOG_INFO() << boost::format(kNodePoolPeriod)
+            BEAM_LOG_INFO() << boost::format(kNodePoolPeriod)
                        % nnet->m_Cfg.m_PollPeriod_ms;
             uint32_t timeout_ms =
                 std::max(Rules::get().DA.Target_s * 1000,
                          nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
-                LOG_INFO() << boost::format(kNodePoolPeriodRounded)
+                BEAM_LOG_INFO() << boost::format(kNodePoolPeriodRounded)
                            % timeout_ms;
             }
         }
@@ -2054,7 +2054,7 @@ namespace
             Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
         if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
         {
-            LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch)
+            BEAM_LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch)
                           % uint32_t(responceTime_s / 3600);
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
@@ -2065,7 +2065,7 @@ namespace
             io::Address proxyAddr;
             if (!proxyAddr.resolve(proxyURI.c_str()))
             {
-                LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % proxyURI;
+                BEAM_LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % proxyURI;
                 return nullptr;
             }
             nnet->m_Cfg.m_ProxyAddr = proxyAddr;
@@ -2308,7 +2308,7 @@ namespace
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         )
     {
-        LOG_INFO() << kStartMessage;
+        BEAM_LOG_INFO() << kStartMessage;
         auto walletDB = OpenDataBase(vm);
 
         bool isServer = vm[cli::COMMAND].as<string>() == cli::LISTEN || vm.count(cli::LISTEN);
@@ -2669,17 +2669,17 @@ namespace
         auto tx = walletDB->getTx(*txId);
         if (tx)
         {
-            LOG_INFO() << "deleting tx " << *txId;
+            BEAM_LOG_INFO() << "deleting tx " << *txId;
             if (tx->canDelete())
             {
                 walletDB->deleteTx(*txId);
                 return 0;
             }
-            LOG_ERROR() << kErrorTxStatusInvalid;
+            BEAM_LOG_ERROR() << kErrorTxStatusInvalid;
             return -1;
         }
 
-        LOG_ERROR() << kErrorTxIdUnknown;
+        BEAM_LOG_ERROR() << kErrorTxIdUnknown;
         return -1;
     }
 
@@ -2702,10 +2702,10 @@ namespace
                         wallet->CancelTransaction(*txId);
                         return 0;
                     }
-                    LOG_ERROR() << kErrorCancelTxInInvalidStatus << interpretStatusCliImpl(*tx);
+                    BEAM_LOG_ERROR() << kErrorCancelTxInInvalidStatus << interpretStatusCliImpl(*tx);
                     return -1;
                 }
-                LOG_ERROR() << kErrorTxIdUnknown;
+                BEAM_LOG_ERROR() << kErrorTxIdUnknown;
                 return -1;
             });
     }
@@ -2751,14 +2751,14 @@ namespace
             auto walletDB = OpenDataBase(vm);
             if (HasActiveSwapTx(walletDB, swapCoin))
             {
-                LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait until transactions are completed and try again.";
+                BEAM_LOG_ERROR() << "You cannot change settings while you have transactions in progress. Please wait until transactions are completed and try again.";
                 return -1;
             }
 
             return SetSwapSettings(vm, walletDB, swapCoin);
         }
 
-        LOG_ERROR() << "swap_coin should be specified";
+        BEAM_LOG_ERROR() << "swap_coin should be specified";
         return -1;
     }
 
@@ -2773,7 +2773,7 @@ namespace
             return 0;
         }
 
-        LOG_ERROR() << "swap_coin should be specified";
+        BEAM_LOG_ERROR() << "swap_coin should be specified";
         return -1;
     }
 
@@ -2789,7 +2789,7 @@ namespace
             return 0;
         }
 
-        LOG_ERROR() << "swap_coin should be specified";
+        BEAM_LOG_ERROR() << "swap_coin should be specified";
         return -1;
     }
 
@@ -2805,7 +2805,7 @@ namespace
             return 0;
         }
 
-        LOG_ERROR() << "swap_coin should be specified";
+        BEAM_LOG_ERROR() << "swap_coin should be specified";
         return -1;
     }
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
@@ -2871,7 +2871,7 @@ namespace
 
         if (vm.count(cli::BLOCK_HEIGHT) != 1)
         {
-            LOG_ERROR() << "block_height should be specified";
+            BEAM_LOG_ERROR() << "block_height should be specified";
             return -1;
         }
 
@@ -2879,7 +2879,7 @@ namespace
 
         if (!blockHeight)
         {
-            LOG_ERROR() << "Cannot get block header.";
+            BEAM_LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 
@@ -2911,7 +2911,7 @@ namespace
 
         if (request.m_pTrg || request.m_vStates.size() != 1)
         {
-            LOG_ERROR() << "Cannot get block header.";
+            BEAM_LOG_ERROR() << "Cannot get block header.";
             return -1;
         }
 
@@ -2950,7 +2950,7 @@ namespace
     {
         if (vm[cli::IMPORT_EXPORT_PATH].defaulted())
         {
-            LOG_ERROR() << kErrorFileLocationParamReqired;
+            BEAM_LOG_ERROR() << kErrorFileLocationParamReqired;
             return -1;
         }
 
@@ -3424,8 +3424,8 @@ int main(int argc, char* argv[])
             return 0;
         }
 
-        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, LOG_LEVEL_INFO);
-        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, LOG_LEVEL_DEBUG);
+        int logLevel = getLogLevel(cli::LOG_LEVEL, vm, BEAM_LOG_LEVEL_INFO);
+        int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
 
 #define LOG_FILES_DIR "logs"
 #define LOG_FILES_PREFIX "wallet_"
@@ -3452,7 +3452,7 @@ int main(int argc, char* argv[])
 
                 if (vm.count(cli::COMMAND) == 0)
                 {
-                    LOG_ERROR() << kErrorCommandNotSpecified;
+                    BEAM_LOG_ERROR() << kErrorCommandNotSpecified;
                     printHelp(begin(commands), end(commands), visibleOptions);
                     return 0;
                 }
@@ -3462,12 +3462,12 @@ int main(int argc, char* argv[])
                 auto cit = find_if(begin(commands), end(commands), [&command](const auto& p) {return p.name == command; });
                 if (cit == end(commands))
                 {
-                    LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
+                    BEAM_LOG_ERROR() << boost::format(kErrorCommandUnknown) % command;
                     return -1;
                 }
 
-                LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
-                LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
+                BEAM_LOG_INFO() << boost::format(kVersionInfo) % PROJECT_VERSION % BRANCH_NAME;
+                BEAM_LOG_INFO() << boost::format(kRulesSignatureInfo) % Rules::get().get_SignatureStr();
                         
                 return cit->handler(vm);
             }
@@ -3480,12 +3480,12 @@ int main(int argc, char* argv[])
         }
         catch (const FileIsNotDatabaseException&)
         {
-            LOG_ERROR() << kErrorCantOpenWallet;
+            BEAM_LOG_ERROR() << kErrorCantOpenWallet;
             return -1;
         }
         catch (const DatabaseException & ex)
         {
-            LOG_ERROR() << ex.what();
+            BEAM_LOG_ERROR() << ex.what();
             return -1;
         }
         catch (const po::invalid_option_value& e)
@@ -3505,12 +3505,12 @@ int main(int argc, char* argv[])
         }
         catch (const po::error& e)
         {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
             printHelp(begin(commands), end(commands), visibleOptions);
         }
         catch (const std::runtime_error& e)
         {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
         }
     }
     catch (const std::exception& e)

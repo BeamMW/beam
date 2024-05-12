@@ -56,7 +56,7 @@ namespace beam::wallet
         }
         else
         {
-            LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
+            BEAM_LOG_INFO() << m_Tx.GetTxID() << " Transaction accepted. Kernel: " << GetKernelIDString();
         }
 
         m_Tx.SendTxParametersStrict(std::move(msg));

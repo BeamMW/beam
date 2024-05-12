@@ -164,7 +164,7 @@ public:
             }
             catch(...)
             {
-                LOG_WARNING() << "broadcast message processing exception";
+                BEAM_LOG_WARNING() << "broadcast message processing exception";
                 return false;
             }
         }
@@ -2620,7 +2620,7 @@ private:
                     wbtcAmount += offer.amountSwapCoin();
                     break;
                 default :
-                    LOG_ERROR() << "Unknown swap coin type";
+                    BEAM_LOG_ERROR() << "Unknown swap coin type";
                     return false;
             }
         }

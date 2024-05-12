@@ -66,7 +66,7 @@ Server::Server(const IExternalPOW::Options& o, io::Reactor& reactor, io::Address
 void Server::start_server() {
     try {
         if (_options.privKeyFile.empty() || _options.certFile.empty()) {
-            LOG_WARNING() << STS << "TLS disabled!";
+            BEAM_LOG_WARNING() << STS << "TLS disabled!";
             _server = io::TcpServer::create(
                 _reactor,
                 _bindAddress,
@@ -81,9 +81,9 @@ void Server::start_server() {
                 _options.privKeyFile.c_str()
             );
         }
-        LOG_INFO() << STS << "listens to " << _bindAddress;
+        BEAM_LOG_INFO() << STS << "listens to " << _bindAddress;
     } catch (const std::exception& e) {
-        LOG_ERROR() << STS << "cannot start server: " << e.what() << " restarting in  " << SERVER_RESTART_INTERVAL << " msec";
+        BEAM_LOG_ERROR() << STS << "cannot start server: " << e.what() << " restarting in  " << SERVER_RESTART_INTERVAL << " msec";
         _timers.set_timer(SERVER_RESTART_TIMER, SERVER_RESTART_INTERVAL, BIND_THIS_MEMFN(start_server));
     }
 }
@@ -104,7 +104,7 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
             std::move(newStream)
         );
     } else {
-        LOG_ERROR() << STS << io::error_str(errorCode) << ", restarting server in  " << SERVER_RESTART_INTERVAL << " msec";
+        BEAM_LOG_ERROR() << STS << io::error_str(errorCode) << ", restarting server in  " << SERVER_RESTART_INTERVAL << " msec";
         _timers.set_timer(SERVER_RESTART_TIMER, SERVER_RESTART_INTERVAL, BIND_THIS_MEMFN(start_server));
     }
 }
@@ -131,7 +131,7 @@ bool Server::on_login(uint64_t from, const Login& login) {
         conn->set_logged_in();
         loginSuccess = true;
     } else {
-        LOG_INFO() << STS << "peer login failed, key=" << login.api_key;
+        BEAM_LOG_INFO() << STS << "peer login failed, key=" << login.api_key;
     }
 
     Result res(login.id, loginSuccess ? stratum::no_error : stratum::login_failed);
@@ -170,7 +170,7 @@ bool Server::on_solution(uint64_t from, const Solution& sol) {
 	_recentResult.id = sol.id;
     sol.fill_pow(_recentResult.pow);
 
-    LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
+    BEAM_LOG_INFO() << STS << "solution to " << sol.id << " from " << io::Address::from_u64(from);
 	IExternalPOW::BlockFoundResult result = _recentResult.onBlockFound();
     stratum::ResultCode stratumCode = stratum::solution_rejected;
     if (result == IExternalPOW::solution_accepted) {
@@ -189,7 +189,7 @@ bool Server::on_solution(uint64_t from, const Solution& sol) {
 }
 
 void Server::on_bad_peer(uint64_t from) {
-    LOG_INFO() << STS << "-peer " << io::Address::from_u64(from);
+    BEAM_LOG_INFO() << STS << "-peer " << io::Address::from_u64(from);
     _connections.erase(from);
 }
 
@@ -205,7 +205,7 @@ void Server::new_job(
     _recentResult.onBlockFound = callback;
     _recentResult.height = height;	
 
-    LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
+    BEAM_LOG_INFO() << STS << "new job " << id << " will be sent to " << _connections.size() << " connected peers";
 
     Job jobMsg(id, input, pow, height);
     append_json_msg(_fw, jobMsg);
@@ -274,7 +274,7 @@ void Server::AccessControl::refresh() {
         }
         _keys.swap(keys);
     } catch (std::exception& e) {
-        LOG_ERROR() << STS << e.what();
+        BEAM_LOG_ERROR() << STS << e.what();
     }
 }
 
@@ -299,7 +299,7 @@ Server::Connection::Connection(
 
 bool Server::Connection::on_stream_data(io::ErrorCode errorCode, void* data, size_t size) {
     if (errorCode != 0) {
-        LOG_INFO() << STS << "peer disconnected, code=" << io::error_str(errorCode);
+        BEAM_LOG_INFO() << STS << "peer disconnected, code=" << io::error_str(errorCode);
         _owner.on_bad_peer(_id);
         return false;
     }
@@ -328,18 +328,18 @@ bool Server::Connection::on_message(const stratum::Solution& solution) {
 }
 
 bool Server::Connection::on_raw_message(void* data, size_t size) {
-    LOG_VERBOSE() << "got " << std::string((char*)data, size-1);
+    BEAM_LOG_VERBOSE() << "got " << std::string((char*)data, size-1);
     return stratum::parse_json_msg(data, size, *this);
 }
 
 bool Server::Connection::on_stratum_error(stratum::ResultCode code) {
     // TODO what to do with other errors
-    LOG_ERROR() << STS << "got stratum error: " << code << " " << stratum::get_result_msg(code);
+    BEAM_LOG_ERROR() << STS << "got stratum error: " << code << " " << stratum::get_result_msg(code);
     return true;
 }
 
 bool Server::Connection::on_unsupported_stratum_method(stratum::Method method) {
-    LOG_INFO() << STS << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
+    BEAM_LOG_INFO() << STS << "ignoring unsupported stratum method: " << stratum::get_method_str(method);
     return true;
 }
 

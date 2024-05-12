@@ -225,7 +225,7 @@ namespace beam::wallet
                << PrintableAmount(_builder->m_ReceiveAmount, false, _builder->m_ReceiveAssetID);
 
             ss << " (fee: " << PrintableAmount(_builder->m_Fee) << ")";
-            LOG_INFO() << ss.str();
+            BEAM_LOG_INFO() << ss.str();
 
             BaseTxBuilder::Balance bb(*_builder);
             bb.m_Map[_builder->m_AssetID].m_Value -= _builder->m_Amount;
@@ -238,7 +238,7 @@ namespace beam::wallet
                 Height maxResponseHeight = 0;
                 if (GetParameter(TxParameterID::PeerResponseHeight, maxResponseHeight))
                 {
-                    LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
+                    BEAM_LOG_INFO() << GetTxID() << " Max height for response: " << maxResponseHeight;
                 }
             }
 

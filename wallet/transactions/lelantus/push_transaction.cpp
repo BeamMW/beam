@@ -98,7 +98,7 @@ namespace beam::wallet::lelantus
 
             bb.CompleteBalance();
 
-            LOG_INFO()
+            BEAM_LOG_INFO()
                  << m_Context << " Sending to shielded pool "
                  << PrintableAmount(builder.m_Value, false, builder.m_AssetID)
                  << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
@@ -225,7 +225,7 @@ namespace beam::wallet::lelantus
 
     void PushTransaction::RollbackTx()
     {
-        LOG_INFO() << m_Context << " Transaction failed. Rollback...";
+        BEAM_LOG_INFO() << m_Context << " Transaction failed. Rollback...";
         m_Context.GetWalletDB()->restoreCoinsSpentByTx(GetTxID());
         m_Context.GetWalletDB()->deleteCoinsCreatedByTx(GetTxID());
         GetWalletDB()->deleteShieldedCoinsCreatedByTx(GetTxID());

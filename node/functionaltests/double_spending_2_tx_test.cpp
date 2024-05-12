@@ -63,7 +63,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 
-	LOG_INFO() << "NewTip: " << id;
+	BEAM_LOG_INFO() << "NewTip: " << id;
 
 	if (!m_IsInit)
 	{
@@ -91,11 +91,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 				{
 					if (isOk)
 					{
-						LOG_INFO() << "Ok: utxo is valid";
+						BEAM_LOG_INFO() << "Ok: utxo is valid";
 					}
 					else
 					{
-						LOG_INFO() << "Failed: utxo is not valid";
+						BEAM_LOG_INFO() << "Failed: utxo is not valid";
 						m_Failed = true;
 					}
 				}
@@ -106,11 +106,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 				{
 					if (isOk)
 					{
-						LOG_INFO() << "Failed: utxo is valid";
+						BEAM_LOG_INFO() << "Failed: utxo is valid";
 					}
 					else
 					{
-						LOG_INFO() << "Ok: utxo is not valid";
+						BEAM_LOG_INFO() << "Ok: utxo is not valid";
 						m_Failed = true;
 					}
 					io::Reactor::get_Current().stop();
@@ -122,11 +122,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 void TestNodeConnection::OnMsg(proto::Status&& msg)
 {
-	LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
+	BEAM_LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
 
 	if (proto::TxStatus::Ok != msg.m_Value)
 	{
-		LOG_INFO() << "Failed: tx is invalid";
+		BEAM_LOG_INFO() << "Failed: tx is invalid";
 		m_Failed = true;
 		io::Reactor::get_Current().stop();
 
@@ -138,7 +138,7 @@ void TestNodeConnection::OnMsg(proto::Status&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

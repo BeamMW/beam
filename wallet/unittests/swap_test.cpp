@@ -2080,9 +2080,9 @@ void TestERC20SwapTransaction(bool isBeamOwnerStart, beam::Height fork1Height)
 
 int main()
 {
-    int logLevel = LOG_LEVEL_INFO;
+    int logLevel = BEAM_LOG_LEVEL_INFO;
     const auto path = boost::filesystem::system_complete("logs");
-    auto logger = beam::Logger::create(logLevel, logLevel, LOG_LEVEL_DEBUG, "swap_test", path.string());
+    auto logger = beam::Logger::create(logLevel, logLevel, BEAM_LOG_LEVEL_DEBUG, "swap_test", path.string());
 
     Rules::get().FakePoW = true;
     beam::Height fork1Height = 10;

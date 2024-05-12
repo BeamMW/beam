@@ -466,7 +466,7 @@ namespace beam::bitcoin
 
                 if ((result.end() != itErr) && !itErr->empty())
                 {
-                    LOG_INFO() << "Bitcoin Core returns message: " << error.m_message;
+                    BEAM_LOG_INFO() << "Bitcoin Core returns message: " << error.m_message;
                 }
                 else
                 {

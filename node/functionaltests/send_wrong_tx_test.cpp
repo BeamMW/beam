@@ -40,7 +40,7 @@ void TestNodeConnection::GenerateTests()
 {
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = empty, output = 1, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = empty, output = 1, fee = 0";
 		TxGenerator gen(*m_pKdf);
 		
 		// Inputs are empty
@@ -53,7 +53,7 @@ void TestNodeConnection::GenerateTests()
 		
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -61,7 +61,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 1, output = empty, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 1, output = empty, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -75,7 +75,7 @@ void TestNodeConnection::GenerateTests()
 		
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -83,7 +83,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 1, output = 1, fee = 1";
+		BEAM_LOG_INFO() << "Send tx with input = 1, output = 1, fee = 1";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -98,7 +98,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -106,7 +106,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with 2 inputs, 2 ouputs and 1 kernel";
+		BEAM_LOG_INFO() << "Send tx with 2 inputs, 2 ouputs and 1 kernel";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -123,7 +123,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -131,7 +131,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with 2 inputs, 1 ouputs and 1 kernel";
+		BEAM_LOG_INFO() << "Send tx with 2 inputs, 1 ouputs and 1 kernel";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -146,7 +146,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(6);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -154,7 +154,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with 1 inputs, 2 ouputs and 1 kernel";
+		BEAM_LOG_INFO() << "Send tx with 1 inputs, 2 ouputs and 1 kernel";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -169,7 +169,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(7);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -177,7 +177,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 1, output = 2, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 1, output = 2, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -191,7 +191,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(8);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -199,7 +199,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 2, output = 1, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -213,7 +213,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(9);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -221,7 +221,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 2, output = 3, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 2, output = 3, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -235,7 +235,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(10);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -243,7 +243,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 2";
+		BEAM_LOG_INFO() << "Send tx with input = 4, output = 2, fee = 2";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -257,7 +257,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(11, 2);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -265,7 +265,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1";
+		BEAM_LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -280,7 +280,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(12, 1);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -288,7 +288,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1, fee = 1";
+		BEAM_LOG_INFO() << "Send tx with input = 4, output = 2, fee = 1, fee = 1, fee = 1";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -304,7 +304,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(13, 1);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -312,7 +312,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 4, output = 2, fee = 3";
+		BEAM_LOG_INFO() << "Send tx with input = 4, output = 2, fee = 3";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -326,7 +326,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(14, 3);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -334,7 +334,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 2, without output, fee = 2";
+		BEAM_LOG_INFO() << "Send tx with input = 2, without output, fee = 2";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -345,7 +345,7 @@ void TestNodeConnection::GenerateTests()
 		gen.GenerateKernel(15, 2);
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -353,7 +353,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 2, output = 1, fee = 1, offset of tx = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 2, output = 1, fee = 1, offset of tx = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -369,7 +369,7 @@ void TestNodeConnection::GenerateTests()
 		gen.ZeroOffset();
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -377,11 +377,11 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx without input, output , fee ";
+		BEAM_LOG_INFO() << "Send tx without input, output , fee ";
 
 		TxGenerator gen(*m_pKdf);
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -389,7 +389,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input.m_Commitment = ouput.m_Commitment, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input.m_Commitment = ouput.m_Commitment, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -404,7 +404,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -412,7 +412,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 0, ouput = 0, fee = 0";
+		BEAM_LOG_INFO() << "Send tx with input = 0, ouput = 0, fee = 0";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -427,7 +427,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -435,7 +435,7 @@ void TestNodeConnection::GenerateTests()
 
 	m_Tests.push_back([this]()
 	{
-		LOG_INFO() << "Send tx with input = 2, ouput = 0, fee = 2";
+		BEAM_LOG_INFO() << "Send tx with input = 2, ouput = 0, fee = 2";
 
 		TxGenerator gen(*m_pKdf);
 
@@ -450,7 +450,7 @@ void TestNodeConnection::GenerateTests()
 
 		gen.Sort();
 
-		LOG_INFO() << "tx.IsValid == " << gen.IsValid();
+		BEAM_LOG_INFO() << "tx.IsValid == " << gen.IsValid();
 
 		Send(gen.GetTransaction());
 	});
@@ -459,7 +459,7 @@ void TestNodeConnection::GenerateTests()
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

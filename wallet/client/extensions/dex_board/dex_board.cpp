@@ -35,7 +35,7 @@ namespace beam::wallet {
             }
             catch(...)
             {
-                LOG_WARNING() << "DexBoard load order error";
+                BEAM_LOG_WARNING() << "DexBoard load order error";
             }
         }
 
@@ -141,12 +141,12 @@ namespace beam::wallet {
         }
         catch(std::runtime_error& err)
         {
-            LOG_WARNING() << "DexBoard parse error: " << err.what();
+            BEAM_LOG_WARNING() << "DexBoard parse error: " << err.what();
             return boost::none;
         }
         catch(...)
         {
-            LOG_WARNING() << "DexBoard message type parse error";
+            BEAM_LOG_WARNING() << "DexBoard message type parse error";
             return boost::none;
         }
     }

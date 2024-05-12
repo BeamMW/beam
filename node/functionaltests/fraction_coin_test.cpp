@@ -66,7 +66,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 	Block::SystemState::ID id;
 	msg.m_Description.get_ID(id);
 
-	LOG_INFO() << "NewTip: " << id;
+	BEAM_LOG_INFO() << "NewTip: " << id;
 
 	if (!m_IsInit)
 	{
@@ -82,7 +82,7 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 		m_Generator.Sort();
 
-		LOG_INFO() << "Is valid = " << m_Generator.IsValid();
+		BEAM_LOG_INFO() << "Is valid = " << m_Generator.IsValid();
 
 		Send(m_Generator.GetTransaction());
 	}
@@ -96,11 +96,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 					{
 						if (isOk)
 						{
-							LOG_INFO() << "Everythink is Ok";
+							BEAM_LOG_INFO() << "Everythink is Ok";
 						}
 						else
 						{
-							LOG_INFO() << "Everythink is Failed";
+							BEAM_LOG_INFO() << "Everythink is Failed";
 						}
 						io::Reactor::get_Current().stop();
 					}
@@ -112,11 +112,11 @@ void TestNodeConnection::OnMsg(proto::NewTip&& msg)
 
 void TestNodeConnection::OnMsg(proto::Status&& msg)
 {
-	LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
+	BEAM_LOG_INFO() << "Status: value = " << static_cast<uint32_t>(msg.m_Value);
 
 	if (proto::TxStatus::Ok != msg.m_Value)
 	{
-		LOG_INFO() << "Failed:";
+		BEAM_LOG_INFO() << "Failed:";
 		m_Failed = true;
 		io::Reactor::get_Current().stop();
 		return;
@@ -127,7 +127,7 @@ void TestNodeConnection::OnMsg(proto::Status&& msg)
 
 int main(int argc, char* argv[])
 {
-	int logLevel = LOG_LEVEL_DEBUG;
+	int logLevel = BEAM_LOG_LEVEL_DEBUG;
 	auto logger = Logger::create(logLevel, logLevel);
 
 	TestNodeConnection connection(argc, argv);

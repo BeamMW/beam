@@ -38,9 +38,9 @@ const Amount kTransferFirst = 10000;
 
 int main()
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
@@ -70,47 +70,47 @@ int main()
 
         observer_1.onOpened = [&channel_1](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: first opened";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: first opened";
             channel_1 = chID;
         };
         observer_2.onOpened = [&channel_2](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: second opened";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: second opened";
             channel_2 = chID;
         };
         observer_1.onOpenFailed = observer_2.onOpenFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: open failed";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: open failed";
             WALLET_CHECK(false);
         };
         observer_1.onClosed = [&laser1Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: first closed";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: first closed";
             laser1Closed = true;
         };
         observer_2.onClosed = [&laser2Closed](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: second closed";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: second closed";
             laser2Closed = true;
         };
         observer_1.onCloseFailed = observer_2.onCloseFailed = [](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: close failed";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: close failed";
             WALLET_CHECK(false);
         };
         observer_1.onUpdateFinished = [&firstUpdated](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: first updated";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: first updated";
             firstUpdated = true;
         };
         observer_2.onUpdateFinished = [&secondUpdated](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: second updated";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: second updated";
             secondUpdated = true;
         };
         observer_1.onTransferFailed = observer_2.onTransferFailed = [&firstUpdated, &secondUpdated](const laser::ChannelIDPtr& chID)
         {
-            LOG_INFO() << "Test laser LISTEN 2: transfer failed";
+            BEAM_LOG_INFO() << "Test laser LISTEN 2: transfer failed";
             WALLET_CHECK(false);
             firstUpdated = secondUpdated = true;
         };
@@ -122,7 +122,7 @@ int main()
         {
             if (height > kMaxTestHeight)
             {
-                LOG_ERROR() << "Test laser LISTEN 2: time expired";
+                BEAM_LOG_ERROR() << "Test laser LISTEN 2: time expired";
                 WALLET_CHECK(false);
                 io::Reactor::get_Current().stop();
             }
@@ -142,7 +142,7 @@ int main()
             if (openedAt && openedAt + 5 == height && !startListenAt)
             {
                 startListenAt = height;
-                LOG_INFO() << "Test laser LISTEN 2: second serve";
+                BEAM_LOG_INFO() << "Test laser LISTEN 2: second serve";
                 laserSecond.reset(new laser::Mediator(wdbSecond, params));
                 laserSecond->AddObserver(&observer_2);
                 laserSecond->SetNetwork(CreateNetwork(*laserSecond), false);
@@ -153,7 +153,7 @@ int main()
 
             if (startListenAt && height == startListenAt + 10)
             {
-                LOG_INFO() << "Test laser LISTEN 2: first send to second";
+                BEAM_LOG_INFO() << "Test laser LISTEN 2: first send to second";
                 auto channel2Str = to_hex(channel_2->m_pData, channel_2->nBytes);
                 WALLET_CHECK(laserFirst->Transfer(kTransferFirst, channel2Str));
             }
@@ -171,7 +171,7 @@ int main()
 
             if (laser1Closed && laser2Closed)
             {
-                LOG_INFO() << "Test laser LISTEN 2: finished";
+                BEAM_LOG_INFO() << "Test laser LISTEN 2: finished";
                 io::Reactor::get_Current().stop();
             }
 

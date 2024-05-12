@@ -58,7 +58,7 @@ namespace beam::wallet {
             Parse();
         }
         catch (const std::exception& exc) {
-            LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize metadata: " << exc.what();
+            BEAM_LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize metadata: " << exc.what();
         }
     }
 
@@ -154,7 +154,7 @@ namespace beam::wallet {
                 ss << "[CANNOT BE PRINTED, size is " << value.size() << " bytes]";
                 value = ss.str();
             }
-            LOG_INFO() << prefix << it.first << "=" << value;
+            BEAM_LOG_INFO() << prefix << it.first << "=" << value;
         }
     }
 
@@ -295,19 +295,19 @@ namespace beam::wallet {
     {
         const auto prefix = pref.empty() ? pref : pref + " ";
 
-        LOG_INFO() << prefix << "Asset ID: "       << m_ID;
-        LOG_INFO() << prefix << "Owner ID: "       << m_Owner;
-        LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value);
-        LOG_INFO() << prefix << "Lock Height: "    << m_LockHeight;
-        LOG_INFO() << prefix << "Refresh height: " << m_RefreshHeight;
-        LOG_INFO() << prefix << "Metadata size: "  << m_Metadata.m_Value.size() << " bytes";
+        BEAM_LOG_INFO() << prefix << "Asset ID: "       << m_ID;
+        BEAM_LOG_INFO() << prefix << "Owner ID: "       << m_Owner;
+        BEAM_LOG_INFO() << prefix << "Issued amount: "  << PrintableAmount(m_Value);
+        BEAM_LOG_INFO() << prefix << "Lock Height: "    << m_LockHeight;
+        BEAM_LOG_INFO() << prefix << "Refresh height: " << m_RefreshHeight;
+        BEAM_LOG_INFO() << prefix << "Metadata size: "  << m_Metadata.m_Value.size() << " bytes";
 
         const WalletAssetMeta meta(*this);
         meta.LogInfo(pref + "\t");
 
         if(m_IsOwned)
         {
-            LOG_INFO() << prefix << "You own this asset";
+            BEAM_LOG_INFO() << prefix << "You own this asset";
         }
     }
 

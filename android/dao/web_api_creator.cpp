@@ -45,7 +45,7 @@ void WebAPICreator::createApi(WalletModel::Ptr walletModel, const std::string& v
         }
         else
         {
-            LOG_INFO() << "WebAPICreator destroyed before api created:" << version << ", " << appName << ", " << appid;
+            BEAM_LOG_INFO() << "WebAPICreator destroyed before api created:" << version << ", " << appName << ", " << appid;
         }
     });
 }

@@ -58,7 +58,7 @@ namespace beam
 
             if (!parsed)
             {
-                LOG_ERROR() << "ACL parsing error, line " << curLine;
+                BEAM_LOG_ERROR() << "ACL parsing error, line " << curLine;
                 return boost::none;
             }
 
@@ -68,11 +68,11 @@ namespace beam
 
         if (keys.empty())
         {
-            LOG_WARNING() << "ACL file is empty";
+            BEAM_LOG_WARNING() << "ACL file is empty";
         }
         else
         {
-            LOG_INFO() << "ACL file successfully loaded";
+            BEAM_LOG_INFO() << "ACL file successfully loaded";
         }
 
         return wallet::ApiACL(keys);
@@ -135,7 +135,7 @@ namespace beam
     protected:
         void start()
         {
-            LOG_INFO() << "Start server on " << _bindAddress;
+            BEAM_LOG_INFO() << "Start server on " << _bindAddress;
 
             try
             {
@@ -147,7 +147,7 @@ namespace beam
             }
             catch (const std::exception& e)
             {
-                LOG_ERROR() << "cannot start server: " << e.what();
+                BEAM_LOG_ERROR() << "cannot start server: " << e.what();
             }
         }
 
@@ -191,7 +191,7 @@ namespace beam
                 {
                     if (std::find(_whitelist.begin(), _whitelist.end(), peer.ip()) == _whitelist.end())
                     {
-                        LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
+                        BEAM_LOG_WARNING() << peer.str() << " not in IP whitelist, closing";
                         return;
                     }
                 }
@@ -244,14 +244,14 @@ namespace beam
             {
                 if (errorCode != 0)
                 {
-                    LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
+                    BEAM_LOG_INFO() << "peer disconnected, code=" << io::error_str(errorCode);
                     _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
 
                 if (!_lineProtocol.new_data_from_stream(data, size))
                 {
-                    LOG_INFO() << "stream corrupted";
+                    BEAM_LOG_INFO() << "stream corrupted";
                     _server.closeConnection(_stream->peer_address().u64());
                     return false;
                 }
@@ -363,7 +363,7 @@ namespace beam
                     if (!result) ok = false;
                 }
                 else {
-                    LOG_ERROR() << "cannot create response";
+                    BEAM_LOG_ERROR() << "cannot create response";
                 }
 
                 _headers.clear();

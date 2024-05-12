@@ -44,7 +44,7 @@ namespace beam::wallet
             }
             catch(...)
             {
-                LOG_WARNING() << "broadcast message processing exception";
+                BEAM_LOG_WARNING() << "broadcast message processing exception";
                 return false;
             }
         }

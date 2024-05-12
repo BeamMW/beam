@@ -408,7 +408,7 @@ namespace beam::wallet
         {
             if (!m_bitcoinBridge)
             {
-                LOG_ERROR() << kBridgeNotConnectedError;
+                BEAM_LOG_ERROR() << kBridgeNotConnectedError;
                 return false;
             }
             // is need to setup type 'legacy'?
@@ -484,7 +484,7 @@ namespace beam::wallet
 
             if (!m_bitcoinBridge)
             {
-                LOG_ERROR() << kBridgeNotConnectedError;
+                BEAM_LOG_ERROR() << kBridgeNotConnectedError;
                 return false;
             }
 
@@ -536,7 +536,7 @@ namespace beam::wallet
 
             if (!m_bitcoinBridge)
             {
-                LOG_ERROR() << kBridgeNotConnectedError;
+                BEAM_LOG_ERROR() << kBridgeNotConnectedError;
                 return SwapTxState::CreatingTx;
             }
 
@@ -554,7 +554,7 @@ namespace beam::wallet
         {
             if (!m_SwapLockRawTx.is_initialized())
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << (int)SubTxIndex::LOCK_TX << "]" << " Incorrect state, rebuilding.";
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << (int)SubTxIndex::LOCK_TX << "]" << " Incorrect state, rebuilding.";
                 m_tx.SetState(SwapTxState::Initial, SubTxIndex::LOCK_TX);
                 m_tx.UpdateAsync();
                 return SwapTxState::Initial;
@@ -562,7 +562,7 @@ namespace beam::wallet
 
             if (!m_bitcoinBridge)
             {
-                LOG_ERROR() << kBridgeNotConnectedError;
+                BEAM_LOG_ERROR() << kBridgeNotConnectedError;
                 return SwapTxState::CreatingTx;
             }
 
@@ -612,7 +612,7 @@ namespace beam::wallet
 
             if (!m_bitcoinBridge)
             {
-                LOG_ERROR() << kBridgeNotConnectedError;
+                BEAM_LOG_ERROR() << kBridgeNotConnectedError;
                 return swapTxState;
             }
 
@@ -625,7 +625,7 @@ namespace beam::wallet
         {
             if (!m_SwapWithdrawRawTx.is_initialized())
             {
-                LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Incorrect state, rebuilding.";
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << subTxID << "]" << " Incorrect state, rebuilding.";
                 m_tx.SetState(SwapTxState::Initial, subTxID);
                 return SwapTxState::Initial;
             }
@@ -648,7 +648,7 @@ namespace beam::wallet
 
         if (!m_bitcoinBridge)
         {
-            LOG_ERROR() << kBridgeNotConnectedError;
+            BEAM_LOG_ERROR() << kBridgeNotConnectedError;
             return;
         }
         
@@ -668,7 +668,7 @@ namespace beam::wallet
 
         if (!m_bitcoinBridge)
         {
-            LOG_ERROR() << kBridgeNotConnectedError;
+            BEAM_LOG_ERROR() << kBridgeNotConnectedError;
             return;
         }
 
@@ -695,7 +695,7 @@ namespace beam::wallet
 
         if (!m_bitcoinBridge)
         {
-            LOG_ERROR() << kBridgeNotConnectedError;
+            BEAM_LOG_ERROR() << kBridgeNotConnectedError;
             return;
         }
 
@@ -733,7 +733,7 @@ namespace beam::wallet
     {
         if (!m_bitcoinBridge)
         {
-            LOG_ERROR() << kBridgeNotConnectedError;
+            BEAM_LOG_ERROR() << kBridgeNotConnectedError;
             return m_blockCount;
         }
 
@@ -761,7 +761,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
+        BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(subTxID) << "]" << " Bridge internal error: type = " << error.m_type << "; message = " << error.m_message;
         switch (error.m_type)
         {
         case bitcoin::IBridge::EmptyResult:
@@ -800,7 +800,7 @@ namespace beam::wallet
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
 
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
@@ -893,12 +893,12 @@ namespace beam::wallet
         }
         catch (const TransactionFailedException& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
             m_tx.SetParameter(TxParameterID::InternalFailureReason, ex.GetReason(), false, subTxID);
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
 
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, subTxID);
         }
@@ -1051,7 +1051,7 @@ namespace beam::wallet
                 Amount swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
                 if (swapAmount > amount)
                 {
-                    LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
+                    BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]"
                         << " Unexpected amount, expected: " << swapAmount << ", got: " << amount;
                     m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::SwapInvalidAmount, false, SubTxIndex::LOCK_TX);
                     m_tx.UpdateAsync();
@@ -1103,13 +1103,13 @@ namespace beam::wallet
         }
         catch (const TransactionFailedException& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
             m_tx.SetParameter(TxParameterID::InternalFailureReason, ex.GetReason(), false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
 
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();
@@ -1139,7 +1139,7 @@ namespace beam::wallet
         }
         catch (const std::exception& ex)
         {
-            LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
+            BEAM_LOG_ERROR() << m_tx.GetTxID() << " exception msg: " << ex.what();
 
             m_tx.SetParameter(TxParameterID::InternalFailureReason, TxFailureReason::Unknown, false, SubTxIndex::LOCK_TX);
             m_tx.UpdateAsync();

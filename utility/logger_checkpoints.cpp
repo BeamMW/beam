@@ -32,7 +32,7 @@ void flush_last_checkpoint(LogMessage* to) {
 }
 
 Checkpoint::Checkpoint(detail::CheckpointItem* items, size_t maxItems, const char* file, int line, const char* function) :
-    _header(LOG_LEVEL_ERROR, file, line, function), _items(items), _ptr(items), _maxItems(maxItems)
+    _header(BEAM_LOG_LEVEL_ERROR, file, line, function), _items(items), _ptr(items), _maxItems(maxItems)
 {
     assert(maxItems > 0);
     if (currentCheckpoint == 0) {

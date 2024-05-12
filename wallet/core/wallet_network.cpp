@@ -101,7 +101,7 @@ namespace beam::wallet {
                     bValid = true;
                 }
                 catch (const std::exception&) {
-                    LOG_WARNING() << "BBS deserialization failed";
+                    BEAM_LOG_WARNING() << "BBS deserialization failed";
                 }
 
                 if (bValid)
@@ -155,7 +155,7 @@ namespace beam::wallet {
         pAddr->m_Refs |= Addr::s_InternalRef;
         pAddr->m_ExpirationTime = address.getExpirationTime();
 
-        LOG_INFO() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
+        BEAM_LOG_INFO() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
     }
 
     void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
@@ -239,7 +239,7 @@ namespace beam::wallet {
         }
         else
         {
-            LOG_WARNING() << "BBS serialization failed (bad peerID?)";
+            BEAM_LOG_WARNING() << "BBS serialization failed (bad peerID?)";
         }
     }
 
@@ -356,11 +356,11 @@ namespace beam::wallet {
         }
         catch (const std::exception & e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...)
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -508,11 +508,11 @@ namespace beam::wallet {
 		} 
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...)
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
 		}
 	}
 

@@ -94,7 +94,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	m_pExternalHandler = pExternalHandler;
 	if (sp.m_CheckIntegrity)
 	{
-		LOG_INFO() << "DB integrity check...";
+		BEAM_LOG_INFO() << "DB integrity check...";
 		m_DB.CheckIntegrity();
 	}
 
@@ -130,7 +130,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	if (bUpdateChecksum)
 	{
-		LOG_INFO() << "Settings configuration";
+		BEAM_LOG_INFO() << "Settings configuration";
 
 		blob = Blob(Rules::get().get_LastFork().m_Hash);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
@@ -201,7 +201,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	if (PruneOld() && !sp.m_Vacuum)
 	{
-		LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
+		BEAM_LOG_INFO() << "Old data was just removed from the DB. Some space can be freed by vacuum";
 	}
 
 	if (sp.m_Vacuum)
@@ -265,9 +265,9 @@ void NodeProcessor::ManualSelection::Save() const
 void NodeProcessor::ManualSelection::Log() const
 {
 	if (MaxHeight == m_Sid.m_Height) {
-		LOG_INFO() << "Manual selection state reset";
+		BEAM_LOG_INFO() << "Manual selection state reset";
 	} else {
-		LOG_INFO() << (m_Forbidden ? "Forbidden" : "Selected") << " state: " << m_Sid;
+		BEAM_LOG_INFO() << (m_Forbidden ? "Forbidden" : "Selected") << " state: " << m_Sid;
 	}
 }
 
@@ -285,7 +285,7 @@ bool NodeProcessor::ManualSelection::IsAllowed(const Merkle::Hash& hv) const
 	Block::SystemState::ID sid;
 	sid.m_Height = m_Sid.m_Height;
 	sid.m_Hash = hv;
-	LOG_WARNING() << sid << " State forbidden";
+	BEAM_LOG_WARNING() << sid << " State forbidden";
 	return false;
 }
 
@@ -293,11 +293,11 @@ void NodeProcessor::InitializeMapped(const char* sz)
 {
 	if (InitMapping(sz, false))
 	{
-		LOG_INFO() << "Mapping image found";
+		BEAM_LOG_INFO() << "Mapping image found";
 		if (TestDefinition())
 			return; // ok
 
-		LOG_WARNING() << "Definition mismatch, discarding mapped image";
+		BEAM_LOG_WARNING() << "Definition mismatch, discarding mapped image";
 		m_Mapped.Close();
 		InitMapping(sz, true);
 	}
@@ -313,7 +313,7 @@ void NodeProcessor::TestDefinitionStrict()
 {
 	if (!TestDefinition())
 	{
-		LOG_ERROR() << "Definition mismatch";
+		BEAM_LOG_ERROR() << "Definition mismatch";
 		OnCorrupted();
 	}
 }
@@ -387,7 +387,7 @@ void NodeProcessor::LogSyncData()
 	if (!IsFastSync())
 		return;
 
-	LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
+	BEAM_LOG_INFO() << "Fast-sync mode up to height " << m_SyncData.m_Target.m_Height;
 }
 
 
@@ -421,7 +421,7 @@ NodeProcessor::~NodeProcessor()
 		try {
 			CommitMappingAndDB();
 		} catch (const CorruptionException& e) {
-			LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
+			BEAM_LOG_ERROR() << "DB Commit failed: %s" << e.m_sErr;
 		}
 	}
 }
@@ -456,9 +456,9 @@ void NodeProcessor::Vacuum()
 	if (m_DbTx.IsInProgress())
 		m_DbTx.Commit();
 
-	LOG_INFO() << "DB compacting...";
+	BEAM_LOG_INFO() << "DB compacting...";
 	m_DB.Vacuum();
-	LOG_INFO() << "DB compacting completed";
+	BEAM_LOG_INFO() << "DB compacting completed";
 
 	m_DbTx.Start(m_DB);
 }
@@ -887,7 +887,7 @@ void NodeProcessor::UnreachableLog::Log(const Block::SystemState::ID& id)
 	}
 
 	m_Time_ms = nTime_ms;
-	LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
+	BEAM_LOG_WARNING() << id << " State unreachable"; // probably will pollute the log, but it's a critical situation anyway
 }
 
 struct NodeProcessor::MultiSigmaContext
@@ -1574,11 +1574,11 @@ struct NodeProcessor::MultiblockContext
 
 		if (m_This.m_SyncData.m_TxoLo > m_This.m_SyncData.m_h0)
 		{
-			LOG_INFO() << "Retrying with lower TxLo";
+			BEAM_LOG_INFO() << "Retrying with lower TxLo";
 			m_This.m_SyncData.m_TxoLo = m_This.m_SyncData.m_h0;
 		}
 		else {
-			LOG_WARNING() << "TxLo already low";
+			BEAM_LOG_WARNING() << "TxLo already low";
 		}
 
 		m_This.SaveSyncData();
@@ -1589,7 +1589,7 @@ struct NodeProcessor::MultiblockContext
 	void OnFastSyncFailedOnLo()
 	{
 		// probably problem in lower blocks
-		LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
+		BEAM_LOG_WARNING() << "Fast-sync failed on first above-TxLo block.";
 		m_pidLast = Zero; // don't blame the last peer
 		OnFastSyncFailed(true);
 	}
@@ -1796,7 +1796,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		return; // at position
 
 	if (!bContextFail)
-		LOG_WARNING() << "Context-free verification failed: " << mbc.m_sErr;
+		BEAM_LOG_WARNING() << "Context-free verification failed: " << mbc.m_sErr;
 
 	RollbackTo(mbc.m_InProgress.m_Min - 1);
 
@@ -1822,7 +1822,7 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		}
 	}
 
-	LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
+	BEAM_LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Height + 1) << "-" <<  sidFwd.m_Height;
 
 	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Height);
 }
@@ -1855,7 +1855,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 
 	if (mbc.m_bFail)
 	{
-		LOG_WARNING() << "Fast-sync failed: " << mbc.m_sErr;
+		BEAM_LOG_WARNING() << "Fast-sync failed: " << mbc.m_sErr;
 
 		if (!m_DB.get_Peer(sidFail.m_Row, mbc.m_pidLast))
 			mbc.m_pidLast = Zero;
@@ -1898,7 +1898,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 	}
 	else
 	{
-		LOG_INFO() << "Fast-sync succeeded";
+		BEAM_LOG_INFO() << "Fast-sync succeeded";
 
 		// raise fossil height, hTxoLo, hTxoHi
 		RaiseFossil(m_Cursor.m_ID.m_Height);
@@ -2660,7 +2660,7 @@ bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
 		der & td;
 	}
 	catch (const std::exception&) {
-		LOG_WARNING() << "Treasury corrupt";
+		BEAM_LOG_WARNING() << "Treasury corrupt";
 		return false;
 	}
 
@@ -2677,7 +2677,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 
 	if (!td.IsValid())
 	{
-		LOG_WARNING() << "Treasury validation failed";
+		BEAM_LOG_WARNING() << "Treasury validation failed";
 		return false;
 	}
 
@@ -2693,7 +2693,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
 		}
 
-		LOG_INFO() << os.str();
+		BEAM_LOG_INFO() << os.str();
 	}
 
 	BlockInterpretCtx bic(0, true);
@@ -2711,7 +2711,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 					OnCorrupted(); // although should not happen anyway
 			}
 
-			LOG_WARNING() << "Treasury invalid";
+			BEAM_LOG_WARNING() << "Treasury invalid";
 			return false;
 		}
 	}
@@ -2876,7 +2876,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		der & Cast::Down<TxVectors::Eternal>(block);
 	}
 	catch (const std::exception&) {
-		LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
+		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
 		return false;
 	}
 
@@ -2897,19 +2897,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (wrk != s.m_ChainWork)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
 			return false;
 		}
 
 		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 			return false;
 		}
 
 		if (s.m_TimeStamp <= get_MovingMedian())
 		{
-			LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
+			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
 			return false;
 		}
 	}
@@ -2937,7 +2937,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	{
 		assert(bFirstTime);
 		assert(m_Extra.m_Txos == id0);
-		LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context: " << osErr.str();
+		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context: " << osErr.str();
 	}
 	else
 	{
@@ -2965,7 +2965,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			// check the validity of state description.
 			if (s.m_Definition != hvDef)
 			{
-				LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
+				BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
 				bOk = false;
 			}
 		}
@@ -2977,7 +2977,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 				get_Utxos().get_Hash(hvDef);
 				if (s.m_Kernels != hvDef)
 				{
-					LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
 					bOk = false;
 				}
 			}
@@ -2986,7 +2986,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		{
 			if (s.m_Kernels != ev.m_hvKernels)
 			{
-				LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
+				BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
 				bOk = false;
 			}
 		}
@@ -2998,7 +2998,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			{
 				if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
 				{
-					LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
+					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
 					bOk = false;
 					break;
 				}
@@ -3599,7 +3599,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 		EnumTxos(wlk);
 
-		LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
+		BEAM_LOG_INFO() << "Recovered " << wlk.m_Unspent << "/" << wlk.m_Total << " unspent/total Txos";
 	}
 
 	// shielded items
@@ -4988,7 +4988,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	}
 
 	if (m_Instruction.m_ModeTriggered) {
-		LOG_WARNING() << " Potential wasm conflict";
+		BEAM_LOG_WARNING() << " Potential wasm conflict";
 	}
 
 	return bRes;
@@ -5171,7 +5171,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(ContractInvo
 	}
 	catch (const std::exception& e)
 	{
-		LOG_WARNING() << "contract parser error: " << e.what();
+		BEAM_LOG_WARNING() << "contract parser error: " << e.what();
 	}
 }
 
@@ -5192,7 +5192,7 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	}
 	catch (const std::exception& e)
 	{
-		LOG_WARNING() << "contract parser error: " << e.what();
+		BEAM_LOG_WARNING() << "contract parser error: " << e.what();
 	}
 }
 
@@ -5858,7 +5858,7 @@ void NodeProcessor::AdjustManualRollbackHeight(Height& h)
 	Height hMin = get_LowestManualReturnHeight();
 	if (h < hMin)
 	{
-		LOG_INFO() << "Can't go below Height " << hMin;
+		BEAM_LOG_INFO() << "Can't go below Height " << hMin;
 		h = hMin;
 	}
 }
@@ -5869,7 +5869,7 @@ void NodeProcessor::ManualRollbackInternal(Height h)
 
 	if (IsFastSync() && (m_SyncData.m_Target.m_Height > h))
 	{
-		LOG_INFO() << "Fast-sync abort...";
+		BEAM_LOG_INFO() << "Fast-sync abort...";
 
 		RollbackTo(m_SyncData.m_h0);
 		DeleteBlocksInRange(m_SyncData.m_Target, m_SyncData.m_h0);
@@ -5892,7 +5892,7 @@ void NodeProcessor::ManualRollbackInternal(Height h)
 
 void NodeProcessor::ManualRollbackTo(Height h)
 {
-	LOG_INFO() << "Manual rollback to " << h << "...";
+	BEAM_LOG_INFO() << "Manual rollback to " << h << "...";
 
 	AdjustManualRollbackHeight(h);
 
@@ -5926,7 +5926,7 @@ void NodeProcessor::ManualSelect(const Block::SystemState::ID& sid)
 		m_DB.get_StateHash(FindActiveAtStrict(sid.m_Height), hv);
 
 		if (hv == sid.m_Hash) {
-			LOG_INFO() << "Already at correct branch";
+			BEAM_LOG_INFO() << "Already at correct branch";
 		}
 		else
 		{
@@ -5934,11 +5934,11 @@ void NodeProcessor::ManualSelect(const Block::SystemState::ID& sid)
 			AdjustManualRollbackHeight(h);
 
 			if (h == sid.m_Height - 1) {
-				LOG_INFO() << "Rolling back to " << h;
+				BEAM_LOG_INFO() << "Rolling back to " << h;
 				ManualRollbackInternal(h);
 			}
 			else {
-				LOG_INFO() << "Unable to rollback below incorrect branch. Please resync from the beginning";
+				BEAM_LOG_INFO() << "Unable to rollback below incorrect branch. Please resync from the beginning";
 			}
 		}
 	}
@@ -5950,7 +5950,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 
 	if (!(bAlreadyChecked || s.IsValid()))
 	{
-		LOG_WARNING() << id << " header invalid!";
+		BEAM_LOG_WARNING() << id << " header invalid!";
 		return DataStatus::Invalid;
 	}
 
@@ -5960,7 +5960,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		ts = s.m_TimeStamp - ts; // dt
 		if (ts > Rules::get().DA.MaxAhead_s)
 		{
-			LOG_WARNING() << id << " Timestamp ahead by " << ts;
+			BEAM_LOG_WARNING() << id << " Timestamp ahead by " << ts;
 			return DataStatus::Invalid;
 		}
 	}
@@ -5984,7 +5984,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnState(const Block::SystemState:
 	DataStatus::Enum ret = OnStateSilent(s, peer, id, false);
 	if (DataStatus::Accepted == ret)
 	{
-		LOG_INFO() << id << " Header accepted";
+		BEAM_LOG_INFO() << id << " Header accepted";
 	}
 	
 	return ret;
@@ -6005,7 +6005,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const Block::SystemState:
 	sid.m_Row = m_DB.StateFindSafe(id);
 	if (!sid.m_Row)
 	{
-		LOG_WARNING() << id << " Block unexpected";
+		BEAM_LOG_WARNING() << id << " Block unexpected";
 		return DataStatus::Rejected;
 	}
 
@@ -6018,13 +6018,13 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
 	if (nSize > Rules::get().MaxBodySize)
 	{
-		LOG_WARNING() << LogSid(m_DB, sid) << " Block too large: " << nSize;
+		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block too large: " << nSize;
 		return DataStatus::Invalid;
 	}
 
 	if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(sid.m_Row))
 	{
-		LOG_WARNING() << LogSid(m_DB, sid) << " Block already received";
+		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block already received";
 		return DataStatus::Rejected;
 	}
 
@@ -6060,7 +6060,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 	m_Extra.m_TxosTreasury = m_Extra.m_Txos;
 	m_DB.ParamSet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, &blob);
 
-	LOG_INFO() << "Treasury verified";
+	BEAM_LOG_INFO() << "Treasury verified";
 
 	RescanAccounts(static_cast<uint32_t>(m_vAccounts.size()));
 
@@ -6254,7 +6254,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	DependentContextSwitch dcs(*this, bic);
 	if (!dcs.Apply(pParent))
 	{
-		LOG_WARNING() << "can't switch dependent context"; // normally should not happen
+		BEAM_LOG_WARNING() << "can't switch dependent context"; // normally should not happen
 		return proto::TxStatus::DependentNoParent;
 	}
 
@@ -6438,7 +6438,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	if (ssc.m_Counter.m_Value > nSizeMax)
 	{
 		// the block may be non-empty (i.e. contain treasury)
-		LOG_WARNING() << "Block too large.";
+		BEAM_LOG_WARNING() << "Block too large.";
 		return 0; //
 	}
 
@@ -6509,7 +6509,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 				(bc.m_Block.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
-				LOG_INFO() << "Tx is too big.";
+				BEAM_LOG_INFO() << "Tx is too big.";
 				bc.m_TxPool.Delete(x);
 			}
 			continue;
@@ -6546,7 +6546,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		}
 	}
 
-	LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
+	BEAM_LOG_INFO() << "GenerateNewBlock: size of block = " << ssc.m_Counter.m_Value << "; amount of tx = " << nTxNum;
 
 	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
@@ -6674,7 +6674,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
 	if (!bOk)
 	{
-		LOG_WARNING() << "couldn't apply block after cut-through!";
+		BEAM_LOG_WARNING() << "couldn't apply block after cut-through!";
 		ZeroObject(bc.m_Hdr);
 		bc.m_Hdr.m_Height = bic.m_Height;
 		OnInvalidBlock(bc.m_Hdr, bc.m_Block);

@@ -172,7 +172,7 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
     ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_BbsAddr)
+    BEAM_LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_BbsAddr)
                << " To peer: " << std::to_string(m_widTrg);
 
     proto::FlyClient::RequestBbsMsg::Ptr pReq(
@@ -286,7 +286,7 @@ void Channel::OnCoin(const CoinID& cid,
     }
 
     pWalletDB->saveCoins(coins);
-    LOG_INFO() << "Coin " << cid << " " << szStatus;
+    BEAM_LOG_INFO() << "Coin " << cid << " " << szStatus;
 }
 
 const ChannelIDPtr& Channel::get_chID() const
@@ -534,7 +534,7 @@ void Channel::Subscribe()
     get_myWID().m_Channel.Export(ch);
     get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
     m_isSubscribed = true;
-    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
+    BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
 }
 
 void Channel::Unsubscribe()
@@ -545,7 +545,7 @@ void Channel::Unsubscribe()
     m_isSubscribed = false;
     if (!m_lastUpdateStart && m_gracefulClose)
         m_lastUpdateStart = get_Tip();
-    LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
+    BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
     
 }
 
@@ -651,7 +651,7 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
     }
     catch (const std::exception&)
     {
-		LOG_ERROR() << "RestoreInternalState failed";
+		BEAM_LOG_ERROR() << "RestoreInternalState failed";
 	}
 
     m_SendMyWid = false;

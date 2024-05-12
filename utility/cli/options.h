@@ -338,7 +338,7 @@ namespace beam
     boost::optional<std::string> ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);
     boost::optional<std::string> ReadCfgFromFileCommon(po::variables_map&, const po::options_description&);
 
-    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = LOG_LEVEL_DEBUG);
+    int getLogLevel(const std::string &dstLog, const po::variables_map& vm, int defaultValue = BEAM_LOG_LEVEL_DEBUG);
 
     std::vector<std::string> getCfgPeers(const po::variables_map& vm);
 

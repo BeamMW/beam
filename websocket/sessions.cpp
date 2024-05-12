@@ -18,7 +18,7 @@ namespace beam
 {
     void fail(boost::system::error_code ec, char const* what)
     {
-        LOG_ERROR() << what << ": " << ec.message();
+        BEAM_LOG_ERROR() << what << ": " << ec.message();
     }
 
     void failEx(boost::system::error_code ec, char const* what)

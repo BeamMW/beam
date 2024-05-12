@@ -48,7 +48,7 @@ bool serialize_json_msg(io::FragmentWriter& packer, const nlohmann::json& o) {
         static const char eol = 10;
         packer.write(&eol, 1);
     } catch (const std::exception& e) {
-        LOG_ERROR() << "dump json: " << e.what();
+        BEAM_LOG_ERROR() << "dump json: " << e.what();
         result = false;
     }
     packer.finalize();

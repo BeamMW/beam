@@ -109,7 +109,7 @@ target_include_directories(beam INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/3rdparty)
 
-target_compile_features(beam INTERFACE cxx_std_17)
+target_compile_features(beam INTERFACE cxx_std_20)
 
 
 file(WRITE ${PROJECT_SOURCE_DIR}/beam_version.gen "${PROJECT_VERSION}")
@@ -121,7 +121,7 @@ endif()
 
 include(AddTest)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BEAM_USE_AVX FALSE)

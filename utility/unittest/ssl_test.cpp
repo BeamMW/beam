@@ -26,13 +26,13 @@ namespace {
     void setup_test_CA(SSL_CTX* ctx, const std::string& caFile)
     {
         if (SSL_CTX_load_verify_locations(ctx, caFile.c_str(), nullptr) != 1) {
-            LOG_ERROR() << "SSL_CTX_load_verify_locations failed" << caFile;
+            BEAM_LOG_ERROR() << "SSL_CTX_load_verify_locations failed" << caFile;
             IO_EXCEPTION(EC_SSL_ERROR);
         }
     }
 
     int test_sslio(bool requestCertificate, bool rejectUnauthorized, const string& serverCertName, const string& clientCertName = "") {
-        LOG_INFO() << "Testing SSLIO " 
+        BEAM_LOG_INFO() << "Testing SSLIO " 
                    << TRACE(requestCertificate)
                    << TRACE(rejectUnauthorized)
                    << TRACE(serverCertName)
@@ -116,10 +116,10 @@ namespace {
         client->flush();
 
         if (expectedSize != receivedSize) {
-            LOG_ERROR() << TRACE(expectedSize) << TRACE(receivedSize);
+            BEAM_LOG_ERROR() << TRACE(expectedSize) << TRACE(receivedSize);
             ++nErrors;
         }
-        LOG_INFO() << TRACE(nErrors);
+        BEAM_LOG_INFO() << TRACE(nErrors);
         return nErrors;
     }
 }
@@ -135,9 +135,9 @@ namespace {
 }\
 
 int main() {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     int retCode = 0;
@@ -163,10 +163,10 @@ int main() {
         CHECK_FALSE(test_sslio(true, true, serverCert, selfSignedCert));
         CHECK_TRUE(test_sslio(true, true, serverCert, clientCert));
     } catch (const exception& e) {
-        LOG_ERROR() << e.what();
+        BEAM_LOG_ERROR() << e.what();
         retCode = 255;
     } catch (...) {
-        LOG_ERROR() << "non-std exception";
+        BEAM_LOG_ERROR() << "non-std exception";
         retCode = 255;
     }
     return retCode;

@@ -234,7 +234,7 @@ namespace beam::wallet {
             return nextRequest();
         }
 
-        LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
+        BEAM_LOG_VERBOSE() << "shader call is still in progress, request " << args << " queued";
     }
 
     void ShadersManager::CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler doneHandler)
@@ -253,7 +253,7 @@ namespace beam::wallet {
             return nextRequest();
         }
 
-        LOG_VERBOSE () << "shader call is still in progress, request " << args << " queued";
+        BEAM_LOG_VERBOSE () << "shader call is still in progress, request " << args << " queued";
     }
 
     void ShadersManager::nextRequest()
@@ -322,11 +322,11 @@ namespace beam::wallet {
 
             if (_currentAppId.empty() && _currentAppName.empty())
             {
-                LOG_INFO () << "ShadersManager::ProcessTxData";
+                BEAM_LOG_INFO () << "ShadersManager::ProcessTxData";
             }
             else
             {
-                LOG_INFO () << "ShadersManager::ProcessTxData for " << _currentAppId << ", " << _currentAppName;
+                BEAM_LOG_INFO () << "ShadersManager::ProcessTxData for " << _currentAppId << ", " << _currentAppName;
             }
 
             auto params = CreateTransactionParameters(TxType::Contract)
@@ -357,7 +357,7 @@ namespace beam::wallet {
     {
         if (_queue.empty())
         {
-            LOG_WARNING() << "Queue has been cleared before request completed";
+            BEAM_LOG_WARNING() << "Queue has been cleared before request completed";
             return;
         }
 
@@ -381,7 +381,7 @@ namespace beam::wallet {
                 error = std::string("unknown error");
             }
 
-            LOG_INFO() << "Shader Error: " << *error;
+            BEAM_LOG_INFO() << "Shader Error: " << *error;
             if (req.doneAll)
             {
                 return req.doneAll(boost::none, boost::none, std::move(error));
@@ -395,7 +395,7 @@ namespace beam::wallet {
         boost::optional<std::string> result = m_Out.str();
         if (_logResult)
         {
-            LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
+            BEAM_LOG_VERBOSE () << "Shader result: " << std::string_view(result ? *result : std::string()).substr(0, 200);
         }
 
         if (m_InvokeData.m_vec.empty())

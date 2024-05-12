@@ -41,7 +41,7 @@ namespace beam::wallet
             }
             catch(...)
             {
-                LOG_WARNING() << "VerificationProvider: broadcast message processing exception";
+                BEAM_LOG_WARNING() << "VerificationProvider: broadcast message processing exception";
             }
         }
         return false;

@@ -600,10 +600,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -803,9 +803,9 @@ namespace beam::wallet
                     void AnyThread_onStatus(const std::string& error, uint32_t peercnt) override {
                         _wc->getAsync()->makeIWTCall([this, error, peercnt]() -> boost::any {
                             if (error.empty()) {
-                                LOG_INFO() << "IPFS Status: peers count " << peercnt;
+                                BEAM_LOG_INFO() << "IPFS Status: peers count " << peercnt;
                             } else {
-                                LOG_INFO() << "IPFS Status: peers count " << peercnt << ", error: " << error;
+                                BEAM_LOG_INFO() << "IPFS Status: peers count " << peercnt << ", error: " << error;
                             }
                             _wc->m_ipfsError = error;
                             _wc->m_ipfsPeerCnt = static_cast<unsigned int>(peercnt);
@@ -823,12 +823,12 @@ namespace beam::wallet
                 std::shared_ptr<IPFSHandler> ipfsHandler;
                 std::shared_ptr<IPFSService> ipfsService;
 
-                LOG_INFO() << "IPFS Service is enabled.";
+                BEAM_LOG_INFO() << "IPFS Service is enabled.";
                 ipfsHandler = std::make_shared<IPFSHandler>(this);
                 ipfsService = IPFSService::AnyThread_create(ipfsHandler);
                 m_ipfs = ipfsService;
                 #else
-                LOG_INFO () << "IPFS Service is disabled.";
+                BEAM_LOG_INFO () << "IPFS Service is disabled.";
                 #endif
 
                 //
@@ -875,15 +875,15 @@ namespace beam::wallet
             }
             catch (const runtime_error& ex)
             {
-                LOG_ERROR() << ex.what();
+                BEAM_LOG_ERROR() << ex.what();
                 FailedToStartWallet();
             }
             catch (const std::exception& ex)
             {
-                LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
+                BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << ex.what();
             }
             /*catch (...) {
-                LOG_UNHANDLED_EXCEPTION();
+                BEAM_LOG_UNHANDLED_EXCEPTION();
             }*/
             onStopped();
         });
@@ -951,7 +951,7 @@ namespace beam::wallet
         catch(std::runtime_error& err)
         {
             auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
-            LOG_ERROR() << errmsg;
+            BEAM_LOG_ERROR() << errmsg;
             m_ipfsError = errmsg;
             m_ipfsPeerCnt = 0;
             getIPFSStatus();
@@ -989,7 +989,7 @@ namespace beam::wallet
         catch(std::runtime_error& err)
         {
             auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
-            LOG_ERROR() << errmsg;
+            BEAM_LOG_ERROR() << errmsg;
             m_ipfsError = errmsg;
             m_ipfsPeerCnt = 0;
             getIPFSStatus();
@@ -1020,7 +1020,7 @@ namespace beam::wallet
         catch(std::runtime_error& err)
         {
             auto errmsg = std::string("Failed to start IPFS service. ") + err.what();
-            LOG_ERROR() << errmsg;
+            BEAM_LOG_ERROR() << errmsg;
             m_ipfsError = errmsg;
             m_ipfsPeerCnt = 0;
             getIPFSStatus();
@@ -1395,10 +1395,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1425,10 +1425,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1528,10 +1528,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1559,7 +1559,7 @@ namespace beam::wallet
             }
             catch (const std::runtime_error& e)
             {
-                LOG_ERROR() << offer.m_txId << e.what();
+                BEAM_LOG_ERROR() << offer.m_txId << e.what();
             }
         }
     }
@@ -1602,10 +1602,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
 
         callback(std::move(res));
@@ -1655,10 +1655,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1680,10 +1680,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1725,10 +1725,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
 
         postFunctionToClientContext([sToken = std::move(sToken), cb = std::move(callback)]() mutable
@@ -1745,10 +1745,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1760,10 +1760,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1794,10 +1794,10 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1818,12 +1818,12 @@ namespace beam::wallet
             }
             else
             {
-                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
+                BEAM_LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
     }
 
@@ -1844,12 +1844,12 @@ namespace beam::wallet
             }
             else
             {
-                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
+                BEAM_LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
     }
 
@@ -1868,16 +1868,16 @@ namespace beam::wallet
             }
             else
             {
-                LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
+                BEAM_LOG_ERROR() << "Address " << to_string(wid) << " is absent.";
             }
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...)
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1911,11 +1911,11 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...)
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1927,11 +1927,11 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) 
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -1950,7 +1950,7 @@ namespace beam::wallet
             }
             else
             {
-                LOG_ERROR() << "Unable to resolve node address: " << addr;
+                BEAM_LOG_ERROR() << "Unable to resolve node address: " << addr;
                 onWalletError(ErrorType::HostResolvedError);
             }
         }
@@ -2076,11 +2076,11 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...)
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -2110,11 +2110,11 @@ namespace beam::wallet
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) 
         {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
         onWalletError(ErrorType::ImportRecoveryError);
     }
@@ -2288,7 +2288,7 @@ namespace beam::wallet
 
         if (!address.resolve(host.c_str()))
         {
-            LOG_ERROR() << "Unable to resolve address: " << host;
+            BEAM_LOG_ERROR() << "Unable to resolve address: " << host;
 
             postFunctionToClientContext([cb = std::move(callback)]()
             {
@@ -2333,15 +2333,15 @@ namespace beam::wallet
             }
             else if (msg.what == HttpMsgReader::connection_error)
             {
-                LOG_ERROR() << "Failed to load application list: conection error(" << msg.connectionError << ")";
+                BEAM_LOG_ERROR() << "Failed to load application list: conection error(" << msg.connectionError << ")";
             }
             else if (msg.what == HttpMsgReader::message_corrupted)
             {
-                LOG_ERROR() << "Failed to load application list: corrupted message";
+                BEAM_LOG_ERROR() << "Failed to load application list: corrupted message";
             }
             else
             {
-                LOG_ERROR() << "Failed to load application list reason: " << msg.what;
+                BEAM_LOG_ERROR() << "Failed to load application list reason: " << msg.what;
             }
 
             postFunctionToClientContext([isOk, res = std::move(response), callback = std::move(cb)]()
@@ -2493,7 +2493,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_ERROR() << "Unprocessed error: " << reason;
+        BEAM_LOG_ERROR() << "Unprocessed error: " << reason;
     }
 
     void WalletClient::onNodeConnectedStatusChanged(bool isNodeConnected)
@@ -2774,14 +2774,14 @@ namespace beam::wallet
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {
-                    LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
+                    BEAM_LOG_WARNING () << "onShaderDone but empty manager. This can happen if node changed.";
                     return;
                 }
 
                 if (!cb)
                 {
                     assert(false);
-                    LOG_ERROR() << "onShaderDone but empty callback";
+                    BEAM_LOG_ERROR() << "onShaderDone but empty callback";
                     return;
                 }
 
@@ -2824,14 +2824,14 @@ namespace beam::wallet
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {
-                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    BEAM_LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
                     return;
                 }
 
                 if (!cb)
                 {
                     assert(false);
-                    LOG_ERROR() << "onShaderDone but empty callback";
+                    BEAM_LOG_ERROR() << "onShaderDone but empty callback";
                     return;
                 }
 
@@ -2873,14 +2873,14 @@ namespace beam::wallet
                 auto smgr = _clientShaders.lock();
                 if (!smgr)
                 {
-                    LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
+                    BEAM_LOG_WARNING() << "onShaderDone but empty manager. This can happen if node changed.";
                     return;
                 }
 
                 if (!cb)
                 {
                     assert(false);
-                    LOG_ERROR() << "onShaderDone but empty callback";
+                    BEAM_LOG_ERROR() << "onShaderDone but empty callback";
                     return;
                 }
 

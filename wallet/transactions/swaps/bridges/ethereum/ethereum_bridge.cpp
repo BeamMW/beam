@@ -698,7 +698,7 @@ void EthereumBridge::sendRequest(
 
     if (!address.resolve(url.c_str()))
     {
-        LOG_ERROR() << "unable to resolve electrum address: " << url;
+        BEAM_LOG_ERROR() << "unable to resolve electrum address: " << url;
 
         // TODO maybe to need async??
         Error error{ IOError, "unable to resolve ethereum provider address: " + url };

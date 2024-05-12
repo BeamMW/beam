@@ -1734,7 +1734,7 @@ namespace beam::wallet
             for (const auto& updateInfo: updates)
             {
                 storage::setTxParameter(*walletDB, updateInfo.txID, static_cast<SubTxID>(updateInfo.subTxID), TxParameterID::ExchangeRates, updateInfo.rates, false);
-                LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
+                BEAM_LOG_INFO() << "Rates convert for " << updateInfo.txID << ", rcnt: " << updateInfo.rates.size();
             }
         }
 
@@ -1753,7 +1753,7 @@ namespace beam::wallet
                 }
                 else
                 {
-                    LOG_WARNING() << "MigrateTransactionsFrom30: Unexpected tx without TxID";
+                    BEAM_LOG_WARNING() << "MigrateTransactionsFrom30: Unexpected tx without TxID";
                     assert(false);
                 }
                 return true;
@@ -1791,7 +1791,7 @@ namespace beam::wallet
             ret = checkKey();
             if (ret != SQLITE_OK)
             {
-                LOG_INFO() << "Applying PRAGMA cipher_migrate...";
+                BEAM_LOG_INFO() << "Applying PRAGMA cipher_migrate...";
                 ret = sqlite3_close(*db);
                 throwIfError(ret, *db);
                 ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
@@ -1810,7 +1810,7 @@ namespace beam::wallet
             if (!storage::getVar(db, WalletSeed, seed.V))
             {
                 assert(false && "there is no seed for walletDB");
-                LOG_ERROR() << "there is no seed for walletDB";
+                BEAM_LOG_ERROR() << "there is no seed for walletDB";
                 return false;
             }
             db.setPrivateVarRaw(WalletSeed, &seed.V, sizeof(seed.V));
@@ -1865,7 +1865,7 @@ namespace beam::wallet
                     {
                         if (seed.V != seed2.V)
                         {
-                            LOG_ERROR() << "Public database has different master key. Please check your \'wallet.db\' and \'wallet.db.private\'";
+                            BEAM_LOG_ERROR() << "Public database has different master key. Please check your \'wallet.db\' and \'wallet.db.private\'";
                             return false;
                         }
                     }
@@ -1926,7 +1926,7 @@ namespace beam::wallet
     {
         if (isInitialized(path))
         {
-            LOG_ERROR() << path << " already exists.";
+            BEAM_LOG_ERROR() << path << " already exists.";
             throw DatabaseException("Database already exists");
         }
 
@@ -2205,7 +2205,7 @@ namespace beam::wallet
     {
         if (!isInitialized(path))
         {
-            LOG_ERROR() << path << " not found, please init the wallet before.";
+            BEAM_LOG_ERROR() << path << " not found, please init the wallet before.";
             throw DatabaseNotFoundException();
         }
 
@@ -2241,7 +2241,7 @@ namespace beam::wallet
                 case DbVersion11:
                 case DbVersion12:
                 {
-                    LOG_INFO() << "Converting DB from format 10-11";
+                    BEAM_LOG_INFO() << "Converting DB from format 10-11";
 
                     // storage table changes: removed [status], [createHeight], [lockedHeight], added [spentHeight]
                     // sqlite doesn't support column removal. So instead we'll rename this table, select the data, and insert it to the new table
@@ -2327,7 +2327,7 @@ namespace beam::wallet
                 // no break;
 
                 case DbVersion13:
-                    LOG_INFO() << "Converting DB to format 13...";
+                    BEAM_LOG_INFO() << "Converting DB to format 13...";
 
                     CreateWalletMessageTable(walletDB->_db);
                     CreatePrivateVariablesTable(walletDB->m_PrivateDB);
@@ -2339,7 +2339,7 @@ namespace beam::wallet
 
                 case DbVersion14:
                 {
-                    LOG_INFO() << "Converting DB from format 14...";
+                    BEAM_LOG_INFO() << "Converting DB from format 14...";
 
                     // tx_params table changed: added new column [subTxID]
                     // move old data to temp table
@@ -2370,23 +2370,23 @@ namespace beam::wallet
                 // no break;
 
                 case DbVersion15:
-                    LOG_INFO() << "Converting DB from format 15...";
+                    BEAM_LOG_INFO() << "Converting DB from format 15...";
 
                     // originally there was a coin migration, because "assetId" column was added.
                     // We now postpone this migration till 18-19, where the "assetId" column was moved into an index.
 
                     // no break; 
                 case DbVersion16:
-                    LOG_INFO() << "Converting DB from format 16...";
+                    BEAM_LOG_INFO() << "Converting DB from format 16...";
                     CreateLaserTables(walletDB->_db);
                     // no break;
                 case DbVersion17:
-                    LOG_INFO() << "Converting DB from format 17...";
+                    BEAM_LOG_INFO() << "Converting DB from format 17...";
                     CreateAssetsTable(walletDB->_db);
                     // no break
 
                 case DbVersion18:
-                    LOG_INFO() << "Converting DB from format 18...";
+                    BEAM_LOG_INFO() << "Converting DB from format 18...";
                     walletDB->MigrateCoins();
                     CreateNotificationsTable(walletDB->_db);
                     CreateExchangeRatesTable29(walletDB->_db);
@@ -2394,17 +2394,17 @@ namespace beam::wallet
                     // no break
 
                 case DbVersion19:
-                    LOG_INFO() << "Converting DB from format 19...";
+                    BEAM_LOG_INFO() << "Converting DB from format 19...";
                     CreateShieldedCoinsTable(walletDB->_db);
                     // no break
 
                 case DbVersion20:
-                    LOG_INFO() << "Converting DB from format 20...";
+                    BEAM_LOG_INFO() << "Converting DB from format 20...";
                     MigrateAssetsFrom20(walletDB->_db);
                     // no break
 
                 case DbVersion21:
-                    LOG_INFO() << "Converting DB from format 21...";
+                    BEAM_LOG_INFO() << "Converting DB from format 21...";
                     CreateVouchersTable(db);
                     // no break
 
@@ -2413,7 +2413,7 @@ namespace beam::wallet
                     // no break
 
                 case DbVersion23:
-                    LOG_INFO() << "Converting DB from format 23...";
+                    BEAM_LOG_INFO() << "Converting DB from format 23...";
                     if (!VouchersHasFlags(walletDB.get()))
                     {
                         AddVouchersFlagsColumn(db);
@@ -2421,69 +2421,69 @@ namespace beam::wallet
                     // no break
 
                 case DbVersion24:
-                    LOG_INFO() << "Converting DB from format 24...";
+                    BEAM_LOG_INFO() << "Converting DB from format 24...";
                     MigrateAddressesFrom24(walletDB.get(), walletDB->_db);
                     // no break
 
                 case DbVersion25:
-                    LOG_INFO() << "Converting DB from format 25...";
+                    BEAM_LOG_INFO() << "Converting DB from format 25...";
                     CreateExchangeRatesHistoryTable29(walletDB->_db);
                     // no break
 
                 case DbVersion26:
-                    LOG_INFO() << "Converting DB from format 26...";
+                    BEAM_LOG_INFO() << "Converting DB from format 26...";
                     MigrateTransactionsFrom26(walletDB.get());
                     // no break
 
                 case DbVersion27:
-                    LOG_INFO() << "Converting DB from format 27...";
+                    BEAM_LOG_INFO() << "Converting DB from format 27...";
                     CreateTxSummaryTable(walletDB->_db);
                     walletDB->FillTxSummaryTable();
                     // no break
 
                 case DbVersion28:
-                    LOG_INFO() << "Converting DB from format 28...";
+                    BEAM_LOG_INFO() << "Converting DB from format 28...";
                     CreateEventsTable(walletDB->_db);
                     // no break
 
                 case DbVersion29:
-                    LOG_INFO() << "Converting DB from format 29...";
+                    BEAM_LOG_INFO() << "Converting DB from format 29...";
                     MigrateRatesFrom29(walletDB.get(), walletDB->_db);
                     MigrateRatesHistoryFrom29(walletDB.get(), walletDB->_db);
                     MigrateTxRatesFrom29to30(walletDB.get(), walletDB->_db);
                     // no break
 
                 case DbVersion30:
-                    LOG_INFO() << "Converting DB from format 30...";
+                    BEAM_LOG_INFO() << "Converting DB from format 30...";
                     MigrateTransactionsFrom30(walletDB.get(), walletDB->_db);
                     // no break
 
                 case DbVersion31:
-                    LOG_INFO() << "Converting DB from format 31...";
+                    BEAM_LOG_INFO() << "Converting DB from format 31...";
                     MigrateFrom31(walletDB.get(), walletDB->_db);
                     // no break
 
                 case DbVersion32:
-                    LOG_INFO() << "Converting DB from format 32...";
+                    BEAM_LOG_INFO() << "Converting DB from format 32...";
                     MigrateFrom32(walletDB->_db);
 
                 case DbVersion33:
-                    LOG_INFO() << "Converting DB from format 33...";
+                    BEAM_LOG_INFO() << "Converting DB from format 33...";
                     CreateDexOffersTable(walletDB->_db);
                     // no break
 
                 case DbVersion34:
-                    LOG_INFO() << "Converting DB from format 34...";
+                    BEAM_LOG_INFO() << "Converting DB from format 34...";
                     CreateIMTables(walletDB->_db);
                     // no break
 
                 case DbVersion35:
-                    LOG_INFO() << "Converting DB from format 35...";
+                    BEAM_LOG_INFO() << "Converting DB from format 35...";
                     walletDB->DeleteNonceAddresses();
                     // no break
 
                 case DbVersion36:
-                    LOG_INFO() << "Converting DB from format 36...";
+                    BEAM_LOG_INFO() << "Converting DB from format 36...";
                     DeleteIMTables(walletDB->_db);
                     CreateIMTables(walletDB->_db);
                     // no break
@@ -2510,7 +2510,7 @@ namespace beam::wallet
             }
             catch (std::runtime_error& err)
             {
-                LOG_ERROR() << "Database migration failed: " << err.what();
+                BEAM_LOG_ERROR() << "Database migration failed: " << err.what();
                 walletDB->rollbackDB();
                 throw DatabaseMigrationException();
             }
@@ -2676,7 +2676,7 @@ namespace beam::wallet
                 }
                 catch (const runtime_error& ex)
                 {
-                    LOG_ERROR() << "Wallet DB Commit failed: " << ex.what();
+                    BEAM_LOG_ERROR() << "Wallet DB Commit failed: " << ex.what();
                 }
                 m_DbTransaction.reset();
             }
@@ -2893,7 +2893,7 @@ namespace beam::wallet
                     c.m_maturity = outp.get_MinMaturity(h);
                     c.m_confirmHeight = h;
 
-                    LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
+                    BEAM_LOG_INFO() << "CoinID: " << c.m_ID << " Maturity=" << c.m_maturity << " Recovered";
 
                     m_This.saveCoin(c);
 
@@ -2937,7 +2937,7 @@ namespace beam::wallet
 
                 m_This.saveShieldedCoin(sc);
 
-                LOG_INFO() << "Shielded output, ID: " << dout.m_ID << " Confirmed, Height=" << dout.m_Height;
+                BEAM_LOG_INFO() << "Shielded output, ID: " << dout.m_ID << " Confirmed, Height=" << dout.m_Height;
 
                 m_mapShielded[pars.m_Ticket.m_SpendPk] = sc.m_CoinID.m_Key;
 
@@ -2957,7 +2957,7 @@ namespace beam::wallet
                         shieldedCoin->m_spentHeight = dinp.m_Height;
                         m_This.saveShieldedCoin(*shieldedCoin);
 
-                        LOG_INFO() << "Shielded input, TxoID: " << shieldedCoin->m_TxoID << " Spent, Height=" << dinp.m_Height;
+                        BEAM_LOG_INFO() << "Shielded input, TxoID: " << shieldedCoin->m_TxoID << " Spent, Height=" << dinp.m_Height;
                     }
 
                     m_mapShielded.erase(it);
@@ -3033,14 +3033,14 @@ namespace beam::wallet
         get_Endpoint(addr.m_Endpoint, addr.m_OwnID);
         setDefaultToken(addr);
 
-        LOG_INFO() << boost::format(kWalletAddrNewGenerated) % addr.m_Token;
+        BEAM_LOG_INFO() << boost::format(kWalletAddrNewGenerated) % addr.m_Token;
 
         if (addr.m_Endpoint != Zero) {
-            LOG_INFO() << boost::format(kAddrNewGeneratedEndpoint) % std::to_base58(addr.m_Endpoint);
+            BEAM_LOG_INFO() << boost::format(kAddrNewGeneratedEndpoint) % std::to_base58(addr.m_Endpoint);
         }
 
         if (!addr.m_label.empty()) {
-            LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
+            BEAM_LOG_INFO() << boost::format(kAddrNewGeneratedLabel) % addr.m_label;
         }
     }
 
@@ -4949,7 +4949,7 @@ namespace beam::wallet
     bool WalletDB::removeLaserChannel(
             const std::shared_ptr<uintBig_t<16>>& chId)
     {
-        LOG_INFO() << "Removing channel: "
+        BEAM_LOG_INFO() << "Removing channel: "
                    << to_hex(chId->m_pData, chId->nBytes);
 
         const char* selectReq = "SELECT chID, myWID FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
@@ -5993,7 +5993,7 @@ namespace beam::wallet
                 continue; // not a nonce, used in multiple txs
 
             deleteAddress(addr.m_BbsAddr);
-            LOG_INFO() << "Removed nonce addr: " << addr.m_Token;
+            BEAM_LOG_INFO() << "Removed nonce addr: " << addr.m_Token;
 
         }
     }
@@ -6119,7 +6119,7 @@ namespace beam::wallet
 
                 if (!address.is_initialized())
                 {
-                    LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
+                    BEAM_LOG_INFO() << "Address " << to_string(walletID) << "is absent in wallet";
                     return false;
                 }
 
@@ -6713,12 +6713,12 @@ namespace beam::wallet
                             }
                             db.saveAddress(address);
 
-                            LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has been successfully imported.";
+                            BEAM_LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has been successfully imported.";
                             continue;
                         }
                     }
 
-                    LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has NOT been imported. Wrong address.";
+                    BEAM_LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has NOT been imported. Wrong address.";
                     return false;
                 }
                 return true;
@@ -6768,7 +6768,7 @@ namespace beam::wallet
                     auto itype = paramsMap.find(TxParameterID::TransactionType);
                     if(itype == paramsMap.end())
                     {
-                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. No txtype parameter";
+                        BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. No txtype parameter";
                         ++errorsCount;
                         continue;
                     }
@@ -6776,7 +6776,7 @@ namespace beam::wallet
                     TxType txtype = TxType::Simple;
                     if (!fromByteBuffer(itype->second.m_value, txtype))
                     {
-                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
+                        BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Failed to read txtype parameter";
                         ++errorsCount;
                         continue;
                     }
@@ -6784,7 +6784,7 @@ namespace beam::wallet
                     WalletID wid(Zero);
                     if (auto idIt = paramsMap.find(TxParameterID::MyAddr); idIt != paramsMap.end() && !wid.FromBuf(idIt->second.m_value))
                     {
-                        LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
+                        BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                         ++errorsCount;
                         continue;
                     }
@@ -6798,7 +6798,7 @@ namespace beam::wallet
                         // Should be Zero for assets issue & consume
                         if (wid != Zero)
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume/lelanutus";
+                            BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Nonzero MyID for asset issue/consume/lelanutus";
                             ++errorsCount;
                             continue;
                         }
@@ -6807,7 +6807,7 @@ namespace beam::wallet
                     {
                         if (wid != Zero && !wid.IsValid())
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
+                            BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid myID parameter";
                             ++errorsCount;
                             continue;
                         }
@@ -6815,7 +6815,7 @@ namespace beam::wallet
                         auto waddr = db.getAddress(wid);
                         if (waddr && (!waddr->isOwn() || !db.ValidateSbbsWalletID(wid, waddr->m_OwnID)))
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
+                            BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid address parameter";
                             ++errorsCount;
                             continue;
                         }
@@ -6825,14 +6825,14 @@ namespace beam::wallet
                         if (addressIt != paramsMap.end() && (!fromByteBuffer(addressIt->second.m_value, myAddrId) ||
                             !db.ValidateSbbsWalletID(wid, myAddrId)))
                         {
-                            LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
+                            BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
                             ++errorsCount;
                             continue;
                         }
 
                         if (!waddr && addressIt == paramsMap.end())
                         {
-                            LOG_WARNING() << "Transaction " << txPair.first << ". Cannot check imported address";
+                            BEAM_LOG_WARNING() << "Transaction " << txPair.first << ". Cannot check imported address";
                         }
                     }
                     
@@ -6845,7 +6845,7 @@ namespace beam::wallet
                             p.m_value,
                             false);
                     }
-                    LOG_INFO() << "Transaction " << txPair.first << " was imported.";
+                    BEAM_LOG_INFO() << "Transaction " << txPair.first << " was imported.";
                 }
                 return errorsCount == 0;
             }
@@ -6907,7 +6907,7 @@ namespace beam::wallet
                     {
                         if (params.find(mp) == params.end())
                         {
-                            LOG_WARNING() << "Transaction " << tx << " doesn't have mandatory parameters" << (int)mp << ". Skipping it";
+                            BEAM_LOG_WARNING() << "Transaction " << tx << " doesn't have mandatory parameters" << (int)mp << ". Skipping it";
                             canExport = false;
                             break;
                         }
@@ -6960,7 +6960,7 @@ namespace beam::wallet
             }
             catch (const nlohmann::detail::exception& e)
             {
-                LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
+                BEAM_LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(data, data + (size > 1024 ? 1024 : size));
             }
             return false;
         }
@@ -7156,7 +7156,7 @@ namespace beam::wallet
                 }
                 else
                 {
-                    LOG_WARNING() << "No payment confirmation for the specified transaction.";
+                    BEAM_LOG_WARNING() << "No payment confirmation for the specified transaction.";
                 }
 
                 return ByteBuffer();
@@ -7213,7 +7213,7 @@ namespace beam::wallet
                 }
                 else
                 {
-                    LOG_WARNING() << "No payment confirmation for the specified transaction.";
+                    BEAM_LOG_WARNING() << "No payment confirmation for the specified transaction.";
                 }
 
                 return ByteBuffer();
@@ -7248,7 +7248,7 @@ namespace beam::wallet
             TxType txType = TxType::Simple;
             if (!storage::getTxParameter(walletDB, txID, TxParameterID::TransactionType, txType))
             {
-                LOG_ERROR() << "There is no transaction with given ID.";
+                BEAM_LOG_ERROR() << "There is no transaction with given ID.";
                 return {};
             }
             switch (txType)
@@ -7258,7 +7258,7 @@ namespace beam::wallet
             case TxType::PushTransaction:
                 return ExportShieldedPaymentProof(walletDB, txID);
             default:
-                LOG_WARNING() << "Cannot provide payment proof for this transaction type: " << (int)txType;
+                BEAM_LOG_WARNING() << "Cannot provide payment proof for this transaction type: " << (int)txType;
             }
             
             return ByteBuffer();
@@ -7290,7 +7290,7 @@ namespace beam::wallet
         {
             void LogSqliteError(void* pArg, int iErrCode, const char* zMsg)
             {
-                LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
+                BEAM_LOG_ERROR() << "(" << iErrCode << ") " << zMsg;
             }
         }
 
@@ -7695,35 +7695,35 @@ namespace beam::wallet
         case TokenType::Public:
             {
                 auto token = GeneratePublicToken(address, *walletDB, "");
-                LOG_INFO() << "Generated public offline address: " << token;
+                BEAM_LOG_INFO() << "Generated public offline address: " << token;
                 return token;
             }
 
         case TokenType::RegularOldStyle:
             {
                 auto token = GenerateRegularOldToken(address);
-                LOG_INFO() << "Generated regular old style address: " << token;
+                BEAM_LOG_INFO() << "Generated regular old style address: " << token;
                 return token;
             }
 
         case TokenType::RegularNewStyle:
              {
                 auto token = GenerateRegularNewToken(address, 0, 0, "");
-                LOG_INFO() << "Generated regular new style address:" << token;
+                BEAM_LOG_INFO() << "Generated regular new style address:" << token;
                 return token;
             }
 
         case TokenType::Offline:
             {
                 auto token = GenerateOfflineToken(address, *walletDB, 0, 0, "", offlineCount);
-                LOG_INFO() << "Generated offline address: " << token;
+                BEAM_LOG_INFO() << "Generated offline address: " << token;
                 return token;
             }
 
         case TokenType::MaxPrivacy:
             {
                 auto token = GenerateMaxPrivacyToken(address, *walletDB, 0, 0, "");
-                LOG_INFO() << "Generated max privacy address: " << token;
+                BEAM_LOG_INFO() << "Generated max privacy address: " << token;
                 return token;
             }
 

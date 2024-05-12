@@ -219,7 +219,7 @@ int main(int argc, char* argv[])
     try
     {
         const auto path = boost::filesystem::system_complete("./logs");
-        auto logger = beam::Logger::create(LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, LOG_LEVEL_DEBUG, "", path.string());
+        auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "", path.string());
         MyOptions options;
         po::options_description desc("Ethash service options");
         desc.add_options()
@@ -278,6 +278,6 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& ex)
     {
-        LOG_ERROR() << ex.what();
+        BEAM_LOG_ERROR() << ex.what();
     }
 }

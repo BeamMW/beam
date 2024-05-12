@@ -76,7 +76,7 @@ void Node::UpdateSyncStatus()
 		{
 			m_PostStartSynced = true;
 
-			LOG_INFO() << "Tx replication is ON";
+			BEAM_LOG_INFO() << "Tx replication is ON";
 
 			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
 			{
@@ -489,7 +489,7 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
     TaskSet::iterator it = get_ParentObj().m_setTasks.find(tKey);
     if (get_ParentObj().m_setTasks.end() == it)
     {
-        LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
+        BEAM_LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
 
 		Node::Task* pTask = new Node::Task;
         pTask->m_Key = tKey.m_Key;
@@ -635,7 +635,7 @@ void Node::Processor::OnNewState()
 	if (!IsTreasuryHandled())
         return;
 
-    LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
+    BEAM_LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
 	if (IsFastSync())
 		return;
@@ -712,7 +712,7 @@ void Node::MaybeGenerateRecovery()
 	if (h1 < h0 + m_Cfg.m_Recovery.m_Granularity)
 		return;
 
-	LOG_INFO() << "Generating recovery...";
+	BEAM_LOG_INFO() << "Generating recovery...";
 
 	std::ostringstream os;
 	os
@@ -739,18 +739,18 @@ void Node::MaybeGenerateRecovery()
 	}
 
 	if (bOk) {
-		LOG_INFO() << "Recovery generation done";
+		BEAM_LOG_INFO() << "Recovery generation done";
 		m_Processor.get_DB().ParamIntSet(NodeDB::ParamID::LastRecoveryHeight, h1);
 	} else
 	{
-		LOG_INFO() << "Recovery generation failed";
+		BEAM_LOG_INFO() << "Recovery generation failed";
 		beam::DeleteFile(sTmp.c_str());
 	}
 }
 
 void Node::Processor::OnRolledBack()
 {
-    LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+    BEAM_LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
 
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
     while (!txp.m_lstOutdated.empty())
@@ -877,7 +877,7 @@ void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
         os << "Event Height=" << h << ", ";
         evt.Dump(os);
 
-        LOG_INFO() << os.str();
+        BEAM_LOG_INFO() << os.str();
 	}
 }
 
@@ -975,7 +975,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
-    LOG_VERBOSE() << "+Peer " << addr;
+    BEAM_LOG_VERBOSE() << "+Peer " << addr;
 
     return pPeer;
 }
@@ -1012,7 +1012,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	if (m_Cfg.m_ProcessorParams.m_EraseSelfID)
 	{
 		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, nullptr, nullptr);
-		LOG_INFO() << "Node ID erased";
+		BEAM_LOG_INFO() << "Node ID erased";
 
 		io::Reactor::get_Current().stop();
 		return;
@@ -1021,9 +1021,9 @@ void Node::Initialize(IExternalPOW* externalPOW)
     InitKeys();
     InitIDs();
 
-    LOG_INFO() << "Node ID=" << m_MyPublicID;
-    LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
-	LOG_INFO() << "Tx replication is OFF";
+    BEAM_LOG_INFO() << "Node ID=" << m_MyPublicID;
+    BEAM_LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+	BEAM_LOG_INFO() << "Tx replication is OFF";
 
 	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {
 		// stupid compiler insists on parentheses here!
@@ -1310,7 +1310,7 @@ void Node::RefreshAccounts()
     if (nDel)
     {
         assert(nDel <= accs.size());
-        LOG_INFO() << "Owned accounts removed: " << nDel;
+        BEAM_LOG_INFO() << "Owned accounts removed: " << nDel;
 
         size_t iDst = 0;
         for (size_t iSrc = 0; iSrc < accs.size(); iSrc++)
@@ -1333,7 +1333,7 @@ void Node::RefreshAccounts()
     if (nAdd)
     {
         assert(nAdd <= accs.size());
-        LOG_INFO() << "Owned accounts added: " << nAdd;
+        BEAM_LOG_INFO() << "Owned accounts added: " << nAdd;
 
         try
         {
@@ -1352,7 +1352,7 @@ void Node::RefreshAccounts()
     for (const auto& acc : accs)
         os << '\t' << acc.get_Endpoint() << std::endl;
 
-    LOG_INFO() << os.str();
+    BEAM_LOG_INFO() << os.str();
 }
 
 bool Node::Bbs::IsInLimits() const
@@ -1397,7 +1397,7 @@ void Node::Bbs::MaybeCleanup()
 
 Node::~Node()
 {
-    LOG_INFO() << "Node stopping...";
+    BEAM_LOG_INFO() << "Node stopping...";
 
     m_Miner.HardAbortSafe();
 	if (m_Miner.m_External.m_pSolver)
@@ -1430,7 +1430,7 @@ Node::~Node()
 	if (!std::uncaught_exceptions() && m_Processor.get_DB().IsOpen())
 		m_PeerMan.OnFlush();
 
-    LOG_INFO() << "Node stopped";
+    BEAM_LOG_INFO() << "Node stopped";
 }
 
 void Node::Peer::OnRequestTimeout()
@@ -1438,7 +1438,7 @@ void Node::Peer::OnRequestTimeout()
 	assert(Flags::Connected & m_Flags);
 	assert(!m_lstTasks.empty());
 
-	LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
+	BEAM_LOG_WARNING() << "Peer " << m_RemoteAddr << " request timeout";
 
 	if (m_pInfo)
 		ModifyRatingWrtData(0); // task (request) wasn't handled in time.
@@ -1489,7 +1489,7 @@ void Node::Peer::OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut)
 
 void Node::Peer::OnConnectedSecure()
 {
-    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
+    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
 
     m_Flags |= Flags::Connected;
 
@@ -1535,7 +1535,7 @@ Height Node::Peer::get_MinPeerFork()
 void Node::Peer::OnMsg(proto::Authentication&& msg)
 {
     proto::NodeConnection::OnMsg(std::move(msg));
-    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
 
     if (proto::IDType::Owner == msg.m_IDType)
     {
@@ -1578,7 +1578,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         ThrowUnexpected();
 
     m_Flags |= Flags::PiRcvd;
-    LOG_VERBOSE() << m_RemoteAddr << " received PI";
+    BEAM_LOG_VERBOSE() << m_RemoteAddr << " received PI";
 
     PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
@@ -1603,12 +1603,12 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
         if (pip.m_ID.m_Key == Zero)
         {
-            LOG_INFO() << "deleted anonymous PI";
+            BEAM_LOG_INFO() << "deleted anonymous PI";
             pm.Delete(pip); // it's anonymous.
         }
         else
         {
-            LOG_INFO() << "PeerID is different";
+            BEAM_LOG_INFO() << "PeerID is different";
             pm.OnActive(pip, false);
             pm.RemoveAddr(pip); // turned-out to be wrong
         }
@@ -1616,7 +1616,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
     if (msg.m_ID == m_This.m_MyPublicID)
     {
-        LOG_WARNING() << "Loopback connection";
+        BEAM_LOG_WARNING() << "Loopback connection";
         DeleteSelf(false, ByeReason::Loopback);
         return;
     }
@@ -1629,7 +1629,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         addr = m_RemoteAddr;
         addr.port(m_Port);
     } else
-        LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
+        BEAM_LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
 
 
     PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
@@ -1640,14 +1640,14 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
     if (Flags::Probe & m_Flags)
     {
-        LOG_INFO() << *pPi << " probed ok";
+        BEAM_LOG_INFO() << *pPi << " probed ok";
         DeleteSelf(false, ByeReason::Probed);
         return;
     }
 
     if (pPi->m_Live.m_p)
     {
-        LOG_INFO() << "Duplicate connection with the same PI.";
+        BEAM_LOG_INFO() << "Duplicate connection with the same PI.";
         // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
         // We decide this based on our Node IDs.
         // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
@@ -1668,7 +1668,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 
     if (!pPi->m_RawRating.m_Value)
     {
-        LOG_INFO() << "Banned PI. Ignoring";
+        BEAM_LOG_INFO() << "Banned PI. Ignoring";
         DeleteSelf(false, ByeReason::Ban);
         return;
     }
@@ -1677,7 +1677,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
     pm.OnActive(*pPi, true);
 
-    LOG_VERBOSE() << *m_pInfo << " connected, info updated";
+    BEAM_LOG_VERBOSE() << *m_pInfo << " connected, info updated";
 
     if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
     {
@@ -1687,7 +1687,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
         {
             pPi->m_LastConnectAttempt = ts;
 
-            LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
+            BEAM_LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
 
 
             Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
@@ -1720,13 +1720,13 @@ bool Node::Peer::ShouldFinalizeMining()
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
-    LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-    int nLogLevel = LOG_LEVEL_VERBOSE;
+    int nLogLevel = BEAM_LOG_LEVEL_VERBOSE;
 
     bool bIsErr = true;
     uint8_t nByeReason = 0;
@@ -1755,19 +1755,19 @@ void Node::Peer::OnDisconnect(const DisconnectReason& dr)
             break;
 
         default:
-            nLogLevel = LOG_LEVEL_WARNING;
+            nLogLevel = BEAM_LOG_LEVEL_WARNING;
         }
 
         nByeReason = ByeReason::Ban;
         break;
 
     case DisconnectReason::Protocol:
-        nLogLevel = LOG_LEVEL_WARNING;
+        nLogLevel = BEAM_LOG_LEVEL_WARNING;
         nByeReason = ByeReason::Ban;
         break;
     }
 
-    LOG_MESSAGE(nLogLevel) << m_RemoteAddr << ": " << dr;
+    BEAM_LOG_MESSAGE(nLogLevel) << m_RemoteAddr << ": " << dr;
 
     DeleteSelf(bIsErr, nByeReason);
 }
@@ -1803,7 +1803,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
-    LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
+    BEAM_LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
 
     if (nByeReason && (Flags::Connected & m_Flags))
     {
@@ -1863,7 +1863,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 			if (bDelete)
 			{
-				LOG_VERBOSE() << pip << " Deleted";
+				BEAM_LOG_VERBOSE() << pip << " Deleted";
 				pm.Delete(pip);
 			}
 		}
@@ -1927,7 +1927,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
     Processor& p = m_This.m_Processor;
     bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
 
-    LOG_MESSAGE(bTipNeeded ? LOG_LEVEL_INFO: LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
+    BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO: BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
 
     if (!m_pInfo)
         return;
@@ -2144,7 +2144,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
         }
     }
 
-	LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
+	BEAM_LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
 	ModifyRatingWrtData(sizeof(msg.m_Prefix) + msg.m_vElements.size() * sizeof(msg.m_vElements.front()));
 
@@ -2355,7 +2355,7 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrg, hCountExtra);
 		if (pPtr)
 		{
-			LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
+			BEAM_LOG_INFO() << id << " Block pack received " << id.m_Height << "-" << (id.m_Height + msg.m_Bodies.size() - 1);
 
 			eStatus = NodeProcessor::DataStatus::Accepted;
 
@@ -2437,7 +2437,7 @@ void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, std::unique_ptr<Merkle:
     //    Transaction::KeyType key;
     //    txd.m_pTx->get_Key(key);
 
-    //    LOG_INFO() << "Tx " << key << " deferred";
+    //    BEAM_LOG_INFO() << "Tx " << key << " deferred";
     //}
 
     if (m_TxDeferred.m_lst.empty())
@@ -2616,7 +2616,7 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
     }
 
     os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
-    LOG_INFO() << os.str();
+    BEAM_LOG_INFO() << os.str();
 }
 
 void Node::LogTxStem(const Transaction& tx, const char* szTxt)
@@ -2635,7 +2635,7 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 		os << "\n\tK: " << sz;
 	}
 
-	LOG_INFO() << os.str();
+	BEAM_LOG_INFO() << os.str();
 }
 
 const ECC::uintBig& Node::NextNonce()
@@ -2807,7 +2807,7 @@ void Node::OnTransactionAggregated(Transaction::Ptr&& pTx, const TxPool::Stats& 
     {
         if (m_Cfg.m_LogTxStem)
         {
-            LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
+            BEAM_LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
         }
 
         pNext->SendTx(pTx, false);
@@ -4084,7 +4084,7 @@ void Node::Peer::OnMsg(proto::GetEvents&& msg)
         ser.swap_buf(msgOut.m_Events);
     }
     else
-        LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
+        BEAM_LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
     Send(msgOut);
 }
@@ -4163,13 +4163,13 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 
     if (!bRes)
     {
-        LOG_WARNING() << "Block finalization failed";
+        BEAM_LOG_WARNING() << "Block finalization failed";
         return;
     }
 
     Cast::Down<NodeProcessor::GeneratedBlock>(x) = std::move(bc);
 
-    LOG_INFO() << "Block Finalized by owner";
+    BEAM_LOG_INFO() << "Block Finalized by owner";
 
     m_This.m_Miner.StartMining(std::move(pTask));
 }
@@ -4696,7 +4696,7 @@ bool Node::Miner::Restart()
 
     if (!bRes)
     {
-        LOG_WARNING() << "Block generation failed, can't mine!";
+        BEAM_LOG_WARNING() << "Block generation failed, can't mine!";
         return false;
     }
 
@@ -4709,7 +4709,7 @@ bool Node::Miner::Restart()
     if (m_pFinalizer)
     {
         const NodeProcessor::GeneratedBlock& x = *pTask;
-        LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
+        BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
 
         proto::GetBlockFinalization msg;
         msg.m_Height = pTask->m_Hdr.m_Height;
@@ -4732,7 +4732,7 @@ bool Node::Miner::IsShouldMine(const NodeProcessor::GeneratedBlock& bc)
     if (bc.m_Fees >= m_FeesTrg)
         return true;
 
-    LOG_INFO() << "Block generation no change";
+    BEAM_LOG_INFO() << "Block generation no change";
     return false;
 }
 
@@ -4744,7 +4744,7 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
     if (!IsShouldMine(x))
         return;
 
-    LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
+    BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
 
     m_FeesTrg = x.m_Fees + 1;
 
@@ -4786,7 +4786,7 @@ void Node::Miner::OnRefreshExternal()
 		return;
 
     // NOTE the mutex is locked here
-    LOG_INFO() << "New job for external miner";
+    BEAM_LOG_INFO() << "New job for external miner";
 
 	uint64_t jobID = ++m_External.m_jobID;
 	m_External.get_At(jobID) = m_pTask;
@@ -4815,11 +4815,11 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 
 	bool bReject = (m_External.m_jobID - jobID >= _countof(m_External.m_ppTask));
 
-	LOG_INFO() << "Solution from external miner. jobID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
+	BEAM_LOG_INFO() << "Solution from external miner. jobID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
 
     if (bReject)
     {
-        LOG_INFO() << "Solution is rejected due it is outdated.";
+        BEAM_LOG_INFO() << "Solution is rejected due it is outdated.";
 		return IExternalPOW::solution_expired; // outdated
     }
 
@@ -4827,7 +4827,7 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 
     if (!pTask || *pTask->m_pStop)
     {
-        LOG_INFO() << "Solution is rejected due block mining has been canceled.";
+        BEAM_LOG_INFO() << "Solution is rejected due block mining has been canceled.";
 		return IExternalPOW::solution_rejected; // already cancelled
     }
 
@@ -4836,7 +4836,7 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 
     if (!pTask->m_Hdr.IsValidPoW())
     {
-        LOG_INFO() << "invalid solution from external miner";
+        BEAM_LOG_INFO() << "invalid solution from external miner";
         return IExternalPOW::solution_rejected;
     }
 
@@ -4865,7 +4865,7 @@ void Node::Miner::OnMined()
     Block::SystemState::ID id;
     pTask->m_Hdr.get_ID(id);
 
-    LOG_INFO() << "New block mined: " << id;
+    BEAM_LOG_INFO() << "New block mined: " << id;
 
     Processor& p = get_ParentObj().m_Processor; // alias
     NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
@@ -4874,12 +4874,12 @@ void Node::Miner::OnMined()
     default:
     case NodeProcessor::DataStatus::Invalid:
         // Some bug?
-        LOG_WARNING() << "Mined block rejected as invalid!";
+        BEAM_LOG_WARNING() << "Mined block rejected as invalid!";
         return;
 
     case NodeProcessor::DataStatus::Rejected:
         // Someone else mined exactly the same block!
-        LOG_WARNING() << "Mined block duplicated";
+        BEAM_LOG_WARNING() << "Mined block duplicated";
         return;
 
     case NodeProcessor::DataStatus::Accepted:
@@ -5342,7 +5342,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	}
 	catch (const std::exception& ex)
 	{
-		LOG_ERROR() << ex.what();
+		BEAM_LOG_ERROR() << ex.what();
 		return false;
 	}
 
@@ -5425,7 +5425,7 @@ void Node::PrintTxos()
             }
         }
 
-        LOG_INFO() << os.str();
+        BEAM_LOG_INFO() << os.str();
     }
 }
 
@@ -5561,7 +5561,7 @@ void Node::PrintRollbackStats()
 
     }
 
-    LOG_INFO() << os.str();
+    BEAM_LOG_INFO() << os.str();
 }
 
 void Node::GenerateFakeBlocks(uint32_t n)

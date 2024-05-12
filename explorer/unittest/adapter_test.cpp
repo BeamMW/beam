@@ -58,12 +58,12 @@ WaitHandle run_node(const NodeParams& params) {
             }
             if (!params.treasuryPath.empty()) {
                 wallet::ReadTreasury(node.m_Cfg.m_Treasury, params.treasuryPath);
-                LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_Treasury.size();
+                BEAM_LOG_INFO() << "Treasury blocks read: " << node.m_Cfg.m_Treasury.size();
             }
 
             explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
 
-            LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+            BEAM_LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
             node.Initialize();
             reactor->run();
         }
@@ -107,9 +107,9 @@ int test_adapter(int seconds) {
 int main(int argc, char* argv[]) {
     using namespace beam;
 
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = Logger::create(logLevel, logLevel);
     logger->set_header_formatter(

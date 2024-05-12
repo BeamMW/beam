@@ -72,7 +72,7 @@ namespace
         }
         catch (std::exception& e)
         {
-            LOG_ERROR() << e.what();
+            BEAM_LOG_ERROR() << e.what();
         }
     }
 }
@@ -113,10 +113,10 @@ namespace beam
         }
         catch (const std::exception& e)
         {
-            LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+            BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
         }
         catch (...) {
-            LOG_UNHANDLED_EXCEPTION();
+            BEAM_LOG_UNHANDLED_EXCEPTION();
         }
     }
 
@@ -191,18 +191,18 @@ namespace beam
                         }
                         catch (const io::Exception& ex)
                         {
-                            LOG_ERROR() << ex.what();
+                            BEAM_LOG_ERROR() << ex.what();
                             m_observer->onFailedToStartNode(ex.errorCode);
                             bErr = false;
                             recreate = true;
                         }
                         catch (const std::runtime_error& ex)
                         {
-                            LOG_ERROR() << ex.what();
+                            BEAM_LOG_ERROR() << ex.what();
                         }
                         catch (const CorruptionException& ex)
                         {
-                            LOG_ERROR() << "Corruption: " << ex.m_sErr;
+                            BEAM_LOG_ERROR() << "Corruption: " << ex.m_sErr;
                         }
 
                         if (bErr)
@@ -217,12 +217,12 @@ namespace beam
             }
             catch (const std::exception& e)
             {
-                LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
+                BEAM_LOG_UNHANDLED_EXCEPTION() << "what = " << e.what();
             }
             // commented intentionally to be able to catch crash
             //catch (...)
             //{
-            //    LOG_UNHANDLED_EXCEPTION();
+            //    BEAM_LOG_UNHANDLED_EXCEPTION();
             //}
 
             m_observer->onNodeThreadFinished();
@@ -295,11 +295,11 @@ namespace beam
                 }
                 else
                 {
-                    LOG_ERROR() << "Unable to resolve node address: " << peer;
+                    BEAM_LOG_ERROR() << "Unable to resolve node address: " << peer;
                 }
             }
 
-            LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
+            BEAM_LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
 
             class MyObserver final : public Node::IObserver, public ILongAction
             {

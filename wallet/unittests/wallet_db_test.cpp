@@ -1,4 +1,4 @@
-// Copyright 2018 The Beam Team
+// Copyright 2018-2024 The Beam Team
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -219,29 +219,29 @@ void TestStoreCoins()
 
 
     
-    int coinBase = 0;
-    int comission = 0;
-    int regular = 0;
-    walletDB->visitCoins([&coinBase, &comission, &regular](const Coin& coin)->bool
+    int coinbase_count = 0;
+    int comission_count = 0;
+    int regular_count = 0;
+    walletDB->visitCoins([&coinbase_count, &comission_count, &regular_count](const Coin& coin)->bool
     {
         if (coin.m_ID.m_Type == Key::Type::Coinbase)
         {
-            ++coinBase;
+            ++coinbase_count;
         }
         else if (coin.m_ID.m_Type == Key::Type::Comission)
         {
-            ++comission;
+            ++comission_count;
         }
         else if (coin.m_ID.m_Type == Key::Type::Regular)
         {
-            ++regular;
+            ++regular_count;
         }
         return true;
     });
 
-    WALLET_CHECK(coinBase == 6);
-    WALLET_CHECK(comission == 6);
-    WALLET_CHECK(regular == 10);
+    WALLET_CHECK(coinbase_count == 6);
+    WALLET_CHECK(comission_count == 6);
+    WALLET_CHECK(regular_count == 10);
 
     coins.clear();
     walletDB->visitCoins([&coins](const auto& coin)->bool
@@ -1062,10 +1062,10 @@ vector<Coin> SelectCoins(IWalletDB::Ptr db, Amount amount, bool printCoins = tru
         sum += coin.m_ID.m_Value;
         if (printCoins)
         {
-            LOG_INFO() << coin.m_ID.m_Value;
+            BEAM_LOG_INFO() << coin.m_ID.m_Value;
         }
     }
-    LOG_INFO() << "sum = " << sum << " change = " << sum - amount;
+    BEAM_LOG_INFO() << "sum = " << sum << " change = " << sum - amount;
     WALLET_CHECK(amount <= sum);
 #ifdef NDEBUG
     WALLET_CHECK(sw.milliseconds() <= 1000);
@@ -1706,9 +1706,9 @@ void TestShieldedStatus2()
 
 int main() 
 {
-    int logLevel = LOG_LEVEL_DEBUG;
+    int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
-    logLevel = LOG_LEVEL_VERBOSE;
+    logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();

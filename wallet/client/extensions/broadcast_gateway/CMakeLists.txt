@@ -18,5 +18,5 @@ target_link_libraries(broadcast_gateway
         wallet_core
 )
 
-target_compile_features(broadcast_gateway PUBLIC cxx_std_17)
+target_compile_features(broadcast_gateway PUBLIC cxx_std_20)
 

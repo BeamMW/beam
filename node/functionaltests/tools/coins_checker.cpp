@@ -63,7 +63,7 @@ void CoinsChecker::OnMsg(proto::Authentication&& msg)
 
 void CoinsChecker::OnDisconnect(const DisconnectReason& reason)
 {
-	LOG_ERROR() << "problem with connecting to node: code = " << reason;
+	BEAM_LOG_ERROR() << "problem with connecting to node: code = " << reason;
 	for (const auto& tmp : m_Queue)
 	{
 		tmp.second(false, m_Maturity);
@@ -86,7 +86,7 @@ void CoinsChecker::OnMsg(proto::ProofUtxo&& msg)
 {
 	if (m_Current == m_Queue.front().first.end())
 	{
-		LOG_INFO() << "reaceived ProofUtxo twice";
+		BEAM_LOG_INFO() << "reaceived ProofUtxo twice";
 	}
 
 	if (msg.m_Proofs.empty())

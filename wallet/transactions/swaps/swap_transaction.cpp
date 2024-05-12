@@ -316,7 +316,7 @@ namespace beam::wallet
             auto receiverAddr = m_walletDB->getAddress(*peerID);
             if (receiverAddr && receiverAddr->isOwn())
             {
-                LOG_ERROR() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
+                BEAM_LOG_ERROR() << "Failed to initiate the atomic swap. Not able to use own address as receiver's.";
                 throw FailToStartSwapException();
             }
         }
@@ -362,7 +362,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState<State>(kDefaultSubTxID));
+        BEAM_LOG_INFO() << GetTxID() << " You cannot cancel transaction in state: " << static_cast<int>(GetState<State>(kDefaultSubTxID));
     }
 
     bool AtomicSwapTransaction::Rollback(Height height)
@@ -517,7 +517,7 @@ namespace beam::wallet
                 Height lifeTime = GetMandatoryParameter<Height>(TxParameterID::Lifetime);
                 if (lifeTime > kBeamLockTxLifetimeMax)
                 {
-                    LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "] " << "Transaction's lifetime is unacceptable.";
+                    BEAM_LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::BEAM_LOCK_TX) << "] " << "Transaction's lifetime is unacceptable.";
                     OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::BEAM_LOCK_TX, true);
                     break;
                 }
@@ -536,7 +536,7 @@ namespace beam::wallet
                     SetParameter(TxParameterID::MinHeight, currentHeight, false, SubTxIndex::BEAM_LOCK_TX);
 
                     SendInvitation();
-                    LOG_INFO() << GetTxID() << " Invitation sent.";
+                    BEAM_LOG_INFO() << GetTxID() << " Invitation sent.";
                 }
                 else
                 {
@@ -559,7 +559,7 @@ namespace beam::wallet
 
                     if (!secondSide->ValidateLockTime())
                     {
-                        LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
+                        BEAM_LOG_ERROR() << GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << "Lock height is unacceptable.";
                         OnSubTxFailed(TxFailureReason::InvalidTransaction, SubTxIndex::LOCK_TX, true);
                         break;
                     }
@@ -571,7 +571,7 @@ namespace beam::wallet
                     auto minHeight = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
                     if (minHeight < mainMinHeight || minHeight >= mainPeerResponseHeight)
                     {
-                        LOG_WARNING() << "mainMinHeight=" << mainMinHeight << ", locktxMinHeight=" << minHeight << ", peerHeight=" << mainPeerResponseHeight;
+                        BEAM_LOG_WARNING() << "mainMinHeight=" << mainMinHeight << ", locktxMinHeight=" << minHeight << ", peerHeight=" << mainPeerResponseHeight;
                         OnSubTxFailed(TxFailureReason::MinHeightIsUnacceptable, SubTxIndex::BEAM_LOCK_TX, true);
                         break;
                     }
@@ -593,7 +593,7 @@ namespace beam::wallet
                     UpdateOnNextTip();
                     break;
                 }
-                LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
+                BEAM_LOG_INFO() << GetTxID() << " Beam LockTX constructed.";
                 SetNextState(State::BuildingBeamRefundTX);
                 break;
             }
@@ -604,7 +604,7 @@ namespace beam::wallet
                     break;
 
                 m_WithdrawTx.reset();
-                LOG_INFO() << GetTxID() << " Beam RefundTX constructed.";
+                BEAM_LOG_INFO() << GetTxID() << " Beam RefundTX constructed.";
                 SetNextState(State::BuildingBeamRedeemTX);
                 break;
             }
@@ -615,7 +615,7 @@ namespace beam::wallet
                     break;
 
                 m_WithdrawTx.reset();
-                LOG_INFO() << GetTxID() << " Beam RedeemTX constructed.";
+                BEAM_LOG_INFO() << GetTxID() << " Beam RedeemTX constructed.";
                 SetNextState(State::HandlingContractTX);
                 break;
             }
@@ -647,7 +647,7 @@ namespace beam::wallet
                     }
                 }
 
-                LOG_INFO() << GetTxID() << " LockTX completed.";
+                BEAM_LOG_INFO() << GetTxID() << " LockTX completed.";
                 SetNextState(State::SendingBeamLockTX);
                 break;
             }
@@ -672,7 +672,7 @@ namespace beam::wallet
                     break;
                 }
 
-                LOG_INFO() << GetTxID() << " RefundTX completed!";
+                BEAM_LOG_INFO() << GetTxID() << " RefundTX completed!";
                 SetNextState(State::Refunded);
                 break;
             }
@@ -688,7 +688,7 @@ namespace beam::wallet
                     break;
                 }
 
-                LOG_INFO() << GetTxID() << " RedeemTX completed!";
+                BEAM_LOG_INFO() << GetTxID() << " RedeemTX completed!";
                 SetNextState(State::CompleteSwap);
                 break;
             }
@@ -704,7 +704,7 @@ namespace beam::wallet
 
                 if (!isBeamOwner && m_secondSide->IsLockTimeExpired())
                 {
-                    LOG_INFO() << GetTxID() << " Locktime is expired.";
+                    BEAM_LOG_INFO() << GetTxID() << " Locktime is expired.";
                     SetNextState(State::SendingRefundTX);
                     break;
                 }
@@ -712,7 +712,7 @@ namespace beam::wallet
                 if (!CompleteSubTx(SubTxIndex::BEAM_LOCK_TX))
                     break;
 
-                LOG_INFO() << GetTxID() << " Beam LockTX completed.";
+                BEAM_LOG_INFO() << GetTxID() << " Beam LockTX completed.";
                 SetNextState(State::SendingBeamRedeemTX);
                 break;
             }
@@ -736,7 +736,7 @@ namespace beam::wallet
 
                             if (kernelUnconfirmedHeight > refundMinHeight)
                             {
-                                LOG_INFO() << GetTxID() << " Beam locktime expired.";
+                                BEAM_LOG_INFO() << GetTxID() << " Beam locktime expired.";
                                 SetNextState(State::SendingBeamRefundTX);
                                 break;
                             }
@@ -756,7 +756,7 @@ namespace beam::wallet
                 {
                     if (!IsBeamRedeemTxRegistered() && !IsSafeToSendBeamRedeemTx())
                     {
-                        LOG_INFO() << GetTxID() << " Not enough time to finish Beam redeem transaction.";
+                        BEAM_LOG_INFO() << GetTxID() << " Not enough time to finish Beam redeem transaction.";
                         SetNextState(State::SendingRefundTX);
                         break;
                     }
@@ -764,7 +764,7 @@ namespace beam::wallet
                     if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REDEEM_TX))
                         break;
 
-                    LOG_INFO() << GetTxID() << " Beam RedeemTX completed!";
+                    BEAM_LOG_INFO() << GetTxID() << " Beam RedeemTX completed!";
                     SetNextState(State::CompleteSwap);
                 }
                 break;
@@ -781,7 +781,7 @@ namespace beam::wallet
                 if (!CompleteBeamWithdrawTx(SubTxIndex::BEAM_REFUND_TX))
                     break;
 
-                LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
+                BEAM_LOG_INFO() << GetTxID() << " Beam Refund TX completed!";
 
                 SendQuickRefundPrivateKey();
                 SetNextState(State::Refunded);
@@ -789,14 +789,14 @@ namespace beam::wallet
             }
             case State::CompleteSwap:
             {
-                LOG_INFO() << GetTxID() << " Swap completed.";
+                BEAM_LOG_INFO() << GetTxID() << " Swap completed.";
                 UpdateTxDescription(TxStatus::Completed);
                 GetGateway().on_tx_completed(GetTxID());
                 break;
             }
             case State::Canceled:
             {
-                LOG_INFO() << GetTxID() << " Transaction cancelled.";
+                BEAM_LOG_INFO() << GetTxID() << " Transaction cancelled.";
                 NotifyFailure(TxFailureReason::Canceled);
                 UpdateTxDescription(TxStatus::Canceled);
 
@@ -817,16 +817,16 @@ namespace beam::wallet
                 {
                     if (reason == TxFailureReason::Canceled)
                     {
-                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                        BEAM_LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
                     }
                     else
                     {
-                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                        BEAM_LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
                     }
                 }
                 else
                 {
-                    LOG_ERROR() << GetTxID() << " Transaction failed.";
+                    BEAM_LOG_ERROR() << GetTxID() << " Transaction failed.";
                 }
                 UpdateTxDescription(TxStatus::Failed);
                 GetGateway().on_tx_failed(GetTxID());
@@ -835,7 +835,7 @@ namespace beam::wallet
 
             case State::Refunded:
             {
-                LOG_INFO() << GetTxID() << " Swap has not succeeded.";
+                BEAM_LOG_INFO() << GetTxID() << " Swap has not succeeded.";
                 UpdateTxDescription(TxStatus::Failed);
                 GetGateway().on_tx_failed(GetTxID());
                 break;
@@ -886,7 +886,7 @@ namespace beam::wallet
 
     void AtomicSwapTransaction::OnFailed(TxFailureReason reason, bool notify)
     {
-        LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
+        BEAM_LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
         if (reason == TxFailureReason::NoInputs)
         {
@@ -952,7 +952,7 @@ namespace beam::wallet
         {            
             if (isBeamSide)
             {
-                LOG_ERROR() << GetTxID() << " Unexpected error.";
+                BEAM_LOG_ERROR() << GetTxID() << " Unexpected error.";
                 return;
             }
             else
@@ -1001,7 +1001,7 @@ namespace beam::wallet
             Block::SystemState::Full state;
             if (GetTip(state) && state.m_Height > lockTxMaxHeight)
             {
-                LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                BEAM_LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
                 OnFailed(TxFailureReason::TransactionExpired, false);
                 return true;
             }
@@ -1013,7 +1013,7 @@ namespace beam::wallet
             {
                 if (lastUnconfirmedHeight >= lockTxMaxHeight)
                 {
-                    LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
+                    BEAM_LOG_INFO() << GetTxID() << " Transaction expired. Last unconfirmed height: " << lastUnconfirmedHeight << ", max kernel height: " << lockTxMaxHeight;
                     OnFailed(TxFailureReason::TransactionExpired, false);
                     return true;
                 }
@@ -1059,11 +1059,11 @@ namespace beam::wallet
                 {
                     if (reason == TxFailureReason::Canceled)
                     {
-                        LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
+                        BEAM_LOG_ERROR() << GetTxID() << " Swap cancelled. The other side has cancelled the transaction.";
                     }
                     else
                     {
-                        LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
+                        BEAM_LOG_ERROR() << GetTxID() << " The other side has failed the transaction. Reason: " << GetFailureMessage(reason);
                     }
 
                     SetState(State::SendingRefundTX);
@@ -1455,7 +1455,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_ERROR() << GetTxID() << "[" << subTxID << "]" << " Failed. " << GetFailureMessage(reason);
+        BEAM_LOG_ERROR() << GetTxID() << "[" << subTxID << "]" << " Failed. " << GetFailureMessage(reason);
 
         SetParameter(TxParameterID::InternalFailureReason, reason, false, subTxID);
         OnFailed(TxFailureReason::SubTxFailed, notify);
