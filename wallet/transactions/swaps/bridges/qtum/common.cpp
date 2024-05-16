@@ -21,7 +21,7 @@ namespace
     constexpr uint8_t kQtumMainnetP2KH = 0x3a;
     constexpr uint8_t kQtumTestnetP2KH = 0x78;
 
-    // TODO roman.strilets it's dupplicate (ethereum/common.cpp)
+    // TODO roman.strilets it's duplicate (ethereum/common.cpp)
     libbitcoin::wallet::hd_private ProcessHDPrivate(const libbitcoin::wallet::hd_private& privateKey, uint32_t index, bool hard = true)
     {
         static constexpr auto first = libbitcoin::wallet::hd_first_hardened_key;
