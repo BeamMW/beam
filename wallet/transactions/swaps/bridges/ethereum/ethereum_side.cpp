@@ -671,7 +671,7 @@ Amount EthereumSide::CalcLockTxFee(Amount priceGas, AtomicSwapCoin swapCoin)
 
     if (IsEthToken(swapCoin))
     {
-        result += 2 * priceGas * ethereum::kApproveTxGasLimit; // sometimes need 2 appove
+        result += 2 * priceGas * ethereum::kApproveTxGasLimit; // sometimes need 2 approve
     }
 
     return result;
