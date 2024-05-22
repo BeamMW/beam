@@ -15,7 +15,8 @@ jobs:
     strategy:
       matrix:
         # os: [macos-11]
-        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        # os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [macos-12, ubuntu-18.04, ubuntu-20.04, windows-2022]
 
     steps:
       - uses: actions/checkout@v2
@@ -32,7 +33,7 @@ jobs:
       ###############################################################################
 
       - name: Create Build Environment [macos-11]
-        if: matrix.os == 'macos-11'
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: |
           echo $GITHUB_WORKSPACE
           echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
@@ -50,13 +51,13 @@ jobs:
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update -y
-          sudo apt-get install g++-7 -y
+          sudo apt-get install g++-8 -y
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7 
           sudo update-alternatives --set gcc "/usr/bin/gcc-7" 
 
       - name: Create Build Environment [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: |
           git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
           echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
@@ -64,7 +65,7 @@ jobs:
           echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
       - name: Download boost [ubuntu && macos]
-        if: matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-2019' || matrix.os == 'windows-2022'
         shell: bash
         run: |
           rm -rf ${{runner.workspace}}/boost_prebuild
@@ -75,8 +76,8 @@ jobs:
       ###############################################################################
       # Configure CMake
       ###############################################################################
-      - name: Configure CMake [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Configure CMake [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
@@ -85,12 +86,19 @@ jobs:
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
-      - name: Configure CMake [windows]
+      - name: Configure CMake [windows-2019]
         shell: bash
         if: matrix.os == 'windows-2019'
         run: |
           cmake --version
           cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_CONFIGURATION_TYPES:STRING=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=Off -DBEAM_HW_WALLET=Off .
+
+      - name: Configure CMake [windows-2022]
+        shell: bash
+        if: matrix.os == 'windows-2022'
+        run: |
+          cmake --version
+          cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_CONFIGURATION_TYPES:STRING=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=Off -DBEAM_HW_WALLET=Off .
 
       - name: Save version info
         shell: bash
@@ -101,8 +109,8 @@ jobs:
       ###############################################################################
       # Build
       ###############################################################################
-      - name: Build [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Build [macos ]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: cmake --build . --parallel --config $BUILD_TYPE
 
       - name: Build [ununtu all]
@@ -112,14 +120,14 @@ jobs:
 
       - name: Build [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: cmake --build . --config $BUILD_CONFIG --parallel
 
       ###############################################################################
       # Test
       ###############################################################################
-      - name: Test [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Test [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         continue-on-error: false
         run: ctest -C $BUILD_TYPE --verbose
 
@@ -130,7 +138,7 @@ jobs:
         run: ctest --verbose
 
       - name: Test [windows]
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         continue-on-error: false
         shell: bash
         run: ctest -C $BUILD_CONFIG --verbose
@@ -138,14 +146,14 @@ jobs:
       ###############################################################################
       # Collect artifacts
       ###############################################################################
-      - name: Import Code-Signing Certificates [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Import Code-Signing Certificates [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         uses: Apple-Actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-      - name: Sign the mac binaries [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Sign the mac binaries [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: |
           codesign --sign "Developer ID Application" --deep --force --verbose --options runtime --timestamp beam/beam-node
           codesign --sign "${{secrets.MACOS_SIGN_IDENTITY}}" --deep --force --verbose --options runtime --timestamp beam/beam-node
@@ -166,8 +174,8 @@ jobs:
           sha256sum wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-      - name: Checksum [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Checksum [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: |
           shasum -a 256 beam/beam-node > beam/beam-node-checksum.txt
           shasum -a 256 wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
@@ -176,9 +184,9 @@ jobs:
           shasum -a 256 wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-      - name: Collect [macos-11 && ununtu all]
+      - name: Collect [macos && ununtu all]
         shell: bash
-        if: matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-2019' && matrix.os != 'windows-2022'
         run: |
           mkdir artifacts
           tar -cvf artifacts/beam-node.tar -C beam beam-node beam-node-checksum.txt beam-node.cfg
@@ -190,7 +198,7 @@ jobs:
 
       - name: Collect [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: |
           mkdir artifacts
           cp beam/${{env.BUILD_CONFIG}}/beam-node.exe artifacts/beam-node.exe
@@ -207,7 +215,7 @@ jobs:
 
       - name: Collect pdb [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: |
           mkdir pdb
           cp beam/${{env.BUILD_CONFIG}}/beam-node.pdb pdb/beam-node.pdb
@@ -218,7 +226,7 @@ jobs:
           cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.pdb pdb/ethash-service.pdb
 
       - name: Checksum [windows]
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: |
           certUtil -hashfile artifacts/beam-node.exe SHA256 > artifacts/beam-node-checksum.txt
           certUtil -hashfile artifacts/beam-wallet.exe SHA256 > artifacts/beam-wallet-checksum.txt
@@ -228,8 +236,8 @@ jobs:
           certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
           certUtil -hashfile artifacts/ipfs-bindings.dll SHA256 > artifacts/ipfs-bindings-checksum.txt
 
-      - name: OS name [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: OS name [macos]
+        if: matrix.os == 'macos-11' || matrix.os == 'macos-12'
         run: echo "PLATFORM_NAME=mac" >> $GITHUB_ENV
 
       - name: OS name [ununtu all]
@@ -244,7 +252,7 @@ jobs:
 
       - name: OS name [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         run: echo "PLATFORM_NAME=win" >> $GITHUB_ENV
 
       ###############################################################################
@@ -292,7 +300,7 @@ jobs:
       # Upload windows pdb
       ###############################################################################
       - uses: actions/upload-artifact@v2
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2019' || matrix.os == 'windows-2022'
         with:
           name: pdb-${{env.BEAM_VERSION}}
           path: pdb
@@ -302,7 +310,7 @@ jobs:
   # Build IOS
   ###############################################################################
   build_ios:
-    runs-on: macos-11
+    runs-on: macos-12
     #if: ${{false}}
 
     steps:
