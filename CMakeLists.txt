@@ -109,8 +109,6 @@ target_include_directories(beam INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/3rdparty)
 
-target_compile_features(beam INTERFACE cxx_std_20)
-
 
 file(WRITE ${PROJECT_SOURCE_DIR}/beam_version.gen "${PROJECT_VERSION}")
 add_definitions(-DBEAM_LIB_VERSION="${BEAM_VERSION}")
@@ -121,7 +119,17 @@ endif()
 
 include(AddTest)
 
-set(CMAKE_CXX_STANDARD 20)
+option(BEAM_CPP_20_STANDARD "Build wallet with C++20 standard" OFF)
+message("BEAM_CPP_20_STANDARD is ${BEAM_CPP_20_STANDARD}")
+
+if (BEAM_CPP_20_STANDARD)
+    set(CMAKE_CXX_STANDARD 20)
+    target_compile_features(beam INTERFACE cxx_std_20)
+else()
+    set(CMAKE_CXX_STANDARD 17)
+    target_compile_features(beam INTERFACE cxx_std_17)
+endif()
+
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(BEAM_USE_AVX FALSE)
