@@ -24,5 +24,5 @@ target_link_libraries(news_channels
         wallet_core
 )
 
-target_compile_features(news_channels PUBLIC cxx_std_20)
+target_compile_features(news_channels PUBLIC ${BEAM_INTERFACE_STANDARD})
 

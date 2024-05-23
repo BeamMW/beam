@@ -16,5 +16,5 @@ target_link_libraries(dex_board
         wallet
 )
 
-target_compile_features(dex_board PUBLIC cxx_std_20)
+target_compile_features(dex_board PUBLIC ${BEAM_INTERFACE_STANDARD})
 

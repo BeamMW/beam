@@ -33,8 +33,8 @@ target_link_libraries(wallet_client_no_ipfs
     PRIVATE http
 )
 
-target_compile_features(wallet_client PUBLIC cxx_std_20)
-target_compile_features(wallet_client_no_ipfs PUBLIC cxx_std_20)
+target_compile_features(wallet_client PUBLIC ${BEAM_INTERFACE_STANDARD})
+target_compile_features(wallet_client_no_ipfs PUBLIC ${BEAM_INTERFACE_STANDARD})
 
 add_subdirectory(extensions)
 

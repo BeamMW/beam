@@ -122,13 +122,16 @@ include(AddTest)
 option(BEAM_CPP_20_STANDARD "Build wallet with C++20 standard" OFF)
 message("BEAM_CPP_20_STANDARD is ${BEAM_CPP_20_STANDARD}")
 
+
 if (BEAM_CPP_20_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
-    target_compile_features(beam INTERFACE cxx_std_20)
+    set(BEAM_INTERFACE_STANDARD, cxx_std_20)
 else()
     set(CMAKE_CXX_STANDARD 17)
-    target_compile_features(beam INTERFACE cxx_std_17)
+    set(BEAM_INTERFACE_STANDARD, cxx_std_17)
 endif()
+
+target_compile_features(beam INTERFACE ${BEAM_INTERFACE_STANDARD})
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
