@@ -444,13 +444,13 @@ namespace beam::wallet
 
     }
 
-    bool TxParameters::operator==(const TxParameters& other)
+    bool TxParameters::operator==(const TxParameters& other) const
     {
         return m_ID == other.m_ID &&
             m_Parameters == other.m_Parameters;
     }
 
-    bool TxParameters::operator!=(const TxParameters& other)
+    bool TxParameters::operator!=(const TxParameters& other) const
     {
         return !(*this == other);
     }

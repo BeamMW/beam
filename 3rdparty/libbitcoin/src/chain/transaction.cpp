@@ -738,7 +738,7 @@ bool transaction::all_inputs_final() const
 
 bool transaction::is_final(size_t block_height, uint32_t block_time) const
 {
-    const auto max_locktime = [=, this]()
+    const auto max_locktime = [=]()
     {
         return locktime_ < locktime_threshold ?
             safe_unsigned<uint32_t>(block_height) : block_time;

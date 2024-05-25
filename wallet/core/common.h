@@ -441,8 +441,8 @@ namespace beam::wallet
     public:
         TxParameters(const boost::optional<TxID>& txID = {});
 
-        bool operator==(const TxParameters& other);
-        bool operator!=(const TxParameters& other);
+        bool operator==(const TxParameters& other) const;
+        bool operator!=(const TxParameters& other) const;
 
         const boost::optional<TxID>& GetTxID() const;
 
