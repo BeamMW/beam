@@ -4,7 +4,11 @@ cmake_minimum_required(VERSION 3.13)
 set(TARGET_NAME wasm-client)
 
 if(EMSCRIPTEN)
-    set(CMAKE_CXX_STANDARD 20)
+    if (BEAM_CPP_20_STANDARD)
+        set(CMAKE_CXX_STANDARD 20)
+    else()
+        set(CMAKE_CXX_STANDARD 17)
+    endif()
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value \
                                             -pthread \

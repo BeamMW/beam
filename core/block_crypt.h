@@ -689,10 +689,13 @@ namespace beam
 		{
 		}
 
-		Output(const Output& o)
+		Output(Output&& o)
 			:TxElement(o)
 			,m_Coinbase(o.m_Coinbase)
 			,m_Incubation(o.m_Incubation)
+			,m_pConfidential(std::move(o.m_pConfidential))
+			,m_pPublic(std::move(o.m_pPublic))
+			,m_pAsset(std::move(o.m_pAsset))
 		{
 		}
 

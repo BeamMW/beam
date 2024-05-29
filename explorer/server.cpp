@@ -829,7 +829,7 @@ OnRequest(asset)
 
 OnRequest(assets)
 {
-    auto height = _currentUrl.get_int_arg("height", 0);
+    auto height = _currentUrl.get_int_arg("height", MaxHeight);
     return _backend.get_assets_at(height);
 }
 

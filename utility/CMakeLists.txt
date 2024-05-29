@@ -54,7 +54,7 @@ if (MSVC)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})
-target_compile_features(utility PUBLIC cxx_std_20)
+target_compile_features(utility PUBLIC ${BEAM_INTERFACE_STANDARD})
 
 if (NOT EMSCRIPTEN)
     add_library(cli STATIC ${CLI_SRC})
