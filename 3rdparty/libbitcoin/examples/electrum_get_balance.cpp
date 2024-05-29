@@ -33,11 +33,11 @@ namespace
 
     bool on_recv(ErrorCode what, void* data, size_t size) {
         if (data && size) {
-            LOG_DEBUG() << "RECEIVED " << size << " bytes";
-            LOG_DEBUG() << "\n" << std::string((const char*)data, size);
+            BEAM_LOG_DEBUG() << "RECEIVED " << size << " bytes";
+            BEAM_LOG_DEBUG() << "\n" << std::string((const char*)data, size);
         }
         else {
-            LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(what);
+            BEAM_LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(what);
         }
         io::Reactor::get_Current().stop();
         return true;
@@ -84,7 +84,7 @@ namespace
             streams.emplace_back(move(newStream));
         }
         else {
-            LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
+            BEAM_LOG_DEBUG() << __FUNCTION__ << " ERROR: " << error_str(status);
             io::Reactor::get_Current().stop();
         }
     }

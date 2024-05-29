@@ -171,18 +171,18 @@ void testConnection()
 
     mainReactor->tcp_connect(addr, 1, [&](uint64_t tag, std::unique_ptr<io::TcpStream>&& newStream, io::ErrorCode status)
     {
-        LOG_DEBUG() << "status = " << static_cast<int>(status);
+        BEAM_LOG_DEBUG() << "status = " << static_cast<int>(status);
         sslStream = std::move(newStream);
 
         sslStream->enable_read([&](io::ErrorCode what, void* data, size_t size)
         {
             if (data && size)
             {
-                LOG_DEBUG() << "result: " << std::string((const char*)data, size);
+                BEAM_LOG_DEBUG() << "result: " << std::string((const char*)data, size);
             }
             else
             {
-                LOG_DEBUG() << "error what = " << static_cast<int>(what);
+                BEAM_LOG_DEBUG() << "error what = " << static_cast<int>(what);
             }
             return true;
         });
