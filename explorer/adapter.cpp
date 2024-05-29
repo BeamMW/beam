@@ -2350,6 +2350,32 @@ private:
             ok = false;
         }
 
+        struct CmpIn {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_hCreate < b.m_hCreate)
+                    return true;
+                if (a.m_hCreate > b.m_hCreate)
+                    return false;
+                if (a.m_Outp.get_MinMaturity(0) < b.m_Outp.get_MinMaturity(0))
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vIns.begin(), vIns.end(), CmpIn());
+
+        struct CmpOut {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_hSpent < b.m_hSpent)
+                    return true;
+                if (a.m_hSpent > b.m_hSpent)
+                    return false;
+                if (a.m_Outp.get_MinMaturity(0) < b.m_Outp.get_MinMaturity(0))
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vOuts.begin(), vOuts.end(), CmpOut());
+
 
         if (ok) {
             char buf[80];
@@ -2448,6 +2474,19 @@ private:
     {
         std::vector<NodeProcessor::TxoInfo> vOuts;
         _nodeBackend.ExtractTreasurykWithExtra(vOuts);
+
+        struct CmpOut {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_Outp.m_Incubation < b.m_Outp.m_Incubation)
+                    return true;
+                if (a.m_Outp.m_Incubation > b.m_Outp.m_Incubation)
+                    return false;
+                if (a.m_hSpent < b.m_hSpent)
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vOuts.begin(), vOuts.end(), CmpOut());
 
         json outputs = json::array();
         for (const auto& v : vOuts)
