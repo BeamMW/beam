@@ -2065,14 +2065,27 @@ private:
             MakeTableHdr("Metadata")
             }));
 
+
+        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_Full.m_Height);
+
         Asset::Full ai;
-        for (ai.m_ID = 1; ; ai.m_ID++)
+        for (ai.m_ID = 0; ; )
         {
-            int ret = _nodeBackend.get_AssetAt(ai, h);
-            if (!ret)
-                break;
-            if (ret < 0)
-                continue;
+            if (bCurrent)
+            {
+                if (!_nodeBackend.get_DB().AssetGetNext(ai))
+                    break;
+            }
+            else
+            {
+                ++ai.m_ID;
+                int ret = _nodeBackend.get_AssetAt(ai, h);
+                if (!ret)
+                    break;
+
+                if (ret < 0)
+                    continue;
+            }
 
             ExtraInfo::Writer wr(json::array());
             wr.m_json.push_back(MakeObjAid(ai.m_ID));
@@ -2337,6 +2350,32 @@ private:
             ok = false;
         }
 
+        struct CmpIn {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_hCreate < b.m_hCreate)
+                    return true;
+                if (a.m_hCreate > b.m_hCreate)
+                    return false;
+                if (a.m_Outp.get_MinMaturity(0) < b.m_Outp.get_MinMaturity(0))
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vIns.begin(), vIns.end(), CmpIn());
+
+        struct CmpOut {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_hSpent < b.m_hSpent)
+                    return true;
+                if (a.m_hSpent > b.m_hSpent)
+                    return false;
+                if (a.m_Outp.get_MinMaturity(0) < b.m_Outp.get_MinMaturity(0))
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vOuts.begin(), vOuts.end(), CmpOut());
+
 
         if (ok) {
             char buf[80];
@@ -2435,6 +2474,19 @@ private:
     {
         std::vector<NodeProcessor::TxoInfo> vOuts;
         _nodeBackend.ExtractTreasurykWithExtra(vOuts);
+
+        struct CmpOut {
+            bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
+                if (a.m_Outp.m_Incubation < b.m_Outp.m_Incubation)
+                    return true;
+                if (a.m_Outp.m_Incubation > b.m_Outp.m_Incubation)
+                    return false;
+                if (a.m_hSpent < b.m_hSpent)
+                    return true;
+                return false;
+            }
+        };
+        std::stable_sort(vOuts.begin(), vOuts.end(), CmpOut());
 
         json outputs = json::array();
         for (const auto& v : vOuts)
