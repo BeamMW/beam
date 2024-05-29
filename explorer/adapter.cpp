@@ -2065,14 +2065,27 @@ private:
             MakeTableHdr("Metadata")
             }));
 
+
+        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_Full.m_Height);
+
         Asset::Full ai;
-        for (ai.m_ID = 1; ; ai.m_ID++)
+        for (ai.m_ID = 0; ; )
         {
-            int ret = _nodeBackend.get_AssetAt(ai, h);
-            if (!ret)
-                break;
-            if (ret < 0)
-                continue;
+            if (bCurrent)
+            {
+                if (!_nodeBackend.get_DB().AssetGetNext(ai))
+                    break;
+            }
+            else
+            {
+                ++ai.m_ID;
+                int ret = _nodeBackend.get_AssetAt(ai, h);
+                if (!ret)
+                    break;
+
+                if (ret < 0)
+                    continue;
+            }
 
             ExtraInfo::Writer wr(json::array());
             wr.m_json.push_back(MakeObjAid(ai.m_ID));
