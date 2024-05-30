@@ -575,7 +575,7 @@ namespace beam
 	{
 		oracle << m_Incubation;
 
-		if (Rules::get().IsPastFork(hScheme, 1))
+		if (Rules::get().IsPastFork_<1>(hScheme))
 		{
 			oracle << m_Commitment;
 			Asset::Proof::Expose(oracle, hScheme, m_pAsset);
@@ -767,7 +767,7 @@ namespace beam
 		if (!hr.IsEmpty())
 		{
 			auto& r = Rules::get();
-			if (r.IsPastFork(hr.m_Min, 2) && (hr.m_Max - hr.m_Min > r.MaxKernelValidityDH))
+			if (r.IsPastFork_<2>(hr.m_Min) && (hr.m_Max - hr.m_Min > r.MaxKernelValidityDH))
 				hr.m_Max = hr.m_Min + r.MaxKernelValidityDH;
 		}
 
@@ -778,7 +778,7 @@ namespace beam
 	{
 		const Rules& r = Rules::get(); // alias
 		if (m_CanEmbed)
-			r.TestForkAtLeast(hScheme, 1);
+			r.TestForkAtLeast_<1>(hScheme);
 
 		if (pParent)
 		{
@@ -803,14 +803,14 @@ namespace beam
 
 				// sort for nested kernels is not important. But for 'historical' reasons it's enforced up to Fork2
 				// Remove this code once Fork2 is reached iff no multiple nested kernels
-				if (!r.IsPastFork(hScheme, 2) && p0Krn && (*p0Krn > v))
+				if (!r.IsPastFork_<2>(hScheme) && p0Krn && (*p0Krn > v))
 					TxBase::Fail_Order();
 				p0Krn = &v;
 
 				v.TestValid(hScheme, excNested, this);
 			}
 
-			if (!r.IsPastFork(hScheme, 2))
+			if (!r.IsPastFork_<2>(hScheme))
 			{
 				// Prior to Fork2 the parent commitment was supposed to include the nested. But nested kernels are unlikely to be seen up to Fork2.
 				// Remove this code once Fork2 is reached iff no such kernels exist
@@ -839,9 +839,9 @@ namespace beam
 		const Rules& r = Rules::get(); // alias
 		if (m_pRelativeLock)
 		{
-			r.TestForkAtLeast(hScheme, 1);
+			r.TestForkAtLeast_<1>(hScheme);
 
-			if (r.IsPastFork(hScheme, 2) && !m_pRelativeLock->m_LockHeight)
+			if (r.IsPastFork_<2>(hScheme) && !m_pRelativeLock->m_LockHeight)
 				Exc::Fail(); // zero m_LockHeight makes no sense, but allowed prior to Fork2
 		}
 
@@ -994,7 +994,7 @@ namespace beam
 		HashBase(hp);
 
 		ECC::Point comm(Zero); // invalid point, avoid collision with Std kernel, which provides the commitment here
-		bool bFlag = m_CanEmbed && Rules::get().IsPastFork(m_Height.m_Min, 3);
+		bool bFlag = m_CanEmbed && Rules::get().IsPastFork_<3>(m_Height.m_Min);
 		comm.m_Y = bFlag ? 2 : 1;
 
 		hp
@@ -1048,7 +1048,7 @@ namespace beam
 		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		r.TestForkAtLeast(hScheme, 2);
+		r.TestForkAtLeast_<2>(hScheme);
 		r.TestEnabledCA();
 
 		ECC::Point::Native pPt[2];
@@ -1199,7 +1199,7 @@ namespace beam
 
 	bool TxKernelAssetDestroy::IsCustomDeposit() const
 	{
-		return Rules::get().IsPastFork(m_Height.m_Min, 5);
+		return Rules::get().IsPastFork_<5>(m_Height.m_Min);
 	}
 
 	Amount TxKernelAssetDestroy::get_Deposit() const
@@ -1234,7 +1234,7 @@ namespace beam
 		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		r.TestForkAtLeast(hScheme, 2);
+		r.TestForkAtLeast_<2>(hScheme);
 		r.TestEnabledShielded();
 
 		if (m_Txo.m_pAsset)
@@ -1281,7 +1281,7 @@ namespace beam
 		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		r.TestForkAtLeast(hScheme, 2);
+		r.TestForkAtLeast_<2>(hScheme);
 		r.TestEnabledShielded();
 
 		ECC::Point ptNeg = m_SpendProof.m_Commitment;
@@ -1338,7 +1338,7 @@ namespace beam
 		ECC::Oracle oracle;
 		oracle << m_Msg;
 
-		if (Rules::get().IsPastFork(m_Height.m_Min, 3))
+		if (Rules::get().IsPastFork_<3>(m_Height.m_Min))
 			oracle << m_NotSerialized.m_hvShieldedState;
 
 		// auto-generate seed for sigma proof and m_R_Output
@@ -1385,7 +1385,7 @@ namespace beam
 		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		r.TestForkAtLeast(hScheme, 3);
+		r.TestForkAtLeast_<3>(hScheme);
 
 		ECC::Point::Native comm;
 		comm.ImportNnzStrict(m_Commitment);
@@ -1421,7 +1421,7 @@ namespace beam
 		if (m_Dependent)
 		{
 			assert(pParentCtx);
-			if (Rules::get().IsPastFork(m_Height.m_Min, 4))
+			if (Rules::get().IsPastFork_<4>(m_Height.m_Min))
 				hp << *pParentCtx;
 		}
 	}
@@ -1549,7 +1549,7 @@ namespace beam
 
 	const Transaction::FeeSettings& Transaction::FeeSettings::get(Height h)
 	{
-		return Rules::get().IsPastFork(h, 3) ?
+		return Rules::get().IsPastFork_<3>(h) ?
 			g_FeeSettingsGlobal.m_AfterHF3 :
 			g_FeeSettingsGlobal.m_BeforeHF3;
 	}
@@ -2183,7 +2183,7 @@ namespace beam
 
 	bool Rules::IsEnabledCA(Height hScheme) const
 	{
-		return IsPastFork(hScheme, 2) && CA.Enabled;
+		return IsPastFork_<2>(hScheme) && CA.Enabled;
 	}
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
@@ -2441,7 +2441,7 @@ namespace beam
 
 	Amount Rules::get_DepositForCA(Height hScheme) const
 	{
-		return IsPastFork(hScheme, 5) ? CA.DepositForList5 : CA.DepositForList2;
+		return IsPastFork_<5>(hScheme) ? CA.DepositForList5 : CA.DepositForList2;
 	}
 
 	const char* Rules::get_NetworkName() const
@@ -2641,14 +2641,14 @@ namespace beam
 	{
 		const Rules& r = Rules::get();
 
-		if (r.IsPastFork(m_Height, 3))
+		if (r.IsPastFork_<3>(m_Height))
 		{
 			Merkle::Hash hvCSA;
 			return Interpret(hv, hv, get_KL(hv), hvCSA, get_CSA(hvCSA));
 		}
 
 		bool bUtxo = get_Utxos(hv);
-		if (!r.IsPastFork(m_Height, 2))
+		if (!r.IsPastFork_<2>(m_Height))
 			return bUtxo;
 
 		Merkle::Hash hvSA;
@@ -2828,7 +2828,7 @@ namespace beam
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		if (!Rules::get().IsPastFork(m_Height, 3))
+		if (!Rules::get().IsPastFork_<3>(m_Height))
 		{
 			struct MyVerifier
 				:public ProofVerifier
@@ -2928,7 +2928,7 @@ namespace beam
 	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof& proof) const
 	{
 		Merkle::Hash hv = hvID;
-		if (!Rules::get().IsPastFork(m_Height, 3))
+		if (!Rules::get().IsPastFork_<3>(m_Height))
 		{
 			Merkle::Interpret(hv, proof);
 			return (hv == m_Kernels);
@@ -3439,7 +3439,7 @@ namespace beam
 
 		CmList(const Rules& r, Height hScheme)
 		{
-			m_IsPastHF6 = r.IsPastFork(hScheme, 6);
+			m_IsPastHF6 = r.IsPastFork_<6>(hScheme);
 		}
 
 		bool get_At(ECC::Point::Storage& pt_s, uint32_t iIdx) override
@@ -3625,7 +3625,7 @@ namespace beam
 
 	void Asset::Proof::Expose(ECC::Oracle& oracle, Height hScheme, const Ptr& p)
 	{
-		if (Rules::get().IsPastFork(hScheme, 3))
+		if (Rules::get().IsPastFork_<3>(hScheme))
 		{
 			bool bAsset = !!p;
 			oracle << bAsset;

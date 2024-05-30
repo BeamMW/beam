@@ -478,7 +478,7 @@ namespace bvm2 {
 
 	uint32_t ProcessorContract::get_WasmVersion()
 	{
-		return IsPastFork(6) ? 1 : 0;
+		return IsPastFork_<6>() ? 1 : 0;
 	}
 
 	void Processor::Compiler::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
@@ -1370,7 +1370,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVarEx)
 	{
-		Exc::Test(IsPastHF4());
+		Exc::Test(IsPastFork_<4>());
 
 		std::setmin(nKeyBufSize, Limits::VarKeySize);
 		Exc::Test(nKey <= nKeyBufSize);
@@ -1445,7 +1445,7 @@ namespace bvm2 {
 		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
 		uint8_t* pArgsPtr = nullptr;
 
-		bool bPastHF6 = IsPastFork(6);
+		bool bPastHF6 = IsPastFork_<6>();
 		if (!bPastHF6)
 		{
 			nFlags &= 0xff; // before HF6 it was uint8_t
@@ -1559,7 +1559,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(UpdateShader)
 	{
-		Exc::Test(IsPastHF4());
+		Exc::Test(IsPastFork_<4>());
 		TestCanWrite();
 
 		TestVarSize(nVal);
@@ -1793,7 +1793,7 @@ namespace bvm2 {
 	BVM_METHOD(get_ForkHeight)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastFork(5));
+			Exc::Test(IsPastFork_<5>());
 
 		const Rules& r = Rules::get();
 		return (iFork >= _countof(r.pForks)) ? MaxHeight : r.pForks[iFork].m_Height;
@@ -1805,7 +1805,7 @@ namespace bvm2 {
 	{
 		if (Kind::Contract == get_Kind())
 		{
-			Exc::Test(IsPastFork(6));
+			Exc::Test(IsPastFork_<6>());
 			DischargeUnits(Limits::Cost::LoadVar);
 		}
 
@@ -2056,7 +2056,7 @@ namespace bvm2 {
 	BVM_METHOD(HashClone)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastHF4());
+			Exc::Test(IsPastFork_<4>());
 
 		return CloneHash(m_DataProcessor.FindStrict(pHash));
 	}
@@ -2235,7 +2235,7 @@ namespace bvm2 {
 	BVM_METHOD(Secp_Point_ExportEx)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastHF4());
+			Exc::Test(IsPastFork_<4>());
 
 		DischargeUnits(Limits::Cost::Secp_Point_Export);
 		m_Secp.m_Point.FindStrict(p).m_Val.Export(get_AddrAsW<ECC::Point::Storage>(res));
@@ -3876,7 +3876,7 @@ namespace bvm2 {
 	// Shader aux
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
-		AddRemoveShader(cid, pCode, IsPastHF4());
+		AddRemoveShader(cid, pCode, IsPastFork_<4>());
 	}
 
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)

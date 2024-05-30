@@ -1494,7 +1494,7 @@ void TestShielded()
 		ECC::Oracle oracle;
 		oracle << krn.m_Msg;
 
-		if (Rules::get().IsPastFork(krn.m_Height.m_Min, 3))
+		if (Rules::get().IsPastFork_<3>(krn.m_Height.m_Min))
 		{
 			oracle << krn.m_NotSerialized.m_hvShieldedState;
 			Asset::Proof::Expose(oracle, krn.m_Height.m_Min, krn.m_pAsset);

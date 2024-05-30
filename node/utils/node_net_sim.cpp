@@ -512,7 +512,7 @@ struct Context
         Height h = m_FlyClient.get_Height();
         std::cout << "H=" << h << std::endl;
 
-        if (!Rules::get().IsPastFork(h, 2))
+        if (!Rules::get().IsPastFork_<2>(h))
             return;
 
         std::cout << "\tTotal shielded in/outs: " << (m_pProc->m_Mmr.m_Shielded.m_Count - m_pProc->m_Extra.m_ShieldedOutputs) << " / " << m_pProc->m_Extra.m_ShieldedOutputs << std::endl;

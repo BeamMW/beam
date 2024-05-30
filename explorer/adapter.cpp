@@ -1000,7 +1000,7 @@ private:
 
                     Writer wr;
 
-                    if (r.IsPastFork(h, 6))
+                    if (r.IsPastFork_<6>(h))
                     {
                         a0++;
                         wr.m_json["x"] = 0u;

@@ -288,15 +288,11 @@ namespace bvm2 {
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
 
-		bool IsPastFork(uint32_t iFork)
+		template <uint32_t iFork>
+		bool IsPastFork_()
 		{
-			assert(iFork < _countof(Rules::get().pForks));
-			return Rules::get().IsPastFork(get_Height() + 1, iFork);
-		}
-
-		bool IsPastHF4() {
 			// current height does not include the current being-interpreted block
-			return IsPastFork(4);
+			return Rules::get().IsPastFork_<iFork>(get_Height() + 1);
 		}
 
 	public:
@@ -433,7 +429,7 @@ namespace bvm2 {
 
 		void TestVarSize(uint32_t n)
 		{
-			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
+			uint32_t nMax = IsPastFork_<4>() ? Limits::VarSize_4 : Limits::VarSize_0;
 			Exc::Test(n <= nMax);
 		}
 

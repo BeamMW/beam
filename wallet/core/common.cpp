@@ -1559,7 +1559,7 @@ namespace beam::wallet
     TxFailureReason CheckAssetsEnabled(Height h)
     {
         const Rules& r = Rules::get();
-        if (!r.IsPastFork(h, 2))
+        if (!r.IsPastFork_<2>(h))
             return TxFailureReason::AssetsDisabledFork2;
 
         if (!r.CA.Enabled)

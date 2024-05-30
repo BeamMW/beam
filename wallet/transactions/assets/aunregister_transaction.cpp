@@ -45,7 +45,7 @@ namespace beam::wallet
             std::unique_ptr<TxKernelAssetDestroy> pKrn = std::make_unique<TxKernelAssetDestroy>();
             pKrn->m_AssetID = m_Tx.GetMandatoryParameter<Asset::ID>(TxParameterID::AssetID);
 
-            if (Rules::get().IsPastFork(m_Height.m_Min, 5))
+            if (Rules::get().IsPastFork_<5>(m_Height.m_Min))
                 pKrn->m_Deposit = valDeposit;
 
             AddKernel(std::move(pKrn));

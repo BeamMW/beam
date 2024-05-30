@@ -135,7 +135,7 @@ namespace beam::wallet
                 !krn.m_vNested.empty())
                 return false; // non-trivial kernels should not be supported
 
-            if (!(Rules::get().IsPastFork(krn.m_Height.m_Min, 1)) && m_This.IsTrustless())
+            if (!(Rules::get().IsPastFork_<1>(krn.m_Height.m_Min)) && m_This.IsTrustless())
                 return false; // disallow weak scheme
         }
 
@@ -293,7 +293,7 @@ namespace beam::wallet
         if (IsTrustless())
         {
             // disallow weak paramters
-            if (!Rules::get().IsPastFork(x.m_hScheme, 1))
+            if (!Rules::get().IsPastFork_<1>(x.m_hScheme))
                 return Status::Unspecified; // blinding factor can be tampered without user permission
         }
 

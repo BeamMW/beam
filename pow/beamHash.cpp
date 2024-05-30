@@ -35,10 +35,10 @@ struct Block::PoW::Helper
 	PoWScheme* getCurrentPoW(Height h) {
 
 		const Rules& r = Rules::get();
-		if (r.IsPastFork(h, 2))
+		if (r.IsPastFork_<2>(h))
 			return &BeamHashIII;
 
-		if (r.IsPastFork(h, 1))
+		if (r.IsPastFork_<1>(h))
 			return &BeamHashII;
 		
 		return &BeamHashI;

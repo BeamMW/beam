@@ -730,7 +730,7 @@ namespace beam::wallet
         {
             if (!m_Phase)
             {
-                if (!Rules::get().IsPastFork(m_M.m_hScheme, 1))
+                if (!Rules::get().IsPastFork_<1>(m_M.m_hScheme))
                 {
                     Fin(Status::NotImplemented);
                     return;
@@ -1058,7 +1058,7 @@ namespace beam::wallet
             krn.UpdateMsg();
             m_Oracle << krn.m_Msg;
 
-            if (Rules::get().IsPastFork(krn.m_Height.m_Min, 3))
+            if (Rules::get().IsPastFork_<3>(krn.m_Height.m_Min))
             {
                 m_Oracle << krn.m_NotSerialized.m_hvShieldedState;
                 Asset::Proof::Expose(m_Oracle, krn.m_Height.m_Min, krn.m_pAsset);
