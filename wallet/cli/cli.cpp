@@ -2919,16 +2919,8 @@ namespace
         Merkle::Hash blockHash;
         state.get_Hash(blockHash);
 
-        std::string rulesHash = Rules::get().pForks[_countof(Rules::get().pForks) - 1].m_Hash.str();
-
-        for (size_t i = 1; i < _countof(Rules::get().pForks); i++)
-        {
-            if (state.m_Height < Rules::get().pForks[i].m_Height)
-            {
-                rulesHash = Rules::get().pForks[i - 1].m_Hash.str();
-                break;
-            }
-        }
+        const Rules& r = Rules::get();
+        std::string rulesHash = r.pForks[r.FindFork(state.m_Height)].m_Hash.str();
 
         std::cout << "Block Details:" << "\n"
             << "Height: " << state.m_Height << "\n"

@@ -1000,7 +1000,7 @@ private:
 
                     Writer wr;
 
-                    if (h >= r.pForks[6].m_Height)
+                    if (r.IsPastFork(h, 6))
                     {
                         a0++;
                         wr.m_json["x"] = 0u;

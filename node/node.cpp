@@ -2555,7 +2555,7 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
 {
     feeReserve = static_cast<Amount>(-1);
 
-    if (hr.m_Min >= Rules::get().pForks[1].m_Height)
+    if (Rules::get().IsPastFork(hr.m_Min, 1))
     {
         auto& fs = Transaction::FeeSettings::get(hr.m_Min);
         Amount feesMin = fs.Calculate(s);
@@ -3858,7 +3858,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if ((m_This.m_Processor.m_Cursor.m_ID.m_Height >= Rules::get().pForks[1].m_Height) && !Rules::get().FakePoW)
+	if (Rules::get().IsPastFork(m_This.m_Processor.m_Cursor.m_ID.m_Height, 1) && !Rules::get().FakePoW)
 	{
 		// test the hash
 		ECC::Hash::Value hv;
@@ -5260,7 +5260,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
         const Rules& r = Rules::get();
 
-        if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[2].m_Height)
+        if (r.IsPastFork(m_Processor.m_Cursor.m_ID.m_Height, 2))
         {
             MySerializer ser(ctx.m_Writer.m_Stream);
             ser & MaxHeight; // terminator
@@ -5298,7 +5298,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
                     m_Ser & krn.m_Txo;
                     m_Ser & krn.m_Msg;
 
-                    if (pAsset && (m_Height >= Rules::get().pForks[3].m_Height))
+                    if (pAsset && Rules::get().IsPastFork(m_Height, 3))
                         m_Ser & pAsset->m_hGen;
 
                     return true;
@@ -5316,7 +5316,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             while (m_Processor.get_DB().AssetGetNext(ai))
             {
-                if (m_Processor.m_Cursor.m_ID.m_Height < r.pForks[6].m_Height)
+                if (!r.IsPastFork(m_Processor.m_Cursor.m_ID.m_Height, 6))
                     ai.SetCid(nullptr);
 
                 ser & ai;
@@ -5324,7 +5324,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
             ser & (Asset::s_MaxCount + 1); // terminator
 
-            if (m_Processor.m_Cursor.m_ID.m_Height >= r.pForks[3].m_Height)
+            if (r.IsPastFork(m_Processor.m_Cursor.m_ID.m_Height, 3))
             {
                 m_Processor.EnsureCursorKernels();
 

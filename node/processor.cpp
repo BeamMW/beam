@@ -1103,7 +1103,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	ECC::Oracle oracle;
 	oracle << krn.m_Msg;
 
-	if (hScheme >= Rules::get().pForks[3].m_Height)
+	if (Rules::get().IsPastFork(hScheme, 3))
 	{
 		oracle << krn.m_NotSerialized.m_hvShieldedState;
 		Asset::Proof::Expose(oracle, hScheme, krn.m_pAsset);
@@ -1181,7 +1181,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 
 void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h)
 {
-	if (h < Rules::get().pForks[3].m_Height)
+	if (!Rules::get().IsPastFork(h, 3))
 		return;
 
 	struct MyWalker
@@ -1269,7 +1269,7 @@ bool NodeProcessor::MultiAssetContext::BatchCtx::IsValid(Height hScheme, ECC::Po
 	if (!p.IsValidPrepare(hGen, bc, &m_vKs.front()))
 		return false;
 
-	if (hScheme >= r.pForks[6].m_Height)
+	if (r.IsPastFork(hScheme, 6))
 	{
 		m_Ctx.Add(0, 1, &m_vKs.front());
 		m_Ctx.Add(p.m_Begin + 1u, N - 1, &m_vKs.front() + 1);
@@ -2375,7 +2375,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes
 
 	mmr.get_Proof(proof, iTrg);
 
-	if (sid.m_Height >= Rules::get().pForks[3].m_Height)
+	if (Rules::get().IsPastFork(sid.m_Height, 3))
 	{
 		struct MyProofBuilder
 			:public ProofBuilder_PrevState
@@ -2951,7 +2951,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	Merkle::Hash hvDef;
 	ev.m_Height++;
 
-	bool bPastFork3 = (sid.m_Height >= Rules::get().pForks[3].m_Height);
+	bool bPastFork3 = Rules::get().IsPastFork(sid.m_Height, 3);
 	bool bPastFastSync = (sid.m_Height >= m_SyncData.m_TxoLo);
 	bool bDefinition = bPastFork3 || bPastFastSync;
 
@@ -3668,7 +3668,7 @@ Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInter
 		assert(h <= bic.m_Height);
 
 		const Rules& r = Rules::get();
-		if ((bic.m_Height >= r.pForks[2].m_Height) && (bic.m_Height - h > r.MaxKernelValidityDH))
+		if (r.IsPastFork(bic.m_Height, 2) && (bic.m_Height - h > r.MaxKernelValidityDH))
 			return 0; // Starting from Fork2 - visibility horizon is limited
 	}
 
@@ -3907,7 +3907,7 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 			& ai.m_Metadata
 			& ai.m_LockHeight;
 
-		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
+		if (Rules::get().IsPastFork(bic.m_Height, 5))
 			ser & ai.m_Deposit;
 		else
 			assert(Rules::get().CA.DepositForList2 == ai.m_Deposit);
@@ -3938,7 +3938,7 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 		else
 			ai.m_Owner = pidOwner;
 
-		if (bic.m_Height >= Rules::get().pForks[5].m_Height)
+		if (Rules::get().IsPastFork(bic.m_Height, 5))
 			der & ai.m_Deposit;
 		else
 			ai.m_Deposit = Rules::get().CA.DepositForList2;
@@ -4597,7 +4597,7 @@ void NodeProcessor::ManageKrnID(BlockInterpretCtx& bic, const TxKernel& krn)
 bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
 {
 	const Rules& r = Rules::get();
-	if (bic.m_Fwd && (bic.m_Height >= r.pForks[2].m_Height) && !bic.m_AlreadyValidated)
+	if (bic.m_Fwd && r.IsPastFork(bic.m_Height, 2) && !bic.m_AlreadyValidated)
 	{
 		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
 		if (hPrev >= Rules::HeightGenesis)
@@ -6135,7 +6135,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	// actual dt, only making sure it's non-negative
 	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
 
-	if (m_Cursor.m_Full.m_Height >= r.pForks[1].m_Height)
+	if (r.IsPastFork(m_Cursor.m_Full.m_Height, 1))
 	{
 		// Apply dampening. Recalculate dtSrc_s := dtSrc_s * M/N + dtTrg_s * (N-M)/N
 		// Use 64-bit arithmetic to avoid overflow
@@ -6600,7 +6600,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 
 	ev.get_Definition(bc.m_Hdr.m_Definition);
 
-	if (ev.m_Height >= Rules::get().pForks[3].m_Height)
+	if (Rules::get().IsPastFork(ev.m_Height, 3))
 		get_Utxos().get_Hash(bc.m_Hdr.m_Kernels);
 	else
 		bc.m_Hdr.m_Kernels = ev.m_hvKernels;

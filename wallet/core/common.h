@@ -825,7 +825,6 @@ namespace beam::wallet
 
     extern bool g_AssetsEnabled; // global flag
     TxFailureReason CheckAssetsEnabled(Height h);
-    bool isFork3(Height h);
 
     void AppendLibraryVersion(TxParameters& params);
 

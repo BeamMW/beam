@@ -495,7 +495,7 @@ namespace beam
 		if (!(m_Cwp.m_hvRootLive == hv))
 			ThrowBadData();
 
-		if (m_Tip.m_Height >= Rules::get().pForks[3].m_Height)
+		if (Rules::get().IsPastFork(m_Tip.m_Height, 3))
 		{
 			BEAM_VERIFY(v.get_Utxos(hv));
 			if (m_Tip.m_Kernels != hv)
@@ -521,7 +521,7 @@ namespace beam
 			return false;
 
 		const Rules& r = Rules::get();
-		if (m_Tip.m_Height >= r.pForks[2].m_Height)
+		if (r.IsPastFork(m_Tip.m_Height, 2))
 		{
 			if (!ProceedShielded())
 				return false;
@@ -529,7 +529,7 @@ namespace beam
 			if (!ProceedAssets())
 				return false;
 
-			if (m_Tip.m_Height >= r.pForks[3].m_Height)
+			if (r.IsPastFork(m_Tip.m_Height, 3))
 			{
 				m_Der
 					& m_hvContracts
@@ -606,7 +606,7 @@ namespace beam
 				{
 					txo.m_pAsset.reset(new Asset::Proof);
 
-					if (h >= Rules::get().pForks[3].m_Height)
+					if (Rules::get().IsPastFork(h, 3))
 						m_Der & txo.m_pAsset->m_hGen;
 				}
 

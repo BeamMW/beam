@@ -918,7 +918,7 @@ namespace beam::wallet
     void BaseTxBuilder::CheckMinimumFee(const TxStats* pFromPeer /* = nullptr */)
     {
         // after 1st fork fee should be >= minimal fee
-        if (Rules::get().pForks[1].m_Height <= m_Height.m_Min)
+        if (Rules::get().IsPastFork(m_Height.m_Min, 1))
         {
             Amount feeInps = 0;
             for (const auto& si : m_Coins.m_InputShielded)

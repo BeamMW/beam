@@ -1067,11 +1067,6 @@ namespace beam::wallet
         return m_thread && m_thread->joinable();
     }
 
-    bool WalletClient::isFork1() const
-    {
-        return m_currentHeight >= getRules().pForks[1].m_Height;
-    }
-
     size_t WalletClient::getUnsafeActiveTransactionsCount() const
     {
         return m_unsafeActiveTxCount;

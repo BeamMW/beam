@@ -1063,7 +1063,7 @@ namespace detail
 			{
 				if (bRecoveryOnly)
 				{
-					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+					if (beam::Rules::get().IsPastFork(*pRecoveryScheme, 3))
 						ar & output.m_pAsset->m_hGen;
 				} else
 					savePtr(ar, output.m_pAsset);
@@ -1117,7 +1117,7 @@ namespace detail
 			{
 				if (bRecoveryOnly)
 				{
-					if (*pRecoveryScheme >= beam::Rules::get().pForks[3].m_Height)
+					if (beam::Rules::get().IsPastFork(*pRecoveryScheme, 3))
 					{
 						output.m_pAsset = std::make_unique<beam::Asset::Proof>();
 						ar & output.m_pAsset->m_hGen;

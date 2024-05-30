@@ -291,7 +291,7 @@ namespace bvm2 {
 		bool IsPastFork(uint32_t iFork)
 		{
 			assert(iFork < _countof(Rules::get().pForks));
-			return get_Height() + 1 >= Rules::get().pForks[iFork].m_Height;
+			return Rules::get().IsPastFork(get_Height() + 1, iFork);
 		}
 
 		bool IsPastHF4() {

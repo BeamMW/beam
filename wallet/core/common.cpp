@@ -1559,7 +1559,7 @@ namespace beam::wallet
     TxFailureReason CheckAssetsEnabled(Height h)
     {
         const Rules& r = Rules::get();
-        if (h < r.pForks[2].m_Height)
+        if (!r.IsPastFork(h, 2))
             return TxFailureReason::AssetsDisabledFork2;
 
         if (!r.CA.Enabled)
@@ -1569,16 +1569,6 @@ namespace beam::wallet
             return TxFailureReason::AssetsDisabledInWallet;
 
         return TxFailureReason::Count;
-    }
-
-    bool isFork3(Height h)
-    {
-        const Rules& r = Rules::get();
-        if (h < r.pForks[3].m_Height)
-        {
-            return false;
-        }
-        return true;
     }
 
     void AppendLibraryVersion(TxParameters& params)
