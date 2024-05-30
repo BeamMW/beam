@@ -465,16 +465,38 @@ namespace beam::wallet
                     IMPLEMENT_GET_PARENT_OBJ(Request, m_Target)
                 } m_Target;
 
+                struct ListNode :public boost::intrusive::list_base_hook<>
+                {
+                    typedef boost::intrusive::list<ListNode> List;
+                    Timestamp m_ReqTime_s;
+                    IMPLEMENT_GET_PARENT_OBJ(Request, m_ListNode)
+                } m_ListNode;
+
                 WalletID m_OwnAddr;
+                ECC::Scalar::Native m_sk; // not so secret
             };
 
             Request::Target::Set m_setTrg;
+            Request::ListNode::List m_lstRequests;
+
+            io::Timer::Ptr m_pTimer;
 
             Request* CreateIfNew(const WalletID& trg);
             void Delete(Request&);
             void DeleteAll();
+            void Listen(Request&);
+            void SendRequest(Request&);
+            bool IsFirstDue(const Request&) const;
+
+            void CheckTimer();
+            void EnsureRequest(const WalletID& trg);
+
+            ByteBuffer SaveState() const;
+            void LoadState(const Blob&);
 
             ~VoucherManager() { DeleteAll(); }
+
+            struct Ser;
 
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_VoucherManager)
         } m_VoucherManager;
