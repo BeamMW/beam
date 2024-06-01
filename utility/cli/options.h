@@ -134,7 +134,7 @@ namespace beam
         extern const char* LOG_ERROR;
         extern const char* LOG_WARNING;
         extern const char* LOG_INFO;
-        extern const char* BEAM_LOG_DEBUG;
+        extern const char* LOG_DEBUG;
         extern const char* LOG_VERBOSE;
         extern const char* LOG_CLEANUP_DAYS;
         extern const char* LOG_UTXOS;
