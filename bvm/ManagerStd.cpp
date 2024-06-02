@@ -512,6 +512,11 @@ namespace bvm2 {
 		m_Pending.m_pBlocker = nullptr;
 	}
 
+	void ManagerStd::Reset()
+	{
+		OnReset();
+	}
+
 	void ManagerStd::StartRun(uint32_t iMethod)
 	{
 		OnReset();

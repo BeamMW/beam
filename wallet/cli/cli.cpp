@@ -2378,8 +2378,6 @@ namespace
             {
                 wallet->EnableBodyRequests(true);
             }
-            wallet->ResumeAllTransactions();
-
             auto nnet = CreateNetwork(*wallet, vm);
             if (!nnet)
             {
@@ -2389,6 +2387,8 @@ namespace
             auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
             wallet->AddMessageEndpoint(wnet);
             wallet->SetNodeEndpoint(nnet);
+
+            wallet->ResumeAllTransactions();
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
             assetsSwapHandler.init(wallet, walletDB, nnet, *wnet);
