@@ -271,6 +271,7 @@ namespace beam
         extern const char* SHADER_BYTECODE_CONTRACT;
         extern const char* SHADER_PRIVILEGE;
         extern const char* SHADER_DEBUG;
+        extern const char* SHADER_WIDGET;
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT

@@ -19,6 +19,7 @@
 #include "base_transaction.h"
 #include "core/fly_client.h"
 #include "node/processor.h"
+#include "../../bvm/ManagerStd.h"
 
 namespace beam::wallet
 {
@@ -163,6 +164,8 @@ namespace beam::wallet
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
+        void SetWidget(ByteBuffer&&);
+
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 
@@ -241,11 +244,21 @@ namespace beam::wallet
         void OnDependentStateChanged() override;
 
         struct RequestHandler
-            : public proto::FlyClient::Request::IHandler
+            :public proto::FlyClient::Request::IHandler
         {
             virtual void OnComplete(Request&) override;
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
+
+        struct WidgetRunner
+            :public bvm2::ManagerStd
+        {
+            static const char s_szVarName[];
+            void WriteStream(const Blob&, uint32_t iStream) override;
+            void OnDone(const std::exception* pExc) override;
+
+            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_WidgetRunner)
+        } m_WidgetRunner;
 
         size_t SyncRemains() const;
         size_t GetSyncDone() const;
@@ -283,6 +296,7 @@ namespace beam::wallet
 
         void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
+        void ProcessWidget();
         bool IsNodeInSync() const;
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);

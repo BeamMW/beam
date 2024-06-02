@@ -2446,6 +2446,35 @@ namespace
             });
     }
 
+    void CompileShader(ByteBuffer& res, const char* sz, bvm2::Processor::Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
+    {
+        std::FStream fs;
+        fs.Open(sz, true, true);
+
+        res.resize(static_cast<size_t>(fs.get_Remaining()));
+        if (!res.empty())
+            fs.read(&res.front(), res.size());
+
+        struct MyCompiler :public bvm2::Processor::Compiler
+        {
+            bool m_HaveMissing;
+
+            void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
+            {
+                if (!m_HaveMissing)
+                {
+                    m_HaveMissing = true;
+                    std::cout << "Shader uses newer API, some features may not work.\n";
+                }
+                std::cout << "\t Missing " << x << std::endl;
+            }
+        };
+
+        MyCompiler c;
+        c.m_HaveMissing = false;
+        c.Compile(res, res, kind, pDbgInfo);
+    }
+
     int ShaderInvoke(const po::variables_map& vm)
     {
         return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
@@ -2479,35 +2508,6 @@ namespace
                         if (m_Async)
                             io::Reactor::get_Current().stop();
 				    }
-
-                    static void Compile(ByteBuffer& res, const char* sz, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo = nullptr)
-                    {
-                        std::FStream fs;
-                        fs.Open(sz, true, true);
-
-                        res.resize(static_cast<size_t>(fs.get_Remaining()));
-                        if (!res.empty())
-                            fs.read(&res.front(), res.size());
-
-                        struct MyCompiler :public bvm2::Processor::Compiler
-                        {
-                            bool m_HaveMissing;
-
-                            void OnBindingMissing(const Wasm::Compiler::PerImport& x) override
-                            {
-                                if (!m_HaveMissing)
-                                {
-                                    m_HaveMissing = true;
-                                    std::cout << "Shader uses newer API, some features may not work.\n";
-                                }
-                                std::cout << "\t Missing " << x << std::endl;
-                            }
-                        };
-
-                        MyCompiler c;
-                        c.m_HaveMissing = false;
-                        c.Compile(res, res, kind, pDbgInfo);
-                    }
                 };
 
                 MyManager man(*wallet);
@@ -2517,11 +2517,11 @@ namespace
                 if (sVal.empty())
                     throw std::runtime_error("shader file not specified");
 
-                MyManager::Compile(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager, man.m_Debug ? &man.m_DbgInfo : nullptr);
+                CompileShader(man.m_BodyManager, sVal.c_str(), MyManager::Kind::Manager, man.m_Debug ? &man.m_DbgInfo : nullptr);
 
                 sVal = vm[cli::SHADER_BYTECODE_CONTRACT].as<string>();
                 if (!sVal.empty())
-                    MyManager::Compile(man.m_BodyContract, sVal.c_str(), MyManager::Kind::Contract);
+                    CompileShader(man.m_BodyContract, sVal.c_str(), MyManager::Kind::Contract);
 
                 sVal = vm[cli::SHADER_ARGS].as<string>(); // should be comma-separated list of name=val pairs
                 if (!sVal.empty())
@@ -2623,6 +2623,31 @@ namespace
                 return 0;
             });
     }
+
+    int ShaderWidget(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+            {
+                auto sPath = vm[cli::SHADER_BYTECODE_APP].as<std::string>();
+
+                ByteBuffer buf;
+                if (sPath.empty())
+                    std::cout << "Widget shader reset" << std::endl;
+                else
+                {
+                    CompileShader(buf, sPath.c_str(), bvm2::Processor::Kind::Manager);
+
+                    bvm2::ShaderID sid;
+                    bvm2::get_ShaderID(sid, buf);
+
+                    std::cout << "Widget sid: " << sid << std::endl;
+                }
+
+                wallet->SetWidget(std::move(buf));
+                return 0;
+            });
+    }
+
 
     int Listen(const po::variables_map& vm)
     {
@@ -3318,6 +3343,7 @@ int main(int argc, char* argv[])
         {cli::HID_INSTALL,        HidInstall,                       "Install Beam app on the attached HW wallet"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
+        {cli::SHADER_WIDGET,      ShaderWidget,                     "Set the wallet widget shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
         {cli::TREASURY,           HandleTreasury,                   "process treasury"},
         {cli::INFO,               ShowWalletInfo,                   "print information about wallet balance and transactions"},

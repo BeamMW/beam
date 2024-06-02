@@ -308,6 +308,7 @@ namespace beam
         const char* SHADER_BYTECODE_CONTRACT = "shader_contract_file";
         const char* SHADER_PRIVILEGE         = "shader_privilege";
         const char* SHADER_DEBUG             = "shader_debug";
+        const char* SHADER_WIDGET            = "widget";
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT

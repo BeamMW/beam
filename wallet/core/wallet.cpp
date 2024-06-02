@@ -334,6 +334,19 @@ namespace beam::wallet
         }
     }
 
+    const char Wallet::WidgetRunner::s_szVarName[] = "widget_shader";
+
+    void Wallet::SetWidget(ByteBuffer&& x)
+    {
+        if (x.empty())
+            m_WalletDB->removeVarRaw(WidgetRunner::s_szVarName);
+        else
+            m_WalletDB->setVarRaw(WidgetRunner::s_szVarName, &x.front(), x.size());
+
+        m_WidgetRunner.m_BodyManager = std::move(x);
+        m_WidgetRunner.Reset();
+    }
+
     void Wallet::ResumeAllTransactions()
     {
         // restore being-received vouchers
@@ -341,6 +354,15 @@ namespace beam::wallet
             ByteBuffer buf;
             m_WalletDB->getBlob(VoucherManager::Ser::s_szVarName, buf);
             m_VoucherManager.LoadState(buf);
+        }
+
+        // widget
+        {
+            m_WidgetRunner.m_pPKdf = m_WalletDB->get_OwnerKdf();
+            m_WidgetRunner.m_pHist = &m_WalletDB->get_History();
+            m_WidgetRunner.m_pNetwork = m_NodeEndpoint;
+
+            m_WalletDB->getBlob(WidgetRunner::s_szVarName, m_WidgetRunner.m_BodyManager);
         }
 
         auto func = [this](const auto& tx)
@@ -2124,6 +2146,17 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
+
+        ProcessWidget();
+    }
+
+    void Wallet::ProcessWidget()
+    {
+        if (m_WidgetRunner.m_BodyManager.empty())
+            return;
+
+        m_WidgetRunner.m_InvokeData.Reset();
+        m_WidgetRunner.StartRun(0);
     }
 
     void Wallet::OnTipUnchanged()
@@ -2135,6 +2168,28 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
+
+        ProcessWidget();
+    }
+
+    void Wallet::WidgetRunner::OnDone(const std::exception* /* pExc */)
+    {
+    }
+
+    void Wallet::WidgetRunner::WriteStream(const Blob& b, uint32_t iStream)
+    {
+        const char* szPrefix = "";
+        switch (iStream)
+        {
+        case Shaders::Stream::Out: szPrefix = "Widget out: "; break;
+        case Shaders::Stream::Error: szPrefix = "Widget error: "; break;
+        default:
+            szPrefix = "Widget ";
+        }
+
+        std::cout << szPrefix;
+        std::cout.write((const char*) b.p, b.n);
+        std::cout << std::endl;
     }
 
     void Wallet::getUtxoProof(const Coin& coin)
