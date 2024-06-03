@@ -2348,9 +2348,6 @@ namespace
             };
         }
 
-#ifdef BEAM_ASSET_SWAP_SUPPORT
-        AssetsSwapCliHandler assetsSwapHandler;
-#endif  // BEAM_ASSET_SWAP_SUPPORT
         auto wallet = std::make_shared<Wallet>(walletDB,
             std::move(txCompletedAction),
             Wallet::UpdateCompletedAction());
@@ -2391,6 +2388,7 @@ namespace
             wallet->ResumeAllTransactions();
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
+            AssetsSwapCliHandler assetsSwapHandler;
             assetsSwapHandler.init(wallet, walletDB, nnet, *wnet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
