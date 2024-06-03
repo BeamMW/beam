@@ -14,28 +14,9 @@
 
 #pragma once
 
+#include "../bvm2.h"
+
 namespace Shaders
 {
-	using PubKey = ECC::Point;
-	using Secp_point_data = ECC::Point;
-	using Secp_point_dataEx = ECC::Point::Storage;
-	using Secp_scalar_data = ECC::Scalar;
-	using AssetID = beam::Asset::ID;
-	using ContractID = ECC::uintBig;
-	using HashValue = ECC::uintBig;
-	using beam::Amount;
-	using beam::Height;
-	using beam::Timestamp;
-	using beam::HeightPos;
-
-	template<bool bToShader, typename T>
-	inline void ConvertOrd(T& x)
-	{
-		if constexpr (bToShader)
-			x = beam::ByteOrder::to_le(x);
-		else
-			x = beam::ByteOrder::from_le(x);
-	}
-
 #include "bvm/Shaders/Ethash.h"
 }
