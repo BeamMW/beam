@@ -1342,11 +1342,17 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
+
+		if (Kind::Contract == get_Kind())
+		{
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
+			key = vk.ToBlob();
+		}
 
 		Blob res;
-		LoadVar(vk.ToBlob(), res);
+		LoadVar(key, res);
 
 		memcpy(pVal, res.p, std::min(nVal, res.n));
 		return res.n;
@@ -1370,38 +1376,57 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVarEx)
 	{
-		Exc::Test(IsPastFork_<4>());
-
-		std::setmin(nKeyBufSize, Limits::VarKeySize);
-		Exc::Test(nKey <= nKeyBufSize);
-
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
-		Blob key = vk.ToBlob(), res;
+		bool bContract = (Kind::Contract == get_Kind());
+		if (bContract)
+		{
+			Exc::Test(IsPastFork_<4>());
+
+			std::setmin(nKeyBufSize, Limits::VarKeySize);
+			Exc::Test(nKey <= nKeyBufSize);
+
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
+			key = vk.ToBlob();
+		}
+
+		Blob res;
 		LoadVarEx(key, res,
 			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
 			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
 
-		if (key.n > ContractID::nBytes)
+		if (bContract)
 		{
-			// make sure we're still in the context of the contract vars
-			auto pK = (const uint8_t*) key.p;
-			const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-
-			if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+			// make sure it's still the current contract+type
+			bool bMatch = (key.n > ContractID::nBytes);
+			if (bMatch)
 			{
-				nKey = key.n - (ContractID::nBytes + 1);
-				memcpy(pKey, pK + ContractID::nBytes + 1, std::min(nKey, nKeyBufSize));
+				auto pK = (const uint8_t*)key.p;
+				const auto& cid = ((ProcessorPlusEnv_Contract*) this)->m_FarCalls.m_Stack.back().m_Cid;
 
-				memcpy(pVal, res.p, std::min(nVal, res.n));
-				nVal = res.n;
-				return;
+				if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+				{
+					// ok
+					key.n -= (ContractID::nBytes + 1);
+					((const uint8_t*&) key.p) += (ContractID::nBytes + 1);
+				}
+				else
+					bMatch = false;
+			}
+
+			if (!bMatch)
+			{
+				key.n = 0;
+				res.n = 0;
 			}
 		}
 
-		nKey = 0;
-		nVal = 0;
+		nKey = key.n;
+		memcpy(pKey, key.p, std::min(nKey, nKeyBufSize));
+
+		memcpy(pVal, res.p, std::min(nVal, res.n));
+		nVal = res.n;
 	}
 
 	BVM_METHOD(SaveVar)
@@ -1411,12 +1436,19 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		TestVarSize(nVal);
-
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return SaveVarInternal(vk.ToBlob(), Blob(pVal, nVal));
+		if (Kind::Contract == get_Kind())
+		{
+			((ProcessorPlusEnv_Contract*) this)->TestVarSize(nVal);
+			((ProcessorPlusEnv_Contract*) this)->TestCanWrite();
+
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, true);
+			key = vk.ToBlob();
+		}
+
+		return SaveVar(key, Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)

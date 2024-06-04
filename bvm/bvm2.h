@@ -295,6 +295,13 @@ namespace bvm2 {
 			return Rules::get().IsPastFork_<iFork>(get_Height() + 1);
 		}
 
+		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
+			key.n = 0;
+			res.n = 0;
+		}
+		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
+
 	public:
 
 		enum struct Kind {
@@ -329,6 +336,8 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
+
+		friend struct ProcessorPlusEnv;
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
@@ -396,14 +405,8 @@ namespace bvm2 {
 		virtual void DischargeUnits(uint32_t size) override;
 		virtual uint32_t get_WasmVersion() override;
 
-		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
-		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
 		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
-		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
-			key.n = 0;
-			res.n = 0;
-		}
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

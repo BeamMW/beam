@@ -512,6 +512,9 @@
 	macro(0x19, void     , StackFree) \
 	macro(0x1A, void*    , Heap_Alloc) \
 	macro(0x1B, void     , Heap_Free) \
+	macro(0x20, uint32_t , LoadVar) \
+	macro(0x21, uint32_t , SaveVar) \
+	macro(0x27, void     , LoadVarEx) \
 	macro(0x28, void     , Halt) \
 	macro(0x2A, uint32_t , get_AssetInfo) \
 	macro(0x2B, void     , HashWrite) \
@@ -550,14 +553,11 @@
 	macro(0xB0, uint8_t  , VerifyBeamHashIII) \
 
 #define BVMOpsAll_Contract(macro) \
-	macro(0x20, uint32_t , LoadVar) \
-	macro(0x21, uint32_t , SaveVar) \
 	macro(0x22, uint32_t , EmitLog) \
 	macro(0x23, void     , CallFar) \
 	macro(0x24, uint32_t , get_CallDepth) \
 	macro(0x25, void     , get_CallerCid) \
 	macro(0x26, void     , UpdateShader) \
-	macro(0x27, void     , LoadVarEx) \
 	macro(0x29, void     , AddSig) \
 	macro(0x30, void     , FundsLock) \
 	macro(0x31, void     , FundsUnlock) \
