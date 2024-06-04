@@ -25,6 +25,7 @@
 #include "contract_transaction.h"
 #include "strings_resources.h"
 #include "assets_utils.h"
+#include "contracts/shaders_manager.h"
 
 #include <algorithm>
 #include <random>
@@ -334,6 +335,17 @@ namespace beam::wallet
         }
     }
 
+    struct Wallet::WidgetRunner
+        :public ManagerStdInWallet
+    {
+        using ManagerStdInWallet::ManagerStdInWallet;
+
+        static const char s_szVarName[];
+        void WriteStream(const Blob&, uint32_t iStream) override;
+        void OnDone(const std::exception* pExc) override;
+
+    };
+
     const char Wallet::WidgetRunner::s_szVarName[] = "widget_shader";
 
     void Wallet::SetWidget(ByteBuffer&& x)
@@ -343,8 +355,15 @@ namespace beam::wallet
         else
             m_WalletDB->setVarRaw(WidgetRunner::s_szVarName, &x.front(), x.size());
 
-        m_WidgetRunner.m_BodyManager = std::move(x);
-        m_WidgetRunner.Reset();
+        InitWidgetRunner();
+        m_pWidgetRunner->m_BodyManager = std::move(x);
+        m_pWidgetRunner->Reset();
+    }
+
+    void Wallet::InitWidgetRunner()
+    {
+        if (!m_pWidgetRunner)
+            m_pWidgetRunner = std::make_unique<WidgetRunner>(*this);
     }
 
     void Wallet::ResumeAllTransactions()
@@ -356,14 +375,9 @@ namespace beam::wallet
             m_VoucherManager.LoadState(buf);
         }
 
-        // widget
-        {
-            m_WidgetRunner.m_pPKdf = m_WalletDB->get_OwnerKdf();
-            m_WidgetRunner.m_pHist = &m_WalletDB->get_History();
-            m_WidgetRunner.m_pNetwork = m_NodeEndpoint;
-
-            m_WalletDB->getBlob(WidgetRunner::s_szVarName, m_WidgetRunner.m_BodyManager);
-        }
+        InitWidgetRunner();
+        m_WalletDB->getBlob(WidgetRunner::s_szVarName, m_pWidgetRunner->m_BodyManager);
+        m_pWidgetRunner->Reset();
 
         auto func = [this](const auto& tx)
         {
@@ -2152,11 +2166,15 @@ namespace beam::wallet
 
     void Wallet::ProcessWidget()
     {
-        if (m_WidgetRunner.m_BodyManager.empty())
+        if (!m_pWidgetRunner)
             return;
 
-        m_WidgetRunner.m_InvokeData.Reset();
-        m_WidgetRunner.StartRun(0);
+        auto& w = *m_pWidgetRunner;
+        if (w.m_BodyManager.empty())
+            return;
+
+        w.m_InvokeData.Reset();
+        w.StartRun(0);
     }
 
     void Wallet::OnTipUnchanged()

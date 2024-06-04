@@ -19,7 +19,7 @@
 #include "base_transaction.h"
 #include "core/fly_client.h"
 #include "node/processor.h"
-#include "../../bvm/ManagerStd.h"
+//#include "contracts/shaders_manager.h"
 
 namespace beam::wallet
 {
@@ -250,15 +250,9 @@ namespace beam::wallet
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
 
-        struct WidgetRunner
-            :public bvm2::ManagerStd
-        {
-            static const char s_szVarName[];
-            void WriteStream(const Blob&, uint32_t iStream) override;
-            void OnDone(const std::exception* pExc) override;
-
-            IMPLEMENT_GET_PARENT_OBJ(Wallet, m_WidgetRunner)
-        } m_WidgetRunner;
+        struct WidgetRunner;
+        std::unique_ptr<WidgetRunner> m_pWidgetRunner;
+        void InitWidgetRunner();
 
         size_t SyncRemains() const;
         size_t GetSyncDone() const;
