@@ -447,14 +447,11 @@ namespace beam::wallet
         if (x.empty())
         {
             m_WalletDB->ClearAppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())));
-            m_WalletDB->removeVarRaw(WidgetRunner::s_szVarName);
         }
         else
         {
             Blob buf(x);
             m_WalletDB->set_AppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())), Blob(), &buf);
-
-            m_WalletDB->setVarRaw(WidgetRunner::s_szVarName, &x.front(), x.size());
 
             w.GetOrCreate(*this, std::move(sName));
         }
