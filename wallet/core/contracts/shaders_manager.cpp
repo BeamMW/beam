@@ -147,9 +147,14 @@ namespace beam::wallet {
         std::cout << std::endl;
     }
 
+    Blob ManagerStdInWallet::get_StoreName()
+    {
+        return Blob(); // empty
+    }
+
     void ManagerStdInWallet::LoadVar(const Blob& key, Blob& res)
     {
-        if (!m_Wallet.get_WalletDB()->get_AppData(key, m_LastVar))
+        if (!m_Wallet.get_WalletDB()->get_AppData(get_StoreName(), key, m_LastVar))
             m_LastVar.clear();
         
         res = m_LastVar;
@@ -163,7 +168,7 @@ namespace beam::wallet {
 
     uint32_t ManagerStdInWallet::SaveVar(const Blob& key, const Blob& val)
     {
-        m_Wallet.get_WalletDB()->set_AppData(key, val.n ? &val : nullptr);
+        m_Wallet.get_WalletDB()->set_AppData(get_StoreName(), key, val.n ? &val : nullptr);
         return 0;
     }
 

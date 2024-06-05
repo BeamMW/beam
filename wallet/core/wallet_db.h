@@ -649,9 +649,9 @@ namespace beam::wallet
         virtual void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const = 0;
 
         // app data
-        virtual bool get_AppData(const Blob&, ByteBuffer&) { return false; }
-        virtual void set_AppData(const Blob&, const Blob*) {}
-        virtual void ClearAppData() {}
+        virtual bool get_AppData(const Blob& name, const Blob&, ByteBuffer&) { return false; }
+        virtual void set_AppData(const Blob& name, const Blob&, const Blob*) {}
+        virtual void ClearAppData(const Blob& name) {}
 
        private:
            bool get_CommitmentSafe(ECC::Point& comm, const CoinID&, IPrivateKeyKeeper2*);
@@ -827,9 +827,9 @@ namespace beam::wallet
         void visitEvents(Height min, const Blob& key, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
         void visitEvents(Height min, std::function<bool(Height, ByteBuffer&&)>&& func) const override;
 
-        bool get_AppData(const Blob&, ByteBuffer&) override;
-        void set_AppData(const Blob&, const Blob*) override;
-        void ClearAppData() override;
+        bool get_AppData(const Blob& name, const Blob&, ByteBuffer&) override;
+        void set_AppData(const Blob& name, const Blob&, const Blob*) override;
+        void ClearAppData(const Blob& name) override;
 
     private:
         static std::shared_ptr<WalletDB> initBase(const std::string& path, const SecString& password, bool separateDBForPrivateData);

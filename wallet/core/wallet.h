@@ -164,7 +164,7 @@ namespace beam::wallet
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
-        void SetWidget(ByteBuffer&&);
+        void SetWidget(std::string&&, ByteBuffer&&);
 
         bool IsWalletInSync() const;
         Height get_TipHeight() const;

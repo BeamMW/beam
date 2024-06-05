@@ -113,6 +113,7 @@ namespace fs = std::filesystem;
 #define LAST_READ_IM_ID "LastReadIMId"
 
 #define TblAppData "appdata"
+#define TblAppData_Name "name"
 #define TblAppData_Key "key"
 #define TblAppData_Val "val"
 
@@ -1259,7 +1260,8 @@ namespace beam::wallet
 
         void CreateAppDataTable(sqlite3* db)
         {
-            const char* req = "CREATE TABLE " TblAppData " (" TblAppData_Key " BLOB NOT NULL PRIMARY KEY, " TblAppData_Val " BLOB NOT NULL );";
+            const char* req = "CREATE TABLE " TblAppData " (" TblAppData_Name " BLOB NOT NULL, " TblAppData_Key " BLOB NOT NULL, " TblAppData_Val " BLOB NOT NULL);"
+                "CREATE UNIQUE INDEX " TblAppData "_Idx ON " TblAppData "(" TblAppData_Name "," TblAppData_Key  ");";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -6078,12 +6080,13 @@ namespace beam::wallet
         stm.step();
     }
 
-    bool WalletDB::get_AppData(const Blob& key, ByteBuffer& res)
+    bool WalletDB::get_AppData(const Blob& name, const Blob& key, ByteBuffer& res)
     {
-        const char* req = "SELECT " TblAppData_Val " FROM " TblAppData " WHERE " TblAppData_Key "=?";
+        const char* req = "SELECT " TblAppData_Val " FROM " TblAppData " WHERE " TblAppData_Name "=? AND " TblAppData_Key "=?";
 
         sqlite::Statement stm(this, req);
-        stm.bind(1, key);
+        stm.bind(1, name);
+        stm.bind(2, key);
 
         if (!stm.step())
             return false;
@@ -6093,32 +6096,35 @@ namespace beam::wallet
 
     }
 
-    void WalletDB::set_AppData(const Blob& key, const Blob* pRes)
+    void WalletDB::set_AppData(const Blob& name, const Blob& key, const Blob* pRes)
     {
         if (pRes)
         {
-            const char* req = "INSERT or REPLACE INTO " TblAppData " (" TblAppData_Key "," TblAppData_Val ") VALUES(?1, ?2);";
+            const char* req = "INSERT or REPLACE INTO " TblAppData " (" TblAppData_Name "," TblAppData_Key "," TblAppData_Val ") VALUES(?,?,?);";
 
             sqlite::Statement stm(this, req);
 
-            stm.bind(1, key);
-            stm.bind(2, *pRes);
+            stm.bind(1, name);
+            stm.bind(2, key);
+            stm.bind(3, *pRes);
 
             stm.step();
         }
         else
         {
-            const char* req = "DELETE FROM " TblAppData " WHERE " TblAppData_Key "=?";
+            const char* req = "DELETE FROM " TblAppData " WHERE " TblAppData_Name "=? AND " TblAppData_Key "=?";
             sqlite::Statement stm(this, req);
-            stm.bind(1, key);
+            stm.bind(1, name);
+            stm.bind(2, key);
             stm.step();
         }
     }
 
-    void WalletDB::ClearAppData()
+    void WalletDB::ClearAppData(const Blob& name)
     {
-        const char* req = "DELETE FROM " TblAppData;
+        const char* req = "DELETE FROM " TblAppData " WHERE " TblAppData_Name "=?";
         sqlite::Statement stm(this, req);
+        stm.bind(1, name);
         stm.step();
     }
 

@@ -50,6 +50,8 @@ namespace beam::wallet {
         void LoadVar(const Blob&, Blob& res) override;
         void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
         uint32_t SaveVar(const Blob&, const Blob& val) override;
+
+        virtual Blob get_StoreName();
     };
 
     class ShadersManager

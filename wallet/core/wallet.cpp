@@ -336,34 +336,140 @@ namespace beam::wallet
     }
 
     struct Wallet::WidgetRunner
-        :public ManagerStdInWallet
     {
-        using ManagerStdInWallet::ManagerStdInWallet;
-
         static const char s_szVarName[];
-        void WriteStream(const Blob&, uint32_t iStream) override;
-        void OnDone(const std::exception* pExc) override;
 
+        struct Entry
+            :public ManagerStdInWallet
+            ,public intrusive::set_base_hook<std::string>
+        {
+            using ManagerStdInWallet::ManagerStdInWallet;
+
+            void WriteStream(const Blob&, uint32_t iStream) override;
+            void OnDone(const std::exception* pExc) override;
+
+            Blob get_StoreName() override { return Blob(m_Key.c_str(), static_cast<uint32_t>(m_Key.size())); }
+        };
+
+        intrusive::multiset_autoclear<Entry> m_Set;
+
+        Entry* Get(const std::string& sName)
+        {
+            auto it = m_Set.find(sName, Entry::Comparator());
+            return (m_Set.end() != it) ? &(*it) : nullptr;
+        }
+
+        Entry* GetOrCreate(Wallet& w, std::string&& sName)
+        {
+            auto pVal = Get(sName);
+            if (pVal)
+                return pVal;
+
+            ByteBuffer buf;
+            w.m_WalletDB->get_AppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())), Blob(), buf);
+            if (buf.empty())
+                return nullptr; // no bytecode
+
+            pVal = new Entry(w);
+            pVal->m_Key = std::move(sName);
+            m_Set.insert(*pVal);
+
+            pVal->m_BodyManager = std::move(buf);
+
+            return pVal;
+        }
+
+        void Save(Wallet& w)
+        {
+            if (m_Set.empty())
+                w.m_WalletDB->removeVarRaw(s_szVarName);
+            else
+            {
+                Serializer ser;
+                ser& m_Set.size();
+                for (const auto& x : m_Set)
+                    ser & x.m_Key;
+
+                auto res = ser.buffer();
+
+                w.m_WalletDB->setVarRaw(s_szVarName, res.first, res.second);
+            }
+
+        }
+
+        void Load(Wallet& w)
+        {
+            try {
+
+                ByteBuffer buf;
+                w.m_WalletDB->getBlob(s_szVarName, buf);
+
+                if (!buf.empty())
+                {
+                    Deserializer der;
+                    der.reset(buf);
+
+                    size_t n = 0;
+                    der & n;
+
+                    while (n--)
+                    {
+                        std::string sName;
+                        der & sName;
+                        if (!sName.empty())
+                            GetOrCreate(w, std::move(sName));
+                    }
+                }
+
+            }
+            catch (const std::exception&) {
+                // ignore
+            }
+        }
     };
 
     const char Wallet::WidgetRunner::s_szVarName[] = "widget_shader";
 
-    void Wallet::SetWidget(ByteBuffer&& x)
+    void Wallet::SetWidget(std::string&& sName, ByteBuffer&& x)
     {
-        if (x.empty())
-            m_WalletDB->removeVarRaw(WidgetRunner::s_szVarName);
-        else
-            m_WalletDB->setVarRaw(WidgetRunner::s_szVarName, &x.front(), x.size());
+        if (sName.empty())
+            return; // name shouldn't be empty
 
         InitWidgetRunner();
-        m_pWidgetRunner->m_BodyManager = std::move(x);
-        m_pWidgetRunner->Reset();
+        auto& w = *m_pWidgetRunner;
+
+        size_t n0 = w.m_Set.size();
+
+        auto pVal = w.Get(sName);
+        if (pVal)
+            w.m_Set.Delete(*pVal);
+
+        if (x.empty())
+        {
+            m_WalletDB->ClearAppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())));
+            m_WalletDB->removeVarRaw(WidgetRunner::s_szVarName);
+        }
+        else
+        {
+            Blob buf(x);
+            m_WalletDB->set_AppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())), Blob(), &buf);
+
+            m_WalletDB->setVarRaw(WidgetRunner::s_szVarName, &x.front(), x.size());
+
+            w.GetOrCreate(*this, std::move(sName));
+        }
+
+        if (w.m_Set.size() != n0)
+            w.Save(*this);
     }
 
     void Wallet::InitWidgetRunner()
     {
         if (!m_pWidgetRunner)
-            m_pWidgetRunner = std::make_unique<WidgetRunner>(*this);
+        {
+            m_pWidgetRunner = std::make_unique<WidgetRunner>();
+            m_pWidgetRunner->Load(*this);
+        }
     }
 
     void Wallet::ResumeAllTransactions()
@@ -376,8 +482,6 @@ namespace beam::wallet
         }
 
         InitWidgetRunner();
-        m_WalletDB->getBlob(WidgetRunner::s_szVarName, m_pWidgetRunner->m_BodyManager);
-        m_pWidgetRunner->Reset();
 
         auto func = [this](const auto& tx)
         {
@@ -2170,11 +2274,12 @@ namespace beam::wallet
             return;
 
         auto& w = *m_pWidgetRunner;
-        if (w.m_BodyManager.empty())
-            return;
 
-        w.m_InvokeData.Reset();
-        w.StartRun(0);
+        for (auto& x : w.m_Set)
+        {
+            x.m_InvokeData.Reset();
+            x.StartRun(0);
+        }
     }
 
     void Wallet::OnTipUnchanged()
@@ -2190,22 +2295,20 @@ namespace beam::wallet
         ProcessWidget();
     }
 
-    void Wallet::WidgetRunner::OnDone(const std::exception* /* pExc */)
+    void Wallet::WidgetRunner::Entry::OnDone(const std::exception* /* pExc */)
     {
     }
 
-    void Wallet::WidgetRunner::WriteStream(const Blob& b, uint32_t iStream)
+    void Wallet::WidgetRunner::Entry::WriteStream(const Blob& b, uint32_t iStream)
     {
         const char* szPrefix = "";
         switch (iStream)
         {
-        case Shaders::Stream::Out: szPrefix = "Widget out: "; break;
-        case Shaders::Stream::Error: szPrefix = "Widget error: "; break;
-        default:
-            szPrefix = "Widget ";
+        case Shaders::Stream::Out: szPrefix = "out"; break;
+        case Shaders::Stream::Error: szPrefix = "error"; break;
         }
 
-        std::cout << szPrefix;
+        std::cout << "Widget " << m_Key << " " << szPrefix << ": ";
         std::cout.write((const char*) b.p, b.n);
         std::cout << std::endl;
     }

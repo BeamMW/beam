@@ -2626,11 +2626,17 @@ namespace
     {
         return DoWalletFunc(vm, [](const po::variables_map& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
+                auto sName = vm[cli::SHADER_WIDGET_NAME].as<std::string>();
+                if (sName.empty())
+                {
+                    std::cout << "widget name should not be empty";
+                    return 1;
+                }
                 auto sPath = vm[cli::SHADER_BYTECODE_APP].as<std::string>();
 
                 ByteBuffer buf;
                 if (sPath.empty())
-                    std::cout << "Widget shader reset" << std::endl;
+                    std::cout << "Widget " << sName << " removed" << std::endl;
                 else
                 {
                     CompileShader(buf, sPath.c_str(), bvm2::Processor::Kind::Manager);
@@ -2638,10 +2644,10 @@ namespace
                     bvm2::ShaderID sid;
                     bvm2::get_ShaderID(sid, buf);
 
-                    std::cout << "Widget sid: " << sid << std::endl;
+                    std::cout << "Widget " << sName << " sid: " << sid << std::endl;
                 }
 
-                wallet->SetWidget(std::move(buf));
+                wallet->SetWidget(std::move(sName), std::move(buf));
                 return 0;
             });
     }

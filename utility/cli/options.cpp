@@ -309,6 +309,7 @@ namespace beam
         const char* SHADER_PRIVILEGE         = "shader_privilege";
         const char* SHADER_DEBUG             = "shader_debug";
         const char* SHADER_WIDGET            = "widget";
+        const char* SHADER_WIDGET_NAME       = "name";
 
         // IPFS
         #ifdef BEAM_IPFS_SUPPORT
@@ -476,6 +477,7 @@ namespace beam
             (cli::SHADER_DEBUG, po::value<bool>()->default_value(false), "shader debug")
             (cli::SHADER_BYTECODE_APP, po::value<string>()->default_value(""), "Path to the app shader file")
             (cli::SHADER_BYTECODE_CONTRACT, po::value<string>()->default_value(""), "Path to the shader file for the contract (if the contract is being-created)")
+            (cli::SHADER_WIDGET_NAME, po::value<string>(), "Name of the widget")
             (cli::MAX_PRIVACY_ADDRESS, po::bool_switch()->default_value(false), "generate max privacy transaction address")
             (cli::OFFLINE_COUNT, po::value<Positive<uint32_t>>(), "generate offline transaction address with given number of payments")
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
