@@ -1350,6 +1350,11 @@ namespace bvm2 {
 			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
 			key = vk.ToBlob();
 		}
+		else
+		{
+			// impose the same restriction for apps
+			Exc::Test(key.n <= Limits::VarKeySize);
+		}
 
 		Blob res;
 		LoadVar(key, res);
@@ -1389,6 +1394,11 @@ namespace bvm2 {
 
 			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
 			key = vk.ToBlob();
+		}
+		else
+		{
+			// impose the same restriction for apps
+			Exc::Test(key.n <= Limits::VarKeySize);
 		}
 
 		Blob res;
@@ -1446,6 +1456,11 @@ namespace bvm2 {
 
 			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, true);
 			key = vk.ToBlob();
+		}
+		else
+		{
+			Exc::Test(key.n <= Limits::VarKeySize);
+			Exc::Test(nVal <= Limits::VarSize_4);
 		}
 
 		return SaveVar(key, Blob(pVal, nVal));

@@ -385,7 +385,7 @@ namespace Wasm {
 #endif // WASM_INTERPRETER_DEBUG
 
 		Processor()
-			:m_Instruction(Reader::Mode::Emulate_x86)
+			:m_Instruction(Reader::Mode::Standard)
 		{
 		}
 
