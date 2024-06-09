@@ -2209,10 +2209,12 @@ private:
     void OnHdrs_SizeCompressed_Rel(json& j) { j.push_back(MakeTableHdr("D.Size.Compressed")); }
     void OnHdrs_SizeCompressed_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full& s) { j.push_back(MakeDecimalDelta(get_ChainSize(s.m_Height, t1, false) - get_ChainSize(s.m_Height - 1, t0, false)).m_sz); }
 
-    json get_hdrs(uint64_t hMax, uint64_t nMax, uint32_t fAbs, uint32_t fRel) override
+    json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, uint32_t fAbs, uint32_t fRel) override
     {
         std::setmin(nMax, 2048u);
         std::setmin(hMax, _nodeBackend.m_Cursor.m_Full.m_Height);
+
+        std::setmax(dh, 1u);
 
         json jRet = json::array();
 
@@ -2244,6 +2246,7 @@ private:
             sid.m_Row = db.FindActiveStateStrict(hMax);
 
             Merkle::Hash hv;
+            bool bValidHv = false;
 
             StateData pTots[2];
             uint32_t iIdxTots = 0;
@@ -2254,7 +2257,7 @@ private:
                 Block::SystemState::Full s;
                 db.get_State(sid.m_Row, s);
 
-                if (hMax == sid.m_Height)
+                if (!bValidHv)
                     s.get_Hash(hv);
 
                 json jRow = json::array();
@@ -2267,7 +2270,17 @@ private:
 
                 iIdxTots = !iIdxTots;
 
-                if (!db.get_Prev(sid))
+                if (sid.m_Height - Rules::HeightGenesis >= dh)
+                {
+                    if (1u == dh)
+                        db.get_Prev(sid);
+                    else
+                    {
+                        sid.m_Height -= dh;
+                        sid.m_Row = db.FindActiveStateStrict(sid.m_Height);
+                    }
+                }
+                else
                 {
                     ZeroObject(sid);
                     bDone = true;
@@ -2296,7 +2309,11 @@ private:
                 if (bDone)
                     break;
 
-                hv = s.m_Prev;
+                if (1u == dh)
+                {
+                    hv = s.m_Prev;
+                    bValidHv = true;
+                }
             }
         }
 

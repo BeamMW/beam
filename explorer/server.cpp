@@ -804,6 +804,7 @@ OnRequest(hdrs)
 {
     Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
     uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
+    Height dh = _currentUrl.get_int_arg("dh", static_cast<uint32_t>(1));
 
     // defaults
     typedef IAdapter::TotalsFlags F;
@@ -813,7 +814,7 @@ OnRequest(hdrs)
     ReadColFlags(_currentUrl, fAbs, "cabs");
     ReadColFlags(_currentUrl, fRel, "crel");
 
-    return _backend.get_hdrs(hTop, n, fAbs, fRel);
+    return _backend.get_hdrs(hTop, n, dh, fAbs, fRel);
 }
 
 OnRequest(peers)
