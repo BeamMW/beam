@@ -773,8 +773,8 @@
 
 			text += MakeCell(MakeBlock(jRow[0]));
 			text += MakeCell(jRow[1]);
-			text += MakeCellAmount(jRow[2]["value"], "");
-			text += MakeCellAmount(jRow[3]["value"], "");
+			text += MakeCellAmount(Obj2Html(jRow[2]), "");
+			text += MakeCellAmount(Obj2Html(jRow[3]), "");
 			text += MakeCell(Obj2Html(jRow[4]));
 			text += "</tr>";
 		}
