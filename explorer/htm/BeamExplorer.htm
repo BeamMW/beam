@@ -114,14 +114,14 @@
 	}
 	.amount {
 		font-family: monospace;
-		font-size: 1.5rem;
-		color: green;
+		font-size: 1.7rem;
+		color: darkcyan;
 	}
 	.amount.pos {
 		color: green; /* Positive values in green */
 	}
 	.amount.neg {
-		color: blue; /* Negative values in blue */
+		color: red; /* Negative values in red */
 	}
 	.th {
 		/* Not sure yet how to use this class (these "headers" can appear in rows or in columns)... */
@@ -447,13 +447,14 @@
 	
 	function MakeAmountClr(amount)
 	{
-		if (!amount)
-			return "";
+		let type = "amount";
 
-		let type = "amount pos";
 		if (amount[0] == '-')
 			type = "amount neg";
-		return AddClass(amount,type);
+		if (amount[0] == '+')
+			type = "amount pos";
+
+		return AddClass(amount, type);
 	}
 
 	function AddClass(txt,className)

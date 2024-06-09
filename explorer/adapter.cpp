@@ -843,11 +843,46 @@ private:
         return MakeTypeObj("aid", aid);
     }
 
-    static json MakeObjAmount(const Amount x)
+    template <typename T>
+    static json MakeObjAmount_T(const T& x)
     {
         return MakeTypeObj("amount", x);
     }
 
+    static json MakeObjAmount(const Amount x)
+    {
+        return MakeObjAmount_T(x);
+    }
+
+    static json MakeObjAmount(const AmountBig::Type& x)
+    {
+        if (!AmountBig::get_Hi(x))
+            return MakeObjAmount(AmountBig::get_Lo(x));
+
+        char sz[AmountBig::Type::nTxtLen10Max + 1];
+        x.PrintDecimal(sz);
+
+        return MakeObjAmount_T(sz);
+    }
+
+    static json MakeObjAmountS(AmountBig::Type x)
+    {
+        char sz[AmountBig::Type::nTxtLen10Max + 2];
+        if (x.get_Msb())
+        {
+            x.Negate();
+            sz[0] = '-';
+        }
+        else
+            sz[0] = '+';
+
+        if (AmountBig::get_Hi(x))
+            x.PrintDecimal(sz + 1);
+        else
+            uintBigFrom(AmountBig::get_Lo(x)).PrintDecimal(sz + 1); // awkward, but ok
+
+        return MakeObjAmount_T(sz);
+    }
     static json MakeObjHeight(Height h)
     {
         return MakeTypeObj("height", h);
@@ -867,27 +902,6 @@ private:
     static json MakeObjBlob(const T& x)
     {
         return MakeTypeObj("blob", x);
-    }
-
-    static json MakeObjAmount(const AmountBig::Type& x)
-    {
-        if (!AmountBig::get_Hi(x))
-            return MakeObjAmount(AmountBig::get_Lo(x));
-
-        char sz[AmountBig::Type::nTxtLen10Max + 2];
-
-        if (x.get_Msb())
-        {
-            auto x2 = x;
-            x2.Negate();
-
-            sz[0] = '-';
-            x2.PrintDecimal(sz + 1);
-        }
-        else
-            x.PrintDecimal(sz);
-
-        return MakeTypeObj("amount", sz);
     }
 
     struct ExtraInfo
@@ -1128,7 +1142,7 @@ private:
 
                         json jEntry = json::array();
                         jEntry.push_back(MakeObjAid(it->first));
-                        jEntry.push_back(MakeObjAmount(val));
+                        jEntry.push_back(MakeObjAmountS(val));
 
                         jArr.push_back(std::move(jEntry));
                     }
@@ -1150,7 +1164,7 @@ private:
 
                         json jEntry = json::array();
                         jEntry.push_back(MakeObjAid(it->first));
-                        jEntry.push_back(MakeObjAmount(val));
+                        jEntry.push_back(MakeObjAmountS(val));
                         jArr.push_back(std::move(jEntry));
                     }
 
@@ -2010,7 +2024,7 @@ private:
                     }
 
                     wrItem.m_json.push_back(delta.get_Msb() ? "Burn" : "Mint");
-                    wrItem.m_json.push_back(MakeObjAmount(delta)); // handles negative sign
+                    wrItem.m_json.push_back(MakeObjAmountS(delta)); // handles negative sign
                     wrItem.m_json.push_back(MakeObjAmount(evt.m_Adp.m_Amount));
                     wrItem.m_json.push_back("");
                 }
