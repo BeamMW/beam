@@ -768,15 +768,52 @@ OnRequest(blocks)
     return _backend.get_blocks(start, n);
 }
 
+bool ReadColFlags(const HttpUrl& url, uint32_t& res, const char* szArg)
+{
+    auto it = url.args.find(szArg);
+    if (url.args.end() == it)
+        return false;
+
+    res = 0;
+
+    typedef IAdapter::TotalsFlags F;
+
+    for (char ch : it->second)
+    {
+        switch (ch)
+        {
+        case 'd': res |= F::Difficulty; break;
+        case 'f': res |= F::Fee; break;
+        case 'k': res |= F::Kernels; break;
+        case 'o': res |= F::MwOutputs; break;
+        case 'i': res |= F::MwInputs; break;
+        case 'u': res |= F::MwUtxos; break;
+        case 'O': res |= F::ShOutputs; break;
+        case 'I': res |= F::ShInputs; break;
+        case 'c': res |= F::ContractsActive; break;
+        case 'C': res |= F::ContractCalls; break;
+        case 's': res |= F::SizeCompressed; break;
+        case 'S': res |= F::SizeArchieve; break;
+        }
+    }
+
+    return true;
+}
+
 OnRequest(hdrs)
 {
     Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
     uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
 
-    bool bRel = !!_currentUrl.get_int_arg("rel", 1);
-    bool bAbs = !!_currentUrl.get_int_arg("rel", 0);
+    // defaults
+    typedef IAdapter::TotalsFlags F;
+    uint32_t fAbs = 0;
+    uint32_t fRel = F::Difficulty | F::Fee | F::Kernels | F::MwOutputs | F::MwInputs | F::ShOutputs | F::ShInputs | F::ContractCalls;
 
-    return _backend.get_hdrs(hTop, n, bRel, bAbs);
+    ReadColFlags(_currentUrl, fAbs, "cabs");
+    ReadColFlags(_currentUrl, fRel, "crel");
+
+    return _backend.get_hdrs(hTop, n, fAbs, fRel);
 }
 
 OnRequest(peers)
