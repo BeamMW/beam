@@ -176,7 +176,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
     {
-        LOG_DEBUG() << "Send fundRawTransaction command";
+        BEAM_LOG_DEBUG() << "Send fundRawTransaction command";
 
         std::string params = "\"" + rawTx + "\"";
         if (feeRate)
@@ -208,7 +208,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
     {
-        LOG_DEBUG() << "Send signRawTransaction command";
+        BEAM_LOG_DEBUG() << "Send signRawTransaction command";
 
         sendRequest("signrawtransaction", "\"" + rawTx + "\"", [callback](IBridge::Error error, const json& result) {
             std::string hex;
@@ -234,7 +234,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::sendRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send sendRawTransaction command";
+        BEAM_LOG_DEBUG() << "Send sendRawTransaction command";
 
         sendRequest("sendrawtransaction", "\"" + rawTx + "\"", [callback](IBridge::Error error, const json& result) {
             std::string txID;
@@ -258,7 +258,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getRawChangeAddress(std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send getRawChangeAddress command";
+        BEAM_LOG_DEBUG() << "Send getRawChangeAddress command";
 
         sendRequest("getrawchangeaddress", getAddressType(), [callback](IBridge::Error error, const json& result) {
             std::string address;
@@ -288,7 +288,7 @@ namespace beam::bitcoin
         Timestamp locktime,
         std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send createRawTransaction command";
+        BEAM_LOG_DEBUG() << "Send createRawTransaction command";
 
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 
@@ -320,7 +320,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getTxOut(const std::string& txid, int outputIndex, std::function<void(const IBridge::Error&, const std::string&, Amount, uint32_t)> callback)
     {
-        LOG_DEBUG() << "Send getTxOut command";
+        BEAM_LOG_DEBUG() << "Send getTxOut command";
 
         sendRequest("gettxout", "\"" + txid + "\"" + "," + std::to_string(outputIndex), [callback](IBridge::Error error, const json& result) {
             Amount value = 0;
@@ -355,7 +355,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getBlockCount(std::function<void(const IBridge::Error&, uint64_t)> callback)
     {
-        LOG_DEBUG() << "Send getBlockCount command";
+        BEAM_LOG_DEBUG() << "Send getBlockCount command";
 
         sendRequest("getblockcount", "", [callback](IBridge::Error error, const json& result) {
             uint64_t blockCount = 0;
@@ -384,7 +384,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getBalance(uint32_t confirmations, std::function<void(const Error&, Amount)> callback)
     {
-        LOG_DEBUG() << "Send getBalance command";
+        BEAM_LOG_DEBUG() << "Send getBalance command";
         sendRequest("getbalance", "\"*\"," + std::to_string(confirmations), [callback](IBridge::Error error, const json& result) {
             Amount balance = 0;
 
@@ -407,7 +407,7 @@ namespace beam::bitcoin
 
     void BitcoinCore016::getDetailedBalance(std::function<void(const Error&, Amount, Amount, Amount)> callback)
     {
-        //LOG_DEBUG() << "Send getWalletInfo command";
+        //BEAM_LOG_DEBUG() << "Send getWalletInfo command";
         sendRequest("getwalletinfo", "", [callback](IBridge::Error error, const json& result) {
             Amount confirmed = 0;
             Amount unconfirmed = 0;

@@ -50,11 +50,11 @@ void Connection::BbsSubscribe(
 void Connection::PostRequestInternal(FlyClient::Request& r)
 {
     if (FlyClient::Request::Type::Transaction == r.get_Type())
-        LOG_DEBUG() << "### Broadcasting transaction ###";
+        BEAM_LOG_DEBUG() << "### Broadcasting transaction ###";
 
     if (FlyClient::Request::Type::BbsMsg == r.get_Type())
     {
-        LOG_DEBUG()  << "### Bbs mesage out ###";
+        BEAM_LOG_DEBUG()  << "### Bbs mesage out ###";
         if (m_MineOutgoing && !Rules::get().FakePoW)
         {
             try
@@ -94,7 +94,7 @@ void Connection::OnMined()
         if (it != m_handlers.end())
         {
             WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
-            LOG_DEBUG() << "OnMined() diff: "
+            BEAM_LOG_DEBUG() << "OnMined() diff: "
                         << getTimestamp() - pTask->m_Msg.m_TimePosted;
             pReq->m_Msg = std::move(pTask->m_Msg);
             pReq->m_pTrg = it->second;

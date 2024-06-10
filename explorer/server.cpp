@@ -81,7 +81,7 @@ void Server::on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode er
         }
 
         newStream->enable_keepalive(1);
-        LOG_DEBUG() << STS << "+peer " << peer;
+        BEAM_LOG_DEBUG() << STS << "+peer " << peer;
         _connections[peer.u64()] = std::make_unique<HttpConnection>(
             peer.u64(),
             BaseConnection::inbound,
@@ -616,7 +616,7 @@ bool Server::on_request(uint64_t id, const HttpMsgReader::Message& msg)
     if (it == _connections.end()) return false;
 
     if (msg.what != HttpMsgReader::http_message || !msg.msg) {
-        LOG_DEBUG() << STS << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
+        BEAM_LOG_DEBUG() << STS << "-peer " << io::Address::from_u64(id) << " : " << msg.error_str();
         _connections.erase(id);
         return false;
     }

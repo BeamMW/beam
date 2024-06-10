@@ -157,7 +157,7 @@ namespace beam::wallet
         auto height = m_blockCount;
         assert(height);
 
-        LOG_DEBUG() << "InitLockTime height = " << height;
+        BEAM_LOG_DEBUG() << "InitLockTime height = " << height;
 
         auto externalLockPeriod = height + GetLockTimeInBlocks();
         m_tx.SetParameter(TxParameterID::AtomicSwapExternalLockTime, externalLockPeriod);
@@ -171,7 +171,7 @@ namespace beam::wallet
         assert(height);
         auto externalLockTime = m_tx.GetMandatoryParameter<Height>(TxParameterID::AtomicSwapExternalLockTime);
 
-        LOG_DEBUG() << "ValidateLockTime height = " << height << " external = " << externalLockTime;
+        BEAM_LOG_DEBUG() << "ValidateLockTime height = " << height << " external = " << externalLockTime;
 
         if (externalLockTime <= height)
         {
@@ -467,7 +467,7 @@ namespace beam::wallet
                     }
 
                     bool isRegistered = !txID.empty();
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered. External txid: " + txID : " has failed to register.");
+                    BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << subTxID << "]" << (isRegistered ? " has registered. External txid: " + txID : " has failed to register.");
 
                     uint8_t nRegistered = isRegistered ? proto::TxStatus::Ok : proto::TxStatus::Unspecified;
                     m_tx.SetParameter(TxParameterID::TransactionRegistered, nRegistered, false, subTxID);
@@ -679,7 +679,7 @@ namespace beam::wallet
                 // TODO should to processed error variable
                 if (m_RefundTxConfirmations != confirmations)
                 {
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REFUND_TX) << "] " << confirmations << "/"
+                    BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REFUND_TX) << "] " << confirmations << "/"
                         << GetTxMinConfirmations(SubTxIndex::REFUND_TX) << " confirmations for Refund TX are received.";
                     m_RefundTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RefundTxConfirmations, true, SubTxIndex::REFUND_TX);
@@ -706,7 +706,7 @@ namespace beam::wallet
                 // TODO should to processed error variable
                 if (m_RedeemTxConfirmations != confirmations)
                 {
-                    LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REDEEM_TX) << "] " << confirmations << "/"
+                    BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::REDEEM_TX) << "] " << confirmations << "/"
                         << GetTxMinConfirmations(SubTxIndex::REDEEM_TX) << " confirmations for Redeem TX are received.";
                     m_RedeemTxConfirmations = confirmations;
                     m_tx.SetParameter(TxParameterID::Confirmations, m_RedeemTxConfirmations, true, SubTxIndex::REDEEM_TX);
@@ -1091,7 +1091,7 @@ namespace beam::wallet
             // get confirmations
             if (m_SwapLockTxConfirmations != confirmations)
             {
-                LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
+                BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "] " << confirmations << "/"
                     << GetTxMinConfirmations(SubTxIndex::LOCK_TX) << " confirmations for Lock TX are received.";
                 m_SwapLockTxConfirmations = confirmations;
                 m_tx.SetParameter(TxParameterID::Confirmations, m_SwapLockTxConfirmations, true, SubTxIndex::LOCK_TX);

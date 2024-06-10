@@ -1320,7 +1320,7 @@ namespace beam::wallet
 
             CreateAddressesTable(db, LASER_ADDRESSES_NAME);
 
-            LOG_DEBUG() << "Create laser tables";
+            BEAM_LOG_DEBUG() << "Create laser tables";
         }
 
         void CreateAssetsTable(sqlite3* db)
@@ -2501,7 +2501,7 @@ namespace beam::wallet
 
                 default:
                 {
-                    LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
+                    BEAM_LOG_DEBUG() << "Invalid DB version: " << version << ". Expected: " << DbVersion;
                     throw InvalidDatabaseVersionException();
                 }
                 }
@@ -4019,7 +4019,7 @@ namespace beam::wallet
         }
 
         sw.stop();
-        LOG_DEBUG() << "visitTx elapsed time: " << sw.milliseconds() << " ms";
+        BEAM_LOG_DEBUG() << "visitTx elapsed time: " << sw.milliseconds() << " ms";
     }
 
     vector<TxDescription> WalletDB::getTxHistory(wallet::TxType txType, uint64_t start, int count) const
@@ -4551,7 +4551,7 @@ namespace beam::wallet
         address.m_label = kDefaultAddrLabel;
         address.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
         saveAddress(address);
-        LOG_DEBUG() << "Default address: " << address.m_Token;
+        BEAM_LOG_DEBUG() << "Default address: " << address.m_Token;
     }
 
     void WalletDB::deleteAddressByToken(const std::string& addr, bool isLaser)
@@ -4772,7 +4772,7 @@ namespace beam::wallet
     void WalletDB::saveDexOffer(const DexOrderID& offerId, const ByteBuffer& offer, bool isMine)
     {
         const auto& idStr = offerId.to_string();
-        LOG_DEBUG() << "Save offer: " << idStr;
+        BEAM_LOG_DEBUG() << "Save offer: " << idStr;
         const char* selectReq = "SELECT * FROM " DEX_OFFERS_NAME " WHERE id=?1;";
         sqlite::Statement stm2(this, selectReq);
         stm2.bind(1, idStr);
@@ -4804,7 +4804,7 @@ namespace beam::wallet
     void WalletDB::dropDexOffer(const DexOrderID& offerId)
     {
         const auto& idStr = offerId.to_string();
-        LOG_DEBUG() << "Delete offer: " << idStr;
+        BEAM_LOG_DEBUG() << "Delete offer: " << idStr;
         const char* dropReq = "DELETE FROM " DEX_OFFERS_NAME " WHERE id=?1;";
         sqlite::Statement stm(this, dropReq);
         stm.bind(1, idStr);
@@ -4868,7 +4868,7 @@ namespace beam::wallet
     void WalletDB::saveLaserChannel(const ILaserChannelEntity& ch)
     {
         const auto& channelID = ch.get_chID();
-        LOG_DEBUG() << "Save channel: "
+        BEAM_LOG_DEBUG() << "Save channel: "
                     << to_hex(channelID->m_pData, channelID->nBytes);
         const char* selectReq = "SELECT * FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement stm2(this, selectReq);
@@ -7140,7 +7140,7 @@ namespace beam::wallet
                 if (!storage::getTxParameter(walletDB, txID, TxParameterID::AssetID, pi.m_AssetID))
                 {
                     pi.m_AssetID = Asset::s_BeamID;
-                    LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0 (BEAM)";
+                    BEAM_LOG_DEBUG() << "ExportPaymentProof, transaction " << txID << " is without assetId, defaulting to 0 (BEAM)";
                 }
 
                 if (bSuccess)

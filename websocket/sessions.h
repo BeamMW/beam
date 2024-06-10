@@ -53,13 +53,13 @@ namespace beam
             , _reactor(std::move(reactor))
             , _creator(std::move(creator))
         {
-            LOG_DEBUG() << "WebsocketSession created";
+            BEAM_LOG_DEBUG() << "WebsocketSession created";
             ++counter;
         }
 
         ~WebsocketSession()
         {
-            LOG_DEBUG() << "WebsocketSession destroyed";
+            BEAM_LOG_DEBUG() << "WebsocketSession destroyed";
             --counter;
             // Client handler must be destroyed in the Loop thread
             // Transfer ownership and register destroy request

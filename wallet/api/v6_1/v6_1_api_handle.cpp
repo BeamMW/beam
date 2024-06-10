@@ -152,7 +152,7 @@ namespace beam::wallet
 
     void V61Api::onHandleWalletStatusV61(const JsonRpcId &id, WalletStatusV61&& data)
     {
-        LOG_DEBUG() << "WalletStatusV61(id = " << id << ")";
+        BEAM_LOG_DEBUG() << "WalletStatusV61(id = " << id << ")";
 
         WalletStatusV61::Response response;
         auto walletDB = getWalletDB();

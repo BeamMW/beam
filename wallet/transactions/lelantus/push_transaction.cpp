@@ -81,7 +81,7 @@ namespace beam::wallet::lelantus
             Block::SystemState::Full s;
             if (GetParameter(TxParameterID::Lifetime, lifetime) && lifetime > 0 && GetTip(s)) {
                 builder.m_Height.m_Max = s.m_Height + lifetime;
-                LOG_DEBUG() << "Setup max height for PushTransaction = " << builder.m_Height.m_Max;
+                BEAM_LOG_DEBUG() << "Setup max height for PushTransaction = " << builder.m_Height.m_Max;
                 SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
             }
         }

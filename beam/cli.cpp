@@ -86,7 +86,7 @@ namespace
 		{
 			if (newStream)
 			{
-				LOG_DEBUG() << "Websocket proxy connected to the node";
+				BEAM_LOG_DEBUG() << "Websocket proxy connected to the node";
 				m_Stream = std::move(newStream);
 				m_Stream->enable_read(
 					[this](io::ErrorCode errorCode, void* data, size_t size) -> bool

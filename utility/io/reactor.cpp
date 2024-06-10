@@ -248,7 +248,7 @@ public:
             (uv_stream_t*)o->_handle,
             [](uv_shutdown_t* req, int status) {
                 if (status != 0 && status != UV_ECANCELED) {
-                    LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
+                    BEAM_LOG_DEBUG() << "stream shutdown failed, code=" << error_str((ErrorCode)status);
                 }
                 TcpShutdowns* self = reinterpret_cast<TcpShutdowns*>(req->data);
                 if (self) {
@@ -393,10 +393,10 @@ Reactor::Reactor() :
 }
 
 Reactor::~Reactor() {
-    LOG_DEBUG() << __FUNCTION__;
+    BEAM_LOG_DEBUG() << __FUNCTION__;
 
     if (!_loop.data) {
-        LOG_DEBUG() << "loop wasn't initialized";
+        BEAM_LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
 
@@ -415,13 +415,13 @@ Reactor::~Reactor() {
     // run one cycle to release all closing handles
     uv_run(&_loop, UV_RUN_NOWAIT);
     if (uv_loop_close(&_loop) == UV_EBUSY) {
-        LOG_DEBUG() << "closing unclosed handles";
+        BEAM_LOG_DEBUG() << "closing unclosed handles";
         uv_walk(
             &_loop,
             [](uv_handle_t* handle, void*) {
                 if (!uv_is_closing(handle)) {
                     const char* typeName = uv_handle_type_name(uv_handle_get_type(handle));
-                    LOG_DEBUG() << (typeName ? typeName : "unknown handler type") << " " << handle;
+                    BEAM_LOG_DEBUG() << (typeName ? typeName : "unknown handler type") << " " << handle;
                     handle->data = 0;
                     uv_close(handle, 0);
                 }
@@ -442,7 +442,7 @@ void Reactor::run_ex(StopCallback&& scb) {
 
 void Reactor::run() {
     if (!_loop.data) {
-        LOG_DEBUG() << "loop wasn't initialized";
+        BEAM_LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
     block_sigpipe();
@@ -457,7 +457,7 @@ void Reactor::run() {
 
 void Reactor::run_once() {
     if (!_loop.data) {
-        LOG_DEBUG() << "loop wasn't initialized";
+        BEAM_LOG_DEBUG() << "loop wasn't initialized";
         return;
     }
     
@@ -467,7 +467,7 @@ void Reactor::run_once() {
 void Reactor::stop() {
     int errorCode = uv_async_send(&_stopEvent);
     if (errorCode != 0) {
-        LOG_DEBUG() << "cannot post stop signal to event loop";
+        BEAM_LOG_DEBUG() << "cannot post stop signal to event loop";
     }
 }
 
@@ -526,7 +526,7 @@ void Reactor::cancel_timer(Object* o) {
         assert(h->type == UV_TIMER);
         if (uv_is_active(h)) {
             if (uv_timer_stop((uv_timer_t*)h) != 0) {
-                LOG_DEBUG() << "cannot stop timer";
+                BEAM_LOG_DEBUG() << "cannot stop timer";
             }
         }
     }

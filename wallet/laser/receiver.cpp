@@ -28,7 +28,7 @@ Receiver::~Receiver()
 
 void Receiver::OnComplete(proto::FlyClient::Request&)
 {
-    LOG_DEBUG() << "Receiver::OnComplete";
+    BEAM_LOG_DEBUG() << "Receiver::OnComplete";
 }
 
 void Receiver::OnMsg(proto::BbsMsg&& msg)

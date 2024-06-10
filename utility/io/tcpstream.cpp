@@ -82,7 +82,7 @@ void TcpStream::disable_read() {
     if (is_connected()) {
         int errorCode = uv_read_stop((uv_stream_t*)_handle);
         if (errorCode) {
-            LOG_DEBUG() << "uv_read_stop failed,code=" << errorCode;
+            BEAM_LOG_DEBUG() << "uv_read_stop failed,code=" << errorCode;
         }
     }
     free_read_buffer();
@@ -132,7 +132,7 @@ Result TcpStream::do_write(bool flush) {
     if (flush && nBytes > 0) {
         ErrorCode ec = _reactor->async_write(this, _writeBuffer, _onDataWritten);
         if (ec != EC_OK) {
-            LOG_DEBUG() << __FUNCTION__ << " " << error_str(ec);
+            BEAM_LOG_DEBUG() << __FUNCTION__ << " " << error_str(ec);
             return make_unexpected(ec);
         }
         _state.unsent += nBytes;
@@ -149,7 +149,7 @@ void TcpStream::on_data_written(ErrorCode errorCode, size_t n) {
         assert(_state.unsent >= n);
         _state.unsent -= n;
     }
-    LOG_DEBUG() << __FUNCTION__ << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
+    BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(n) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
 }
 
 bool TcpStream::is_connected() const {
@@ -185,7 +185,7 @@ void TcpStream::read_cb(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf)
 bool TcpStream::on_read(ErrorCode errorCode, void* data, size_t size) {
     if (_callback) {
         _state.received += size;
-        LOG_DEBUG() << __FUNCTION__ << TRACE(size) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(size) << TRACE(_state.unsent) << TRACE(_state.sent) << TRACE(_state.received);
         return _callback(errorCode, data, size);
     }
     return false;

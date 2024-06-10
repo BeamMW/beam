@@ -233,7 +233,7 @@ struct HeadersParserStuff {
         }
 
         if (result == -1) {
-            //LOG_DEBUG() << "Corrupted " << std::string(headers_buffer, headers_cursor + maxBytes);
+            //BEAM_LOG_DEBUG() << "Corrupted " << std::string(headers_buffer, headers_cursor + maxBytes);
             error = HttpMsgReader::message_corrupted;
             return false;
         }
@@ -245,7 +245,7 @@ struct HeadersParserStuff {
             error = HttpMsgReader::message_too_long;
         }
 
-        //LOG_DEBUG() << "incompleted: " << std::string(headers_buffer, headers_cursor);
+        //BEAM_LOG_DEBUG() << "incompleted: " << std::string(headers_buffer, headers_cursor);
 
         consumed = maxBytes;
         return false;

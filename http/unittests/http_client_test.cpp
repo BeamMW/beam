@@ -45,25 +45,25 @@ namespace {
             request.address(a).connectTimeoutMsec(2000).pathAndQuery("/").headers(headers).numHeaders(1)
                 .callback(
                     [&expected, &nErrors](uint64_t id, const HttpMsgReader::Message& msg) -> bool {
-                        LOG_DEBUG() << "response from " << id;
+                        BEAM_LOG_DEBUG() << "response from " << id;
                         auto it = expected.find(id);
                         if (it == expected.end()) {
-                            LOG_DEBUG() << "unexpected response";
+                            BEAM_LOG_DEBUG() << "unexpected response";
                             ++nErrors;
                         }
                         if (msg.what == HttpMsgReader::http_message) {
                             size_t sz=0;
                             const void* body = msg.msg->get_body(sz);
-                            LOG_DEBUG() << "received " << sz << " bytes";
+                            BEAM_LOG_DEBUG() << "received " << sz << " bytes";
                             if (body) {
-                                LOG_DEBUG() << std::string_view((const char*)body, sz);
+                                BEAM_LOG_DEBUG() << std::string_view((const char*)body, sz);
                             }
                             if (it->second != io::EC_OK || sz == 0) {
                                 ++nErrors;
                             } 
                         } else {
                             if (it->second != msg.connectionError) {
-                                LOG_DEBUG() << "Invalid error, expected:" << it->second << ", received: " << msg.connectionError;
+                                BEAM_LOG_DEBUG() << "Invalid error, expected:" << it->second << ", received: " << msg.connectionError;
                                 ++nErrors;
                             }
                         }
@@ -130,7 +130,7 @@ int main() {
     auto logger = Logger::create(logLevel, logLevel);
     auto res = http_client_test(false);
     res += http_client_test(true);
-    LOG_DEBUG() << TRACE(res);
+    BEAM_LOG_DEBUG() << TRACE(res);
     return res;
 }
 

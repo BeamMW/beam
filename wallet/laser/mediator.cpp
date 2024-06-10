@@ -75,7 +75,7 @@ void Mediator::OnNewTip()
 {
     Lock lock(m_mutex);
 
-    LOG_DEBUG() << "LASER OnNewTip";
+    BEAM_LOG_DEBUG() << "LASER OnNewTip";
     if (!ValidateTip())
         return;
 
@@ -96,7 +96,7 @@ void Mediator::OnNewTip()
 
 void Mediator::OnRolledBack()
 {
-    LOG_DEBUG() << "LASER OnRolledBack";
+    BEAM_LOG_DEBUG() << "LASER OnRolledBack";
     for (auto& it: m_channels)
     {
         auto& channel = it.second;
@@ -186,12 +186,12 @@ void Mediator::OnMsg(const ChannelIDPtr& chID, Blob&& blob)
         inChID = chID;
     }
 
-    LOG_DEBUG() << "Mediator::OnMsg "
+    BEAM_LOG_DEBUG() << "Mediator::OnMsg "
                 << to_hex(inChID->m_pData , inChID->nBytes);
     auto it = m_channels.find(inChID);
     if (it == m_channels.end())
     {
-        LOG_DEBUG() << "Channel not found ID: "
+        BEAM_LOG_DEBUG() << "Channel not found ID: "
                     << to_hex(inChID->m_pData , inChID->nBytes);
         return;
     }
@@ -288,17 +288,17 @@ WalletID Mediator::getWaitingWalletID() const
 
 bool Mediator::Serve(const std::string& channelID)
 {
-    LOG_DEBUG() << "Channel: " << channelID << " restore process started";
+    BEAM_LOG_DEBUG() << "Channel: " << channelID << " restore process started";
     auto p_channelID = LoadChannel(channelID);
 
     if (!p_channelID)
     {
-        LOG_DEBUG() << "Channel: " << channelID << " restore failed";
+        BEAM_LOG_DEBUG() << "Channel: " << channelID << " restore failed";
         return false;
     }
 
 
-    LOG_DEBUG() << "Channel: " << channelID << " restore process finished";
+    BEAM_LOG_DEBUG() << "Channel: " << channelID << " restore process finished";
     auto& channel = m_channels[p_channelID];
     if (!channel) return false;
 
@@ -339,7 +339,7 @@ bool Mediator::Serve(const std::string& channelID)
         return true;
     }
 
-    LOG_DEBUG() << "Channel: " << channelID << " is inactive";
+    BEAM_LOG_DEBUG() << "Channel: " << channelID << " is inactive";
     return false;
 }
 
@@ -418,7 +418,7 @@ bool Mediator::Close(const std::string& channelID)
         CloseInternal(p_channelID);
     });
     
-    LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
+    BEAM_LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     return true;
 }
 
@@ -457,7 +457,7 @@ bool Mediator::GracefulClose(const std::string& channelID)
         m_actionsQueue.emplace_back([this, &channel] () {
             GracefulCloseInternal(channel);
         });
-        LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
+        BEAM_LOG_DEBUG() << "Closing channel: " << channelID << " is scheduled";
     }
     else
     {
@@ -581,7 +581,7 @@ bool Mediator::Transfer(Amount amount, const std::string& channelID)
             });
         
             BEAM_LOG_INFO() << "Sync in progress...";
-            LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
+            BEAM_LOG_DEBUG() << "Transfer: " << PrintableAmount(amount, true)
                         << " to channel: " << channelID << " is scheduled";
         }
         else
@@ -813,7 +813,7 @@ ChannelIDPtr Mediator::LoadChannel(const std::string& channelID)
     {
         if (*(it.first) == *p_channelID)
         {
-            LOG_DEBUG() << "Channel " << channelID << " loaded previously";
+            BEAM_LOG_DEBUG() << "Channel " << channelID << " loaded previously";
             return it.first;
         }
     }
@@ -855,7 +855,7 @@ bool Mediator::LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID)
         return true;
     }
 
-    LOG_DEBUG() << "Channel "
+    BEAM_LOG_DEBUG() << "Channel "
                 << to_hex(p_channelID->m_pData , p_channelID->nBytes)
                 << " has inactive state or loaded with failure";
     return false;
@@ -984,7 +984,7 @@ void Mediator::Subscribe()
     BbsChannel ch;
     m_myInAddr.m_BbsAddr.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, getTimestamp(), m_pInputReceiver.get());
-    LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
+    BEAM_LOG_DEBUG() << "LASER WAIT IN subscribed: " << ch;
 }
 
 void Mediator::Unsubscribe()
@@ -992,7 +992,7 @@ void Mediator::Unsubscribe()
     BbsChannel ch;
     m_myInAddr.m_BbsAddr.m_Channel.Export(ch);
     m_pConnection->BbsSubscribe(ch, 0, nullptr);
-    LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
+    BEAM_LOG_DEBUG() << "LASER WAIT IN unsubscribed: " << ch;
 }
 
 bool Mediator::IsInSync()

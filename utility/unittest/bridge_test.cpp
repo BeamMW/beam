@@ -59,13 +59,13 @@ struct Xxx : IXxx {
     Xxx(const io::Reactor::Ptr& _reactor) : reactor(_reactor) {}
 
     virtual void send_req_1(uint64_t to, Req1&& r) {
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " " << to << " " << r.x;
+        BEAM_LOG_DEBUG() << __PRETTY_FUNCTION__ << " " << to << " " << r.x;
     }
     virtual void send_req_2(uint64_t to, Req2&& r) {
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " " << to << " " << r.x;
+        BEAM_LOG_DEBUG() << __PRETTY_FUNCTION__ << " " << to << " " << r.x;
     }
     virtual void stop(uint64_t to, StopRequest&&) {
-        LOG_DEBUG() << __PRETTY_FUNCTION__;
+        BEAM_LOG_DEBUG() << __PRETTY_FUNCTION__;
 
         // This is for illustration, reactor can be stopped from any thread
         reactor->stop();
@@ -90,9 +90,9 @@ struct RemoteThreadLogicExample {
     }
 
     void thread_func() {
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " starting";
+        BEAM_LOG_DEBUG() << __PRETTY_FUNCTION__ << " starting";
         reactor->run();
-        LOG_DEBUG() << __PRETTY_FUNCTION__ << " exiting";
+        BEAM_LOG_DEBUG() << __PRETTY_FUNCTION__ << " exiting";
         bridge.stop_rx();
     }
 

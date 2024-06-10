@@ -45,7 +45,7 @@ namespace {
         size_t receivedSize = 0;
 
         auto on_decrypted = [&receivedSize](void* data, size_t size) -> bool {
-            //LOG_DEBUG() << "received " << size << " bytes";
+            //BEAM_LOG_DEBUG() << "received " << size << " bytes";
             receivedSize += size;
             return true;
         };
