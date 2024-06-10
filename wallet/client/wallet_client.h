@@ -142,7 +142,6 @@ namespace beam::wallet
         std::string getNodeAddress() const;
         std::string exportOwnerKey(const beam::SecString& pass) const;
         bool isRunning() const;
-        bool isFork1() const;
         size_t getUnsafeActiveTransactionsCount() const;
         size_t getUnreadNotificationsCount() const;
         bool isConnectionTrusted() const;   

@@ -112,6 +112,11 @@ namespace fs = std::filesystem;
 #define IM_NAME "IM"
 #define LAST_READ_IM_ID "LastReadIMId"
 
+#define TblAppData "appdata"
+#define TblAppData_Name "name"
+#define TblAppData_Key "key"
+#define TblAppData_Val "val"
+
 #define ENUM_VARIABLES_FIELDS(each, sep, obj) \
     each(name,  name,  TEXT UNIQUE, obj) sep \
     each(value, value, BLOB, obj)
@@ -1020,7 +1025,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 37;
+        const int DbVersion   = 38;
+        const int DbVersion37 = 37;
         const int DbVersion36 = 36;
         const int DbVersion35 = 35;
         const int DbVersion34 = 34;
@@ -1248,6 +1254,14 @@ namespace beam::wallet
             const char* req = "CREATE TABLE " STORAGE_NAME " (" ENUM_ALL_STORAGE_FIELDS(LIST_WITH_TYPES, COMMA, ) ");"
                 "CREATE UNIQUE INDEX CoinIndex ON " STORAGE_NAME "(" ENUM_STORAGE_ID(LIST, COMMA, )  ");"
                 "CREATE INDEX ConfirmIndex ON " STORAGE_NAME"(confirmHeight);";
+            int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+            throwIfError(ret, db);
+        }
+
+        void CreateAppDataTable(sqlite3* db)
+        {
+            const char* req = "CREATE TABLE " TblAppData " (" TblAppData_Name " BLOB NOT NULL, " TblAppData_Key " BLOB NOT NULL, " TblAppData_Val " BLOB NOT NULL);"
+                "CREATE UNIQUE INDEX " TblAppData "_Idx ON " TblAppData "(" TblAppData_Name "," TblAppData_Key  ");";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
         }
@@ -1920,6 +1934,7 @@ namespace beam::wallet
         CreateVerificationTable(db);
         CreateDexOffersTable(db);
         CreateIMTables(db);
+        CreateAppDataTable(db);
     }
 
     std::shared_ptr<WalletDB> WalletDB::initBase(const string& path, const SecString& password, bool separateDBForPrivateData)
@@ -2488,10 +2503,16 @@ namespace beam::wallet
                     CreateIMTables(walletDB->_db);
                     // no break
 
+                case DbVersion37:
+                    BEAM_LOG_INFO() << "Converting DB from format 37...";
+
+                    CreateTxParamsIndex(walletDB->_db);
+                    CreateAppDataTable(walletDB->_db);
+
                     storage::setVar(*walletDB, Version, DbVersion);
+                    // no break
 
                 case DbVersion:
-                    CreateTxParamsIndex(walletDB->_db);
                     // drop private variables from public database for cold wallet
                     if (separateDBForPrivateData && !DropPrivateVariablesFromPublicDatabase(*walletDB))
                     {
@@ -6056,6 +6077,54 @@ namespace beam::wallet
         const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height ">=?";
         sqlite::Statement stm(&get_ParentObj(), req);
         stm.bind(1, h);
+        stm.step();
+    }
+
+    bool WalletDB::get_AppData(const Blob& name, const Blob& key, ByteBuffer& res)
+    {
+        const char* req = "SELECT " TblAppData_Val " FROM " TblAppData " WHERE " TblAppData_Name "=? AND " TblAppData_Key "=?";
+
+        sqlite::Statement stm(this, req);
+        stm.bind(1, name);
+        stm.bind(2, key);
+
+        if (!stm.step())
+            return false;
+
+        stm.get(0, res);
+        return true;
+
+    }
+
+    void WalletDB::set_AppData(const Blob& name, const Blob& key, const Blob* pRes)
+    {
+        if (pRes)
+        {
+            const char* req = "INSERT or REPLACE INTO " TblAppData " (" TblAppData_Name "," TblAppData_Key "," TblAppData_Val ") VALUES(?,?,?);";
+
+            sqlite::Statement stm(this, req);
+
+            stm.bind(1, name);
+            stm.bind(2, key);
+            stm.bind(3, *pRes);
+
+            stm.step();
+        }
+        else
+        {
+            const char* req = "DELETE FROM " TblAppData " WHERE " TblAppData_Name "=? AND " TblAppData_Key "=?";
+            sqlite::Statement stm(this, req);
+            stm.bind(1, name);
+            stm.bind(2, key);
+            stm.step();
+        }
+    }
+
+    void WalletDB::ClearAppData(const Blob& name)
+    {
+        const char* req = "DELETE FROM " TblAppData " WHERE " TblAppData_Name "=?";
+        sqlite::Statement stm(this, req);
+        stm.bind(1, name);
         stm.step();
     }
 

@@ -288,16 +288,19 @@ namespace bvm2 {
 
 		const HeightPos* FromWasmOpt(Wasm::Word pPos, HeightPos& buf);
 
-		bool IsPastFork(uint32_t iFork)
+		template <uint32_t iFork>
+		bool IsPastFork_()
 		{
-			assert(iFork < _countof(Rules::get().pForks));
-			return get_Height() + 1 >= Rules::get().pForks[iFork].m_Height;
+			// current height does not include the current being-interpreted block
+			return Rules::get().IsPastFork_<iFork>(get_Height() + 1);
 		}
 
-		bool IsPastHF4() {
-			// current height does not include the current being-interpreted block
-			return IsPastFork(4);
+		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
+		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
+			key.n = 0;
+			res.n = 0;
 		}
+		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
 
 	public:
 
@@ -333,6 +336,8 @@ namespace bvm2 {
 		:public Processor
 	{
 	protected:
+
+		friend struct ProcessorPlusEnv;
 
 		void SetVarKey(VarKey&);
 		void SetVarKey(VarKey&, uint8_t nTag, const Blob&);
@@ -400,14 +405,8 @@ namespace bvm2 {
 		virtual void DischargeUnits(uint32_t size) override;
 		virtual uint32_t get_WasmVersion() override;
 
-		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
-		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
 		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
-		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
-			key.n = 0;
-			res.n = 0;
-		}
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }
@@ -433,7 +432,7 @@ namespace bvm2 {
 
 		void TestVarSize(uint32_t n)
 		{
-			uint32_t nMax = IsPastHF4() ? Limits::VarSize_4 : Limits::VarSize_0;
+			uint32_t nMax = IsPastFork_<4>() ? Limits::VarSize_4 : Limits::VarSize_0;
 			Exc::Test(n <= nMax);
 		}
 

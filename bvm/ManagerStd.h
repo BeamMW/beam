@@ -60,7 +60,6 @@ namespace beam::bvm2 {
 		void Comm_OnNewMsg(const Blob&, Comm::Channel&);
 		void Comm_OnNewMsg();
 
-	protected:
 		void SelectContext(bool bDependent, uint32_t nChargeNeeded) override;
 		bool get_HdrAt(Block::SystemState::Full&) override;
 		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr&) override;
@@ -92,6 +91,7 @@ namespace beam::bvm2 {
 		// results
 		std::ostringstream m_Out;
 
+		void Reset();
 		void StartRun(uint32_t iMethod);
 	};
 } // namespace

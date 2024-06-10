@@ -478,7 +478,7 @@ namespace bvm2 {
 
 	uint32_t ProcessorContract::get_WasmVersion()
 	{
-		return IsPastFork(6) ? 1 : 0;
+		return IsPastFork_<6>() ? 1 : 0;
 	}
 
 	void Processor::Compiler::Compile(ByteBuffer& res, const Blob& src, Kind kind, Wasm::Compiler::DebugInfo* pDbgInfo /* = nullptr */)
@@ -1342,11 +1342,22 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVar)
 	{
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
+
+		if (Kind::Contract == get_Kind())
+		{
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
+			key = vk.ToBlob();
+		}
+		else
+		{
+			// impose the same restriction for apps
+			Exc::Test(key.n <= Limits::VarKeySize);
+		}
 
 		Blob res;
-		LoadVar(vk.ToBlob(), res);
+		LoadVar(key, res);
 
 		memcpy(pVal, res.p, std::min(nVal, res.n));
 		return res.n;
@@ -1370,38 +1381,62 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(LoadVarEx)
 	{
-		Exc::Test(IsPastHF4());
-
-		std::setmin(nKeyBufSize, Limits::VarKeySize);
-		Exc::Test(nKey <= nKeyBufSize);
-
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), false);
 
-		Blob key = vk.ToBlob(), res;
+		bool bContract = (Kind::Contract == get_Kind());
+		if (bContract)
+		{
+			Exc::Test(IsPastFork_<4>());
+
+			std::setmin(nKeyBufSize, Limits::VarKeySize);
+			Exc::Test(nKey <= nKeyBufSize);
+
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, false);
+			key = vk.ToBlob();
+		}
+		else
+		{
+			// impose the same restriction for apps
+			Exc::Test(key.n <= Limits::VarKeySize);
+		}
+
+		Blob res;
 		LoadVarEx(key, res,
 			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
 			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
 
-		if (key.n > ContractID::nBytes)
+		if (bContract)
 		{
-			// make sure we're still in the context of the contract vars
-			auto pK = (const uint8_t*) key.p;
-			const auto& cid = m_FarCalls.m_Stack.back().m_Cid;
-
-			if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+			// make sure it's still the current contract+type
+			bool bMatch = (key.n > ContractID::nBytes);
+			if (bMatch)
 			{
-				nKey = key.n - (ContractID::nBytes + 1);
-				memcpy(pKey, pK + ContractID::nBytes + 1, std::min(nKey, nKeyBufSize));
+				auto pK = (const uint8_t*)key.p;
+				const auto& cid = ((ProcessorPlusEnv_Contract*) this)->m_FarCalls.m_Stack.back().m_Cid;
 
-				memcpy(pVal, res.p, std::min(nVal, res.n));
-				nVal = res.n;
-				return;
+				if (!memcmp(pK, cid.m_pData, cid.nBytes) && (nType == pK[cid.nBytes]))
+				{
+					// ok
+					key.n -= (ContractID::nBytes + 1);
+					((const uint8_t*&) key.p) += (ContractID::nBytes + 1);
+				}
+				else
+					bMatch = false;
+			}
+
+			if (!bMatch)
+			{
+				key.n = 0;
+				res.n = 0;
 			}
 		}
 
-		nKey = 0;
-		nVal = 0;
+		nKey = key.n;
+		memcpy(pKey, key.p, std::min(nKey, nKeyBufSize));
+
+		memcpy(pVal, res.p, std::min(nVal, res.n));
+		nVal = res.n;
 	}
 
 	BVM_METHOD(SaveVar)
@@ -1411,12 +1446,24 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(SaveVar)
 	{
-		TestVarSize(nVal);
-
+		Blob key(pKey, nKey);
 		VarKey vk;
-		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return SaveVarInternal(vk.ToBlob(), Blob(pVal, nVal));
+		if (Kind::Contract == get_Kind())
+		{
+			((ProcessorPlusEnv_Contract*) this)->TestVarSize(nVal);
+			((ProcessorPlusEnv_Contract*) this)->TestCanWrite();
+
+			((ProcessorPlusEnv_Contract*) this)->SetVarKeyFromShader(vk, nType, key, true);
+			key = vk.ToBlob();
+		}
+		else
+		{
+			Exc::Test(key.n <= Limits::VarKeySize);
+			Exc::Test(nVal <= Limits::VarSize_4);
+		}
+
+		return SaveVar(key, Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)
@@ -1445,7 +1492,7 @@ namespace bvm2 {
 		auto nCalleeStackMax = m_Stack.m_BytesCurrent;
 		uint8_t* pArgsPtr = nullptr;
 
-		bool bPastHF6 = IsPastFork(6);
+		bool bPastHF6 = IsPastFork_<6>();
 		if (!bPastHF6)
 		{
 			nFlags &= 0xff; // before HF6 it was uint8_t
@@ -1559,7 +1606,7 @@ namespace bvm2 {
 
 	BVM_METHOD_HOST(UpdateShader)
 	{
-		Exc::Test(IsPastHF4());
+		Exc::Test(IsPastFork_<4>());
 		TestCanWrite();
 
 		TestVarSize(nVal);
@@ -1793,7 +1840,7 @@ namespace bvm2 {
 	BVM_METHOD(get_ForkHeight)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastFork(5));
+			Exc::Test(IsPastFork_<5>());
 
 		const Rules& r = Rules::get();
 		return (iFork >= _countof(r.pForks)) ? MaxHeight : r.pForks[iFork].m_Height;
@@ -1805,7 +1852,7 @@ namespace bvm2 {
 	{
 		if (Kind::Contract == get_Kind())
 		{
-			Exc::Test(IsPastFork(6));
+			Exc::Test(IsPastFork_<6>());
 			DischargeUnits(Limits::Cost::LoadVar);
 		}
 
@@ -2056,7 +2103,7 @@ namespace bvm2 {
 	BVM_METHOD(HashClone)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastHF4());
+			Exc::Test(IsPastFork_<4>());
 
 		return CloneHash(m_DataProcessor.FindStrict(pHash));
 	}
@@ -2235,7 +2282,7 @@ namespace bvm2 {
 	BVM_METHOD(Secp_Point_ExportEx)
 	{
 		if (Kind::Contract == get_Kind())
-			Exc::Test(IsPastHF4());
+			Exc::Test(IsPastFork_<4>());
 
 		DischargeUnits(Limits::Cost::Secp_Point_Export);
 		m_Secp.m_Point.FindStrict(p).m_Val.Export(get_AddrAsW<ECC::Point::Storage>(res));
@@ -3876,7 +3923,7 @@ namespace bvm2 {
 	// Shader aux
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode)
 	{
-		AddRemoveShader(cid, pCode, IsPastHF4());
+		AddRemoveShader(cid, pCode, IsPastFork_<4>());
 	}
 
 	void ProcessorContract::AddRemoveShader(const ContractID& cid, const Blob* pCode, bool bFireEvent)

@@ -739,7 +739,7 @@ namespace beam::wallet
 
     void TrezorKeyKeeperProxy::InvokeAsync(Method::CreateOutput& m, const Handler::Ptr& h)
     {
-        if (m.m_hScheme < Rules::get().pForks[1].m_Height)
+        if (!Rules::get().IsPastFork_<1>(m.m_hScheme))
             return PushOut(Status::NotImplemented, h);
         
         CreateOutputCtx::Ptr pCtx = std::make_unique<CreateOutputCtx>(*this, m);

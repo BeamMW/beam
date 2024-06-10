@@ -111,7 +111,7 @@ namespace beam::wallet
             Block::SystemState::ID state;
             if (m_storage.getSystemStateID(state))
             {
-                if (state.m_Height >= Rules::get().pForks[3].m_Height) // we do not process old versioned messages
+                if (Rules::get().IsPastFork_<3>(state.m_Height)) // we do not process old versioned messages
                 {
                     std::vector<ExchangeRate> receivedRates;
                     if (fromByteBuffer(buffer, receivedRates))

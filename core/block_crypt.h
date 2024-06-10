@@ -437,11 +437,30 @@ namespace beam
 
 		static void Fail_Fork(uint32_t iFork);
 
-		void TestForkAtLeast(Height h, uint32_t iFork) const
+		bool IsPastFork(Height h, uint32_t iFork) const
 		{
 			assert(iFork < _countof(pForks));
-			if (h < pForks[iFork].m_Height)
+			return (h >= pForks[iFork].m_Height);
+		}
+
+		template <uint32_t iFork>
+		bool IsPastFork_(Height h) const
+		{
+			static_assert(iFork < _countof(pForks), "");
+			return IsPastFork(h, iFork);
+		}
+
+		void TestForkAtLeast(Height h, uint32_t iFork) const
+		{
+			if (!IsPastFork(h, iFork))
 				Fail_Fork(iFork);
+		}
+
+		template <uint32_t iFork>
+		void TestForkAtLeast_(Height h) const
+		{
+			static_assert(iFork < _countof(pForks), "");
+			TestForkAtLeast(h, iFork);
 		}
 
 		void TestEnabledCA() const

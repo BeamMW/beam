@@ -33,13 +33,15 @@ struct Block::PoW::Helper
 	BeamHash_III       BeamHashIII;
 
 	PoWScheme* getCurrentPoW(Height h) {
-		if (h < Rules::get().pForks[1].m_Height) {
-			return &BeamHashI;
-		} else if (h < Rules::get().pForks[2].m_Height) {
-			return &BeamHashII;
-		} else {
+
+		const Rules& r = Rules::get();
+		if (r.IsPastFork_<2>(h))
 			return &BeamHashIII;
-		}
+
+		if (r.IsPastFork_<1>(h))
+			return &BeamHashII;
+		
+		return &BeamHashI;
 	}
 
 	void Reset(const void* pInput, uint32_t nSizeInput, const NonceType& nonce, Height h)

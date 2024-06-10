@@ -1,9 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
+<!-- WELCOME TO BEAM SMART EXPLORER!
+- This is an interactive web display of the data queried to a Beam explorer node.
+- The IP address of the explorer node can be changed in var 'urlPrefix'.
+- Current version of the file: v0.4
+
+General rules for developement:
+- Let's keep everything in one single standalone file!
+- HTML/JS/CSS must be compatible with Chrome 83 (to allow also being used as a Beam Wallet DApp).
+- Graphics are embedded as SVG or are Unicode symbols.
+- Ideally, JS functions mainly modify classes while most display features are done by CSS.
+- That way, if we disable styling, the data can directly be copy-pasted somewhere else.
+
+The file is organized in four main sections:
+1) All the CSS styling.
+2) Some static HTML (banner, footer, etc.).
+3) Core JS functions to request the node explorer data and parse it into HTML.
+4) Extra JS functions for adjustments, filtering, sorting, etc.
+
+Disclaimer:
+- This is an experimental work-in-progress.
+- It is provided AS-IS, with no guarantees whatsoever.
+-->
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <meta name="theme-color" content="#000000">
+  <!-- Simplified Beam logo SVG favicon is URL-encoded (i.e. mainly replacing < > # and spaces) -->
+  <!-- Remark: Such SVG favicon does not seem to be recognized by Safari -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
+  <title>Beam Smart Explorer</title>
+
+  
+<!-- ------------ SECTION 1 - CSS STYLES ------------ --> 
 <style>
 
 	/* GENERAL ELEMENTS */
@@ -12,18 +42,31 @@
 		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
 	}
 	html {
- 		font-size: 62.5%; /* Since default browser font size is 16px, this sets an easy 1rem = 10px */
+ 		font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
 	}
 	:root {
  		background: #d0daff; /* Default background color for all pages */
 	}
+	:link { color: #0066CC; } 	/* Default link colors */
+	:visited { color: #3e1a8b; }
+	:link:active, :visited:active { color: #3e1a8b; }
 	p {
 		font-size: 1.6rem;
 		margin: 5px;
 	}
 	ul {
 		font-size: 1.4rem;
-		padding-right: 10px;
+		padding: 0px 10px 0px 15px;
+		text-align: left;
+	}
+	div > ul {
+		padding: 0px 10px 0px 35px;  /* Wide first bullet point level when not in table cells */
+	}
+	td ul {
+		padding: 0px 10px 0px 15px; /* Tight bullet points when inside table cells */
+	}
+	ul li {
+		padding: 2px 0px 0px 2px;
 	}
 	h1 {
 		font-size: 3.2rem;
@@ -33,98 +76,165 @@
 	h2 {
 		font-size: 2.4rem;
 		text-align: left;
-		margin: 20px 0px 15px 0px;
+		margin: 15px 0px 10px 0px;
 	}
-	h3 {
+	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
 		color: #17204e;
-		margin: 15px 0px 10px 0px;
-	}
-	h3 a {
-		color: #17204e;
+		margin: 10px 0px 15px 0px;
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
 		color: #17204e;
 	}
-	.blockHeight {
-		font-family: monospace;
+	.blockHeight, .blockHeight a {
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-weight: normal;
 	}
 	.blockTitle {
-		text-decoration: none;
-		font-size: 3rem;
+		white-space: nowrap; /* Don't wrap text */
 	}
-	.blockTitle a {
-		text-decoration: none;
+	.blockTitle .blockHeight {
+		font-weight: bold;
+	}
+	#LinkToBlocksHeaders {
+		display: inline-block;
+	}
+	#LinkToBlocksHeaders a, .olderBlocks a, .newerBlocks a {
+		text-decoration-line:none;
+		color:#0066CC;
+	}
+	#LinkToBlocksHeaders a:hover, .olderBlocks a:hover, .newerBlocks a:hover {
+		color:#003399;
 	}
 	.assetName {
 		color: black;
-		white-space: nowrap; /* Never wrap text */
+		white-space: nowrap; /* Don't wrap text */
 	}
 	.assetName a {
 		color: black; /* Keep links in black */
 	}
 	.metadata {
-		font-family: monospace;
+		font-family: "Lucida Console", ui-monospace, monospace;
+		color: #505050;
 		font-size: 1.2rem;
+		white-space: nowrap; /* To ensure that the symbol stays inline with text */
+	}
+	/* Display full metadata */
+	.metadata .full {
 		display: inline-block; /* Needed to allow setting a max-width */
-		max-width: 100ch; /* Wrap long strings after 100 characters */
+		max-width: 80ch; /* Wrap long strings after 80 characters */
+		white-space: pre-wrap;
 		word-wrap: break-word; /* Allow breaking words to next line */
+		font-family: inherit;
+	}
+	/* Display reduced metadata */
+	.metadata .reduced {
+		display: inline-block; /* Needed to allow setting a max-width */
+		max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-family: inherit;
+	}
+	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
+	.metadata .reduced + .extend {
+		display: inline; /* Superseed the HTML 'hidden' attribute */
+		visibility: hidden; /* Hide the symbols but maintain their space */
+		cursor: pointer;
+		font-size: 1.8rem;
+		color: grey;
+		vertical-align: text-bottom; /* This is to align correctly the symbol with the text */
+	}
+	/* Display the extend symbols when hovering over the cell or the span containing a truncated text */
+	td:hover .metadata .reduced + .extend, span:hover .metadata .reduced + .extend {
+		visibility: visible;
+	}
+	/* Highlight the symbol when hovering on it */
+	.extend:hover {
+		color: #2c2c2c !important; /* I don't know why !important is needed here... */
 	}
 	.bool {
-		font-family: monospace;
-		font-size: 1.4rem;
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-size: 1.6rem;
 		color: black;
 	}
 	.bool.yes {
-		color: green; /* True in green */
+		color: green; /* 'True' in green */
 	}
 	.bool.no {
-		color: blue; /* False in blue */
+		color: blue; /* 'False' in blue */
 	}
 	.time {
-		white-space: nowrap; /* Never wrap text */
-		font-size: 1.4rem;
-	}
-	.cid {
-		font-family: monospace;
+		white-space: nowrap; /* Don't wrap text */
 		font-size: 1.2rem;
-		color: black;
+		color: #650000;
+	}
+	.cid, .kernelId, .blob, .commitment {
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-size: 1.2rem;
+		color: #525252;
+		white-space: nowrap;
+		display: inline;
+		vertical-align: middle;
 	}
 	.cid a {
-		color: black; /* Keep links black */
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-size: 1.2rem;
+		color: #525252; /* Keep links black */
 		text-decoration-line: underline;
 		text-decoration-color: grey; /* Use a light underline color */
 	}
 	.cidTitle {
-		font-family: monospace;
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-weight: normal;
 	}
-	.id {
-		font-family: monospace;
-		font-size: 1.2rem;
+	/* Display truncated texts */
+	.truncated {
+		display: inline-block; /* Needed to allow setting a max-width */
+		max-width: 25ch; /* Show only the 25 first characters */
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-family: inherit;
 	}
-	.blob {
-		font-family: monospace;
-		font-size: 1.2rem;
+	.expanded {
+		font-family: inherit;
 	}
-	.commitment {
-		font-family: monospace;
-		font-size: 1.2rem;
+	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
+	.truncated + .expand {
+		display: inline; /* Superseed the HTML 'hidden' attribute */
+		visibility: hidden; /* Hide the symbols but maintain their space */
+		cursor: pointer;
+		font-size: 1.8rem;
+		color: grey;
+		position: relative;
+	}
+	/* Display the expand symbols when hovering over the cell or the list item containing a truncated text */
+	td:hover .truncated + .expand, li:hover > span .truncated + .expand {
+		visibility: visible;
+	}
+	/* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
+	.truncated.withLink:hover + .expand {
+		visibility: hidden;
+	}
+	/* Highlight the symbol when hovering on it */
+	.expand:hover {
+		color: #2c2c2c;
 	}
 	.amount {
-		font-family: monospace;
-		font-size: 1.5rem;
-		color: green;
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-size: 1.4rem;
+		color: darkcyan;
 	}
 	.amount.pos {
 		color: green; /* Positive values in green */
 	}
 	.amount.neg {
-		color: blue; /* Negative values in blue */
+		color: red; /* Negative values in red */
 	}
 	.th {
-		/* Not sure yet how to use this class (these "headers" can appear in rows or in columns)... */
+		/* This class is a "header" type from the node explorer data */
 	}
 	.more {
 		font-weight: bold;
@@ -146,21 +256,21 @@
 		border-collapse: collapse; /* Join table and cell borders as one single line */
 		padding: 5px; /* Add a small padding */
 	}
-	table thead > tr {
-		background-color: #b8bbd8; /* Background color for table headers already declared as such ("thead" tag) */
+	table thead > tr th {
+		background-color: #b8bbd8; /* Background color for table header cells declared as such ("thead" tag) */
 	}
 	th {
-		white-space: nowrap; /* Never wrap header text */
+		white-space: nowrap; /* Don't wrap header text */
 	}
 	.tableGeneric {
 		/* Nothing special */
 	}
 	.tableUTXO, .tableKernels {
-		min-width: 100ch; /* Just to keep them balanced (inputs, outputs, kernels) */
+		min-width: 50ch; /* Just to keep them visually balanced (inputs, outputs, kernels) */
 		margin: 5px;
 	}
 	.tableSummary, .tableTotals {
-		min-width: 70ch; /* Just to keep them balanced */
+		min-width: 70ch; /* Just to keep them visually balanced */
 	}
 	.tableOwned_compact, .tableOwned_full {
 		width: 100%; /* Occupy full width of the column they appear in */
@@ -171,15 +281,21 @@
 	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory {
 		/* Nothing special */
 	}
+	.contractCall {
+		border: 3px solid #555fb8; /* Group multiple contract calls within a thick border */
+	}
+	.mainCall, .subCall {
+		text-align: center;
+	}
 	.divTableStatus, .divTableBlocks {
-		/* Dirty hack added to wrap and detect some special types of generic tables... */
+		/* These div are just a dirty hack added to wrap and identify some special types of generic tables... */
 	}
 	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
 	table tbody > tr:nth-child(odd) { background-color: #fff; }
 	table tbody > tr:nth-child(even) { background-color: #eee; }
 
-	/* TITLE BANNER */
-	.banner {
+	/* TITLE BANNER AND FOOTER */
+	#Banner {
 		width: 97vw;
 		display: table;
 		background-color: #a7acd9;
@@ -191,22 +307,36 @@
 		display: table-cell;
 		vertical-align: middle;
 		text-align: left;
-		min-height: 60px;
-		min-width: 60px;
+		min-height: 50px;
+		min-width: 50px;
 	}
-	#BeamTitle {
+	#BannerCenter{
 		display: table-cell;
 		vertical-align: middle;
 		text-align: center;
-		font-size: 2.8rem;
-		color: #17204e;
 		width: 100%;
 		white-space: nowrap; /* Never wrap text */
 		padding: 5px 10px 5px 10px;
 	}
+	#BeamTitle {
+		font-size: 2.4rem;
+		color: #17204e;
+		margin: 0px 0px 5px 0px;
+	}
 	#Version {
 		font-size: 1rem;
 		color: #525252;
+	}
+	#Menu {
+		font-size: 1.5rem;
+		color: #17204e;
+	}
+	.menuItem a {
+		color: #2d3799; /* No change of color when followed */
+	}
+	.menuSeparator {
+		color: #17204e;
+		padding: 0px 5px 0px 5px;
 	}
 	#Navigation {
 		display: table-cell;
@@ -215,16 +345,23 @@
 		font-size: 2rem;
 		color: #525252;
 		padding: 0px 10px 0px 10px;
+		line-height: 1; /* Without units it's a number of lines */
 	}
 	#Navigation a {
 		color: #525252;
 		text-decoration-line: none;
 	}
-	#TopButton {
-		display: none; /* Hidden by default */
-		position: fixed; /* Fixed/sticky position */
-		bottom: 10px; /* Bottom of the page */
-		right: 10px; /* Right side of the page */
+	#Reload {
+		font-weight: bold;
+	}
+	#Back, #ExpandAll {
+		/* Nothing special */
+	}
+	#Reload:hover, #Back:hover, #ExpandAll:hover {
+		color: #2c2c2c;
+	}
+	#TopButton, #BottomButton {
+		position: fixed; /* Fixed position */
 		z-index: 99; /* Make sure it does not overlap */
 		cursor: pointer; /* Mouse pointer on hover */
 		border: none; /* Remove borders */
@@ -237,7 +374,17 @@
 		color: white; /* Text color */
 		padding: 10px; /* Some padding */
 	}
-	#TopButton:hover {
+	#TopButton {
+		display: none; /* Hidden by default */
+		bottom: 50px; /* Bottom of the page */
+		right: 10px; /* Right side of the page */
+	}
+	#BottomButton {
+		display: block; /* Shown by default */
+		bottom: 10px; /* Bottom of the page */
+		right: 10px; /* Right side of the page */
+	}
+	#TopButton:hover, #BottomButton:hover {
 		opacity: 0.9; /* Less transparent on hover */
 		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
 	}
@@ -248,7 +395,7 @@
 		color: #17204e;
 		text-decoration: none;
 		font-weight: bold;
-		white-space: nowrap; /* Never wrap text */
+		white-space: nowrap; /* Don't wrap text */
 		padding: 20px 5px 0px 5px;
 	}
 	.footer::before {
@@ -261,6 +408,7 @@
 	}
 
 	/* COLLAPSIBLE BLOCKS */
+	/* Remark: We use the 'checkbox hack' to make collapsibles 100% CSS */
 	.collapsible {
 		display: block; 
 		width: fit-content; /* Will have the width of its full content */
@@ -323,7 +471,7 @@
 	.collapsible-content {
 		display: block;
 		width: 100%;
-		height: 0px; /* Hide by collapsing its height only (thus maitaining its horizontal space) */
+		height: 0px; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
 		background-color: white;
 	}
@@ -333,32 +481,51 @@
 	}
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content {
 		height: unset;  /* Show content's full height */
+		overflow: visible;
 		border: 0.5px solid #777ebc; /* Add a thin border */
 	}
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content.small {
 		display: block; /* Show content */
+		overflow: visible;
 		border: none; /* No border for small collapsibles */
 	}
 
-	/* SORT AND SEARCH HEADERS IN TABLES
-	/* Header row when filters are off */
-	.filtersOff, .filtersNot {
-		background-color: #b8bbd8 !important; /* Background for all table headers */
-	}
-	.filtersOff:hover {
-		cursor: pointer; /* Change mouse to pointer to show it's clickable */
-		background-color: #9ca2d2 !important; /* Background for table header */
-	}
-	/* Header row when filters are on */
-	.filtersOn {
-		background-color: #9ca2d2 !important; /* Background for table header */
-	}
-	.filtersOff th, .filtersOff td, .filtersOn th, .filtersOn td, .filtersNot th, .filtersNot td, .headerCell {
+	/* SORT AND SEARCH HEADERS IN TABLES */
+	/* General for all headers */
+	.filtersOff th, .filtersOn th, .filtersNot th, .headerCell, .headerRow {
 		text-align: center;
 		white-space: nowrap; /* Don't wrap header text */
 		font-weight: bold;
 	}
-	
+	/* Add placeholders for sorting indicators */
+	.filtersOff th::before {
+		content: '\21c5 \00a0';
+		visibility: hidden;
+	}
+	/* Force same min column width as when filters are on */
+	.filtersOff th {
+		min-width: 5ch;
+	}
+	/* Headers when filters are off */
+	.filtersOff th {
+		background-color: #b8bbd8;
+	}
+	.filtersOff:hover th {
+		cursor: pointer; /* Change mouse to pointer to show it's clickable */
+		background-color: #9ca2d2;
+	}
+	/* Headers when filters are on */
+	.filtersOn th {
+		background-color: #9ca2d2;
+	}
+	/* Make header rows sticky to the top of the window */
+	/* Remark: On Chrome 83, sticky only works on 'th' (not on 'thead' or 'tr') */
+	.filtersOff th, .filtersOn th {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+	}
+
 	/* SORT OPTIONS IN HEADERS */
 	.sortable {
 		cursor: pointer; /* Change mouse pointer to show it's clickable */
@@ -368,59 +535,113 @@
 		content: '\21c5 \00a0'; /* Symbol when not sorted */
 		color: #666;
 	}
+	.sortable:hover::before { /* Highlight symbol on hover */
+		color: #e7e7e7;
+	}
 	.sortable.asc::before {
-		content: '\25bc \00a0'; /* Symbol when sorted ascending */
+		content: '\25b2 \00a0'; /* Symbol when sorted ascending */
 		color: #e7e7e7;
 	}
 	.sortable.desc::before {
-		content: '\25b2 \00a0'; /* Symbol when sorted descending */
+		content: '\25bc \00a0'; /* Symbol when sorted descending */
 		color: #e7e7e7;
 	}
 
 	/* SEARCH OPTIONS IN HEADERS */
 	.searchable {
+		/* Nothing special */
+	}
+	.search {
 		visibility: hidden; /* Search fields are hidden by default */
-		width: 90%;
+		display: inline-block;
+		width: 95%;
 		max-width: 20ch;
 		min-width: 5ch;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid #ddd; /* White border */
+		border: 1px solid #555; /* Dark border */
 		background-color: #afb3d8;
 		padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
 	}
 	/* Search fields on hover */
-	.headerCell:hover .searchable {
+	.headerCell:hover .search {
 		visibility: visible; /* Make it appear when hover */
 	}
 	/* Search fields with content */
-	.searchable:not(:placeholder-shown) {
+	.search:not(:placeholder-shown) {
 		visibility: visible; /* Keep it visible */
-		max-width: 90%; /* Extend to full width */
+		max-width: 95%; /* Extend to full width */
 		background-color: #b8bbd8; /* Use a lighter background */
+		border: 1px solid #ddd; /* White border */
 	}
 	/* Search fields on focus */
-	.searchable:focus {
+	.search:focus {
 		visibility: visible; /* Keep it visible */
-		max-width: 90%; /* Extend to full width */
+		max-width: 95%; /* Extend to full width */
 		outline: none; /* Avoid the browser default focus outline */
-		border: 1px solid #555; /* Darker border */
+		border: 1px solid #ddd; /* White border */
 	}
 	
 </style>
+
 </head>
-
 <body>
+<!-- ------------ SECTION 2 - STATIC HTML ------------ --> 
 
-<p id="my_content">Loading...</p>
+	<!-- Fixed banner on all pages -->
+	<div id="Banner">
+		<span id="BeamLogo">
+			<!-- Clicking on the logo sends back to the main page -->
+			<a href='?' title='Main page'>
+				<!-- An SVG version of the BEAM logo -->
+				<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' height='50' width='50' viewBox='42 42 460 460'><defs><style>.cls-1 {fill: #0b1624;} .cls-2 {fill: #24c1ff;} .cls-3 {fill: #0b76ff;} .cls-4 {fill: #39fff2;} .cls-5 {fill: #00e2c2;} .cls-6 {fill: url(#Ray1_gradient);} .cls-7 {fill: url(#Ray2_gradient);} .cls-8 {fill: url(#Ray3_gradient);} .cls-9 {fill: url(#Ray4_gradient);} </style><linearGradient id='Ray1_gradient' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Ray2_gradient' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Ray3_gradient' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Ray4_gradient' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><g id='logo_in_circle' data-name='logo in circle'><circle id='circle' class='cls-1' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' class='cls-2' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' class='cls-3' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' class='cls-4' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' class='cls-5' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' class='cls-6' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' class='cls-7' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' class='cls-8' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' class='cls-9' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></g></svg>
+			</a>
+		</span>
+		<span id="BannerCenter">
+			<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.4</span></h1>
+			<div id="Menu">
+				<!-- Main explorer menu -->
+				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
+				<span class="menuSeparator"> | </span>
+				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
+				<span class="menuSeparator"> | </span>
+				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+			</div>
+		</span>
+		<!-- Banner symbols for special functions -->
+		<span id="Navigation">
+			<a id="Reload" href="" title="Reload">&orarr;</a>
+			<br><a id="Back" href="javascript:history.back();" title="Back">&#11013;</a> <!-- &#129048; was better but is apparently not recognized by Safari... -->
+			<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything">&#128065;</a>
+		</span>
+	</div>
 
+	<!-- Floating buttons to scroll up and down -->
+	<div>
+		<button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
+		<button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
+	</div>
+
+	<!-- Main content area (will be replaced through Javascript) -->
+	<p id="my_content">
+		<br><br>Loading...<br><br>
+	</p>
+
+	<!-- Fixed footer on all pages -->
+	<div class='footer'><a href='https://www.beam.mw'>www.beam.mw</a></div>
+
+	<!-- No JavaScript warning -->
+	<noscript>You need to enable JavaScript to run this app.</noscript>
+
+
+<!-- ------------ SECTION 3 - CORE JS FUNCTIONS ------------ --> 
 <script>
 
 	function MakeRef(link, text)
 	{
-		return "<a href=\"" + link + "\">" + text + "</a>";
+		return "<a href='" + link + "'>" + text + "</a>";
 	}
 
-	function UrlSelf(type, extra)
+	function UrlSelf(type, extra="")
 	{
 		return window.location.pathname + "?type=" + type + extra;
 	}
@@ -442,18 +663,19 @@
 
 	function MakeCellRA(text, styles)
 	{
-		return MakeCellEx(text, " align=\"right\"");
+		return MakeCellEx(text, " align='right'");
 	}
 	
 	function MakeAmountClr(amount)
 	{
-		if (!amount)
-			return "";
+		let type = "amount";
 
-		let type = "amount pos";
 		if (amount[0] == '-')
 			type = "amount neg";
-		return AddClass(amount,type);
+		if (amount[0] == '+')
+			type = "amount pos";
+
+		return AddClass(amount, type);
 	}
 
 	function AddClass(txt,className)
@@ -461,6 +683,11 @@
 		return "<span class='" + className + "'>" + txt + "</span>";
 	}
 	
+	function AddClassEx(txt,className,other)
+	{
+		return "<span class='" + className + "' " + other + ">" + txt + "</span>";
+	}
+
 	function UrlBlock(h)
 	{
 		return UrlSelfWithID("block", h, "");
@@ -485,7 +712,7 @@
 	
 	function MakeCid(cid)
 	{
-		return AddClass(MakeRef(UrlSelfWithID("contract", cid, ""), cid), "cid");
+		return AddClassEx(MakeRef(UrlSelfWithID("contract", cid, ""), cid), "cid", "title='" + cid + "'");
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -495,7 +722,7 @@
 
 		let text = "";
 
-		// Make collapsible and add some headers if more than a few lines
+		// Make collapsible and add some headers if more than a few rows
 		let maxRows = 5;
 		if (jFunds.length < maxRows) {
 			text += "<table class='tableFunds_compact'>";
@@ -538,7 +765,7 @@
 				
 				for (let iCol = 0; iCol < jRow.length; iCol++)
 				{
-					text += "<td align=\"right\">";
+					text += "<td align='right'>";
 					text += Obj2Html(jRow[iCol]);
 					text += "</td>";
 				}
@@ -546,7 +773,6 @@
 				text += "</tr>";
 			}
 		}
-		
 		return text;
 	}
 	
@@ -573,7 +799,6 @@
 			text += "</table>";
 			
 			return text;
-
 		}
 		
 		if (obj.type == "aid")
@@ -583,7 +808,7 @@
 			return AddClass(MakeBlock(obj.value), "blockHeight");
 
 		if (obj.type == "blob")
-			return AddClass(obj.value, "blob");
+			return AddClassEx(obj.value, "blob", "title='" + obj.value + "'");
 
 		if (obj.type == "bool")
 			return (obj.value > 0) ? AddClass("yes", "bool yes") : AddClass("no", "bool no");
@@ -617,7 +842,6 @@
 			
 			txt += "</ul>";
 			return txt;
-		
 		}
 
 		if (typeof obj == 'object')
@@ -637,42 +861,32 @@
 			txt += "</ul>";
 			return txt;
 		}
+
+		// If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
+		if (typeof obj === "string" && obj.startsWith("STD:"))
+		{
+			return AddClass(obj, "metadata");
+		}
 			
 		return obj;
 	}
 	
 	function SetContent(text)
 	{
-		// Fixed banner on all pages
-		let banner = "\
-			<div class='banner'>\n\
-				<span id='BeamLogo'>\n\
-					<a href='" + window.location.pathname + "' title='Main'>\n\
-						<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='42 42 460 460'><!-- A variaion of the BEAM logo --><defs><style>.cls-1 {fill: #0b1624;} .cls-2 {fill: #24c1ff;} .cls-3 {fill: #0b76ff;} .cls-4 {fill: #39fff2;} .cls-5 {fill: #00e2c2;} .cls-6 {fill: url(#Ray1_gradient);} .cls-7 {fill: url(#Ray2_gradient);} .cls-8 {fill: url(#Ray3_gradient);} .cls-9 {fill: url(#Ray4_gradient);} </style><linearGradient id='Ray1_gradient' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Ray2_gradient' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Ray3_gradient' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Ray4_gradient' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><g id='logo_in_circle' data-name='logo in circle'><circle id='circle' class='cls-1' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' class='cls-2' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' class='cls-3' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' class='cls-4' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' class='cls-5' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' class='cls-6' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' class='cls-7' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' class='cls-8' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' class='cls-9' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></g></svg>\n\
-					</a>\n\
-				</span>\n\
-				<h1 id='BeamTitle'>Beam Smart Explorer <span id='Version'>v0.3</span></h1>\n\
-				<span id='Navigation'><a href='' title='Reload'>&orarr;</a><br><a href='javascript:history.back();' title='Back'>&larr;</a></span>\n\
-			</div>\n\
-			<div>\n\
-				<button onclick='topFunction();'' id='TopButton' title='Top'>&#9650;</button>\n\
-			</div>";
+		document.getElementById("my_content").innerHTML = text;
 
-		let footer = "<div class='footer'><a href='https://www.beam.mw'>www.beam.mw</a></div>";
-
-		document.getElementById("my_content").innerHTML = banner + text + footer;
-		
-		// Add option for adding filters to the first row of long tables
+		// Add truncate/expand options to all text of type hash, cid, metadata, etc.
+		addExpandOptions();
+		// Include options for adding filters to the first row of long tables
 		addFilterOption();
 	}
 	
 	let g_CurrentID = "";
 
-
 	function DisplayContracts()
 	{
 		let text = "\
-		<h2>Deployed contracts</h2>\n\
+		<h2>Deployed Smart Contracts</h2>\n\
 		<table class='tableContracts'>\n\
 			<thead><tr>\n\
 				<th>Cid</th>\n\
@@ -704,7 +918,7 @@
 			const jOwned = jRow[4]["value"];
 			if (jOwned)
 			{
-				// Make collapsible and add some headers if more than a few lines
+				// Make collapsible and add some headers if more than a few rows
 				let maxRows = 5;
 				if (jOwned.length < maxRows) {
 					text += "<table class='tableOwned_compact'>";
@@ -722,11 +936,9 @@
 				{
 					const jFR = jOwned[iF];
 					text += "<tr>";
-					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style=\"width:10%\"");
-					text += MakeCell(MakeCollapsibleBegin("[description]", "", "small")
-									+ AddClass(jFR[1], "metadata")
-									+ MakeCollapsibleEnd());
-					text += MakeCellAmount(jFR[2]["value"], " style=\"width:40%\"");
+					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style='width:10%'");
+					text += MakeCell(AddClass(jFR[1], "metadata"));
+					text += MakeCellAmount(jFR[2]["value"], " style='width:40%'");
 					text += "</tr>"
 				}
 				text += "</table>";
@@ -740,16 +952,21 @@
 		
 		}
 		
-	
 		text += "</table>"    
 		SetContent(text);
 	}
 
-
 	function DisplayAssetHistory()
 	{
-		let text = "\
-		<h2>History of Asset " + g_CurrentID + "</h2>\n\
+		const jData = JSON.parse(this.responseText);
+		const jTblObj = jData["Asset history"];
+		const jTbl = jTblObj["value"];
+		
+		let text = "<h2>\n"
+		text += "History of Asset " + g_CurrentID;
+		text += "</h2>\n"
+
+		text += "\
 		<table class='tableAssetHistory'>\n\
 			<thead><tr>\n\
 				<th>Height</th>\n\
@@ -760,11 +977,7 @@
 			</tr></thead>\n\
 		";
 
-		const jData = JSON.parse(this.responseText);
-		const jTblObj = jData["Asset history"];
-		const jTbl = jTblObj["value"];
-		
-		// skip 1st row
+		// Skip first row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
 		{
 			const jRow = jTbl[iRow];
@@ -778,9 +991,9 @@
 			text += "</tr>";
 		}
 		
-	
-		text += "</table>"    
-		text += MakeMoreLink(jTblObj);
+		text += "</table>"
+		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+
 		SetContent(text);
 	}
 	
@@ -807,7 +1020,7 @@
 			let jRow = jTbl[i];
 			text += "<tr>";
 
-			text += MakeCell(AddClass(jRow["commitment"], "commitment"));
+			text += MakeCell(AddClassEx(jRow["commitment"], "commitment", " title='" + jRow["commitment"] + "'"));
 			delete jRow.commitment;
 	
 			let j = jRow[isInp ? "height" : "spent"];
@@ -852,7 +1065,6 @@
 				delete jRow.Value;
 			}
 
-			//text += MakeCell(txtExtra + Obj2Html(jRow));
 			text += MakeCell(txtExtra);
 			
 			text += "</tr>";
@@ -877,7 +1089,7 @@
 
 		let jTbl = j["value"];
 		
-		// skip 1st row
+		// Skip first row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
 		{
 			const jRow = jTbl[iRow];
@@ -892,7 +1104,6 @@
 			
 			text += "</tr>";
 		}
-		
 	
 		text += "</table>"
 		return text;
@@ -900,7 +1111,7 @@
 
 	function MakeCAs(h)
 	{
-		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets") + "</h3>";
+		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets at this block height") + "</h3>";
 	}
 
 	function DisplayBlock()
@@ -908,9 +1119,9 @@
 		let text = "";
 		
 		text += "<h2 class='blockTitle'>";
-		if (g_CurrentID > 0)
-		{
-			text += MakeRef(UrlBlock(g_CurrentID - 1), "&larr;");
+		if (g_CurrentID > 0) {
+			text += "<span id='LinkToBlocksHeaders'><a href='" + UrlSelf("hdrs", "&hMax=" + g_CurrentID) + "' title='List of blocks below this one'>&#128463;</a></span> ";
+			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "&#10094;"),"olderBlocks","title='Previous block'");
 			text += " ";
 			text += "Block " + AddClass(g_CurrentID, "blockHeight");
 		}
@@ -918,7 +1129,7 @@
 			text += "Treasury";
 
 		text += " ";
-		text += MakeRef(UrlBlock(g_CurrentID - 1 + 2), "&rarr;");
+		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "&#10095;"),"newerBlocks","title='Next block'");
 		text += "</h2>"
 
 		const jData = JSON.parse(this.responseText);
@@ -952,9 +1163,7 @@
 		let jTbl = jData["kernels"];
 		if (jTbl)
 		{
-		
 			text += "<h3>Kernels</h3>\n";
-
 			text += "\
 			<table class='tableKernels'>\n\
 				<thead><tr>\n\
@@ -965,13 +1174,12 @@
 				</tr></thead>\n\
 			";
 
-		
 			for (let i = 0; i < jTbl.length; i++)
 			{
 				let jRow = jTbl[i];
 				text += "<tr>";
 
-				text += MakeCell(AddClass(jRow["id"], "id"));
+				text += MakeCell(AddClassEx(jRow["id"], "kernelId", " title='" + jRow["id"] + "'"));
 				text += MakeCellRA(Obj2Html(jRow["fee"]));
 			
 				let txtH = "";
@@ -1004,7 +1212,6 @@
 				text += "</tr>";
 			}
 			text += "</table>"
-
 		}
 
 		text += MakeCollapsibleEnd();
@@ -1046,8 +1253,6 @@
 		return retVal;
 	}
 
-	//var rowHeight = ""; // Used to remember and repeat the latest row height (and avoid using rowspans in the CallHistoryAddRow function).
-	//var rowNbr; // Used to number the subsequent rows.
 	function CallHistoryAddRow(jRow, depth, numRows)
 	{
 		let text = "";
@@ -1062,24 +1267,19 @@
 				if (!i)
 					depth++;
 			}
-			
 		}
 		else
 		{
 			text += "<tr>";
 			
-			//if (depth == 0)
-			//	text += MakeCellEx(MakeBlock(jRow[0]), " rowSpan=" + numRows);
-
-			// We replace here the use of "rowspan" with a simple repetition to allow filtering and sorting
+			// We use empty cells for subsequent contract calls at same height
+			// (all these rows are kept together within a dedicated tbody).
 			if (depth == 0) {
-				text += MakeCell(MakeBlock(jRow[0]));
-				//rowHeight = jRow[0]; // Save it to repeat it on subsequent rows with same height
-				//rowNbr = 1; // Start numbering subsequent rows
+				// Display block height for main contract call
+				text += MakeCellEx(MakeBlock(jRow[0])," class='mainCall'");
 			} else {
-				//rowNbr++;
-				//text += MakeCell(MakeBlock(rowHeight) + "&nbsp;(" + rowNbr + ")");
-				text += MakeCell("");
+				// Use an empty cell for subsequent contract calls
+				text += MakeCellEx(""," class='subCall'");
 			}
 
 			text += MakeCell(Obj2Html(jRow[1]));
@@ -1113,8 +1313,9 @@
 		return "</div></div>\n";
 	}
 	
-	function MakeMoreLink(jTblObj)
+	function MakeLinkToOlderBlocks(jTblObj) // Link to go backwards one page of older blocks
 	{
+		// This function uses the information given by the node explorer to move pages backwards
 		const jMore = jTblObj["more"];
 		if (!jMore)
 			return "";
@@ -1125,42 +1326,69 @@
 		for (let key in jMore)
 			args.set(key, jMore[key]);
 			
-		return "<p class='more'>" + MakeRef(urlObj.pathname + "?" + args, "More...") + "</p>";
+		return urlObj.pathname + "?" + args;
+	}
+
+	function MakeLinkToNewerBlocks(jTblObj) // Link to go forward one page of newer blocks
+	{
+		// Temporary hack:
+		// The node explorer does not provide (yet?) parameters to move pages forward.
+		// Until then, we use the parameter given to go backwards and simply add twice nMax to it.
+		// This is imperfect, temporary, and -of course- only works for the Block Headers page...
+		const jMore = jTblObj["more"];
+		if (!jMore)
+			return "";
+			
+		let urlObj = new URL(document.location);
+		let args = urlObj.searchParams;
+		
+		for (let key in jMore) {
+			if (key == "hMax") {
+				args.set(key, jMore[key] - 0 + nMax*2);
+			} else {
+				args.set(key, jMore[key]);
+			}
+		}
+			
+		return urlObj.pathname + "?" + args;
 	}
 
 	function DisplayContractState()
 	{
-		let text = "\
-		<h2>Contract " + AddClass(g_CurrentID, "cidTitle") + "</h2>\n";
-
-	text += MakeCollapsibleBegin("Call history") + "\
-	<table class='tableCallHistory'>\n\
-		<thead><tr>\n\
-			<th>Height</th>\n\
-			<th>Cid</th>\n\
-			<th>Kind</th>\n\
-			<th>Method</th>\n\
-			<th>Arguments</th>\n\
-			<th>Funds</th>\n\
-			<th>Emisison</th>\n\
-			<th>Keys</th>\n\
-		</tr></thead>\n\
-	";
-
 		const jData = JSON.parse(this.responseText);
 		const jTblObj = jData["Calls history"];
 		const jTbl = jTblObj["value"];
 		
-		// skip 1st row
+		let text = "<h2>\n"
+		text += "Contract " + AddClass(g_CurrentID, "cidTitle");
+		text += "</h2>\n"
+
+		text += MakeCollapsibleBegin("Call history") + "\
+		<table class='tableCallHistory'>\n\
+			<thead><tr>\n\
+				<th>Height</th>\n\
+				<th>Cid</th>\n\
+				<th>Kind</th>\n\
+				<th>Method</th>\n\
+				<th>Arguments</th>\n\
+				<th>Funds</th>\n\
+				<th>Emisison</th>\n\
+				<th>Keys</th>\n\
+			</tr></thead>\n\
+		";
+
+		// Skip first row
 		for (let iRow = 1; iRow < jTbl.length; iRow++)
 		{
-			//text += "<tr><td colspan=99></td></tr>";
+			// Multiple contract calls are grouped in dedicated tbodies (HTML tables can have multiple tbodies!)
+			text += "<tbody class='contractCall'>"
 			text += CallHistoryAddRow(jTbl[iRow], 0, get_CallRows(jTbl[iRow]));
+			text += "</tbody>"
 		}
 	
 		text += "</table>";
-		text += MakeMoreLink(jTblObj);
-
+		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		
 		text += MakeCollapsibleEnd();
 
 		text += MakeCollapsibleBegin("State");
@@ -1185,12 +1413,19 @@
 	function DisplayHdrs()
 	{
 		const jData = JSON.parse(this.responseText);
-	
-		let text = "<h2>Block headers</h2>";
+		//const jTbl = jData["value"];
+
+		let text = "<h2>\n"
+		// Arrows &#129092; and &#129094; were better but apparently not recognized by Safari... :-(
+		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "&#10094;&nbsp;"),"olderBlocks","title='Previous blocks'");
+		text += "Block headers";
+		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "&nbsp;&#10095;"),"newerBlocks","title='Newer blocks'");
+		text += "</h2>\n"
 		text += "<div class='divTableBlocks'>";
+
 		text += Obj2Html(jData);
 		text += "</div>";
-		text += MakeMoreLink(jData);
+		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 
 		SetContent(text);
 	}
@@ -1199,12 +1434,8 @@
 	{
 		const jData = JSON.parse(this.responseText);
 	
-		let text = "<h3>" + MakeRef(UrlSelf("hdrs", ""), "Recent Block Headers") + "</h3>";
-		text += MakeCAs(jData["h"]);
-		text += "<h3>" + MakeRef(UrlSelf("contracts", ""), "Deployed Contracts") + "</h3>";
-
-		text += MakeCollapsibleBegin("Blockchain status");
-		text += "<div class='divTableStatus'>"; // Added to avoid adding filters to these specific tables...
+		let text = "<h2>Blockchain status</h2>";
+		text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
 		text += Obj2Html(jData);
 		text += "</div>"
 		text += MakeCollapsibleEnd();
@@ -1215,13 +1446,22 @@
 	function DisplayAssets()
 	{
 		const jData = JSON.parse(this.responseText);
-	
-		let text = "<h2>Assets state for height " + MakeBlock(g_CurrentID) + "</h2>\n";
+
+		let text = "<h2>\n"
+		if (g_CurrentID) {
+			text += "Confidential Assets at block height ";
+			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "&#10094;&nbsp;"),"olderBlocks","title='Previous Block'");
+			text += MakeBlock(g_CurrentID);
+			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "&nbsp;&#10095;"),"newerBlocks","title='Next Block'");
+		} else {
+			text += "Current Confidential Assets";
+		}
+		text += "</h2>\n"
+
 		text += MakeTblAssets(jData);
 
 		SetContent(text);
 	}
-
 
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
@@ -1235,6 +1475,9 @@
 	if (hMax)
 		urlSuffix += "&hMax=" + hMax;
 	
+	let nMax = args.get("nMax");
+	if (!nMax)
+		nMax = 100;
 
 	const xmlhttp = new XMLHttpRequest();
 
@@ -1253,13 +1496,26 @@
 	else if (type == "contract")
 	{
 		xmlhttp.onload = DisplayContractState;
-		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=200");
+		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
 		xmlhttp.send();
 	}
 	else if (type == "hdrs")
 	{
+		// Data that can be requested (relative or absolute):
+		// d = Difficulty
+        // f = Fee
+        // k = Kernels
+        // o = MW Outputs
+        // i = MW Inputs
+        // u = MW UTXOs
+        // O = Shielded Outputs
+        // I = Shielded Inputs
+        // c = Contracts Active
+        // C = Contract Calls
+        // s = Size Compressed
+        // S = Size Archive
 		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&nMax=100");
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cabs=&crel=dfkoOiIC" + "&nMax=" + nMax);
 		xmlhttp.send();
 	}
 	else if (type == "contracts")
@@ -1280,20 +1536,141 @@
 		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
 		xmlhttp.send();
 	}
+</script>
+
+<!-- ------------ SECTION 4 - EXTRA JS FUNCTIONS ------------ --> 
+<script>
+
+	// ADD EXPAND OPTIONS TO ALL TEXT OF TYPE HASH OR METADATA (CSS WILL DISPLAYED THEM TRUNCATED BY DEFAULT)
+	function addExpandOptions() {
+		// Text of type Hash (truncated/expanded)
+		for (let myHash of document.querySelectorAll(".cid, .kernelId, .blob, .commitment")) {
+			// Check if the text contains a link
+			let myClass = (myHash.querySelector("a")) ? "truncated withLink" : "truncated";
+			// Add a span to truncate the text, and another span to hold the clickable symbol
+			let myHTML = myHash.innerHTML;
+			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Expand' hidden>&#128065;</span>";
+			// Add event listener on the symbol
+			myHash.querySelector(".expand").addEventListener("click", expandHash);
+		}
+		// Text of type Metadata (reduced/full)
+		for (let myMetadata of document.querySelectorAll(".metadata")) {
+			// Add a span to truncate the text, and another span to hold the clickable symbol
+			let myHTML = myMetadata.innerHTML;
+			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Expand' hidden>&#128065;</span>";
+			// Add event listener on the symbol
+			myMetadata.querySelector(".extend").addEventListener("click", expandMetadata);
+		}
+	}
+
+	function expandHash(e) {
+		// Get element, table and column number of the event
+		let input = e.currentTarget;
+		// If item is in table, expand the whole column
+		if (input.closest('table')) {
+			let col = input.closest('th,td').cellIndex;
+			let table = input.closest('table');
+			// Loop on all cells in that column
+			for (let myRow of table.rows) {
+				// Remove all truncated classes in the cell
+				for (let myItem of myRow.cells[col].querySelectorAll(".truncated")) {
+					myItem.classList.remove("truncated");
+					myItem.classList.add("expanded");
+				}
+			}
+		} else {
+			// Expand only the item and its siblings
+			for (let myItem of input.parentNode.querySelectorAll(".truncated")) {
+				myItem.classList.remove("truncated");
+				myItem.classList.add("expanded");
+			}
+		}
+	}
+
+	function expandMetadata(e) {
+		// Expand selected metadata only
+		let input = e.currentTarget;
+		for (let myItem of input.parentNode.querySelectorAll(".reduced")) {
+			myItem.classList.remove("reduced");
+			myItem.classList.add("full");
+		}
+	}
+
+	function expandEverything() {
+		// Expand all truncated Hashes
+		for (let myItem of document.querySelectorAll(".truncated")) {
+			myItem.classList.remove("truncated");
+			myItem.classList.add("expanded");
+		}
+		// Expand all truncated Metadata
+		for (let myItem of document.querySelectorAll(".reduced")) {
+			myItem.classList.remove("reduced");
+			myItem.classList.add("full");
+		}
+		// Expand all small collapsible blocks
+		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
+			if (myItem.nextElementSibling.classList.contains("small")) {
+				myItem.checked = true;
+			}
+		}
+		// Switch action of the clickable symbol
+		let icon = document.querySelector("#ExpandAll");
+		icon.setAttribute("href", "javascript:truncateEverything();");
+		icon.setAttribute("title", "Truncate everything");
+	}
+
+	function truncateEverything() {
+		// Truncate all Hashes
+		for (let myItem of document.querySelectorAll(".expanded")) {
+			myItem.classList.remove("expanded");
+			myItem.classList.add("truncated");
+		}
+		// Truncate all Metadata
+		for (let myItem of document.querySelectorAll(".full")) {
+			myItem.classList.remove("full");
+			myItem.classList.add("reduced");
+		}
+		// Collapse all small collapsible blocks
+		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
+			if (myItem.nextElementSibling.classList.contains("small")) {
+				myItem.checked = false;
+			}
+		}
+		// Switch action of the clickable symbol
+		let icon = document.querySelector("#ExpandAll");
+		icon.setAttribute("href", "javascript:expandEverything();");
+		icon.setAttribute("title", "Expand everything");
+	}
 
 	// ALLOW ADDING FILTERS TO FIRST ROW OF ALL LONG TABLES
 	function addFilterOption() {
 		for (let myTable of document.getElementsByTagName("table")) {
-			// Ignore tables of certain known classes
+			// Ignore tables of certain specific classes
 			if (!myTable.classList.contains("tableTotals") && !myTable.classList.contains("tableSummary") && !myTable.closest('.divTableStatus')) {
 				let myRow = myTable.rows[0];
-				// Apply only to tables with more than a 5 lines
-				if (myTable.rows.length > 5) {
-					myRow.classList.add("filtersOff");
-					myRow.addEventListener("click", addSortAndSearch);			
-				} else {
-					// If *all* cells of the first row have a span with a "th" class, still mark the row as a "header" (but without filters)
-					if (myRow.querySelectorAll("td > span.th").length == myRow.cells.length) {
+				// If all cells of the first row are <th> or have a span with a "th" class, then mark the row as header.
+				// We also enforce the use of <thead> to ensure that the row won't be included in the tbodies that will be filtered and sorted.
+				// And since Chrome 83 (as in Beam Wallet) can only do 'sticky' on 'th' elements, we also change all its 'td' into 'th'.
+				if ((myRow.querySelectorAll("td > span.th").length + myRow.querySelectorAll("th").length) == myRow.cells.length) {
+					// If that first row is not already inside a thead (which means it's implicitely inside a tbody), then create a thead and move the row inside it.
+					if (myRow.parentNode.nodeName != "THEAD") {
+						let myTHead = myTable.createTHead();
+						myTHead.appendChild(myRow);
+					}
+					// Mark the row as header
+					myRow.classList.add("headerRow");
+					// Define all cells in this first row as 'th' (remark: any attribute of those cells are lost, but we don't care)
+					for (let myTd of myRow.cells) {
+						let myTh = document.createElement("th");
+						myTh.innerHTML = myTd.innerHTML;
+						myTd.replaceWith(myTh);
+					}
+					// Add filters only to tables with more than a 5 lines
+					if (myTable.rows.length > 5) {
+						myRow.classList.add("filtersOff");
+						myRow.addEventListener("click", addSortAndSearch);
+						myRow.title = "Click to activate filters"; // This is for the tooltip
+					} else {
 						myRow.classList.add("filtersNot");
 					}
 				}
@@ -1307,10 +1684,11 @@
 		// Get element of the event (the first row)
 		let myRow = e.currentTarget;
 
-		// Replace previous class and remove event
+		// Replace previous class and remove event and title (tooltip)
 		myRow.classList.remove("filtersOff");
 		myRow.classList.add("filtersOn");
 		myRow.removeEventListener("click", addSortAndSearch);
+		myRow.removeAttribute("title");
 
 		// Apply to each cell of the first row (whether 'th' or 'td', it doesn't matter)
 		for (let myHeader of myRow.cells) {
@@ -1318,49 +1696,65 @@
 			// and then add a search input field below it.
 			let myHTML = myHeader.innerHTML;
 			myHeader.innerHTML = "\
-					<div class='headerCell'>\n\
-						<div class='sortable'>" + myHTML + "</div>\n\
-						<input type='text' class='searchable' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'>\n\
-					</div>\n";
-			// Add event listeners to both elements
+				<div class='headerCell'>\n\
+					<div class='sortable' title='Sort column'>" + myHTML + "</div>\n\
+					<div class='searchable'><input type='text' class='search' title='Enter search term' size='5' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'></div>\n\
+				</div>\n";
+			// Add event listeners to all elements
 			myHeader.querySelector(".sortable").addEventListener("click", sortTable);
-			myHeader.querySelector(".searchable").addEventListener("keyup", filterTable);
+			myHeader.querySelector(".search").addEventListener("keyup", filterTable);
 		}
 	}
 
 	// SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
 	function sortTable(e) {
 		// Declare variables
-		let input, col, tr, table, dir, rows, switching, i, x, y, xVal, yVal, shouldSwitch, switchcount = 0;
+		let input, col, headRow, table, nbr_tbodies, dir, items, switching, i, x, y, xVal, yVal, shouldSwitch, switchcount = 0;
 
 		// Get element, table and column number of the event
 		input = e.currentTarget;
 		col = input.closest('th,td').cellIndex;
-		tr = input.closest('tr');
+		headRow = input.closest('tr');
 		table = input.closest('table');
+		nbr_tbodies = table.tBodies.length;
 
 		// Set the default sorting direction as descending
 		// (or switch to ascending if already sorted descending)
 		dir = (input.classList.contains("desc")) ? "asc" : "desc";
 
-		// Reset all sorting classes in this table headers
-		for (let myHeader of tr.getElementsByClassName("sortable")) {
-			myHeader.className = "sortable";
+		// Reset sorting classes and titles in all headers of this table
+		for (let myHeader of headRow.getElementsByClassName("sortable")) {
+			myHeader.classList.remove("asc");
+			myHeader.classList.remove("desc");
+			myHeader.title = "Sort column";
 		}
 
-		// Make an array with the table rows
-		rows = table.rows;
-		let rowsArray = Array.from(rows);
-		// Remove the first row (the headers)
-		rowsArray.shift();
+		// Get the list of rows or tbodies to be sorted
+		// (Remark: There is always at least one tbody, even if not explictely defined)
+		items = (nbr_tbodies > 1) ? table.tBodies : table.tBodies[0].rows;
+		// Make an array with the items to be sorted
+		let itemsArray = Array.from(items);
 
-		// Make an array from the content of the each cell of the selected column
-		let colArray = rowsArray.map(function(item, index) {
+		// Make an array from the content of the cells in the selected column
+		let colArray = itemsArray.map(function(item, index) {
 			// Get the content of the cell in the column being sorted
-			let myCell = item.getElementsByTagName("td")[col];
-			// Get its value and remove comas (for numbers to be recognized as such).
-			// Also add its initial row index (will allow reordering the table rows).
-			let valArray = [myCell.innerText.replace(/,/g,''), index];
+			// (for tbodies with multiple lines, we concatenate the content of their cells in that column)
+			let val = "";
+			let myCell;
+			if (nbr_tbodies > 1) {
+				// Loop on all rows of the tbody
+				for (let trow of item.rows) {
+					// Concatenate content of each cell
+					if (val != "") {val += "\n"};
+					val += trow.cells[col].innerText;
+				}
+			} else {
+				// Get content of the cell
+				val = item.cells[col].innerText;
+			}
+			// Remove comas (just for numbers to be recognized as such).
+			// And add its initial index (it will allow reordering the actual table rows or tbodies).
+			let valArray = [val.replace(/,/g,''), index];
 			return valArray;
 		});
 
@@ -1381,79 +1775,141 @@
 		});
 		// Reverse the array for descending order
 		if (dir == "desc") {colArray.reverse();}
-		
-		// Remark: The parent of a row is a tbody (even if not explictely defined)
-		let tbody = rows[1].parentNode;
-		// Loop through the array of sorted cells to reorder the table rows
+
+		// Get the 'parent' of the sorted items (i.e. the tbody in the case of rows, or the table in the case of tbodies)
+		// Remark: The parent of a row is always a tbody, even if not explictely defined.
+		let parent = items[0].parentNode;
+		// Loop through the array of sorted cells to reorder the table rows or tbodies
 		for (let sortedCol of colArray) {
-			// Move each corresponding row to the end of the table.
-			tbody.appendChild(rowsArray[sortedCol[1]]);
+			// Move each corresponding row or tbody to the end of the table.
+			parent.appendChild(itemsArray[sortedCol[1]]);
 		}
 
-		// Update class by adding the sorting direction
-		input.className = "sortable " + dir;
+		// Update class and title in header by adding the sorting direction
+		input.classList.add(dir);
+		input.title = (dir == "desc") ? "Sort ascending" : "Sort descending";
 	}
 
-	// FILTER ROWS ACCORDING TO A SEARCH STRING
+	// FILTER ROWS (OR GROUPS OF ROWS)
 	function filterTable(e) {
 		// Declare variables
-		let table, rows, input, filter, i, j, td, txtValue, status;
+		let table, tbodies, rows, trows, headers, input, filter, i, ii, j, k, td, txtValue, status;
 		
-		// Get table and rows
+		// Get tbodies and rows
 		table = e.currentTarget.closest('table');
+		tbodies = table.tBodies;
 		rows = table.rows;
-		
-		// Initialize results array with all 1 (= all rows are visible)
-		let results = new Array(rows.length).fill(1);
+		headers = rows[0].cells;
 
-		// Loop on all header cells (so that multiple searches can be combined!)
-		for (j = 0; j < (rows[0].cells.length); j++) {
+		// If multiple tbodies are present, filtering will be done by tbodies instead of rows
+		// (the inner rows in each tbody thus always being kept together)
+
+		// Initialize results arrays with all 1 (i.e. all rows or tbodies are visible)
+		let results_tbodies = new Array(tbodies.length).fill(1);
+		let results_rows = new Array(rows.length).fill(1);
+
+		// Always check again all header cells (so that filters on multiple columns can be combined!)
+		for (j = 0; j < (headers.length); j++) {
 			// Get search input field
-			input = rows[0].cells[j].querySelector(".searchable");
+			input = headers[j].querySelector(".search");
 			// Get search query (we use toUpperCase() to perform a case-insensitive search)
 			filter = input.value.toUpperCase();
-			// Apply search query if it's non-empty
+			// Apply search query only if it's non-empty
 			if (filter != "") {
-				// Loop on all rows (except header)
-				for (i = 1; i < (rows.length); i++) {
-					// Only test cell if the row is not already marked as hidden
-					if (results[i] != 0) {
-						// Get cell
-						td = rows[i].cells[j];
-						if (td) {
-							// Get cell content
-							txtValue = td.textContent || td.innerText;
-							// Mark row as hidden if there is no match
-							if (txtValue.toUpperCase().indexOf(filter) == -1) {
-								results[i] = 0;
+				// Loop on all rows within all tbodies
+				for (k = 0; k < (tbodies.length); k++) {
+					// Only test cells if the tbody is not already marked as hidden
+					if (results_tbodies[k] != 0) {
+						// In case of multiple tbodies, start by hidding the tbody
+						// (it will be displayed back if at least one of its rows matches the search query)
+						if (tbodies.length > 1) { results_tbodies[k] = 0 }
+						// Loop on all rows of the tbody
+						trows = tbodies[k].rows;
+						for (i = 0; i < (trows.length); i++) {
+							// Get the overall index of the row in the table (independent of tbodies)
+							// Remark: i and ii will be equal in the case of one single tbody
+							ii = trows[i].rowIndex;
+							// Only test the cell if the row is not already marked as hidden
+							if (results_rows[ii] != 0) {
+								// Get cell
+								td = trows[i].cells[j];
+								if (td) {
+									// Get cell content
+									txtValue = td.textContent || td.innerText;
+									// If there are multiple tbodies, then filter by tbodies
+									if (tbodies.length > 1) {
+										// Mark tbody back as visible as soon as one of its rows matches
+										// (and then stop looping on its rows)
+										if (txtValue.toUpperCase().indexOf(filter) != -1) {
+											results_tbodies[k] = 1;
+											break;
+										}
+									// If there is only one tbody, then filter by rows
+									} else {
+										// Hide row if there is no match
+										if (txtValue.toUpperCase().indexOf(filter) == -1) {
+											results_rows[ii] = 0;
+										}
+									}
+								}
 							}
 						}
 					}
 				}
 			}
 		}
-		// Apply final results by hidding all needed rows
-		for (i = 1; i < (rows.length); i++) {
-			status = (results[i] == 0) ? "collapse" : "visible";
-			rows[i].style.visibility = status;
+		// Special hack to avoid a display bug on Chrome 83 (when used as Beam Wallet DApp):
+		// If a tbody is hidden, then each of its rows must also be hidden!
+		if (tbodies.length > 1) {
+			// Loop on all tbodies
+			for (k = 0; k < (tbodies.length); k++) {
+				// Loop on all rows of the tbody
+				trows = tbodies[k].rows;
+				for (i = 0; i < (trows.length); i++) {
+					// Get the overall index of the row in the table (independent of tbodies)
+					ii = trows[i].rowIndex;
+					// Set status of the row identical to the tbody it belongs to
+					results_rows[ii] = results_tbodies[k];
+				}
+			}
+		}
+		// Apply final results by setting the visibility of all tbodies and rows
+		for (k = 0; k < (tbodies.length); k++) {
+			status = (results_tbodies[k] == 0) ? "collapse" : "visible";
+			tbodies[k].style.visibility = status;
+		}
+		for (ii = 1; ii < (rows.length); ii++) {
+			status = (results_rows[ii] == 0) ? "collapse" : "visible";
+			rows[ii].style.visibility = status;
 		}
 	}
 
-	// SCROLL BACK TO TOP
+	// SCROLL DOWN TO BOTTOM OR BACK TO TOP
 	window.onscroll = function() {scrollFunction()};
-	// When the user scrolls down 40px from the top, show the button
+	// When the user scrolls away 40px from top or bottom of the page, show the up or down buttons
 	function scrollFunction() {
-		let mybutton = document.getElementById("TopButton");
+		let myTopButton = document.getElementById("TopButton");
 		if (document.body.scrollTop > 40 || document.documentElement.scrollTop > 40) {
-			mybutton.style.display = "block";
+			myTopButton.style.display = "block";
 		} else {
-			mybutton.style.display = "none";
+			myTopButton.style.display = "none";
+		}
+		let myBottomButton = document.getElementById("BottomButton");
+		if (Math.abs(document.body.scrollHeight - document.body.scrollTop - document.body.clientHeight) > 40 || Math.abs(document.documentElement.scrollHeight - document.documentElement.scrollTop - document.documentElement.clientHeight) > 40) {
+			myBottomButton.style.display = "block";
+		} else {
+			myBottomButton.style.display = "none";
 		}
 	}
-	// When the user clicks on the button, scroll to the top of the document
+	// Scroll to the top of the document
 	function topFunction() {
 		document.body.scrollTop = 0; // For Safari
 		document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+	} 
+	// Scroll to the bottom of the document
+	function bottomFunction() {
+		document.body.scrollTop = Math.abs(document.body.scrollHeight - document.body.clientHeight); // For Safari
+		document.documentElement.scrollTop = Math.abs(document.documentElement.scrollHeight - document.documentElement.clientHeight); // For Chrome, Firefox, IE and Opera
 	} 
 
 </script>

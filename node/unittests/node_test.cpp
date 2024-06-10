@@ -1003,7 +1003,7 @@ namespace beam
 			mk.m_bUseHashlock = 0 != (1 & h);
 			mk.m_Height = h;
 
-			if (!(m_hvKrnRel == Zero) && (h >= Rules::get().pForks[1].m_Height))
+			if (!(m_hvKrnRel == Zero) && Rules::get().IsPastFork_<1>(h))
 			{
 				mk.m_hvRelLock = m_hvKrnRel;
 				m_hvKrnRel = Zero;
@@ -1930,7 +1930,7 @@ namespace beam
 			bool SendShielded()
 			{
 				Height h = m_vStates.back().m_Height;
-				if (h + 1 < Rules::get().pForks[2].m_Height + 3)
+				if ((h < 2) || !Rules::get().IsPastFork_<2>(h - 2))
 					return false;
 
 				proto::NewTransaction msgTx;
@@ -2365,7 +2365,7 @@ namespace beam
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+				if (!Rules::get().IsPastFork_<2>(s.m_Height + 1))
 					return false;
 
 				const Amount nFee = 330;
@@ -2410,7 +2410,7 @@ namespace beam
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (s.m_Height + 1 < Rules::get().pForks[2].m_Height)
+				if (!Rules::get().IsPastFork_<2>(s.m_Height + 1))
 					return false;
 
 				val -= nFee;
@@ -2596,7 +2596,7 @@ namespace beam
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (s.m_Height + 1 < Rules::get().pForks[3].m_Height)
+				if (!Rules::get().IsPastFork_<3>(s.m_Height + 1))
 					return false;
 
 				if (m_pMan)

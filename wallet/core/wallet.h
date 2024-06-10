@@ -19,6 +19,7 @@
 #include "base_transaction.h"
 #include "core/fly_client.h"
 #include "node/processor.h"
+//#include "contracts/shaders_manager.h"
 
 namespace beam::wallet
 {
@@ -163,6 +164,8 @@ namespace beam::wallet
         void ResumeAllTransactions();
         void VisitActiveTransaction(const TxVisitor& visitor);
 
+        void SetWidget(std::string&&, ByteBuffer&&);
+
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 
@@ -241,11 +244,15 @@ namespace beam::wallet
         void OnDependentStateChanged() override;
 
         struct RequestHandler
-            : public proto::FlyClient::Request::IHandler
+            :public proto::FlyClient::Request::IHandler
         {
             virtual void OnComplete(Request&) override;
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
+
+        struct WidgetRunner;
+        std::unique_ptr<WidgetRunner> m_pWidgetRunner;
+        void InitWidgetRunner();
 
         size_t SyncRemains() const;
         size_t GetSyncDone() const;
@@ -283,6 +290,7 @@ namespace beam::wallet
 
         void MakeTransactionActive(BaseTransaction::Ptr tx);
         void ProcessStoredMessages();
+        void ProcessWidget();
         bool IsNodeInSync() const;
 
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
@@ -465,16 +473,38 @@ namespace beam::wallet
                     IMPLEMENT_GET_PARENT_OBJ(Request, m_Target)
                 } m_Target;
 
+                struct ListNode :public boost::intrusive::list_base_hook<>
+                {
+                    typedef boost::intrusive::list<ListNode> List;
+                    Timestamp m_ReqTime_s;
+                    IMPLEMENT_GET_PARENT_OBJ(Request, m_ListNode)
+                } m_ListNode;
+
                 WalletID m_OwnAddr;
+                ECC::Scalar::Native m_sk; // not so secret
             };
 
             Request::Target::Set m_setTrg;
+            Request::ListNode::List m_lstRequests;
+
+            io::Timer::Ptr m_pTimer;
 
             Request* CreateIfNew(const WalletID& trg);
             void Delete(Request&);
             void DeleteAll();
+            void Listen(Request&);
+            void SendRequest(Request&);
+            bool IsFirstDue(const Request&) const;
+
+            void CheckTimer();
+            void EnsureRequest(const WalletID& trg);
+
+            ByteBuffer SaveState() const;
+            void LoadState(const Blob&);
 
             ~VoucherManager() { DeleteAll(); }
+
+            struct Ser;
 
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_VoucherManager)
         } m_VoucherManager;

@@ -32,7 +32,8 @@ namespace beam::wallet {
     protected:
 
         Wallet& m_Wallet;
-        uint32_t m_Privilege;
+        uint32_t m_Privilege = 0;
+        ByteBuffer m_LastVar;
 
         struct SlotName;
         struct Channel;
@@ -45,6 +46,12 @@ namespace beam::wallet {
         void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) override;
         void Comm_Send(const ECC::Point&, const Blob&) override;
         void WriteStream(const Blob&, uint32_t iStream) override;
+
+        void LoadVar(const Blob&, Blob& res) override;
+        void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
+        uint32_t SaveVar(const Blob&, const Blob& val) override;
+
+        virtual Blob get_StoreName();
     };
 
     class ShadersManager

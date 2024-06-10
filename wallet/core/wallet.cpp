@@ -25,6 +25,7 @@
 #include "contract_transaction.h"
 #include "strings_resources.h"
 #include "assets_utils.h"
+#include "contracts/shaders_manager.h"
 
 #include <algorithm>
 #include <random>
@@ -150,6 +151,14 @@ namespace beam::wallet
         m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
     }
 
+    struct Wallet::VoucherManager::Ser {
+        static const uint32_t s_Ver = 1u;
+        static const char s_szVarName[];
+    };
+    
+    const char Wallet::VoucherManager::Ser::s_szVarName[] = "voucher_man";
+
+
     Wallet::~Wallet()
     {
         CleanupNetwork();
@@ -167,6 +176,13 @@ namespace beam::wallet
 
         m_MessageEndpoints.clear();
         m_NodeEndpoint = nullptr;
+
+        // save voucher request manager state
+        auto buf = m_VoucherManager.SaveState();
+        if (buf.empty())
+            m_WalletDB->removeVarRaw(VoucherManager::Ser::s_szVarName);
+        else
+            m_WalletDB->setVarRaw(VoucherManager::Ser::s_szVarName, &buf.front(), buf.size());
     }
 
     // Fly client implementation
@@ -319,8 +335,151 @@ namespace beam::wallet
         }
     }
 
+    struct Wallet::WidgetRunner
+    {
+        static const char s_szVarName[];
+
+        struct Entry
+            :public ManagerStdInWallet
+            ,public intrusive::set_base_hook<std::string>
+        {
+            using ManagerStdInWallet::ManagerStdInWallet;
+
+            void WriteStream(const Blob&, uint32_t iStream) override;
+            void OnDone(const std::exception* pExc) override;
+
+            Blob get_StoreName() override { return Blob(m_Key.c_str(), static_cast<uint32_t>(m_Key.size())); }
+        };
+
+        intrusive::multiset_autoclear<Entry> m_Set;
+
+        Entry* Get(const std::string& sName)
+        {
+            auto it = m_Set.find(sName, Entry::Comparator());
+            return (m_Set.end() != it) ? &(*it) : nullptr;
+        }
+
+        Entry* GetOrCreate(Wallet& w, std::string&& sName)
+        {
+            auto pVal = Get(sName);
+            if (pVal)
+                return pVal;
+
+            ByteBuffer buf;
+            w.m_WalletDB->get_AppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())), Blob(), buf);
+            if (buf.empty())
+                return nullptr; // no bytecode
+
+            pVal = new Entry(w);
+            pVal->m_Key = std::move(sName);
+            m_Set.insert(*pVal);
+
+            pVal->m_BodyManager = std::move(buf);
+
+            return pVal;
+        }
+
+        void Save(Wallet& w)
+        {
+            if (m_Set.empty())
+                w.m_WalletDB->removeVarRaw(s_szVarName);
+            else
+            {
+                Serializer ser;
+                ser& m_Set.size();
+                for (const auto& x : m_Set)
+                    ser & x.m_Key;
+
+                auto res = ser.buffer();
+
+                w.m_WalletDB->setVarRaw(s_szVarName, res.first, res.second);
+            }
+
+        }
+
+        void Load(Wallet& w)
+        {
+            try {
+
+                ByteBuffer buf;
+                w.m_WalletDB->getBlob(s_szVarName, buf);
+
+                if (!buf.empty())
+                {
+                    Deserializer der;
+                    der.reset(buf);
+
+                    size_t n = 0;
+                    der & n;
+
+                    while (n--)
+                    {
+                        std::string sName;
+                        der & sName;
+                        if (!sName.empty())
+                            GetOrCreate(w, std::move(sName));
+                    }
+                }
+
+            }
+            catch (const std::exception&) {
+                // ignore
+            }
+        }
+    };
+
+    const char Wallet::WidgetRunner::s_szVarName[] = "widget_shader";
+
+    void Wallet::SetWidget(std::string&& sName, ByteBuffer&& x)
+    {
+        if (sName.empty())
+            return; // name shouldn't be empty
+
+        InitWidgetRunner();
+        auto& w = *m_pWidgetRunner;
+
+        size_t n0 = w.m_Set.size();
+
+        auto pVal = w.Get(sName);
+        if (pVal)
+            w.m_Set.Delete(*pVal);
+
+        if (x.empty())
+        {
+            m_WalletDB->ClearAppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())));
+        }
+        else
+        {
+            Blob buf(x);
+            m_WalletDB->set_AppData(Blob(sName.c_str(), static_cast<uint32_t>(sName.size())), Blob(), &buf);
+
+            w.GetOrCreate(*this, std::move(sName));
+        }
+
+        if (w.m_Set.size() != n0)
+            w.Save(*this);
+    }
+
+    void Wallet::InitWidgetRunner()
+    {
+        if (!m_pWidgetRunner)
+        {
+            m_pWidgetRunner = std::make_unique<WidgetRunner>();
+            m_pWidgetRunner->Load(*this);
+        }
+    }
+
     void Wallet::ResumeAllTransactions()
     {
+        // restore being-received vouchers
+        {
+            ByteBuffer buf;
+            m_WalletDB->getBlob(VoucherManager::Ser::s_szVarName, buf);
+            m_VoucherManager.LoadState(buf);
+        }
+
+        InitWidgetRunner();
+
         auto func = [this](const auto& tx)
         {
             ResumeTransaction(tx);
@@ -328,6 +487,8 @@ namespace beam::wallet
         };
         TxListFilter filter;
         m_WalletDB->visitTx(func, filter);
+
+        m_VoucherManager.CheckTimer();
     }
 
     bool Wallet::IsWalletInSync() const
@@ -675,19 +836,36 @@ namespace beam::wallet
         if (m_setTrg.end() != m_setTrg.find(key))
             return nullptr;
 
-        ECC::Scalar::Native nonce;
-        nonce.GenRandomNnz();
-
         Request* pReq = new Request;
+        m_lstRequests.push_back(pReq->m_ListNode);
+
         pReq->m_Target.m_Value = trg;
         m_setTrg.insert(pReq->m_Target);
 
-        pReq->m_OwnAddr.m_Pk.FromSk(nonce);
-        pReq->m_OwnAddr.SetChannelFromPk();
-
-        get_ParentObj().Listen(pReq->m_OwnAddr, nonce);
-
         return pReq;
+    }
+
+    void Wallet::VoucherManager::Listen(Request& r)
+    {
+        r.m_OwnAddr.m_Pk.FromSk(r.m_sk);
+        r.m_OwnAddr.SetChannelFromPk();
+
+        get_ParentObj().Listen(r.m_OwnAddr, r.m_sk);
+    }
+
+    void Wallet::VoucherManager::EnsureRequest(const WalletID& trg)
+    {
+        Request* pReq = CreateIfNew(trg);
+        if (pReq)
+        {
+            pReq->m_sk.GenRandomNnz();
+            Listen(*pReq);
+
+            SendRequest(*pReq);
+
+            if (IsFirstDue(*pReq))
+                CheckTimer();
+        }
     }
 
     void Wallet::Listen(const WalletID& wid, const ECC::Scalar::Native& sk, IHandler* pH)
@@ -709,19 +887,143 @@ namespace beam::wallet
     }
 
 
+    bool Wallet::VoucherManager::IsFirstDue(const Request& r) const
+    {
+        return &m_lstRequests.front() == &r.m_ListNode;
+    }
+
+    void Wallet::VoucherManager::CheckTimer()
+    {
+        if (m_pTimer)
+            m_pTimer->cancel();
+
+        while (!m_lstRequests.empty())
+        {
+            auto& r = m_lstRequests.front().get_ParentObj();
+            Timestamp dt_s = getTimestamp() - r.m_ListNode.m_ReqTime_s; // don't care if overflow (time change?), not a problem
+
+            const uint32_t nMaxDuration_s = 10u * 3600; // 10 hours
+
+            if (dt_s < nMaxDuration_s)
+            {
+                if (!m_pTimer)
+                    m_pTimer = io::Timer::create(io::Reactor::get_Current());
+
+                auto dt_ms = static_cast<uint32_t>((nMaxDuration_s - dt_s) * 1000u);
+                m_pTimer->start(dt_ms, false, [this]() { CheckTimer(); });
+                break;
+            }
+
+            // timed-out. Check if we still need it
+            auto vTxs = get_ParentObj().FindTxWaitingForVouchers(r.m_Target.m_Value);
+            if (vTxs.empty())
+                Delete(r);
+            else
+            {
+                m_lstRequests.pop_front();
+                m_lstRequests.push_back(r.m_ListNode);
+                SendRequest(r);
+            }
+
+        }
+    }
+
     void Wallet::VoucherManager::Delete(Request& r)
     {
         get_ParentObj().Unlisten(r.m_OwnAddr);
 
         m_setTrg.erase(Request::Target::Set::s_iterator_to(r.m_Target));
+        m_lstRequests.erase(Request::ListNode::List::s_iterator_to(r.m_ListNode));
+
         delete &r;
     }
 
     void Wallet::VoucherManager::DeleteAll()
     {
-        while (!m_setTrg.empty())
-            Delete(m_setTrg.begin()->get_ParentObj());
+        while (!m_lstRequests.empty())
+            Delete(m_lstRequests.front().get_ParentObj());
     }
+
+    void Wallet::VoucherManager::SendRequest(Request& r)
+    {
+        assert(&m_lstRequests.back() == &r.m_ListNode);
+        r.m_ListNode.m_ReqTime_s = getTimestamp();
+
+        get_ParentObj().RequestVouchersFrom(r.m_Target.m_Value, r.m_OwnAddr, 30);
+    }
+
+    ByteBuffer Wallet::VoucherManager::SaveState() const
+    {
+        ByteBuffer res;
+        if (!m_lstRequests.empty())
+        {
+            Serializer ser;
+
+            uint32_t ver = Ser::s_Ver;
+            ser
+                & ver
+                & m_lstRequests.size();
+
+            for (const auto& n : m_lstRequests)
+            {
+                auto& r = n.get_ParentObj();
+                ser
+                    & n.m_ReqTime_s
+                    & r.m_Target.m_Value
+                    & ECC::Scalar(r.m_sk);
+            }
+
+            ser.swap_buf(res);
+        }
+
+        return res;
+    }
+
+    void Wallet::VoucherManager::LoadState(const Blob& blob)
+    {
+        if (!blob.n)
+            return;
+
+        try
+        {
+            Deserializer der;
+            der.reset(blob.p, blob.n);
+
+            uint32_t ver = 0;
+            der & ver;
+            if (Ser::s_Ver != ver)
+                return; // incompatible ver
+
+            size_t n = 0;
+            der & n;
+            while (n--)
+            {
+                Timestamp ts_s = 0;
+                WalletID widTrg;
+                ECC::NoLeak<ECC::Scalar> sk;
+
+                der
+                    & ts_s
+                    & widTrg
+                    & sk.V;
+
+                Request* pReq = CreateIfNew(widTrg);
+                if (pReq)
+                {
+                    pReq->m_sk = sk.V;
+                    Listen(*pReq);
+
+                    pReq->m_ListNode.m_ReqTime_s = ts_s;
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            BEAM_LOG_WARNING() << "Voucher manager state deserialize error: " << e.what();
+        }
+    }
+
+    void LoadState(const Blob&);
+
 
     void Wallet::get_UniqueVoucher(const WalletID& peerID, const TxID&, boost::optional<ShieldedTxo::Voucher>& res)
     {
@@ -729,11 +1031,7 @@ namespace beam::wallet
         const size_t VoucherCountThreshold = 5;
 
         if (count < VoucherCountThreshold)
-        {
-            VoucherManager::Request* pReq = m_VoucherManager.CreateIfNew(peerID);
-            if (pReq)
-                RequestVouchersFrom(peerID, pReq->m_OwnAddr, 30);
-        }
+            m_VoucherManager.EnsureRequest(peerID);
 
         if (count > 0)
             res = m_WalletDB->grabVoucher(peerID);
@@ -907,6 +1205,7 @@ namespace beam::wallet
         if (r.m_OwnAddr != ownAddr)
             return;
 
+        bool bWasAtFront = m_VoucherManager.IsFirstDue(r);
         m_VoucherManager.Delete(r);
 
         for (const auto& v : res)
@@ -917,6 +1216,9 @@ namespace beam::wallet
         {
             UpdateTransaction(tx);
         }
+
+        if (bWasAtFront)
+            m_VoucherManager.CheckTimer();
     }
 
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
@@ -1959,6 +2261,22 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
+
+        ProcessWidget();
+    }
+
+    void Wallet::ProcessWidget()
+    {
+        if (!m_pWidgetRunner)
+            return;
+
+        auto& w = *m_pWidgetRunner;
+
+        for (auto& x : w.m_Set)
+        {
+            x.m_InvokeData.Reset();
+            x.StartRun(0);
+        }
     }
 
     void Wallet::OnTipUnchanged()
@@ -1970,6 +2288,26 @@ namespace beam::wallet
         CheckSyncDone();
 
         ProcessStoredMessages();
+
+        ProcessWidget();
+    }
+
+    void Wallet::WidgetRunner::Entry::OnDone(const std::exception* /* pExc */)
+    {
+    }
+
+    void Wallet::WidgetRunner::Entry::WriteStream(const Blob& b, uint32_t iStream)
+    {
+        const char* szPrefix = "";
+        switch (iStream)
+        {
+        case Shaders::Stream::Out: szPrefix = "out"; break;
+        case Shaders::Stream::Error: szPrefix = "error"; break;
+        }
+
+        std::cout << "Widget " << m_Key << " " << szPrefix << ": ";
+        std::cout.write((const char*) b.p, b.n);
+        std::cout << std::endl;
     }
 
     void Wallet::getUtxoProof(const Coin& coin)

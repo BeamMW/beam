@@ -205,6 +205,37 @@ struct HtmlConverter
         return sRet.empty() ? s : sRet;
     }
 
+    static bool ReadAmount(const json& objV, Amount& val, AmountBig::Type& valBig, bool& bBig, char& chSign)
+    {
+        chSign = 0;
+
+        if (objV.is_number())
+        {
+            val = objV.get<int64_t>();
+            bBig = false;
+            return true;
+        }
+
+        if (!objV.is_string())
+            return false;
+
+        const auto& s = objV.get<std::string>();
+        auto sz = s.c_str();
+        switch (sz[0])
+        {
+        case '-':
+        case '+':
+            chSign = sz[0];
+            sz++;
+        }
+
+        // convert it. NOTE - this may be a BIG number, don't use std::stoll.
+        ReadUIntBig(valBig, sz);
+        bBig = true;
+
+        return true;
+    }
+
     bool OnObjSpecial(const json& obj)
     {
         auto itT = obj.find("type");
@@ -234,34 +265,19 @@ struct HtmlConverter
 
         if (sType == "amount")
         {
-            uint64_t val = 0;
+            uint64_t val;
             AmountBig::Type valBig;
-            bool bMinus = false;
-            bool bBig = false;
+            char chSign;
+            bool bBig;
 
-            if (objV.is_number())
-                val = objV.get<int64_t>();
-            else
-            {
-                if (!objV.is_string())
-                    return false;
+            if (!ReadAmount(objV, val, valBig, bBig, chSign))
+                return false;
 
-                const auto& s = objV.get<std::string>();
-                auto sz = s.c_str();
-                if (*sz == '-')
-                {
-                    bMinus = true;
-                    sz++;
-                }
+            const char* szClr = ('-' == chSign) ? "red" : ('+' == chSign) ? "green" : "blue";
 
-                // convert it. NOTE - this may be a BIG number, don't use std::stoll.
-                bBig = true;
-                ReadUIntBig(valBig, sz);
-            }
-
-            m_os << "<p2 style=\"color:" << (bMinus ? "blue" : "green") << "\">";
-            if (bMinus)
-                m_os << "-";
+            m_os << "<p2 style=\"color:" << szClr << "\">";
+            if (chSign)
+                m_os << chSign;
 
             if (bBig)
                 AmountBig::Print(m_os, valBig, false);
@@ -567,34 +583,17 @@ void jsonExp(json& obj, uint32_t nDepth)
         const auto& sType = objT.get<std::string>();
         if (sType == "amount")
         {
-            uint64_t val = 0;
+            uint64_t val;
             AmountBig::Type valBig;
-            bool bMinus = false;
-            bool bBig = false;
+            char chSign;
+            bool bBig;
 
-            if (objV.is_number())
-                val = objV.get<int64_t>();
-            else
-            {
-                if (!objV.is_string())
-                    return;
-
-                const auto& s = objV.get<std::string>();
-                auto sz = s.c_str();
-                if (*sz == '-')
-                {
-                    bMinus = true;
-                    sz++;
-                }
-
-                // convert it. NOTE - this may be a BIG number, don't use std::stoll.
-                bBig = true;
-                HtmlConverter::ReadUIntBig(valBig, sz);
-            }
+            if (!HtmlConverter::ReadAmount(objV, val, valBig, bBig, chSign))
+                return;
 
             std::ostringstream os;
-            if (bMinus)
-                os << '-';
+            if (chSign)
+                os << chSign;
 
             if (bBig)
                 AmountBig::Print(os, valBig, false);
@@ -602,9 +601,7 @@ void jsonExp(json& obj, uint32_t nDepth)
                 AmountBig::Print(os, val, false);
 
             objV = os.str();
-
         }
-
 
     }
 }
@@ -771,15 +768,53 @@ OnRequest(blocks)
     return _backend.get_blocks(start, n);
 }
 
+bool ReadColFlags(const HttpUrl& url, uint32_t& res, const char* szArg)
+{
+    auto it = url.args.find(szArg);
+    if (url.args.end() == it)
+        return false;
+
+    res = 0;
+
+    typedef IAdapter::TotalsFlags F;
+
+    for (char ch : it->second)
+    {
+        switch (ch)
+        {
+        case 'd': res |= F::Difficulty; break;
+        case 'f': res |= F::Fee; break;
+        case 'k': res |= F::Kernels; break;
+        case 'o': res |= F::MwOutputs; break;
+        case 'i': res |= F::MwInputs; break;
+        case 'u': res |= F::MwUtxos; break;
+        case 'O': res |= F::ShOutputs; break;
+        case 'I': res |= F::ShInputs; break;
+        case 'c': res |= F::ContractsActive; break;
+        case 'C': res |= F::ContractCalls; break;
+        case 's': res |= F::SizeCompressed; break;
+        case 'S': res |= F::SizeArchieve; break;
+        }
+    }
+
+    return true;
+}
+
 OnRequest(hdrs)
 {
     Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
     uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
+    Height dh = _currentUrl.get_int_arg("dh", static_cast<uint32_t>(1));
 
-    bool bRel = !!_currentUrl.get_int_arg("rel", 1);
-    bool bAbs = !!_currentUrl.get_int_arg("rel", 0);
+    // defaults
+    typedef IAdapter::TotalsFlags F;
+    uint32_t fAbs = 0;
+    uint32_t fRel = F::Difficulty | F::Fee | F::Kernels | F::MwOutputs | F::MwInputs | F::ShOutputs | F::ShInputs | F::ContractCalls;
 
-    return _backend.get_hdrs(hTop, n, bRel, bAbs);
+    ReadColFlags(_currentUrl, fAbs, "cabs");
+    ReadColFlags(_currentUrl, fRel, "crel");
+
+    return _backend.get_hdrs(hTop, n, dh, fAbs, fRel);
 }
 
 OnRequest(peers)
