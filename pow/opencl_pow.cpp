@@ -220,7 +220,7 @@ namespace beam {
         {
             bool cpuMine = false;
 
-            LOG_DEBUG() << "runOpenclMiner()";
+            BEAM_LOG_DEBUG() << "runOpenclMiner()";
 
             
             

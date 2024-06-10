@@ -52,7 +52,7 @@ public:
 private:
     void on_stream_accepted(io::TcpStream::Ptr&& newStream, io::ErrorCode errorCode) {
         if (errorCode == 0) {
-            LOG_DEBUG() << "Stream accepted";
+            BEAM_LOG_DEBUG() << "Stream accepted";
             _theConnection = std::make_unique<HttpConnection>(
                 222,
                 BaseConnection::inbound,
@@ -85,7 +85,7 @@ private:
             try {
                 body = io::map_file_read_only(path.c_str());
             } catch (const std::exception& e) {
-                LOG_DEBUG() << e.what();
+                BEAM_LOG_DEBUG() << e.what();
                 code = 404;
                 message = "Not found";
             }
@@ -242,21 +242,21 @@ int http_server_test(bool ssl) {
         get_this_path();
         reactor = io::Reactor::create();
         io::Reactor& r = *reactor;
-        LOG_DEBUG() << reactor.use_count();
+        BEAM_LOG_DEBUG() << reactor.use_count();
         io::AsyncEvent::Ptr stopEvent = io::AsyncEvent::create(r, [&r]() {r.stop();});
-        LOG_DEBUG() << reactor.use_count();
+        BEAM_LOG_DEBUG() << reactor.use_count();
         g_stopEvent = stopEvent;
         DummyHttpServer server(r, ssl);
         DummyHttpClient client(r, ssl);
         reactor->run();
         nErrors = client.uncompleted;
-        LOG_DEBUG() << reactor.use_count();
+        BEAM_LOG_DEBUG() << reactor.use_count();
     } catch (const std::exception& e) {
         BEAM_LOG_ERROR() << e.what();
         nErrors = 255;
     }
 
-    LOG_DEBUG() << reactor.use_count();
+    BEAM_LOG_DEBUG() << reactor.use_count();
     return nErrors;
 }
 

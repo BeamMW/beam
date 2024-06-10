@@ -299,7 +299,7 @@ namespace
             ser.swap_buf(buf);
 
             serializedStr = beam::to_hex(&buf[0], buf.size());
-            LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
+            BEAM_LOG_DEBUG() << "serialized proto::Event::Type::Shielded = 0x" << serializedStr;
         }
         
         auto f = [](const std::string& s, bool shouldThrow)

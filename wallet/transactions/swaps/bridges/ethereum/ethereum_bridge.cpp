@@ -49,13 +49,13 @@ EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settings
 
 void EthereumBridge::getBalance(std::function<void(const Error&, const std::string&)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getBalance";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getBalance";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
     std::string params = (boost::format(R"("%1%","latest")") % ethAddress).str();
 
     sendRequest("eth_getBalance", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getBalance in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getBalance in";
         std::string balance = "";
 
         if (error.m_type == IBridge::None)
@@ -78,7 +78,7 @@ void EthereumBridge::getTokenBalance(
     const std::string& contractAddr,
     std::function<void(const Error&, const std::string&)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getTokenBalance";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTokenBalance";
     const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(contractAddr);
 
     libbitcoin::data_chunk data;
@@ -88,7 +88,7 @@ void EthereumBridge::getTokenBalance(
 
     call(tokenContractAddress, libbitcoin::encode_base16(data), [callback](const IBridge::Error& err, const nlohmann::json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getTokenBalance in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTokenBalance in";
         Error error = err;
         std::string balance = "";
 
@@ -110,10 +110,10 @@ void EthereumBridge::getTokenBalance(
 
 void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getBlockNumber";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getBlockNumber";
     sendRequest("eth_blockNumber", "", [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getBlockNumber in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getBlockNumber in";
         uint64_t blockNumber = 0;
 
         if (error.m_type == IBridge::None)
@@ -135,13 +135,13 @@ void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> 
 
 void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64_t)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getTransactionCount";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTransactionCount";
     std::string ethAddress = ConvertEthAddressToStr(generateEthAddress());
     std::string params = (boost::format(R"("%1%","pending")") % ethAddress).str();
 
     sendRequest("eth_getTransactionCount", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getTransactionCount in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTransactionCount in";
         uint64_t txCount = 0;
 
         if (error.m_type == IBridge::None)
@@ -163,12 +163,12 @@ void EthereumBridge::getTransactionCount(std::function<void(const Error&, uint64
 
 void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::sendRawTransaction";
+    BEAM_LOG_DEBUG() << "EthereumBridge::sendRawTransaction";
     std::string params = (boost::format(R"("%1%")") % AddHexPrefix(rawTx)).str();
 
     sendRequest("eth_sendRawTransaction", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::sendRawTransaction in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::sendRawTransaction in";
         std::string txHash = "";
 
         if (error.m_type == IBridge::None)
@@ -176,7 +176,7 @@ void EthereumBridge::sendRawTransaction(const std::string& rawTx, std::function<
             try
             {
                 // TODO: remove after tests
-                LOG_DEBUG() << result.dump(4);
+                BEAM_LOG_DEBUG() << result.dump(4);
                 txHash = result["result"].get<std::string>();
             }
             catch (const std::exception& ex)
@@ -538,12 +538,12 @@ void EthereumBridge::onGotApproveTxConfirmation(const Error& error, uint64_t txB
 
 void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getTransactionReceipt";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTransactionReceipt";
     std::string params = (boost::format(R"("%1%")") % AddHexPrefix(txHash)).str();
 
     sendRequest("eth_getTransactionReceipt", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getTransactionReceipt in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTransactionReceipt in";
         json txInfo;
 
         if (error.m_type == IBridge::None)
@@ -565,10 +565,10 @@ void EthereumBridge::getTransactionReceipt(const std::string& txHash, std::funct
 
 void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<void(const Error&, uint64_t)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getTxBlockNumber";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTxBlockNumber";
     getTransactionReceipt(txHash, [callback](const Error& error, const nlohmann::json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getTxBlockNumber in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTxBlockNumber in";
         Error tmp(error);
         uint64_t txBlockNumber = 0;
 
@@ -599,12 +599,12 @@ void EthereumBridge::getTxBlockNumber(const std::string& txHash, std::function<v
 
 void EthereumBridge::getTxByHash(const std::string& txHash, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getTxByHash";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTxByHash";
     std::string params = (boost::format(R"("%1%")") % AddHexPrefix(txHash)).str();
 
     sendRequest("eth_getTransactionByHash", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getTxByHash in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTxByHash in";
         json txInfo;
 
         if (error.m_type == IBridge::None)
@@ -626,13 +626,13 @@ void EthereumBridge::getTxByHash(const std::string& txHash, std::function<void(c
 
 void EthereumBridge::call(const libbitcoin::short_hash& to, const std::string& data, std::function<void(const Error&, const nlohmann::json&)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::call";
+    BEAM_LOG_DEBUG() << "EthereumBridge::call";
     std::string addr = ConvertEthAddressToStr(to);
     std::string params = (boost::format(R"({"to":"%1%","data":"%2%"},"latest")") % addr % AddHexPrefix(data)).str();
 
     sendRequest("eth_call", params, [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::call in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::call in";
         json tmp;
 
         if (error.m_type == IBridge::None)
@@ -660,10 +660,10 @@ libbitcoin::short_hash EthereumBridge::generateEthAddress() const
 
 void EthereumBridge::getGasPrice(std::function<void(const Error&, Amount)> callback)
 {
-    LOG_DEBUG() << "EthereumBridge::getGasPrice";
+    BEAM_LOG_DEBUG() << "EthereumBridge::getGasPrice";
     sendRequest("eth_gasPrice", "", [callback](Error error, const json& result)
     {
-        LOG_DEBUG() << "EthereumBridge::getGasPrice in";
+        BEAM_LOG_DEBUG() << "EthereumBridge::getGasPrice in";
         Amount gasPrice = 0;
 
         if (error.m_type == IBridge::None)
@@ -694,7 +694,7 @@ void EthereumBridge::sendRequest(
 
     io::Address address;
 
-    LOG_DEBUG() << "sendRequest: " << content;
+    BEAM_LOG_DEBUG() << "sendRequest: " << content;
 
     if (!address.resolve(url.c_str()))
     {
@@ -735,7 +735,7 @@ void EthereumBridge::sendRequest(
             {
                 std::string strResponse = std::string(static_cast<const char*>(body), sz);
 
-                LOG_DEBUG() << "strResponse = " << strResponse;
+                BEAM_LOG_DEBUG() << "strResponse = " << strResponse;
 
                 try
                 {

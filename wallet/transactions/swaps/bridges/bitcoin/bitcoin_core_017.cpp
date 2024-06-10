@@ -29,7 +29,7 @@ namespace beam::bitcoin
 
     void BitcoinCore017::signRawTransaction(const std::string& rawTx, std::function<void(const IBridge::Error&, const std::string&, bool)> callback)
     {
-        LOG_DEBUG() << "Send signrawtransactionwithwallet command";
+        BEAM_LOG_DEBUG() << "Send signrawtransactionwithwallet command";
 
         sendRequest("signrawtransactionwithwallet", "\"" + rawTx + "\"", [callback](IBridge::Error error, const json& result) {
             std::string hex;
@@ -61,7 +61,7 @@ namespace beam::bitcoin
         Timestamp locktime,
         std::function<void(const IBridge::Error&, const std::string&)> callback)
     {
-        LOG_DEBUG() << "Send createRawTransaction command";
+        BEAM_LOG_DEBUG() << "Send createRawTransaction command";
 
         std::string args("[{\"txid\": \"" + contractTxId + "\", \"vout\":" + std::to_string(outputIndex) + ", \"Sequence\": " + std::to_string(libbitcoin::max_input_sequence - 1) + " }]");
 

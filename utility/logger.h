@@ -70,9 +70,9 @@ struct LogMessageStub {
 #define BEAM_LOG_UNHANDLED_EXCEPTION() BEAM_LOG_ERROR() << "["<< __FILE__ << "] [" << __LINE__ << "] [" << __FUNCTION__ << "] unhandled exception. "
 
 #if LOG_DEBUG_ENABLED
-    #define LOG_DEBUG() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_DEBUG)
+    #define BEAM_LOG_DEBUG() BEAM_LOG_MESSAGE(BEAM_LOG_LEVEL_DEBUG)
 #else
-    #define LOG_DEBUG() LogMessageStub()
+    #define BEAM_LOG_DEBUG() LogMessageStub()
 #endif
 
 #if LOG_VERBOSE_ENABLED

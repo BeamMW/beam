@@ -41,7 +41,7 @@ void test_logger_1() {
     BEAM_LOG_WARNING() << "Don't be afraid: " << 223322223;
     XXX xxx;
     BEAM_LOG_INFO() << xxx;
-    LOG_DEBUG() << "YYY";
+    BEAM_LOG_DEBUG() << "YYY";
     BEAM_LOG_VERBOSE() << "ZZZ";
 }
 

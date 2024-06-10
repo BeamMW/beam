@@ -275,7 +275,7 @@ namespace beam::wallet
         }
 
         auto txId = wallet->StartTransaction(txParameters);
-        LOG_DEBUG() << "transaction created: " << txId;
+        BEAM_LOG_DEBUG() << "transaction created: " << txId;
 
         const auto& mirroredTxParams = MirrorSwapTxParams(txParameters);
         const auto& readyForTokenizeTxParams = PrepareSwapTxParamsForTokenization(mirroredTxParams);
@@ -564,7 +564,7 @@ namespace beam::wallet
 
     void V6Api::onHandleCancelOffer(const JsonRpcId& id, CancelOffer&& data)
     {
-        LOG_DEBUG() << "CancelOffer(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
+        BEAM_LOG_DEBUG() << "CancelOffer(txId = " << to_hex(data.txId.data(), data.txId.size()) << ")";
         onHandleTxCancel(id, std::move(data));
     }
 }

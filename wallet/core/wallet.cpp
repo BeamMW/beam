@@ -1060,7 +1060,7 @@ namespace beam::wallet
         {
         case TxType::VoucherRequest:
             {
-                LOG_DEBUG() << "Got voucher request!";
+                BEAM_LOG_DEBUG() << "Got voucher request!";
                 auto pKeyKeeper = m_WalletDB->get_KeyKeeper();
                 if (!pKeyKeeper                                         // We can generate the ticket with OwnerKey, but can't sign it.
                  || !CanDetectCoins())                                  // The wallet has no ability to recognize received shielded coin
@@ -1085,7 +1085,7 @@ namespace beam::wallet
                     return;
 
                 auto res = GenerateVoucherList(pKeyKeeper, address->m_OwnID, nCount);
-                LOG_DEBUG() << "Generated voucher list, size: " << res.size();
+                BEAM_LOG_DEBUG() << "Generated voucher list, size: " << res.size();
                 SetTxParameter msgOut;
                 msgOut.m_Type = TxType::VoucherResponse;
                 msgOut.m_From = myID;
@@ -1243,7 +1243,7 @@ namespace beam::wallet
 
     void Wallet::OnRequestComplete(MyRequestTransaction& r)
     {
-        LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
+        BEAM_LOG_DEBUG() << r.m_TxID << "[" << r.m_SubTxID << "]" << " register status " << static_cast<uint32_t>(r.m_Res.m_Value);
         if (!r.m_Res.m_ExtraInfo.empty())
             BEAM_LOG_WARNING() << "Extra info: " << r.m_Res.m_ExtraInfo;
 
@@ -1302,7 +1302,7 @@ namespace beam::wallet
         }
         else
         {
-            LOG_DEBUG() << txID << " Unexpected event";
+            BEAM_LOG_DEBUG() << txID << " Unexpected event";
         }
     }
 
@@ -2321,7 +2321,7 @@ namespace beam::wallet
             return;
         }
 
-        LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
+        BEAM_LOG_DEBUG() << "Get utxo proof: " << pReq->m_Msg.m_Utxo;
 
         PostReqUnique(*pReq);
     }
@@ -2421,7 +2421,7 @@ namespace beam::wallet
             confirm_asset(assetId);
         }
 
-        LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
+        BEAM_LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
         assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
         storage::setNeedToRequestBodies(*m_WalletDB, false); // disable body requests after importing recovery or rescan
     }
@@ -2452,7 +2452,7 @@ namespace beam::wallet
 
     void Wallet::SendTransactionToNode(const TxID& txId, const Transaction::Ptr& data, const Merkle::Hash* pParentCtx, SubTxID subTxID)
     {
-        LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
+        BEAM_LOG_DEBUG() << txId << "[" << subTxID << "]" << " sending tx for registration";
 
 #ifndef NDEBUG
         TxBase::Context ctx;

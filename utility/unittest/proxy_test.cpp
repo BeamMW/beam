@@ -57,7 +57,7 @@ public:
 
 	bool onInputData(ErrorCode errorCode, void* data, size_t size) {
 		if (errorCode != EC_OK) {
-			LOG_DEBUG() << "m_state: " <<
+			BEAM_LOG_DEBUG() << "m_state: " <<
 							static_cast<uint8_t>(m_state) <<
 							";  errorCode: " << errorCode;
 			assert(false);
@@ -150,7 +150,7 @@ void proxy_test() {
 			Address(0x7f000001, 12345),	// intentionally corrupted port
 			1,
 			[&timeStart, &connTO, &connTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
-				LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
+				BEAM_LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
 				assert(tag == 1);
 				assert(status != EC_OK);
 				if (status == EC_ECONNREFUSED) {} // in some cases
@@ -177,13 +177,13 @@ void proxy_test() {
 		[&serverConnection, &failStream, &timeoutStream](TcpStream::Ptr&& newStream, int errorCode) {
 			// First connection will be handled successfully
 			if (!serverConnection.isInitialized()) {
-				LOG_DEBUG() << "Dummy proxy server accepted connection to handle successful scenario";
+				BEAM_LOG_DEBUG() << "Dummy proxy server accepted connection to handle successful scenario";
 				serverConnection.setStream(std::move(newStream));
 				return;
 			}
 			// Second will be intentionally failed
 			if (!failStream) {
-				LOG_DEBUG() << "Dummy proxy server accepted connection to fail";
+				BEAM_LOG_DEBUG() << "Dummy proxy server accepted connection to fail";
 				failStream = std::move(newStream);
 				failStream->enable_read([&failStream](ErrorCode errorCode, void* data, size_t size) -> bool {
 					auto failReply = "abra-cadabra";
@@ -194,7 +194,7 @@ void proxy_test() {
 			}
 			// Third will be timedout
 			if (!timeoutStream) {
-				LOG_DEBUG() << "Dummy proxy server accepted connection to check timeout";
+				BEAM_LOG_DEBUG() << "Dummy proxy server accepted connection to check timeout";
 				timeoutStream = std::move(newStream);
 				timeoutStream->enable_read([](ErrorCode errorCode, void* data, size_t size) -> bool {
 					// ignoring request
@@ -213,20 +213,20 @@ void proxy_test() {
 		[&successfulCalled, &clientStream](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 			assert(tag == 2);
 			if (!newStream) {
-				LOG_DEBUG() << "Error connection establish: " << error_str(status);
+				BEAM_LOG_DEBUG() << "Error connection establish: " << error_str(status);
 				assert(false);
 			}
-			LOG_DEBUG() << "Proxy connection established. Tag: " << tag;
+			BEAM_LOG_DEBUG() << "Proxy connection established. Tag: " << tag;
 			clientStream = std::move(newStream);
 			clientStream->enable_read([](ErrorCode errorCode, void* data, size_t size){
 				if (errorCode != EC_OK) {
-					LOG_DEBUG() << "Destination server response error: " << error_str(errorCode);
+					BEAM_LOG_DEBUG() << "Destination server response error: " << error_str(errorCode);
 					assert(false);
 				}
 				assert(data && size);
 				string reply = "Aloha!";
 				assert(std::equal(reply.cbegin(), reply.cend(), static_cast<uint8_t*>(data)));
-				LOG_DEBUG() << "Proxy data transfer successful.";
+				BEAM_LOG_DEBUG() << "Proxy data transfer successful.";
 				return true;
 			});
 			auto req = "Hello, hello!";
@@ -245,7 +245,7 @@ void proxy_test() {
 		[&failedCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 			assert(tag == 3);
 			assert(status == EC_PROXY_AUTH_ERROR);
-			LOG_DEBUG() << "Proxy connection error: " << error_str(status) << ". Tag: " << tag;
+			BEAM_LOG_DEBUG() << "Proxy connection error: " << error_str(status) << ". Tag: " << tag;
 			failedCalled = true;
 		},
 		1000,
@@ -259,7 +259,7 @@ void proxy_test() {
 		[&repplyTimeoutCalled](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
 			assert(tag == 4);
 			assert(status == EC_ETIMEDOUT);
-			LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
+			BEAM_LOG_DEBUG() << "Proxy connection timeout: " << error_str(status) << ". Tag: " << tag;
 			repplyTimeoutCalled = true;
 		},
 		1000,
@@ -271,12 +271,12 @@ void proxy_test() {
 		3000,
 		false,
 		[&reactor] {
-			LOG_DEBUG() << "Test watchdog called"; reactor->stop();
+			BEAM_LOG_DEBUG() << "Test watchdog called"; reactor->stop();
 			}
 		);
-	LOG_DEBUG() << "reactor start";
+	BEAM_LOG_DEBUG() << "reactor start";
 	reactor->run();
-	LOG_DEBUG() << "reactor stop";
+	BEAM_LOG_DEBUG() << "reactor stop";
 	assert(connTimeoutCalled & successfulCalled & failedCalled & repplyTimeoutCalled);
 }
 
