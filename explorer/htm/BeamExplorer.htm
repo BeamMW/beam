@@ -124,7 +124,7 @@ Disclaimer:
 	.metadata .full {
 		display: inline-block; /* Needed to allow setting a max-width */
 		max-width: 80ch; /* Wrap long strings after 80 characters */
-		white-space: pre-wrap;
+		white-space: pre-wrap; /* Wrap and preserve all space */
 		word-wrap: break-word; /* Allow breaking words to next line */
 		font-family: inherit;
 	}
@@ -138,16 +138,16 @@ Disclaimer:
 		font-family: inherit;
 	}
 	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
-	.metadata .reduced + .extend {
+	.extend {
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
 		font-size: 1.8rem;
 		color: grey;
-		vertical-align: text-bottom; /* This is to align correctly the symbol with the text */
+		vertical-align: text-bottom; /* This is to try to align correctly the symbol with the text... */
 	}
-	/* Display the extend symbols when hovering over the cell or the span containing a truncated text */
-	td:hover .metadata .reduced + .extend, span:hover .metadata .reduced + .extend {
+	/* Display the extend symbols when hovering over the cell or the span containing the text */
+	td:hover > .metadata .extend, span:hover .metadata .extend {
 		visibility: visible;
 	}
 	/* Highlight the symbol when hovering on it */
@@ -201,7 +201,7 @@ Disclaimer:
 		font-family: inherit;
 	}
 	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
-	.truncated + .expand {
+	.expand {
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
@@ -209,8 +209,9 @@ Disclaimer:
 		color: grey;
 		position: relative;
 	}
-	/* Display the expand symbols when hovering over the cell or the list item containing a truncated text */
-	td:hover .truncated + .expand, li:hover > span .truncated + .expand {
+	/* Display the expand symbols when hovering over the cell or the list item containing the text */
+	td:hover .truncated + .expand, li:hover > span .truncated + .expand,
+	td:hover .expanded + .expand, li:hover > span .expanded + .expand {
 		visibility: visible;
 	}
 	/* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
@@ -1548,7 +1549,7 @@ Disclaimer:
 			let myClass = (myHash.querySelector("a")) ? "truncated withLink" : "truncated";
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myHash.innerHTML;
-			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Expand' hidden>&#128065;</span>";
+			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Toggle' hidden>&#128065;</span>";
 			// Add event listener on the symbol
 			myHash.querySelector(".expand").addEventListener("click", expandHash);
 		}
@@ -1556,7 +1557,7 @@ Disclaimer:
 		for (let myMetadata of document.querySelectorAll(".metadata")) {
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myMetadata.innerHTML;
-			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Expand' hidden>&#128065;</span>";
+			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Toggle' hidden>&#128065;</span>";
 			// Add event listener on the symbol
 			myMetadata.querySelector(".extend").addEventListener("click", expandMetadata);
 		}
@@ -1575,6 +1576,9 @@ Disclaimer:
 				for (let myItem of myRow.cells[col].querySelectorAll(".truncated")) {
 					myItem.classList.remove("truncated");
 					myItem.classList.add("expanded");
+					// Switch action of the clickable symbols
+					myItem.nextElementSibling.removeEventListener("click", expandHash);
+					myItem.nextElementSibling.addEventListener("click", truncateHash);
 				}
 			}
 		} else {
@@ -1582,6 +1586,39 @@ Disclaimer:
 			for (let myItem of input.parentNode.querySelectorAll(".truncated")) {
 				myItem.classList.remove("truncated");
 				myItem.classList.add("expanded");
+				// Switch action of the clickable symbols
+				myItem.nextElementSibling.removeEventListener("click", expandHash);
+				myItem.nextElementSibling.addEventListener("click", truncateHash);
+			}
+		}
+	}
+
+	function truncateHash(e) {
+		// Get element, table and column number of the event
+		let input = e.currentTarget;
+		// If item is in table, truncate the whole column
+		if (input.closest('table')) {
+			let col = input.closest('th,td').cellIndex;
+			let table = input.closest('table');
+			// Loop on all cells in that column
+			for (let myRow of table.rows) {
+				// Remove all expanded classes in the cell
+				for (let myItem of myRow.cells[col].querySelectorAll(".expanded")) {
+					myItem.classList.remove("expanded");
+					myItem.classList.add("truncated");
+					// Switch action of the clickable symbols
+					myItem.nextElementSibling.removeEventListener("click", truncateHash);
+					myItem.nextElementSibling.addEventListener("click", expandHash);
+				}
+			}
+		} else {
+			// Expand only the item and its siblings
+			for (let myItem of input.parentNode.querySelectorAll(".expanded")) {
+				myItem.classList.remove("expanded");
+				myItem.classList.add("truncated");
+				// Switch action of the clickable symbols
+				myItem.nextElementSibling.removeEventListener("click", truncateHash);
+				myItem.nextElementSibling.addEventListener("click", expandHash);
 			}
 		}
 	}
@@ -1592,6 +1629,21 @@ Disclaimer:
 		for (let myItem of input.parentNode.querySelectorAll(".reduced")) {
 			myItem.classList.remove("reduced");
 			myItem.classList.add("full");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandMetadata);
+			myItem.nextElementSibling.addEventListener("click", truncateMetadata);
+		}
+	}
+
+	function truncateMetadata(e) {
+		// Truncate selected metadata only
+		let input = e.currentTarget;
+		for (let myItem of input.parentNode.querySelectorAll(".full")) {
+			myItem.classList.remove("full");
+			myItem.classList.add("reduced");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateMetadata);
+			myItem.nextElementSibling.addEventListener("click", expandMetadata);
 		}
 	}
 
@@ -1600,11 +1652,17 @@ Disclaimer:
 		for (let myItem of document.querySelectorAll(".truncated")) {
 			myItem.classList.remove("truncated");
 			myItem.classList.add("expanded");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandHash);
+			myItem.nextElementSibling.addEventListener("click", truncateHash);
 		}
 		// Expand all truncated Metadata
 		for (let myItem of document.querySelectorAll(".reduced")) {
 			myItem.classList.remove("reduced");
 			myItem.classList.add("full");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandMetadata);
+			myItem.nextElementSibling.addEventListener("click", truncateMetadata);
 		}
 		// Expand all small collapsible blocks
 		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
@@ -1612,10 +1670,10 @@ Disclaimer:
 				myItem.checked = true;
 			}
 		}
-		// Switch action of the clickable symbol
+		// Switch action of the main clickable symbol
 		let icon = document.querySelector("#ExpandAll");
 		icon.setAttribute("href", "javascript:truncateEverything();");
-		icon.setAttribute("title", "Truncate everything");
+		icon.setAttribute("title", "Reduce everything");
 	}
 
 	function truncateEverything() {
@@ -1623,11 +1681,17 @@ Disclaimer:
 		for (let myItem of document.querySelectorAll(".expanded")) {
 			myItem.classList.remove("expanded");
 			myItem.classList.add("truncated");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateHash);
+			myItem.nextElementSibling.addEventListener("click", expandHash);
 		}
 		// Truncate all Metadata
 		for (let myItem of document.querySelectorAll(".full")) {
 			myItem.classList.remove("full");
 			myItem.classList.add("reduced");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateMetadata);
+			myItem.nextElementSibling.addEventListener("click", expandMetadata);
 		}
 		// Collapse all small collapsible blocks
 		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
@@ -1635,7 +1699,7 @@ Disclaimer:
 				myItem.checked = false;
 			}
 		}
-		// Switch action of the clickable symbol
+		// Switch action of the main clickable symbol
 		let icon = document.querySelector("#ExpandAll");
 		icon.setAttribute("href", "javascript:expandEverything();");
 		icon.setAttribute("title", "Expand everything");
