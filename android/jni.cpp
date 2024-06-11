@@ -111,14 +111,14 @@ extern "C" {
 
  JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isAddress)(JNIEnv *env, jobject thiz, jstring address)
  {
-    LOG_DEBUG() << "isAddress()";
+    BEAM_LOG_DEBUG() << "isAddress()";
     
     return beam::wallet::CheckReceiverAddress(JString(env, address).value());
  }
 
  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(selectCoins)(JNIEnv *env, jobject thiz, jlong amount, jlong fee, jboolean isShielded, jint assetId)
  {
-    LOG_DEBUG() << "selectCoins()";
+    BEAM_LOG_DEBUG() << "selectCoins()";
 
     Amount bAmount = Amount(amount);
     Amount bFee = Amount(fee);
@@ -129,7 +129,7 @@ extern "C" {
 
 JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobject thiz, jstring token)
  {
-    LOG_DEBUG() << "isToken()";
+    BEAM_LOG_DEBUG() << "isToken()";
 
     auto params = beam::wallet::ParseParameters(JString(env, token).value());
     return params && params->GetParameter<beam::wallet::TxType>(beam::wallet::TxParameterID::TransactionType);
@@ -138,7 +138,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isToken)(JNIEnv *env, jobj
 
 JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(JNIEnv *env, jobject thiz, jstring token, jboolean requestInfo)
 {
-    LOG_DEBUG() << "getTransactionParameters()";
+    BEAM_LOG_DEBUG() << "getTransactionParameters()";
 
     auto address = JString(env, token).value();
     auto params = beam::wallet::ParseParameters(address);
@@ -162,13 +162,13 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
             if(amount) 
             {
-                LOG_DEBUG() << "amount(" << *amount << ")";
+                BEAM_LOG_DEBUG() << "amount(" << *amount << ")";
 
                 setLongField(env, TransactionParametersClass, jParameters, "amount", *amount);
             }
             else 
             {
-                LOG_DEBUG() << "amount not found";
+                BEAM_LOG_DEBUG() << "amount not found";
 
                 setLongField(env, TransactionParametersClass, jParameters, "amount", 0L);
             }
@@ -275,7 +275,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  {
      auto trusted = walletModel->isConnectionTrusted();
     
-     LOG_DEBUG() << "isConnectionTrusted() " << trusted;
+     BEAM_LOG_DEBUG() << "isConnectionTrusted() " << trusted;
 
     return trusted;
  }
@@ -292,7 +292,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
  
  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateOfflineAddress)(JNIEnv *env, jobject thiz, jlong amount, jint assetId)
  {
-    LOG_DEBUG() << "generateOfflineAddress()";
+    BEAM_LOG_DEBUG() << "generateOfflineAddress()";
 
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
@@ -308,7 +308,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
 
  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateRegularAddress)(JNIEnv *env, jobject thiz, jlong amount, jint assetId)
  {
-    LOG_DEBUG() << "generateRegularAddress()";
+    BEAM_LOG_DEBUG() << "generateRegularAddress()";
 
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
@@ -325,7 +325,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
   
  JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateMaxPrivacyAddress)(JNIEnv *env, jobject thiz, jlong amount, jint assetId)
  {
-    LOG_DEBUG() << "generateMaxPrivacyAddress()";
+    BEAM_LOG_DEBUG() << "generateMaxPrivacyAddress()";
 
     uint64_t bAmount = amount;
     uint32_t bAsset = assetId;
@@ -346,7 +346,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
     initLogger(appData, JString(env, appVersion).value());
     
-    LOG_DEBUG() << "creating wallet...";
+    BEAM_LOG_DEBUG() << "creating wallet...";
 
     auto pass = JString(env, passStr).value();
 
@@ -382,7 +382,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 
     if(walletDB)
     {
-        LOG_DEBUG() << "wallet successfully created.";
+        BEAM_LOG_DEBUG() << "wallet successfully created.";
 
         passwordHash.V = SecString(pass).hash().V;
         // generate default address
@@ -431,14 +431,14 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(createWallet)(JNIEnv *env, job
 JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(isWalletInitialized)(JNIEnv *env, jobject thiz, 
     jstring appData)
 {
-    LOG_DEBUG() << "checking if wallet exists...";
+    BEAM_LOG_DEBUG() << "checking if wallet exists...";
 
     return WalletDB::isInitialized(JString(env, appData).value() + "/" WALLET_FILENAME) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_API_INTERFACE(closeWallet)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "close wallet if it exists";
+    BEAM_LOG_DEBUG() << "close wallet if it exists";
 
     if (nodeModel)
     {
@@ -463,7 +463,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
     initLogger(appData, JString(env, appVersion).value());
 
-    LOG_DEBUG() << "opening wallet...";
+    BEAM_LOG_DEBUG() << "opening wallet...";
 
     string pass = JString(env, passStr).value();
     
@@ -474,7 +474,7 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_API_INTERFACE(openWallet)(JNIEnv *env, jobje
 
     if(walletDB)
     {
-        LOG_DEBUG() << "wallet successfully opened.";
+        BEAM_LOG_DEBUG() << "wallet successfully opened.";
 
         passwordHash.V = SecString(pass).hash().V;
         
@@ -569,27 +569,27 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_API_INTERFACE(checkReceiverAddress)(JNIEnv 
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getWalletStatus)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "getWalletStatus()";
+    BEAM_LOG_DEBUG() << "getWalletStatus()";
 
     walletModel->getAsync()->getWalletStatus();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactions)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "getTransactions()";
+    BEAM_LOG_DEBUG() << "getTransactions()";
 
     walletModel->getAsync()->getTransactions();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAllUtxosStatus)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "getAllUtxosStatus()";
+    BEAM_LOG_DEBUG() << "getAllUtxosStatus()";
     walletModel->getAsync()->getAllUtxosStatus();
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(syncWithNode)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "syncWithNode()";
+    BEAM_LOG_DEBUG() << "syncWithNode()";
 
     walletModel->getAsync()->syncWithNode();
 }
@@ -606,8 +606,8 @@ void CopyParameter(beam::wallet::TxParameterID paramID, const beam::wallet::TxPa
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, jobject thiz,
     jstring receiverAddr, jstring comment, jlong amount, jlong fee, jint assetId, jboolean isOffline)
 {
-    LOG_DEBUG() << "sendTransaction(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
-    LOG_DEBUG() << "asset id" << assetId;
+    BEAM_LOG_DEBUG() << "sendTransaction(" << JString(env, receiverAddr).value() << ", " << JString(env, comment).value() << ", " << amount << ", " << fee << ")";
+    BEAM_LOG_DEBUG() << "asset id" << assetId;
     
     auto address = JString(env, receiverAddr).value();
     auto txParameters = beam::wallet::ParseParameters(address);
@@ -660,7 +660,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(sendTransaction)(JNIEnv *env, 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobject thiz,
     jlong amount, jint assetId)
 {
-    LOG_DEBUG() << "calcChange(" << amount << ")";
+    BEAM_LOG_DEBUG() << "calcChange(" << amount << ")";
     uint32_t asset = assetId;
 
     walletModel->getAsync()->calcChange(Amount(amount), 0, beam::Asset::ID(asset));
@@ -669,14 +669,14 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(calcChange)(JNIEnv *env, jobje
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getAddresses)(JNIEnv *env, jobject thiz,
     jboolean own)
 {
-    LOG_DEBUG() << "getAddresses(" << own << ")";
+    BEAM_LOG_DEBUG() << "getAddresses(" << own << ")";
 
     walletModel->getAsync()->getAddresses(own);
 }
 
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateNewAddress)(JNIEnv *env, jobject thiz)
 {
-    LOG_DEBUG() << "generateNewAddress()";
+    BEAM_LOG_DEBUG() << "generateNewAddress()";
 
     walletModel->getAsync()->generateNewAddress();
 }
@@ -684,7 +684,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(generateNewAddress)(JNIEnv *en
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobject thiz,
     jobject walletAddrObj, jboolean own)
 {
-    LOG_DEBUG() << "saveAddress()";
+    BEAM_LOG_DEBUG() << "saveAddress()";
 
     WalletID bbsAddr(Zero);
     if (bbsAddr.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID")))
@@ -692,7 +692,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
             auto address = walletDB->getAddress(bbsAddr); 
             if (address)  
             { 
-                LOG_DEBUG() << "address found in database";
+                BEAM_LOG_DEBUG() << "address found in database";
 
                 address->m_label = getStringField(env, WalletAddressClass, walletAddrObj, "label");
                 address->m_category = getStringField(env, WalletAddressClass, walletAddrObj, "category");
@@ -701,7 +701,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddress)(JNIEnv *env, jobj
                 walletDB->saveAddress(*address);
             }
             else {
-                LOG_DEBUG() << "address not found in database";
+                BEAM_LOG_DEBUG() << "address not found in database";
 
                 WalletAddress addr;
                 addr.m_BbsAddr.FromHex(getStringField(env, WalletAddressClass, walletAddrObj, "walletID"));
@@ -749,7 +749,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(importRecovery)(JNIEnv *env, j
 {
     auto path = JString(env, jpath).value();
 
-    LOG_DEBUG() << "importRecovery path = " << path;
+    BEAM_LOG_DEBUG() << "importRecovery path = " << path;
 
     walletModel->getAsync()->importRecovery(path);
 }
@@ -819,7 +819,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(saveAddressChanges)(JNIEnv *en
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject thiz,
     jstring txId)
 {
-    LOG_DEBUG() << "cancelTx()";
+    BEAM_LOG_DEBUG() << "cancelTx()";
 
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
@@ -832,7 +832,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject
 JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteTx)(JNIEnv *env, jobject thiz,
     jstring txId)
 {
-    LOG_DEBUG() << "deleteTx()";
+    BEAM_LOG_DEBUG() << "deleteTx()";
 
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
@@ -1097,7 +1097,7 @@ JNIEXPORT jboolean JNICALL BEAM_JAVA_WALLET_INTERFACE(isSynced)(JNIEnv *env, job
 {
     auto isSynced = walletModel->isSynced();
     
-    LOG_DEBUG() << "isSynced() " << isSynced;
+    BEAM_LOG_DEBUG() << "isSynced() " << isSynced;
 
     return isSynced;
 }
@@ -1152,7 +1152,7 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(launchApp)(JNIEnv *env, jobjec
     }
     catch (...)
     {
-        LOG_DEBUG() << "launchApp error ";
+        BEAM_LOG_DEBUG() << "launchApp error ";
     }
 }
 

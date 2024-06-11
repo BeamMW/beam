@@ -253,8 +253,8 @@ void testSwap()
     libbitcoin::hash_digest secretHash = libbitcoin::sha256_hash(secretDataChunk);
     libbitcoin::short_hash participant = bridgeBob->generateEthAddress();
 
-    LOG_DEBUG() << "secret: " << secret.str();
-    LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
+    BEAM_LOG_DEBUG() << "secret: " << secret.str();
+    BEAM_LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
 
     bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
         {
@@ -271,7 +271,7 @@ void testSwap()
 
             bridgeAlice->send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
-                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+                    BEAM_LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
                     // redeem
                     // kRedeemMethodHash + secret + secretHash
@@ -283,7 +283,7 @@ void testSwap()
 
                     bridgeBob->send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
-                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            BEAM_LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
                         });
                 });
@@ -322,14 +322,14 @@ void testSwapWithAggregateSignature()
     std::move(std::begin(secret.m_pData), std::end(secret.m_pData), std::begin(secretEC));
 
     auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
-    LOG_DEBUG() << "PUBLIC: " << rawPk;
+    BEAM_LOG_DEBUG() << "PUBLIC: " << rawPk;
     libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
     auto participant = bridgeBob->generateEthAddress();
     auto initiator = bridgeAlice->generateEthAddress();
 
-    LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
-    LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
-    LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
+    BEAM_LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
+    BEAM_LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
+    BEAM_LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
 
     ECC::uintBig gas = 200000u;
     ECC::uintBig gasPrice = 3000000u;
@@ -348,7 +348,7 @@ void testSwapWithAggregateSignature()
 
             bridgeAlice->send(kContractAddress, lockData, swapAmount, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
-                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+                    BEAM_LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
                     libbitcoin::data_chunk hashData;
                     hashData.reserve(60);
@@ -358,7 +358,7 @@ void testSwapWithAggregateSignature()
                     hashData.insert(hashData.end(), std::cbegin(refundTimeInBlocks.m_pData), std::cend(refundTimeInBlocks.m_pData));
                     auto hash = ethash::keccak256(&hashData[0], hashData.size());
 
-                    LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
+                    BEAM_LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
 
                     libbitcoin::hash_digest hashDigest;
                     std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
@@ -368,7 +368,7 @@ void testSwapWithAggregateSignature()
                     {
                         libbitcoin::data_chunk resultSign(std::begin(signature.signature), std::end(signature.signature));
                         resultSign.push_back(signature.recovery_id);
-                        LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
+                        BEAM_LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
                     }
 
                     // redeem
@@ -383,7 +383,7 @@ void testSwapWithAggregateSignature()
 
                     bridgeBob->send(kContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
-                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            BEAM_LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
                         });
                 });
@@ -427,8 +427,8 @@ void testERC20Swap()
     libbitcoin::hash_digest secretHash = libbitcoin::sha256_hash(secretDataChunk);
     libbitcoin::short_hash participant = bridgeBob->generateEthAddress();
 
-    LOG_DEBUG() << "secret: " << secret.str();
-    LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
+    BEAM_LOG_DEBUG() << "secret: " << secret.str();
+    BEAM_LOG_DEBUG() << "secretHash: " << libbitcoin::encode_base16(secretHash);
 
     bridgeAlice->getBlockNumber([&](const ethereum::IBridge::Error& error, uint64_t blockCount)
         {
@@ -445,7 +445,7 @@ void testERC20Swap()
 
             bridgeAlice->send(kERC20HashLockContractAddress, lockData, ECC::Zero, gas, gasPrice, [&](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
-                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+                    BEAM_LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
                     // redeem
                     // kRedeemMethodHash + secret + secretHash
@@ -457,7 +457,7 @@ void testERC20Swap()
 
                     bridgeBob->send(kERC20HashLockContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
-                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            BEAM_LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
                         });
                 });
@@ -497,14 +497,14 @@ void testERC20SwapWithAggregateSignature()
     std::move(std::begin(secret.m_pData), std::end(secret.m_pData), std::begin(secretEC));
 
     auto rawPk = libbitcoin::wallet::ec_private(secretEC, libbitcoin::wallet::ec_private::mainnet, false).to_public().encoded();
-    LOG_DEBUG() << "PUBLIC: " << rawPk;
+    BEAM_LOG_DEBUG() << "PUBLIC: " << rawPk;
     libbitcoin::short_hash addressFromSecret = ethereum::GetEthAddressFromPubkeyStr(rawPk);
     auto participant = bridgeBob->generateEthAddress();
     auto initiator = bridgeAlice->generateEthAddress();
 
-    LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
-    LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
-    LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
+    BEAM_LOG_DEBUG() << "participant: " << libbitcoin::encode_base16(participant);
+    BEAM_LOG_DEBUG() << "initiator: " << libbitcoin::encode_base16(initiator);
+    BEAM_LOG_DEBUG() << "addressFromSecret: " << libbitcoin::encode_base16(addressFromSecret);
 
     ECC::uintBig gas = 500000u;
     ECC::uintBig gasPrice = 3000000u;
@@ -527,7 +527,7 @@ void testERC20SwapWithAggregateSignature()
 
             bridgeAlice->send(kERC20ContractAddress, lockData, ECC::Zero, gas, gasPrice, [&, refundTimeInBlocks](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                 {
-                    LOG_DEBUG() << "LOCK_TX hash: " << txHash;
+                    BEAM_LOG_DEBUG() << "LOCK_TX hash: " << txHash;
 
                     libbitcoin::data_chunk hashData;
                     hashData.reserve(60);
@@ -538,7 +538,7 @@ void testERC20SwapWithAggregateSignature()
                     hashData.insert(hashData.end(), kTokenContractAddress.cbegin(), kTokenContractAddress.cend());
                     auto hash = ethash::keccak256(&hashData[0], hashData.size());
 
-                    LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
+                    BEAM_LOG_DEBUG() << "RedeemTx, hash of data: " << libbitcoin::encode_base16({ std::cbegin(hash.bytes), std::cend(hash.bytes) });
 
                     libbitcoin::hash_digest hashDigest;
                     std::move(std::begin(hash.bytes), std::end(hash.bytes), hashDigest.begin());
@@ -548,7 +548,7 @@ void testERC20SwapWithAggregateSignature()
                     {
                         libbitcoin::data_chunk resultSign(std::begin(signature.signature), std::end(signature.signature));
                         resultSign.push_back(signature.recovery_id);
-                        LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
+                        BEAM_LOG_DEBUG() << "RedeemTx, signature: " << libbitcoin::encode_base16(resultSign);
                     }
 
                     // redeem
@@ -563,7 +563,7 @@ void testERC20SwapWithAggregateSignature()
 
                     bridgeBob->send(kERC20ContractAddress, redeemData, ECC::Zero, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash, uint64_t)
                         {
-                            LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
+                            BEAM_LOG_DEBUG() << "REDEEM_TX hash: " << txHash;
                             mainReactor->stop();
                         });
                 });
@@ -595,12 +595,12 @@ void testERC20GetBalance()
 
     bridge.call(kTokenContractAddress, libbitcoin::encode_base16(data), [mainReactor](const ethereum::IBridge::Error&, const nlohmann::json& result)
         {
-            LOG_DEBUG() << result.dump(4);
+            BEAM_LOG_DEBUG() << result.dump(4);
 
             boost::multiprecision::uint256_t tmp(result.get<std::string>());
             tmp /= ethereum::GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin::Dai);
 
-            LOG_DEBUG() << "Balance: " << tmp.convert_to<Amount>();
+            BEAM_LOG_DEBUG() << "Balance: " << tmp.convert_to<Amount>();
             mainReactor->stop();
         });
 
@@ -627,17 +627,17 @@ void testMultipleSend()
 
     bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
         {
-            LOG_DEBUG() << "First Tx hash: " << txHash << " nonce: " << nonce;
+            BEAM_LOG_DEBUG() << "First Tx hash: " << txHash << " nonce: " << nonce;
         });
 
     bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
         {
-            LOG_DEBUG() << "Second Tx hash: " << txHash << " nonce: " << nonce;
+            BEAM_LOG_DEBUG() << "Second Tx hash: " << txHash << " nonce: " << nonce;
         });
 
     bridgeAlice->send(initiator, {}, ECC::Zero, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash, uint64_t nonce)
         {
-            LOG_DEBUG() << "Third Tx hash: " << txHash << " nonce: " << nonce;
+            BEAM_LOG_DEBUG() << "Third Tx hash: " << txHash << " nonce: " << nonce;
         });
 
     mainReactor->run();
@@ -679,7 +679,7 @@ void testERC20MultipleApprove()
                 boost::multiprecision::uint256_t tmp(result.get<std::string>());
                 tmp /= ethereum::GetCoinUnitsMultiplier(token);
                 startAllowance = tmp.convert_to<Amount>();
-                LOG_DEBUG() << "allowance: " << startAllowance;
+                BEAM_LOG_DEBUG() << "allowance: " << startAllowance;
 
                 mainReactor->stop();
             });
@@ -691,17 +691,17 @@ void testERC20MultipleApprove()
     {
         bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash)
             {
-                LOG_DEBUG() << "First ApproveTx hash: " << txHash;
+                BEAM_LOG_DEBUG() << "First ApproveTx hash: " << txHash;
             });
 
         bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [](const ethereum::IBridge::Error&, std::string txHash)
             {
-                LOG_DEBUG() << "Second ApproveTx hash: " << txHash;
+                BEAM_LOG_DEBUG() << "Second ApproveTx hash: " << txHash;
             });
 
         bridgeAlice->erc20Approve(kTokenContractAddress, kERC20ContractAddress, value, gas, gasPrice, [mainReactor](const ethereum::IBridge::Error&, std::string txHash)
             {
-                LOG_DEBUG() << "Third ApproveTx hash: " << txHash;
+                BEAM_LOG_DEBUG() << "Third ApproveTx hash: " << txHash;
                 mainReactor->stop();
             });
 
@@ -722,7 +722,7 @@ void testERC20MultipleApprove()
                 boost::multiprecision::uint256_t tmp(result.get<std::string>());
                 tmp /= ethereum::GetCoinUnitsMultiplier(token);
                 endAllowance = tmp.convert_to<Amount>();
-                LOG_DEBUG() << "end allowance: " << tmp.convert_to<Amount>();
+                BEAM_LOG_DEBUG() << "end allowance: " << tmp.convert_to<Amount>();
 
                 mainReactor->stop();
             });

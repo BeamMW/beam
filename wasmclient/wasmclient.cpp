@@ -548,7 +548,7 @@ public:
 
     void StopWallet(val handler = val::null())
     {
-        LOG_DEBUG() << "Stopping wallet...";
+        BEAM_LOG_DEBUG() << "Stopping wallet...";
         AssertMainThread();
         if (!m_Client)
         {
@@ -635,7 +635,7 @@ public:
             (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
             if (done == total || !error.isNull())
             {
-                LOG_DEBUG() << "Recovery done";
+                BEAM_LOG_DEBUG() << "Recovery done";
                 m_RecoveryCallback.reset();
             }
         }
@@ -881,7 +881,7 @@ public:
 
     static void DeleteWallet(const std::string& dbName)
     {
-        LOG_DEBUG() << "Delete wallet...";
+        BEAM_LOG_DEBUG() << "Delete wallet...";
         AssertMainThread();
         EnsureFSMounted();
         try
@@ -920,7 +920,7 @@ public:
     {
         WalletDB::isValidPassword(dbName, SecString(pass));
         auto res = WalletDB::isValidPassword(dbName, SecString(pass));
-        LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
         auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,

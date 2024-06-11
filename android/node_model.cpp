@@ -62,12 +62,12 @@ bool NodeModel::isNodeRunning() const
 
 void NodeModel::onInitProgressUpdated(uint64_t done, uint64_t total)
 {
-    LOG_DEBUG() << "onInitProgressUpdated(" << done << ", " << total << ")";
+    BEAM_LOG_DEBUG() << "onInitProgressUpdated(" << done << ", " << total << ")";
 }
 
 void NodeModel::onSyncProgressUpdated(int done, int total)
 {
-    LOG_DEBUG() << "onNodeSyncProgressUpdated(" << done << ", " << total << ")";
+    BEAM_LOG_DEBUG() << "onNodeSyncProgressUpdated(" << done << ", " << total << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 

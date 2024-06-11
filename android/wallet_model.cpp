@@ -506,7 +506,7 @@ namespace
         for (const auto& [key, value] : assets) {
             auto assetId = key;
             
-            LOG_DEBUG() << "convertWalletStatusToJObject(" << assetId << ")";
+            BEAM_LOG_DEBUG() << "convertWalletStatusToJObject(" << assetId << ")";
 
             jobject walletStatus = env->AllocObject(WalletStatusClass);
             setLongField(env, WalletStatusClass, walletStatus, "available", AmountBig::get_Lo(value.available));
@@ -549,7 +549,7 @@ WalletModel::~WalletModel()
 
 void WalletModel::onStatus(const WalletStatus& status)
 {
-    LOG_DEBUG() << "onStatus()";
+    BEAM_LOG_DEBUG() << "onStatus()";
 
     JNIEnv* env = Android_JNI_getEnv();
     jobjectArray jStatus = convertWalletStatusToJObject(env, status);
@@ -563,7 +563,7 @@ void WalletModel::onStatus(const WalletStatus& status)
 
 void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescription>& items)
 {
-    LOG_DEBUG() << "onTxStatus()";
+    BEAM_LOG_DEBUG() << "onTxStatus()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -600,7 +600,7 @@ void WalletModel::onTxStatus(ChangeAction action, const std::vector<TxDescriptio
 
 void WalletModel::onSyncProgressUpdated(int done, int total)
 {
-    LOG_DEBUG() << "onSyncProgressUpdated(" << done << ", " << total << ")";
+    BEAM_LOG_DEBUG() << "onSyncProgressUpdated(" << done << ", " << total << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -611,7 +611,7 @@ void WalletModel::onSyncProgressUpdated(int done, int total)
 
 void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount changeBeam, beam::Asset::ID assetId)
 {
-    LOG_DEBUG() << "onChangeCalculated(" << changeBeam << ")";
+    BEAM_LOG_DEBUG() << "onChangeCalculated(" << changeBeam << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -622,7 +622,7 @@ void WalletModel::onChangeCalculated(beam::Amount changeAsset, beam::Amount chan
 
 void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 {
-    LOG_DEBUG() << "onCoinsSelected(" << selectionRes.m_explicitFee << ")";
+    BEAM_LOG_DEBUG() << "onCoinsSelected(" << selectionRes.m_explicitFee << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -637,7 +637,7 @@ void WalletModel::onCoinsSelected(const CoinsSelectionInfo& selectionRes)
 
 void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Coin>& utxosVec)
 {
-    LOG_DEBUG() << "onNormalCoinsChanged()";
+    BEAM_LOG_DEBUG() << "onNormalCoinsChanged()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -651,7 +651,7 @@ void WalletModel::onNormalCoinsChanged(ChangeAction action, const std::vector<Co
 
 void WalletModel::onAddressesChanged(ChangeAction action, const std::vector<WalletAddress>& addresses)
 {
-    LOG_DEBUG() << "onAddressesChanged()";
+    BEAM_LOG_DEBUG() << "onAddressesChanged()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -666,7 +666,7 @@ void WalletModel::onAddressesChanged(ChangeAction action, const std::vector<Wall
 
 void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addresses)
 {
-    LOG_DEBUG() << "onAddresses(" << own << ")";
+    BEAM_LOG_DEBUG() << "onAddresses(" << own << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -681,7 +681,7 @@ void WalletModel::onAddresses(bool own, const std::vector<WalletAddress>& addres
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers)
 {
-    LOG_DEBUG() << "onSwapOffersChanged()";
+    BEAM_LOG_DEBUG() << "onSwapOffersChanged()";
 
     // TODO
 }
@@ -689,7 +689,7 @@ void WalletModel::onSwapOffersChanged(ChangeAction action, const std::vector<Swa
 
 void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 {
-    LOG_DEBUG() << "onGeneratedNewAddress()";
+    BEAM_LOG_DEBUG() << "onGeneratedNewAddress()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -702,14 +702,14 @@ void WalletModel::onGeneratedNewAddress(const WalletAddress& address)
 
 void WalletModel::onSwapParamsLoaded(const beam::ByteBuffer& params)
 {
-    LOG_DEBUG() << "onSwapParamsLoaded()";
+    BEAM_LOG_DEBUG() << "onSwapParamsLoaded()";
 
     // TODO
 }
 
 void WalletModel::onAssetSwapParamsLoaded(const beam::ByteBuffer& params)
 {
-    LOG_DEBUG() << "onAssetSwapParamsLoaded()";
+    BEAM_LOG_DEBUG() << "onAssetSwapParamsLoaded()";
 }
 
 void WalletModel::onNewAddressFailed()
@@ -719,13 +719,13 @@ void WalletModel::onNewAddressFailed()
 
 void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 {
-    LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";
+    BEAM_LOG_DEBUG() << "onNodeConnectedStatusChanged(" << isNodeConnected << ")";
 
     if(isNodeConnected) 
     {
         auto trusted = this->isConnectionTrusted();
 
-        LOG_DEBUG() << "isConnectionTrustedCheck()" << trusted;
+        BEAM_LOG_DEBUG() << "isConnectionTrustedCheck()" << trusted;
     }
 
     JNIEnv* env = Android_JNI_getEnv();
@@ -737,7 +737,7 @@ void WalletModel::onNodeConnectionChanged(bool isNodeConnected)
 
 void WalletModel::onWalletError(ErrorType error)
 {
-    LOG_DEBUG() << "onWalletError: error = " << underlying_cast(error);
+    BEAM_LOG_DEBUG() << "onWalletError: error = " << underlying_cast(error);
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -849,7 +849,7 @@ void WalletModel::onAddressChecked(const std::string& addr, bool isValid)
 
 void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
 {
-    LOG_DEBUG() << "onImportRecoveryProgress(" << done << ", " << total << ")";
+    BEAM_LOG_DEBUG() << "onImportRecoveryProgress(" << done << ", " << total << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -860,7 +860,7 @@ void WalletModel::onImportRecoveryProgress(uint64_t done, uint64_t total)
 
 void WalletModel::onImportDataFromJson(bool isOk)
 {
-    LOG_DEBUG() << "onImportDataFromJson(" << isOk << ")";
+    BEAM_LOG_DEBUG() << "onImportDataFromJson(" << isOk << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -871,7 +871,7 @@ void WalletModel::onImportDataFromJson(bool isOk)
 
 void WalletModel::onExportDataToJson(const std::string& data)
 {
-    LOG_DEBUG() << "onExportDataToJson";
+    BEAM_LOG_DEBUG() << "onExportDataToJson";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -885,7 +885,7 @@ void WalletModel::onExportDataToJson(const std::string& data)
 
 void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<Notification>& notifications)
 {
-    LOG_DEBUG() << "onNotificationsChanged";
+    BEAM_LOG_DEBUG() << "onNotificationsChanged";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -918,7 +918,7 @@ void WalletModel::onNotificationsChanged(ChangeAction action, const std::vector<
 
 void WalletModel::onExchangeRates(const std::vector<ExchangeRate>& rates)
 {
-    LOG_DEBUG() << "onExchangeRates(" << rates.size() << ")";
+    BEAM_LOG_DEBUG() << "onExchangeRates(" << rates.size() << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
     jobjectArray jRates = convertExchangeRatesToJObject(env, rates);
@@ -934,7 +934,7 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& addr, const boost::
 {
     int convertdata = static_cast<int>(offlinePayments);
 
-    LOG_DEBUG() << "onGetAddress(" << convertdata << ")";
+    BEAM_LOG_DEBUG() << "onGetAddress(" << convertdata << ")";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -946,7 +946,7 @@ void WalletModel::onGetAddress(const beam::wallet::WalletID& addr, const boost::
 
 void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const std::vector<beam::wallet::ShieldedCoin>& items) 
 {
-    LOG_DEBUG() << "onShieldedCoinChanged()";
+    BEAM_LOG_DEBUG() << "onShieldedCoinChanged()";
 
     for (const auto& coin : items)
     {
@@ -964,7 +964,7 @@ void WalletModel::onShieldedCoinChanged(beam::wallet::ChangeAction action, const
 }
 
 void WalletModel::onPostFunctionToClientContext(MessageFunction&& func) {
-    LOG_DEBUG() << "onPostFunctionToClientContext()";
+    BEAM_LOG_DEBUG() << "onPostFunctionToClientContext()";
     
     doFunction(func);
 }
@@ -1006,7 +1006,7 @@ std::string WalletModel::getConfirmationProgress(beam::wallet::TxDescription tra
 
 void WalletModel::onExportTxHistoryToCsv(const std::string& data) 
 {
-    LOG_DEBUG() << "onExportTxHistoryToCsv()";
+    BEAM_LOG_DEBUG() << "onExportTxHistoryToCsv()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -1021,7 +1021,7 @@ void WalletModel::onExportTxHistoryToCsv(const std::string& data)
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 void WalletModel::onExportAtomicSwapTxHistoryToCsv(const std::string& data) 
 {
-    LOG_DEBUG() << "onExportAtomicSwapTxHistoryToCsv()";
+    BEAM_LOG_DEBUG() << "onExportAtomicSwapTxHistoryToCsv()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -1037,7 +1037,7 @@ void WalletModel::onExportAtomicSwapTxHistoryToCsv(const std::string& data)
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 void WalletModel::onExportAssetsSwapTxHistoryToCsv(const std::string& data) 
 {
-    LOG_DEBUG() << "onExportAssetsSwapTxHistoryToCsv()";
+    BEAM_LOG_DEBUG() << "onExportAssetsSwapTxHistoryToCsv()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -1052,7 +1052,7 @@ void WalletModel::onExportAssetsSwapTxHistoryToCsv(const std::string& data)
 
 void WalletModel::onExportContractTxHistoryToCsv(const std::string& data) 
 {
-    LOG_DEBUG() << "onExportContractTxHistoryToCsv()";
+    BEAM_LOG_DEBUG() << "onExportContractTxHistoryToCsv()";
 
     JNIEnv* env = Android_JNI_getEnv();
 
@@ -1066,7 +1066,7 @@ void WalletModel::onExportContractTxHistoryToCsv(const std::string& data)
 
 void WalletModel::onPublicAddress(const std::string& publicAddr)
 {
-    LOG_DEBUG() << "onPublicAddress()";
+    BEAM_LOG_DEBUG() << "onPublicAddress()";
 
     JNIEnv* env = Android_JNI_getEnv();
 

@@ -4679,7 +4679,7 @@ void TestAddressVersions()
 //
 //        if (signature.IsValid(message, totalPublicExcess))
 //        {
-//            LOG_DEBUG() << "Ok, signature is valid :)";
+//            BEAM_LOG_DEBUG() << "Ok, signature is valid :)";
 //        }
 //        else
 //        {

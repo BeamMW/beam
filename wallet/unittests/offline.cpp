@@ -26,7 +26,7 @@ namespace beam {
     using namespace wallet;
 struct WalletDBObserver : IWalletDbObserver {
     void onCoinsChanged(ChangeAction, const std::vector<Coin>&) {
-        LOG_DEBUG() << _who << " " << __FUNCTION__;
+        BEAM_LOG_DEBUG() << _who << " " << __FUNCTION__;
     }
     void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         BEAM_LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
