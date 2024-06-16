@@ -116,35 +116,35 @@ Disclaimer:
 	}
 	.metadata {
 		font-family: "Lucida Console", ui-monospace, monospace;
+		display: table; /* We use table-like display to ensure that text and symbol stay inline */
 		color: #505050;
 		font-size: 1.2rem;
-		white-space: nowrap; /* To ensure that the symbol stays inline with text */
 	}
 	/* Display full metadata */
 	.metadata .full {
-		display: inline-block; /* Needed to allow setting a max-width */
+		font-family: inherit;
+		display: table-cell; 
 		max-width: 80ch; /* Wrap long strings after 80 characters */
 		white-space: pre-wrap; /* Wrap and preserve all space */
-		word-wrap: break-word; /* Allow breaking words to next line */
-		font-family: inherit;
+		overflow-wrap: break-word; /* Break words when needed (similar to the old word-wrap) */
+		/*word-break: break-all; /* Wrap anywhere, without even trying to do it between words */
 	}
 	/* Display reduced metadata */
 	.metadata .reduced {
-		display: inline-block; /* Needed to allow setting a max-width */
-		max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 		font-family: inherit;
+		display: table-cell;
+		max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
+		white-space: nowrap; /* Don't wrap text */
+		overflow: hidden; /* Hide text that overflows */
+		text-overflow: ellipsis; /* Add '...' when overflowing */
 	}
-	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
+	/* The extend symbols are hidden by default in the HTML */
 	.extend {
-		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
+		display: table-cell;
 		cursor: pointer;
 		font-size: 1.8rem;
 		color: grey;
-		vertical-align: text-bottom; /* This is to try to align correctly the symbol with the text... */
 	}
 	/* Display the extend symbols when hovering over the cell or the span containing the text */
 	td:hover > .metadata .extend, span:hover .metadata .extend {
