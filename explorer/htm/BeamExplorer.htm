@@ -210,12 +210,11 @@ Disclaimer:
 		position: relative;
 	}
 	/* Display the expand symbols when hovering over the cell or the list item containing the text */
-	td:hover .truncated + .expand, li:hover > span .truncated + .expand,
-	td:hover .expanded + .expand, li:hover > span .expanded + .expand {
-		visibility: visible;
+	td:hover span + .expand, li:hover > span span + .expand {
+	visibility: visible;
 	}
 	/* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
-	.truncated.withLink:hover + .expand {
+	span.withLink:hover + .expand {
 		visibility: hidden;
 	}
 	/* Highlight the symbol when hovering on it */
