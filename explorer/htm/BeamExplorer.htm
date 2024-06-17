@@ -114,6 +114,22 @@ Disclaimer:
 	.assetName a {
 		color: black; /* Keep links in black */
 	}
+	.bool {
+		font-family: "Lucida Console", ui-monospace, monospace;
+		font-size: 1.6rem;
+		color: black;
+	}
+	.bool.yes {
+		color: green; /* 'True' in green */
+	}
+	.bool.no {
+		color: blue; /* 'False' in blue */
+	}
+	.time {
+		white-space: nowrap; /* Don't wrap text */
+		font-size: 1.2rem;
+		color: #650000;
+	}
 	.metadata {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		display: table; /* We use table-like display to ensure that text and symbol stay inline */
@@ -127,7 +143,6 @@ Disclaimer:
 		max-width: 80ch; /* Wrap long strings after 80 characters */
 		white-space: pre-wrap; /* Wrap and preserve all space */
 		overflow-wrap: break-word; /* Break words when needed (similar to the old word-wrap) */
-		/*word-break: break-all; /* Wrap anywhere, without even trying to do it between words */
 	}
 	/* Display reduced metadata */
 	.metadata .reduced {
@@ -152,23 +167,7 @@ Disclaimer:
 	}
 	/* Highlight the symbol when hovering on it */
 	.extend:hover {
-		color: #2c2c2c !important; /* I don't know why !important is needed here... */
-	}
-	.bool {
-		font-family: "Lucida Console", ui-monospace, monospace;
-		font-size: 1.6rem;
-		color: black;
-	}
-	.bool.yes {
-		color: green; /* 'True' in green */
-	}
-	.bool.no {
-		color: blue; /* 'False' in blue */
-	}
-	.time {
-		white-space: nowrap; /* Don't wrap text */
-		font-size: 1.2rem;
-		color: #650000;
+		color: #2c2c2c;
 	}
 	.cid, .kernelId, .blob, .commitment {
 		font-family: "Lucida Console", ui-monospace, monospace;
@@ -176,7 +175,7 @@ Disclaimer:
 		color: #525252;
 		white-space: nowrap;
 		display: inline;
-		vertical-align: middle;
+		vertical-align: middle; /* Needed to align text and extend symbol */
 	}
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
@@ -189,18 +188,19 @@ Disclaimer:
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
-	/* Display truncated texts */
+	/* Display truncated hashes */
 	.truncated {
+		font-family: inherit;
 		display: inline-block; /* Needed to allow setting a max-width */
 		max-width: 25ch; /* Show only the 25 first characters */
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-family: inherit;
+		overflow: hidden;  /* Hide text that overflows */
+		text-overflow: ellipsis;  /* Add '...' when overflowing */
 	}
+	/* Display extended hashes */
 	.expanded {
 		font-family: inherit;
 	}
-	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
+	/* The extend symbols are hidden by default in the HTML */
 	.expand {
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
