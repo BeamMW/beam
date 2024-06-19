@@ -681,7 +681,37 @@ namespace beam::wallet
                     }
                 }
 
-                wallet->ResumeAllTransactions();
+                struct MyWidgetNotify :public Wallet::IWidgetNotify {
+                    WalletClient& m_This;
+                    MyWidgetNotify(WalletClient& x) :m_This(x)
+                    {
+                        auto w = m_This.m_wallet.lock();
+                        if (w)
+                            w->m_pWidgetNotify = this;
+                    }
+                    ~MyWidgetNotify()
+                    {
+                        auto w = m_This.m_wallet.lock();
+                        if (w)
+                            w->m_pWidgetNotify = nullptr;
+                    }
+
+                    void OnWriteStream(const std::string& s, const Blob& b, uint32_t iStream) override
+                    {
+                        ByteBuffer buf;
+                        b.Export(buf);
+                        WalletClient& wc = m_This;
+
+                        m_This.postFunctionToClientContext([&wc, buf1 = std::move(buf), sName = s, iStream]()
+                        {
+                            std::string s2 = std::move(sName);
+                            ByteBuffer buf2 = std::move(buf1);
+                            wc.onWidgetWrite(std::move(s2), std::move(buf2), iStream);
+                        });
+
+                    }
+
+                } wn(*this);
 
                 updateClientState(getStatus());
 
@@ -698,6 +728,8 @@ namespace beam::wallet
                 m_walletNetwork = walletNetwork;
                 wallet->SetNodeEndpoint(nodeNetwork);
                 wallet->AddMessageEndpoint(walletNetwork);
+
+                wallet->ResumeAllTransactions();
 
                 updateMaxPrivacyStatsImpl(getStatus());
 

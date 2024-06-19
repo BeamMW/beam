@@ -166,6 +166,15 @@ namespace beam::wallet
 
         void SetWidget(std::string&&, ByteBuffer&&);
 
+        struct IWidgetNotify
+        {
+            virtual void OnCreate(const std::string&) {}
+            virtual void OnDelete(const std::string&) {}
+            virtual void OnWriteStream(const std::string&, const Blob& b, uint32_t iStream) {}
+        };
+
+        IWidgetNotify* m_pWidgetNotify = nullptr;
+
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
 

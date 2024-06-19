@@ -376,6 +376,9 @@ namespace beam::wallet
 
             pVal->m_BodyManager = std::move(buf);
 
+            if (w.m_pWidgetNotify)
+                w.m_pWidgetNotify->OnCreate(pVal->m_Key);
+
             return pVal;
         }
 
@@ -442,7 +445,12 @@ namespace beam::wallet
 
         auto pVal = w.Get(sName);
         if (pVal)
+        {
+            if (m_pWidgetNotify)
+                m_pWidgetNotify->OnDelete(sName);
+
             w.m_Set.Delete(*pVal);
+        }
 
         if (x.empty())
         {
@@ -2298,6 +2306,9 @@ namespace beam::wallet
 
     void Wallet::WidgetRunner::Entry::WriteStream(const Blob& b, uint32_t iStream)
     {
+        if (m_Wallet.m_pWidgetNotify)
+            m_Wallet.m_pWidgetNotify->OnWriteStream(m_Key, b, iStream);
+
         const char* szPrefix = "";
         switch (iStream)
         {

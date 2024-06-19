@@ -225,6 +225,7 @@ namespace beam::wallet
         virtual void onGetChatList(const std::vector<std::pair<beam::wallet::WalletID, bool>>& chats) {}
         virtual void onGetChatMessages(const std::vector<InstantMessage>& messages) {}
         virtual void onChatRemoved(const WalletID& counterpart) {}
+        virtual void onWidgetWrite(std::string&&, ByteBuffer&&, uint32_t iStream) {}
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         void onDexOrdersChanged(ChangeAction, const std::vector<DexOrder>&) override {}
