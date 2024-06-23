@@ -181,8 +181,8 @@ Disclaimer:
 		fill: #aaaaaa;
 		padding: 0 0 0 3px;
 	}
-	/* Display the extend symbols when hovering over the cell or the span containing the text */
-	td:hover > .metadata .extend, span:hover .metadata .extend {
+	/* Display the extend symbols when hovering over the element containing the text */
+	*:hover > .metadata .extend {
 		visibility: visible;
 	}
 	/* Highlight the symbol when hovering on it */
@@ -232,8 +232,8 @@ Disclaimer:
 		padding: 0 0 0 3px;
 	}
 	/* Display the expand symbols when hovering over the cell or the list item containing the text */
-	td:hover span + .expand, li:hover > span span + .expand {
-	visibility: visible;
+	*:hover > span > .expand {
+		visibility: visible;
 	}
 	/* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
 	span.withLink:hover + .expand {
