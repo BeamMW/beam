@@ -153,6 +153,7 @@ Disclaimer:
 		display: table; /* We use table-like display to ensure that text and symbol stay inline */
 		color: #505050;
 		font-size: 1.2rem;
+		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	/* Display full metadata */
 	.metadata .full {
@@ -173,6 +174,7 @@ Disclaimer:
 	}
 	/* Remark: The extend symbols are hidden by default in the HTML */
 	.extend {
+		vertical-align: middle; /* Needed to align text and symbol */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		display: table-cell;
 		cursor: pointer;
@@ -209,6 +211,7 @@ Disclaimer:
 	/* Display truncated hashes */
 	.truncated {
 		font-family: inherit;
+		vertical-align: middle; /* Needed to align text and symbol */
 		display: inline-block; /* Needed to allow setting a max-width */
 		max-width: 25ch; /* Show only the 25 first characters */
 		overflow: hidden;  /* Hide text that overflows */
@@ -217,9 +220,11 @@ Disclaimer:
 	/* Display extended hashes */
 	.expanded {
 		font-family: inherit;
+		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	/* The extend symbols are hidden by default in the HTML */
 	.expand {
+		vertical-align: middle; /* Needed to align text and symbol */
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
@@ -323,8 +328,6 @@ Disclaimer:
 		display: table-cell;
 		vertical-align: middle;
 		text-align: left;
-		min-height: 50px;
-		min-width: 50px;
 	}
 	#BannerCenter{
 		display: table-cell;
@@ -600,14 +603,15 @@ Disclaimer:
 <body>
 <!-- ------------ SECTION 2 - STATIC HTML ------------ --> 
 
-	<!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons -->
-	<!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline -->
-	<svg style='display:none'><symbol id='eye_icon' width='18px' height='12px' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
-	<svg style='display:none'><symbol id='left_icon' width='24px' height='24px' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
-	<svg style='display:none'><symbol id='right_icon' width='24px' height='24px' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
-	<svg style='display:none'><symbol id='list_icon' width='18px' height='15px' viewBox='0 0 12 10'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-	<svg style='display:none'><symbol id='double_right_icon' width='24px' height='24px' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
-	<svg style='display:none'><symbol id='double_left_icon' width='24px' height='24px' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+	<!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
+	<!-- Remark: We don't define any fixed size here, so that they will adapat to the SVG size what will call them. -->
+	<!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
+	<svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
+	<svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
+	<svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
+	<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
+	<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+	<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
 
 	<!-- Fixed banner on all pages -->
 	<div id="Banner">
@@ -615,7 +619,7 @@ Disclaimer:
 			<!-- Clicking on the logo sends back to the main page -->
 			<a href='?' title='Main page'>
 				<!-- A simplified SVG version of the BEAM logo -->
-				<svg height='50' width='50' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+				<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
 			</a>
 		</span>
 		<span id="BannerCenter">
@@ -631,9 +635,9 @@ Disclaimer:
 		</span>
 		<!-- Banner symbols for special functions -->
 		<span id="Navigation">
-			<a id="Reload" href="" title="Reload"><svg width='16px' height='16px' viewBox='0 0 120 120'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
-			<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='18px' height='12px' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
-			<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='18px' height='12px'><use href='#eye_icon'/></svg></a>
+			<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+			<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
+			<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
 		</span>
 	</div>
 
@@ -1142,18 +1146,18 @@ Disclaimer:
 		
 		text += "<h2 class='blockTitle'>";
 		if (g_CurrentID > 0) {
-			text += AddClassEx(MakeRef(UrlSelf("hdrs", "&hMax=" + g_CurrentID), "<svg width='18px' height='15px'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
+			text += AddClassEx(MakeRef(UrlSelf("hdrs", "&hMax=" + g_CurrentID), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
 			text += "&nbsp;";
 			text += "Block " + AddClass(g_CurrentID, "blockHeight");
 			text += "&nbsp;";
-			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "<svg width='24px' height='24px'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 		}
 		else {
 			text += "Treasury";
 			text += "&nbsp;";
-			text += AddClassEx("<svg width='24px' height='24px'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+			text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 		}
-		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "<svg width='24px' height='24px'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		text += "</h2>"
 
 		const jData = JSON.parse(this.responseText);
@@ -1442,8 +1446,8 @@ Disclaimer:
 		let text = "<h2>\n"
 		text += "Block headers";
 		text += "&nbsp;";
-		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='24px' height='24px'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
-		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='24px' height='24px'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
+		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
+		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
 		text += "</h2>\n"
 		text += "<div class='divTableBlocks'>";
 
@@ -1476,11 +1480,11 @@ Disclaimer:
 			text += "Confidential Assets at block height " + MakeBlock(g_CurrentID);
 			text += "&nbsp;";
 			if (g_CurrentID > 1) {
-				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "<svg width='24px' height='24px'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 			} else {
-				text += AddClassEx("<svg width='24px' height='24px'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+				text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 			}
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "<svg width='24px' height='24px'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		} else {
 			text += "Current Confidential Assets";
 		}
@@ -1577,7 +1581,7 @@ Disclaimer:
 			let myClass = (myHash.querySelector("a")) ? "truncated withLink" : "truncated";
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myHash.innerHTML;
-			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Toggle' hidden><svg width='18px' height='12px'><use href='#eye_icon'/></svg></span>";
+			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
 			// Add event listener on the symbol
 			myHash.querySelector(".expand").addEventListener("click", expandHash);
 		}
@@ -1585,7 +1589,7 @@ Disclaimer:
 		for (let myMetadata of document.querySelectorAll(".metadata")) {
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myMetadata.innerHTML;
-			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Toggle' hidden><svg width='18px' height='12px'><use href='#eye_icon'/></svg></span>";
+			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
 			// Add event listener on the symbol
 			myMetadata.querySelector(".extend").addEventListener("click", expandMetadata);
 		}
