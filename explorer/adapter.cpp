@@ -1243,7 +1243,7 @@ private:
 
             static json get_AssetOwner(const Asset::CreateInfo& ai)
             {
-                return (ai.m_Cid != Zero) ? 
+                return (ai.m_Cid != Zero) ?
                     MakeObjCid(ai.m_Cid) :
                     MakeObjBlob(ai.m_Owner);
             }
@@ -2182,7 +2182,7 @@ private:
     void OnHdrs_ContractCalls_Rel(json& j) { j.push_back(MakeTableHdr("ContractCalls")); }
     void OnHdrs_ContractCalls_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Contract.get_Sum() - t0.m_Contract.get_Sum()).m_sz); }
 
-    static uint64_t get_ChainSize(Height h, const Totals& t, bool bArchieve)
+    static uint64_t get_ChainSize(Height h, const Totals& t, bool bArchive)
     {
         // size estimation
         uint64_t ret = 
@@ -2190,7 +2190,7 @@ private:
             t.m_Kernels.m_Size +
             t.m_MW.m_Outputs.m_Size;
 
-        if (bArchieve)
+        if (bArchive)
             ret += t.m_MW.m_Inputs.m_Count * sizeof(ECC::Point);
         else
             ret -= t.m_MW.m_Inputs.m_Size;
@@ -2199,10 +2199,10 @@ private:
     }
 
 
-    void OnHdrs_SizeArchieve_Abs(json& j) { j.push_back(MakeTableHdr("Size.Archieve")); }
-    void OnHdrs_SizeArchieve_Abs(json& j, const Totals& t1, const Block::SystemState::Full& s) { j.push_back(MakeDecimal(get_ChainSize(s.m_Height, t1, true)).m_sz); }
-    void OnHdrs_SizeArchieve_Rel(json& j) { j.push_back(MakeTableHdr("D.Size.Archieve")); }
-    void OnHdrs_SizeArchieve_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full& s) { j.push_back(MakeDecimalDelta(get_ChainSize(s.m_Height, t1, true) - get_ChainSize(s.m_Height - 1, t0, true)).m_sz); }
+    void OnHdrs_SizeArchive_Abs(json& j) { j.push_back(MakeTableHdr("Size.Archive")); }
+    void OnHdrs_SizeArchive_Abs(json& j, const Totals& t1, const Block::SystemState::Full& s) { j.push_back(MakeDecimal(get_ChainSize(s.m_Height, t1, true)).m_sz); }
+    void OnHdrs_SizeArchive_Rel(json& j) { j.push_back(MakeTableHdr("D.Size.Archive")); }
+    void OnHdrs_SizeArchive_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full& s) { j.push_back(MakeDecimalDelta(get_ChainSize(s.m_Height, t1, true) - get_ChainSize(s.m_Height - 1, t0, true)).m_sz); }
 
     void OnHdrs_SizeCompressed_Abs(json& j) { j.push_back(MakeTableHdr("Size.Compressed")); }
     void OnHdrs_SizeCompressed_Abs(json& j, const Totals& t1, const Block::SystemState::Full& s) { j.push_back(MakeDecimal(get_ChainSize(s.m_Height, t1, false)).m_sz); }

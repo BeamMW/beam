@@ -32,7 +32,7 @@ using nlohmann::json;
     macro(ShInputs) \
     macro(ContractsActive) \
     macro(ContractCalls) \
-    macro(SizeArchieve) \
+    macro(SizeArchive) \
     macro(SizeCompressed) \
 
 namespace explorer {

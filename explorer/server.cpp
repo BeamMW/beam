@@ -793,7 +793,7 @@ bool ReadColFlags(const HttpUrl& url, uint32_t& res, const char* szArg)
         case 'c': res |= F::ContractsActive; break;
         case 'C': res |= F::ContractCalls; break;
         case 's': res |= F::SizeCompressed; break;
-        case 'S': res |= F::SizeArchieve; break;
+        case 'S': res |= F::SizeArchive; break;
         }
     }
 
