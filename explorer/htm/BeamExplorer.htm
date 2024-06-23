@@ -91,6 +91,9 @@ Disclaimer:
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
+	h2 .blockHeight a {
+		color: #17204e;
+	}
 	.blockTitle {
 		white-space: nowrap; /* Don't wrap text */
 	}
@@ -824,7 +827,7 @@ Disclaimer:
 			return MakeAsset(obj.value);
 
 		if (obj.type == "height")
-			return AddClass(MakeBlock(obj.value), "blockHeight");
+			return MakeBlock(obj.value);
 
 		if (obj.type == "blob")
 			return AddClassEx(obj.value, "blob", "title='" + obj.value + "'");
