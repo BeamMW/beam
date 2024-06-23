@@ -38,10 +38,12 @@ Disclaimer:
 	/* GENERAL ELEMENTS */
 	* {
   		box-sizing: border-box; /* Width and height will always include padding and border */
-		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
 	}
 	html {
+		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
  		font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
+		line-height: 1; /* From a CSS reset template... */
+		margin: 0; /* From a CSS reset template... */
 	}
 	:root {
  		background: #d0daff; /* Default background color for all pages */
@@ -51,37 +53,37 @@ Disclaimer:
 	:link:active, :visited:active { color: #3e1a8b; }
 	p {
 		font-size: 1.6rem;
-		margin: 5px;
+		padding: 5px 0 5px 0;
 	}
 	ul {
 		font-size: 1.4rem;
-		padding: 0px 10px 0px 15px;
+		padding: 0 10px 0 15px;
 		text-align: left;
 	}
 	div > ul {
-		padding: 0px 10px 0px 35px;  /* Wide first bullet point level when not in table cells */
+		padding: 0 10px 0 35px;  /* Wide first bullet point level when not in table cells */
 	}
 	td ul {
-		padding: 0px 10px 0px 15px; /* Tight bullet points when inside table cells */
+		padding: 0 10px 0 15px; /* Tight bullet points when inside table cells */
 	}
 	ul li {
-		padding: 2px 0px 0px 2px;
+		padding: 2px 0 0 2px;
 	}
 	h1 {
 		font-size: 3.2rem;
 		text-align: center;
-		margin: 10px 0px 10px 0px;
+		margin: 10px 0 10px 0;
 	}
 	h2 {
 		font-size: 2.4rem;
 		text-align: left;
-		margin: 15px 0px 10px 0px;
+		margin: 15px 0 10px 0;
 	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
 		color: #17204e;
-		margin: 10px 0px 15px 0px;
+		margin: 10px 0 15px 0;
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
@@ -115,7 +117,10 @@ Disclaimer:
 		display: inline-block;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
-	.nextBlock:hover, .previousBlock:hover, .newerBlocks:hover, .olderBlocks:hover {
+	.nextBlock a, .previousBlock a, .newerBlocks a, .olderBlocks a { /* Needed for Chrome 83 */
+		stroke: #777ebc;
+	}
+	.nextBlock a:hover, .previousBlock a:hover, .newerBlocks a:hover, .olderBlocks a:hover {
 		stroke: #555fb8;
 	}
 	.nextBlock.off, .previousBlock.off, .newerBlocks.off, .olderBlocks.off { /* Dim out when disabled */
@@ -316,8 +321,17 @@ Disclaimer:
 	table tbody > tr:nth-child(even) { background-color: #eee; }
 
 	/* TITLE BANNER AND FOOTER */
+	#Page-container {
+ 		position: relative;
+		min-height: 96vh; /* Always use the whole screen space, so that the footer stays at the bottom */
+		min-width: 97vh;
+		padding: 8px;
+	}
+	#Content-wrap {
+		padding-bottom: 1.8rem; /* Leave some space for the footer */
+	}
 	#Banner {
-		width: 97vw;
+		width: 100%;
 		display: table;
 		background-color: #a7acd9;
 		border-radius: 0.5em; /* Slightly round corners */
@@ -340,7 +354,7 @@ Disclaimer:
 	#BeamTitle {
 		font-size: 2.4rem;
 		color: #17204e;
-		margin: 0px 0px 5px 0px;
+		margin: 0 0 5px 0;
 	}
 	#Version {
 		font-size: 1rem;
@@ -355,7 +369,7 @@ Disclaimer:
 	}
 	.menuSeparator {
 		color: #17204e;
-		padding: 0px 5px 0px 5px;
+		padding: 0 5px 0 5px;
 	}
 	#Navigation {
 		display: table-cell;
@@ -363,7 +377,7 @@ Disclaimer:
 		text-align: center;
 		font-size: 2rem;
 		color: #525252;
-		padding: 0px 10px 0px 10px;
+		padding: 0 10px 0 10px;
 		line-height: 1; /* Without units it's a number of lines */
 	}
 	#Navigation a {
@@ -404,23 +418,34 @@ Disclaimer:
 		opacity: 0.9; /* Less transparent on hover */
 		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
 	}
-	.footer, .footer a {
-		width: 97vw;
+	#Footer {
+		position: absolute;
+		bottom: 0;
+		width: 100%;
 		text-align: center;
-		font-size: 1.2rem;
 		color: #17204e;
-		text-decoration: none;
 		font-weight: bold;
 		white-space: nowrap; /* Don't wrap text */
-		padding: 20px 5px 0px 5px;
+		font-size: 1.2rem;
+		height: 1.8rem; /* Footer height */
 	}
-	.footer::before {
+	#Footer a {
+		color: #17204e;
+		text-decoration: none;
+	}
+	#Footer a:hover {
+		text-decoration: underline;
+	}
+	#Footer::before {
 		content: "\25b8"; /* Nice useless decoration ;-) */
 		color: #17204e;
 	}
-	.footer::after {
+	#Footer::after {
 		content: "\25c2"; /* Nice useless decoration ;-) */
 		color: #17204e;
+	}
+	#Loading {
+		/* Nothing special */
 	}
 
 	/* COLLAPSIBLE BLOCKS */
@@ -440,7 +465,7 @@ Disclaimer:
 		white-space: nowrap; /* Never wrap text */
 		cursor: pointer;
 		font-size: 1.5rem;
-		margin: 15px 0px 0px 0px;
+		margin: 15px 0 0 0;
 		color: white;
 		background-color: #777ebc;
 		padding: 10px;
@@ -459,7 +484,7 @@ Disclaimer:
 		font-size: 1.2rem;
 		color: black;
 		background-color: #b8bbd8;
-		margin: 0px 0px 0px 0px;
+		margin: 0;
 		padding: 2px 5px 2px 5px;
 		border-radius: 0.25em; /* Slightly round corners */
 	}
@@ -487,7 +512,7 @@ Disclaimer:
 	.collapsible-content {
 		display: block;
 		width: 100%;
-		height: 0px; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
+		height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
 		background-color: white;
 	}
@@ -603,61 +628,68 @@ Disclaimer:
 <body>
 <!-- ------------ SECTION 2 - STATIC HTML ------------ --> 
 
-	<!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
-	<!-- Remark: We don't define any fixed size here, so that they will adapat to the SVG size what will call them. -->
-	<!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
-	<svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
-	<svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
-	<svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
-	<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
-	<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
-	<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+	<!-- Wrappers (added just to keep footer at the bottom) -->
+	<div id="Page-container">
+		<div id="Content-wrap">
 
-	<!-- Fixed banner on all pages -->
-	<div id="Banner">
-		<span id="BeamLogo">
-			<!-- Clicking on the logo sends back to the main page -->
-			<a href='?' title='Main page'>
-				<!-- A simplified SVG version of the BEAM logo -->
-				<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
-			</a>
-		</span>
-		<span id="BannerCenter">
-			<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.5</span></h1>
-			<div id="Menu">
-				<!-- Main explorer menu -->
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
-				<span class="menuSeparator"> | </span>
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
-				<span class="menuSeparator"> | </span>
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+			<!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
+			<!-- Remark: We don't define any fixed size here, so that they will adapat to the SVG size what will call them. -->
+			<!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
+			<svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
+			<svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
+			<svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
+			<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
+			<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+			<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+
+			<!-- Fixed banner on all pages -->
+			<div id="Banner">
+				<span id="BeamLogo">
+					<!-- Clicking on the logo sends back to the main page -->
+					<a href='?' title='Main page'>
+						<!-- A simplified SVG version of the BEAM logo -->
+						<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+					</a>
+				</span>
+				<span id="BannerCenter">
+					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.5</span></h1>
+					<div id="Menu">
+						<!-- Main explorer menu -->
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+					</div>
+				</span>
+				<!-- Banner symbols for special functions -->
+				<span id="Navigation">
+					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
+					<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
+				</span>
 			</div>
-		</span>
-		<!-- Banner symbols for special functions -->
-		<span id="Navigation">
-			<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
-			<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
-			<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
-		</span>
+
+			<!-- Floating buttons to scroll up and down -->
+			<div>
+				<button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
+				<button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
+			</div>
+
+			<!-- Main content area (will be replaced through Javascript) -->
+			<div id="my_content">
+				<h2 id="Loading">Loading...</h2>
+			</div>
+
+		</div>
+
+		<!-- Fixed footer on all pages -->
+		<div id='Footer'><a href='https://www.beam.mw'>www.beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm" title="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
+
+		<!-- No JavaScript warning -->
+		<noscript>You need to enable JavaScript to run this app.</noscript>
+
 	</div>
-
-	<!-- Floating buttons to scroll up and down -->
-	<div>
-		<button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
-		<button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
-	</div>
-
-	<!-- Main content area (will be replaced through Javascript) -->
-	<p id="my_content">
-		<br><br>Loading...<br><br>
-	</p>
-
-	<!-- Fixed footer on all pages -->
-	<div class='footer'><a href='https://www.beam.mw'>www.beam.mw</a></div>
-
-	<!-- No JavaScript warning -->
-	<noscript>You need to enable JavaScript to run this app.</noscript>
-
 
 <!-- ------------ SECTION 3 - CORE JS FUNCTIONS ------------ --> 
 <script>
