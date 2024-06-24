@@ -319,6 +319,13 @@ Disclaimer:
 	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
 	table tbody > tr:nth-child(odd) { background-color: #fff; }
 	table tbody > tr:nth-child(even) { background-color: #eee; }
+	/* Highlight when hover on main rows (for certain tables only) */
+	.tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
+	.tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
+	.tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
+	.divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
+		background-color: #e0e0f0;
+	}
 
 	/* TITLE BANNER AND FOOTER */
 	#Page-container {
