@@ -65,6 +65,11 @@ void DocAddHeight(const char* sz, Height h)
 	Env::DocAddNum("value", h);
 }
 
+void DocAddHeight1(const char* sz, Height h)
+{
+	DocAddHeight(sz, h + 1);
+}
+
 template <typename T>
 void DocAddMonoblob(const char* sz, const T& x)
 {
@@ -1047,7 +1052,7 @@ void ParserContext::OnState_Faucet2()
 		return;
 
 	Env::DocAddNum("Enabled", (uint32_t) s.m_Enabled);
-	DocAddHeight("Last withdraw", s.m_Epoch.m_Height);
+	DocAddHeight1("Last withdraw", s.m_Epoch.m_Height);
 	DocAddAmount("Epoch withdraw remaining", s.m_Epoch.m_Amount);
 
 	{
@@ -1507,6 +1512,9 @@ void ParserContext::OnState_Nephrite(uint32_t /* iVer */)
 		}
 	}
 
+	g.m_BaseRate.Decay();
+	DocAddPerc("Fee boost", g.m_BaseRate.m_k);
+
 	{
 		Env::DocGroup gr2("Troves");
 
@@ -1835,6 +1843,8 @@ void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 		WriteOracle2Settings(g.m_Settings);
 	}
 
+	Height h = Env::get_Height();
+
 	{
 		Env::DocGroup gr1("Feeds");
 		DocSetType("table");
@@ -1846,7 +1856,10 @@ void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 			DocAddTableHeader("Key");
 			DocAddTableHeader("Last Value");
 			DocAddTableHeader("Last Height");
+			DocAddTableHeader("Comment");
 		}
+
+		Height h1 = (h > g.m_Settings.m_hValidity) ? (h - g.m_Settings.m_hValidity) : 0;
 
 		for (uint32_t i = 0; i < nProvs; i++)
 		{
@@ -1859,7 +1872,10 @@ void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 			Env::DocAddNum("", i);
 			DocAddPk("", x.m_Pk);
 			DocAddFloat("", x.m_Val);
-			DocAddHeight("", x.m_hUpdated);
+			DocAddHeight1("", x.m_hUpdated);
+
+			Env::DocAddText("", (x.m_hUpdated > h1) ? "" : "outdated");
+
 		}
 	}
 
@@ -1868,7 +1884,7 @@ void ParserContext::OnState_Oracle2(uint32_t /* iVer */)
 		Oracle2::Median med;
 		if (Env::VarReader::Read_T(key, med))
 		{
-			bool bValid = (med.m_hEnd >= Env::get_Height());
+			bool bValid = (med.m_hEnd >= h);
 			if (bValid)
 				DocAddFloat("Median", med.m_Res);
 			else
