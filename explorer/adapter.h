@@ -22,6 +22,7 @@ struct Node;
 using nlohmann::json;
 
 #define ExplorerTotals_All(macro) \
+    macro(Time) \
     macro(Difficulty) \
     macro(Fee) \
     macro(Kernels) \
@@ -46,17 +47,13 @@ struct IAdapter {
         AutoHtml,
     };
 
-    struct TotalsFlags {
+    enum struct TotalsCol {
 
-        enum struct Bit {
-#define THE_MACRO(type) type,
-            ExplorerTotals_All(THE_MACRO)
-#undef THE_MACRO
-        };
-
-#define THE_MACRO(type) static const uint32_t type = 1u << static_cast<uint32_t>(Bit::type);
+#define THE_MACRO(type) type##_Abs, type##_Rel,
         ExplorerTotals_All(THE_MACRO)
 #undef THE_MACRO
+
+        count,
     };
 
     Mode m_Mode = Mode::Legacy;
@@ -72,7 +69,7 @@ struct IAdapter {
     virtual json get_block(uint64_t height) = 0;
     virtual json get_block_by_kernel(const Blob& key) = 0;
     virtual json get_blocks(uint64_t startHeight, uint64_t n) = 0;
-    virtual json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, uint32_t fAbs, uint32_t fRel) = 0;
+    virtual json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, const TotalsCol* pCols, uint32_t nCols) = 0;
     virtual json get_peers() = 0;
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

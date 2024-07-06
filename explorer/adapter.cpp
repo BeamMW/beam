@@ -2127,89 +2127,114 @@ private:
         return MakeTable(std::move(jAssets));
     }
 
-    void OnHdrs_Difficulty_Abs(json& j) { j.push_back(MakeTableHdr("Chainwork")); }
-    void OnHdrs_Difficulty_Abs(json& j, const Totals&, const Block::SystemState::Full& s) { j.push_back(NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz); }
-    void OnHdrs_Difficulty_Rel(json& j) { j.push_back(MakeTableHdr("Difficulty")); }
-    void OnHdrs_Difficulty_Rel(json& j, const Totals&, const Totals&, const Block::SystemState::Full& s) { j.push_back(NiceDecimal::MakeDifficulty(s.m_PoW.m_Difficulty).m_sz); }
-
-    void OnHdrs_Fee_Abs(json& j) { j.push_back(MakeTableHdr("T.Fee")); }
-    void OnHdrs_Fee_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeObjAmount(t1.m_Fee)); }
-    void OnHdrs_Fee_Rel(json& j) { j.push_back(MakeTableHdr("Fee")); }
-    void OnHdrs_Fee_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) {
-        auto val = t0.m_Fee;
-        val.Negate();
-        val += t1.m_Fee;
-        j.push_back(MakeObjAmount(val));
-    }
-
-    void OnHdrs_Kernels_Abs(json& j) { j.push_back(MakeTableHdr("T.Txs")); }
-    void OnHdrs_Kernels_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_Kernels.m_Count).m_sz); }
-    void OnHdrs_Kernels_Rel(json& j) { j.push_back(MakeTableHdr("Txs")); }
-    void OnHdrs_Kernels_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Kernels.m_Count - t0.m_Kernels.m_Count).m_sz); }
-
-    void OnHdrs_MwOutputs_Abs(json& j) { j.push_back(MakeTableHdr("T.MW.Outputs")); }
-    void OnHdrs_MwOutputs_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_MW.m_Outputs.m_Count).m_sz); }
-    void OnHdrs_MwOutputs_Rel(json& j) { j.push_back(MakeTableHdr("MW.Outputs")); }
-    void OnHdrs_MwOutputs_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_MW.m_Outputs.m_Count - t0.m_MW.m_Outputs.m_Count).m_sz); }
-
-    void OnHdrs_MwInputs_Abs(json& j) { j.push_back(MakeTableHdr("T.MW.Inputs")); }
-    void OnHdrs_MwInputs_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_MW.m_Inputs.m_Count).m_sz); }
-    void OnHdrs_MwInputs_Rel(json& j) { j.push_back(MakeTableHdr("MW.Inputs")); }
-    void OnHdrs_MwInputs_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_MW.m_Inputs.m_Count - t0.m_MW.m_Inputs.m_Count).m_sz); }
-
-    void OnHdrs_MwUtxos_Abs(json& j) { j.push_back(MakeTableHdr("T.MW.Utxos")); }
-    void OnHdrs_MwUtxos_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_MW.get_Utxos()).m_sz); }
-    void OnHdrs_MwUtxos_Rel(json& j) { j.push_back(MakeTableHdr("MW.Utxos")); }
-    void OnHdrs_MwUtxos_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_MW.get_Utxos() - t0.m_MW.get_Utxos()).m_sz); }
-
-    void OnHdrs_ShOutputs_Abs(json& j) { j.push_back(MakeTableHdr("T.SH.Outputs")); }
-    void OnHdrs_ShOutputs_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_Shielded.m_Outputs).m_sz); }
-    void OnHdrs_ShOutputs_Rel(json& j) { j.push_back(MakeTableHdr("SH.Outputs")); }
-    void OnHdrs_ShOutputs_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Shielded.m_Outputs - t0.m_Shielded.m_Outputs).m_sz); }
-
-    void OnHdrs_ShInputs_Abs(json& j) { j.push_back(MakeTableHdr("T.SH.Inputs")); }
-    void OnHdrs_ShInputs_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_Shielded.m_Inputs).m_sz); }
-    void OnHdrs_ShInputs_Rel(json& j) { j.push_back(MakeTableHdr("SH.Inputs")); }
-    void OnHdrs_ShInputs_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Shielded.m_Inputs - t0.m_Shielded.m_Inputs).m_sz); }
-
-    void OnHdrs_ContractsActive_Abs(json& j) { j.push_back(MakeTableHdr("T.Contracts")); }
-    void OnHdrs_ContractsActive_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_Contract.get_Active()).m_sz); }
-    void OnHdrs_ContractsActive_Rel(json& j) { j.push_back(MakeTableHdr("Contracts")); }
-    void OnHdrs_ContractsActive_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Contract.get_Active() - t0.m_Contract.get_Active()).m_sz); }
-
-    void OnHdrs_ContractCalls_Abs(json& j) { j.push_back(MakeTableHdr("T.ContractCalls")); }
-    void OnHdrs_ContractCalls_Abs(json& j, const Totals& t1, const Block::SystemState::Full&) { j.push_back(MakeDecimal(t1.m_Contract.get_Sum()).m_sz); }
-    void OnHdrs_ContractCalls_Rel(json& j) { j.push_back(MakeTableHdr("ContractCalls")); }
-    void OnHdrs_ContractCalls_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full&) { j.push_back(MakeDecimalDelta(t1.m_Contract.get_Sum() - t0.m_Contract.get_Sum()).m_sz); }
-
-    static uint64_t get_ChainSize(Height h, const Totals& t, bool bArchive)
+    struct ColFmt
     {
-        // size estimation
-        uint64_t ret = 
-            static_cast<uint64_t>(sizeof(Block::SystemState::Sequence::Element)) * (h - Rules::HeightGenesis + 1) +
-            t.m_Kernels.m_Size +
-            t.m_MW.m_Outputs.m_Size;
+        Adapter& m_This;
+        json m_json;
 
-        if (bArchive)
-            ret += t.m_MW.m_Inputs.m_Count * sizeof(ECC::Point);
-        else
-            ret -= t.m_MW.m_Inputs.m_Size;
+        ColFmt(Adapter& x, json&& j)
+            :m_This(x)
+            ,m_json(j)
+        {}
 
-        return ret;
-    }
+        struct Data
+            :public StateData
+        {
+            Block::SystemState::Full m_Hdr;
+
+            uint64_t get_ChainSize(bool bArchieve) const
+            {
+                // size estimation
+                uint64_t ret =
+                    static_cast<uint64_t>(sizeof(Block::SystemState::Sequence::Element)) * (m_Hdr.m_Height - Rules::HeightGenesis + 1) +
+                    m_Totals.m_Kernels.m_Size +
+                    m_Totals.m_MW.m_Outputs.m_Size;
+
+                if (bArchieve)
+                    ret += m_Totals.m_MW.m_Inputs.m_Count * sizeof(ECC::Point);
+                else
+                    ret -= m_Totals.m_MW.m_Inputs.m_Size;
+
+                return ret;
+            }
+        };
+
+        const Data* m_pThis;
+        const Data* m_pPrev;
+
+        void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
+        void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
+        void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", m_pThis->m_Hdr.m_TimeStamp)); }
+        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_pPrev->m_Hdr.m_TimeStamp).m_sz);; }
+
+        void OnName_Difficulty_Abs() { m_json.push_back(MakeTableHdr("Chainwork")); }
+        void OnName_Difficulty_Rel() { m_json.push_back(MakeTableHdr("Difficulty")); }
+        void OnData_Difficulty_Abs() { m_json.push_back(NiceDecimal::MakeDifficulty(m_pThis->m_Hdr.m_ChainWork).m_sz); }
+        void OnData_Difficulty_Rel() { m_json.push_back(NiceDecimal::MakeDifficulty(m_pThis->m_Hdr.m_PoW.m_Difficulty).m_sz); }
+
+        void OnName_Fee_Abs() { m_json.push_back(MakeTableHdr("T.Fee")); }
+        void OnName_Fee_Rel() { m_json.push_back(MakeTableHdr("Fee")); }
+        void OnData_Fee_Abs() { m_json.push_back(MakeObjAmount(m_pThis->m_Totals.m_Fee)); }
+        void OnData_Fee_Rel() {
+            auto val = m_pPrev->m_Totals.m_Fee;
+            val.Negate();
+            val += m_pThis->m_Totals.m_Fee;
+            m_json.push_back(MakeObjAmount(val));
+        }
+
+        void OnName_Kernels_Abs() { m_json.push_back(MakeTableHdr("T.Txs")); }
+        void OnName_Kernels_Rel() { m_json.push_back(MakeTableHdr("Txs")); }
+        void OnData_Kernels_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Kernels.m_Count).m_sz); }
+        void OnData_Kernels_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Kernels.m_Count - m_pPrev->m_Totals.m_Kernels.m_Count).m_sz); }
+
+        void OnName_MwOutputs_Abs() { m_json.push_back(MakeTableHdr("T.MW.Outputs")); }
+        void OnName_MwOutputs_Rel() { m_json.push_back(MakeTableHdr("MW.Outputs")); }
+        void OnData_MwOutputs_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_MW.m_Outputs.m_Count).m_sz); }
+        void OnData_MwOutputs_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_MW.m_Outputs.m_Count - m_pPrev->m_Totals.m_MW.m_Outputs.m_Count).m_sz); }
+
+        void OnName_MwInputs_Abs() { m_json.push_back(MakeTableHdr("T.MW.Inputs")); }
+        void OnName_MwInputs_Rel() { m_json.push_back(MakeTableHdr("MW.Inputs")); }
+        void OnData_MwInputs_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_MW.m_Inputs.m_Count).m_sz); }
+        void OnData_MwInputs_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_MW.m_Inputs.m_Count - m_pPrev->m_Totals.m_MW.m_Inputs.m_Count).m_sz); }
+
+        void OnName_MwUtxos_Abs() { m_json.push_back(MakeTableHdr("T.MW.Utxos")); }
+        void OnName_MwUtxos_Rel() { m_json.push_back(MakeTableHdr("MW.Utxos")); }
+        void OnData_MwUtxos_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_MW.get_Utxos()).m_sz); }
+        void OnData_MwUtxos_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_MW.get_Utxos() - m_pPrev->m_Totals.m_MW.get_Utxos()).m_sz); }
+
+        void OnName_ShOutputs_Abs() { m_json.push_back(MakeTableHdr("T.SH.Outputs")); }
+        void OnName_ShOutputs_Rel() { m_json.push_back(MakeTableHdr("SH.Outputs")); }
+        void OnData_ShOutputs_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Shielded.m_Outputs).m_sz); }
+        void OnData_ShOutputs_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Shielded.m_Outputs - m_pPrev->m_Totals.m_Shielded.m_Outputs).m_sz); }
+
+        void OnName_ShInputs_Abs() { m_json.push_back(MakeTableHdr("T.SH.Inputs")); }
+        void OnName_ShInputs_Rel() { m_json.push_back(MakeTableHdr("SH.Inputs")); }
+        void OnData_ShInputs_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Shielded.m_Inputs).m_sz); }
+        void OnData_ShInputs_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Shielded.m_Inputs - m_pPrev->m_Totals.m_Shielded.m_Inputs).m_sz); }
+
+        void OnName_ContractsActive_Abs() { m_json.push_back(MakeTableHdr("T.Contracts")); }
+        void OnName_ContractsActive_Rel() { m_json.push_back(MakeTableHdr("Contracts")); }
+        void OnData_ContractsActive_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Contract.get_Active()).m_sz); }
+        void OnData_ContractsActive_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Contract.get_Active() - m_pPrev->m_Totals.m_Contract.get_Active()).m_sz); }
+
+        void OnName_ContractCalls_Abs() { m_json.push_back(MakeTableHdr("T.ContractCalls")); }
+        void OnName_ContractCalls_Rel() { m_json.push_back(MakeTableHdr("ContractCalls")); }
+        void OnData_ContractCalls_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Contract.get_Sum()).m_sz); }
+        void OnData_ContractCalls_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Contract.get_Sum() - m_pPrev->m_Totals.m_Contract.get_Sum()).m_sz); }
+
+        void OnName_SizeArchieve_Abs() { m_json.push_back(MakeTableHdr("Size.Archieve")); }
+        void OnName_SizeArchieve_Rel() { m_json.push_back(MakeTableHdr("D.Size.Archieve")); }
+        void OnData_SizeArchieve_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->get_ChainSize(true)).m_sz); }
+        void OnData_SizeArchieve_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(true) - m_pPrev->get_ChainSize(true)).m_sz); }
+
+        void OnName_SizeCompressed_Abs() { m_json.push_back(MakeTableHdr("Size.Compressed")); }
+        void OnName_SizeCompressed_Rel() { m_json.push_back(MakeTableHdr("D.Size.Compressed")); }
+        void OnData_SizeCompressed_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->get_ChainSize(false)).m_sz); }
+        void OnData_SizeCompressed_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(false) - m_pPrev->get_ChainSize(false)).m_sz); }
+    };
 
 
-    void OnHdrs_SizeArchive_Abs(json& j) { j.push_back(MakeTableHdr("Size.Archive")); }
-    void OnHdrs_SizeArchive_Abs(json& j, const Totals& t1, const Block::SystemState::Full& s) { j.push_back(MakeDecimal(get_ChainSize(s.m_Height, t1, true)).m_sz); }
-    void OnHdrs_SizeArchive_Rel(json& j) { j.push_back(MakeTableHdr("D.Size.Archive")); }
-    void OnHdrs_SizeArchive_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full& s) { j.push_back(MakeDecimalDelta(get_ChainSize(s.m_Height, t1, true) - get_ChainSize(s.m_Height - 1, t0, true)).m_sz); }
-
-    void OnHdrs_SizeCompressed_Abs(json& j) { j.push_back(MakeTableHdr("Size.Compressed")); }
-    void OnHdrs_SizeCompressed_Abs(json& j, const Totals& t1, const Block::SystemState::Full& s) { j.push_back(MakeDecimal(get_ChainSize(s.m_Height, t1, false)).m_sz); }
-    void OnHdrs_SizeCompressed_Rel(json& j) { j.push_back(MakeTableHdr("D.Size.Compressed")); }
-    void OnHdrs_SizeCompressed_Rel(json& j, const Totals& t1, const Totals& t0, const Block::SystemState::Full& s) { j.push_back(MakeDecimalDelta(get_ChainSize(s.m_Height, t1, false) - get_ChainSize(s.m_Height - 1, t0, false)).m_sz); }
-
-    json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, uint32_t fAbs, uint32_t fRel) override
+    json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, const TotalsCol* pCols, uint32_t nCols) override
     {
         std::setmin(nMax, 2048u);
         std::setmin(hMax, _nodeBackend.m_Cursor.m_Full.m_Height);
@@ -2221,18 +2246,24 @@ private:
         {
             json jCols = json::array({
                 MakeTableHdr("Height"),
-                MakeTableHdr("Timestamp"),
                 MakeTableHdr("Hash"),
                 });
 
+            ColFmt cfmt(*this, std::move(jCols));
+
+            for (uint32_t iCol = 0; iCol < nCols; iCol++)
+            {
+                switch (pCols[iCol])
+                {
 #define THE_MACRO(type) \
-            if (TotalsFlags::type & fAbs) OnHdrs_##type##_Abs(jCols); \
-            if (TotalsFlags::type & fRel) OnHdrs_##type##_Rel(jCols);
-
-            ExplorerTotals_All(THE_MACRO)
+                case TotalsCol::type##_Abs: cfmt.OnName_##type##_Abs(); break; \
+                case TotalsCol::type##_Rel: cfmt.OnName_##type##_Rel(); break;
+                ExplorerTotals_All(THE_MACRO)
 #undef THE_MACRO
+                }
+            }
 
-            jRet.push_back(std::move(jCols));
+            jRet.push_back(std::move(cfmt.m_json));
         }
         
         Height hMore = 0;
@@ -2241,34 +2272,38 @@ private:
         {
             auto& db = _nodeBackend.get_DB();
 
+            ColFmt::Data pData[2];
+            uint32_t iIdxData = 0;
+
             NodeDB::StateID sid;
             sid.m_Height = hMax;
             sid.m_Row = db.FindActiveStateStrict(hMax);
 
-            Merkle::Hash hv;
             bool bValidHv = false;
 
-            StateData pTots[2];
-            uint32_t iIdxTots = 0;
-            get_StateTotals(pTots[iIdxTots], sid);
+            get_StateTotals(pData[iIdxData], sid);
+            db.get_State(sid.m_Row, pData[iIdxData].m_Hdr);
 
             while (true)
             {
-                Block::SystemState::Full s;
-                db.get_State(sid.m_Row, s);
+                auto& d1 = pData[iIdxData];
+                auto& d0 = pData[!iIdxData];
+
+                ColFmt cfmt(*this, json::array());
+                cfmt.m_pThis = &d1;
+                cfmt.m_pPrev = &d0;
+                cfmt.m_json.push_back(MakeObjHeight(d1.m_Hdr.m_Height));
 
                 if (!bValidHv)
-                    s.get_Hash(hv);
+                {
+                    d1.m_Hdr.get_Hash(d0.m_Hdr.m_Prev);
 
-                json jRow = json::array();
+                    if (1u == dh)
+                        bValidHv = true;
+                }
 
-                jRow.push_back(MakeObjHeight(s.m_Height));
-                jRow.push_back(MakeTypeObj("time", s.m_TimeStamp));
-                jRow.push_back(MakeObjBlob(hv));
 
-                bool bDone = false;
-
-                iIdxTots = !iIdxTots;
+                cfmt.m_json.push_back(MakeObjBlob(d0.m_Hdr.m_Prev));
 
                 if (sid.m_Height - Rules::HeightGenesis >= dh)
                 {
@@ -2279,41 +2314,42 @@ private:
                         sid.m_Height -= dh;
                         sid.m_Row = db.FindActiveStateStrict(sid.m_Height);
                     }
+
+                    db.get_State(sid.m_Row, d0.m_Hdr);
                 }
                 else
                 {
                     ZeroObject(sid);
-                    bDone = true;
+                    ZeroObject(d0.m_Hdr);
                 }
 
-                get_StateTotals(pTots[iIdxTots], sid);
+                get_StateTotals(d0, sid);
 
-                const auto& t1 = pTots[!iIdxTots].m_Totals;
-                const auto& t0 = pTots[iIdxTots].m_Totals;
-
+                for (uint32_t iCol = 0; iCol < nCols; iCol++)
+                {
+                    switch (pCols[iCol])
+                    {
 #define THE_MACRO(type) \
-                if (TotalsFlags::type & fAbs) OnHdrs_##type##_Abs(jRow, t1, s); \
-                if (TotalsFlags::type & fRel) OnHdrs_##type##_Rel(jRow, t1, t0, s);
-
-                ExplorerTotals_All(THE_MACRO)
+                    case TotalsCol::type##_Abs: cfmt.OnData_##type##_Abs(); break; \
+                    case TotalsCol::type##_Rel: cfmt.OnData_##type##_Rel(); break;
+                    ExplorerTotals_All(THE_MACRO)
 #undef THE_MACRO
+                    }
+                }
 
-                jRet.push_back(std::move(jRow));
+                jRet.push_back(std::move(std::move(cfmt.m_json)));
+
+                if (!sid.m_Height)
+                    break;
+
 
                 if (!--nMax)
                 {
                     hMore = sid.m_Height;
-                    bDone = true;
-                }
-
-                if (bDone)
                     break;
-
-                if (1u == dh)
-                {
-                    hv = s.m_Prev;
-                    bValidHv = true;
                 }
+
+                iIdxData = !iIdxData;
             }
         }
 
@@ -2327,8 +2363,9 @@ private:
 
     json MakeTotals(const NodeDB::StateID& sid, const Block::SystemState::Full& s)
     {
-        StateData sd;
+        ColFmt::Data sd;
         get_StateTotals(sd, sid);
+        sd.m_Hdr.m_Height = s.m_Height; // other fields aren't needed for chain size 
 
         json jInfo = json::array();
         jInfo.push_back({ MakeTableHdr("Transactions"), MakeDecimal(sd.m_Totals.m_Kernels.m_Count).m_sz });
@@ -2350,8 +2387,8 @@ private:
         jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
 
         // size estimation
-        jInfo.push_back({ MakeTableHdr("Size Compressed"), MakeDecimal(get_ChainSize(s.m_Height, sd.m_Totals, false)).m_sz });
-        jInfo.push_back({ MakeTableHdr("Size Archive"), MakeDecimal(get_ChainSize(s.m_Height, sd.m_Totals, true)).m_sz });
+        jInfo.push_back({ MakeTableHdr("Size Compressed"), MakeDecimal(sd.get_ChainSize(false)).m_sz });
+        jInfo.push_back({ MakeTableHdr("Size Archive"), MakeDecimal(sd.get_ChainSize(true)).m_sz });
 
         PrepareTreasureSchedule();
         if (!m_mapTreasury.empty())

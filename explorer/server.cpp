@@ -768,53 +768,75 @@ OnRequest(blocks)
     return _backend.get_blocks(start, n);
 }
 
-bool ReadColFlags(const HttpUrl& url, uint32_t& res, const char* szArg)
-{
-    auto it = url.args.find(szArg);
-    if (url.args.end() == it)
-        return false;
-
-    res = 0;
-
-    typedef IAdapter::TotalsFlags F;
-
-    for (char ch : it->second)
-    {
-        switch (ch)
-        {
-        case 'd': res |= F::Difficulty; break;
-        case 'f': res |= F::Fee; break;
-        case 'k': res |= F::Kernels; break;
-        case 'o': res |= F::MwOutputs; break;
-        case 'i': res |= F::MwInputs; break;
-        case 'u': res |= F::MwUtxos; break;
-        case 'O': res |= F::ShOutputs; break;
-        case 'I': res |= F::ShInputs; break;
-        case 'c': res |= F::ContractsActive; break;
-        case 'C': res |= F::ContractCalls; break;
-        case 's': res |= F::SizeCompressed; break;
-        case 'S': res |= F::SizeArchive; break;
-        }
-    }
-
-    return true;
-}
-
 OnRequest(hdrs)
 {
     Height hTop = _currentUrl.get_int_arg("hMax", std::numeric_limits<int64_t>::max());
     uint32_t n = (uint32_t) _currentUrl.get_int_arg("nMax", static_cast<uint32_t>(-1));
     Height dh = _currentUrl.get_int_arg("dh", static_cast<uint32_t>(1));
 
-    // defaults
-    typedef IAdapter::TotalsFlags F;
-    uint32_t fAbs = 0;
-    uint32_t fRel = F::Difficulty | F::Fee | F::Kernels | F::MwOutputs | F::MwInputs | F::ShOutputs | F::ShInputs | F::ContractCalls;
+    typedef IAdapter::TotalsCol C;
 
-    ReadColFlags(_currentUrl, fAbs, "cabs");
-    ReadColFlags(_currentUrl, fRel, "crel");
+    C pCols[C::count];
+    uint32_t nCols = 0;
 
-    return _backend.get_hdrs(hTop, n, dh, fAbs, fRel);
+    auto it = _currentUrl.args.find("cols");
+    if (_currentUrl.args.end() == it)
+    {
+        // defaults
+        pCols[nCols++] = C::Time_Abs;
+        pCols[nCols++] = C::Difficulty_Rel;
+        pCols[nCols++] = C::Fee_Rel;
+        pCols[nCols++] = C::Kernels_Rel;
+        pCols[nCols++] = C::MwOutputs_Rel;
+        pCols[nCols++] = C::MwInputs_Rel;
+        pCols[nCols++] = C::ShOutputs_Rel;
+        pCols[nCols++] = C::ShInputs_Rel;
+        pCols[nCols++] = C::ContractCalls_Rel;
+
+        assert(nCols <= _countof(pCols));
+    }
+    else
+    {
+        for (char ch : it->second)
+        {
+            C val;
+
+            switch (ch)
+            {
+        #define COL_CASE(chAbs, chRel, type) \
+            case chAbs: val = C::type##_Abs; break; \
+            case chRel: val = C::type##_Rel; break;
+
+            COL_CASE('T', 't', Time)
+            COL_CASE('D', 'd', Difficulty)
+            COL_CASE('F', 'f', Fee)
+            COL_CASE('K', 'k', Kernels)
+            COL_CASE('O', 'o', MwOutputs)
+            COL_CASE('I', 'i', MwInputs)
+            COL_CASE('U', 'u', MwUtxos)
+            COL_CASE('Z', 'z', ShOutputs)
+            COL_CASE('Y', 'y', ShInputs)
+            COL_CASE('B', 'b', ContractsActive)
+            COL_CASE('P', 'p', ContractCalls)
+            COL_CASE('C', 'c', SizeCompressed)
+            COL_CASE('A', 'a', SizeArchieve)
+
+            default:
+                val = C::count;
+            }
+
+            if (C::count != val)
+            {
+                assert(nCols < _countof(pCols));
+                pCols[nCols++] = val;
+
+                if (_countof(pCols) == nCols)
+                    break; // too many columns, truncate
+            }
+        }
+    }
+
+    return _backend.get_hdrs(hTop, n, dh, pCols, nCols);
 }
 
 OnRequest(peers)

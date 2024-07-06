@@ -1502,20 +1502,9 @@ Disclaimer:
 	else if (type == "hdrs")
 	{
 		// Data that can be requested (relative or absolute):
-		// d = Difficulty
-        // f = Fee
-        // k = Kernels
-        // o = MW Outputs
-        // i = MW Inputs
-        // u = MW UTXOs
-        // O = Shielded Outputs
-        // I = Shielded Inputs
-        // c = Contracts Active
-        // C = Contract Calls
-        // s = Size Compressed
-        // S = Size Archive
+
 		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cabs=&crel=dfkoOiIC" + "&nMax=" + nMax);
+		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cols=Tdfkoizyp" + "&nMax=" + nMax);
 		xmlhttp.send();
 	}
 	else if (type == "contracts")
