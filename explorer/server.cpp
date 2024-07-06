@@ -821,7 +821,7 @@ OnRequest(hdrs)
             COL_CASE('B', 'b', ContractsActive)
             COL_CASE('P', 'p', ContractCalls)
             COL_CASE('C', 'c', SizeCompressed)
-            COL_CASE('A', 'a', SizeArchieve)
+            COL_CASE('A', 'a', SizeArchive)
 
             default:
                 val = C::count;

@@ -2146,7 +2146,7 @@ private:
         {
             Block::SystemState::Full m_Hdr;
 
-            uint64_t get_ChainSize(bool bArchieve) const
+            uint64_t get_ChainSize(bool bArchive) const
             {
                 // size estimation
                 uint64_t ret =
@@ -2154,7 +2154,7 @@ private:
                     m_Totals.m_Kernels.m_Size +
                     m_Totals.m_MW.m_Outputs.m_Size;
 
-                if (bArchieve)
+                if (bArchive)
                     ret += m_Totals.m_MW.m_Inputs.m_Count * sizeof(ECC::Point);
                 else
                     ret -= m_Totals.m_MW.m_Inputs.m_Size;
@@ -2241,10 +2241,10 @@ private:
         void OnData_ContractCalls_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->m_Totals.m_Contract.get_Sum()).m_sz); }
         void OnData_ContractCalls_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Totals.m_Contract.get_Sum() - m_pPrev->m_Totals.m_Contract.get_Sum()).m_sz); }
 
-        void OnName_SizeArchieve_Abs() { m_json.push_back(MakeTableHdr("Size.Archieve")); }
-        void OnName_SizeArchieve_Rel() { m_json.push_back(MakeTableHdr("D.Size.Archieve")); }
-        void OnData_SizeArchieve_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->get_ChainSize(true)).m_sz); }
-        void OnData_SizeArchieve_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(true) - m_pPrev->get_ChainSize(true)).m_sz); }
+        void OnName_SizeArchive_Abs() { m_json.push_back(MakeTableHdr("Size.Archive")); }
+        void OnName_SizeArchive_Rel() { m_json.push_back(MakeTableHdr("D.Size.Archive")); }
+        void OnData_SizeArchive_Abs() { m_json.push_back(m_This.MakeDecimal(m_pThis->get_ChainSize(true)).m_sz); }
+        void OnData_SizeArchive_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(true) - m_pPrev->get_ChainSize(true)).m_sz); }
 
         void OnName_SizeCompressed_Abs() { m_json.push_back(MakeTableHdr("Size.Compressed")); }
         void OnName_SizeCompressed_Rel() { m_json.push_back(MakeTableHdr("D.Size.Compressed")); }
