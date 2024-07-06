@@ -2275,7 +2275,7 @@ private:
                 case TotalsCol::type##_Rel: cfmt.OnName_##type##_Rel(); break;
                 ExplorerTotals_All(THE_MACRO)
 #undef THE_MACRO
-                default:
+                default: // suppress warning
                     break;
                 }
             }
@@ -2338,7 +2338,7 @@ private:
                     case TotalsCol::type##_Rel: cfmt.OnData_##type##_Rel(); break;
                     ExplorerTotals_All(THE_MACRO)
 #undef THE_MACRO
-                    default:
+                    default: // suppress warning
                         break;
                     }
                 }
