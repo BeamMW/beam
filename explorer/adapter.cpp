@@ -2381,12 +2381,12 @@ private:
         jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz });
         jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
 
-        AmountBig::Type valAmount;
-        Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, sid.m_Height));
-        jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valAmount) });
+        AmountBig::Type valCurrent, valTotal;
+        Rules::get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
+        jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
-        Rules::get_Emission(valAmount, HeightRange(Rules::HeightGenesis, MaxHeight));
-        jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valAmount) });
+        Rules::get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
+        jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valTotal) });
 
         // size estimation
         jInfo.push_back({ MakeTableHdr("Size Compressed"), MakeDecimal(sd.get_ChainSize(false)).m_sz });
@@ -2395,7 +2395,7 @@ private:
         PrepareTreasureSchedule();
         if (!m_mapTreasury.empty())
         {
-            Amount valTotal = m_mapTreasury.rbegin()->m_Total;
+            Amount valTresTotal = m_mapTreasury.rbegin()->m_Total;
 
             auto it = m_mapTreasury.upper_bound(s.m_Height, TresEntry::Comparator());
             const TresEntry* pNext = (m_mapTreasury.end() == it) ? nullptr : &(*it);
@@ -2407,14 +2407,22 @@ private:
                 pPrev = &(*it);
             }
 
-            jInfo.push_back({ MakeTableHdr("Treasury Released"), MakeObjAmount(pPrev ? pPrev->m_Total : 0) });
-            jInfo.push_back({ MakeTableHdr("Treasury Total"), MakeObjAmount(valTotal) });
+            Amount valTresCurrent = pPrev ? pPrev->m_Total : 0;
+            jInfo.push_back({ MakeTableHdr("Treasury Released"), MakeObjAmount(valTresCurrent) });
+            jInfo.push_back({ MakeTableHdr("Treasury Total"), MakeObjAmount(valTresTotal) });
+
+            valTotal += uintBigFrom(valTresTotal);
+            valCurrent += uintBigFrom(valTresCurrent);
 
             if (pPrev)
                 jInfo.push_back({ MakeTableHdr("Treasury Prev release"), MakeObjHeight(pPrev->m_Key) });
             if (pNext)
                 jInfo.push_back({ MakeTableHdr("Treasury Next release"), MakeObjHeight(pNext->m_Key) });
         }
+
+        jInfo.push_back({ MakeTableHdr("Current Circulation"), MakeObjAmount(valCurrent) });
+        jInfo.push_back({ MakeTableHdr("Total Circulation"), MakeObjAmount(valTotal) });
+
 
         return MakeTable(std::move(jInfo));
     }
