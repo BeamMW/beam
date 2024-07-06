@@ -776,7 +776,7 @@ OnRequest(hdrs)
 
     typedef IAdapter::TotalsCol C;
 
-    C pCols[C::count];
+    C pCols[(uint32_t) C::count];
     uint32_t nCols = 0;
 
     auto it = _currentUrl.args.find("cols");
