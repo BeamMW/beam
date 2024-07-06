@@ -23,6 +23,7 @@ using nlohmann::json;
 
 #define ExplorerTotals_All(macro) \
     macro(Time) \
+    macro(Hash) \
     macro(Difficulty) \
     macro(Fee) \
     macro(Kernels) \

@@ -783,6 +783,7 @@ OnRequest(hdrs)
     if (_currentUrl.args.end() == it)
     {
         // defaults
+        pCols[nCols++] = C::Hash_Abs;
         pCols[nCols++] = C::Time_Abs;
         pCols[nCols++] = C::Difficulty_Rel;
         pCols[nCols++] = C::Fee_Rel;
@@ -807,6 +808,7 @@ OnRequest(hdrs)
             case chAbs: val = C::type##_Abs; break; \
             case chRel: val = C::type##_Rel; break;
 
+            case 'H': val = C::Hash_Abs; break;
             COL_CASE('T', 't', Time)
             COL_CASE('D', 'd', Difficulty)
             COL_CASE('F', 'f', Fee)

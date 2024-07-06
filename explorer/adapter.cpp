@@ -2132,10 +2132,14 @@ private:
         Adapter& m_This;
         json m_json;
 
+        HeightHash m_hh;
+
         ColFmt(Adapter& x, json&& j)
             :m_This(x)
             ,m_json(j)
-        {}
+        {
+            m_hh.m_Height = 0;
+        }
 
         struct Data
             :public StateData
@@ -2161,6 +2165,21 @@ private:
 
         const Data* m_pThis;
         const Data* m_pPrev;
+
+        void OnName_Hash_Abs() { m_json.push_back(MakeTableHdr("Hash")); }
+        void OnData_Hash_Abs()
+        {
+            if (m_hh.m_Height != m_pThis->m_Hdr.m_Height)
+                m_pThis->m_Hdr.get_ID(m_hh);
+
+            m_json.push_back(MakeObjBlob(m_hh.m_Hash));
+
+            m_hh.m_Height = -1;
+            m_hh.m_Hash = m_pThis->m_Hdr.m_Prev;
+        }
+
+        void OnName_Hash_Rel() {}
+        void OnData_Hash_Rel() {}
 
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
@@ -2244,12 +2263,8 @@ private:
         json jRet = json::array();
 
         {
-            json jCols = json::array({
-                MakeTableHdr("Height"),
-                MakeTableHdr("Hash"),
-                });
-
-            ColFmt cfmt(*this, std::move(jCols));
+            ColFmt cfmt(*this, json::array());
+            cfmt.m_json.push_back(MakeTableHdr("Height"));
 
             for (uint32_t iCol = 0; iCol < nCols; iCol++)
             {
@@ -2279,8 +2294,6 @@ private:
             sid.m_Height = hMax;
             sid.m_Row = db.FindActiveStateStrict(hMax);
 
-            bool bValidHv = false;
-
             get_StateTotals(pData[iIdxData], sid);
             db.get_State(sid.m_Row, pData[iIdxData].m_Hdr);
 
@@ -2293,17 +2306,6 @@ private:
                 cfmt.m_pThis = &d1;
                 cfmt.m_pPrev = &d0;
                 cfmt.m_json.push_back(MakeObjHeight(d1.m_Hdr.m_Height));
-
-                if (!bValidHv)
-                {
-                    d1.m_Hdr.get_Hash(d0.m_Hdr.m_Prev);
-
-                    if (1u == dh)
-                        bValidHv = true;
-                }
-
-
-                cfmt.m_json.push_back(MakeObjBlob(d0.m_Hdr.m_Prev));
 
                 if (sid.m_Height - Rules::HeightGenesis >= dh)
                 {
