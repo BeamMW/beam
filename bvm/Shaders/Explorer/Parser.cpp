@@ -145,11 +145,9 @@ void DocAddCid(const char* sz, const ContractID& cid)
 	Env::DocAddBlob_T("value", cid);
 }
 
-void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
+void DocAddFloatFixPt(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
 {
-	uint64_t norm = 1;
-	for (uint32_t i = 0; i < nDigsAfterDot; i++)
-		norm *= 10;
+	auto norm = Power::Raise<uint64_t, 10>(nDigsAfterDot);
 
 	uint64_t val = x * MultiPrecision::Float(norm * 2);
 	val = (val + 1) / 2;
@@ -162,10 +160,16 @@ void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot
 	Env::DocAddText(sz, szBuf);
 }
 
-void DocAddFloatSc(const char* sz, MultiPrecision::Float x)
+//void DocAddFloat(const char* sz, MultiPrecision::Float x, bool bTryStdNotation = true, uint32_t nDigits = MultiPrecision::Float::Text::s_LenMantissaMax)
+//{
+//	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
+//	x.Print(szBuf, bTryStdNotation, nDigits);
+//	Env::DocAddText(sz, szBuf);
+//}
+
+void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
 {
-	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
-	x.Print(szBuf, false);
+	DocAddFloatFixPt(sz, x, nDigsAfterDot);
 }
 
 void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
@@ -192,7 +196,7 @@ void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
 
 void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 3)
 {
-	DocAddFloat(sz, x * MultiPrecision::Float(100), 3);
+	DocAddFloatFixPt(sz, x * MultiPrecision::Float(100), nDigsAfterDot);
 }
 
 
@@ -2395,6 +2399,7 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 			DocAddTableHeader("Amount1");
 			DocAddTableHeader("Amount2");
 			DocAddTableHeader("Amount-LP-Token");
+			DocAddTableHeader("Rate");
 		}
 
 		Env::Key_T<Amm::Pool::Key> k0, k1;
@@ -2418,6 +2423,41 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 			DocAddAmount("", p.m_Totals.m_Tok1);
 			DocAddAmount("", p.m_Totals.m_Tok2);
 			DocAddAmount("", p.m_Totals.m_Ctl);
+
+			if (p.m_Totals.m_Tok1 && p.m_Totals.m_Tok2)
+			{
+				char szBuf[MultiPrecision::Float::Text::s_LenMax + 3];
+				uint32_t nBuf = 0;
+
+				bool b1 = (p.m_Totals.m_Tok1 >= p.m_Totals.m_Tok2);
+
+				MultiPrecision::Float f1(p.m_Totals.m_Tok1);
+				MultiPrecision::Float f2(p.m_Totals.m_Tok2);
+
+				MultiPrecision::Float k;
+				if (b1)
+					k = f1 / f2;
+				else
+				{
+					k = f2 / f1;
+					szBuf[nBuf++] = '1';
+					szBuf[nBuf++] = ':';
+				}
+
+				nBuf += k.Print(szBuf + nBuf, true, 8);
+
+				if (b1)
+				{
+					szBuf[nBuf++] = ':';
+					szBuf[nBuf++] = '1';
+				}
+
+				szBuf[nBuf] = 0;
+				Env::DocAddText("", szBuf);
+
+			}
+			else
+				Env::DocAddText("", "");
 		}
 
 	}
