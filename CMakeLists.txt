@@ -289,6 +289,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function") # mostly in 3rd-party libs
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-value") # proto.h
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nonnull") # yas
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-warning-option")
     if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
         if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 14 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 14)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unqualified-std-cast-call") # osx 13.3 clang 14 3rdparty/libbitcoin
