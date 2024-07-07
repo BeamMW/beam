@@ -2252,7 +2252,6 @@ private:
         void OnData_SizeCompressed_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(false) - m_pPrev->get_ChainSize(false)).m_sz); }
     };
 
-
     json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, const TotalsCol* pCols, uint32_t nCols) override
     {
         std::setmin(nMax, 2048u);
