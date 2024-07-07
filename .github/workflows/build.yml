@@ -182,7 +182,9 @@ jobs:
         shell: bash
         if: matrix.os != 'windows-2019'
         run: |
-          mkdir artifacts
+          if [ ! -d "artifacts" ]; then
+            mkdir artifacts
+          fi
           tar -cvf artifacts/beam-node.tar -C beam beam-node beam-node-checksum.txt beam-node.cfg
           tar -cvf artifacts/beam-wallet.tar -C wallet/cli beam-wallet beam-wallet-checksum.txt beam-wallet.cfg
           tar -cvf artifacts/wallet-api.tar -C wallet/api wallet-api wallet-api-checksum.txt wallet-api.cfg
