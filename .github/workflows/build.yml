@@ -5,8 +5,7 @@ on: [push]
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
+  
 jobs:
   ###############################################################################
   # Build Desktop
@@ -19,7 +18,7 @@ jobs:
         os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -251,19 +250,19 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-beam-node-${{env.BEAM_VERSION}}
           path: artifacts/beam-node*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-beam-wallet-cli-${{env.BEAM_VERSION}}
           path: artifacts/beam-wallet*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-wallet-api-${{env.BEAM_VERSION}}
           path: |
@@ -271,19 +270,19 @@ jobs:
             artifacts/ipfs-bindings*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-explorer-node-${{env.BEAM_VERSION}}
           path: artifacts/explorer-node*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-broadcaster-${{env.BEAM_VERSION}}
           path: artifacts/broadcaster*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{env.PLATFORM_NAME}}-ethash-service-${{env.BEAM_VERSION}}
           path: artifacts/ethash-service*
@@ -292,7 +291,7 @@ jobs:
       ###############################################################################
       # Upload windows pdb
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: matrix.os == 'windows-2019'
         with:
           name: pdb-${{env.BEAM_VERSION}}
@@ -307,7 +306,7 @@ jobs:
     #if: ${{false}}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -374,19 +373,19 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: beam-ios-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: beam-ios-simulator-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-simulator
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: beam-ios-combined-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-combined
@@ -406,7 +405,7 @@ jobs:
       ANDROID_SDK_VERSION: 25
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -451,7 +450,7 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: libwallet-jni-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
           path: |
@@ -467,7 +466,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -511,7 +510,7 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: wasm-key-keeper
           path: |
@@ -526,7 +525,7 @@ jobs:
     #if: ${{false}}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -575,14 +574,14 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: beam-wasm-${{env.BEAM_VERSION}}
           path: |
             ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
           if-no-files-found: error
 
-      - uses: actions/setup-node@v2
+      - uses: actions/setup-node@v4
         with:
           registry-url: "https://registry.npmjs.org"
       - run: npm publish ${{runner.workspace}}/build_wasm/wasmclient/
