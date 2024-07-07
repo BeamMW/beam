@@ -14,8 +14,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [macos-11]
-        os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        # os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [macos-12, ubuntu-20.04, windows-2019]
 
     steps:
       - name: Checkout ubuntu-18.04
@@ -41,8 +41,8 @@ jobs:
       # Create Build Environment
       ###############################################################################
 
-      - name: Create Build Environment [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Create Build Environment [macos]
+        if: startsWith(matrix.os, 'macos')
         run: |
           echo $GITHUB_WORKSPACE
           echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
@@ -85,8 +85,8 @@ jobs:
       ###############################################################################
       # Configure CMake
       ###############################################################################
-      - name: Configure CMake [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Configure CMake [macos]
+        if: startsWith(matrix.os, 'macos')
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
@@ -111,8 +111,8 @@ jobs:
       ###############################################################################
       # Build
       ###############################################################################
-      - name: Build [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Build [macos]
+        if: startsWith(matrix.os, 'macos')
         run: cmake --build . --parallel --config $BUILD_TYPE
 
       - name: Build [ununtu all]
@@ -128,8 +128,8 @@ jobs:
       ###############################################################################
       # Test
       ###############################################################################
-      - name: Test [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Test [macos]
+        if: startsWith(matrix.os, 'macos')
         continue-on-error: false
         run: ctest -C $BUILD_TYPE --verbose
 
@@ -148,14 +148,14 @@ jobs:
       ###############################################################################
       # Collect artifacts
       ###############################################################################
-      - name: Import Code-Signing Certificates [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Import Code-Signing Certificates [macos]
+        if: startsWith(matrix.os, 'macos')
         uses: Apple-Actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
-      - name: Sign the mac binaries [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Sign the mac binaries [macos]
+        if: startsWith(matrix.os, 'macos')
         run: |
           codesign --sign "Developer ID Application" --deep --force --verbose --options runtime --timestamp beam/beam-node
           codesign --sign "${{secrets.MACOS_SIGN_IDENTITY}}" --deep --force --verbose --options runtime --timestamp beam/beam-node
@@ -176,8 +176,8 @@ jobs:
           sha256sum wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           sha256sum bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-      - name: Checksum [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: Checksum [macos]
+        if: startsWith(matrix.os, 'macos')
         run: |
           shasum -a 256 beam/beam-node > beam/beam-node-checksum.txt
           shasum -a 256 wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
@@ -186,7 +186,7 @@ jobs:
           shasum -a 256 wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-      - name: Collect [macos-11 && ununtu all]
+      - name: Collect [macos && ununtu all]
         shell: bash
         if: matrix.os != 'windows-2019'
         run: |
@@ -238,8 +238,8 @@ jobs:
           certUtil -hashfile artifacts/ethash-service.exe SHA256 > artifacts/ethash-service-checksum.txt
           certUtil -hashfile artifacts/ipfs-bindings.dll SHA256 > artifacts/ipfs-bindings-checksum.txt
 
-      - name: OS name [macos-11]
-        if: matrix.os == 'macos-11'
+      - name: OS name [macos]
+        if: startsWith(matrix.os, 'macos')
         run: echo "PLATFORM_NAME=mac" >> $GITHUB_ENV
 
       - name: OS name [ununtu all]
@@ -312,7 +312,7 @@ jobs:
   # Build IOS
   ###############################################################################
   build_ios:
-    runs-on: macos-11
+    runs-on: macos-latest
     #if: ${{false}}
 
     steps:
