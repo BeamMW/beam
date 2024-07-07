@@ -1,11 +1,9 @@
 name: Build Boost
-on:
-  push:
-    tags:
-      - boost_prebuild*
+on: [push]
 
 jobs:
   build_windows:
+    if: ${{false}}
     runs-on: windows-2019
     steps:
       - name: Create Build Environment
@@ -39,6 +37,7 @@ jobs:
           if-no-files-found: error
 
   build_ubuntu:
+    if: ${{false}}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -93,7 +92,8 @@ jobs:
           if-no-files-found: error
 
   build_osx:
-    runs-on: macos-11
+    #if: ${{false}}
+    runs-on: macos-12
     steps:
       - name: Create Build Environment
         shell: bash
