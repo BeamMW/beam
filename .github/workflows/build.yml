@@ -18,9 +18,19 @@ jobs:
         os: [macos-11, ubuntu-18.04, ubuntu-20.04, windows-2019]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout ubuntu-18.04
+        if: matrix.os == 'ubuntu-18.04'
+        env:
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          
+      - name: Checkout 
+        if: matrix.os != 'ubuntu-18.04'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      
 
       - name: Submodule update
         shell: bash
