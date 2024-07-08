@@ -5,7 +5,7 @@ on: [push]
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true # Remove this line when we stop using Ubuntu 18
+  #ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true # Remove this line when we stop using Ubuntu 18
   
 jobs:
   ###############################################################################
@@ -15,7 +15,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-12, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        #os: [macos-12, ubuntu-18.04, ubuntu-20.04, windows-2019]
+        os: [macos-12, ubuntu-20.04, windows-2019]
 
     steps:  
       - name: Checkout 
