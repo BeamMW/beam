@@ -1831,21 +1831,23 @@ Disclaimer:
 		}
 		else if (type == "hdrs")
 		{
-			// Data that can be requested (relative or absolute):
+			// Data that can be requested (lowercase if relative, uppercase if absolute):
+			// H = Hash
+			// T = Time
 			// d = Difficulty
 			// f = Fee
 			// k = Kernels
 			// o = MW Outputs
 			// i = MW Inputs
-			// u = MW UTXOs
-			// O = Shielded Outputs
-			// I = Shielded Inputs
-			// c = Contracts Active
-			// C = Contract Calls
-			// s = Size Compressed
-			// S = Size Archive
+			// u = MW Utxos
+			// z = Shielded Outputs
+			// y = Shielded Inputs
+			// b = Active Contracts
+			// p = Contract Calls
+			// c = SizeCompressed
+			// a = SizeArchive
 			xmlhttp.onload = DisplayHdrs;
-			xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cabs=&crel=dfkoOiIC" + "&nMax=" + nMax);
+			xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cols=THdfkoizyp" + "&nMax=" + nMax);
 			xmlhttp.send();
 		}
 		else if (type == "contracts")
