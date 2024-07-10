@@ -129,6 +129,22 @@ namespace Dummy
         uint8_t m_TryWrite;
     };
 
+    struct TestFloat1
+    {
+        static const uint32_t s_iMethod = 16;
+        MultiPrecision::Float m_Arg1;
+        MultiPrecision::Float m_Arg2;
+        uint8_t m_Op;
+    };
+
+    struct TestFloat2
+    {
+        static const uint32_t s_iMethod = 17;
+        MultiPrecision::FloatEx m_Arg1;
+        MultiPrecision::FloatEx m_Arg2;
+        uint8_t m_Op;
+    };
+
 #pragma pack (pop)
 
 }

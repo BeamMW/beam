@@ -372,3 +372,25 @@ BEAM_EXPORT void Method_15(Dummy::TestFarCallFlags& r)
             Env::SaveVar_T((uint8_t) 1, (uint8_t) 2);
     }
 }
+
+template <typename TMethod>
+void TestFloatOp(TMethod& r)
+{
+    switch (r.m_Op)
+    {
+    case 0: r.m_Arg1 += r.m_Arg2; break;
+    case 1: r.m_Arg1 -= r.m_Arg2; break;
+    case 2: r.m_Arg1 *= r.m_Arg2; break;
+    case 3: r.m_Arg1 /= r.m_Arg2; break;
+    }
+}
+
+BEAM_EXPORT void Method_16(Dummy::TestFloat1& r)
+{
+    TestFloatOp(r);
+}
+
+BEAM_EXPORT void Method_17(Dummy::TestFloat2& r)
+{
+    TestFloatOp(r);
+}

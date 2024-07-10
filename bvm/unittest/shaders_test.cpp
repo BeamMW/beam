@@ -119,6 +119,10 @@ namespace Shaders {
 	}
 	template <bool bToShader> void Convert(Dummy::FindVarTest& x) {
 	}
+	template <bool bToShader> void Convert(Dummy::TestFloat1& x) {
+	}
+	template <bool bToShader> void Convert(Dummy::TestFloat2& x) {
+	}
 
 	template <bool bToShader> void Convert(Roulette::Params& x) {
 	}
@@ -2715,6 +2719,75 @@ namespace bvm2 {
 
 			Shaders::Dummy::FindVarTest args;
 			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Dummy::TestFloat1 args1;
+			ZeroObject(args1);
+			Shaders::Dummy::TestFloat2 args2;
+			ZeroObject(args2);
+
+			for (uint32_t i = 0; i < 100; i++)
+			{
+				uintBigFor<uint64_t>::Type val;
+				uint64_t a, b, c;
+				ECC::GenRandom(val);
+				val.Export(a);
+				ECC::GenRandom(val);
+				val.Export(b);
+
+				if (a < b)
+					std::swap(a, b);
+
+				args1.m_Arg1 = a;
+				args1.m_Arg2 = b;
+				args1.m_Op = 1; // subtract
+
+				verify_test(args1.m_Arg1 >= args1.m_Arg2);
+
+				verify_test(RunGuarded_T(cid, args1.s_iMethod, args1));
+
+				verify_test(args1.m_Arg1.RoundDown(c));
+				verify_test(c == a - b);
+
+				args1.m_Arg2 = args1.m_Arg1;
+				verify_test(args1.m_Arg1 == args1.m_Arg2);
+				verify_test(RunGuarded_T(cid, args1.s_iMethod, args1)); // must be 0
+
+				verify_test(args1.m_Arg1.IsZero());
+				verify_test(args1.m_Arg1.RoundDown(c));
+				verify_test(!c);
+
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				args2.m_Op = 1; // subtract
+
+				verify_test(args2.m_Arg1 >= args2.m_Arg2);
+
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+
+				verify_test(!args2.m_Arg1.IsNaN() && !args2.m_Arg1.IsNegative());
+				verify_test(args2.m_Arg1.RoundDown(c));
+				verify_test(c == a - b);
+
+				// check negative subtraction. Make sure result fits in int64_t (for comparison)
+				b >>= 1;
+				a >>= 1;
+				args2.m_Arg1 = b;
+				args2.m_Arg2 = a;
+
+				verify_test(args2.m_Arg1 <= args2.m_Arg2);
+
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+
+				verify_test(!args2.m_Arg1.IsNaN() && !args2.m_Arg1.IsPositive());
+				args2.m_Arg1.RoundDown(c);
+				verify_test(!c); // underflow, truncated to 0
+
+				int64_t d;
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == static_cast<int64_t>(b - a));
+			}
 		}
 
 		verify_test(ContractDestroy_T(cid, zero));
