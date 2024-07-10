@@ -304,7 +304,7 @@ Disclaimer:
 	.tableFunds_compact, .tableFunds_full {
 		width: 100%; /* Occupy full width of the column they appear in */
 	}
-	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory {
+	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory, .tableHistoricalBlocks {
 		/* Nothing special */
 	}
 	.contractCall {
@@ -453,6 +453,50 @@ Disclaimer:
 	}
 	#Loading {
 		/* Nothing special */
+	}
+
+	/* SPECIAL HISTORICAL BLOCKS */
+	.specialBlock_Title {
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #17204e;
+		padding: 5px 2px 5px 2px;
+	}
+	.specialBlock_Title::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+	}
+	.specialBlock_Description {
+		font-size: 1.3rem;
+		color: black;
+		line-height: 1.7rem;
+		padding: 2px 2px 10px 2px;
+	}
+	.specialBlock_Description br { /* Dirty hack to add line spacing to 'br' tag... */
+		display: block;
+		content: " ";
+		margin: 0.8rem 0 0.8rem 0;
+	}
+	.specialBlock_Description a {
+		color: #2d3799;
+		font-weight: bold;		
+	}
+	.specialBlock_Link {
+		font-size: 1.2rem;
+		color: grey;
+		line-height: 1.3rem;
+		padding: 2px;
+	}
+	.specialBlock_Link:first-child {
+		padding-top: 20rem;
+	}
+	.specialBlock_Link:last-child {
+		padding-bottom: 1rem;
+	}
+	.specialBlock_Link a {
+		color: grey;
+	}
+	.specialBlock_Link::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
 	}
 
 	/* COLLAPSIBLE BLOCKS */
@@ -667,6 +711,8 @@ Disclaimer:
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
 						<span class="menuSeparator"> | </span>
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=historical';" title="List of special historical blocks">Historical blocks</a></span>
 					</div>
 				</span>
 				<!-- Banner symbols for special functions -->
@@ -701,9 +747,9 @@ Disclaimer:
 <!-- ------------ SECTION 3 - CORE JS FUNCTIONS ------------ --> 
 <script>
 
-	function MakeRef(link, text)
+	function MakeRef(link, text, target="_self")
 	{
-		return "<a href='" + link + "'>" + text + "</a>";
+		return "<a href='" + link + "' target='" + target + "'>" + text + "</a>";
 	}
 
 	function UrlSelf(type, extra="")
@@ -751,6 +797,11 @@ Disclaimer:
 	function AddClassEx(txt,className,other)
 	{
 		return "<span class='" + className + "' " + other + ">" + txt + "</span>";
+	}
+
+	function AddClassDiv(txt,className,other="")
+	{
+		return "<div class='" + className + "' " + other + ">" + txt + "</div>";
 	}
 
 	function UrlBlock(h)
@@ -1534,6 +1585,197 @@ Disclaimer:
 		SetContent(text);
 	}
 
+	function DisplayHistoricalBlocks()
+	{
+		let text = "<h2>Special historical blocks</h2>";
+		text += "<table class='tableHistoricalBlocks'>\n\
+			<thead><tr>\n\
+				<th>Height</th>\n\
+				<th>Description</th>\n\
+			</tr></thead>\n";
+
+		for (let n in specialBlocks)
+		{
+			let obj = specialBlocks[n];
+
+			text += "<tr>";
+
+			let blocks = "";
+			if ("block_list" in obj) {
+				for (let i in obj.block_list) { blocks += MakeBlock(obj.block_list[i]) + "<br>" }
+			}
+			if ("block_range" in obj) {
+				blocks += MakeBlock(obj.block_range[0]) + "<br>to " + MakeBlock(obj.block_range[1])
+			}
+			text += MakeCellRA(blocks);
+
+			let desc = "";
+			if (obj.title) { desc += AddClassDiv(obj.title,"specialBlock_Title") }
+			if (obj.description) { desc += AddClassDiv(obj.description,"specialBlock_Description") }
+			if (obj.links) {
+				for (let i in obj.links) { desc += AddClassDiv(obj.links[i][0] + "&nbsp;: " + MakeRef(obj.links[i][1],obj.links[i][1],"_blank"),"specialBlock_Link") }
+			}
+			text += MakeCell(desc);
+
+			text += "</tr>";
+		}
+		text += "</table>";
+
+		SetContent(text);
+	}
+
+	// GLOBAL VARIABLES
+
+	// Array of objects listing the special historical blocks.
+	// Remarks:
+	// - Description can (and should) contain links to interesting explorer pages.
+	// - External links are provided afterwards.
+	// - "block_list" is used for a one or several individual blocks, "block_range" for all blocks between two.
+	// - The list shall be completed: important tokens, first atomic swap, important smart contracts (Nephrite, DEX, Oracle, etc.).
+	const specialBlocks = [
+		{
+			block_list: [0],
+			title: "Treasury",
+			description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This Treasury is represented in the explorer as a <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='List Treasury UTXOs'>60 such groups</a>.",
+			links: [
+				["Beam emission schedule","https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259"],
+				["Beam Foundation","https://www.beam-foundation.org"],
+				["Treasury checksum","https://github.com/BeamMW/beam/blob/master/core/block_crypt.cpp#L2120"]
+			]
+		},
+		{
+			block_list: [1],
+			title: "Genesis block",
+			description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1\"' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+			links: [
+				["Original MimbleWimble paper","https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt"],
+				["First Beam Medium post","https://medium.com/beam-mw/introducing-beam-f35096a923ec"],
+				["Bitcointalk announcement","https://web.archive.org/web/20200506044733/https://bitcointalk.org/index.php?topic=5052151"],
+				["Mainnet launch","https://medium.com/beam-mw/mimblewimble-mainnet-release-notes-8766e49e241d"],
+				["Bitcoin's hash in Beam's genesis block","https://github.com/BeamMW/beam/blob/92bbc3137dfeb186a99935c3436c03871c188234/core/block_crypt.cpp#L2045"],
+			]
+		},
+		{
+			block_range: [25709, 25820],
+			title: "Blockchain Stop Event",
+			description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25710&nMax=2\"'>for 2.5 hours</a>, and no transactions were processed for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25822&nMax=114\"' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25820\"'>25820</a> and <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25822\"'>25822</a> processed all the pending ones. No funds were lost.",
+			links: [ ["Postmortem analysis","https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813"] ]
+		},
+		{
+			block_list: [321321],
+			title: "First Hard-Fork",
+			description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in difficulty was observed as not all miners performed a timely upgrade. However, after <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=322327&nMax=1010\"' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the hashrate had gone back to its pre-fork value.",
+			links: [ ["Medium post","https://medium.com/beam-mw/mimblewimble-hard-fork-first-completed-1171f9642e51"] ]
+		},
+		{
+			block_list: [525600,525601],
+			title: "First Halving",
+			description: "As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years.",
+			links: [ ["Substack post","https://beamprivacy.substack.com/p/beam-2020-week-1-happy-halving"] ]
+		},
+		{
+			block_list: [777777],
+			title: "Second Hard-Fork",
+			description: "Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'><b>Confidential Assets</b></a> (sometimes also called 'Privacy Tokens', and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).",
+			links: [
+				["Medium post","https://medium.com/beam-mw/hard-fork-completed-72e8f1edb10b"],
+				["BeamHash III presentation","https://docs.beam.mw/Beam_Hash_III_Slides.pdf"],
+				["BeanHass III video","https://www.youtube.com/watch?v=WC3aCWCWxB4"]
+			]
+		},
+		{
+			block_list: [778579],
+			title: "First Lelantus-MW transaction",
+			description: "Lelantus is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to MimbleWimble, thanks to its use of similar cryptographic primitives. Contrary to MimbleWimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
+			links: [
+				["Lelantus paper","https://lelantus.io/lelantus.pdf"],
+				["Lelantus-MW adaptation","https://github.com/BeamMW/beam/wiki/Lelantus-MW"]
+			]
+		},
+		{
+			block_list: [778857],
+			title: "First input UTXO from a Shielded Pool",
+			description: "After a few transactions filling the Lelantus Shielded Pool with UTXOs, block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2878666\"'>2878666</a>, a few years later the Lelantus-MW anonymity set has reached 18,989&nbsp;!",
+			links: null
+		},
+		{
+			block_list: [780219],
+			title: "Creation of the first Confidential Asset",
+			description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=780219\"'>created</a>. Although it has changed named since then, and seems to be <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=1\"'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=9\"'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2893306\"' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868\"' title='Smart contract call history'>Beam Asset Minter</a>.",
+			links: [
+				//["Tico website","https://www.ticotip.me"],
+				["Tico's first anniversary","https://ticotipme.substack.com/p/tico-turns-1"],
+				["Tico Telegram group","https://t.me/ticotipme"]
+			]
+		},
+		{
+			block_list: [1280000],
+			title: "Third Hard-Fork (and wallet v6.0)",
+			description: "This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. 'Shaders'), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"'>we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide 'efficient' markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful 'Privacy DeFi' (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!",
+			links: [
+				["Medium post","https://medium.com/beam-mw/hard-fork-completed-1608eb5ce439"],
+				["Beam smart contracts introduction","https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts"],
+				["Smart contracts documentation","https://beamx.gitbook.io/developer-documentation/beam-shaders"],
+				["Some insights on the design","https://medium.com/beam-mw/beams-smart-contract-design-insights-from-the-lead-developer-df2aeabf02c4"]
+			]
+		},
+		{
+			block_list: [1280003],
+			title: "Deployment of the first Smart Contract",
+			description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1280003\"' title='Block details'>1280003</a>. The contract is a simple <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716\"' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440\"' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b\"' title='Smart contract call history'>Oracle</a> and the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a>).",
+			links: [ ["Examples of smart contracts","https://github.com/BeamMW/beam/tree/master/bvm/Shaders"] ]
+		},
+		{
+			block_list: [1464852],
+			title: "BeamX creation",
+			description: "The <b>BeamX</b> confidential asset (<a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=7\"' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b\"' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
+			links: [
+				["The BeamX DAO","https://www.beamxdao.org"],
+				["The BeamX token","https://medium.com/beam-mw/introducing-beamx-privacy-by-default-maximum-confidentiality-defi-ecosystem-629670b905ba"]
+			]
+		},
+		{
+			block_list: [1466500],
+			title: "Start of the first BeamX staking campaign",
+			description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&nMax=200\"' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&\"' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
+			links: [
+				["First BeamX reward campaign","https://medium.com/@beam_privacy/heres-everything-you-need-to-know-to-prepare-for-beam-staking-108eef344f7d"],
+				["Details on the campaign","https://medium.com/beam-mw/beamers-hodlers-beam-staking-is-coming-513bd196af57"]
+			]
+		},
+		{
+			//block_list: [1790000],
+			block_list: [1820000],
+			title: "Fourth Hard-Fork (and wallet v7.0)",
+			description: "This hard-fork introduced <b>'High-Frequency Transactions' (HFTX)</b> on both node and wallet sides, and <b>IPFS storage integration</b> on the wallet side. HFTX improve resistance to MEV, front-running and sandwich attacks by defining strict inclusion rules for transactions, thus protecting users from unwanted outcomes (as the submitted transactions can only be included into a block in their exact specific sequence).<br>On the wallet side, the IPFS integration allows storing data (such as NFTs) efficiently in a decentralized manner while reducing blockchain bloat. Thus, every Beam wallet today is at the same time a <b>blockchain node</b> (to submit transactions and verify blocks), an <b>SBBS node</b> (to allow secure communication between wallets), and an <b>IPFS node</b> (to allow decentralized storage, including for DApp front ends distribution).<br>This Hard Fork went smoothly and the difficulty remained fairly stable.",
+			links: [
+				["Medium post","https://medium.com/beam-mw/beam-hard-fork-completed-903ce2b15b51"],
+				["BIP-1 and BIP-2 results","https://medium.com/beam-mw/beam-bip-1-bip-2-results-229d8289f54d"]
+			]
+		},
+		{
+			block_list: [1920000],
+			title: "Fifth Hard-Fork (and wallet v7.1)",
+			description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='javascript:window.location.href=window.location.pathname + \"?type=assets&id=1981005\"' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e\"' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+			links: [
+				["Announcement","https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178"],
+				["Forum post for BIP-1","https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116"]
+			]
+		},
+		{
+			block_list: [2272779],
+			title: "Blockchain incident",
+			description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=2272781&nMax=3\"' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2272781\"' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+			links: [ ["Incident analysis","https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097"] ]
+		},
+		{
+			block_list: [2628000,2628001],
+			title: "Second Halving & End of the 5-year treasury allocation",
+			description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628000\"'>2628000</a>) to 25 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628001\"'>2628001</a>).<br>This halving also saw the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+			links: [ ["The 5-year recap","https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f"] ]
+		}
+	];
+
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
 	g_CurrentID = args.get("id");
@@ -1550,62 +1792,77 @@ Disclaimer:
 	if (!nMax)
 		nMax = 100;
 
-	const xmlhttp = new XMLHttpRequest();
-
-	if (type == "aid")
+	// Static page
+	if (type == "historical")
 	{
-		xmlhttp.onload = DisplayAssetHistory;
-		xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
-		xmlhttp.send();
+		window.onload = DisplayHistoricalBlocks;
 	}
-	else if (type == "block")
-	{
-		xmlhttp.onload = DisplayBlock;
-		xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
-		xmlhttp.send();
-	}
-	else if (type == "contract")
-	{
-		xmlhttp.onload = DisplayContractState;
-		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
-		xmlhttp.send();
-	}
-	else if (type == "hdrs")
-	{
-		// Data that can be requested (relative or absolute):
-		// d = Difficulty
-		// f = Fee
-		// k = Kernels
-		// o = MW Outputs
-		// i = MW Inputs
-		// u = MW UTXOs
-		// O = Shielded Outputs
-		// I = Shielded Inputs
-		// c = Contracts Active
-		// C = Contract Calls
-		// s = Size Compressed
-		// S = Size Archive
-		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cabs=&crel=dfkoOiIC" + "&nMax=" + nMax);
-		xmlhttp.send();
-	}
-	else if (type == "contracts")
-	{
-		xmlhttp.onload = DisplayContracts;
-		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
-		xmlhttp.send();
-	}
-	else if (type == "assets")
-	{
-		xmlhttp.onload = DisplayAssets;
-		xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
-		xmlhttp.send();
-	}
+	// Dynamic pages (explorer node requests)
 	else
 	{
-		xmlhttp.onload = DisplayStatus;
-		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
-		xmlhttp.send();
+		const xmlhttp = new XMLHttpRequest();
+
+		if (type == "aid")
+		{
+			xmlhttp.onload = DisplayAssetHistory;
+			xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
+			xmlhttp.send();
+		}
+		else if (type == "block")
+		{
+			xmlhttp.onload = DisplayBlock;
+			//if (kernel) {
+			//	console.log(urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
+			//	xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
+			//} else {
+			//	console.log(urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+				xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+			//}
+			xmlhttp.send();
+		}
+		else if (type == "contract")
+		{
+			xmlhttp.onload = DisplayContractState;
+			xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
+			xmlhttp.send();
+		}
+		else if (type == "hdrs")
+		{
+			// Data that can be requested (relative or absolute):
+			// d = Difficulty
+			// f = Fee
+			// k = Kernels
+			// o = MW Outputs
+			// i = MW Inputs
+			// u = MW UTXOs
+			// O = Shielded Outputs
+			// I = Shielded Inputs
+			// c = Contracts Active
+			// C = Contract Calls
+			// s = Size Compressed
+			// S = Size Archive
+			xmlhttp.onload = DisplayHdrs;
+			xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cabs=&crel=dfkoOiIC" + "&nMax=" + nMax);
+			xmlhttp.send();
+		}
+		else if (type == "contracts")
+		{
+			xmlhttp.onload = DisplayContracts;
+			xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+			xmlhttp.send();
+		}
+		else if (type == "assets")
+		{
+			xmlhttp.onload = DisplayAssets;
+			xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
+			xmlhttp.send();
+		}
+		else
+		{
+			xmlhttp.onload = DisplayStatus;
+			xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
+			xmlhttp.send();
+		}
 	}
 </script>
 
