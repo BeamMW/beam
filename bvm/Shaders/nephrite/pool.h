@@ -108,7 +108,7 @@ struct HomogenousPool
         int32_t EstimateScaleOrder() const
         {
             // The scale is (m_Sell / m_Weight), but we need only the order estimate
-            return BitUtils::FindHiBit(m_Sell) - m_Weight.m_Order - Float::s_Bits;
+            return TypeTraits<Amount>::Bits - BitUtils::clz(m_Sell) - m_Weight.m_Order - Float::s_Bits;
         }
 
         bool ShouldSwitchEpoch() const

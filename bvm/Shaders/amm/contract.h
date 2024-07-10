@@ -123,8 +123,8 @@ namespace Amm
             assert(m_Tok1 && m_Tok2);
 
             // select roughly geometric mean ( (tok1 * tok2) ^ (1/2) ) for the initial Ctl value
-            uint32_t n1 = BitUtils::FindHiBit(m_Tok1);
-            uint32_t n2 = BitUtils::FindHiBit(m_Tok2);
+            uint32_t n1 = BitUtils::clz(m_Tok1);
+            uint32_t n2 = BitUtils::clz(m_Tok2);
 
             
             if (m_Tok1 >= m_Tok2)
@@ -135,7 +135,7 @@ namespace Amm
                 std::swap(n1, n2);
             }
 
-            m_Ctl >>= ((n1 - n2) >> 1);
+            m_Ctl >>= ((n2 - n1) >> 1);
             assert(m_Ctl);
         }
 
