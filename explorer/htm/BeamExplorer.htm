@@ -205,7 +205,7 @@ Disclaimer:
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252; /* Keep links black */
+		color: #525252; /* Keep links grey */
 		text-decoration-line: underline;
 		text-decoration-color: grey; /* Use a light underline color */
 	}
@@ -474,7 +474,7 @@ Disclaimer:
 	.specialBlock_Description br { /* Dirty hack to add line spacing to 'br' tag... */
 		display: block;
 		content: " ";
-		margin: 0.8rem 0 0.8rem 0;
+		margin: 0.3rem 0 0.3rem 0;
 	}
 	.specialBlock_Description a {
 		color: #2d3799;
@@ -895,7 +895,7 @@ Disclaimer:
 	function Obj2HtmlSpecial(obj)
 	{
 		//console.log(JSON.stringify(obj))
-	
+
 		if (obj.type == "cid")
 			return MakeCid(obj.value);
 
@@ -997,8 +997,6 @@ Disclaimer:
 		addFilterOption();
 	}
 	
-	let g_CurrentID = "";
-
 	function DisplayContracts()
 	{
 		let text = "\
@@ -1556,7 +1554,6 @@ Disclaimer:
 		text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
 		text += Obj2Html(jData);
 		text += "</div>"
-		text += MakeCollapsibleEnd();
 
 		SetContent(text);
 	}
@@ -1565,7 +1562,7 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 
-		let text = "<h2>\n"
+		let text = "<h2>\n";
 		if (g_CurrentID) {
 			text += "Confidential Assets at block height " + MakeBlock(g_CurrentID);
 			text += "&nbsp;";
@@ -1578,7 +1575,7 @@ Disclaimer:
 		} else {
 			text += "Current Confidential Assets";
 		}
-		text += "</h2>\n"
+		text += "</h2>\n";
 
 		text += MakeTblAssets(jData);
 
@@ -1686,7 +1683,7 @@ Disclaimer:
 		{
 			block_list: [778579],
 			title: "First Lelantus-MW transaction",
-			description: "Lelantus is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to MimbleWimble, thanks to its use of similar cryptographic primitives. Contrary to MimbleWimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
+			description: "<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to MimbleWimble, thanks to its use of similar cryptographic primitives. Contrary to MimbleWimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
 			links: [
 				["Lelantus paper","https://lelantus.io/lelantus.pdf"],
 				["Lelantus-MW adaptation","https://github.com/BeamMW/beam/wiki/Lelantus-MW"]
@@ -1695,7 +1692,7 @@ Disclaimer:
 		{
 			block_list: [778857],
 			title: "First input UTXO from a Shielded Pool",
-			description: "After a few transactions filling the Lelantus Shielded Pool with UTXOs, block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2878666\"'>2878666</a>, a few years later the Lelantus-MW anonymity set has reached 18,989&nbsp;!",
+			description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2878666\"'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
 			links: null
 		},
 		{
@@ -1776,12 +1773,18 @@ Disclaimer:
 		}
 	];
 
+	// Current block, asset id or contract id
+	let g_CurrentID = "";
+
+	// URL and explorer node parameters
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
 	g_CurrentID = args.get("id");
 	
 	//let urlPrefix = "http://localhost:17328/";
 	let urlPrefix = "http://116.203.118.51:8100/";
+	
+	// Request "nice" formatting from the node (timestamps will be expanded into YYYYY-MM-DD, amounts formatted as XXX,XXX,XXX.YYYYYYYY, etc.)
 	let urlSuffix = "?exp_am=1";
 	
 	const hMax = args.get("hMax");
