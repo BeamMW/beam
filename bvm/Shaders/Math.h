@@ -14,6 +14,17 @@
 
 #pragma once
 
+template <typename T>
+struct TypeTraits
+{
+	static const uint32_t Bits = sizeof(T) * 8;
+	static const bool IsSigned = static_cast<T>(-1) < static_cast<T>(0);
+
+	static const T Min = IsSigned ? (static_cast<T>(1) << (Bits - 1)) : 0;
+	static const T Max = ~Min;
+	static_assert(Min < Max, "");
+};
+
 namespace BitUtils
 {
 	namespace details
@@ -22,37 +33,32 @@ namespace BitUtils
 		struct PerBits {
 
 			template <typename T>
-			static uint32_t get_BitsUsed(T x)
+			static uint32_t clz(T x)
 			{
+				static_assert(!TypeTraits<T>::IsSigned, "");
+
 				const uint32_t nHalf = nBits / 2;
 				if constexpr (nHalf > 0)
 				{
-					T x1 = x >> nHalf;
-
-					uint32_t ret;
+					auto x1 = static_cast<uint32_t>(x >> nHalf);
 					if (x1)
-						ret = nHalf;
-					else
-					{
-						ret = 0;
-						x1 = x;
-					}
+						return PerBits<nHalf>::clz(x1);
 
-					return ret + PerBits<nHalf>::get_BitsUsed(x1);
+					return nHalf + PerBits<nHalf>::clz(static_cast<uint32_t>(x));
 				}
 				else
 				{
 					assert(x <= 1);
-					return static_cast<uint32_t>(x);
+					return !x;
 				}
 			}
 		};
 	}
 
 	template <typename T>
-	inline uint32_t FindHiBit(T x)
+	inline uint32_t clz(T x)
 	{
-		return details::PerBits<sizeof(T) * 8>::get_BitsUsed(x);
+		return details::PerBits<TypeTraits<T>::Bits>::clz(x);
 	}
 
 }
@@ -577,22 +583,22 @@ namespace MultiPrecision
 					}
 					*/
 
-					uint32_t nBits = BitUtils::FindHiBit(val);
-					assert(nBits);
+					uint32_t nz = BitUtils::clz(val);
+					assert(nz < nWordBits);
 
-					if (nWordBits == nBits)
+					if (!nz)
 						SetDivResidNormalized(resid, b);
 					else
 					{
 						UInt<wb> b2;
-						b2.Set_LShift(nWordBits - nBits, b);
+						b2.Set_LShift(nz, b);
 
 						UInt<wa + 1> r2;
-						r2.Set_LShift(nWordBits - nBits, resid);
+						r2.Set_LShift(nz, resid);
 
 						SetDivResidNormalized(r2, b2);
 
-						resid.Set_RShift(nWordBits - nBits, r2);
+						resid.Set_RShift(nz, r2);
 					}
 				}
 				else
@@ -964,14 +970,13 @@ namespace MultiPrecision
         void Normalize()
         {
             // call explicitly only if manipulating directly
-            auto nBits = BitUtils::FindHiBit(m_Num);
-            if (nBits != s_Bits)
+            auto nz = BitUtils::clz(m_Num);
+            if (nz)
             {
-                if (nBits)
+                if (nz != s_Bits)
                 {
-                    uint32_t nDelta = s_Bits - nBits;
-                    m_Num <<= nDelta;
-                    m_Order -= nDelta;
+                    m_Num <<= nz;
+                    m_Order -= nz;
                 }
                 else
                     Set0();
