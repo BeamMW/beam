@@ -1150,22 +1150,27 @@ namespace MultiPrecision
 					m_Num = 0;
 				else
 				{
+					// multiply or divide by power of 10, to bring the binary order to the range [-3, 0]
 					while (true)
 					{
 						if (x.m_Order > 0)
 						{
-							Float f;
-							m_Order += MakeDecimalPower(f, x.m_Order + 3);
-							x = x / f;
+							Context ctx;
+							ctx.m_BinaryThreshold = x.m_Order + 3; // won't overflow, unsigned res will be correct
+							ctx.Calculate();
+							x /= ctx.Export();
+							m_Order += ctx.m_DecimalPwr;
 						}
 						else
 						{
 							if (x.m_Order >= -3)
 								break;
 
-							Float f;
-							m_Order -= MakeDecimalPower(f, -x.m_Order);
-							x = x * f;
+							Context ctx;
+							ctx.m_BinaryThreshold = -x.m_Order; // can't overflow
+							ctx.Calculate();
+							x *= ctx.Export();
+							m_Order -= ctx.m_DecimalPwr;
 						}
 					}
 
@@ -1175,55 +1180,131 @@ namespace MultiPrecision
 
 		private:
 
-			static uint32_t ExpReduce(Float& res, Float cur, uint32_t nDecimal, uint32_t nBinary, uint32_t& nRemaining)
+
+			struct Context
 			{
-				assert(nBinary && (nRemaining >= nBinary));
-
-				uint32_t nB2 = nBinary << 1; // may overflow
-				if ((nB2 < nBinary) || (nB2 > nRemaining))
+				static uint32_t get_Ord(const Float& x)
 				{
-					res = cur;
-					nRemaining -= nBinary;
-					return nDecimal;
+					return x.m_Order + Float::s_Bits - 1;
 				}
 
-				uint32_t ret = ExpReduce(res, cur * cur, nDecimal << 1, nB2, nRemaining);
-				if (nRemaining >= nBinary)
+				uint64_t m_Num;
+				uint32_t m_Ord = 0;
+				uint32_t m_DecimalPwr;
+				uint32_t m_BinaryThreshold;
+
+				Float Export() const
 				{
-					res = res * cur;
-					nRemaining -= nBinary;
-					ret += nDecimal;
+					Float x;
+					x.m_Num = m_Num;
+					x.m_Order = m_Ord + 1 - Float::s_Bits;
+					return x;
 				}
 
-				return ret;
-			}
-
-			static uint32_t MakeDecimalPower(Float& res, uint32_t nBinaryOrder)
-			{
-				uint32_t ret = 0;
-
-				const uint32_t nBinMax = 63u;
-				bool bReduced = (nBinaryOrder >= nBinMax);
-				if (bReduced)
+				bool TryMul(const Float& __restrict__ x, uint32_t nDecimalPwr)
 				{
-					const uint32_t n = Power::LogOf<(uint64_t) -1, 10>::N;
+					uint32_t nOrd = get_Ord(x);
+					assert(nOrd);
+					assert(nOrd < m_BinaryThreshold); // shouldn't try excessive values
 
-					ret = ExpReduce(res, Float(Power::PowerOf<10, n>::N), n, nBinMax, nBinaryOrder);
-				}
+					if (m_Ord)
+					{
+						uint32_t nOrdNext = nOrd + m_Ord;
+						if (nOrdNext >= m_BinaryThreshold)
+							return false;
 
-				if (nBinaryOrder < nBinMax)
-				{
-					uint64_t val;
-					ret += Power::Log<uint64_t, 10>(val, 1ull << nBinaryOrder);
+						Float res = Export() * x;
+						nOrdNext = get_Ord(res);
+						if (nOrdNext >= m_BinaryThreshold)
+							return false;
 
-					if (bReduced)
-						res = res * Float(val);
+						if (nOrdNext < m_Ord)
+							return false; // overflow
+
+						// ok
+						m_Num = res.m_Num;
+						m_Ord = nOrdNext;
+						m_DecimalPwr += nDecimalPwr;
+					}
 					else
-						res.Set(val);
+					{
+						m_Num = x.m_Num;
+						m_Ord = nOrd;
+						m_DecimalPwr = nDecimalPwr;
+					}
+
+					return true;
 				}
 
-				return ret;
-			}
+				void ExpReduce()
+				{
+					assert((m_Ord > 0) && (m_Ord < m_BinaryThreshold));
+
+					Float cur = Export();
+					uint32_t nDecimal = m_DecimalPwr;
+
+					if (!TryMul(cur, nDecimal))
+						return;
+
+					ExpReduce(); // recursive
+
+					TryMul(cur, nDecimal);
+				}
+
+				bool TryMul2(uint32_t nPwr2)
+				{
+					assert(nPwr2 < s_Bits);
+					assert(nPwr2 > 3);
+
+					uint64_t val;
+					uint32_t nPwr10 = Power::Log<uint64_t, 10>(val, 1ull << nPwr2);
+
+					return TryMul(Float(val), nPwr10);
+				}
+
+				void TryMulStrict(uint32_t nPwr2)
+				{
+					bool b = TryMul2(nPwr2);
+					assert(b);
+				}
+
+				void Calculate()
+				{
+					// Calculate 10^d <= 2^nBinaryOrder
+					assert(m_BinaryThreshold > 3);
+
+					const uint32_t nBinMax = s_Bits - 1;
+					if (m_BinaryThreshold <= nBinMax)
+					{
+						TryMulStrict(m_BinaryThreshold);
+						return;
+					}
+
+					const uint32_t nPwr10 = Power::LogOf<(uint64_t)-1, 10>::N;
+					const uint64_t base = Power::PowerOf<10, nPwr10>::N;
+					static_assert(Power::LogOf<base, 2>::N <= nBinMax);
+
+					bool b = TryMul(Float(base), nPwr10);
+					assert(b);
+					ExpReduce();
+
+					uint32_t nPwr2 = m_BinaryThreshold - m_Ord;
+					assert(nPwr2 <= nBinMax + 1); // m_Ord is rounded down, nPwr2 is rounded up
+
+					if (nPwr2 <= 3)
+						return;
+
+					if ((nPwr2 <= nBinMax) && TryMul2(nPwr2))
+						return;
+
+					--nPwr2;
+					if (nPwr2 <= 3)
+						return;
+
+					TryMulStrict(nPwr2);
+				}
+			};
+
 		};
 
 
