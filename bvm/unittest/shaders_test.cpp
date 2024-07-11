@@ -2739,6 +2739,15 @@ namespace bvm2 {
 				if (a < b)
 					std::swap(a, b);
 
+				if (!(i % 10))
+				{
+					// test zeroes too
+					b = 0;
+
+					if (i == 40)
+						a = 0;
+				}
+
 				args1.m_Arg1 = a;
 				args1.m_Arg2 = b;
 				args1.m_Op = 1; // subtract
@@ -2771,8 +2780,9 @@ namespace bvm2 {
 				verify_test(c == a - b);
 
 				// check negative subtraction. Make sure result fits in int64_t (for comparison)
-				b >>= 1;
-				a >>= 1;
+				b >>= 2;
+				a >>= 2;
+				// b - a
 				args2.m_Arg1 = b;
 				args2.m_Arg2 = a;
 
@@ -2787,6 +2797,79 @@ namespace bvm2 {
 				int64_t d;
 				verify_test(args2.m_Arg1.RoundDown(d));
 				verify_test(d == static_cast<int64_t>(b - a));
+
+				// b - (-a)
+				args2.m_Arg1 = b;
+				args2.m_Arg2 = a;
+				args2.m_Arg2.Negate();
+				verify_test(args2.m_Arg1 >= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == static_cast<int64_t>(b + a));
+
+				// (-b) - (-a)
+				args2.m_Arg1 = b;
+				args2.m_Arg2 = a;
+				args2.m_Arg1.Negate();
+				args2.m_Arg2.Negate();
+				verify_test(args2.m_Arg1 >= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == static_cast<int64_t>(a - b));
+
+				// (-b) - a
+				args2.m_Arg1 = b;
+				args2.m_Arg2 = a;
+				args2.m_Arg1.Negate();
+				verify_test(args2.m_Arg1 <= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == -static_cast<int64_t>(a + b));
+
+				// a + b
+				args2.m_Op = 0; // add
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+
+				verify_test(args2.m_Arg1.RoundDown(c));
+				verify_test(c == a + b);
+
+				args1.m_Op = 0; // add
+				args1.m_Arg1 = a;
+				args1.m_Arg2 = b;
+				verify_test(RunGuarded_T(cid, args1.s_iMethod, args1));
+
+				verify_test(args1.m_Arg1.RoundDown(c));
+				verify_test(c == a + b);
+
+				// a + (-b)
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				args2.m_Arg2.Negate();
+				verify_test(args2.m_Arg1 >= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == static_cast<int64_t>(a - b));
+
+				// (-a) + b
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				args2.m_Arg1.Negate();
+				verify_test(args2.m_Arg1 <= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == static_cast<int64_t>(b - a));
+
+				// (-a) + (-b)
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				args2.m_Arg1.Negate();
+				args2.m_Arg2.Negate();
+				verify_test(args2.m_Arg1 <= args2.m_Arg2);
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				verify_test(args2.m_Arg1.RoundDown(d));
+				verify_test(d == -static_cast<int64_t>(a + b));
 			}
 		}
 
