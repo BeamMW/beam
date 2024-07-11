@@ -3,7 +3,7 @@
 <!-- WELCOME TO BEAM SMART EXPLORER!
 - This is an interactive web display of the data queried to a Beam explorer node.
 - The IP address of the explorer node can be changed in var 'urlPrefix'.
-- Current version of the file: v0.4
+- Current version of the file: v0.5
 
 General rules for developement:
 - Let's keep everything in one single standalone file!
@@ -32,17 +32,18 @@ Disclaimer:
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
   <title>Beam Smart Explorer</title>
 
-  
 <!-- ------------ SECTION 1 - CSS STYLES ------------ --> 
 <style>
 
 	/* GENERAL ELEMENTS */
 	* {
   		box-sizing: border-box; /* Width and height will always include padding and border */
-		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
 	}
 	html {
+		font-family: Arial, Helvetica, sans-serif; /* Default fonts */
  		font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
+		line-height: 1; /* From a CSS reset template... */
+		margin: 0; /* From a CSS reset template... */
 	}
 	:root {
  		background: #d0daff; /* Default background color for all pages */
@@ -52,37 +53,37 @@ Disclaimer:
 	:link:active, :visited:active { color: #3e1a8b; }
 	p {
 		font-size: 1.6rem;
-		margin: 5px;
+		padding: 5px 0 5px 0;
 	}
 	ul {
 		font-size: 1.4rem;
-		padding: 0px 10px 0px 15px;
+		padding: 0 10px 0 15px;
 		text-align: left;
 	}
 	div > ul {
-		padding: 0px 10px 0px 35px;  /* Wide first bullet point level when not in table cells */
+		padding: 0 10px 0 35px;  /* Wide first bullet point level when not in table cells */
 	}
 	td ul {
-		padding: 0px 10px 0px 15px; /* Tight bullet points when inside table cells */
+		padding: 0 10px 0 15px; /* Tight bullet points when inside table cells */
 	}
 	ul li {
-		padding: 2px 0px 0px 2px;
+		padding: 2px 0 0 2px;
 	}
 	h1 {
 		font-size: 3.2rem;
 		text-align: center;
-		margin: 10px 0px 10px 0px;
+		margin: 10px 0 10px 0;
 	}
 	h2 {
 		font-size: 2.4rem;
 		text-align: left;
-		margin: 15px 0px 10px 0px;
+		margin: 15px 0 10px 0;
 	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
 		color: #17204e;
-		margin: 10px 0px 15px 0px;
+		margin: 10px 0 15px 0;
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
@@ -92,21 +93,42 @@ Disclaimer:
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
+	h2 .blockHeight a {
+		color: #17204e;
+	}
 	.blockTitle {
 		white-space: nowrap; /* Don't wrap text */
 	}
 	.blockTitle .blockHeight {
 		font-weight: bold;
 	}
-	#LinkToBlocksHeaders {
+	.listOfBlockHeaders {
+		cursor: pointer;
+		fill: #777ebc;
 		display: inline-block;
+		vertical-align: top; /* Needed to align text and symbol */
 	}
-	#LinkToBlocksHeaders a, .olderBlocks a, .newerBlocks a {
-		text-decoration-line:none;
-		color:#0066CC;
+	.listOfBlockHeaders:hover {
+		fill: #555fb8;
 	}
-	#LinkToBlocksHeaders a:hover, .olderBlocks a:hover, .newerBlocks a:hover {
-		color:#003399;
+	.nextBlock, .previousBlock, .newerBlocks, .olderBlocks {
+		cursor: pointer;
+		stroke: #777ebc;
+		display: inline-block;
+		vertical-align: middle; /* Needed to align text and symbol */
+	}
+	.nextBlock a, .previousBlock a, .newerBlocks a, .olderBlocks a { /* Needed for Chrome 83 */
+		stroke: #777ebc;
+	}
+	.nextBlock a:hover, .previousBlock a:hover, .newerBlocks a:hover, .olderBlocks a:hover {
+		stroke: #555fb8;
+	}
+	.nextBlock.off, .previousBlock.off, .newerBlocks.off, .olderBlocks.off { /* Dim out when disabled */
+		cursor: default;
+		stroke: lightgrey;
+	}
+	.nextBlock.off:hover, .previousBlock.off:hover, .newerBlocks.off:hover, .olderBlocks.off:hover {
+		stroke: lightgrey;
 	}
 	.assetName {
 		color: black;
@@ -114,46 +136,6 @@ Disclaimer:
 	}
 	.assetName a {
 		color: black; /* Keep links in black */
-	}
-	.metadata {
-		font-family: "Lucida Console", ui-monospace, monospace;
-		color: #505050;
-		font-size: 1.2rem;
-		white-space: nowrap; /* To ensure that the symbol stays inline with text */
-	}
-	/* Display full metadata */
-	.metadata .full {
-		display: inline-block; /* Needed to allow setting a max-width */
-		max-width: 80ch; /* Wrap long strings after 80 characters */
-		white-space: pre-wrap;
-		word-wrap: break-word; /* Allow breaking words to next line */
-		font-family: inherit;
-	}
-	/* Display reduced metadata */
-	.metadata .reduced {
-		display: inline-block; /* Needed to allow setting a max-width */
-		max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-family: inherit;
-	}
-	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
-	.metadata .reduced + .extend {
-		display: inline; /* Superseed the HTML 'hidden' attribute */
-		visibility: hidden; /* Hide the symbols but maintain their space */
-		cursor: pointer;
-		font-size: 1.8rem;
-		color: grey;
-		vertical-align: text-bottom; /* This is to align correctly the symbol with the text */
-	}
-	/* Display the extend symbols when hovering over the cell or the span containing a truncated text */
-	td:hover .metadata .reduced + .extend, span:hover .metadata .reduced + .extend {
-		visibility: visible;
-	}
-	/* Highlight the symbol when hovering on it */
-	.extend:hover {
-		color: #2c2c2c !important; /* I don't know why !important is needed here... */
 	}
 	.bool {
 		font-family: "Lucida Console", ui-monospace, monospace;
@@ -171,18 +153,59 @@ Disclaimer:
 		font-size: 1.2rem;
 		color: #650000;
 	}
+	.metadata {
+		font-family: "Lucida Console", ui-monospace, monospace;
+		display: table; /* We use table-like display to ensure that text and symbol stay inline */
+		color: #505050;
+		font-size: 1.2rem;
+		vertical-align: middle; /* Needed to align text and symbol */
+	}
+	/* Display full metadata */
+	.metadata .full {
+		font-family: inherit;
+		display: table-cell; 
+		max-width: 80ch; /* Wrap long strings after 80 characters */
+		white-space: pre-wrap; /* Wrap and preserve all space */
+		overflow-wrap: break-word; /* Break words when needed (similar to the old word-wrap) */
+	}
+	/* Display reduced metadata */
+	.metadata .reduced {
+		font-family: inherit;
+		display: table-cell;
+		max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
+		white-space: nowrap; /* Don't wrap text */
+		overflow: hidden; /* Hide text that overflows */
+		text-overflow: ellipsis; /* Add '...' when overflowing */
+	}
+	/* Remark: The extend symbols are hidden by default in the HTML */
+	.extend {
+		vertical-align: middle; /* Needed to align text and symbol */
+		visibility: hidden; /* Hide the symbols but maintain their space */
+		display: table-cell;
+		cursor: pointer;
+		fill: #aaaaaa;
+		padding: 0 0 0 3px;
+	}
+	/* Display the extend symbols when hovering over the element containing the text */
+	*:hover > .metadata .extend {
+		visibility: visible;
+	}
+	/* Highlight the symbol when hovering on it */
+	.extend:hover {
+		fill: grey;
+	}
 	.cid, .kernelId, .blob, .commitment {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
 		color: #525252;
 		white-space: nowrap;
 		display: inline;
-		vertical-align: middle;
+		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252; /* Keep links black */
+		color: #525252; /* Keep links grey */
 		text-decoration-line: underline;
 		text-decoration-color: grey; /* Use a light underline color */
 	}
@@ -190,37 +213,40 @@ Disclaimer:
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
-	/* Display truncated texts */
+	/* Display truncated hashes */
 	.truncated {
+		font-family: inherit;
+		vertical-align: middle; /* Needed to align text and symbol */
 		display: inline-block; /* Needed to allow setting a max-width */
 		max-width: 25ch; /* Show only the 25 first characters */
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-family: inherit;
+		overflow: hidden;  /* Hide text that overflows */
+		text-overflow: ellipsis;  /* Add '...' when overflowing */
 	}
+	/* Display extended hashes */
 	.expanded {
 		font-family: inherit;
+		vertical-align: middle; /* Needed to align text and symbol */
 	}
-	/* The extend symbols are hidden by default in the HTML. We show them only if right after a truncated element */
-	.truncated + .expand {
+	/* The extend symbols are hidden by default in the HTML */
+	.expand {
+		vertical-align: middle; /* Needed to align text and symbol */
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
-		font-size: 1.8rem;
-		color: grey;
-		position: relative;
+		fill: #aaaaaa;
+		padding: 0 0 0 3px;
 	}
-	/* Display the expand symbols when hovering over the cell or the list item containing a truncated text */
-	td:hover .truncated + .expand, li:hover > span .truncated + .expand {
+	/* Display the expand symbols when hovering over the cell or the list item containing the text */
+	*:hover > span > .expand {
 		visibility: visible;
 	}
 	/* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
-	.truncated.withLink:hover + .expand {
+	span.withLink:hover + .expand {
 		visibility: hidden;
 	}
 	/* Highlight the symbol when hovering on it */
 	.expand:hover {
-		color: #2c2c2c;
+		fill: grey;
 	}
 	.amount {
 		font-family: "Lucida Console", ui-monospace, monospace;
@@ -278,7 +304,7 @@ Disclaimer:
 	.tableFunds_compact, .tableFunds_full {
 		width: 100%; /* Occupy full width of the column they appear in */
 	}
-	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory {
+	.tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory, .tableHistoricalBlocks {
 		/* Nothing special */
 	}
 	.contractCall {
@@ -293,10 +319,26 @@ Disclaimer:
 	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
 	table tbody > tr:nth-child(odd) { background-color: #fff; }
 	table tbody > tr:nth-child(even) { background-color: #eee; }
+	/* Highlight when hover on main rows (for certain tables only) */
+	.tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
+	.tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
+	.tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
+	.divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
+		background-color: #e0e0f0;
+	}
 
 	/* TITLE BANNER AND FOOTER */
+	#Page-container {
+ 		position: relative;
+		min-height: 96vh; /* Always use the whole screen space, so that the footer stays at the bottom */
+		min-width: 97vh;
+		padding: 8px;
+	}
+	#Content-wrap {
+		padding-bottom: 1.8rem; /* Leave some space for the footer */
+	}
 	#Banner {
-		width: 97vw;
+		width: 100%;
 		display: table;
 		background-color: #a7acd9;
 		border-radius: 0.5em; /* Slightly round corners */
@@ -307,8 +349,6 @@ Disclaimer:
 		display: table-cell;
 		vertical-align: middle;
 		text-align: left;
-		min-height: 50px;
-		min-width: 50px;
 	}
 	#BannerCenter{
 		display: table-cell;
@@ -321,7 +361,7 @@ Disclaimer:
 	#BeamTitle {
 		font-size: 2.4rem;
 		color: #17204e;
-		margin: 0px 0px 5px 0px;
+		margin: 0 0 5px 0;
 	}
 	#Version {
 		font-size: 1rem;
@@ -336,7 +376,7 @@ Disclaimer:
 	}
 	.menuSeparator {
 		color: #17204e;
-		padding: 0px 5px 0px 5px;
+		padding: 0 5px 0 5px;
 	}
 	#Navigation {
 		display: table-cell;
@@ -344,21 +384,18 @@ Disclaimer:
 		text-align: center;
 		font-size: 2rem;
 		color: #525252;
-		padding: 0px 10px 0px 10px;
+		padding: 0 10px 0 10px;
 		line-height: 1; /* Without units it's a number of lines */
 	}
 	#Navigation a {
 		color: #525252;
 		text-decoration-line: none;
 	}
-	#Reload {
-		font-weight: bold;
+	#Back *, #Reload *, #ExpandAll * {
+		fill: #636785; /* Color all SVG elements */
 	}
-	#Back, #ExpandAll {
-		/* Nothing special */
-	}
-	#Reload:hover, #Back:hover, #ExpandAll:hover {
-		color: #2c2c2c;
+	#Back:hover *, #Reload:hover *, #ExpandAll:hover * {
+		fill: #505050; /* Color all SVG elements */
 	}
 	#TopButton, #BottomButton {
 		position: fixed; /* Fixed position */
@@ -388,23 +425,78 @@ Disclaimer:
 		opacity: 0.9; /* Less transparent on hover */
 		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
 	}
-	.footer, .footer a {
-		width: 97vw;
+	#Footer {
+		position: absolute;
+		bottom: 0;
+		width: 100%;
 		text-align: center;
-		font-size: 1.2rem;
 		color: #17204e;
-		text-decoration: none;
 		font-weight: bold;
 		white-space: nowrap; /* Don't wrap text */
-		padding: 20px 5px 0px 5px;
+		font-size: 1.2rem;
+		height: 1.8rem; /* Footer height */
 	}
-	.footer::before {
+	#Footer a {
+		color: #17204e;
+		text-decoration: none;
+	}
+	#Footer a:hover {
+		text-decoration: underline;
+	}
+	#Footer::before {
 		content: "\25b8"; /* Nice useless decoration ;-) */
 		color: #17204e;
 	}
-	.footer::after {
+	#Footer::after {
 		content: "\25c2"; /* Nice useless decoration ;-) */
 		color: #17204e;
+	}
+	#Loading {
+		/* Nothing special */
+	}
+
+	/* SPECIAL HISTORICAL BLOCKS */
+	.specialBlock_Title {
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #17204e;
+		padding: 5px 2px 5px 2px;
+	}
+	.specialBlock_Title::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+	}
+	.specialBlock_Description {
+		font-size: 1.3rem;
+		color: black;
+		line-height: 1.7rem;
+		padding: 2px 2px 10px 2px;
+	}
+	.specialBlock_Description br { /* Dirty hack to add line spacing to 'br' tag... */
+		display: block;
+		content: " ";
+		margin: 0.3rem 0 0.3rem 0;
+	}
+	.specialBlock_Description a {
+		color: #2d3799;
+		font-weight: bold;		
+	}
+	.specialBlock_Link {
+		font-size: 1.2rem;
+		color: grey;
+		line-height: 1.3rem;
+		padding: 2px;
+	}
+	.specialBlock_Link:first-child {
+		padding-top: 20rem;
+	}
+	.specialBlock_Link:last-child {
+		padding-bottom: 1rem;
+	}
+	.specialBlock_Link a {
+		color: grey;
+	}
+	.specialBlock_Link::before {
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
 	}
 
 	/* COLLAPSIBLE BLOCKS */
@@ -414,7 +506,7 @@ Disclaimer:
 		width: fit-content; /* Will have the width of its full content */
 	}
 	.collapsible-checkbox {
-	    display: none; /* Hide the actual checkbox (clicking will happen on its label only) */
+		display: none; /* Hide the actual checkbox (clicking will happen on its label only) */
 	}
 	/* Normal collapsible header */
 	.collapsible-label {
@@ -424,7 +516,7 @@ Disclaimer:
 		white-space: nowrap; /* Never wrap text */
 		cursor: pointer;
 		font-size: 1.5rem;
-		margin: 15px 0px 0px 0px;
+		margin: 15px 0 0 0;
 		color: white;
 		background-color: #777ebc;
 		padding: 10px;
@@ -443,7 +535,7 @@ Disclaimer:
 		font-size: 1.2rem;
 		color: black;
 		background-color: #b8bbd8;
-		margin: 0px 0px 0px 0px;
+		margin: 0;
 		padding: 2px 5px 2px 5px;
 		border-radius: 0.25em; /* Slightly round corners */
 	}
@@ -471,7 +563,7 @@ Disclaimer:
 	.collapsible-content {
 		display: block;
 		width: 100%;
-		height: 0px; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
+		height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
 		background-color: white;
 	}
@@ -587,58 +679,77 @@ Disclaimer:
 <body>
 <!-- ------------ SECTION 2 - STATIC HTML ------------ --> 
 
-	<!-- Fixed banner on all pages -->
-	<div id="Banner">
-		<span id="BeamLogo">
-			<!-- Clicking on the logo sends back to the main page -->
-			<a href='?' title='Main page'>
-				<!-- An SVG version of the BEAM logo -->
-				<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' height='50' width='50' viewBox='42 42 460 460'><defs><style>.cls-1 {fill: #0b1624;} .cls-2 {fill: #24c1ff;} .cls-3 {fill: #0b76ff;} .cls-4 {fill: #39fff2;} .cls-5 {fill: #00e2c2;} .cls-6 {fill: url(#Ray1_gradient);} .cls-7 {fill: url(#Ray2_gradient);} .cls-8 {fill: url(#Ray3_gradient);} .cls-9 {fill: url(#Ray4_gradient);} </style><linearGradient id='Ray1_gradient' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Ray2_gradient' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Ray3_gradient' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Ray4_gradient' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><g id='logo_in_circle' data-name='logo in circle'><circle id='circle' class='cls-1' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' class='cls-2' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' class='cls-3' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' class='cls-4' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' class='cls-5' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' class='cls-6' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' class='cls-7' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' class='cls-8' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' class='cls-9' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></g></svg>
-			</a>
-		</span>
-		<span id="BannerCenter">
-			<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.4</span></h1>
-			<div id="Menu">
-				<!-- Main explorer menu -->
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
-				<span class="menuSeparator"> | </span>
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
-				<span class="menuSeparator"> | </span>
-				<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+	<!-- Wrappers (added just to keep footer at the bottom) -->
+	<div id="Page-container">
+		<div id="Content-wrap">
+
+			<!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
+			<!-- Remark: We don't define any fixed size here, so that they will adapat to the SVG size what will call them. -->
+			<!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
+			<svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
+			<svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
+			<svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
+			<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
+			<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+			<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+
+			<!-- Fixed banner on all pages -->
+			<div id="Banner">
+				<span id="BeamLogo">
+					<!-- Clicking on the logo sends back to the main page -->
+					<a href='?' title='Main page'>
+						<!-- A simplified SVG version of the BEAM logo -->
+						<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+					</a>
+				</span>
+				<span id="BannerCenter">
+					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.5</span></h1>
+					<div id="Menu">
+						<!-- Main explorer menu -->
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+						<span class="menuSeparator"> | </span>
+						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=historical';" title="List of special historical blocks">Historical blocks</a></span>
+					</div>
+				</span>
+				<!-- Banner symbols for special functions -->
+				<span id="Navigation">
+					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
+					<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
+				</span>
 			</div>
-		</span>
-		<!-- Banner symbols for special functions -->
-		<span id="Navigation">
-			<a id="Reload" href="" title="Reload">&orarr;</a>
-			<br><a id="Back" href="javascript:history.back();" title="Back">&#11013;</a> <!-- &#129048; was better but is apparently not recognized by Safari... -->
-			<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything">&#128065;</a>
-		</span>
+
+			<!-- Floating buttons to scroll up and down -->
+			<div>
+				<button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
+				<button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
+			</div>
+
+			<!-- Main content area (will be replaced through Javascript) -->
+			<div id="my_content">
+				<h2 id="Loading">Loading...</h2>
+			</div>
+
+		</div>
+
+		<!-- Fixed footer on all pages -->
+		<div id='Footer'><a href='https://www.beam.mw'>www.beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm" title="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
+
+		<!-- No JavaScript warning -->
+		<noscript>You need to enable JavaScript to run this app.</noscript>
+
 	</div>
-
-	<!-- Floating buttons to scroll up and down -->
-	<div>
-		<button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
-		<button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
-	</div>
-
-	<!-- Main content area (will be replaced through Javascript) -->
-	<p id="my_content">
-		<br><br>Loading...<br><br>
-	</p>
-
-	<!-- Fixed footer on all pages -->
-	<div class='footer'><a href='https://www.beam.mw'>www.beam.mw</a></div>
-
-	<!-- No JavaScript warning -->
-	<noscript>You need to enable JavaScript to run this app.</noscript>
-
 
 <!-- ------------ SECTION 3 - CORE JS FUNCTIONS ------------ --> 
 <script>
 
-	function MakeRef(link, text)
+	function MakeRef(link, text, target="_self")
 	{
-		return "<a href='" + link + "'>" + text + "</a>";
+		return "<a href='" + link + "' target='" + target + "'>" + text + "</a>";
 	}
 
 	function UrlSelf(type, extra="")
@@ -686,6 +797,11 @@ Disclaimer:
 	function AddClassEx(txt,className,other)
 	{
 		return "<span class='" + className + "' " + other + ">" + txt + "</span>";
+	}
+
+	function AddClassDiv(txt,className,other="")
+	{
+		return "<div class='" + className + "' " + other + ">" + txt + "</div>";
 	}
 
 	function UrlBlock(h)
@@ -779,7 +895,7 @@ Disclaimer:
 	function Obj2HtmlSpecial(obj)
 	{
 		//console.log(JSON.stringify(obj))
-	
+
 		if (obj.type == "cid")
 			return MakeCid(obj.value);
 
@@ -805,7 +921,7 @@ Disclaimer:
 			return MakeAsset(obj.value);
 
 		if (obj.type == "height")
-			return AddClass(MakeBlock(obj.value), "blockHeight");
+			return MakeBlock(obj.value);
 
 		if (obj.type == "blob")
 			return AddClassEx(obj.value, "blob", "title='" + obj.value + "'");
@@ -881,8 +997,6 @@ Disclaimer:
 		addFilterOption();
 	}
 	
-	let g_CurrentID = "";
-
 	function DisplayContracts()
 	{
 		let text = "\
@@ -952,7 +1066,7 @@ Disclaimer:
 		
 		}
 		
-		text += "</table>"    
+		text += "</table>"
 		SetContent(text);
 	}
 
@@ -1120,16 +1234,18 @@ Disclaimer:
 		
 		text += "<h2 class='blockTitle'>";
 		if (g_CurrentID > 0) {
-			text += "<span id='LinkToBlocksHeaders'><a href='" + UrlSelf("hdrs", "&hMax=" + g_CurrentID) + "' title='List of blocks below this one'>&#128463;</a></span> ";
-			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "&#10094;"),"olderBlocks","title='Previous block'");
-			text += " ";
+			text += AddClassEx(MakeRef(UrlSelf("hdrs", "&hMax=" + g_CurrentID), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
+			text += "&nbsp;";
 			text += "Block " + AddClass(g_CurrentID, "blockHeight");
+			text += "&nbsp;";
+			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 		}
-		else
+		else {
 			text += "Treasury";
-
-		text += " ";
-		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "&#10095;"),"newerBlocks","title='Next block'");
+			text += "&nbsp;";
+			text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+		}
+		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		text += "</h2>"
 
 		const jData = JSON.parse(this.responseText);
@@ -1416,10 +1532,10 @@ Disclaimer:
 		//const jTbl = jData["value"];
 
 		let text = "<h2>\n"
-		// Arrows &#129092; and &#129094; were better but apparently not recognized by Safari... :-(
-		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "&#10094;&nbsp;"),"olderBlocks","title='Previous blocks'");
 		text += "Block headers";
-		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "&nbsp;&#10095;"),"newerBlocks","title='Newer blocks'");
+		text += "&nbsp;";
+		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
+		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
 		text += "</h2>\n"
 		text += "<div class='divTableBlocks'>";
 
@@ -1438,7 +1554,6 @@ Disclaimer:
 		text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
 		text += Obj2Html(jData);
 		text += "</div>"
-		text += MakeCollapsibleEnd();
 
 		SetContent(text);
 	}
@@ -1447,28 +1562,229 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 
-		let text = "<h2>\n"
+		let text = "<h2>\n";
 		if (g_CurrentID) {
-			text += "Confidential Assets at block height ";
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "&#10094;&nbsp;"),"olderBlocks","title='Previous Block'");
-			text += MakeBlock(g_CurrentID);
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "&nbsp;&#10095;"),"newerBlocks","title='Next Block'");
+			text += "Confidential Assets at block height " + MakeBlock(g_CurrentID);
+			text += "&nbsp;";
+			if (g_CurrentID > 1) {
+				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+			} else {
+				text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+			}
+			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		} else {
 			text += "Current Confidential Assets";
 		}
-		text += "</h2>\n"
+		text += "</h2>\n";
 
 		text += MakeTblAssets(jData);
 
 		SetContent(text);
 	}
 
+	function DisplayHistoricalBlocks()
+	{
+		let text = "<h2>Special historical blocks</h2>";
+		text += "<table class='tableHistoricalBlocks'>\n\
+			<thead><tr>\n\
+				<th>Height</th>\n\
+				<th>Description</th>\n\
+			</tr></thead>\n";
+
+		for (let n in specialBlocks)
+		{
+			let obj = specialBlocks[n];
+
+			text += "<tr>";
+
+			let blocks = "";
+			if ("block_list" in obj) {
+				for (let i in obj.block_list) { blocks += MakeBlock(obj.block_list[i]) + "<br>" }
+			}
+			if ("block_range" in obj) {
+				blocks += MakeBlock(obj.block_range[0]) + "<br>to " + MakeBlock(obj.block_range[1])
+			}
+			text += MakeCellRA(blocks);
+
+			let desc = "";
+			if (obj.title) { desc += AddClassDiv(obj.title,"specialBlock_Title") }
+			if (obj.description) { desc += AddClassDiv(obj.description,"specialBlock_Description") }
+			if (obj.links) {
+				for (let i in obj.links) { desc += AddClassDiv(obj.links[i][0] + "&nbsp;: " + MakeRef(obj.links[i][1],obj.links[i][1],"_blank"),"specialBlock_Link") }
+			}
+			text += MakeCell(desc);
+
+			text += "</tr>";
+		}
+		text += "</table>";
+
+		SetContent(text);
+	}
+
+	// GLOBAL VARIABLES
+
+	// Array of objects listing the special historical blocks.
+	// Remarks:
+	// - Description can (and should) contain links to interesting explorer pages.
+	// - External links are provided afterwards.
+	// - "block_list" is used for a one or several individual blocks, "block_range" for all blocks between two.
+	// - The list shall be completed: important tokens, first atomic swap, important smart contracts (Nephrite, DEX, Oracle, etc.).
+	const specialBlocks = [
+		{
+			block_list: [0],
+			title: "Treasury",
+			description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This Treasury is represented in the explorer as a <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='List Treasury UTXOs'>60 such groups</a>.",
+			links: [
+				["Beam emission schedule","https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259"],
+				["Beam Foundation","https://www.beam-foundation.org"],
+				["Treasury checksum","https://github.com/BeamMW/beam/blob/master/core/block_crypt.cpp#L2120"]
+			]
+		},
+		{
+			block_list: [1],
+			title: "Genesis block",
+			description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1\"' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+			links: [
+				["Original MimbleWimble paper","https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt"],
+				["First Beam Medium post","https://medium.com/beam-mw/introducing-beam-f35096a923ec"],
+				["Bitcointalk announcement","https://web.archive.org/web/20200506044733/https://bitcointalk.org/index.php?topic=5052151"],
+				["Mainnet launch","https://medium.com/beam-mw/mimblewimble-mainnet-release-notes-8766e49e241d"],
+				["Bitcoin's hash in Beam's genesis block","https://github.com/BeamMW/beam/blob/92bbc3137dfeb186a99935c3436c03871c188234/core/block_crypt.cpp#L2045"],
+			]
+		},
+		{
+			block_range: [25709, 25820],
+			title: "Blockchain Stop Event",
+			description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25710&nMax=2\"'>for 2.5 hours</a>, and no transactions were processed for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25822&nMax=114\"' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25820\"'>25820</a> and <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25822\"'>25822</a> processed all the pending ones. No funds were lost.",
+			links: [ ["Postmortem analysis","https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813"] ]
+		},
+		{
+			block_list: [321321],
+			title: "First Hard-Fork",
+			description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in difficulty was observed as not all miners performed a timely upgrade. However, after <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=322327&nMax=1010\"' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the hashrate had gone back to its pre-fork value.",
+			links: [ ["Medium post","https://medium.com/beam-mw/mimblewimble-hard-fork-first-completed-1171f9642e51"] ]
+		},
+		{
+			block_list: [525600,525601],
+			title: "First Halving",
+			description: "As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years.",
+			links: [ ["Substack post","https://beamprivacy.substack.com/p/beam-2020-week-1-happy-halving"] ]
+		},
+		{
+			block_list: [777777],
+			title: "Second Hard-Fork",
+			description: "Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'><b>Confidential Assets</b></a> (sometimes also called 'Privacy Tokens', and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).",
+			links: [
+				["Medium post","https://medium.com/beam-mw/hard-fork-completed-72e8f1edb10b"],
+				["BeamHash III presentation","https://docs.beam.mw/Beam_Hash_III_Slides.pdf"],
+				["BeanHass III video","https://www.youtube.com/watch?v=WC3aCWCWxB4"]
+			]
+		},
+		{
+			block_list: [778579],
+			title: "First Lelantus-MW transaction",
+			description: "<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to MimbleWimble, thanks to its use of similar cryptographic primitives. Contrary to MimbleWimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
+			links: [
+				["Lelantus paper","https://lelantus.io/lelantus.pdf"],
+				["Lelantus-MW adaptation","https://github.com/BeamMW/beam/wiki/Lelantus-MW"]
+			]
+		},
+		{
+			block_list: [778857],
+			title: "First input UTXO from a Shielded Pool",
+			description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2878666\"'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
+			links: null
+		},
+		{
+			block_list: [780219],
+			title: "Creation of the first Confidential Asset",
+			description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=780219\"'>created</a>. Although it has changed named since then, and seems to be <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=1\"'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=9\"'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2893306\"' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868\"' title='Smart contract call history'>Beam Asset Minter</a>.",
+			links: [
+				//["Tico website","https://www.ticotip.me"],
+				["Tico's first anniversary","https://ticotipme.substack.com/p/tico-turns-1"],
+				["Tico Telegram group","https://t.me/ticotipme"]
+			]
+		},
+		{
+			block_list: [1280000],
+			title: "Third Hard-Fork (and wallet v6.0)",
+			description: "This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. 'Shaders'), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"'>we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide 'efficient' markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful 'Privacy DeFi' (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!",
+			links: [
+				["Medium post","https://medium.com/beam-mw/hard-fork-completed-1608eb5ce439"],
+				["Beam smart contracts introduction","https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts"],
+				["Smart contracts documentation","https://beamx.gitbook.io/developer-documentation/beam-shaders"],
+				["Some insights on the design","https://medium.com/beam-mw/beams-smart-contract-design-insights-from-the-lead-developer-df2aeabf02c4"]
+			]
+		},
+		{
+			block_list: [1280003],
+			title: "Deployment of the first Smart Contract",
+			description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1280003\"' title='Block details'>1280003</a>. The contract is a simple <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716\"' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440\"' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b\"' title='Smart contract call history'>Oracle</a> and the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a>).",
+			links: [ ["Examples of smart contracts","https://github.com/BeamMW/beam/tree/master/bvm/Shaders"] ]
+		},
+		{
+			block_list: [1464852],
+			title: "BeamX creation",
+			description: "The <b>BeamX</b> confidential asset (<a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=7\"' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b\"' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
+			links: [
+				["The BeamX DAO","https://www.beamxdao.org"],
+				["The BeamX token","https://medium.com/beam-mw/introducing-beamx-privacy-by-default-maximum-confidentiality-defi-ecosystem-629670b905ba"]
+			]
+		},
+		{
+			block_list: [1466500],
+			title: "Start of the first BeamX staking campaign",
+			description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&nMax=200\"' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&\"' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
+			links: [
+				["First BeamX reward campaign","https://medium.com/@beam_privacy/heres-everything-you-need-to-know-to-prepare-for-beam-staking-108eef344f7d"],
+				["Details on the campaign","https://medium.com/beam-mw/beamers-hodlers-beam-staking-is-coming-513bd196af57"]
+			]
+		},
+		{
+			//block_list: [1790000],
+			block_list: [1820000],
+			title: "Fourth Hard-Fork (and wallet v7.0)",
+			description: "This hard-fork introduced <b>'High-Frequency Transactions' (HFTX)</b> on both node and wallet sides, and <b>IPFS storage integration</b> on the wallet side. HFTX improve resistance to MEV, front-running and sandwich attacks by defining strict inclusion rules for transactions, thus protecting users from unwanted outcomes (as the submitted transactions can only be included into a block in their exact specific sequence).<br>On the wallet side, the IPFS integration allows storing data (such as NFTs) efficiently in a decentralized manner while reducing blockchain bloat. Thus, every Beam wallet today is at the same time a <b>blockchain node</b> (to submit transactions and verify blocks), an <b>SBBS node</b> (to allow secure communication between wallets), and an <b>IPFS node</b> (to allow decentralized storage, including for DApp front ends distribution).<br>This Hard Fork went smoothly and the difficulty remained fairly stable.",
+			links: [
+				["Medium post","https://medium.com/beam-mw/beam-hard-fork-completed-903ce2b15b51"],
+				["BIP-1 and BIP-2 results","https://medium.com/beam-mw/beam-bip-1-bip-2-results-229d8289f54d"]
+			]
+		},
+		{
+			block_list: [1920000],
+			title: "Fifth Hard-Fork (and wallet v7.1)",
+			description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='javascript:window.location.href=window.location.pathname + \"?type=assets&id=1981005\"' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e\"' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+			links: [
+				["Announcement","https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178"],
+				["Forum post for BIP-1","https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116"]
+			]
+		},
+		{
+			block_list: [2272779],
+			title: "Blockchain incident",
+			description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=2272781&nMax=3\"' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2272781\"' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+			links: [ ["Incident analysis","https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097"] ]
+		},
+		{
+			block_list: [2628000,2628001],
+			title: "Second Halving & End of the 5-year treasury allocation",
+			description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628000\"'>2628000</a>) to 25 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628001\"'>2628001</a>).<br>This halving also saw the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+			links: [ ["The 5-year recap","https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f"] ]
+		}
+	];
+
+	// Current block, asset id or contract id
+	let g_CurrentID = "";
+
+	// URL and explorer node parameters
 	const args = (new URL(document.location)).searchParams;
 	const type = args.get("type");
 	g_CurrentID = args.get("id");
 	
 	//let urlPrefix = "http://localhost:17328/";
 	let urlPrefix = "http://116.203.118.51:8100/";
+	
+	// Request "nice" formatting from the node (timestamps will be expanded into YYYYY-MM-DD, amounts formatted as XXX,XXX,XXX.YYYYYYYY, etc.)
 	let urlSuffix = "?exp_am=1";
 	
 	const hMax = args.get("hMax");
@@ -1479,51 +1795,79 @@ Disclaimer:
 	if (!nMax)
 		nMax = 100;
 
-	const xmlhttp = new XMLHttpRequest();
-
-	if (type == "aid")
+	// Static page
+	if (type == "historical")
 	{
-		xmlhttp.onload = DisplayAssetHistory;
-		xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
-		xmlhttp.send();
+		window.onload = DisplayHistoricalBlocks;
 	}
-	else if (type == "block")
-	{
-		xmlhttp.onload = DisplayBlock;
-		xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
-		xmlhttp.send();
-	}
-	else if (type == "contract")
-	{
-		xmlhttp.onload = DisplayContractState;
-		xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
-		xmlhttp.send();
-	}
-	else if (type == "hdrs")
-	{
-		// Data that can be requested (relative or absolute):
-
-		xmlhttp.onload = DisplayHdrs;
-		xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cols=THdfkoizyp" + "&nMax=" + nMax);
-		xmlhttp.send();
-	}
-	else if (type == "contracts")
-	{
-		xmlhttp.onload = DisplayContracts;
-		xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
-		xmlhttp.send();
-	}
-	else if (type == "assets")
-	{
-		xmlhttp.onload = DisplayAssets;
-		xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
-		xmlhttp.send();
-	}
+	// Dynamic pages (explorer node requests)
 	else
 	{
-		xmlhttp.onload = DisplayStatus;
-		xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
-		xmlhttp.send();
+		const xmlhttp = new XMLHttpRequest();
+
+		if (type == "aid")
+		{
+			xmlhttp.onload = DisplayAssetHistory;
+			xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
+			xmlhttp.send();
+		}
+		else if (type == "block")
+		{
+			xmlhttp.onload = DisplayBlock;
+			//if (kernel) {
+			//	console.log(urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
+			//	xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
+			//} else {
+			//	console.log(urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+				xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
+			//}
+			xmlhttp.send();
+		}
+		else if (type == "contract")
+		{
+			xmlhttp.onload = DisplayContractState;
+			xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
+			xmlhttp.send();
+		}
+		else if (type == "hdrs")
+		{
+			// Data that can be requested (lowercase if relative, uppercase if absolute):
+			// H = Hash
+			// T = Time
+			// d = Difficulty
+			// f = Fee
+			// k = Kernels
+			// o = MW Outputs
+			// i = MW Inputs
+			// u = MW Utxos
+			// z = Shielded Outputs
+			// y = Shielded Inputs
+			// b = Active Contracts
+			// p = Contract Calls
+			// c = SizeCompressed
+			// a = SizeArchive
+			xmlhttp.onload = DisplayHdrs;
+			xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cols=THdfkoizyp" + "&nMax=" + nMax);
+			xmlhttp.send();
+		}
+		else if (type == "contracts")
+		{
+			xmlhttp.onload = DisplayContracts;
+			xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
+			xmlhttp.send();
+		}
+		else if (type == "assets")
+		{
+			xmlhttp.onload = DisplayAssets;
+			xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
+			xmlhttp.send();
+		}
+		else
+		{
+			xmlhttp.onload = DisplayStatus;
+			xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
+			xmlhttp.send();
+		}
 	}
 </script>
 
@@ -1538,7 +1882,7 @@ Disclaimer:
 			let myClass = (myHash.querySelector("a")) ? "truncated withLink" : "truncated";
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myHash.innerHTML;
-			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Expand' hidden>&#128065;</span>";
+			myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
 			// Add event listener on the symbol
 			myHash.querySelector(".expand").addEventListener("click", expandHash);
 		}
@@ -1546,7 +1890,7 @@ Disclaimer:
 		for (let myMetadata of document.querySelectorAll(".metadata")) {
 			// Add a span to truncate the text, and another span to hold the clickable symbol
 			let myHTML = myMetadata.innerHTML;
-			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Expand' hidden>&#128065;</span>";
+			myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
 			// Add event listener on the symbol
 			myMetadata.querySelector(".extend").addEventListener("click", expandMetadata);
 		}
@@ -1565,6 +1909,9 @@ Disclaimer:
 				for (let myItem of myRow.cells[col].querySelectorAll(".truncated")) {
 					myItem.classList.remove("truncated");
 					myItem.classList.add("expanded");
+					// Switch action of the clickable symbols
+					myItem.nextElementSibling.removeEventListener("click", expandHash);
+					myItem.nextElementSibling.addEventListener("click", truncateHash);
 				}
 			}
 		} else {
@@ -1572,6 +1919,39 @@ Disclaimer:
 			for (let myItem of input.parentNode.querySelectorAll(".truncated")) {
 				myItem.classList.remove("truncated");
 				myItem.classList.add("expanded");
+				// Switch action of the clickable symbols
+				myItem.nextElementSibling.removeEventListener("click", expandHash);
+				myItem.nextElementSibling.addEventListener("click", truncateHash);
+			}
+		}
+	}
+
+	function truncateHash(e) {
+		// Get element, table and column number of the event
+		let input = e.currentTarget;
+		// If item is in table, truncate the whole column
+		if (input.closest('table')) {
+			let col = input.closest('th,td').cellIndex;
+			let table = input.closest('table');
+			// Loop on all cells in that column
+			for (let myRow of table.rows) {
+				// Remove all expanded classes in the cell
+				for (let myItem of myRow.cells[col].querySelectorAll(".expanded")) {
+					myItem.classList.remove("expanded");
+					myItem.classList.add("truncated");
+					// Switch action of the clickable symbols
+					myItem.nextElementSibling.removeEventListener("click", truncateHash);
+					myItem.nextElementSibling.addEventListener("click", expandHash);
+				}
+			}
+		} else {
+			// Expand only the item and its siblings
+			for (let myItem of input.parentNode.querySelectorAll(".expanded")) {
+				myItem.classList.remove("expanded");
+				myItem.classList.add("truncated");
+				// Switch action of the clickable symbols
+				myItem.nextElementSibling.removeEventListener("click", truncateHash);
+				myItem.nextElementSibling.addEventListener("click", expandHash);
 			}
 		}
 	}
@@ -1582,6 +1962,21 @@ Disclaimer:
 		for (let myItem of input.parentNode.querySelectorAll(".reduced")) {
 			myItem.classList.remove("reduced");
 			myItem.classList.add("full");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandMetadata);
+			myItem.nextElementSibling.addEventListener("click", truncateMetadata);
+		}
+	}
+
+	function truncateMetadata(e) {
+		// Truncate selected metadata only
+		let input = e.currentTarget;
+		for (let myItem of input.parentNode.querySelectorAll(".full")) {
+			myItem.classList.remove("full");
+			myItem.classList.add("reduced");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateMetadata);
+			myItem.nextElementSibling.addEventListener("click", expandMetadata);
 		}
 	}
 
@@ -1590,11 +1985,17 @@ Disclaimer:
 		for (let myItem of document.querySelectorAll(".truncated")) {
 			myItem.classList.remove("truncated");
 			myItem.classList.add("expanded");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandHash);
+			myItem.nextElementSibling.addEventListener("click", truncateHash);
 		}
 		// Expand all truncated Metadata
 		for (let myItem of document.querySelectorAll(".reduced")) {
 			myItem.classList.remove("reduced");
 			myItem.classList.add("full");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", expandMetadata);
+			myItem.nextElementSibling.addEventListener("click", truncateMetadata);
 		}
 		// Expand all small collapsible blocks
 		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
@@ -1602,10 +2003,10 @@ Disclaimer:
 				myItem.checked = true;
 			}
 		}
-		// Switch action of the clickable symbol
+		// Switch action of the main clickable symbol
 		let icon = document.querySelector("#ExpandAll");
 		icon.setAttribute("href", "javascript:truncateEverything();");
-		icon.setAttribute("title", "Truncate everything");
+		icon.setAttribute("title", "Collapse everything");
 	}
 
 	function truncateEverything() {
@@ -1613,11 +2014,17 @@ Disclaimer:
 		for (let myItem of document.querySelectorAll(".expanded")) {
 			myItem.classList.remove("expanded");
 			myItem.classList.add("truncated");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateHash);
+			myItem.nextElementSibling.addEventListener("click", expandHash);
 		}
 		// Truncate all Metadata
 		for (let myItem of document.querySelectorAll(".full")) {
 			myItem.classList.remove("full");
 			myItem.classList.add("reduced");
+			// Switch action of the clickable symbols
+			myItem.nextElementSibling.removeEventListener("click", truncateMetadata);
+			myItem.nextElementSibling.addEventListener("click", expandMetadata);
 		}
 		// Collapse all small collapsible blocks
 		for (let myItem of document.querySelectorAll(".collapsible-checkbox")) {
@@ -1625,7 +2032,7 @@ Disclaimer:
 				myItem.checked = false;
 			}
 		}
-		// Switch action of the clickable symbol
+		// Switch action of the main clickable symbol
 		let icon = document.querySelector("#ExpandAll");
 		icon.setAttribute("href", "javascript:expandEverything();");
 		icon.setAttribute("title", "Expand everything");
