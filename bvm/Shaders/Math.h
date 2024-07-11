@@ -1101,6 +1101,14 @@ namespace MultiPrecision
 			return *this = *this / b;
 		}
 
+		Float& operator <<= (int32_t n) {
+			return *this = *this << n;
+		}
+
+		Float& operator >>= (int32_t n) {
+			return *this = *this >> n;
+		}
+
 		int cmp(const Float& x) const
 		{
 			if (IsZero())
@@ -1589,6 +1597,16 @@ namespace MultiPrecision
 			return IsNumberNnz() && !HaveHiBit();
 		}
 
+		uint64_t get_Num() const
+		{
+			return IsNumberNnz() ? get_WithHiBit() : 0;
+		}
+
+		int32_t get_Order() const
+		{
+			return m_Order;
+		}
+
         void Set0() { m_Order = s_Zero; }
 		void SetNaN() { m_Order = s_NaN; }
 
@@ -1835,6 +1853,14 @@ namespace MultiPrecision
 
 		FloatEx& operator /= (FloatEx b) {
 			return *this = *this / b;
+		}
+
+		FloatEx& operator <<= (int32_t n) {
+			return *this = *this << n;
+		}
+
+		FloatEx& operator >>= (int32_t n) {
+			return *this = *this >> n;
 		}
 
 		int cmp(const FloatEx& x) const
