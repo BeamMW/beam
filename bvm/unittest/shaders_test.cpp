@@ -1248,6 +1248,51 @@ namespace bvm2 {
 		return res * 1e-8;
 	}
 
+	static double ToDouble(Shaders::MultiPrecision::Float x)
+	{
+		if (x.IsZero())
+			return 0;
+
+		return ldexp(x.m_Num, x.m_Order);
+	}
+
+	static double ToDouble(Shaders::MultiPrecision::FloatEx x)
+	{
+		if (x.IsZero())
+			return 0;
+		if (x.IsNaN())
+			return NAN;
+
+		//x.get_0
+
+		auto num = (double) x.get_Num();
+		if (x.IsNegative())
+			num = -num;
+		return ldexp(num, x.get_Order() - 63);
+	}
+
+	static void AssertDoubleRelEqual(double a, double b)
+	{
+		if (a == 0.)
+		{
+			verify_test(b == 0.);
+		}
+		else
+		{
+			verify_test(isnormal(a) && isnormal(b));
+
+			a /= b;
+			verify_test(isnormal(a));
+
+			// double floating-point mantissa is 52 bits, our implementation has 63 bits
+			// we should have at least 50 bits of precision
+			const double eps = ldexp(1, -50);
+
+			verify_test(a >= 1. - eps);
+			verify_test(a <= 1. + eps);
+		}
+	}
+
 	struct NephriteContext
 	{
 		MyProcessor& m_Proc;
@@ -1478,15 +1523,6 @@ namespace bvm2 {
 		{
 			for (KeyWalker_T<Shaders::Nephrite::EpochKey, Shaders::HomogenousPool::Epoch<nDims> > wlk(m_Proc, m_Proc.m_Nephrite.m_Cid, nTag); wlk.MoveNext(); )
 				res.m_Data[wlk.m_pKey->m_KeyInContract.m_iEpoch] = *wlk.m_pVal;
-		}
-
-
-		static double ToDouble(Shaders::Nephrite::Float x)
-		{
-			if (x.IsZero())
-				return 0;
-
-			return ldexp(x.m_Num, x.m_Order);
 		}
 
 		struct Entry :public Shaders::Nephrite::Trove
@@ -2870,6 +2906,65 @@ namespace bvm2 {
 				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
 				verify_test(args2.m_Arg1.RoundDown(d));
 				verify_test(d == -static_cast<int64_t>(a + b));
+
+
+				// Multiplication
+
+				args2.m_Arg1 = a;
+				args2.m_Arg2 = b;
+				args2.m_Op = 2; // mul
+				args2.m_Arg1 <<= 70;
+				args2.m_Arg2 >>= 300;
+
+				double a_ = ToDouble(args2.m_Arg1);
+				double b_ = ToDouble(args2.m_Arg2);
+				double c_ = a_ * b_;
+
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				double d_ = ToDouble(args2.m_Arg1);
+
+				AssertDoubleRelEqual(c_, d_);
+
+				args2.m_Arg1 = a;
+				args2.m_Arg1 <<= 705;
+				args2.m_Arg1.Negate();
+
+				a_ = ToDouble(args2.m_Arg1);
+				c_ = a_ * b_;
+
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+				d_ = ToDouble(args2.m_Arg1);
+
+				AssertDoubleRelEqual(c_, d_);
+
+				// Division
+				args2.m_Arg1 = a;
+				args2.m_Arg1 <<= 75;
+				args2.m_Arg2.Negate();
+				args2.m_Op = 3; // div
+
+				a_ = ToDouble(args2.m_Arg1);
+				b_ = ToDouble(args2.m_Arg2);
+
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+
+				if (b)
+				{
+					c_ = a_ / b_;
+					d_ = ToDouble(args2.m_Arg1);
+					AssertDoubleRelEqual(c_, d_);
+				}
+				else
+					verify_test(args2.m_Arg1.IsNaN());
+
+				args2.m_Arg1 = 0;
+				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
+
+				if (b)
+					verify_test(args2.m_Arg1.IsZero());
+				else
+					verify_test(args2.m_Arg1.IsNaN());
+
 			}
 		}
 
