@@ -863,17 +863,12 @@ Disclaimer:
 		return AddClass(amount, type);
 	}
 
-	function AddClass(txt,className)
-	{
-		return "<span class='" + className + "'>" + txt + "</span>";
-	}
-	
-	function AddClassEx(txt,className,other)
+	function AddClass(txt, className, other="")
 	{
 		return "<span class='" + className + "' " + other + ">" + txt + "</span>";
 	}
 
-	function AddClassDiv(txt,className,other="")
+	function AddClassDiv(txt, className, other="")
 	{
 		return "<div class='" + className + "' " + other + ">" + txt + "</div>";
 	}
@@ -902,7 +897,7 @@ Disclaimer:
 	
 	function MakeCid(cid)
 	{
-		return AddClassEx(MakeRef(UrlSelfWithID("contract", cid), cid), "cid", "title='" + cid + "'");
+		return AddClass(MakeRef(UrlSelfWithID("contract", cid), cid), "cid", "title='" + cid + "'");
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -998,7 +993,7 @@ Disclaimer:
 			return MakeBlock(obj.value);
 
 		if (obj.type == "blob")
-			return AddClassEx(obj.value, "blob", "title='" + obj.value + "'");
+			return AddClass(obj.value, "blob", "title='" + obj.value + "'");
 
 		if (obj.type == "bool")
 			return (obj.value > 0) ? AddClass("yes", "bool yes") : AddClass("no", "bool no");
@@ -1180,7 +1175,7 @@ Disclaimer:
 		}
 		
 		text += "</table>"
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 
 		SetContent(text);
 	}
@@ -1208,7 +1203,7 @@ Disclaimer:
 			let jRow = jTbl[i];
 			text += "<tr>";
 
-			text += MakeCell(AddClassEx(jRow["commitment"], "commitment", " title='" + jRow["commitment"] + "'"));
+			text += MakeCell(AddClass(jRow["commitment"], "commitment", " title='" + jRow["commitment"] + "'"));
 			delete jRow.commitment;
 	
 			let j = jRow[isInp ? "height" : "spent"];
@@ -1329,18 +1324,18 @@ Disclaimer:
 
 		text += "<h2 class='blockTitle'>";
 		if (g_id > 0) {
-			text += AddClassEx(MakeRef(UrlSelf("hdrs", "&hMax=" + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
+			text += AddClass(MakeRef(UrlSelf("hdrs", "&hMax=" + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
 			text += "&nbsp;";
 			text += "Block " + AddClass(g_id, "blockHeight");
 			text += "&nbsp;";
-			text += AddClassEx(MakeRef(UrlBlock(g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+			text += AddClass(MakeRef(UrlBlock(g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 		}
 		else {
 			text += "Treasury";
 			text += "&nbsp;";
-			text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+			text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 		}
-		text += AddClassEx(MakeRef(UrlBlock(g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+		text += AddClass(MakeRef(UrlBlock(g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		text += "</h2>"
 
 		// Parse "info" section
@@ -1391,7 +1386,7 @@ Disclaimer:
 				let idClass = "kernelId";
 				// Mark the kernel with a special class if it was the one queried
 				if (g_kernel && jRow["id"] == g_kernel) { idClass += " highlight" };
-				text += MakeCell(AddClassEx(jRow["id"], idClass, " title='" + jRow["id"] + "'"));
+				text += MakeCell(AddClass(jRow["id"], idClass, " title='" + jRow["id"] + "'"));
 				text += MakeCellRA(Obj2Html(jRow["fee"]));
 			
 				let txtH = "";
@@ -1599,7 +1594,7 @@ Disclaimer:
 		}
 	
 		text += "</table>";
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 		
 		text += MakeCollapsibleEnd();
 
@@ -1630,14 +1625,14 @@ Disclaimer:
 		let text = "<h2>\n"
 		text += "Block headers";
 		text += "&nbsp;";
-		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
-		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
+		text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
+		text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
 		text += "</h2>\n"
 		text += "<div class='divTableBlocks'>";
 
 		text += Obj2Html(jData);
 		text += "</div>";
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 
 		SetContent(text);
 	}
@@ -1663,11 +1658,11 @@ Disclaimer:
 			text += "Confidential Assets at block height " + MakeBlock(g_id);
 			text += "&nbsp;";
 			if (g_id > 1) {
-				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+				text += AddClass(MakeRef(UrlSelfWithID("assets", g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 			} else {
-				text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+				text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 			}
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+			text += AddClass(MakeRef(UrlSelfWithID("assets", g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		} else {
 			text += "Current Confidential Assets";
 		}
