@@ -3,7 +3,7 @@
 <!-- WELCOME TO BEAM SMART EXPLORER!
 - This is an interactive web display of the data queried to a Beam explorer node.
 - The IP address of the explorer node can be changed in var 'urlPrefix'.
-- Current version of the file: v0.5
+- Current version of the file: v0.6
 
 General rules for developement:
 - Let's keep everything in one single standalone file!
@@ -385,6 +385,64 @@ Disclaimer:
 		color: #17204e;
 		padding: 0 5px 0 5px;
 	}
+	#SearchArea {
+		display: block;
+		padding: 5px 2px 0px 2px;
+	}
+	#SearchForm {
+		/* Nothing special */
+	}
+	#SearchField {
+		display: inline-block;
+		border-radius: 0.25em; /* Slightly round corners */
+		border: 1px solid #636785; /* Dark border */
+		background-color: #afb3d8;
+		padding: 0.25ch 1ch 0.25ch 1ch; /* Internal padding */
+		font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+		font-size: 1.2rem;
+		width: 67ch;
+		color: #525252;
+		height: 2rem;
+		text-decoration: none;
+		vertical-align: middle;
+	}
+	#SearchField:focus {
+		outline: none; /* Avoid the browser default focus outline */
+	}
+	#SearchField:not(:placeholder-shown) { /* Search field with content */
+		background-color: #b8bbd8; /* Use a lighter background */
+		border: 1px solid #ddd; /* White border */
+	}
+	#SearchField:invalid {
+		color: #805353;
+		text-decoration: line-through; /* Strikethrough if incorrect format */
+	}
+	#SearchField:placeholder-shown {
+		font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
+		font-size: 1.3rem;
+		font-style: italic;
+		color: #525252;
+		text-decoration: none;
+	}
+	#SearchButton {
+		display: inline-block;
+		border: none;
+		border: 1px solid #636785;
+		border-radius: 0.25em; /* Slightly round corners */
+		background-color: #636785;
+		color: #ddd;
+		height: 2rem;
+		font-size: 1.2rem;
+		text-align: center;
+		vertical-align: middle;
+		text-decoration: none;
+		padding: 0.25ch 1ch 0.25ch 1ch;
+	}
+	#SearchButton:hover {
+		background-color: #525252;
+		color: #ddd;
+		cursor: pointer; /* Mouse pointer on hover */
+	}
 	#Navigation {
 		display: table-cell;
 		vertical-align: middle;
@@ -710,7 +768,7 @@ Disclaimer:
 					</a>
 				</span>
 				<span id="BannerCenter">
-					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.5</span></h1>
+					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.6</span></h1>
 					<div id="Menu">
 						<!-- Main explorer menu -->
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
@@ -721,8 +779,17 @@ Disclaimer:
 						<span class="menuSeparator"> | </span>
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=historical';" title="List of special historical blocks">Historical blocks</a></span>
 					</div>
+					<div id="SearchArea">
+						<!-- Search field -->
+						<form id="SearchForm" name="SearchForm" action="">
+							<input id="SearchField" type="text" required value="" size="66" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
+							<button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
+							<!-- Take over form submission -->
+							<script>document.getElementById("SearchForm").addEventListener("submit", (event) => {event.preventDefault(); submitSearch()});</script>
+						</form>
+					</div>
 				</span>
-				<!-- Banner symbols for special functions -->
+				<!-- Banner symbols for navigation and special functions -->
 				<span id="Navigation">
 					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
 					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
@@ -764,7 +831,7 @@ Disclaimer:
 		return window.location.pathname + "?type=" + type + extra;
 	}
 
-	function UrlSelfWithID(type, id, extra)
+	function UrlSelfWithID(type, id, extra="")
 	{
 		return UrlSelf(type, "&id=" + id + extra);
 	}
@@ -813,7 +880,7 @@ Disclaimer:
 
 	function UrlBlock(h)
 	{
-		return UrlSelfWithID("block", h, "");
+		return UrlSelfWithID("block", h);
 	}
 
 	function MakeBlock(h)
@@ -830,12 +897,12 @@ Disclaimer:
 	{
 		if (aid == 0)
 			return AddClass("Beam", "assetName");
-		return AddClass(MakeRef(UrlSelfWithID("asset", aid, ""), "Asset-" + aid), "assetName");
+		return AddClass(MakeRef(UrlSelfWithID("asset", aid), "Asset-" + aid), "assetName");
 	}
 	
 	function MakeCid(cid)
 	{
-		return AddClassEx(MakeRef(UrlSelfWithID("contract", cid, ""), cid), "cid", "title='" + cid + "'");
+		return AddClassEx(MakeRef(UrlSelfWithID("contract", cid), cid), "cid", "title='" + cid + "'");
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -1232,7 +1299,7 @@ Disclaimer:
 
 	function MakeCAs(h)
 	{
-		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets at this block height") + "</h3>";
+		return "<h3>" + MakeRef(UrlSelfWithID("assets", h), "Confidential Assets at this block height") + "</h3>";
 	}
 
 	function DisplayBlock()
@@ -1596,11 +1663,11 @@ Disclaimer:
 			text += "Confidential Assets at block height " + MakeBlock(g_id);
 			text += "&nbsp;";
 			if (g_id > 1) {
-				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1, ""), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 			} else {
 				text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 			}
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1 + 2, ""), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		} else {
 			text += "Current Confidential Assets";
 		}
@@ -1856,12 +1923,13 @@ Disclaimer:
 			urlSuffix += "&height=" + g_id;
 			xmlhttp.onload = DisplayBlock;
 		}
+		// Option to query and display the details of multiple blocks (not used here)
 		// else if (g_type == "blocks") // Arguments for 'blocks': height, n
 		// {	
 		// 	if (!g_nMax) { g_nMax = 5 }
 		// 	urlSuffix += "&height=" + g_id + "&n=" + g_nMax;
-		// 	//xmlhttp.onload = DisplayBlocks; // Function to be done...
-		// 	xmlhttp.onload = DisplayStatus;
+		// 	//xmlhttp.onload = DisplayBlocks; // Display function to be done...
+		// 	xmlhttp.onload = DisplayStatus; // Until then, use this as test
 		// }
 		else if (g_type == "contract") // Arguments for 'contract': id, hMin, hMax, nMaxTxs
 		{
@@ -1874,6 +1942,7 @@ Disclaimer:
 		else if (g_type == "hdrs") // Arguments for 'hdrs': cols, hMax, nMax, dh
 		{
 			// Codes for 'cols' (lowercase if relative, uppercase if absolute):
+			// Remark: First column is always the block height
 			// H = Hash
 			// T = Time
 			// d = Difficulty
@@ -1919,6 +1988,16 @@ Disclaimer:
 
 <!-- ------------ SECTION 4 - EXTRA JS FUNCTIONS ------------ --> 
 <script>
+
+	// PROCESS A BLOCK/KERNEL SEARCH REQUEST
+	function submitSearch() {
+		// Get search string
+		let query = document.getElementById("SearchField").value;
+		// Simplistic test to check if search string is rather block height or kernel id
+		let key = (query.length < 10) ? "&id=" : "&kernel=";
+		// Load the corresponding URL
+		window.location.href = UrlSelf("block", key + query);
+	}
 
 	// ADD EXPAND OPTIONS TO ALL TEXT OF TYPE HASH OR METADATA (CSS WILL DISPLAYED THEM TRUNCATED BY DEFAULT)
 	function addExpandOptions() {
