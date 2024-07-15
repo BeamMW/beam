@@ -3,7 +3,7 @@
 <!-- WELCOME TO BEAM SMART EXPLORER!
 - This is an interactive web display of the data queried to a Beam explorer node.
 - The IP address of the explorer node can be changed in var 'urlPrefix'.
-- Current version of the file: v0.5
+- Current version of the file: v0.6
 
 General rules for developement:
 - Let's keep everything in one single standalone file!
@@ -78,6 +78,9 @@ Disclaimer:
 		font-size: 2.4rem;
 		text-align: left;
 		margin: 15px 0 10px 0;
+	}
+	h2.errorMessage {
+		font-style: italic; 
 	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
@@ -201,6 +204,10 @@ Disclaimer:
 		white-space: nowrap;
 		display: inline;
 		vertical-align: middle; /* Needed to align text and symbol */
+	}
+	.kernelId.highlight { /* Highlight queried kernel */
+		color: darkred;
+		font-weight: bold;
 	}
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
@@ -377,6 +384,64 @@ Disclaimer:
 	.menuSeparator {
 		color: #17204e;
 		padding: 0 5px 0 5px;
+	}
+	#SearchArea {
+		display: block;
+		padding: 5px 2px 0px 2px;
+	}
+	#SearchForm {
+		/* Nothing special */
+	}
+	#SearchField {
+		display: inline-block;
+		border-radius: 0.25em; /* Slightly round corners */
+		border: 1px solid #636785; /* Dark border */
+		background-color: #afb3d8;
+		padding: 0.25ch 1ch 0.25ch 1ch; /* Internal padding */
+		font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+		font-size: 1.2rem;
+		width: 67ch;
+		color: #525252;
+		height: 2rem;
+		text-decoration: none;
+		vertical-align: middle;
+	}
+	#SearchField:focus {
+		outline: none; /* Avoid the browser default focus outline */
+	}
+	#SearchField:not(:placeholder-shown) { /* Search field with content */
+		background-color: #b8bbd8; /* Use a lighter background */
+		border: 1px solid #ddd; /* White border */
+	}
+	#SearchField:invalid {
+		color: #805353;
+		text-decoration: line-through; /* Strikethrough if incorrect format */
+	}
+	#SearchField:placeholder-shown {
+		font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
+		font-size: 1.3rem;
+		font-style: italic;
+		color: #525252;
+		text-decoration: none;
+	}
+	#SearchButton {
+		display: inline-block;
+		border: none;
+		border: 1px solid #636785;
+		border-radius: 0.25em; /* Slightly round corners */
+		background-color: #636785;
+		color: #ddd;
+		height: 2rem;
+		font-size: 1.2rem;
+		text-align: center;
+		vertical-align: middle;
+		text-decoration: none;
+		padding: 0.25ch 1ch 0.25ch 1ch;
+	}
+	#SearchButton:hover {
+		background-color: #525252;
+		color: #ddd;
+		cursor: pointer; /* Mouse pointer on hover */
 	}
 	#Navigation {
 		display: table-cell;
@@ -703,7 +768,7 @@ Disclaimer:
 					</a>
 				</span>
 				<span id="BannerCenter">
-					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.5</span></h1>
+					<h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.6</span></h1>
 					<div id="Menu">
 						<!-- Main explorer menu -->
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
@@ -714,8 +779,17 @@ Disclaimer:
 						<span class="menuSeparator"> | </span>
 						<span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=historical';" title="List of special historical blocks">Historical blocks</a></span>
 					</div>
+					<div id="SearchArea">
+						<!-- Search field -->
+						<form id="SearchForm" name="SearchForm" action="">
+							<input id="SearchField" type="text" required value="" size="66" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
+							<button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
+							<!-- Take over form submission -->
+							<script>document.getElementById("SearchForm").addEventListener("submit", (event) => {event.preventDefault(); submitSearch()});</script>
+						</form>
+					</div>
 				</span>
-				<!-- Banner symbols for special functions -->
+				<!-- Banner symbols for navigation and special functions -->
 				<span id="Navigation">
 					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
 					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
@@ -757,7 +831,7 @@ Disclaimer:
 		return window.location.pathname + "?type=" + type + extra;
 	}
 
-	function UrlSelfWithID(type, id, extra)
+	function UrlSelfWithID(type, id, extra="")
 	{
 		return UrlSelf(type, "&id=" + id + extra);
 	}
@@ -789,24 +863,19 @@ Disclaimer:
 		return AddClass(amount, type);
 	}
 
-	function AddClass(txt,className)
-	{
-		return "<span class='" + className + "'>" + txt + "</span>";
-	}
-	
-	function AddClassEx(txt,className,other)
+	function AddClass(txt, className, other="")
 	{
 		return "<span class='" + className + "' " + other + ">" + txt + "</span>";
 	}
 
-	function AddClassDiv(txt,className,other="")
+	function AddClassDiv(txt, className, other="")
 	{
 		return "<div class='" + className + "' " + other + ">" + txt + "</div>";
 	}
 
 	function UrlBlock(h)
 	{
-		return UrlSelfWithID("block", h, "");
+		return UrlSelfWithID("block", h);
 	}
 
 	function MakeBlock(h)
@@ -823,12 +892,12 @@ Disclaimer:
 	{
 		if (aid == 0)
 			return AddClass("Beam", "assetName");
-		return AddClass(MakeRef(UrlSelfWithID("aid", aid, ""), "Asset-" + aid), "assetName");
+		return AddClass(MakeRef(UrlSelfWithID("asset", aid), "Asset-" + aid), "assetName");
 	}
 	
 	function MakeCid(cid)
 	{
-		return AddClassEx(MakeRef(UrlSelfWithID("contract", cid, ""), cid), "cid", "title='" + cid + "'");
+		return AddClass(MakeRef(UrlSelfWithID("contract", cid), cid), "cid", "title='" + cid + "'");
 	}
 		
 	function MakeFundsTbl(jFunds)
@@ -924,7 +993,7 @@ Disclaimer:
 			return MakeBlock(obj.value);
 
 		if (obj.type == "blob")
-			return AddClassEx(obj.value, "blob", "title='" + obj.value + "'");
+			return AddClass(obj.value, "blob", "title='" + obj.value + "'");
 
 		if (obj.type == "bool")
 			return (obj.value > 0) ? AddClass("yes", "bool yes") : AddClass("no", "bool no");
@@ -1077,7 +1146,7 @@ Disclaimer:
 		const jTbl = jTblObj["value"];
 		
 		let text = "<h2>\n"
-		text += "History of Asset " + g_CurrentID;
+		text += "History of Asset " + g_id;
 		text += "</h2>\n"
 
 		text += "\
@@ -1106,7 +1175,7 @@ Disclaimer:
 		}
 		
 		text += "</table>"
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 
 		SetContent(text);
 	}
@@ -1134,7 +1203,7 @@ Disclaimer:
 			let jRow = jTbl[i];
 			text += "<tr>";
 
-			text += MakeCell(AddClassEx(jRow["commitment"], "commitment", " title='" + jRow["commitment"] + "'"));
+			text += MakeCell(AddClass(jRow["commitment"], "commitment", " title='" + jRow["commitment"] + "'"));
 			delete jRow.commitment;
 	
 			let j = jRow[isInp ? "height" : "spent"];
@@ -1192,7 +1261,7 @@ Disclaimer:
 		let text = "\
 		<table class='tableAssets'>\n\
 			<thead><tr>\n\
-				<th>Aid</th>\n\
+				<th>Id</th>\n\
 				<th>Owner</th>\n\
 				<th>Deposit</th>\n\
 				<th>Supply</th>\n\
@@ -1225,32 +1294,51 @@ Disclaimer:
 
 	function MakeCAs(h)
 	{
-		return "<h3>" + MakeRef(UrlSelfWithID("assets", h, ""), "Confidential Assets at this block height") + "</h3>";
+		return "<h3>" + MakeRef(UrlSelfWithID("assets", h), "Confidential Assets at this block height") + "</h3>";
 	}
 
 	function DisplayBlock()
 	{
 		let text = "";
+
+		const jData = JSON.parse(this.responseText);
 		
+		let j = jData["info"];
+		if (!j) {
+			// Display error message if kernel or height was queried but no block was found
+			if (g_kernel || g_id > 0) {
+				if (g_kernel) {
+					text += "<h2 class='errorMessage'>Kernel not found.</h2>"
+				} else {
+					text += "<h2 class='errorMessage'>Block not found.</h2>"
+				}
+				SetContent(text);
+				return;
+			}
+			// Display Genesis block (instead of Treasury) if nothing at all was queried
+			if (!g_kernel && (!g_id && g_id !== 0)) { g_id = 1 }
+		}
+
+		// If the request was a kernel, get the resulting height
+		if (g_kernel) {	g_id = j["value"][0][1]["value"] }
+
 		text += "<h2 class='blockTitle'>";
-		if (g_CurrentID > 0) {
-			text += AddClassEx(MakeRef(UrlSelf("hdrs", "&hMax=" + g_CurrentID), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
+		if (g_id > 0) {
+			text += AddClass(MakeRef(UrlSelf("hdrs", "&hMax=" + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
 			text += "&nbsp;";
-			text += "Block " + AddClass(g_CurrentID, "blockHeight");
+			text += "Block " + AddClass(g_id, "blockHeight");
 			text += "&nbsp;";
-			text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+			text += AddClass(MakeRef(UrlBlock(g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 		}
 		else {
 			text += "Treasury";
 			text += "&nbsp;";
-			text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+			text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 		}
-		text += AddClassEx(MakeRef(UrlBlock(g_CurrentID - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+		text += AddClass(MakeRef(UrlBlock(g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		text += "</h2>"
 
-		const jData = JSON.parse(this.responseText);
-
-		let j = jData["info"];
+		// Parse "info" section
 		if (j)
 		{
 			text += MakeCollapsibleBegin("Block Summary");
@@ -1295,7 +1383,10 @@ Disclaimer:
 				let jRow = jTbl[i];
 				text += "<tr>";
 
-				text += MakeCell(AddClassEx(jRow["id"], "kernelId", " title='" + jRow["id"] + "'"));
+				let idClass = "kernelId";
+				// Mark the kernel with a special class if it was the one queried
+				if (g_kernel && jRow["id"] == g_kernel) { idClass += " highlight" };
+				text += MakeCell(AddClass(jRow["id"], idClass, " title='" + jRow["id"] + "'"));
 				text += MakeCellRA(Obj2Html(jRow["fee"]));
 			
 				let txtH = "";
@@ -1350,7 +1441,7 @@ Disclaimer:
 			text += MakeCollapsibleEnd();
 		}
 		else
-			text += MakeCAs(g_CurrentID);
+			text += MakeCAs(g_id);
 
 		SetContent(text);
 	}
@@ -1449,7 +1540,7 @@ Disclaimer:
 	{
 		// Temporary hack:
 		// The node explorer does not provide (yet?) parameters to move pages forward.
-		// Until then, we use the parameter given to go backwards and simply add twice nMax to it.
+		// Until then, we use the parameter given to go backwards and simply add twice g_nMax to it.
 		// This is imperfect, temporary, and -of course- only works for the Block Headers page...
 		const jMore = jTblObj["more"];
 		if (!jMore)
@@ -1460,7 +1551,7 @@ Disclaimer:
 		
 		for (let key in jMore) {
 			if (key == "hMax") {
-				args.set(key, jMore[key] - 0 + nMax*2);
+				args.set(key, jMore[key] - 0 + g_nMax*2);
 			} else {
 				args.set(key, jMore[key]);
 			}
@@ -1476,7 +1567,7 @@ Disclaimer:
 		const jTbl = jTblObj["value"];
 		
 		let text = "<h2>\n"
-		text += "Contract " + AddClass(g_CurrentID, "cidTitle");
+		text += "Contract " + AddClass(g_id, "cidTitle");
 		text += "</h2>\n"
 
 		text += MakeCollapsibleBegin("Call history") + "\
@@ -1503,7 +1594,7 @@ Disclaimer:
 		}
 	
 		text += "</table>";
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 		
 		text += MakeCollapsibleEnd();
 
@@ -1534,14 +1625,14 @@ Disclaimer:
 		let text = "<h2>\n"
 		text += "Block headers";
 		text += "&nbsp;";
-		text += AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
-		text += AddClassEx(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
+		text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
+		text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"),"newerBlocks","title='Newer blocks'");
 		text += "</h2>\n"
 		text += "<div class='divTableBlocks'>";
 
 		text += Obj2Html(jData);
 		text += "</div>";
-		text +="<p>" + AddClassEx(MakeRef(MakeLinkToOlderBlocks(jData), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
+		text +="<p>" + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "Previous blocks..."),"more","title='Previous blocks'") + "</p>";
 
 		SetContent(text);
 	}
@@ -1563,15 +1654,15 @@ Disclaimer:
 		const jData = JSON.parse(this.responseText);
 
 		let text = "<h2>\n";
-		if (g_CurrentID) {
-			text += "Confidential Assets at block height " + MakeBlock(g_CurrentID);
+		if (g_id) {
+			text += "Confidential Assets at block height " + MakeBlock(g_id);
 			text += "&nbsp;";
-			if (g_CurrentID > 1) {
-				text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1, ""), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
+			if (g_id > 1) {
+				text += AddClass(MakeRef(UrlSelfWithID("assets", g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"),"previousBlock","title='Previous block'");
 			} else {
-				text += AddClassEx("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
+				text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>","previousBlock off","title=''");
 			}
-			text += AddClassEx(MakeRef(UrlSelfWithID("assets", g_CurrentID - 1 + 2, ""), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
+			text += AddClass(MakeRef(UrlSelfWithID("assets", g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"),"nextBlock","title='Next block'");
 		} else {
 			text += "Current Confidential Assets";
 		}
@@ -1698,7 +1789,7 @@ Disclaimer:
 		{
 			block_list: [780219],
 			title: "Creation of the first Confidential Asset",
-			description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=780219\"'>created</a>. Although it has changed named since then, and seems to be <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=1\"'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=9\"'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2893306\"' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868\"' title='Smart contract call history'>Beam Asset Minter</a>.",
+			description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=780219\"'>created</a>. Although it has changed named since then, and seems to be <a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=1\"'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=9\"'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2893306\"' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868\"' title='Smart contract call history'>Beam Asset Minter</a>.",
 			links: [
 				//["Tico website","https://www.ticotip.me"],
 				["Tico's first anniversary","https://ticotipme.substack.com/p/tico-turns-1"],
@@ -1725,7 +1816,7 @@ Disclaimer:
 		{
 			block_list: [1464852],
 			title: "BeamX creation",
-			description: "The <b>BeamX</b> confidential asset (<a href='javascript:window.location.href=window.location.pathname + \"?type=aid&id=7\"' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b\"' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
+			description: "The <b>BeamX</b> confidential asset (<a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=7\"' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b\"' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
 			links: [
 				["The BeamX DAO","https://www.beamxdao.org"],
 				["The BeamX token","https://medium.com/beam-mw/introducing-beamx-privacy-by-default-maximum-confidentiality-defi-ecosystem-629670b905ba"]
@@ -1773,30 +1864,26 @@ Disclaimer:
 		}
 	];
 
-	// Current block, asset id or contract id
-	let g_CurrentID = "";
-
 	// URL and explorer node parameters
 	const args = (new URL(document.location)).searchParams;
-	const type = args.get("type");
-	g_CurrentID = args.get("id");
-	
+	let g_type = args.get("type"); // Remark: We've added two URL types not used by the explorer node ("historical" and "treasury")
+	let g_id = args.get("id"); // Serves for both 'id' (asset & contract) and 'height'
+	let g_kernel = args.get("kernel"); // Takes precedence over 'height' (blocks)
+	let g_hMin = args.get("hMin");
+	let g_hMax = args.get("hMax");
+	let g_nMax = args.get("nMax"); // Serves for nMax (hdrs), n (blocks), nMaxOps (asset) and nMaxTxs (contract)
+	let g_cols = args.get("cols"); // Only for hdrs
+	let g_dh = args.get("dh"); // Only for hdrs
+
+	// Address of the remote explorer node
 	//let urlPrefix = "http://localhost:17328/";
 	let urlPrefix = "http://116.203.118.51:8100/";
 	
-	// Request "nice" formatting from the node (timestamps will be expanded into YYYYY-MM-DD, amounts formatted as XXX,XXX,XXX.YYYYYYYY, etc.)
+	// Request 'nice' formatting from the node (timestamps as YYYYY-MM-DD, amounts as XXX,XXX,XXX.YYYYYYYY, etc.)
 	let urlSuffix = "?exp_am=1";
 	
-	const hMax = args.get("hMax");
-	if (hMax)
-		urlSuffix += "&hMax=" + hMax;
-	
-	let nMax = args.get("nMax");
-	if (!nMax)
-		nMax = 100;
-
 	// Static page
-	if (type == "historical")
+	if (g_type == "historical") // Arguments for 'historical': (none)
 	{
 		window.onload = DisplayHistoricalBlocks;
 	}
@@ -1805,33 +1892,52 @@ Disclaimer:
 	{
 		const xmlhttp = new XMLHttpRequest();
 
-		if (type == "aid")
+		// Build request
+		if (g_type == "asset") // Arguments for 'asset': id, hMin, hMax, nMaxOps
 		{
+			if (!g_nMax) { g_nMax = 100 }
+			urlSuffix += "&id=" + g_id + "&nMaxOps" + g_nMax;
+			if (g_hMin) { urlSuffix += "&hMin=" + g_hMin }
+			if (g_hMax) { urlSuffix += "&hMax=" + g_hMax }
 			xmlhttp.onload = DisplayAssetHistory;
-			xmlhttp.open("GET", urlPrefix +  "asset" + urlSuffix + "&id=" + g_CurrentID);
-			xmlhttp.send();
 		}
-		else if (type == "block")
+		else if (g_type == "block") // Arguments for 'block': height OR kernel
 		{
+			// We decide that 'kernel' argument takes precedence over 'height'
+			if (g_kernel) {
+				urlSuffix += "&kernel=" + g_kernel;
+			} else {
+				urlSuffix += "&height=" + g_id;
+			}
 			xmlhttp.onload = DisplayBlock;
-			//if (kernel) {
-			//	console.log(urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
-			//	xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&kernel=" + kernel);
-			//} else {
-			//	console.log(urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
-				xmlhttp.open("GET", urlPrefix +  "block" + urlSuffix + "&height=" + g_CurrentID);
-			//}
-			xmlhttp.send();
 		}
-		else if (type == "contract")
+		else if (g_type == "treasury") // 'treasury' is 'block' with height=0
 		{
+			g_type = "block";
+			g_id = 0;
+			urlSuffix += "&height=" + g_id;
+			xmlhttp.onload = DisplayBlock;
+		}
+		// Option to query and display the details of multiple blocks (not used here)
+		// else if (g_type == "blocks") // Arguments for 'blocks': height, n
+		// {	
+		// 	if (!g_nMax) { g_nMax = 5 }
+		// 	urlSuffix += "&height=" + g_id + "&n=" + g_nMax;
+		// 	//xmlhttp.onload = DisplayBlocks; // Display function to be done...
+		// 	xmlhttp.onload = DisplayStatus; // Until then, use this as test
+		// }
+		else if (g_type == "contract") // Arguments for 'contract': id, hMin, hMax, nMaxTxs
+		{
+			if (!g_nMax) { g_nMax = 100 }
+			urlSuffix += "&id=" + g_id + "&nMaxTxs=" + g_nMax;
+			if (g_hMin) { urlSuffix += "&hMin=" + g_hMin }
+			if (g_hMax) { urlSuffix += "&hMax=" + g_hMax }
 			xmlhttp.onload = DisplayContractState;
-			xmlhttp.open("GET", urlPrefix +  "contract" + urlSuffix + "&id=" + g_CurrentID + "&nMaxTxs=" + nMax);
-			xmlhttp.send();
 		}
-		else if (type == "hdrs")
+		else if (g_type == "hdrs") // Arguments for 'hdrs': cols, hMax, nMax, dh
 		{
-			// Data that can be requested (lowercase if relative, uppercase if absolute):
+			// Codes for 'cols' (lowercase if relative, uppercase if absolute):
+			// Remark: First column is always the block height
 			// H = Hash
 			// T = Time
 			// d = Difficulty
@@ -1846,33 +1952,47 @@ Disclaimer:
 			// p = Contract Calls
 			// c = SizeCompressed
 			// a = SizeArchive
+			if (!g_cols) { g_cols = "THdfkoizyp" }
+			if (!g_nMax) { g_nMax = 100 }
+			urlSuffix += "&cols=" + g_cols + "&nMax=" + g_nMax;
+			if (g_hMax) { urlSuffix += "&hMax=" + g_hMax }
+			if (g_dh) { urlSuffix += "&dh=" + g_dh }
 			xmlhttp.onload = DisplayHdrs;
-			xmlhttp.open("GET", urlPrefix +  "hdrs" + urlSuffix + "&cols=THdfkoizyp" + "&nMax=" + nMax);
-			xmlhttp.send();
 		}
-		else if (type == "contracts")
+		else if (g_type == "contracts") // Arguments for 'contracts': (none)
 		{
 			xmlhttp.onload = DisplayContracts;
-			xmlhttp.open("GET", urlPrefix +  "contracts" + urlSuffix);
-			xmlhttp.send();
 		}
-		else if (type == "assets")
+		else if (g_type == "assets") // Arguments for 'assets': height
 		{
+			urlSuffix += "&height=" + g_id;
 			xmlhttp.onload = DisplayAssets;
-			xmlhttp.open("GET", urlPrefix +  "assets" + urlSuffix + "&height=" + g_CurrentID);
-			xmlhttp.send();
 		}
 		else
 		{
+			g_type = "status"; // Arguments for 'status': (none)
 			xmlhttp.onload = DisplayStatus;
-			xmlhttp.open("GET", urlPrefix +  "status" + urlSuffix);
-			xmlhttp.send();
 		}
+
+		// Submit request
+		//console.log(urlPrefix + g_type + urlSuffix);
+		xmlhttp.open("GET", urlPrefix + g_type + urlSuffix);
+		xmlhttp.send();
 	}
 </script>
 
 <!-- ------------ SECTION 4 - EXTRA JS FUNCTIONS ------------ --> 
 <script>
+
+	// PROCESS A BLOCK/KERNEL SEARCH REQUEST
+	function submitSearch() {
+		// Get search string
+		let query = document.getElementById("SearchField").value;
+		// Simplistic test to check if search string is rather block height or kernel id
+		let key = (query.length < 10) ? "&id=" : "&kernel=";
+		// Load the corresponding URL
+		window.location.href = UrlSelf("block", key + query);
+	}
 
 	// ADD EXPAND OPTIONS TO ALL TEXT OF TYPE HASH OR METADATA (CSS WILL DISPLAYED THEM TRUNCATED BY DEFAULT)
 	function addExpandOptions() {
