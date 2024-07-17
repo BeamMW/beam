@@ -1140,46 +1140,338 @@ namespace MultiPrecision
 		struct DecimalForm
 		{
 			uint64_t m_Num; // not necessarily normalized
-			int32_t m_Order;
+			int32_t m_Order10; // value == m_Num * 10^m_Order10
+			uint32_t m_NumDigits;
+
+			enum struct Kind {
+				Negative,
+				Zero,
+				Positive,
+				NaN
+			};
+
+			Kind m_Kind;
 
 			void Assign(Float x)
 			{
-				m_Order = 0;
+				m_Num = 0;
+				m_Order10 = 0;
+				m_NumDigits = 1;
 
 				if (x.IsZero())
-					m_Num = 0;
-				else
 				{
-					// multiply or divide by power of 10, to bring the binary order to the range [-3, 0]
-					while (true)
-					{
-						if (x.m_Order > 0)
-						{
-							Context ctx;
-							ctx.m_BinaryThreshold = x.m_Order + 3; // won't overflow, unsigned res will be correct
-							ctx.Calculate();
-							x /= ctx.Export();
-							m_Order += ctx.m_DecimalPwr;
-						}
-						else
-						{
-							if (x.m_Order >= -3)
-								break;
-
-							Context ctx;
-							ctx.m_BinaryThreshold = -x.m_Order; // can't overflow
-							ctx.Calculate();
-							x *= ctx.Export();
-							m_Order -= ctx.m_DecimalPwr;
-						}
-					}
-
-					x.Round(m_Num);
+					m_Kind = Kind::Zero;
+					return;
 				}
+
+				m_Kind = Kind::Positive;
+				assert(x.IsNormalizedNnz());
+
+				// multiply or divide by power of 10, to bring the binary order to the range [-3, 0]
+				while (true)
+				{
+					if (x.m_Order > 0)
+					{
+						Context ctx;
+						ctx.m_BinaryThreshold = x.m_Order + 3; // won't overflow, unsigned res will be correct
+						ctx.Calculate();
+						x /= ctx.Export();
+						m_Order10 += ctx.m_DecimalPwr;
+					}
+					else
+					{
+						if (x.m_Order >= -3)
+							break;
+
+						Context ctx;
+						ctx.m_BinaryThreshold = -x.m_Order; // can't overflow
+						ctx.Calculate();
+						x *= ctx.Export();
+						m_Order10 -= ctx.m_DecimalPwr;
+					}
+				}
+
+				x.Round(m_Num);
+				assert(m_Num);
+
+				const uint32_t nPwr10 = Power::LogOf<(uint64_t) -1, 10>::N; // max num of digits
+				m_NumDigits = nPwr10 + 1;
+
+				for (uint64_t val = Power::PowerOf<10, nPwr10>::N; m_Num < val; val /= 10)
+					m_NumDigits--;
+			}
+
+			void LimitPrecision(uint32_t numDigits)
+			{
+				if (!numDigits)
+					numDigits = 1;
+
+				if (numDigits >= m_NumDigits)
+					return;
+
+				// add half and divide
+				uint32_t delta = m_NumDigits - numDigits;
+
+				uint64_t val = Power::Raise<uint64_t, 10>(delta);
+				m_Num += (val >> 1);
+				bool bOverflow = (m_Num < val);
+
+				uint64_t numBeforeDiv = m_Num;
+				m_Num /= val;
+
+				if (bOverflow)
+				{
+					// results should be (2^64 + m_Num) / val
+					m_Num += static_cast<uint64_t>(-1) / val;
+					m_Num += ((static_cast<uint64_t>(-1) % val) + 1 + (numBeforeDiv % val)) / val; // at most 1
+				}
+
+				m_NumDigits = numDigits;
+				m_Order10 += delta;
+
+				// test for additional digit leak
+				val = Power::Raise<uint64_t, 10>(numDigits);
+				if (m_Num >= val)
+				{
+					assert(!(m_Num % 10));
+					m_Num /= 10;
+					m_Order10++;
+				}
+			}
+
+			void TrimLowDigits()
+			{
+				if (!m_Num)
+					return;
+
+				while (!(m_Num % 10))
+				{
+					m_Num /= 10;
+					m_NumDigits--;
+					m_Order10++;
+				}
+			}
+
+			struct PrintOptions {
+				// can only expand. To reduce num digits use LimitPrecision() and TrimLowDigits()
+				// If non-negative - the dot will be printed (even if no fractional part)
+				int32_t m_DigitsAfterDot = -1;
+
+				bool m_PreferScientific = false;
+				bool m_InsistSign = false;
+			};
+
+			uint32_t get_TextLenStd(const PrintOptions& po) const
+			{
+				Counter ctx;
+				PrintStdInternal(ctx, po);
+				return ctx.m_Len;
+			}
+
+			uint32_t PrintStd(char* sz, const PrintOptions& po) const
+			{
+				Writer ctx;
+				ctx.m_szPos = sz;
+				PrintStdInternal(ctx, po);
+				*ctx.m_szPos = 0;
+				return static_cast<uint32_t>(ctx.m_szPos - sz);
+			}
+
+			uint32_t PrintScientific(char* sz, const PrintOptions& po) const
+			{
+				Writer ctx;
+				ctx.m_szPos = sz;
+				PrintScientificInternal(ctx, po);
+				*ctx.m_szPos = 0;
+				return static_cast<uint32_t>(ctx.m_szPos - sz);
 			}
 
 		private:
 
+			struct Writer
+			{
+				char* m_szPos;
+				void Fill0(uint32_t nLen)
+				{
+#ifdef HOST_BUILD
+					memset(m_szPos, '0', nLen);
+#else // HOST_BUILD
+					Env::Memset(m_szPos, '0', nLen);
+#endif // HOST_BUILD
+					Move(nLen);
+				}
+
+				void Putc(char ch)
+				{
+					*m_szPos++ = ch;
+				}
+
+				void Move(uint32_t nOffs)
+				{
+					m_szPos += nOffs;
+				}
+
+				uint64_t PrintNumEx(uint64_t n, uint32_t nDigits, uint32_t nOffs)
+				{
+					return Utils::String::Decimal::PrintNoZTerm(m_szPos + nOffs, n, nDigits);
+				}
+
+
+				void PrintNum(uint64_t n, uint32_t nDigits)
+				{
+					PrintNumEx(n, nDigits, 0);
+					Move(nDigits);
+				}
+			};
+
+			struct Counter
+			{
+				uint32_t m_Len = 0;
+				void Fill0(uint32_t nLen)
+				{
+					m_Len += nLen;
+				}
+
+				void Putc(char ch)
+				{
+					m_Len++;
+				}
+
+				void Move(uint32_t nOffs)
+				{
+					m_Len += nOffs;
+				}
+
+				uint64_t PrintNumEx(uint64_t n, uint32_t nDigits, uint32_t nOffs)
+				{
+					return n;
+				}
+
+
+				void PrintNum(uint64_t n, uint32_t nDigits)
+				{
+					m_Len += nDigits;
+				}
+			};
+
+			template <typename TWriter>
+			static void PrintSplit(TWriter& ctx, uint64_t num, uint32_t nBefore, uint32_t nAfter)
+			{
+				num = ctx.PrintNumEx(num, nAfter, nBefore + 1); // after dot
+				ctx.PrintNum(num, nBefore); // before dot
+				ctx.Putc('.');
+				ctx.Move(nAfter);
+			}
+
+			template <typename TWriter>
+			static void PrintExtendPrecision(TWriter& ctx, uint32_t nAfterDot, const PrintOptions& po)
+			{
+				if (po.m_DigitsAfterDot >= 0)
+				{
+					if (!nAfterDot)
+						ctx.Putc('.');
+
+					if (nAfterDot < static_cast<uint32_t>(po.m_DigitsAfterDot))
+						ctx.Fill0(po.m_DigitsAfterDot - nAfterDot);
+				}
+			}
+
+			template <typename TWriter>
+			bool PrintPrefix(TWriter& ctx, const PrintOptions& po) const
+			{
+				switch (m_Kind)
+				{
+				case Kind::Positive:
+					if (po.m_InsistSign)
+						ctx.Putc('+');
+					break;
+
+				case Kind::Negative:
+					ctx.Putc('-');
+					break;
+
+				case Kind::Zero:
+					break;
+
+				default:
+					ctx.Putc('N');
+					ctx.Putc('a');
+					ctx.Putc('N');
+					return false;
+				}
+
+				return true;
+			}
+
+			template <typename TWriter>
+			void PrintStdInternal(TWriter& ctx, const PrintOptions& po) const
+			{
+				if (!PrintPrefix(ctx, po))
+					return;
+
+				int32_t nDelta = m_NumDigits + m_Order10;
+
+				if (nDelta <= 0)
+				{
+					// 0.[0]num
+					ctx.Putc('0');
+					ctx.Putc('.');
+					ctx.Fill0(-nDelta);
+					ctx.PrintNum(m_Num, m_NumDigits);
+
+				}
+				else
+				{
+					if (m_Order10 >= 0)
+					{
+						// num[0]
+						ctx.PrintNum(m_Num, m_NumDigits);
+						ctx.Fill0(m_Order10);
+					}
+					else
+						// xx.yyy digits before the dot: nDelta, digits after dot: -m_Order10.
+						PrintSplit(ctx, m_Num, nDelta, -m_Order10);
+				}
+
+				PrintExtendPrecision(ctx, (m_Order10 >= 0) ? 0 : -m_Order10, po);
+			}
+
+			template <typename TWriter>
+			void PrintScientificInternal(TWriter& ctx, const PrintOptions& po) const
+			{
+				if (!PrintPrefix(ctx, po))
+					return;
+
+				// print as x.yyy E +/- exp
+				uint32_t nAfterDot = m_NumDigits - 1;
+				if (nAfterDot)
+					PrintSplit(ctx, m_Num, 1, nAfterDot);
+				else
+					ctx.PrintNum(m_Num, 1);
+
+				PrintExtendPrecision(ctx, nAfterDot, po);
+
+				int32_t ord10 = m_Order10 + nAfterDot;
+				if (ord10)
+				{
+					ctx.Putc(' ');
+					ctx.Putc('E');
+
+					if (ord10 < 0)
+					{
+						ctx.Putc('-');
+						ord10 = -ord10;
+					}
+					else
+						ctx.Putc('+');
+
+					uint32_t dummy;
+					uint32_t pwr = Power::Log<uint32_t, 10>(dummy, (uint32_t) ord10);
+					assert(dummy && (dummy <= (uint32_t) ord10));
+
+					ctx.PrintNum(ord10, pwr + 1);
+				}
+			}
 
 			struct Context
 			{
@@ -1311,106 +1603,37 @@ namespace MultiPrecision
         // text formatting tools
         struct Text
         {
-            static const uint32_t s_LenMantissaMax = Utils::String::Decimal::DigitsMax<uint64_t>::N - 2;
+            static const uint32_t s_LenMantissaMax = Utils::String::Decimal::DigitsMax<uint64_t>::N;
             static const uint32_t s_LenOrderMax = Utils::String::Decimal::DigitsMax<uint32_t>::N;
 
-            static const uint32_t s_LenMax = s_LenMantissaMax + s_LenOrderMax + 5; // dot, space, E, space, sign. Excluding 0-term.
+            static const uint32_t s_LenScientificMax = s_LenMantissaMax + s_LenOrderMax + 6; // sign, dot, space, E, space, sign. Excluding 0-term.
         };
 
-        uint32_t Print(char* sz, bool bTryStdNotation = true, uint32_t nDigits = Text::s_LenMantissaMax) const
+        uint32_t PrintAuto(char* sz, bool bTryStdNotation = true, uint32_t nBufLen = Text::s_LenScientificMax) const
         {
-			uint32_t ret = 0;
+			DecimalForm df;
+			df.Assign(*this);
 
-			if (IsZero())
-                sz[ret++] = '0';
-			else
+			DecimalForm::PrintOptions po;
+			df.TrimLowDigits();
+
+			if (bTryStdNotation)
 			{
-				DecimalForm df;
-				df.Assign(*this);
-
-				uint64_t nTrg;
-				uint32_t nPwr = Power::Log<uint64_t, 10>(nTrg, df.m_Num);
-				assert(df.m_Num >= nTrg);
-				df.m_Order += nPwr;
-
-				if (!nDigits)
-					nDigits = 1u;
-				else
-					if (nDigits > Text::s_LenMantissaMax)
-						nDigits = Text::s_LenMantissaMax;
-
-				if (nPwr >= nDigits)
+				auto ret = df.get_TextLenStd(po);
+				if (ret <= nBufLen)
 				{
-					// add rounding
-					uint64_t y = Power::Raise<uint64_t, 10>(nPwr - nDigits + 1);
-					y >>= 1; // take half
-
-					y += df.m_Num; // can overflow
-					if (y > df.m_Num)
-					{
-						df.m_Num = y;
-
-						if (df.m_Num / nTrg >= 10)
-						{
-							nTrg *= 10;
-							df.m_Order++;
-						}
-					}
-				}
-
-				// Standard is the scientific notation: a.bbbbb E order
-				// Check if we can print in the standard notation: aaa.bbbb
-
-				if (bTryStdNotation && (df.m_Order > 0) && (((uint32_t) df.m_Order) <= (nDigits - 1)))
-				{
-					uint32_t nBeforeDot = df.m_Order + 1;
-
-					nTrg /= Power::Raise<uint64_t, 10>(df.m_Order);
-
-					nDigits -= df.m_Order;
-					df.m_Order = 0;
-
-					Utils::String::Decimal::Print(sz + ret, nTrg ? (df.m_Num / nTrg) : 0, nBeforeDot);
-					ret += nBeforeDot;
-
-				}
-				else
-					sz[ret++] = Utils::String::Decimal::ToChar(df.m_Num / nTrg);
-
-				uint32_t pos = ret;
-				sz[pos++] = '.';
-
-				while (--nDigits)
-				{
-					if (!(nTrg /= 10))
-						break;
-
-					char ch = Utils::String::Decimal::ToChar(df.m_Num / nTrg);
-					sz[pos++] = ch;
-
-					if ('0' != ch)
-						ret = pos;
-				}
-
-				if (df.m_Order)
-				{
-					sz[ret++] = ' ';
-					sz[ret++] = 'E';
-					if (df.m_Order < 0)
-					{
-						sz[ret++] = '-';
-						df.m_Order = -df.m_Order;
-					}
-					else
-						sz[ret++] = '+';
-
-					ret += Utils::String::Decimal::Print(sz + ret, df.m_Order);
+					df.PrintStd(sz, po);
+					return ret;
 				}
 			}
 
-			sz[ret] = 0;
-			return ret;
+			return df.PrintScientific(sz, po);
         }
+
+		uint32_t PrintScientific(char* sz) const
+		{
+			return PrintAuto(sz, false);
+		}
 
 	private:
 
