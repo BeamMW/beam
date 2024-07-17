@@ -84,12 +84,8 @@ namespace MultiPrecision
 
             uint32_t ord = -m_Order;
 			if (ord >= s_Bits)
-			{
-#if BVM_TARGET_HF < 6
-				Env::get_Height(); // this is workaround!
-#endif
 				ret = 0;
-			} else
+			else
 				ret = static_cast<T>(m_Num >> ord);
 
 			return true;
