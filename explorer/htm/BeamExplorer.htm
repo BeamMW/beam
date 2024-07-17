@@ -82,6 +82,14 @@ Disclaimer:
 	h2.errorMessage {
 		font-style: italic; 
 	}
+	h2.title { /* Nice useless animation */
+		display: inline-block;
+		animation: fade-in 0.5s ease-in;
+	}
+	@keyframes fade-in {
+		from { opacity: 0; filter: blur(4px); }
+		to { opacity: 1; filter: blur(0); }
+	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
@@ -516,8 +524,15 @@ Disclaimer:
 		content: "\25c2"; /* Nice useless decoration ;-) */
 		color: #17204e;
 	}
-	#Loading {
-		/* Nothing special */
+	#Loading span { /* Animation for the three dots */
+		position: relative;
+		display: inline-block;
+		animation: bounce 1s infinite;
+		animation-delay: calc(.1s * var(--t));
+	}
+	@keyframes bounce {
+		0%,40%,100% { transform: translateY(0) }
+		20% { transform: translateY(-1rem) }
 	}
 
 	/* SPECIAL HISTORICAL BLOCKS */
@@ -805,7 +820,8 @@ Disclaimer:
 
 			<!-- Main content area (will be replaced through Javascript) -->
 			<div id="my_content">
-				<h2 id="Loading">Loading...</h2>
+				<!-- Dots are isolated, for CSS animation... -->
+				<h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
 			</div>
 
 		</div>
@@ -1069,7 +1085,7 @@ Disclaimer:
 	function DisplayContracts()
 	{
 		let text = "\
-		<h2>Deployed Smart Contracts</h2>\n\
+		<h2 class='title'>Deployed Smart Contracts</h2>\n\
 		<table class='tableContracts'>\n\
 			<thead><tr>\n\
 				<th>Cid</th>\n\
@@ -1145,9 +1161,7 @@ Disclaimer:
 		const jTblObj = jData["Asset history"];
 		const jTbl = jTblObj["value"];
 		
-		let text = "<h2>\n"
-		text += "History of Asset " + g_id;
-		text += "</h2>\n"
+		let text = "<h2 class='title'>History of Asset " + g_id + "</h2>\n"
 
 		text += "\
 		<table class='tableAssetHistory'>\n\
@@ -1308,9 +1322,9 @@ Disclaimer:
 			// Display error message if kernel or height was queried but no block was found
 			if (g_kernel || g_id > 0) {
 				if (g_kernel) {
-					text += "<h2 class='errorMessage'>Kernel not found.</h2>"
+					text += "<h2 class='title errorMessage'>Kernel not found.</h2>"
 				} else {
-					text += "<h2 class='errorMessage'>Block not found.</h2>"
+					text += "<h2 class='title errorMessage'>Block not found.</h2>"
 				}
 				SetContent(text);
 				return;
@@ -1566,9 +1580,7 @@ Disclaimer:
 		const jTblObj = jData["Calls history"];
 		const jTbl = jTblObj["value"];
 		
-		let text = "<h2>\n"
-		text += "Contract " + AddClass(g_id, "cidTitle");
-		text += "</h2>\n"
+		let text = "<h2 class='title'>Contract " + AddClass(g_id, "cidTitle") + "</h2>\n"
 
 		text += MakeCollapsibleBegin("Call history") + "\
 		<table class='tableCallHistory'>\n\
@@ -1622,7 +1634,7 @@ Disclaimer:
 		const jData = JSON.parse(this.responseText);
 		//const jTbl = jData["value"];
 
-		let text = "<h2>\n"
+		let text = "<h2 class='title'>\n"
 		text += "Block headers";
 		text += "&nbsp;";
 		text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
@@ -1641,7 +1653,7 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 	
-		let text = "<h2>Blockchain status</h2>";
+		let text = "<h2 class='title'>Blockchain status</h2>";
 		text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
 		text += Obj2Html(jData);
 		text += "</div>"
@@ -1653,7 +1665,7 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 
-		let text = "<h2>\n";
+		let text = "<h2 class='title'>\n";
 		if (g_id) {
 			text += "Confidential Assets at block height " + MakeBlock(g_id);
 			text += "&nbsp;";
@@ -1675,7 +1687,7 @@ Disclaimer:
 
 	function DisplayHistoricalBlocks()
 	{
-		let text = "<h2>Special historical blocks</h2>";
+		let text = "<h2 class='title'>Special historical blocks</h2>";
 		text += "<table class='tableHistoricalBlocks'>\n\
 			<thead><tr>\n\
 				<th>Height</th>\n\
