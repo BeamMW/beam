@@ -1,5 +1,5 @@
 #pragma once
-#include "../Math.h"
+#include "../Float.h"
 #include "../upgradable3/contract.h"
 
 namespace Oracle2

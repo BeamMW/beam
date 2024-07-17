@@ -1,7 +1,7 @@
 #include "../common.h"
 #include "../app_common_impl.h"
 #include "contract.h"
-#include "../Math.h"
+#include "../Float.h"
 #include "../upgradable3/app_common_impl.h"
 
 #define DaoVote_manager_deploy(macro) \

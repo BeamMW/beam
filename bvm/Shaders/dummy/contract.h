@@ -1,5 +1,6 @@
 #pragma once
 #include "../Eth.h"
+#include "../Float.h"
 
 namespace Dummy
 {
