@@ -315,6 +315,11 @@ namespace MultiPrecision
 
 			Kind m_Kind;
 
+			static const uint32_t s_LenMantissaMax = Utils::String::Decimal::DigitsMax<uint64_t>::N;
+			static const uint32_t s_LenOrderMax = Utils::String::Decimal::DigitsMax<uint32_t>::N;
+
+			static const uint32_t s_LenScientificMax = s_LenMantissaMax + s_LenOrderMax + 6; // sign, dot, space, E, space, sign. Excluding 0-term.
+
 			void Assign(Float x)
 			{
 				m_Num = 0;
@@ -362,6 +367,8 @@ namespace MultiPrecision
 
 				for (uint64_t val = Power::PowerOf<10, nPwr10>::N; m_Num < val; val /= 10)
 					m_NumDigits--;
+
+				TrimLowDigits();
 			}
 
 			void LimitPrecision(uint32_t numDigits)
@@ -392,14 +399,7 @@ namespace MultiPrecision
 				m_NumDigits = numDigits;
 				m_Order10 += delta;
 
-				// test for additional digit leak
-				val = Power::Raise<uint64_t, 10>(numDigits);
-				if (m_Num >= val)
-				{
-					assert(!(m_Num % 10));
-					m_Num /= 10;
-					m_Order10++;
-				}
+				TrimLowDigits(); // would also take care for additional digit leak (in such a case, the least digit is guaranteed to be 0)
 			}
 
 			void TrimLowDigits()
@@ -416,22 +416,28 @@ namespace MultiPrecision
 			}
 
 			struct PrintOptions {
-				// can only expand. To reduce num digits use LimitPrecision() and TrimLowDigits()
+				// can only expand. To reduce num digits use LimitPrecision()
 				// If non-negative - the dot will be printed (even if no fractional part)
-				int32_t m_DigitsAfterDot = -1;
+				int32_t m_DigitsAfterDot;
+				bool m_PreferScientific;
+				bool m_InsistSign;
 
-				bool m_PreferScientific = false;
-				bool m_InsistSign = false;
+				PrintOptions()
+					:m_DigitsAfterDot(-1)
+					,m_PreferScientific(false)
+					,m_InsistSign(false)
+				{
+				}
 			};
 
-			uint32_t get_TextLenStd(const PrintOptions& po) const
+			uint32_t get_TextLenStd(const PrintOptions& po = PrintOptions()) const
 			{
 				Counter ctx;
 				PrintStdInternal(ctx, po);
 				return ctx.m_Len;
 			}
 
-			uint32_t PrintStd(char* sz, const PrintOptions& po) const
+			uint32_t PrintStd(char* sz, const PrintOptions& po = PrintOptions()) const
 			{
 				Writer ctx;
 				ctx.m_szPos = sz;
@@ -440,13 +446,26 @@ namespace MultiPrecision
 				return static_cast<uint32_t>(ctx.m_szPos - sz);
 			}
 
-			uint32_t PrintScientific(char* sz, const PrintOptions& po) const
+			uint32_t PrintScientific(char* sz, const PrintOptions& po = PrintOptions()) const
 			{
 				Writer ctx;
 				ctx.m_szPos = sz;
 				PrintScientificInternal(ctx, po);
 				*ctx.m_szPos = 0;
 				return static_cast<uint32_t>(ctx.m_szPos - sz);
+			}
+
+			// attempt to print in standard notation, if fits the buffer.
+			uint32_t PrintAuto(char* sz, uint32_t nBufLen = s_LenScientificMax, const PrintOptions& po = PrintOptions()) const
+			{
+				auto ret = get_TextLenStd(po);
+				if (ret <= nBufLen)
+				{
+					PrintStd(sz, po);
+					return ret;
+				}
+
+				return PrintScientific(sz, po);
 			}
 
 		private:
@@ -762,40 +781,11 @@ namespace MultiPrecision
 
 		};
 
-
-        // text formatting tools
-        struct Text
-        {
-            static const uint32_t s_LenMantissaMax = Utils::String::Decimal::DigitsMax<uint64_t>::N;
-            static const uint32_t s_LenOrderMax = Utils::String::Decimal::DigitsMax<uint32_t>::N;
-
-            static const uint32_t s_LenScientificMax = s_LenMantissaMax + s_LenOrderMax + 6; // sign, dot, space, E, space, sign. Excluding 0-term.
-        };
-
-        uint32_t PrintAuto(char* sz, bool bTryStdNotation = true, uint32_t nBufLen = Text::s_LenScientificMax) const
-        {
+		DecimalForm get_Decimal() const
+		{
 			DecimalForm df;
 			df.Assign(*this);
-
-			DecimalForm::PrintOptions po;
-			df.TrimLowDigits();
-
-			if (bTryStdNotation)
-			{
-				auto ret = df.get_TextLenStd(po);
-				if (ret <= nBufLen)
-				{
-					df.PrintStd(sz, po);
-					return ret;
-				}
-			}
-
-			return df.PrintScientific(sz, po);
-        }
-
-		uint32_t PrintScientific(char* sz) const
-		{
-			return PrintAuto(sz, false);
+			return df;
 		}
 
 	private:
@@ -1353,6 +1343,40 @@ namespace MultiPrecision
 		bool operator >= (const FloatEx& x) const { return cmp(x) >= 0; }
 		bool operator == (const FloatEx& x) const { return cmp(x) == 0; }
 		bool operator != (const FloatEx& x) const { return cmp(x) != 0; }
+
+		typedef Float::DecimalForm DecimalForm;
+
+		DecimalForm get_Decimal() const
+		{
+			DecimalForm df;
+			if (IsNaN())
+			{
+				df.m_Num = 0;
+				df.m_Order10 = 0;
+				df.m_NumDigits = 1;
+				df.m_Kind = DecimalForm::Kind::NaN;
+			}
+			else
+			{
+				Float x;
+				if (IsZero())
+					x.Set0();
+				else
+				{
+					x.m_Num = get_WithHiBit();
+					x.m_Order = m_Order - (s_Bits - 1); // may overflow!
+					if (x.m_Order > m_Order)
+						x.Set0(); // overflow
+				}
+
+				df.Assign(x);
+
+				if (IsNegative())
+					df.m_Kind = DecimalForm::Kind::Negative;
+			}
+
+			return df;
+		}
 
     };
 
