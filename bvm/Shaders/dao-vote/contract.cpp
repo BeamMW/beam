@@ -1,6 +1,6 @@
 ////////////////////////
 #include "../common.h"
-#include "../Math.h"
+#include "../Float.h"
 #include "contract.h"
 #include "../upgradable3/contract_impl.h"
 

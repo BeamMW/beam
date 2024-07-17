@@ -1,6 +1,6 @@
 #pragma once
 #include "../upgradable3/contract.h"
-#include "../Math.h"
+#include "../Float.h"
 
 namespace ProfitPool
 {
