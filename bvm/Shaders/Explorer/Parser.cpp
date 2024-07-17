@@ -147,8 +147,8 @@ void DocAddCid(const char* sz, const ContractID& cid)
 
 void DocAddFloat(const char* sz, MultiPrecision::Float x)
 {
-	char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 1];
-	x.PrintAuto(szBuf);
+	char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 1];
+	x.get_Decimal().PrintAuto(szBuf);
 	Env::DocAddText(sz, szBuf);
 }
 
@@ -200,7 +200,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 		}
 	}
 
-	char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 1];
+	char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 1];
 	if (df2.get_TextLenStd(po) < _countof(szBuf))
 		df2.PrintStd(szBuf, po);
 	else
@@ -2440,7 +2440,7 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 
 			if (p.m_Totals.m_Tok1 && p.m_Totals.m_Tok2)
 			{
-				char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 3];
+				char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 3];
 				uint32_t nBuf = 0;
 
 				bool b1 = (p.m_Totals.m_Tok1 >= p.m_Totals.m_Tok2);
@@ -2466,7 +2466,6 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 					df.Assign(k);
 
 					df.LimitPrecision(nPrecision);
-					df.TrimLowDigits();
 
 					MultiPrecision::Float::DecimalForm::PrintOptions po;
 
