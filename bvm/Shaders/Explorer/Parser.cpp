@@ -183,8 +183,6 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	MultiPrecision::Float::DecimalForm::PrintOptions po;
 	po.m_DigitsAfterDot = nDigsAfterDot;
 
-	bool bTryStd = true;
-
 	// remove unnecessary extra precision
 	auto df2 = df;
 	int32_t nExtra = -(po.m_DigitsAfterDot + df2.m_Order10);
