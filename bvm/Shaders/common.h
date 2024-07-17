@@ -611,14 +611,12 @@ namespace Utils {
                 PrintNoZTerm(sz, val, nDigs);
             }
 
-            static void PrintNoZTerm(char* sz, uint64_t val, uint32_t nDigs)
+            static uint64_t PrintNoZTerm(char* sz, uint64_t val, uint32_t nDigs)
             {
-                for ( ; ; val /= nRadix)
-                {
-                    sz[--nDigs] = ToChar(val);
-                    if (!nDigs)
-                        break;
-                }
+                for ( ; nDigs--; val /= nRadix)
+                    sz[nDigs] = ToChar(val);
+
+                return val;
             }
 
             template <uint64_t x> struct Digits {

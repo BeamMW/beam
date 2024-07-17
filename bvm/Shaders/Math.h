@@ -186,8 +186,8 @@ namespace Power
 	uint32_t Log(T& res, T x)
 	{
 		// find highest power, for which base^n <= bound
-		const uint32_t nMax = LogOf<(uint64_t) -1, base>::N;
-		const uint64_t vMax = PowerOf<base, nMax>::N;
+		const uint32_t nMax = LogOf<(T) -1, base>::N;
+		const T vMax = PowerOf<base, nMax>::N;
 
 		if (x >= vMax)
 		{
