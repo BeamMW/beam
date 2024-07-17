@@ -193,8 +193,8 @@ bool SetKey(Pool::ID& pid, AssetID aid1, AssetID aid2, uint32_t kind)
 
 void DocAddRate(const char* sz, Amount v1, Amount v2)
 {
-    char szBuf[Float::Text::s_LenMax + 1];
-    (Float(v1) / Float(v2)).Print(szBuf);
+    char szBuf[Float::Text::s_LenScientificMax + 1];
+    (Float(v1) / Float(v2)).PrintAuto(szBuf);
     Env::DocAddText(sz, szBuf);
 }
 

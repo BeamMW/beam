@@ -145,31 +145,11 @@ void DocAddCid(const char* sz, const ContractID& cid)
 	Env::DocAddBlob_T("value", cid);
 }
 
-void DocAddFloatFixPt(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
+void DocAddFloat(const char* sz, MultiPrecision::Float x)
 {
-	auto norm = Power::Raise<uint64_t, 10>(nDigsAfterDot);
-
-	uint64_t val = x * MultiPrecision::Float(norm * 2);
-	val = (val + 1) / 2;
-
-	char szBuf[Utils::String::Decimal::DigitsMax<uint64_t>::N + 2]; // dot + 0-term
-	uint32_t nPos = Utils::String::Decimal::Print(szBuf, val / norm);
-	szBuf[nPos++] = '.';
-	Utils::String::Decimal::Print(szBuf + nPos, val % norm, nDigsAfterDot);
-
+	char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 1];
+	x.PrintAuto(szBuf);
 	Env::DocAddText(sz, szBuf);
-}
-
-//void DocAddFloat(const char* sz, MultiPrecision::Float x, bool bTryStdNotation = true, uint32_t nDigits = MultiPrecision::Float::Text::s_LenMantissaMax)
-//{
-//	char szBuf[MultiPrecision::Float::Text::s_LenMax + 1];
-//	x.Print(szBuf, bTryStdNotation, nDigits);
-//	Env::DocAddText(sz, szBuf);
-//}
-
-void DocAddFloat(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 5)
-{
-	DocAddFloatFixPt(sz, x, nDigsAfterDot);
 }
 
 void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
@@ -196,7 +176,43 @@ void DocAddFloatDbg(const char* sz, MultiPrecision::Float x)
 
 void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot = 3)
 {
-	DocAddFloatFixPt(sz, x * MultiPrecision::Float(100), nDigsAfterDot);
+	MultiPrecision::Float::DecimalForm df;
+	df.Assign(x);
+	df.m_Order10 += 2; // to perc
+
+	MultiPrecision::Float::DecimalForm::PrintOptions po;
+	po.m_DigitsAfterDot = nDigsAfterDot;
+
+	bool bTryStd = true;
+
+	// remove unnecessary extra precision
+	auto df2 = df;
+	int32_t nExtra = -(po.m_DigitsAfterDot + df2.m_Order10);
+	if (nExtra > 0)
+	{
+		// loose extra precision
+		if (df2.m_NumDigits > (uint32_t)nExtra)
+			df2.LimitPrecision(df2.m_NumDigits - nExtra);
+		else
+		{
+			// loose all, make it 0
+			df2.m_Num = 0;
+			df2.m_Order10 = 0;
+			df2.m_NumDigits = 1;
+		}
+	}
+
+	char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 1];
+	if (df2.get_TextLenStd(po) < _countof(szBuf))
+		df2.PrintStd(szBuf, po);
+	else
+	{
+		df.LimitPrecision(nDigsAfterDot + 2);
+		po.m_DigitsAfterDot = -1;
+		df.PrintScientific(szBuf, po);
+	}
+
+	Env::DocAddText(sz, szBuf);
 }
 
 
@@ -2426,7 +2442,7 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 
 			if (p.m_Totals.m_Tok1 && p.m_Totals.m_Tok2)
 			{
-				char szBuf[MultiPrecision::Float::Text::s_LenMax + 3];
+				char szBuf[MultiPrecision::Float::Text::s_LenScientificMax + 3];
 				uint32_t nBuf = 0;
 
 				bool b1 = (p.m_Totals.m_Tok1 >= p.m_Totals.m_Tok2);
@@ -2444,7 +2460,23 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 					szBuf[nBuf++] = ':';
 				}
 
-				nBuf += k.Print(szBuf + nBuf, true, 8);
+				{
+					// print the ratio nicely. Limit to 8 precision digits, prefer std notation
+					const uint32_t nPrecision = 8;
+
+					MultiPrecision::Float::DecimalForm df;
+					df.Assign(k);
+
+					df.LimitPrecision(nPrecision);
+					df.TrimLowDigits();
+
+					MultiPrecision::Float::DecimalForm::PrintOptions po;
+
+					if (df.get_TextLenStd(po) <= nPrecision + 2)
+						nBuf += df.PrintStd(szBuf + nBuf, po);
+					else
+						nBuf += df.PrintScientific(szBuf + nBuf, po);
+				}
 
 				if (b1)
 				{
