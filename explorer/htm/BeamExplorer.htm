@@ -46,11 +46,84 @@ Disclaimer:
 		margin: 0; /* From a CSS reset template... */
 	}
 	:root {
- 		background: #d0daff; /* Default background color for all pages */
+		/* Color variables */
+		--color_background: #d0daff;
+		--color_text: black;
+		--color_h1: black;
+		--color_h2: black;
+		--color_h3: #17204e;
+		--color_link: #0066CC;
+		--color_link_visited: #3e1a8b;
+		--color_metadata: #505050;
+		--color_hash: #505050;
+		--color_hash_highlight: darkred;
+		--color_more: #17204e;
+		--color_icon: #777ebc;
+		--color_icon_hover: #555fb8;
+		--color_icon_off: lightgrey;
+		--color_eye_icons: #aaaaaa;
+		--color_eye_icons_hover: grey;
+		--color_collapsible: #777ebc;
+		--color_collapsible_hover: #555fb8;
+		--color_collapsible_text: white;
+		--color_collapsible_content_background: white;
+		--color_small_collapsible: #b8bbd8;
+		--color_small_collapsible_hover: #8c94e0;
+		--color_small_collapsible_text: black;
+		--color_yes: green;
+		--color_no: blue;
+		--color_amount: darkcyan;
+		--color_pos: green;
+		--color_neg: red;
+		--color_scroll_button: black;
+		--color_scroll_text: white;
+		--color_time: #650000;
+		--color_table_border: #ddd;
+		--color_table_header: #b8bbd8;
+		--color_table_header_hover: #9ca2d2;
+		--color_table_header_active: #9ca2d2;
+		--color_table_rows_wrapper: #555fb8;
+		--color_table_row_odd: #fff;
+		--color_table_row_even: #eee;
+		--color_table_row_hover: #e0e0f0;
+		--color_banner_background: #a7acd9;
+		--color_banner_title: #17204e;
+		--color_banner_version: #525252;
+		--color_banner_menu_text: #17204e;
+		--color_banner_menu_link: #2d3799;
+		--color_banner_search_border: #636785;
+		--color_banner_search_background: #afb3d8;
+		--color_banner_search_placeholder: #525252;
+		--color_banner_search_text: #525252;
+		--color_banner_search_border_filled: #ddd;
+		--color_banner_search_background_filled: #b8bbd8;
+		--color_banner_search_text_invalid: #805353;
+		--color_banner_search_button_border: #636785;
+		--color_banner_search_button_background: #636785;
+		--color_banner_search_button_text: #ddd;
+		--color_banner_search_button_background_hover: #525252;
+		--color_banner_search_button_text_hover: #ddd;
+		--color_banner_navigation_icon: #636785;
+		--color_banner_navigation_icon_hover: #505050;
+		--color_footer_text: #17204e;
+		--color_footer_link: #17204e;
+		--color_historical_title: #17204e;
+		--color_historical_notes: grey;
+		--color_sorting_indicator: #666;
+		--color_sorting_indicator_hover: #e7e7e7;
+		--color_sorted_indicator: #e7e7e7;
+		--color_table_search_text: #525252;
+		--color_table_search_border: #555;
+		--color_table_search_background: #afb3d8 ;
+		--color_table_search_border_filled: #ddd;
+		--color_table_search_background_filled: #b8bbd8;
 	}
-	:link { color: #0066CC; } 	/* Default link colors */
-	:visited { color: #3e1a8b; }
-	:link:active, :visited:active { color: #3e1a8b; }
+	:root {
+ 		background: var(--color_background); /* Default background color for all pages */
+	}
+	:link { color: var(--color_link); } /* Default link colors */
+	:visited { color: var(--color_link_visited); }
+	:link:active, :visited:active { color: var(--color_link_visited); }
 	p {
 		font-size: 1.6rem;
 		padding: 5px 0 5px 0;
@@ -73,11 +146,13 @@ Disclaimer:
 		font-size: 3.2rem;
 		text-align: center;
 		margin: 10px 0 10px 0;
+		color: var(--color_h1);
 	}
 	h2 {
 		font-size: 2.4rem;
 		text-align: left;
 		margin: 15px 0 10px 0;
+		color: var(--color_h2);
 	}
 	h2.errorMessage {
 		font-style: italic; 
@@ -93,19 +168,15 @@ Disclaimer:
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
-		color: #17204e;
+		color: var(--color_h3);
 		margin: 10px 0 15px 0;
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 	.blockHeight, .blockHeight a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
-	}
-	h2 .blockHeight a {
-		color: #17204e;
 	}
 	.blockTitle {
 		white-space: nowrap; /* Don't wrap text */
@@ -115,59 +186,59 @@ Disclaimer:
 	}
 	.listOfBlockHeaders {
 		cursor: pointer;
-		fill: #777ebc;
+		fill: var(--color_icon);
 		display: inline-block;
 		vertical-align: top; /* Needed to align text and symbol */
 	}
 	.listOfBlockHeaders:hover {
-		fill: #555fb8;
+		fill: var(--color_icon_hover);
 	}
 	.nextBlock, .previousBlock, .newerBlocks, .olderBlocks {
 		cursor: pointer;
-		stroke: #777ebc;
+		stroke: var(--color_icon);
 		display: inline-block;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	.nextBlock a, .previousBlock a, .newerBlocks a, .olderBlocks a { /* Needed for Chrome 83 */
-		stroke: #777ebc;
+		stroke: var(--color_icon);
 	}
 	.nextBlock a:hover, .previousBlock a:hover, .newerBlocks a:hover, .olderBlocks a:hover {
-		stroke: #555fb8;
+		stroke: var(--color_icon_hover);
 	}
 	.nextBlock.off, .previousBlock.off, .newerBlocks.off, .olderBlocks.off { /* Dim out when disabled */
 		cursor: default;
-		stroke: lightgrey;
+		stroke: var(--color_icon_off);
 	}
 	.nextBlock.off:hover, .previousBlock.off:hover, .newerBlocks.off:hover, .olderBlocks.off:hover {
-		stroke: lightgrey;
+		stroke: var(--color_icon_off);
 	}
 	.assetName {
-		color: black;
+		color: var(--color_text);
 		white-space: nowrap; /* Don't wrap text */
 	}
 	.assetName a {
-		color: black; /* Keep links in black */
+		color: var(--color_text); /* Keep links in same color */
 	}
 	.bool {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.6rem;
-		color: black;
+		color: var(--color_text);
 	}
 	.bool.yes {
-		color: green; /* 'True' in green */
+		color: var(--color_yes); /* Color for 'True' */
 	}
 	.bool.no {
-		color: blue; /* 'False' in blue */
+		color: var(--color_no); /* Color for 'False' */
 	}
 	.time {
 		white-space: nowrap; /* Don't wrap text */
 		font-size: 1.2rem;
-		color: #650000;
+		color: var(--color_time);
 	}
 	.metadata {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		display: table; /* We use table-like display to ensure that text and symbol stay inline */
-		color: #505050;
+		color: var(--color_metadata);
 		font-size: 1.2rem;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
@@ -194,7 +265,7 @@ Disclaimer:
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		display: table-cell;
 		cursor: pointer;
-		fill: #aaaaaa;
+		fill: var(--color_eye_icons);
 		padding: 0 0 0 3px;
 	}
 	/* Display the extend symbols when hovering over the element containing the text */
@@ -203,24 +274,24 @@ Disclaimer:
 	}
 	/* Highlight the symbol when hovering on it */
 	.extend:hover {
-		fill: grey;
+		fill: var(--color_eye_icons_hover);
 	}
 	.cid, .kernelId, .blob, .commitment {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252;
+		color: var(--color_hash);
 		white-space: nowrap;
 		display: inline;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	.kernelId.highlight { /* Highlight queried kernel */
-		color: darkred;
+		color: var(--color_hash_highlight);
 		font-weight: bold;
 	}
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252; /* Keep links grey */
+		color: var(--color_hash);
 		text-decoration-line: underline;
 		text-decoration-color: grey; /* Use a light underline color */
 	}
@@ -248,7 +319,7 @@ Disclaimer:
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
-		fill: #aaaaaa;
+		fill: var(--color_eye_icons);
 		padding: 0 0 0 3px;
 	}
 	/* Display the expand symbols when hovering over the cell or the list item containing the text */
@@ -261,44 +332,43 @@ Disclaimer:
 	}
 	/* Highlight the symbol when hovering on it */
 	.expand:hover {
-		fill: grey;
+		fill: var(--color_eye_icons_hover);
 	}
 	.amount {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.4rem;
-		color: darkcyan;
+		color: var(--color_amount); /* Unsigned amounts */
 	}
 	.amount.pos {
-		color: green; /* Positive values in green */
+		color: var(--color_pos); /* Positive amounts */
 	}
 	.amount.neg {
-		color: red; /* Negative values in red */
+		color: var(--color_neg); /* Negative amounts */
 	}
 	.th {
 		/* This class is a "header" type from the node explorer data */
 	}
 	.more {
 		font-weight: bold;
-		color: #17204e;
+		color: var(--color_more);
 	}
 	.more a {
-		color: #17204e;
+		color: var(--color_more);
 	}
 	.more::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 
 	/* FORMAT TABLES */
 	table, td, th {
-		color: black; /* Default text color */
+		color: var(--color_text); /* Default text color */
 		font-size: 1.5rem; /* Default text size */
-		border: 1px solid #ddd; /* Thin grey border */
+		border: 1px solid var(--color_table_border);
 		border-collapse: collapse; /* Join table and cell borders as one single line */
 		padding: 5px; /* Add a small padding */
 	}
 	table thead > tr th {
-		background-color: #b8bbd8; /* Background color for table header cells declared as such ("thead" tag) */
+		background-color: var(--color_table_header); /* Background color for table header cells declared as such ("thead" tag) */
 	}
 	th {
 		white-space: nowrap; /* Don't wrap header text */
@@ -323,7 +393,7 @@ Disclaimer:
 		/* Nothing special */
 	}
 	.contractCall {
-		border: 3px solid #555fb8; /* Group multiple contract calls within a thick border */
+		border: 3px solid var(--color_table_rows_wrapper); /* Group multiple contract calls within a thick border */
 	}
 	.mainCall, .subCall {
 		text-align: center;
@@ -332,14 +402,14 @@ Disclaimer:
 		/* These div are just a dirty hack added to wrap and identify some special types of generic tables... */
 	}
 	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
-	table tbody > tr:nth-child(odd) { background-color: #fff; }
-	table tbody > tr:nth-child(even) { background-color: #eee; }
+	table tbody > tr:nth-child(odd) { background-color: var(--color_table_row_odd); }
+	table tbody > tr:nth-child(even) { background-color: var(--color_table_row_even); }
 	/* Highlight when hover on main rows (for certain tables only) */
 	.tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
 	.tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
 	.tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
 	.divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
-		background-color: #e0e0f0;
+		background-color: (--color_table_row_hover);
 	}
 
 	/* TITLE BANNER AND FOOTER */
@@ -355,7 +425,7 @@ Disclaimer:
 	#Banner {
 		width: 100%;
 		display: table;
-		background-color: #a7acd9;
+		background-color: var(--color_banner_background);
 		border-radius: 0.5em; /* Slightly round corners */
 		padding: 5px 10px 5px 10px;
 		text-align: center;
@@ -375,22 +445,22 @@ Disclaimer:
 	}
 	#BeamTitle {
 		font-size: 2.4rem;
-		color: #17204e;
+		color: var(--color_banner_title);
 		margin: 0 0 5px 0;
 	}
 	#Version {
 		font-size: 1rem;
-		color: #525252;
+		color: var(--color_banner_version);
 	}
 	#Menu {
 		font-size: 1.5rem;
-		color: #17204e;
+		color: var(--color_banner_menu_link);
 	}
 	.menuItem a {
-		color: #2d3799; /* No change of color when followed */
+		color: var(--color_banner_link);
 	}
 	.menuSeparator {
-		color: #17204e;
+		color: var(--color_banner_menu_text);
 		padding: 0 5px 0 5px;
 	}
 	#SearchArea {
@@ -403,13 +473,13 @@ Disclaimer:
 	#SearchField {
 		display: inline-block;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid #636785; /* Dark border */
-		background-color: #afb3d8;
+		border: 1px solid var(--color_banner_search_border);
+		background-color: var(--color_banner_search_background);
 		padding: 0.25ch 1ch 0.25ch 1ch; /* Internal padding */
 		font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
 		font-size: 1.2rem;
 		width: 67ch;
-		color: #525252;
+		color: var(--color_banner_search_text);
 		height: 2rem;
 		text-decoration: none;
 		vertical-align: middle;
@@ -418,27 +488,27 @@ Disclaimer:
 		outline: none; /* Avoid the browser default focus outline */
 	}
 	#SearchField:not(:placeholder-shown) { /* Search field with content */
-		background-color: #b8bbd8; /* Use a lighter background */
-		border: 1px solid #ddd; /* White border */
+		background-color: var(--color_banner_search_background_filled);
+		border: 1px solid var(--color_banner_search_border_filled);
 	}
 	#SearchField:invalid {
-		color: #805353;
+		color: var(--color_banner_search_text_invalid);
 		text-decoration: line-through; /* Strikethrough if incorrect format */
 	}
 	#SearchField:placeholder-shown {
 		font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
 		font-size: 1.3rem;
 		font-style: italic;
-		color: #525252;
+		color: var(--color_banner_search_placeholder);
 		text-decoration: none;
 	}
 	#SearchButton {
 		display: inline-block;
 		border: none;
-		border: 1px solid #636785;
+		border: 1px solid var(--color_banner_search_button_border);
 		border-radius: 0.25em; /* Slightly round corners */
-		background-color: #636785;
-		color: #ddd;
+		background-color: var(--color_banner_search_button_background);
+		color: var(--color_banner_search_button_text);
 		height: 2rem;
 		font-size: 1.2rem;
 		text-align: center;
@@ -447,8 +517,8 @@ Disclaimer:
 		padding: 0.25ch 1ch 0.25ch 1ch;
 	}
 	#SearchButton:hover {
-		background-color: #525252;
-		color: #ddd;
+		background-color: var(--color_banner_search_button_background_hover);
+		color: var(--color_banner_search_button_text_hover);
 		cursor: pointer; /* Mouse pointer on hover */
 	}
 	#Navigation {
@@ -456,19 +526,17 @@ Disclaimer:
 		vertical-align: middle;
 		text-align: center;
 		font-size: 2rem;
-		color: #525252;
 		padding: 0 10px 0 10px;
 		line-height: 1; /* Without units it's a number of lines */
 	}
 	#Navigation a {
-		color: #525252;
 		text-decoration-line: none;
 	}
 	#Back *, #Reload *, #ExpandAll * {
-		fill: #636785; /* Color all SVG elements */
+		fill: var(--color_banner_navigation_icon); /* Color all SVG elements */
 	}
 	#Back:hover *, #Reload:hover *, #ExpandAll:hover * {
-		fill: #505050; /* Color all SVG elements */
+		fill: var(--color_banner_navigation_icon_hover); /* Color all SVG elements */
 	}
 	#TopButton, #BottomButton {
 		position: fixed; /* Fixed position */
@@ -477,11 +545,11 @@ Disclaimer:
 		border: none; /* Remove borders */
 		outline: none; /* Remove outline */
 		border-radius: 50%; /* Round button */
-		background-color: black; /* Background color */
+		background-color: var(--color_scroll_button); /* Background color */
 		opacity: 0.15; /* Very transparent */
 		text-align: center;
 		font-size: 1.5rem;
-		color: white; /* Text color */
+		color: var(--color_scroll_text); /* Text color */
 		padding: 10px; /* Some padding */
 	}
 	#TopButton {
@@ -495,22 +563,21 @@ Disclaimer:
 		right: 10px; /* Right side of the page */
 	}
 	#TopButton:hover, #BottomButton:hover {
-		opacity: 0.9; /* Less transparent on hover */
-		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
+		opacity: 0.3; /* Less transparent on hover */
 	}
 	#Footer {
 		position: absolute;
 		bottom: 0;
 		width: 100%;
 		text-align: center;
-		color: #17204e;
+		color: var(--color_footer_text);
 		font-weight: bold;
 		white-space: nowrap; /* Don't wrap text */
 		font-size: 1.2rem;
 		height: 1.8rem; /* Footer height */
 	}
 	#Footer a {
-		color: #17204e;
+		color: var(--color_footer_link);
 		text-decoration: none;
 	}
 	#Footer a:hover {
@@ -518,11 +585,9 @@ Disclaimer:
 	}
 	#Footer::before {
 		content: "\25b8"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 	#Footer::after {
 		content: "\25c2"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 	#Loading span { /* Animation for the three dots */
 		position: relative;
@@ -539,7 +604,7 @@ Disclaimer:
 	.specialBlock_Title {
 		font-size: 1.5rem;
 		font-weight: bold;
-		color: #17204e;
+		color: var(--color_historical_title);
 		padding: 5px 2px 5px 2px;
 	}
 	.specialBlock_Title::before {
@@ -547,7 +612,6 @@ Disclaimer:
 	}
 	.specialBlock_Description {
 		font-size: 1.3rem;
-		color: black;
 		line-height: 1.7rem;
 		padding: 2px 2px 10px 2px;
 	}
@@ -557,12 +621,11 @@ Disclaimer:
 		margin: 0.3rem 0 0.3rem 0;
 	}
 	.specialBlock_Description a {
-		color: #2d3799;
 		font-weight: bold;		
 	}
 	.specialBlock_Link {
 		font-size: 1.2rem;
-		color: grey;
+		color: var(--color_historical_notes);
 		line-height: 1.3rem;
 		padding: 2px;
 	}
@@ -573,7 +636,7 @@ Disclaimer:
 		padding-bottom: 1rem;
 	}
 	.specialBlock_Link a {
-		color: grey;
+		color: var(--color_historical_notes);
 	}
 	.specialBlock_Link::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
@@ -597,8 +660,8 @@ Disclaimer:
 		cursor: pointer;
 		font-size: 1.5rem;
 		margin: 15px 0 0 0;
-		color: white;
-		background-color: #777ebc;
+		color: var(--color_collapsible_text);
+		background-color: var(--color_collapsible);
 		padding: 10px;
 		border: none;
 		text-align: left;
@@ -606,21 +669,21 @@ Disclaimer:
 		border-radius: 0.5em; /* Slightly round corners */
 	}
 	.collapsible-label:hover {
-		background-color: #555fb8;
+		background-color: var(--color_collapsible_hover);
 	}
 	/* Smaller compact collapsible header */
 	.collapsible-label.small {
 		display: block;
 		width: fit-content; /* Uses only its own needed width */
 		font-size: 1.2rem;
-		color: black;
-		background-color: #b8bbd8;
+		color: var(--color_small_collapsible_text);
+		background-color: var(--color_small_collapsible);
 		margin: 0;
 		padding: 2px 5px 2px 5px;
 		border-radius: 0.25em; /* Slightly round corners */
 	}
 	.collapsible-label.small:hover {
-		background-color: #8c94e0;
+		background-color: var(--color_small_collapsible_hover);
 	}
 	.collapsible-checkbox:checked + .collapsible-label {
 		border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
@@ -630,11 +693,9 @@ Disclaimer:
 	/* Collapsible symbols */
 	.collapsible-label::before {
 		content: '\002b \00a0'; /* Add plus sign when collapsed */
-		color: #bababa;
 		font-weight: bold;
 	}
 	.collapsible-label.small::before {
-		color: black; /* Use black sign for small collapsible */
 	}
 	.collapsible-checkbox:checked + .collapsible-label::before {
 		content: '\2212 \00a0'; /* Add minus sign when expanded */
@@ -645,7 +706,7 @@ Disclaimer:
 		width: 100%;
 		height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
-		background-color: white;
+		background-color: var(--color_collapsible_content_background);
 	}
 	.collapsible-content.small {
 		display: none; /* Hide completely for small collapsibles (width is not maintained) */
@@ -654,7 +715,7 @@ Disclaimer:
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content {
 		height: unset;  /* Show content's full height */
 		overflow: visible;
-		border: 0.5px solid #777ebc; /* Add a thin border */
+		border: 0.5px solid var(--color_collapsible); /* Add a thin border */
 	}
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content.small {
 		display: block; /* Show content */
@@ -680,15 +741,15 @@ Disclaimer:
 	}
 	/* Headers when filters are off */
 	.filtersOff th {
-		background-color: #b8bbd8;
+		background-color: var(--color_table_header);
 	}
 	.filtersOff:hover th {
 		cursor: pointer; /* Change mouse to pointer to show it's clickable */
-		background-color: #9ca2d2;
+		background-color: var(--color_table_header_hover);
 	}
 	/* Headers when filters are on */
 	.filtersOn th {
-		background-color: #9ca2d2;
+		background-color: var(--color_table_header_active);
 	}
 	/* Make header rows sticky to the top of the window */
 	/* Remark: On Chrome 83, sticky only works on 'th' (not on 'thead' or 'tr') */
@@ -705,18 +766,18 @@ Disclaimer:
 	/* Add sorting indicators */
 	.sortable::before {
 		content: '\21c5 \00a0'; /* Symbol when not sorted */
-		color: #666;
+		color: var(--color_sorting_indicator);
 	}
 	.sortable:hover::before { /* Highlight symbol on hover */
-		color: #e7e7e7;
+		color: var(--color_sorting_indicator_hover);
 	}
 	.sortable.asc::before {
 		content: '\25b2 \00a0'; /* Symbol when sorted ascending */
-		color: #e7e7e7;
+		color: var(--color_sorted_indicator);
 	}
 	.sortable.desc::before {
 		content: '\25bc \00a0'; /* Symbol when sorted descending */
-		color: #e7e7e7;
+		color: var(--color_sorted_indicator);
 	}
 
 	/* SEARCH OPTIONS IN HEADERS */
@@ -726,12 +787,13 @@ Disclaimer:
 	.search {
 		visibility: hidden; /* Search fields are hidden by default */
 		display: inline-block;
+		color: var(--color_table_search_text);
 		width: 95%;
 		max-width: 20ch;
 		min-width: 5ch;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid #555; /* Dark border */
-		background-color: #afb3d8;
+		border: 1px solid var(--color_table_search_border); /* Dark border */
+		background-color: var(--color_table_search_background);
 		padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
 	}
 	/* Search fields on hover */
@@ -742,15 +804,15 @@ Disclaimer:
 	.search:not(:placeholder-shown) {
 		visibility: visible; /* Keep it visible */
 		max-width: 95%; /* Extend to full width */
-		background-color: #b8bbd8; /* Use a lighter background */
-		border: 1px solid #ddd; /* White border */
+		background-color: var(--color_table_search_background_filled); /* Use a lighter background */
+		border: 1px solid var(--color_table_search_border_filled); /* Active border */
 	}
 	/* Search fields on focus */
 	.search:focus {
 		visibility: visible; /* Keep it visible */
 		max-width: 95%; /* Extend to full width */
 		outline: none; /* Avoid the browser default focus outline */
-		border: 1px solid #ddd; /* White border */
+		border: 1px solid var(--color_table_search_border_filled); /* Active border */
 	}
 	
 </style>
