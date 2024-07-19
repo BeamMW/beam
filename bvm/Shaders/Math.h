@@ -724,6 +724,7 @@ namespace MultiPrecision
 		}
 
 		friend struct Float;
+		friend struct FloatBase;
 		friend class FloatEx;
 
 		template <uint32_t wa, uint32_t wd>
