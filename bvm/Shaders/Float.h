@@ -349,7 +349,21 @@ namespace MultiPrecision
 					else
 					{
 						if (x.m_Order >= -3)
+						{
+							if (x.m_Order == -3)
+							{
+								// try to multiply it by 10. It's slightly more than 2^3, but still may fit
+								// x * 10 = ((x << 2) + x) << 1
+								uint64_t num = x.m_Num + (x.m_Num >> 2);
+								if (num > x.m_Num)
+								{
+									x.m_Num = num;
+									x.m_Order = 0;
+									m_Order10--;
+								}
+							}
 							break;
+						}
 
 						Context ctx;
 						ctx.m_BinaryThreshold = -x.m_Order; // can't overflow
@@ -857,7 +871,7 @@ namespace MultiPrecision
     {
         uint64_t m_Mantissa;
         int32_t m_Order;
-		// value == 1.mantissa_without_hibit << order
+		// value == (mantissa | hibit) << order
 		// sign - hi bit (positive)
 
 		static const int32_t s_Zero = TypeTraits<int32_t>::Min;
@@ -919,7 +933,7 @@ namespace MultiPrecision
 		{
 			static_assert(sizeof(val) <= sizeof(m_Mantissa), "");
 
-			m_Order = s_Bits - 1;
+			m_Order = 0;
 			m_Mantissa = val;
 			NormalizeToPositive<false>();
 		}
@@ -1133,7 +1147,7 @@ namespace MultiPrecision
 		{
 			FloatEx x;
 			x.m_Mantissa = s_HiBit;
-			x.m_Order = 0;
+			x.m_Order = -(int32_t) (s_Bits - 1);
 			return x;
 		}
 
@@ -1141,7 +1155,7 @@ namespace MultiPrecision
 		{
 			FloatEx x;
 			x.m_Mantissa = s_HiBit;
-			x.m_Order = -1;
+			x.m_Order = -(int32_t) s_Bits;
 			return x;
 		}
 
@@ -1149,68 +1163,48 @@ namespace MultiPrecision
 		{
 			FloatEx x;
 			x.m_Mantissa = static_cast<uint64_t>(-1);
-			x.m_Order = -1;
+			x.m_Order = -(int32_t) s_Bits;
 			return x;
 		}
 
         template <typename T>
         bool RoundDown(T& ret) const
         {
-			if (m_Order < 0)
-			{
-				ret = 0;
-				return true; // also covers Zero
-			}
-
-			if (IsNaN())
-			{
-				ret = 0;
-				return false;
-			}
-
             typedef TypeTraits<T> Type;
             static_assert(sizeof(T) <= sizeof(m_Mantissa));
 
-            constexpr int32_t nOrderMax = Type::Bits - !!Type::IsSigned - 1;
+            constexpr int32_t nOrderMax = Type::Bits - !!Type::IsSigned - s_Bits;
+			static_assert(nOrderMax <= 0);
 
-			if (HaveHiBit())
+			if (m_Order > nOrderMax)
 			{
-				if (m_Order > nOrderMax)
-				{
-					ret = Type::Max; // overflow/inf
-					return false; // overflow
-				}
+				// overflow. Also covers NaN/Inf
+				ret = (IsNaN() || HaveHiBit()) ? Type::Max : Type::Min;
+				return false;
 			}
+
+			assert(m_Order <= 0);
+			uint32_t rs = -m_Order;
+
+			if (rs >= s_Bits)
+				ret = 0;
 			else
 			{
-				// negative
-				if constexpr (!Type::IsSigned)
-				{
-					ret = 0;
-					return false;
-				}
+				if (HaveHiBit())
+					ret = static_cast<T>(m_Mantissa >> rs);
 				else
 				{
-					if (m_Order > nOrderMax)
+					if constexpr (Type::IsSigned)
+						ret = -static_cast<T>(get_WithHiBit() >> rs);
+					else
 					{
-						ret = Type::Min; // underflow
+						ret = 0;
 						return false;
 					}
 				}
 			}
 
-			assert((m_Order > 0) && (m_Order <= nOrderMax));
-			uint32_t rs = s_Bits - 1 - m_Order;
-
-			ret = static_cast<T>(get_WithHiBit() >> rs);
-
-            if constexpr (Type::IsSigned)
-            {
-				if (!HaveHiBit())
-                    ret = -ret;
-            }
-
-            return true;
+			return true;
         }
 
 		template <typename T>
@@ -1254,10 +1248,13 @@ namespace MultiPrecision
 			res.OrderAddInternal<true>(b.m_Order);
             x.Get<2>(res.m_Mantissa);
 
-			if (res.HaveHiBit())
-				res.AddOrder(1);
+            if (res.HaveHiBit())
+				res.OrderAddInternal<true>(s_Bits);
 			else
+			{
                 res.m_Mantissa = (res.m_Mantissa << 1) | (x.get_Val<2>() >> (MultiPrecision::nWordBits - 1));
+				res.OrderAddInternal<true>(s_Bits - 1);
+			}
 				
 			res.m_Mantissa ^= ((m_Mantissa ^ b.m_Mantissa) & s_HiBit);
 
@@ -1274,7 +1271,7 @@ namespace MultiPrecision
 			FloatEx res;
 			res.m_Order = m_Order;
 			res.OrderAddInternal<true>(-b.m_Order);
-			res.AddOrder(-1);
+			res.AddOrder(-(signed) s_Bits);
 
 			auto aVal = get_WithHiBit();
 			auto bVal = b.get_WithHiBit();
@@ -1287,7 +1284,7 @@ namespace MultiPrecision
             else
             {
                 res.m_Mantissa = DivInternal(aVal, bVal);
-                assert(s_HiBit & res.m_Mantissa);
+                assert(res.HaveHiBit());
             }
 
 			res.m_Mantissa ^= ((m_Mantissa ^ b.m_Mantissa) & s_HiBit);
@@ -1377,9 +1374,7 @@ namespace MultiPrecision
 				else
 				{
 					x.m_Num = get_WithHiBit();
-					x.m_Order = m_Order - (s_Bits - 1); // may overflow!
-					if (x.m_Order > m_Order)
-						x.Set0(); // overflow
+					x.m_Order = m_Order;
 				}
 
 				df.Assign(x);
