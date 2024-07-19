@@ -396,10 +396,23 @@ namespace MultiPrecision
 					m_Num += ((static_cast<uint64_t>(-1) % val) + 1 + (numBeforeDiv % val)) / val; // at most 1
 				}
 
-				m_NumDigits = numDigits;
 				m_Order10 += delta;
 
-				TrimLowDigits(); // would also take care for additional digit leak (in such a case, the least digit is guaranteed to be 0)
+				// was there a digit leak?
+				val = Power::Raise<uint64_t, 10>(numDigits);
+				if (m_Num >= val)
+				{
+					assert(m_Num == val);
+
+					m_Num = 1;
+					m_NumDigits = 1;
+					m_Order10 += numDigits;
+				}
+				else
+				{
+					m_NumDigits = numDigits;
+					TrimLowDigits();
+				}
 			}
 
 			void TrimLowDigits()
