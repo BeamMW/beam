@@ -19,14 +19,127 @@ namespace MultiPrecision
 {
 #pragma pack (push, 1)
 
+	struct FloatBase
+	{
+		uint64_t m_Num;
+		int32_t m_Order;
+		// value == m_Num << order
+
+		static const uint32_t s_Bits = sizeof(m_Num) * 8;
+		static const uint64_t s_HiBit = 1ull << (s_Bits - 1);
+
+		void set_1()
+		{
+			m_Num = s_HiBit;
+			m_Order = -(int32_t) (s_Bits - 1);
+		}
+
+		void set_Half()
+		{
+			m_Num = s_HiBit;
+			m_Order = -(int32_t) s_Bits;
+		}
+
+		void set_1_minus_eps()
+		{
+			m_Num = static_cast<uint64_t>(-1);
+			m_Order = -(int32_t) s_Bits;
+		}
+
+	protected:
+		void Assign(const FloatBase& __restrict__ x)
+		{
+			m_Num = x.m_Num;
+			m_Order = x.m_Order;
+		}
+
+		void AddMsb()
+		{
+			m_Num = (m_Num >> 1) | s_HiBit;
+			m_Order++;
+		}
+
+		static uint64_t DivInternal(uint64_t a, uint64_t b)
+		{
+			assert((s_HiBit & b) && (a < b));
+
+			MultiPrecision::UInt<4> nom;
+			nom.Set<2>(a);
+
+			MultiPrecision::UInt<2> res;
+			res.SetDivResidNormalized(nom, MultiPrecision::From(b));
+
+			return res.Get<0, uint64_t>();
+		}
+
+		void SetMul(uint64_t a, uint64_t b)
+        {
+			assert((s_HiBit & a) && (s_HiBit & b)); // both must be normalized
+			
+            auto x = MultiPrecision::From(a) * MultiPrecision::From(b);
+
+            // the result may loose at most 1 msb
+            x.Get<2>(m_Num);
+
+			if (s_HiBit & m_Num)
+				m_Order = s_Bits;
+			else
+            {
+				m_Num = (m_Num << 1) | (x.get_Val<2>() >> (MultiPrecision::nWordBits - 1));
+				m_Order = s_Bits - 1;
+            }
+		}
+
+		void SetDiv(uint64_t a, uint64_t b)
+		{
+			assert((s_HiBit & a) && (s_HiBit & b));
+			m_Order = -(signed) s_Bits;
+
+			// since both operands are normalized, the result must be within (1/2 .. 2)
+			if (a >= b)
+			{
+				m_Num = DivInternal(a - b, b);
+				AddMsb();
+			}
+			else
+			{
+				m_Num = DivInternal(a, b);
+				assert(s_HiBit & m_Num);
+			}
+		}
+
+		void AddInternal(uint64_t b, uint32_t dOrder)
+		{
+			if (dOrder >= s_Bits)
+				return;
+			auto val = b >> dOrder;
+
+			m_Num += val;
+			if (m_Num < val)
+				AddMsb(); // overflow
+		}
+
+		void SetAdd(const FloatBase& __restrict__ a, const FloatBase& __restrict__ b)
+		{
+			if (a.m_Order >= b.m_Order)
+			{
+				Assign(a);
+				AddInternal(b.m_Num, a.m_Order - b.m_Order);
+			}
+			else
+			{
+				Assign(b);
+				AddInternal(a.m_Num, b.m_Order - a.m_Order);
+			}
+		}
+
+	};
+
     struct Float
+		:public FloatBase
     {
         // simple impl. fixed-size mantissa, non-negative, no inf/nan and etc.
-        uint64_t m_Num; // msb must be set unless zero
-        int32_t m_Order;
-
-        static const uint32_t s_Bits = sizeof(m_Num) * 8;
-        static const uint64_t s_HiBit = 1ull << (s_Bits - 1);
+        // msb must be set unless zero
 
         Float() {}
         Float(uint64_t val) { Set(val); }
@@ -47,24 +160,21 @@ namespace MultiPrecision
 		static Float get_1()
 		{
 			Float x;
-			x.m_Num = s_HiBit;
-			x.m_Order = -(int32_t) (s_Bits - 1);
+			x.set_1();
 			return x;
 		}
 
 		static Float get_Half()
 		{
 			Float x;
-			x.m_Num = s_HiBit;
-			x.m_Order = -(int32_t) s_Bits;
+			x.set_Half();
 			return x;
 		}
 
 		static Float get_1_minus_eps()
 		{
 			Float x;
-			x.m_Num = static_cast<uint64_t>(-1);
-			x.m_Order = -(int32_t) s_Bits;
+			x.set_1_minus_eps();
 			return x;
 		}
 
@@ -154,7 +264,9 @@ namespace MultiPrecision
             if (b.IsZero())
                 return *this;
 
-            return (m_Order >= b.m_Order) ? AddInternal(b) : b.AddInternal(*this);
+			Float res;
+			res.SetAdd(*this, b);
+            return res;
         }
 
         Float operator - (Float b) const
@@ -184,19 +296,9 @@ namespace MultiPrecision
             if (b.IsZero())
                 return b;
 
-            // both must be normalized
-            auto x = MultiPrecision::From(m_Num) * MultiPrecision::From(b.m_Num);
-
-            // the result may loose at most 1 msb
-            Float res;
-            res.m_Order = m_Order + b.m_Order + s_Bits;
-            x.Get<2>(res.m_Num);
-
-            if (!(s_HiBit & res.m_Num))
-            {
-                res.m_Num = (res.m_Num << 1) | (x.get_Val<2>() >> (MultiPrecision::nWordBits - 1));
-                res.m_Order--;
-            }
+			Float res;
+			res.SetMul(m_Num, b.m_Num);
+			res.m_Order += m_Order + b.m_Order;
 
             return res;
         }
@@ -209,19 +311,8 @@ namespace MultiPrecision
                 return b; // actually the result should be inf, but nevermind
 
             Float res;
-            res.m_Order = m_Order - b.m_Order - s_Bits;
-
-            // since both operands are normalized, the result must be within (1/2 .. 2)
-            if (m_Num >= b.m_Num)
-            {
-                res.m_Num = DivInternal(m_Num - b.m_Num, b.m_Num);
-                res.AddMsb();
-            }
-            else
-            {
-                res.m_Num = DivInternal(m_Num, b.m_Num);
-                assert(s_HiBit & res.m_Num);
-            }
+			res.SetDiv(m_Num, b.m_Num);
+			res.m_Order += m_Order - b.m_Order;
 
             return res;
         }
@@ -815,44 +906,6 @@ namespace MultiPrecision
 			return df;
 		}
 
-	private:
-
-        void AddMsb()
-        {
-            m_Num = (m_Num >> 1) | s_HiBit;
-            m_Order++;
-        }
-
-        Float AddInternal(const Float& __restrict__ b) const
-        {
-            assert(!IsZero() && !b.IsZero() && m_Order >= b.m_Order);
-            uint32_t dOrder = m_Order - b.m_Order;
-
-            if (dOrder >= s_Bits)
-                return *this;
-
-            Float res;
-            res.m_Num = m_Num + (b.m_Num >> dOrder);
-            res.m_Order = m_Order;
-            if (res.m_Num < m_Num)
-                // overflow
-                res.AddMsb();
-
-            return res;
-        }
-
-        static uint64_t DivInternal(uint64_t a, uint64_t b)
-        {
-            assert((s_HiBit & b) && (a < b));
-
-            MultiPrecision::UInt<4> nom;
-            nom.Set<2>(a);
-
-            MultiPrecision::UInt<2> res;
-            res.SetDivResidNormalized(nom, MultiPrecision::From(b));
-
-            return res.Get<0, uint64_t>();
-        }
     };
 
 
@@ -868,36 +921,32 @@ namespace MultiPrecision
 
 
     class FloatEx
+		:public FloatBase
     {
-        uint64_t m_Mantissa;
-        int32_t m_Order;
 		// value == (mantissa | hibit) << order
 		// sign - hi bit (positive)
 
 		static const int32_t s_Zero = TypeTraits<int32_t>::Min;
 		static const int32_t s_NaN = TypeTraits<int32_t>::Max;
 
-        static const uint32_t s_Bits = sizeof(m_Mantissa) * 8;
-        static const uint64_t s_HiBit = 1ull << (s_Bits - 1);
-
 		template <bool bCareful>
 		void NormalizeToPositive()
 		{
 			assert(IsNumberNnz());
 
-			auto nz = BitUtils::clz(m_Mantissa);
+			auto nz = BitUtils::clz(m_Num);
 			switch (nz)
 			{
 			case 0:
 				break; // ok
 
 			case s_Bits:
-				assert(!m_Mantissa);
+				assert(!m_Num);
 				m_Order = s_Zero;
 				return;
 
 			default:
-				m_Mantissa <<= nz;
+				m_Num <<= nz;
 				OrderAddInternal<bCareful>(-(signed) nz);
 			}
 		}
@@ -931,19 +980,19 @@ namespace MultiPrecision
 		template <typename T>
 		void AssignUnsAsPositive(T val)
 		{
-			static_assert(sizeof(val) <= sizeof(m_Mantissa), "");
+			static_assert(sizeof(val) <= sizeof(m_Num), "");
 
 			m_Order = 0;
-			m_Mantissa = val;
+			m_Num = val;
 			NormalizeToPositive<false>();
 		}
 
 		bool HaveHiBit() const
 		{
-			return !!(s_HiBit & m_Mantissa);
+			return !!(s_HiBit & m_Num);
 		}
 
-		uint64_t get_WithHiBit() const { return s_HiBit | m_Mantissa; }
+		uint64_t get_WithHiBit() const { return s_HiBit | m_Num; }
 
 		void AddOrSub_Ord(const FloatEx& __restrict__ b, bool bAdd, bool bFlip)
 		{
@@ -960,7 +1009,7 @@ namespace MultiPrecision
 				bool bNeg = !HaveHiBit();
 				if (bNeg)
 				{
-					m_Mantissa |= s_HiBit;
+					m_Num |= s_HiBit;
 					bFlip = !bFlip;
 				}
 
@@ -971,19 +1020,19 @@ namespace MultiPrecision
 
 				if (bAdd)
 				{
-					m_Mantissa += bVal;
-					if (m_Mantissa < bVal)
-						AddMsb(); // overflow
+					m_Num += bVal;
+					if (m_Num < bVal)
+						AddMsb(); // overflow. Can bring the number to inf, it's ok
 				}
 				else
 				{
-					if (m_Mantissa >= bVal)
-						m_Mantissa -= bVal;
+					if (m_Num >= bVal)
+						m_Num -= bVal;
 					else
 					{
 						assert(!d);
 						bFlip = !bFlip;
-						m_Mantissa = bVal - m_Mantissa;
+						m_Num = bVal - m_Num;
 					}
 
 					NormalizeToPositive<true>();
@@ -1011,23 +1060,17 @@ namespace MultiPrecision
 		int cmp_Uns(const FloatEx& x) const
 		{
 			assert(IsNumberNnz() && x.IsNumberNnz());
-			assert(!(s_HiBit & (m_Mantissa ^ x.m_Mantissa)));
+			assert(!(s_HiBit & (m_Num ^ x.m_Num)));
 			if (m_Order > x.m_Order)
 				return 1;
 			if (m_Order < x.m_Order)
 				return -1;
-			if (m_Mantissa > x.m_Mantissa)
+			if (m_Num > x.m_Num)
 				return 1;
-			if (m_Mantissa < x.m_Mantissa)
+			if (m_Num < x.m_Num)
 				return -1;
 
 			return 0;
-		}
-
-		void AddMsb()
-		{
-			m_Mantissa = (m_Mantissa >> 1) | s_HiBit;
-			OrderAddInternal<true>(1);
 		}
 
 		static uint64_t DivInternal(uint64_t a, uint64_t b)
@@ -1094,17 +1137,12 @@ namespace MultiPrecision
         void Set0() { m_Order = s_Zero; }
 		void SetNaN() { m_Order = s_NaN; }
 
-		void Negate() { m_Mantissa ^= s_HiBit; } // safe even if 0/NaN
+		void Negate() { m_Num ^= s_HiBit; } // safe even if 0/NaN
 
 		void AddOrder(int32_t n)
 		{
 			if (IsNumberNnz())
 				OrderAddInternal<true>(n);
-		}
-		void Assign(const FloatEx& x)
-		{
-			m_Mantissa = x.m_Mantissa;
-			m_Order = x.m_Order;
 		}
 
 		template <typename T>
@@ -1146,24 +1184,21 @@ namespace MultiPrecision
 		static FloatEx get_1()
 		{
 			FloatEx x;
-			x.m_Mantissa = s_HiBit;
-			x.m_Order = -(int32_t) (s_Bits - 1);
+			x.set_1();
 			return x;
 		}
 
 		static FloatEx get_Half()
 		{
 			FloatEx x;
-			x.m_Mantissa = s_HiBit;
-			x.m_Order = -(int32_t) s_Bits;
+			x.set_Half();
 			return x;
 		}
 
 		static FloatEx get_1_minus_eps()
 		{
 			FloatEx x;
-			x.m_Mantissa = static_cast<uint64_t>(-1);
-			x.m_Order = -(int32_t) s_Bits;
+			x.set_1_minus_eps();
 			return x;
 		}
 
@@ -1171,7 +1206,7 @@ namespace MultiPrecision
         bool RoundDown(T& ret) const
         {
             typedef TypeTraits<T> Type;
-            static_assert(sizeof(T) <= sizeof(m_Mantissa));
+            static_assert(sizeof(T) <= sizeof(m_Num));
 
             constexpr int32_t nOrderMax = Type::Bits - !!Type::IsSigned - s_Bits;
 			static_assert(nOrderMax <= 0);
@@ -1191,7 +1226,7 @@ namespace MultiPrecision
 			else
 			{
 				if (HaveHiBit())
-					ret = static_cast<T>(m_Mantissa >> rs);
+					ret = static_cast<T>(m_Num >> rs);
 				else
 				{
 					if constexpr (Type::IsSigned)
@@ -1240,23 +1275,12 @@ namespace MultiPrecision
 			if (IsZero())
 				return *this;
 
-            auto x = MultiPrecision::From(get_WithHiBit()) * MultiPrecision::From(b.get_WithHiBit());
+			FloatEx res;
+			res.SetMul(get_WithHiBit(), b.get_WithHiBit());
+			res.m_Num ^= ((m_Num ^ b.m_Num) & s_HiBit);
 
-            // the result may loose at most 1 msb
-            FloatEx res;
-			res.m_Order = m_Order;
+			res.OrderAddInternal<true>(m_Order);
 			res.OrderAddInternal<true>(b.m_Order);
-            x.Get<2>(res.m_Mantissa);
-
-            if (res.HaveHiBit())
-				res.OrderAddInternal<true>(s_Bits);
-			else
-			{
-                res.m_Mantissa = (res.m_Mantissa << 1) | (x.get_Val<2>() >> (MultiPrecision::nWordBits - 1));
-				res.OrderAddInternal<true>(s_Bits - 1);
-			}
-				
-			res.m_Mantissa ^= ((m_Mantissa ^ b.m_Mantissa) & s_HiBit);
 
             return res;
         }
@@ -1269,25 +1293,11 @@ namespace MultiPrecision
 				return *this;
 
 			FloatEx res;
-			res.m_Order = m_Order;
+			res.SetDiv(get_WithHiBit(), b.get_WithHiBit());
+			res.m_Num ^= ((m_Num ^ b.m_Num) & s_HiBit);
+
+			res.OrderAddInternal<true>(m_Order);
 			res.OrderAddInternal<true>(-b.m_Order);
-			res.AddOrder(-(signed) s_Bits);
-
-			auto aVal = get_WithHiBit();
-			auto bVal = b.get_WithHiBit();
-            // since both operands are normalized, the result must be within (1/2 .. 2)
-            if (aVal >= bVal)
-            {
-                res.m_Mantissa = DivInternal(aVal - bVal, bVal);
-                res.AddMsb();
-            }
-            else
-            {
-                res.m_Mantissa = DivInternal(aVal, bVal);
-                assert(res.HaveHiBit());
-            }
-
-			res.m_Mantissa ^= ((m_Mantissa ^ b.m_Mantissa) & s_HiBit);
 
             return res;
         }

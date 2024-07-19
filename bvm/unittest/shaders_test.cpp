@@ -1263,12 +1263,10 @@ namespace bvm2 {
 		if (x.IsNaN())
 			return NAN;
 
-		//x.get_0
-
 		auto num = (double) x.get_Num();
 		if (x.IsNegative())
 			num = -num;
-		return ldexp(num, x.get_Order() - 63);
+		return ldexp(num, x.get_Order());
 	}
 
 	static void AssertDoubleRelEqual(double a, double b)
@@ -2925,6 +2923,17 @@ namespace bvm2 {
 
 				AssertDoubleRelEqual(c_, d_);
 
+				args1.m_Arg1 = a;
+				args1.m_Arg2 = b;
+				args1.m_Op = 2; // mul
+				args1.m_Arg1 <<= 70;
+				args1.m_Arg2 >>= 300;
+
+				verify_test(RunGuarded_T(cid, args1.s_iMethod, args1));
+				d_ = ToDouble(args1.m_Arg1);
+
+				AssertDoubleRelEqual(c_, d_);
+
 				args2.m_Arg1 = a;
 				args2.m_Arg1 <<= 705;
 				args2.m_Arg1.Negate();
@@ -2948,14 +2957,25 @@ namespace bvm2 {
 
 				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
 
+				args1.m_Arg1 = a;
+				args1.m_Arg1 <<= 75;
+				args1.m_Op = 3; // div
+
+				verify_test(RunGuarded_T(cid, args1.s_iMethod, args1));
+
 				if (b)
 				{
 					c_ = a_ / b_;
 					d_ = ToDouble(args2.m_Arg1);
 					AssertDoubleRelEqual(c_, d_);
+					d_ = ToDouble(args1.m_Arg1);
+					AssertDoubleRelEqual(c_, -d_);
 				}
 				else
+				{
 					verify_test(args2.m_Arg1.IsNaN());
+					verify_test(args1.m_Arg1.IsZero());
+				}
 
 				args2.m_Arg1 = 0;
 				verify_test(RunGuarded_T(cid, args2.s_iMethod, args2));
