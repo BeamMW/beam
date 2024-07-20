@@ -47,10 +47,31 @@ namespace MultiPrecision
 		}
 
 	protected:
+
 		void Assign(const FloatBase& __restrict__ x)
 		{
 			m_Num = x.m_Num;
 			m_Order = x.m_Order;
+		}
+
+		bool NormalizeInternal()
+		{
+			// shit to restore msb
+			auto nz = BitUtils::clz(m_Num);
+			switch (nz)
+			{
+			case 0:
+				break; // already normalized
+
+			case s_Bits:
+				return false;
+
+			default:
+				m_Num <<= nz;
+				m_Order -= nz;
+			}
+
+			return true;
 		}
 
 		void AddMsb()
@@ -108,15 +129,17 @@ namespace MultiPrecision
 			}
 		}
 
+		void AddInternal(uint64_t b)
+		{
+			m_Num += b;
+			if (m_Num < b)
+				AddMsb(); // overflow
+		}
+
 		void AddInternal(uint64_t b, uint32_t dOrder)
 		{
-			if (dOrder >= s_Bits)
-				return;
-			auto val = b >> dOrder;
-
-			m_Num += val;
-			if (m_Num < val)
-				AddMsb(); // overflow
+			if (dOrder < s_Bits)
+				AddInternal(b >> dOrder);
 		}
 
 		void SetAdd(const FloatBase& __restrict__ a, const FloatBase& __restrict__ b)
@@ -133,6 +156,18 @@ namespace MultiPrecision
 			}
 		}
 
+		bool SubInternal(const FloatBase& __restrict__ b)
+		{
+			assert((s_HiBit & m_Num) && (s_HiBit & b.m_Num));
+			assert(m_Order >= b.m_Order);
+			uint32_t dOrder = m_Order - b.m_Order;
+
+			if (dOrder >= s_Bits)
+				return true;
+
+			m_Num -= (b.m_Num >> dOrder);
+			return NormalizeInternal();
+		}
 	};
 
     struct Float
@@ -154,7 +189,7 @@ namespace MultiPrecision
         {
             m_Num = val;
             m_Order = 0;
-            Normalize();
+            NormalizeInternal();
         }
 
 		static Float get_1()
@@ -241,22 +276,6 @@ namespace MultiPrecision
 			return (d <= r);
 		}
 
-        void Normalize()
-        {
-            // call explicitly only if manipulating directly
-            auto nz = BitUtils::clz(m_Num);
-            if (nz)
-            {
-                if (nz != s_Bits)
-                {
-                    m_Num <<= nz;
-                    m_Order -= nz;
-                }
-                else
-                    Set0();
-            }
-        }
-
         Float operator + (Float b) const
         {
             if (IsZero())
@@ -271,22 +290,9 @@ namespace MultiPrecision
 
         Float operator - (Float b) const
         {
-            if (b.IsZero())
-                return *this;
-
-            assert(!IsZero());
-            assert(m_Order >= b.m_Order);
-            uint32_t dOrder = m_Order - b.m_Order;
-
-            if (dOrder >= s_Bits)
-                return *this;
-
-            Float res;
-            res.m_Num = m_Num - (b.m_Num >> dOrder);
-            res.m_Order = m_Order;
-
-            res.Normalize();
-            return res;
+			Float res = *this;
+			res -= b;
+			return res;
         }
 
         Float operator * (Float b) const
@@ -343,8 +349,18 @@ namespace MultiPrecision
 			return *this = *this + b;
 		}
 
-		Float& operator -= (Float b) {
-			return *this = *this - b;
+		Float& operator -= (Float b)
+		{
+			if (!b.IsZero())
+			{
+				assert(!IsZero());
+				if (!SubInternal(b))
+				{
+					assert(!m_Num);
+					m_Order = 0; // zero
+				}
+			}
+			return *this;
 		}
 
 		Float& operator *= (Float b) {
@@ -929,52 +945,17 @@ namespace MultiPrecision
 		static const int32_t s_Zero = TypeTraits<int32_t>::Min;
 		static const int32_t s_NaN = TypeTraits<int32_t>::Max;
 
-		template <bool bCareful>
-		void NormalizeToPositive()
+		void OrderSetInternal(int64_t n)
 		{
-			assert(IsNumberNnz());
-
-			auto nz = BitUtils::clz(m_Num);
-			switch (nz)
-			{
-			case 0:
-				break; // ok
-
-			case s_Bits:
-				assert(!m_Num);
+			if (n < s_Zero)
 				m_Order = s_Zero;
-				return;
-
-			default:
-				m_Num <<= nz;
-				OrderAddInternal<bCareful>(-(signed) nz);
-			}
-		}
-
-		template <bool bCareful>
-		void OrderAddInternal(int32_t d)
-		{
-			assert(IsNumberNnz());
-
-			int32_t n0 = m_Order;
-			m_Order += d;
-
-			if constexpr (bCareful)
-			{
-				// if order arithmetics reaches Zero or Nan - it's fine. We only need to take care of overflow
-				if (d < 0)
-				{
-					if (m_Order > n0)
-						m_Order = s_Zero;
-				}
-				else
-				{
-					if (m_Order < n0)
-						m_Order = s_NaN;
-				}
-			}
 			else
-				assert(IsNumberNnz());
+			{
+				if (n > s_NaN)
+					m_Order = s_NaN;
+				else
+					m_Order = static_cast<int32_t>(n);
+			}
 		}
 
 		template <typename T>
@@ -984,7 +965,8 @@ namespace MultiPrecision
 
 			m_Order = 0;
 			m_Num = val;
-			NormalizeToPositive<false>();
+			if (!NormalizeInternal())
+				Set0();
 		}
 
 		bool HaveHiBit() const
@@ -1019,11 +1001,7 @@ namespace MultiPrecision
 					bAdd = !bAdd;
 
 				if (bAdd)
-				{
-					m_Num += bVal;
-					if (m_Num < bVal)
-						AddMsb(); // overflow. Can bring the number to inf, it's ok
-				}
+					AddInternal(bVal); // overflow. Can bring the number to inf, it's ok
 				else
 				{
 					if (m_Num >= bVal)
@@ -1035,7 +1013,9 @@ namespace MultiPrecision
 						m_Num = bVal - m_Num;
 					}
 
-					NormalizeToPositive<true>();
+					auto nOrder = m_Order;
+					if (!NormalizeInternal() || (m_Order > nOrder)) // test for order overflow. Order shouldn't increase
+						Set0();
 				}
 			}
 
@@ -1073,17 +1053,27 @@ namespace MultiPrecision
 			return 0;
 		}
 
-		static uint64_t DivInternal(uint64_t a, uint64_t b)
+		template <bool bMul>
+		void SetMulOrDiv(const FloatEx& __restrict__ a, const FloatEx& __restrict__ b)
 		{
-			assert((s_HiBit & b) && (a < b));
+			auto aVal = a.get_WithHiBit();
+			auto bVal = b.get_WithHiBit();
+			if constexpr (bMul)
+				SetMul(aVal, bVal);
+			else
+				SetDiv(aVal, bVal);
 
-			MultiPrecision::UInt<4> nom;
-			nom.Set<2>(a);
+			m_Num ^= ((a.m_Num ^ b.m_Num) & s_HiBit); // sign
 
-			MultiPrecision::UInt<2> res;
-			res.SetDivResidNormalized(nom, MultiPrecision::From(b));
+			int64_t nOrder = m_Order;
+			nOrder += a.m_Order;
 
-			return res.Get<0, uint64_t>();
+			if constexpr (bMul)
+				nOrder += b.m_Order;
+			else
+				nOrder -= b.m_Order;
+
+			OrderSetInternal(nOrder);
 		}
 
 		int get_Class() const
@@ -1142,7 +1132,11 @@ namespace MultiPrecision
 		void AddOrder(int32_t n)
 		{
 			if (IsNumberNnz())
-				OrderAddInternal<true>(n);
+			{
+				int64_t nOrder = m_Order;
+				nOrder += n;
+				OrderSetInternal(nOrder);
+			}
 		}
 
 		template <typename T>
@@ -1276,12 +1270,7 @@ namespace MultiPrecision
 				return *this;
 
 			FloatEx res;
-			res.SetMul(get_WithHiBit(), b.get_WithHiBit());
-			res.m_Num ^= ((m_Num ^ b.m_Num) & s_HiBit);
-
-			res.OrderAddInternal<true>(m_Order);
-			res.OrderAddInternal<true>(b.m_Order);
-
+			res.SetMulOrDiv<true>(*this, b);
             return res;
         }
 
@@ -1293,14 +1282,9 @@ namespace MultiPrecision
 				return *this;
 
 			FloatEx res;
-			res.SetDiv(get_WithHiBit(), b.get_WithHiBit());
-			res.m_Num ^= ((m_Num ^ b.m_Num) & s_HiBit);
-
-			res.OrderAddInternal<true>(m_Order);
-			res.OrderAddInternal<true>(-b.m_Order);
-
-            return res;
-        }
+			res.SetMulOrDiv<false>(*this, b);
+			return res;
+		}
 
         FloatEx operator << (int32_t n)
         {
