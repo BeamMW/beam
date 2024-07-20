@@ -46,14 +46,17 @@ Disclaimer:
 		margin: 0; /* From a CSS reset template... */
 	}
 	:root {
-		/* Color variables */
+		/* Color variables for light mode (default) */
 		--color_background: #d0daff;
 		--color_text: black;
 		--color_h1: black;
 		--color_h2: black;
 		--color_h3: #17204e;
+		--color_h3_sub: #17204e;
 		--color_link: #0066CC;
 		--color_link_visited: #3e1a8b;
+		--color_blockheight_title_link: #0066CC;
+		--color_blockheight_title_link_visited: #3e1a8b;
 		--color_metadata: #505050;
 		--color_hash: #505050;
 		--color_hash_highlight: darkred;
@@ -61,7 +64,7 @@ Disclaimer:
 		--color_icon: #777ebc;
 		--color_icon_hover: #555fb8;
 		--color_icon_off: lightgrey;
-		--color_eye_icons: #aaaaaa;
+		--color_eye_icons: #aaa;
 		--color_eye_icons_hover: grey;
 		--color_collapsible: #777ebc;
 		--color_collapsible_hover: #555fb8;
@@ -80,6 +83,7 @@ Disclaimer:
 		--color_time: #650000;
 		--color_table_border: #ddd;
 		--color_table_header: #b8bbd8;
+		--color_table_header_text: black;
 		--color_table_header_hover: #9ca2d2;
 		--color_table_header_active: #9ca2d2;
 		--color_table_rows_wrapper: #555fb8;
@@ -91,9 +95,10 @@ Disclaimer:
 		--color_banner_version: #525252;
 		--color_banner_menu_text: #17204e;
 		--color_banner_menu_link: #2d3799;
+		--color_banner_menu_link_hover: #3e1a8b;
 		--color_banner_search_border: #636785;
 		--color_banner_search_background: #afb3d8;
-		--color_banner_search_placeholder: #525252;
+		--color_banner_search_placeholder: #606060;
 		--color_banner_search_text: #525252;
 		--color_banner_search_border_filled: #ddd;
 		--color_banner_search_background_filled: #b8bbd8;
@@ -114,9 +119,87 @@ Disclaimer:
 		--color_sorted_indicator: #e7e7e7;
 		--color_table_search_text: #525252;
 		--color_table_search_border: #555;
-		--color_table_search_background: #afb3d8 ;
+		--color_table_search_background: #afb3d8;
 		--color_table_search_border_filled: #ddd;
 		--color_table_search_background_filled: #b8bbd8;
+	}
+	:root.dark {
+		/* Color variables for dark mode */
+		--color_background: #042548; /* To do: Shall be 'none' when used as in-wallet DApp... */ 
+		--color_text: black;
+		--color_h1: #ddd;
+		--color_h2: #ddd;
+		--color_h3: #ddd;
+		--color_h3_sub: #17204e;
+		--color_link: #0066CC;
+		--color_link_visited: #3e1a8b;
+		--color_blockheight_title_link: #65a4e3;
+		--color_blockheight_title_link_visited: #a17eec;
+		--color_metadata: #505050;
+		--color_hash: #505050;
+		--color_hash_highlight: darkred;
+		--color_more: #ddd;
+		--color_icon: rgb(255,255,255,0.5);
+		--color_icon_hover: #eee;
+		--color_icon_off: #1e4c71;
+		--color_eye_icons: #aaa;
+		--color_eye_icons_hover: grey;
+		--color_collapsible: #1e4c71;
+		--color_collapsible_hover: #2b618d;
+		--color_collapsible_text: white;
+		--color_collapsible_content_background: white;
+		--color_small_collapsible: #b8bbd8;
+		--color_small_collapsible_hover: #8c94e0;
+		--color_small_collapsible_text: black;
+		--color_yes: green;
+		--color_no: blue;
+		--color_amount: darkcyan;
+		--color_pos: green;
+		--color_neg: red;
+		--color_scroll_button: #2b618d;
+		--color_scroll_text: white;
+		--color_time: #650000;
+		--color_table_border: #afb3d8;
+		--color_table_header: #1d3a5a;
+		--color_table_header_text: #ddd;
+		--color_table_header_hover: #1e4c71;
+		--color_table_header_active: #1e4c71;
+		--color_table_rows_wrapper: #444b90;
+		--color_table_row_odd: #fff;
+		--color_table_row_even: #eee;
+		--color_table_row_hover: #e0e0f0;
+		--color_banner_background: #1e4c71;
+		--color_banner_title: #0bccf7;
+		--color_banner_version: #00f6d2;
+		--color_banner_menu_text: #aaa;
+		--color_banner_menu_link: #ddd;
+		--color_banner_menu_link_hover: #fff;
+		--color_banner_search_border: #636785;
+		--color_banner_search_background: #1d3a5a;
+		--color_banner_search_placeholder: #aaa;
+		--color_banner_search_text: #eee;
+		--color_banner_search_border_filled: #0bccf7;
+		--color_banner_search_background_filled: #1d3a5a;
+		--color_banner_search_text_invalid: #ff8686;
+		--color_banner_search_button_border: #636785;
+		--color_banner_search_button_background: rgb(255,255,255,0.3);
+		--color_banner_search_button_text: #ddd;
+		--color_banner_search_button_background_hover: rgb(255,255,255,0.7);
+		--color_banner_search_button_text_hover: black;
+		--color_banner_navigation_icon: rgb(255,255,255,0.3);
+		--color_banner_navigation_icon_hover: rgb(255,255,255,0.7);
+		--color_footer_text: #0bccf7;
+		--color_footer_link: #0bccf7;
+		--color_historical_title: #17204e;
+		--color_historical_notes: grey;
+		--color_sorting_indicator: #888;
+		--color_sorting_indicator_hover: #0bccf7;
+		--color_sorted_indicator: #0bccf7;
+		--color_table_search_text: #eee;
+		--color_table_search_border: #aaa;
+		--color_table_search_background: #1d3a5a;
+		--color_table_search_border_filled: #0bccf7;
+		--color_table_search_background_filled: #1d3a5a;
 	}
 	:root {
  		background: var(--color_background); /* Default background color for all pages */
@@ -157,19 +240,17 @@ Disclaimer:
 	h2.errorMessage {
 		font-style: italic; 
 	}
-	h2.title { /* Nice useless animation */
-		display: inline-block;
-		animation: fade-in 0.5s ease-in;
-	}
-	@keyframes fade-in {
-		from { opacity: 0; filter: blur(4px); }
-		to { opacity: 1; filter: blur(0); }
+	h2.title {
+		/* Nothing here */
 	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
 		color: var(--color_h3);
 		margin: 10px 0 15px 0;
+	}
+	h3.sub { /* For the h3 within collapsibles */
+		color: var(--color_h3_sub);
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
@@ -178,11 +259,14 @@ Disclaimer:
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
-	.blockTitle {
-		white-space: nowrap; /* Don't wrap text */
-	}
-	.blockTitle .blockHeight {
+	.title .blockHeight { /* Special treatment when block heights appear in a title */
 		font-weight: bold;
+	}
+	.title .blockHeight a {
+		color: var(--color_blockheight_title_link);
+	}
+	.title .blockHeight a:visited {
+		color: var(--color_blockheight_title_link_visited);
 	}
 	.listOfBlockHeaders {
 		cursor: pointer;
@@ -368,6 +452,7 @@ Disclaimer:
 		padding: 5px; /* Add a small padding */
 	}
 	table thead > tr th {
+		color: var(--color_table_header_text);
 		background-color: var(--color_table_header); /* Background color for table header cells declared as such ("thead" tag) */
 	}
 	th {
@@ -409,7 +494,7 @@ Disclaimer:
 	.tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
 	.tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
 	.divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
-		background-color: (--color_table_row_hover);
+		background-color: var(--color_table_row_hover);
 	}
 
 	/* TITLE BANNER AND FOOTER */
@@ -427,7 +512,7 @@ Disclaimer:
 		display: table;
 		background-color: var(--color_banner_background);
 		border-radius: 0.5em; /* Slightly round corners */
-		padding: 5px 10px 5px 10px;
+		padding: 8px 10px 7px 10px;
 		text-align: center;
 	}
 	#BeamLogo {
@@ -441,7 +526,7 @@ Disclaimer:
 		text-align: center;
 		width: 100%;
 		white-space: nowrap; /* Never wrap text */
-		padding: 5px 10px 5px 10px;
+		padding: 0px 10px 0px 10px;
 	}
 	#BeamTitle {
 		font-size: 2.4rem;
@@ -454,10 +539,15 @@ Disclaimer:
 	}
 	#Menu {
 		font-size: 1.5rem;
-		color: var(--color_banner_menu_link);
+		color: var(--color_banner_menu_text);
 	}
 	.menuItem a {
-		color: var(--color_banner_link);
+		color: var(--color_banner_menu_link);
+		text-decoration: none;
+	}
+	.menuItem a:hover {
+		color: var(--color_banner_menu_link_hover);
+		/*text-decoration: underline;*/
 	}
 	.menuSeparator {
 		color: var(--color_banner_menu_text);
@@ -465,7 +555,7 @@ Disclaimer:
 	}
 	#SearchArea {
 		display: block;
-		padding: 5px 2px 0px 2px;
+		padding: 8px 2px 0px 2px;
 	}
 	#SearchForm {
 		/* Nothing special */
@@ -475,7 +565,7 @@ Disclaimer:
 		border-radius: 0.25em; /* Slightly round corners */
 		border: 1px solid var(--color_banner_search_border);
 		background-color: var(--color_banner_search_background);
-		padding: 0.25ch 1ch 0.25ch 1ch; /* Internal padding */
+		padding: 1.5ch 1ch 1.2ch 1ch; /* Internal padding */
 		font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
 		font-size: 1.2rem;
 		width: 67ch;
@@ -486,16 +576,20 @@ Disclaimer:
 	}
 	#SearchField:focus {
 		outline: none; /* Avoid the browser default focus outline */
-	}
-	#SearchField:not(:placeholder-shown) { /* Search field with content */
-		background-color: var(--color_banner_search_background_filled);
 		border: 1px solid var(--color_banner_search_border_filled);
+	}
+	#SearchField:not(:placeholder-shown) { /* Search field with content in it */
+		background-color: var(--color_banner_search_background_filled);
 	}
 	#SearchField:invalid {
 		color: var(--color_banner_search_text_invalid);
 		text-decoration: line-through; /* Strikethrough if incorrect format */
 	}
-	#SearchField:placeholder-shown {
+	#SearchField:placeholder-shown { /* Needed in Chrome to remove the line-through */
+		text-decoration: none;
+		color: var(--color_banner_search_text);
+	}
+	#SearchField::placeholder {
 		font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
 		font-size: 1.3rem;
 		font-style: italic;
@@ -525,17 +619,24 @@ Disclaimer:
 		display: table-cell;
 		vertical-align: middle;
 		text-align: center;
+		white-space: nowrap; /* Don't wrap text */
 		font-size: 2rem;
-		padding: 0 10px 0 10px;
+		margin: 0 10px 0 10px;
 		line-height: 1; /* Without units it's a number of lines */
 	}
-	#Navigation a {
-		text-decoration-line: none;
+	.NavRow {
+		display: table-row;
 	}
-	#Back *, #Reload *, #ExpandAll * {
+	#Back, #Reload, #ExpandAll, #ColorMode {
+		display: table-cell;
+		vertical-align: middle;
+		text-align: center;
+		padding: 3px 5px 3px 5px;
+	}
+	#Back *, #Reload *, #ExpandAll *, #ColorMode * {
 		fill: var(--color_banner_navigation_icon); /* Color all SVG elements */
 	}
-	#Back:hover *, #Reload:hover *, #ExpandAll:hover * {
+	#Back:hover *, #Reload:hover *, #ExpandAll:hover *, #ColorMode:hover * {
 		fill: var(--color_banner_navigation_icon_hover); /* Color all SVG elements */
 	}
 	#TopButton, #BottomButton {
@@ -546,7 +647,7 @@ Disclaimer:
 		outline: none; /* Remove outline */
 		border-radius: 50%; /* Round button */
 		background-color: var(--color_scroll_button); /* Background color */
-		opacity: 0.15; /* Very transparent */
+		opacity: 0.2; /* Very transparent */
 		text-align: center;
 		font-size: 1.5rem;
 		color: var(--color_scroll_text); /* Text color */
@@ -563,7 +664,7 @@ Disclaimer:
 		right: 10px; /* Right side of the page */
 	}
 	#TopButton:hover, #BottomButton:hover {
-		opacity: 0.3; /* Less transparent on hover */
+		opacity: 0.4; /* Less transparent on hover */
 	}
 	#Footer {
 		position: absolute;
@@ -584,10 +685,10 @@ Disclaimer:
 		text-decoration: underline;
 	}
 	#Footer::before {
-		content: "\25b8"; /* Nice useless decoration ;-) */
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
 	}
 	#Footer::after {
-		content: "\25c2"; /* Nice useless decoration ;-) */
+		content: "\00a0 \25c2"; /* Nice useless decoration ;-) */
 	}
 	#Loading span { /* Animation for the three dots */
 		position: relative;
@@ -792,7 +893,7 @@ Disclaimer:
 		max-width: 20ch;
 		min-width: 5ch;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid var(--color_table_search_border); /* Dark border */
+		border: 1px solid var(--color_table_search_border); /* Search field border */
 		background-color: var(--color_table_search_background);
 		padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
 	}
@@ -805,7 +906,7 @@ Disclaimer:
 		visibility: visible; /* Keep it visible */
 		max-width: 95%; /* Extend to full width */
 		background-color: var(--color_table_search_background_filled); /* Use a lighter background */
-		border: 1px solid var(--color_table_search_border_filled); /* Active border */
+		border: 1px solid var(--color_table_search_border); /* Active border */
 	}
 	/* Search fields on focus */
 	.search:focus {
@@ -834,14 +935,14 @@ Disclaimer:
 			<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
 			<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
 			<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-
+			<svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
 			<!-- Fixed banner on all pages -->
 			<div id="Banner">
 				<span id="BeamLogo">
 					<!-- Clicking on the logo sends back to the main page -->
 					<a href='?' title='Main page'>
 						<!-- A simplified SVG version of the BEAM logo -->
-						<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+						<svg height='6em' width='6em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
 					</a>
 				</span>
 				<span id="BannerCenter">
@@ -868,9 +969,14 @@ Disclaimer:
 				</span>
 				<!-- Banner symbols for navigation and special functions -->
 				<span id="Navigation">
-					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
-					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
-					<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
+					<div class="NavRow">
+						<a id="Back" href="javascript:history.back();" title="Back"><svg width='1.2em' height='1.2em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
+						<a id="Reload" href="" title="Reload"><svg width='1.2em' height='1.2em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+					</div>
+					<div class="NavRow">
+						<a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></a>
+						<a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
+					</div>
 				</span>
 			</div>
 
@@ -889,7 +995,7 @@ Disclaimer:
 		</div>
 
 		<!-- Fixed footer on all pages -->
-		<div id='Footer'><a href='https://www.beam.mw'>www.beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm" title="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
+		<div id='Footer'><a href='https://www.beam.mw'>beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
 
 		<!-- No JavaScript warning -->
 		<noscript>You need to enable JavaScript to run this app.</noscript>
@@ -1398,7 +1504,7 @@ Disclaimer:
 		// If the request was a kernel, get the resulting height
 		if (g_kernel) {	g_id = j["value"][0][1]["value"] }
 
-		text += "<h2 class='blockTitle'>";
+		text += "<h2 class='title'>";
 		if (g_id > 0) {
 			text += AddClass(MakeRef(UrlSelf("hdrs", "&hMax=" + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
 			text += "&nbsp;";
@@ -1429,21 +1535,21 @@ Disclaimer:
 		j = jData["inputs"];
 		if (j)
 		{
-			text += "<h3>Inputs</h3>\n";
+			text += "<h3 class='sub'>Inputs</h3>\n";
 			text += MakeTableTxos(j, true);
 		}
 
 		j = jData["outputs"];
 		if (j)
 		{
-			text += "<h3>Outputs</h3>\n";
+			text += "<h3 class='sub'>Outputs</h3>\n";
 			text += MakeTableTxos(j, false);
 		}
 
 		let jTbl = jData["kernels"];
 		if (jTbl)
 		{
-			text += "<h3>Kernels</h3>\n";
+			text += "<h3 class='sub'>Kernels</h3>\n";
 			text += "\
 			<table class='tableKernels'>\n\
 				<thead><tr>\n\
@@ -1937,6 +2043,10 @@ Disclaimer:
 			links: [ ["The 5-year recap","https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f"] ]
 		}
 	];
+
+	// Check localStorage for dark mode status ("dark" or "")
+	let mode = localStorage.getItem("mode");
+	if (mode) {document.querySelector(":root").classList.add(mode)}; 
 
 	// URL and explorer node parameters
 	const args = (new URL(document.location)).searchParams;
@@ -2500,7 +2610,18 @@ Disclaimer:
 	function bottomFunction() {
 		document.body.scrollTop = Math.abs(document.body.scrollHeight - document.body.clientHeight); // For Safari
 		document.documentElement.scrollTop = Math.abs(document.documentElement.scrollHeight - document.documentElement.clientHeight); // For Chrome, Firefox, IE and Opera
-	} 
+	}
+
+	// TOGGLE DARK MODE
+	function toggleDarkMode() {
+		let mode = "";
+		// For dark mode, we add a class to root
+		let rootclass = document.querySelector(":root").classList;
+		if ( rootclass.contains("dark") ) { rootclass.remove("dark") }
+		else { rootclass.add("dark"); mode = "dark"; }
+		// Store mode in localStorage (to allow retrieving it across pages)
+		localStorage.setItem("mode", mode);
+	}
 
 </script>
 
