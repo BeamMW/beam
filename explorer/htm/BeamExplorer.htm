@@ -26,7 +26,9 @@ Disclaimer:
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#042548"> <!-- Is this useful?... -->
   <!-- Simplified Beam logo SVG favicon is URL-encoded (i.e. mainly replacing < > # and spaces) -->
   <!-- Remark: Such SVG favicon does not seem to be recognized by Safari -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
@@ -44,13 +46,183 @@ Disclaimer:
  		font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
 		line-height: 1; /* From a CSS reset template... */
 		margin: 0; /* From a CSS reset template... */
+		height: 100%; /* Copied from the dao-core-app model... */
+		scroll-behavior: smooth; /* Copied from the dao-core-app model... */
 	}
 	:root {
- 		background: #d0daff; /* Default background color for all pages */
+		/* Color variables for light mode (default) */
+		color-scheme: light; /* For elements (if any) without an explicit style */
+		--color_background: #d0daff;
+		--color_background_gradient_top: #d0daff;
+		--color_background_gradient_main: #d0daff;
+		--color_text: black;
+		--color_h1: black;
+		--color_h2: black;
+		--color_h3: #17204e;
+		--color_h3_sub: #17204e;
+		--color_link: #0066CC;
+		--color_link_visited: #3e1a8b;
+		--color_blockheight_title_link: #0066CC;
+		--color_blockheight_title_link_visited: #3e1a8b;
+		--color_metadata: #505050;
+		--color_hash: #505050;
+		--color_hash_highlight: darkred;
+		--color_more: #17204e;
+		--color_icon: #777ebc;
+		--color_icon_hover: #555fb8;
+		--color_icon_off: lightgrey;
+		--color_eye_icons: #aaa;
+		--color_eye_icons_hover: grey;
+		--color_collapsible: #777ebc;
+		--color_collapsible_hover: #555fb8;
+		--color_collapsible_text: white;
+		--color_collapsible_content_background: white;
+		--color_small_collapsible: #b8bbd8;
+		--color_small_collapsible_hover: #8c94e0;
+		--color_small_collapsible_text: black;
+		--color_yes: green;
+		--color_no: blue;
+		--color_amount: darkcyan;
+		--color_pos: green;
+		--color_neg: red;
+		--color_scroll_button: black;
+		--color_scroll_text: white;
+		--color_time: #650000;
+		--color_table_border: #ddd;
+		--color_table_header: #b8bbd8;
+		--color_table_header_text: black;
+		--color_table_header_hover: #9ca2d2;
+		--color_table_header_active: #9ca2d2;
+		--color_table_rows_wrapper: #555fb8;
+		--color_table_row_odd: #fff;
+		--color_table_row_even: #eee;
+		--color_table_row_hover: #e0e0f0;
+		--color_banner_background: #a7acd9;
+		--color_banner_title: #17204e;
+		--color_banner_version: #525252;
+		--color_banner_menu_text: #17204e;
+		--color_banner_menu_link: #2d3799;
+		--color_banner_menu_link_hover: #3e1a8b;
+		--color_banner_search_border: #636785;
+		--color_banner_search_background: #afb3d8;
+		--color_banner_search_placeholder: #606060;
+		--color_banner_search_text: #525252;
+		--color_banner_search_border_filled: #ddd;
+		--color_banner_search_background_filled: #b8bbd8;
+		--color_banner_search_text_invalid: #805353;
+		--color_banner_search_button_border: #636785;
+		--color_banner_search_button_background: #636785;
+		--color_banner_search_button_text: #ddd;
+		--color_banner_search_button_background_hover: #525252;
+		--color_banner_search_button_text_hover: #ddd;
+		--color_banner_navigation_icon: #636785;
+		--color_banner_navigation_icon_hover: #505050;
+		--color_footer_text: #17204e;
+		--color_footer_link: #17204e;
+		--color_historical_title: #17204e;
+		--color_historical_notes: grey;
+		--color_sorting_indicator: #666;
+		--color_sorting_indicator_hover: #e7e7e7;
+		--color_sorted_indicator: #e7e7e7;
+		--color_table_search_text: #525252;
+		--color_table_search_border: #555;
+		--color_table_search_background: #afb3d8;
+		--color_table_search_border_filled: #ddd;
+		--color_table_search_background_filled: #b8bbd8;
 	}
-	:link { color: #0066CC; } 	/* Default link colors */
-	:visited { color: #3e1a8b; }
-	:link:active, :visited:active { color: #3e1a8b; }
+	:root.dark {
+		/* Color variables for dark mode */
+		color-scheme: dark; /* For elements (if any) without an explicit style */
+		--color_background: #042548;
+		--color_background_gradient_top: #035b8f;
+		--color_background_gradient_main: #042548;
+		--color_text: black;
+		--color_h1: #ddd;
+		--color_h2: #ddd;
+		--color_h3: #ddd;
+		--color_h3_sub: #17204e;
+		--color_link: #0066CC;
+		--color_link_visited: #3e1a8b;
+		--color_blockheight_title_link: #65a4e3;
+		--color_blockheight_title_link_visited: #a17eec;
+		--color_metadata: #505050;
+		--color_hash: #505050;
+		--color_hash_highlight: darkred;
+		--color_more: #ddd;
+		--color_icon: rgb(255,255,255,0.5);
+		--color_icon_hover: #eee;
+		--color_icon_off: #1e4c71;
+		--color_eye_icons: #aaa;
+		--color_eye_icons_hover: grey;
+		--color_collapsible: #1e4c71;
+		--color_collapsible_hover: #2b618d;
+		--color_collapsible_text: white;
+		--color_collapsible_content_background: white;
+		--color_small_collapsible: #b8bbd8;
+		--color_small_collapsible_hover: #8c94e0;
+		--color_small_collapsible_text: black;
+		--color_yes: green;
+		--color_no: blue;
+		--color_amount: darkcyan;
+		--color_pos: green;
+		--color_neg: red;
+		--color_scroll_button: #2b618d;
+		--color_scroll_text: white;
+		--color_time: #650000;
+		--color_table_border: #afb3d8;
+		--color_table_header: #1d3a5a;
+		--color_table_header_text: #ddd;
+		--color_table_header_hover: #1e4c71;
+		--color_table_header_active: #1e4c71;
+		--color_table_rows_wrapper: #444b90;
+		--color_table_row_odd: #fff;
+		--color_table_row_even: #eee;
+		--color_table_row_hover: #e0e0f0;
+		--color_banner_background: #1e4c7166; /* With some transparency */
+		--color_banner_title: #0bccf7;
+		--color_banner_version: #00f6d2;
+		--color_banner_menu_text: #aaa;
+		--color_banner_menu_link: #ddd;
+		--color_banner_menu_link_hover: #fff;
+		--color_banner_search_border: #636785;
+		--color_banner_search_background: #1d3a5a;
+		--color_banner_search_placeholder: #aaa;
+		--color_banner_search_text: #eee;
+		--color_banner_search_border_filled: #0bccf7;
+		--color_banner_search_background_filled: #1d3a5a;
+		--color_banner_search_text_invalid: #ff8686;
+		--color_banner_search_button_border: #636785;
+		--color_banner_search_button_background: rgb(255,255,255,0.3);
+		--color_banner_search_button_text: #ddd;
+		--color_banner_search_button_background_hover: rgb(255,255,255,0.7);
+		--color_banner_search_button_text_hover: black;
+		--color_banner_navigation_icon: rgb(255,255,255,0.3);
+		--color_banner_navigation_icon_hover: rgb(255,255,255,0.7);
+		--color_footer_text: #0bccf7;
+		--color_footer_link: #0bccf7;
+		--color_historical_title: #17204e;
+		--color_historical_notes: grey;
+		--color_sorting_indicator: #888;
+		--color_sorting_indicator_hover: #0bccf7;
+		--color_sorted_indicator: #0bccf7;
+		--color_table_search_text: #eee;
+		--color_table_search_border: #aaa;
+		--color_table_search_background: #1d3a5a;
+		--color_table_search_border_filled: #0bccf7;
+		--color_table_search_background_filled: #1d3a5a;
+	}
+	:root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
+		background: var(--color_background); /* Shouldn't be needed */
+		background-image: linear-gradient(to bottom, var(--color_background_gradient_top) -174px, var(--color_background_gradient_main) 116px, var(--color_background_gradient_main));
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+	}
+	body {
+		margin: 0; /* Copied from the dao-core-app model... */
+	}
+	:link { color: var(--color_link); } /* Default link colors */
+	:visited { color: var(--color_link_visited); }
+	:link:active, :visited:active { color: var(--color_link_visited); }
 	p {
 		font-size: 1.6rem;
 		padding: 5px 0 5px 0;
@@ -73,93 +245,103 @@ Disclaimer:
 		font-size: 3.2rem;
 		text-align: center;
 		margin: 10px 0 10px 0;
+		color: var(--color_h1);
 	}
 	h2 {
 		font-size: 2.4rem;
 		text-align: left;
 		margin: 15px 0 10px 0;
+		color: var(--color_h2);
 	}
 	h2.errorMessage {
 		font-style: italic; 
 	}
+	h2.title {
+		/* Nothing here */
+	}
 	h3, h3 a:link, h3 a:visited {
 		font-size: 1.9rem;
 		text-align: left;
-		color: #17204e;
+		color: var(--color_h3);
 		margin: 10px 0 15px 0;
+	}
+	h3.sub { /* For the h3 within collapsibles */
+		color: var(--color_h3_sub);
 	}
 	h3::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 	.blockHeight, .blockHeight a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-weight: normal;
 	}
-	h2 .blockHeight a {
-		color: #17204e;
-	}
-	.blockTitle {
-		white-space: nowrap; /* Don't wrap text */
-	}
-	.blockTitle .blockHeight {
+	.title .blockHeight { /* Special treatment when block heights appear in a title */
 		font-weight: bold;
+	}
+	.title .blockHeight a {
+		color: var(--color_blockheight_title_link);
+	}
+	.title .blockHeight a:visited {
+		color: var(--color_blockheight_title_link_visited);
 	}
 	.listOfBlockHeaders {
 		cursor: pointer;
-		fill: #777ebc;
+		fill: var(--color_icon);
 		display: inline-block;
 		vertical-align: top; /* Needed to align text and symbol */
 	}
-	.listOfBlockHeaders:hover {
-		fill: #555fb8;
+	.listOfBlockHeaders a {
+		fill: var(--color_icon);
+	}
+	.listOfBlockHeaders a:hover {
+		fill: var(--color_icon_hover);
 	}
 	.nextBlock, .previousBlock, .newerBlocks, .olderBlocks {
 		cursor: pointer;
-		stroke: #777ebc;
+		stroke: var(--color_icon);
 		display: inline-block;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	.nextBlock a, .previousBlock a, .newerBlocks a, .olderBlocks a { /* Needed for Chrome 83 */
-		stroke: #777ebc;
+		stroke: var(--color_icon);
 	}
 	.nextBlock a:hover, .previousBlock a:hover, .newerBlocks a:hover, .olderBlocks a:hover {
-		stroke: #555fb8;
+		stroke: var(--color_icon_hover);
 	}
 	.nextBlock.off, .previousBlock.off, .newerBlocks.off, .olderBlocks.off { /* Dim out when disabled */
 		cursor: default;
-		stroke: lightgrey;
+		stroke: var(--color_icon_off);
 	}
 	.nextBlock.off:hover, .previousBlock.off:hover, .newerBlocks.off:hover, .olderBlocks.off:hover {
-		stroke: lightgrey;
+		stroke: var(--color_icon_off);
 	}
 	.assetName {
-		color: black;
+		color: var(--color_text);
 		white-space: nowrap; /* Don't wrap text */
 	}
 	.assetName a {
-		color: black; /* Keep links in black */
+		color: var(--color_text); /* Keep links in same color */
 	}
 	.bool {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.6rem;
-		color: black;
+		color: var(--color_text);
 	}
 	.bool.yes {
-		color: green; /* 'True' in green */
+		color: var(--color_yes); /* Color for 'True' */
 	}
 	.bool.no {
-		color: blue; /* 'False' in blue */
+		color: var(--color_no); /* Color for 'False' */
 	}
 	.time {
 		white-space: nowrap; /* Don't wrap text */
 		font-size: 1.2rem;
-		color: #650000;
+		color: var(--color_time);
 	}
 	.metadata {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		display: table; /* We use table-like display to ensure that text and symbol stay inline */
-		color: #505050;
+		color: var(--color_metadata);
 		font-size: 1.2rem;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
@@ -186,7 +368,7 @@ Disclaimer:
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		display: table-cell;
 		cursor: pointer;
-		fill: #aaaaaa;
+		fill: var(--color_eye_icons);
 		padding: 0 0 0 3px;
 	}
 	/* Display the extend symbols when hovering over the element containing the text */
@@ -195,24 +377,24 @@ Disclaimer:
 	}
 	/* Highlight the symbol when hovering on it */
 	.extend:hover {
-		fill: grey;
+		fill: var(--color_eye_icons_hover);
 	}
 	.cid, .kernelId, .blob, .commitment {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252;
+		color: var(--color_hash);
 		white-space: nowrap;
 		display: inline;
 		vertical-align: middle; /* Needed to align text and symbol */
 	}
 	.kernelId.highlight { /* Highlight queried kernel */
-		color: darkred;
+		color: var(--color_hash_highlight);
 		font-weight: bold;
 	}
 	.cid a {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.2rem;
-		color: #525252; /* Keep links grey */
+		color: var(--color_hash);
 		text-decoration-line: underline;
 		text-decoration-color: grey; /* Use a light underline color */
 	}
@@ -240,7 +422,7 @@ Disclaimer:
 		display: inline; /* Superseed the HTML 'hidden' attribute */
 		visibility: hidden; /* Hide the symbols but maintain their space */
 		cursor: pointer;
-		fill: #aaaaaa;
+		fill: var(--color_eye_icons);
 		padding: 0 0 0 3px;
 	}
 	/* Display the expand symbols when hovering over the cell or the list item containing the text */
@@ -253,44 +435,44 @@ Disclaimer:
 	}
 	/* Highlight the symbol when hovering on it */
 	.expand:hover {
-		fill: grey;
+		fill: var(--color_eye_icons_hover);
 	}
 	.amount {
 		font-family: "Lucida Console", ui-monospace, monospace;
 		font-size: 1.4rem;
-		color: darkcyan;
+		color: var(--color_amount); /* Unsigned amounts */
 	}
 	.amount.pos {
-		color: green; /* Positive values in green */
+		color: var(--color_pos); /* Positive amounts */
 	}
 	.amount.neg {
-		color: red; /* Negative values in red */
+		color: var(--color_neg); /* Negative amounts */
 	}
 	.th {
 		/* This class is a "header" type from the node explorer data */
 	}
 	.more {
 		font-weight: bold;
-		color: #17204e;
+		color: var(--color_more);
 	}
 	.more a {
-		color: #17204e;
+		color: var(--color_more);
 	}
 	.more::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
-		color: #17204e;
 	}
 
 	/* FORMAT TABLES */
 	table, td, th {
-		color: black; /* Default text color */
+		color: var(--color_text); /* Default text color */
 		font-size: 1.5rem; /* Default text size */
-		border: 1px solid #ddd; /* Thin grey border */
+		border: 1px solid var(--color_table_border);
 		border-collapse: collapse; /* Join table and cell borders as one single line */
 		padding: 5px; /* Add a small padding */
 	}
 	table thead > tr th {
-		background-color: #b8bbd8; /* Background color for table header cells declared as such ("thead" tag) */
+		color: var(--color_table_header_text);
+		background-color: var(--color_table_header); /* Background color for table header cells declared as such ("thead" tag) */
 	}
 	th {
 		white-space: nowrap; /* Don't wrap header text */
@@ -315,7 +497,7 @@ Disclaimer:
 		/* Nothing special */
 	}
 	.contractCall {
-		border: 3px solid #555fb8; /* Group multiple contract calls within a thick border */
+		border: 3px solid var(--color_table_rows_wrapper); /* Group multiple contract calls within a thick border */
 	}
 	.mainCall, .subCall {
 		text-align: center;
@@ -324,14 +506,14 @@ Disclaimer:
 		/* These div are just a dirty hack added to wrap and identify some special types of generic tables... */
 	}
 	/* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
-	table tbody > tr:nth-child(odd) { background-color: #fff; }
-	table tbody > tr:nth-child(even) { background-color: #eee; }
+	table tbody > tr:nth-child(odd) { background-color: var(--color_table_row_odd); }
+	table tbody > tr:nth-child(even) { background-color: var(--color_table_row_even); }
 	/* Highlight when hover on main rows (for certain tables only) */
 	.tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
 	.tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
 	.tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
 	.divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
-		background-color: #e0e0f0;
+		background-color: var(--color_table_row_hover);
 	}
 
 	/* TITLE BANNER AND FOOTER */
@@ -347,9 +529,9 @@ Disclaimer:
 	#Banner {
 		width: 100%;
 		display: table;
-		background-color: #a7acd9;
+		background-color: var(--color_banner_background);
 		border-radius: 0.5em; /* Slightly round corners */
-		padding: 5px 10px 5px 10px;
+		padding: 8px 10px 7px 10px;
 		text-align: center;
 	}
 	#BeamLogo {
@@ -363,31 +545,36 @@ Disclaimer:
 		text-align: center;
 		width: 100%;
 		white-space: nowrap; /* Never wrap text */
-		padding: 5px 10px 5px 10px;
+		padding: 0px 10px 0px 10px;
 	}
 	#BeamTitle {
 		font-size: 2.4rem;
-		color: #17204e;
+		color: var(--color_banner_title);
 		margin: 0 0 5px 0;
 	}
 	#Version {
 		font-size: 1rem;
-		color: #525252;
+		color: var(--color_banner_version);
 	}
 	#Menu {
 		font-size: 1.5rem;
-		color: #17204e;
+		color: var(--color_banner_menu_text);
 	}
 	.menuItem a {
-		color: #2d3799; /* No change of color when followed */
+		color: var(--color_banner_menu_link);
+		text-decoration: none;
+	}
+	.menuItem a:hover {
+		color: var(--color_banner_menu_link_hover);
+		/*text-decoration: underline;*/
 	}
 	.menuSeparator {
-		color: #17204e;
+		color: var(--color_banner_menu_text);
 		padding: 0 5px 0 5px;
 	}
 	#SearchArea {
 		display: block;
-		padding: 5px 2px 0px 2px;
+		padding: 8px 2px 0px 2px;
 	}
 	#SearchForm {
 		/* Nothing special */
@@ -395,42 +582,46 @@ Disclaimer:
 	#SearchField {
 		display: inline-block;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid #636785; /* Dark border */
-		background-color: #afb3d8;
-		padding: 0.25ch 1ch 0.25ch 1ch; /* Internal padding */
+		border: 1px solid var(--color_banner_search_border);
+		background-color: var(--color_banner_search_background);
+		padding: 1.5ch 1ch 1.2ch 1ch; /* Internal padding */
 		font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
 		font-size: 1.2rem;
 		width: 67ch;
-		color: #525252;
+		color: var(--color_banner_search_text);
 		height: 2rem;
 		text-decoration: none;
 		vertical-align: middle;
 	}
 	#SearchField:focus {
 		outline: none; /* Avoid the browser default focus outline */
+		border: 1px solid var(--color_banner_search_border_filled);
 	}
-	#SearchField:not(:placeholder-shown) { /* Search field with content */
-		background-color: #b8bbd8; /* Use a lighter background */
-		border: 1px solid #ddd; /* White border */
+	#SearchField:not(:placeholder-shown) { /* Search field with content in it */
+		background-color: var(--color_banner_search_background_filled);
 	}
 	#SearchField:invalid {
-		color: #805353;
+		color: var(--color_banner_search_text_invalid);
 		text-decoration: line-through; /* Strikethrough if incorrect format */
 	}
-	#SearchField:placeholder-shown {
+	#SearchField:placeholder-shown { /* Needed in Chrome to remove the line-through */
+		text-decoration: none;
+		color: var(--color_banner_search_text);
+	}
+	#SearchField::placeholder {
 		font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
 		font-size: 1.3rem;
 		font-style: italic;
-		color: #525252;
+		color: var(--color_banner_search_placeholder);
 		text-decoration: none;
 	}
 	#SearchButton {
 		display: inline-block;
 		border: none;
-		border: 1px solid #636785;
+		border: 1px solid var(--color_banner_search_button_border);
 		border-radius: 0.25em; /* Slightly round corners */
-		background-color: #636785;
-		color: #ddd;
+		background-color: var(--color_banner_search_button_background);
+		color: var(--color_banner_search_button_text);
 		height: 2rem;
 		font-size: 1.2rem;
 		text-align: center;
@@ -439,28 +630,33 @@ Disclaimer:
 		padding: 0.25ch 1ch 0.25ch 1ch;
 	}
 	#SearchButton:hover {
-		background-color: #525252;
-		color: #ddd;
+		background-color: var(--color_banner_search_button_background_hover);
+		color: var(--color_banner_search_button_text_hover);
 		cursor: pointer; /* Mouse pointer on hover */
 	}
 	#Navigation {
 		display: table-cell;
 		vertical-align: middle;
 		text-align: center;
+		white-space: nowrap; /* Don't wrap text */
 		font-size: 2rem;
-		color: #525252;
-		padding: 0 10px 0 10px;
+		margin: 0 10px 0 10px;
 		line-height: 1; /* Without units it's a number of lines */
 	}
-	#Navigation a {
-		color: #525252;
-		text-decoration-line: none;
+	.NavRow {
+		display: table-row;
 	}
-	#Back *, #Reload *, #ExpandAll * {
-		fill: #636785; /* Color all SVG elements */
+	#Back, #Reload, #ExpandAll, #ColorMode {
+		display: table-cell;
+		vertical-align: middle;
+		text-align: center;
+		padding: 3px 5px 3px 5px;
 	}
-	#Back:hover *, #Reload:hover *, #ExpandAll:hover * {
-		fill: #505050; /* Color all SVG elements */
+	#Back *, #Reload *, #ExpandAll *, #ColorMode * {
+		fill: var(--color_banner_navigation_icon); /* Color all SVG elements */
+	}
+	#Back:hover *, #Reload:hover *, #ExpandAll:hover *, #ColorMode:hover * {
+		fill: var(--color_banner_navigation_icon_hover); /* Color all SVG elements */
 	}
 	#TopButton, #BottomButton {
 		position: fixed; /* Fixed position */
@@ -469,11 +665,11 @@ Disclaimer:
 		border: none; /* Remove borders */
 		outline: none; /* Remove outline */
 		border-radius: 50%; /* Round button */
-		background-color: black; /* Background color */
-		opacity: 0.15; /* Very transparent */
+		background-color: var(--color_scroll_button); /* Background color */
+		opacity: 0.2; /* Very transparent */
 		text-align: center;
 		font-size: 1.5rem;
-		color: white; /* Text color */
+		color: var(--color_scroll_text); /* Text color */
 		padding: 10px; /* Some padding */
 	}
 	#TopButton {
@@ -487,44 +683,48 @@ Disclaimer:
 		right: 10px; /* Right side of the page */
 	}
 	#TopButton:hover, #BottomButton:hover {
-		opacity: 0.9; /* Less transparent on hover */
-		background-color: rgb(0,0,0,0.4); /* Background with more transparency */
+		opacity: 0.4; /* Less transparent on hover */
 	}
 	#Footer {
 		position: absolute;
 		bottom: 0;
 		width: 100%;
 		text-align: center;
-		color: #17204e;
+		color: var(--color_footer_text);
 		font-weight: bold;
 		white-space: nowrap; /* Don't wrap text */
 		font-size: 1.2rem;
 		height: 1.8rem; /* Footer height */
 	}
 	#Footer a {
-		color: #17204e;
+		color: var(--color_footer_link);
 		text-decoration: none;
 	}
 	#Footer a:hover {
 		text-decoration: underline;
 	}
 	#Footer::before {
-		content: "\25b8"; /* Nice useless decoration ;-) */
-		color: #17204e;
+		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
 	}
 	#Footer::after {
-		content: "\25c2"; /* Nice useless decoration ;-) */
-		color: #17204e;
+		content: "\00a0 \25c2"; /* Nice useless decoration ;-) */
 	}
-	#Loading {
-		/* Nothing special */
+	#Loading span { /* Animation for the three dots */
+		position: relative;
+		display: inline-block;
+		animation: bounce 1s infinite;
+		animation-delay: calc(.1s * var(--t));
+	}
+	@keyframes bounce {
+		0%,40%,100% { transform: translateY(0) }
+		20% { transform: translateY(-1rem) }
 	}
 
 	/* SPECIAL HISTORICAL BLOCKS */
 	.specialBlock_Title {
 		font-size: 1.5rem;
 		font-weight: bold;
-		color: #17204e;
+		color: var(--color_historical_title);
 		padding: 5px 2px 5px 2px;
 	}
 	.specialBlock_Title::before {
@@ -532,7 +732,6 @@ Disclaimer:
 	}
 	.specialBlock_Description {
 		font-size: 1.3rem;
-		color: black;
 		line-height: 1.7rem;
 		padding: 2px 2px 10px 2px;
 	}
@@ -542,12 +741,11 @@ Disclaimer:
 		margin: 0.3rem 0 0.3rem 0;
 	}
 	.specialBlock_Description a {
-		color: #2d3799;
 		font-weight: bold;		
 	}
 	.specialBlock_Link {
 		font-size: 1.2rem;
-		color: grey;
+		color: var(--color_historical_notes);
 		line-height: 1.3rem;
 		padding: 2px;
 	}
@@ -558,7 +756,7 @@ Disclaimer:
 		padding-bottom: 1rem;
 	}
 	.specialBlock_Link a {
-		color: grey;
+		color: var(--color_historical_notes);
 	}
 	.specialBlock_Link::before {
 		content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
@@ -582,8 +780,8 @@ Disclaimer:
 		cursor: pointer;
 		font-size: 1.5rem;
 		margin: 15px 0 0 0;
-		color: white;
-		background-color: #777ebc;
+		color: var(--color_collapsible_text);
+		background-color: var(--color_collapsible);
 		padding: 10px;
 		border: none;
 		text-align: left;
@@ -591,21 +789,21 @@ Disclaimer:
 		border-radius: 0.5em; /* Slightly round corners */
 	}
 	.collapsible-label:hover {
-		background-color: #555fb8;
+		background-color: var(--color_collapsible_hover);
 	}
 	/* Smaller compact collapsible header */
 	.collapsible-label.small {
 		display: block;
 		width: fit-content; /* Uses only its own needed width */
 		font-size: 1.2rem;
-		color: black;
-		background-color: #b8bbd8;
+		color: var(--color_small_collapsible_text);
+		background-color: var(--color_small_collapsible);
 		margin: 0;
 		padding: 2px 5px 2px 5px;
 		border-radius: 0.25em; /* Slightly round corners */
 	}
 	.collapsible-label.small:hover {
-		background-color: #8c94e0;
+		background-color: var(--color_small_collapsible_hover);
 	}
 	.collapsible-checkbox:checked + .collapsible-label {
 		border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
@@ -615,11 +813,7 @@ Disclaimer:
 	/* Collapsible symbols */
 	.collapsible-label::before {
 		content: '\002b \00a0'; /* Add plus sign when collapsed */
-		color: #bababa;
 		font-weight: bold;
-	}
-	.collapsible-label.small::before {
-		color: black; /* Use black sign for small collapsible */
 	}
 	.collapsible-checkbox:checked + .collapsible-label::before {
 		content: '\2212 \00a0'; /* Add minus sign when expanded */
@@ -630,7 +824,7 @@ Disclaimer:
 		width: 100%;
 		height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
-		background-color: white;
+		background-color: var(--color_collapsible_content_background);
 	}
 	.collapsible-content.small {
 		display: none; /* Hide completely for small collapsibles (width is not maintained) */
@@ -639,7 +833,7 @@ Disclaimer:
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content {
 		height: unset;  /* Show content's full height */
 		overflow: visible;
-		border: 0.5px solid #777ebc; /* Add a thin border */
+		border: 0.5px solid var(--color_collapsible); /* Add a thin border */
 	}
 	.collapsible-checkbox:checked + .collapsible-label + .collapsible-content.small {
 		display: block; /* Show content */
@@ -665,15 +859,15 @@ Disclaimer:
 	}
 	/* Headers when filters are off */
 	.filtersOff th {
-		background-color: #b8bbd8;
+		background-color: var(--color_table_header);
 	}
 	.filtersOff:hover th {
 		cursor: pointer; /* Change mouse to pointer to show it's clickable */
-		background-color: #9ca2d2;
+		background-color: var(--color_table_header_hover);
 	}
 	/* Headers when filters are on */
 	.filtersOn th {
-		background-color: #9ca2d2;
+		background-color: var(--color_table_header_active);
 	}
 	/* Make header rows sticky to the top of the window */
 	/* Remark: On Chrome 83, sticky only works on 'th' (not on 'thead' or 'tr') */
@@ -690,18 +884,18 @@ Disclaimer:
 	/* Add sorting indicators */
 	.sortable::before {
 		content: '\21c5 \00a0'; /* Symbol when not sorted */
-		color: #666;
+		color: var(--color_sorting_indicator);
 	}
 	.sortable:hover::before { /* Highlight symbol on hover */
-		color: #e7e7e7;
+		color: var(--color_sorting_indicator_hover);
 	}
 	.sortable.asc::before {
 		content: '\25b2 \00a0'; /* Symbol when sorted ascending */
-		color: #e7e7e7;
+		color: var(--color_sorted_indicator);
 	}
 	.sortable.desc::before {
 		content: '\25bc \00a0'; /* Symbol when sorted descending */
-		color: #e7e7e7;
+		color: var(--color_sorted_indicator);
 	}
 
 	/* SEARCH OPTIONS IN HEADERS */
@@ -711,12 +905,13 @@ Disclaimer:
 	.search {
 		visibility: hidden; /* Search fields are hidden by default */
 		display: inline-block;
+		color: var(--color_table_search_text);
 		width: 95%;
 		max-width: 20ch;
 		min-width: 5ch;
 		border-radius: 0.25em; /* Slightly round corners */
-		border: 1px solid #555; /* Dark border */
-		background-color: #afb3d8;
+		border: 1px solid var(--color_table_search_border); /* Search field border */
+		background-color: var(--color_table_search_background);
 		padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
 	}
 	/* Search fields on hover */
@@ -727,15 +922,15 @@ Disclaimer:
 	.search:not(:placeholder-shown) {
 		visibility: visible; /* Keep it visible */
 		max-width: 95%; /* Extend to full width */
-		background-color: #b8bbd8; /* Use a lighter background */
-		border: 1px solid #ddd; /* White border */
+		background-color: var(--color_table_search_background_filled); /* Use a lighter background */
+		border: 1px solid var(--color_table_search_border); /* Active border */
 	}
 	/* Search fields on focus */
 	.search:focus {
 		visibility: visible; /* Keep it visible */
 		max-width: 95%; /* Extend to full width */
 		outline: none; /* Avoid the browser default focus outline */
-		border: 1px solid #ddd; /* White border */
+		border: 1px solid var(--color_table_search_border_filled); /* Active border */
 	}
 	
 </style>
@@ -757,14 +952,14 @@ Disclaimer:
 			<svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
 			<svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
 			<svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-
+			<svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
 			<!-- Fixed banner on all pages -->
 			<div id="Banner">
 				<span id="BeamLogo">
 					<!-- Clicking on the logo sends back to the main page -->
 					<a href='?' title='Main page'>
 						<!-- A simplified SVG version of the BEAM logo -->
-						<svg height='5em' width='5em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+						<svg height='6em' width='6em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
 					</a>
 				</span>
 				<span id="BannerCenter">
@@ -791,9 +986,14 @@ Disclaimer:
 				</span>
 				<!-- Banner symbols for navigation and special functions -->
 				<span id="Navigation">
-					<a id="Reload" href="" title="Reload"><svg width='1em' height='1em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
-					<br><a id="Back" href="javascript:history.back();" title="Back"><svg width='1em' height='1em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
-					<br><a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1em' height='1em'><use href='#eye_icon'/></svg></a>
+					<div class="NavRow">
+						<a id="Back" href="javascript:history.back();" title="Back"><svg width='1.2em' height='1.2em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
+						<a id="Reload" href="" title="Reload"><svg width='1.2em' height='1.2em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+					</div>
+					<div class="NavRow">
+						<a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></a>
+						<a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
+					</div>
 				</span>
 			</div>
 
@@ -805,13 +1005,14 @@ Disclaimer:
 
 			<!-- Main content area (will be replaced through Javascript) -->
 			<div id="my_content">
-				<h2 id="Loading">Loading...</h2>
+				<!-- Dots are isolated, for CSS animation... -->
+				<h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
 			</div>
 
 		</div>
 
 		<!-- Fixed footer on all pages -->
-		<div id='Footer'><a href='https://www.beam.mw'>www.beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm" title="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
+		<div id='Footer'><a href='https://www.beam.mw'>beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
 
 		<!-- No JavaScript warning -->
 		<noscript>You need to enable JavaScript to run this app.</noscript>
@@ -1069,7 +1270,7 @@ Disclaimer:
 	function DisplayContracts()
 	{
 		let text = "\
-		<h2>Deployed Smart Contracts</h2>\n\
+		<h2 class='title'>Deployed Smart Contracts</h2>\n\
 		<table class='tableContracts'>\n\
 			<thead><tr>\n\
 				<th>Cid</th>\n\
@@ -1145,9 +1346,7 @@ Disclaimer:
 		const jTblObj = jData["Asset history"];
 		const jTbl = jTblObj["value"];
 		
-		let text = "<h2>\n"
-		text += "History of Asset " + g_id;
-		text += "</h2>\n"
+		let text = "<h2 class='title'>History of Asset " + g_id + "</h2>\n"
 
 		text += "\
 		<table class='tableAssetHistory'>\n\
@@ -1308,9 +1507,9 @@ Disclaimer:
 			// Display error message if kernel or height was queried but no block was found
 			if (g_kernel || g_id > 0) {
 				if (g_kernel) {
-					text += "<h2 class='errorMessage'>Kernel not found.</h2>"
+					text += "<h2 class='title errorMessage'>Kernel not found.</h2>"
 				} else {
-					text += "<h2 class='errorMessage'>Block not found.</h2>"
+					text += "<h2 class='title errorMessage'>Block not found.</h2>"
 				}
 				SetContent(text);
 				return;
@@ -1322,7 +1521,7 @@ Disclaimer:
 		// If the request was a kernel, get the resulting height
 		if (g_kernel) {	g_id = j["value"][0][1]["value"] }
 
-		text += "<h2 class='blockTitle'>";
+		text += "<h2 class='title'>";
 		if (g_id > 0) {
 			text += AddClass(MakeRef(UrlSelf("hdrs", "&hMax=" + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"),"listOfBlockHeaders","title='List of blocks up to this one'");
 			text += "&nbsp;";
@@ -1353,21 +1552,21 @@ Disclaimer:
 		j = jData["inputs"];
 		if (j)
 		{
-			text += "<h3>Inputs</h3>\n";
+			text += "<h3 class='sub'>Inputs</h3>\n";
 			text += MakeTableTxos(j, true);
 		}
 
 		j = jData["outputs"];
 		if (j)
 		{
-			text += "<h3>Outputs</h3>\n";
+			text += "<h3 class='sub'>Outputs</h3>\n";
 			text += MakeTableTxos(j, false);
 		}
 
 		let jTbl = jData["kernels"];
 		if (jTbl)
 		{
-			text += "<h3>Kernels</h3>\n";
+			text += "<h3 class='sub'>Kernels</h3>\n";
 			text += "\
 			<table class='tableKernels'>\n\
 				<thead><tr>\n\
@@ -1566,9 +1765,7 @@ Disclaimer:
 		const jTblObj = jData["Calls history"];
 		const jTbl = jTblObj["value"];
 		
-		let text = "<h2>\n"
-		text += "Contract " + AddClass(g_id, "cidTitle");
-		text += "</h2>\n"
+		let text = "<h2 class='title'>Contract " + AddClass(g_id, "cidTitle") + "</h2>\n"
 
 		text += MakeCollapsibleBegin("Call history") + "\
 		<table class='tableCallHistory'>\n\
@@ -1622,7 +1819,7 @@ Disclaimer:
 		const jData = JSON.parse(this.responseText);
 		//const jTbl = jData["value"];
 
-		let text = "<h2>\n"
+		let text = "<h2 class='title'>\n"
 		text += "Block headers";
 		text += "&nbsp;";
 		text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"),"olderBlocks","title='Previous blocks'");
@@ -1641,7 +1838,7 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 	
-		let text = "<h2>Blockchain status</h2>";
+		let text = "<h2 class='title'>Blockchain status</h2>";
 		text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
 		text += Obj2Html(jData);
 		text += "</div>"
@@ -1653,7 +1850,7 @@ Disclaimer:
 	{
 		const jData = JSON.parse(this.responseText);
 
-		let text = "<h2>\n";
+		let text = "<h2 class='title'>\n";
 		if (g_id) {
 			text += "Confidential Assets at block height " + MakeBlock(g_id);
 			text += "&nbsp;";
@@ -1675,7 +1872,7 @@ Disclaimer:
 
 	function DisplayHistoricalBlocks()
 	{
-		let text = "<h2>Special historical blocks</h2>";
+		let text = "<h2 class='title'>Special historical blocks</h2>";
 		text += "<table class='tableHistoricalBlocks'>\n\
 			<thead><tr>\n\
 				<th>Height</th>\n\
@@ -1863,6 +2060,10 @@ Disclaimer:
 			links: [ ["The 5-year recap","https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f"] ]
 		}
 	];
+
+	// Check localStorage for dark mode status ("dark" or "")
+	let mode = localStorage.getItem("mode");
+	if (mode) {document.querySelector(":root").classList.add(mode)}; 
 
 	// URL and explorer node parameters
 	const args = (new URL(document.location)).searchParams;
@@ -2426,7 +2627,18 @@ Disclaimer:
 	function bottomFunction() {
 		document.body.scrollTop = Math.abs(document.body.scrollHeight - document.body.clientHeight); // For Safari
 		document.documentElement.scrollTop = Math.abs(document.documentElement.scrollHeight - document.documentElement.clientHeight); // For Chrome, Firefox, IE and Opera
-	} 
+	}
+
+	// TOGGLE DARK MODE
+	function toggleDarkMode() {
+		let mode = "";
+		// For dark mode, we add a class to root
+		let rootclass = document.querySelector(":root").classList;
+		if ( rootclass.contains("dark") ) { rootclass.remove("dark") }
+		else { rootclass.add("dark"); mode = "dark"; }
+		// Store mode in localStorage (to allow retrieving it across pages)
+		localStorage.setItem("mode", mode);
+	}
 
 </script>
 
