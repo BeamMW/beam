@@ -26,7 +26,9 @@ Disclaimer:
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#042548"> <!-- Is this useful?... -->
   <!-- Simplified Beam logo SVG favicon is URL-encoded (i.e. mainly replacing < > # and spaces) -->
   <!-- Remark: Such SVG favicon does not seem to be recognized by Safari -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
@@ -44,10 +46,15 @@ Disclaimer:
  		font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
 		line-height: 1; /* From a CSS reset template... */
 		margin: 0; /* From a CSS reset template... */
+		height: 100%; /* Copied from the dao-core-app model... */
+		scroll-behavior: smooth; /* Copied from the dao-core-app model... */
 	}
 	:root {
 		/* Color variables for light mode (default) */
+		color-scheme: light; /* For elements (if any) without an explicit style */
 		--color_background: #d0daff;
+		--color_background_gradient_top: #d0daff;
+		--color_background_gradient_main: #d0daff;
 		--color_text: black;
 		--color_h1: black;
 		--color_h2: black;
@@ -125,7 +132,10 @@ Disclaimer:
 	}
 	:root.dark {
 		/* Color variables for dark mode */
-		--color_background: #042548; /* To do: Shall be 'none' when used as in-wallet DApp... */ 
+		color-scheme: dark; /* For elements (if any) without an explicit style */
+		--color_background: #042548;
+		--color_background_gradient_top: #035b8f;
+		--color_background_gradient_main: #042548;
 		--color_text: black;
 		--color_h1: #ddd;
 		--color_h2: #ddd;
@@ -168,7 +178,7 @@ Disclaimer:
 		--color_table_row_odd: #fff;
 		--color_table_row_even: #eee;
 		--color_table_row_hover: #e0e0f0;
-		--color_banner_background: #1e4c71;
+		--color_banner_background: #1e4c7166; /* With some transparency */
 		--color_banner_title: #0bccf7;
 		--color_banner_version: #00f6d2;
 		--color_banner_menu_text: #aaa;
@@ -201,8 +211,14 @@ Disclaimer:
 		--color_table_search_border_filled: #0bccf7;
 		--color_table_search_background_filled: #1d3a5a;
 	}
-	:root {
- 		background: var(--color_background); /* Default background color for all pages */
+	:root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
+		background: var(--color_background); /* Shouldn't be needed */
+		background-image: linear-gradient(to bottom, var(--color_background_gradient_top) -174px, var(--color_background_gradient_main) 116px, var(--color_background_gradient_main));
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+	}
+	body {
+		margin: 0; /* Copied from the dao-core-app model... */
 	}
 	:link { color: var(--color_link); } /* Default link colors */
 	:visited { color: var(--color_link_visited); }
@@ -274,7 +290,10 @@ Disclaimer:
 		display: inline-block;
 		vertical-align: top; /* Needed to align text and symbol */
 	}
-	.listOfBlockHeaders:hover {
+	.listOfBlockHeaders a {
+		fill: var(--color_icon);
+	}
+	.listOfBlockHeaders a:hover {
 		fill: var(--color_icon_hover);
 	}
 	.nextBlock, .previousBlock, .newerBlocks, .olderBlocks {
@@ -795,8 +814,6 @@ Disclaimer:
 	.collapsible-label::before {
 		content: '\002b \00a0'; /* Add plus sign when collapsed */
 		font-weight: bold;
-	}
-	.collapsible-label.small::before {
 	}
 	.collapsible-checkbox:checked + .collapsible-label::before {
 		content: '\2212 \00a0'; /* Add minus sign when expanded */
