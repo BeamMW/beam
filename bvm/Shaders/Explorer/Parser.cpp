@@ -2413,7 +2413,8 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 			DocAddTableHeader("Amount1");
 			DocAddTableHeader("Amount2");
 			DocAddTableHeader("Amount-LP-Token");
-			DocAddTableHeader("Rate");
+			DocAddTableHeader("Rate 1:2");
+			DocAddTableHeader("Rate 2:2");
 		}
 
 		Env::Key_T<Amm::Pool::Key> k0, k1;
@@ -2440,53 +2441,36 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 
 			if (p.m_Totals.m_Tok1 && p.m_Totals.m_Tok2)
 			{
-				char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 3];
-				uint32_t nBuf = 0;
-
-				bool b1 = (p.m_Totals.m_Tok1 >= p.m_Totals.m_Tok2);
+				char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 1];
 
 				MultiPrecision::Float f1(p.m_Totals.m_Tok1);
 				MultiPrecision::Float f2(p.m_Totals.m_Tok2);
 
-				MultiPrecision::Float k;
-				if (b1)
-					k = f1 / f2;
-				else
+				for (uint32_t i = 0; i < 2; i++)
 				{
-					k = f2 / f1;
-					szBuf[nBuf++] = '1';
-					szBuf[nBuf++] = ':';
-				}
+					auto k = i ? (f2 / f1) : (f1 / f2);
+					auto df = k.get_Decimal();
 
-				{
 					// print the ratio nicely. Limit to 8 precision digits, prefer std notation
 					const uint32_t nPrecision = 8;
-
-					MultiPrecision::Float::DecimalForm df;
-					df.Assign(k);
-
 					df.LimitPrecision(nPrecision);
 
 					MultiPrecision::Float::DecimalForm::PrintOptions po;
 
 					if (df.get_TextLenStd(po) <= nPrecision + 2)
-						nBuf += df.PrintStd(szBuf + nBuf, po);
+						df.PrintStd(szBuf, po);
 					else
-						nBuf += df.PrintScientific(szBuf + nBuf, po);
-				}
+						df.PrintScientific(szBuf, po);
 
-				if (b1)
-				{
-					szBuf[nBuf++] = ':';
-					szBuf[nBuf++] = '1';
+					Env::DocAddText("", szBuf);
 				}
-
-				szBuf[nBuf] = 0;
-				Env::DocAddText("", szBuf);
 
 			}
 			else
+			{
 				Env::DocAddText("", "");
+				Env::DocAddText("", "");
+			}
 		}
 
 	}
