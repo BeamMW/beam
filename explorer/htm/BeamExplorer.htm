@@ -79,6 +79,7 @@
 		--color_collapsible: #777ebc;
 		--color_collapsible_hover: #555fb8;
 		--color_collapsible_text: white;
+		--color_collapsible_content_text: black;
 		--color_collapsible_content_background: white;
 		--color_small_collapsible: #b8bbd8;
 		--color_small_collapsible_hover: #8c94e0;
@@ -155,13 +156,14 @@
 		--color_icon: rgb(255,255,255,0.5);
 		--color_icon_hover: #eee;
 		--color_icon_off: #1e4c71;
-		--color_eye_icons: #aaa;
+		--color_eye_icons: #989898;
 		--color_eye_icons_hover: grey;
 		--color_collapsible: #1e4c71;
 		--color_collapsible_hover: #2b618d;
 		--color_collapsible_text: white;
-		--color_collapsible_content_background: white;
-		--color_small_collapsible: #b8bbd8;
+		--color_collapsible_content_text: black;
+		--color_collapsible_content_background: #ddd;
+		--color_small_collapsible: #a2a6ca;
 		--color_small_collapsible_hover: #8c94e0;
 		--color_small_collapsible_text: black;
 		--color_yes: green;
@@ -178,9 +180,9 @@
 		--color_table_header_hover: #1e4c71;
 		--color_table_header_active: #1e4c71;
 		--color_table_rows_wrapper: #444b90;
-		--color_table_row_odd: #fff;
-		--color_table_row_even: #eee;
-		--color_table_row_hover: #e0e0f0;
+		--color_table_row_odd: #d2d2d2;
+		--color_table_row_even: #c9c9c9;
+		--color_table_row_hover: #c2c2cf;
 		--color_banner_background: #1e4c7166; /* With some transparency */
 		--color_banner_title: #0bccf7;
 		--color_banner_version: #00f6d2;
@@ -204,7 +206,7 @@
 		--color_footer_text: #0bccf7;
 		--color_footer_link: #0bccf7;
 		--color_historical_title: #17204e;
-		--color_historical_notes: grey;
+		--color_historical_notes: #656565;
 		--color_sorting_indicator: #888;
 		--color_sorting_indicator_hover: #0bccf7;
 		--color_sorted_indicator: #0bccf7;
@@ -827,6 +829,7 @@
 		width: 100%;
 		height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
 		overflow: hidden;
+		color: var(--color_collapsible_content_text);
 		background-color: var(--color_collapsible_content_background);
 	}
 	.collapsible-content.small {
