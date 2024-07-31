@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 set(CORE_SRC
     uintBig.cpp
+    numeric_utils.cpp
     ecc.cpp
     ecc_bulletproof.cpp
     aes.cpp
