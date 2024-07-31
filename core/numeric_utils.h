@@ -293,8 +293,11 @@ namespace MultiWord {
 
 		void SetDivResid(Slice resid, ConstSlice div, Word* pBufResid, Word* pBufDiv) const;
 
-		void LShift(ConstSlice a, uint32_t nBits);
-		void RShift(ConstSlice a, uint32_t nBits);
+		void LShift(ConstSlice a, uint32_t nBits) const;
+		void RShift(ConstSlice a, uint32_t nBits) const;
+
+		DWord Mul(Word) const; // returns carry
+		void Power(ConstSlice, uint32_t n, Word* pBuf1, Word* pBuf2) const; // both buffers must be of current slice size
 
 	private:
 
@@ -302,6 +305,8 @@ namespace MultiWord {
 		static void RShiftRaw(Word* pDst, const Word* pSrc, uint32_t nLen, uint32_t nShiftR, Word& w);
 		void LShiftNormalized(uint32_t nShiftL, ConstSlice src) const;
 		void RShiftNormalized(uint32_t nShiftR, ConstSlice src) const;
+		void LShiftNormalized_nnz(uint32_t nShiftL, ConstSlice src) const;
+		void RShiftNormalized_nnz(uint32_t nShiftR, ConstSlice src) const;
 
 		void CopyInternal(const Word* p) const;
 
@@ -317,7 +322,7 @@ namespace MultiWord {
 			if constexpr (bPositive)
 				carry >>= nWordBits;
 			else
-				((DWordSigned&)carry) >>= nWordBits;
+				((DWordSigned&) carry) >>= nWordBits;
 		}
 
 		template <bool bAdd, bool bOp2>
@@ -384,6 +389,18 @@ namespace MultiWord {
 			}
 
 			return *this;
+		}
+
+		void Export(Word& x) const
+		{
+			static_assert(nWords >= 1);
+			x = m_p[nWords - 1];
+		}
+
+		void Export(DWord& x) const
+		{
+			static_assert(nWords >= 2);
+			x = (static_cast<DWord>(m_p[nWords - 2]) << nWordBits) | m_p[nWords - 1];
 		}
 
 		template <uint32_t wa>
@@ -461,9 +478,14 @@ namespace MultiWord {
 		template <uint32_t wa>
 		Number& operator *= (const Number<wa>& a)
 		{
-			auto x = *this; // copy
-			get_Slice().Set0();
-			get_Slice().AddOrSub_Mul<true>(x.get_ConstSlice(), a.get_ConstSlice());
+			if constexpr (wa == 1)
+				get_Slice().Mul(a.m_p[0]);
+			else
+			{
+				auto x = *this; // copy
+				get_Slice().Set0();
+				get_Slice().AddOrSub_Mul<true>(x.get_ConstSlice(), a.get_ConstSlice());
+			}
 			return *this;
 		}
 
@@ -490,13 +512,31 @@ namespace MultiWord {
 			return ret;
 		}
 
+		template <uint32_t wa>
+		Number& Power(const Number<wa>& __restrict__ x, uint32_t n)
+		{
+			Word pBuf1[nWords], pBuf2[nWords];
+			get_Slice().Power(x.get_ConstSlice(), n, pBuf1, pBuf2);
+			return *this;
+		}
+
+	};
+
+	template <uint32_t nBytes>
+	struct NumberForSize {
+		typedef Number<(nBytes + sizeof(Word) - 1) / sizeof(Word)> Type;
+	};
+
+	template <typename T>
+	struct NumberForType {
+		typedef typename NumberForSize<sizeof(T)>::Type Type;
 	};
 
 
 	template <typename T>
-	inline Number< (sizeof(T) + sizeof(Word) - 1) / sizeof(Word)> From(T x)
+	inline typename NumberForType<T>::Type From(T x)
 	{
-		return Number< (sizeof(T) + sizeof(Word) - 1) / sizeof(Word)>(x);
+		return NumberForType<T>::Type(x);
 	}
 
 } // namespace MultiWord

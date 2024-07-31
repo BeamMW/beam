@@ -110,6 +110,14 @@ void Slice::RShiftRaw(Word* pDst, const Word* pSrc, uint32_t nLen, uint32_t nShi
 
 void Slice::LShiftNormalized(uint32_t nShiftL, ConstSlice src) const
 {
+	if (nShiftL)
+		LShiftNormalized_nnz(nShiftL, src);
+	else
+		Copy(src);
+}
+
+void Slice::LShiftNormalized_nnz(uint32_t nShiftL, ConstSlice src) const
+{
 	Word w = 0;
 
 	if (m_n <= src.m_n)
@@ -128,6 +136,14 @@ void Slice::LShiftNormalized(uint32_t nShiftL, ConstSlice src) const
 
 void Slice::RShiftNormalized(uint32_t nShiftR, ConstSlice src) const
 {
+	if (nShiftR)
+		RShiftNormalized_nnz(nShiftR, src);
+	else
+		Copy(src);
+}
+
+void Slice::RShiftNormalized_nnz(uint32_t nShiftR, ConstSlice src) const
+{
 	Word w = 0;
 
 	if (m_n <= src.m_n)
@@ -144,7 +160,7 @@ void Slice::RShiftNormalized(uint32_t nShiftR, ConstSlice src) const
 	}
 }
 
-void Slice::LShift(ConstSlice a, uint32_t nBits)
+void Slice::LShift(ConstSlice a, uint32_t nBits) const
 {
 	uint32_t nWords = nBits / nWordBits;
 	if (nWords)
@@ -164,7 +180,7 @@ void Slice::LShift(ConstSlice a, uint32_t nBits)
 		LShiftNormalized(nBits, a);
 }
 
-void Slice::RShift(ConstSlice a, uint32_t nBits)
+void Slice::RShift(ConstSlice a, uint32_t nBits) const
 {
 	uint32_t nWords = nBits / nWordBits;
 	if (nWords)
@@ -353,17 +369,17 @@ void Slice::SetDivResid(Slice resid, ConstSlice div, Word* pBufResid, Word* pBuf
 			Slice div2;
 			div2.m_p = pBufDiv;
 			div2.m_n = div.m_n;
-			div2.LShiftNormalized(nz, div);
+			div2.LShiftNormalized_nnz(nz, div);
 
 
 			Slice resid2;
 			resid2.m_p = pBufResid;
 			resid2.m_n = resid.m_n + 1;
-			resid2.LShiftNormalized(nz, resid.get_Const());
+			resid2.LShiftNormalized_nnz(nz, resid.get_Const());
 
 			SetDivResidNormalized(resid2, div2.get_Const());
 
-			resid.RShiftNormalized(nz, resid2.get_Const());
+			resid.RShiftNormalized_nnz(nz, resid2.get_Const());
 		}
 		else
 			SetDivResidNormalized(resid, div);
@@ -457,6 +473,91 @@ void Slice::SetDivResidNormalized(Slice resid, ConstSlice div) const
 
 	}
 }
+
+DWord Slice::Mul(Word w) const
+{
+	DWord carry = 0;
+	for (uint32_t i = m_n; i--; )
+	{
+		auto& x = m_p[i];
+		carry += static_cast<DWord>(x) * w;
+
+		x = static_cast<Word>(carry);
+		MoveCarry<true>(carry);
+	}
+	return carry;
+}
+
+void MyMul(Slice& sRes, Slice& sTmp, uint32_t nMaxLen, ConstSlice a, ConstSlice b)
+{
+	uint32_t nMax = std::min(a.m_n + b.m_n, nMaxLen);
+	sTmp.m_p += static_cast<int32_t>(sTmp.m_n - nMax); // should be signed, and promoted to ptrdiff_t
+	sTmp.m_n = nMax;
+
+	sTmp.SetMul(a, b);
+	sTmp.Trim();
+
+	std::swap(sRes, sTmp);
+}
+
+void Slice::Power(ConstSlice s, uint32_t n, Word* pBuf1, Word* pBuf2) const
+{
+	if (!m_n)
+		return;
+
+	Set0();
+
+	if (!n)
+	{
+		m_p[m_n - 1] = 1;
+		return;
+	}
+
+	s.Trim();
+	if (!s.m_n)
+		return; // zero
+
+	if (s.m_n > m_n)
+		s = s.get_Tail(m_n);
+
+	Slice sRes = Cast::Up<Slice>(get_Tail(0));
+	Slice sFree{ pBuf1, m_n };
+	Slice sPwr{ pBuf2, m_n };
+
+	while (true)
+	{
+		if (1 & n)
+		{
+			// multiply result by current pwr
+			if (sRes.m_n)
+				MyMul(sRes, sFree, m_n, sRes.get_Const(), s);
+			else
+			{
+				// 1st time
+				sRes = Cast::Up<Slice>(get_Tail(s.m_n));
+				sRes.CopyInternal(s.m_p);
+			}
+
+			if (!sRes.m_n)
+				break; // turned into 0, can happen due to overflow/truncation
+		}
+
+		n >>= 1;
+		if (!n)
+			break;
+
+		// squre
+		MyMul(sPwr, sFree, m_n, s, s);
+		s = sPwr.get_Const();
+	}
+
+	if (sRes.get_TailPtr(0) == get_TailPtr(0))
+		// already in our obj. Just zero heading
+		Cast::Up<Slice>(get_Head(m_n - sRes.m_n)).Set0();
+	else
+		Copy(sRes.get_Const());
+}
+
 
 } // namespace MultiWord
 } // namespace beam
