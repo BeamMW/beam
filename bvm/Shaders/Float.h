@@ -873,6 +873,7 @@ namespace MultiPrecision
 				void TryMulStrict(uint32_t nPwr2)
 				{
 					bool b = TryMul2(nPwr2);
+					(b);
 					assert(b);
 				}
 
@@ -894,6 +895,7 @@ namespace MultiPrecision
 
 					bool b = TryMul(Float(base), nPwr10);
 					assert(b);
+					(b);
 					ExpReduce();
 
 					uint32_t nPwr2 = m_BinaryThreshold - m_Ord;
