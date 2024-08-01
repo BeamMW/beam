@@ -1254,12 +1254,17 @@
 			return txt;
 		}
 
-		// If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
-		if (typeof obj === "string" && obj.startsWith("STD:"))
-		{
-			return AddClass(obj, "metadata");
+		if (typeof obj === "string") {
+			// If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
+			if (obj.startsWith("STD:")) { return AddClass(obj, "metadata") }
+			// We can add here some changes to common labels and table header...
+			else if (obj == "MW.Inputs") { return "MW&nbsp;in" }
+			else if (obj == "MW.Outputs") { return "MW&nbsp;out" }
+			else if (obj == "SH.Inputs") { return "SH&nbsp;in" }
+			else if (obj == "SH.Outputs") { return "SH&nbsp;out" }
+			else if (obj == "ContractCalls") { return "Contract&nbsp;calls" }
 		}
-			
+		
 		return obj;
 	}
 	
