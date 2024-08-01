@@ -220,6 +220,37 @@ void TestUintBig()
 			TestShifts(a, d, d, i); // inplace shift
 		}
 	}
+
+	{
+		beam::MultiWord::Number<7> zz;
+
+		const uint32_t nnn = zz.s_TextLen10;
+
+		for (uint32_t pwr = 0; pwr < 60; pwr++)
+		{
+			zz.Power(beam::MultiWord::From(29u), pwr);
+
+			char szBuf1[zz.s_TextLen10 + 1];
+			zz.Decompose(szBuf1, zz.s_TextLen10, 10);
+
+			char szBuf2[zz.s_TextLen10 + 1];
+			zz.DecomposeEx<10>(szBuf2, zz.s_TextLen10);
+
+			szBuf1[_countof(szBuf1) - 1] = 0;
+			szBuf2[_countof(szBuf2) - 1] = 0;
+
+			verify_test(!memcmp(szBuf1, szBuf2, zz.s_TextLen10));
+
+			beam::MultiWord::Number<10> zz2;
+			zz2.Compose(szBuf1, zz.s_TextLen10, 10);
+			verify_test(zz == zz2);
+
+			zz2.get_Slice().SetMax();
+			zz2.ComposeEx<10>(szBuf1, zz.s_TextLen10);
+			verify_test(zz == zz2);
+		}
+
+	}
 }
 
 template <typename T>
