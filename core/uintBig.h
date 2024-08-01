@@ -25,6 +25,9 @@ namespace beam
 
 	struct uintBigImpl {
 
+		static void _ToNum(MultiWord::Slice, const uint8_t* p, uint32_t n);
+		static void _FromNum(MultiWord::ConstSlice, uint8_t* p, uint32_t n);
+
 		static void _Assign(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
 		// all those return carry (exceeding byte)
@@ -116,6 +119,16 @@ namespace beam
 	{
 		static const uint32_t nBits = nBytes_ << 3;
 		static const uint32_t nBytes = nBytes_;
+
+		typedef typename MultiWord::NumberForSize<nBytes>::Type Number;
+
+		void ToNumber(Number& x) const {
+			_ToNum(x.get_Slice(), m_pData, nBytes);
+		}
+
+		void FromNumber(const Number& x) {
+			_FromNum(x.get_ConstSlice(), m_pData, nBytes);
+		}
 
 		uintBig_t()
 		{

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "uintBig.h"
+#include "../utility/byteorder.h"
 
 namespace beam {
 
@@ -31,6 +32,51 @@ namespace beam {
 			return 0xa + (c - 'A');
 
 		return c - '0';
+	}
+
+	void uintBigImpl::_ToNum(MultiWord::Slice s, const uint8_t* p, uint32_t n)
+	{
+		uint32_t nSizeDst = s.m_n * sizeof(MultiWord::Word);
+
+		if (n >= nSizeDst)
+			memcpy(s.m_p, p + n - nSizeDst, nSizeDst);
+		else
+		{
+			uint32_t nZero = nSizeDst - n;
+			memset0(s.m_p, nZero);
+
+			memcpy(reinterpret_cast<uint8_t*>(s.m_p) + nZero, p, n);
+
+			nZero /= sizeof(MultiWord::Word);
+			s.m_n -= nZero;
+			s.m_p += nZero;
+		}
+
+		for (uint32_t i = 0; i < s.m_n; i++)
+			s.m_p[i] = ByteOrder::from_be(s.m_p[i]);
+
+	}
+
+	void uintBigImpl::_FromNum(MultiWord::ConstSlice s, uint8_t* p, uint32_t n)
+	{
+		while (n)
+		{
+			if (!s.m_n)
+			{
+				memset0(p, n);
+				break;
+			}
+
+			auto val = ByteOrder::to_be(s.m_p[--s.m_n]);
+			if (n < sizeof(val))
+			{
+				memcpy(p, reinterpret_cast<const uint8_t*>(&val) + sizeof(val) - n, n);
+				break;
+			}
+
+			n -= sizeof(val);
+			memcpy(p + n, &val, sizeof(val));
+		}
 	}
 
 	std::string uintBigImpl::_Str(const uint8_t* pDst, uint32_t nDst)

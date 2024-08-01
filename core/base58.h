@@ -19,30 +19,41 @@ namespace beam
             return NumericUtils::RadixConverter<s_Radix, nCharsEncoded, 0x100>::get_MaxLen();
         }
 
-        template <uint32_t nBytes>
-        static constexpr uint32_t get_MaxWrk() {
-            return (get_MaxEnc<nBytes>() + sizeof(uint32_t) - 1) / sizeof(uint32_t);
-        }
-
-        static uint32_t EncodeRaw(char* szEnc, uint32_t nEnc, uint32_t* pWrk, const uint8_t* p, uint32_t n); // returns the num of nnz characters.
-        // Supplied string is always fully filled (perhaps with leading '1' characeters). Returns nEnc+1 if the buffer was not enough
-        // does NOT 0-terminate the result
-
-        static uint32_t DecodeRaw(uint8_t* p, uint32_t n, uint32_t* pWrk, const char* szEnc, uint32_t nEnc); // returns num of processed characters
-
         template <uint32_t n>
         static void Encode(char* szEnc, const uint8_t* p)
         {
-            uint32_t pWrk[get_MaxWrk<n>()];
-            EncodeRaw(szEnc, get_MaxEnc<n>(), pWrk, p, n);
+            typedef uintBig_t<n> Type;
+            const Type* pVal = reinterpret_cast<const Type*>(p);
+
+            Type::Number num;
+            pVal->ToNumber(num);
+
+            const uint32_t nEnc = get_MaxEnc<n>();
+            
+            num.DecomposeEx<s_Radix>(szEnc, nEnc); // directly into szEnc, then encode in-place
+            EncodeSymbols(szEnc, reinterpret_cast<const uint8_t*>(szEnc), nEnc);
         }
 
         template <uint32_t n>
         static bool Decode(uint8_t* p, const char* szEnc)
         {
-            uint32_t pWrk[get_MaxWrk<n>()];
-            uint32_t nExpLen = get_MaxEnc<n>();
-            return DecodeRaw(p, n, pWrk, szEnc, nExpLen) == nExpLen;
+            const uint32_t nEnc = get_MaxEnc<n>();
+
+            uint8_t pDec[nEnc];
+            auto nDec = DecodeSymbols(pDec, szEnc, nEnc);
+
+            typedef uintBig_t<n> Type;
+            Type::Number num;
+            num.ComposeEx<s_Radix>(pDec, nDec);
+
+            Type* pVal = reinterpret_cast<Type*>(p);
+            pVal->FromNumber(num);
+
+            if (nDec == nEnc)
+                return true;
+
+            // return true if stopped on 0-term (i.e. encoded string was truncated)
+            return !szEnc[nDec];
         }
 
         template <uint32_t n>
@@ -65,6 +76,9 @@ namespace beam
             return to_string<sizeof(T)>(reinterpret_cast<const uint8_t*>(&x));
         }
 
+    private:
+        static void EncodeSymbols(char* szEnc, const uint8_t* pRaw, uint32_t nLen);
+        static uint32_t DecodeSymbols(uint8_t* pRaw, const char* szEnc, uint32_t nLen);
     };
 
 } // namespace beam

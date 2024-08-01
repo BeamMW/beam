@@ -64,185 +64,31 @@ namespace beam {
             return (iIdx < _countof(s_pReverseTbl)) ? s_pReverseTbl[iIdx] : 0xff;
         }
 
-        uint32_t DivideOnce(uint32_t* p, uint32_t n, uint32_t div)
-        {
-            assert(div && n && p[0]);
-
-            uint64_t carry = 0;
-            for (uint32_t i = 0; ; )
-            {
-                carry |= p[i];
-                p[i] = (uint32_t)(carry / div);
-                carry %= div;
-
-                if (++i == n)
-                    break;
-                carry <<= 32;
-            }
-
-            return (uint32_t) carry;
-        }
-
-        uint32_t EncodeW(char* szEnc, uint32_t nEnc, uint32_t* pW, uint32_t nW)
-        {
-            char* szPos = szEnc + nEnc;
-
-            const uint32_t ord1 = Base58::s_Radix;
-            const uint32_t ord2 = ord1 * ord1;
-            const uint32_t ord3 = ord2 * ord1;
-            const uint32_t ord4 = ord3 * ord1;
-            const uint32_t ord5 = ord4 * ord1;
-
-            static_assert(_countof(s_pAlphabet) == 58, "");
-            while (nW)
-            {
-                if (pW[0])
-                {
-                    uint32_t resid;
-
-                    if (((nW > 1) || (*pW >= ord5)) && (szPos - 4 >= szEnc))
-                    {
-                        resid = DivideOnce(pW, nW, ord5);
-                        for (int i = 0; i < 4; i++)
-                        {
-                            *(--szPos) = s_pAlphabet[resid % ord1];
-                            resid /= ord1;
-                        }
-                    }
-                    else
-                        resid = DivideOnce(pW, nW, ord1);
-
-                    if (szPos == szEnc)
-                        return nEnc + 1; // overflow
-
-                    *(--szPos) = s_pAlphabet[resid];
-                }
-                else
-                {
-                    pW++;
-                    nW--;
-                }
-            }
-
-            uint32_t retVal = (uint32_t) (szEnc + nEnc - szPos);
-
-            while (szPos > szEnc)
-                *(--szPos) = s_pAlphabet[0];
-
-            return retVal;
-        }
-
-
-
-        uint32_t DecodeW(const char* szEnc, uint32_t nEnc, uint32_t* pW, uint32_t nW, uint32_t& nW_Nnz)
-        {
-            const uint32_t ord1 = Base58::s_Radix;
-
-            nW_Nnz = nW;
-
-            for (uint32_t i = 0; i < nEnc; )
-            {
-                uint32_t ord = 1, resid = 0;
-
-                for (uint32_t nPortion = std::min(nEnc - i, 5u); nPortion--; )
-                {
-                    uint32_t val = DecodeChar(szEnc[i++]);
-                    if (val >= ord1)
-                    {
-                        return i; // invalid char
-                    }
-
-                    resid = resid * ord1 + val;
-                    ord *= ord1;
-                }
-
-                uint64_t carry = resid;
-                // multiply and add
-                for (uint32_t j = nW; ; )
-                {
-                    if (!j--)
-                    {
-                        if (carry)
-                            return false; // overflow
-                        break;
-                    }
-
-                    if (j >= nW_Nnz)
-                        carry += ((uint64_t) ord) * pW[j];
-                    else
-                    {
-                        if (!carry)
-                            break;
-
-                        nW_Nnz = j;
-                    }
-
-                    pW[j] = (uint32_t) carry;
-                    carry >>= 32;
-                }
-            }
-
-            return nEnc;
-        }
 
     } // namespace Base58Impl
 
-
-    uint32_t Base58::EncodeRaw(char* szEnc, uint32_t nEnc, uint32_t* pWrk, const uint8_t* p, uint32_t n)
+    void Base58::EncodeSymbols(char* szEnc, const uint8_t* pRaw, uint32_t nLen)
     {
-        uint32_t nResid = n % sizeof(uint32_t);
-        if (nResid)
+        for (uint32_t i = 0; i < nLen; i++)
         {
-            pWrk[0] = 0;
-            memcpy(((uint8_t*) pWrk) + sizeof(uint32_t) - nResid, p, n);
-            n /= sizeof(uint32_t);
-            n++;
+            uint32_t iIdx = pRaw[i];
+            assert(iIdx < _countof(Base58Impl::s_pAlphabet));
+            szEnc[i] = Base58Impl::s_pAlphabet[iIdx];
         }
-        else
-        {
-            memcpy(pWrk, p, n);
-            n /= sizeof(uint32_t);
-        }
-
-        for (uint32_t i = 0; i < n; i++)
-            pWrk[i] = ByteOrder::to_be(pWrk[i]);
-
-        return Base58Impl::EncodeW(szEnc, nEnc, pWrk, n);
-
     }
 
-    uint32_t Base58::DecodeRaw(uint8_t* p, uint32_t n, uint32_t* pWrk, const char* szEnc, uint32_t nEnc)
+    uint32_t Base58::DecodeSymbols(uint8_t* pRaw, const char* szEnc, uint32_t nLen)
     {
-        uint32_t nW = n / sizeof(uint32_t);
-        uint32_t nResid = n % sizeof(uint32_t);
-        if (nResid)
-            nW++;
-
-        uint32_t nW_Nnz;
-        uint32_t retVal = Base58Impl::DecodeW(szEnc, nEnc, pWrk, nW, nW_Nnz);
-
-        for (uint32_t i = 0; i < nW_Nnz; i++)
-            pWrk[i] = 0; // possibly remaining heading
-
-        for (uint32_t i = nW_Nnz; i < nW; i++)
-            pWrk[i] = ByteOrder::from_be(pWrk[i]);
-
-        if (nResid)
+        for (uint32_t i = 0; i < nLen; i++)
         {
-            const uint8_t* pPtr = (const uint8_t*) pWrk;
-            for (uint32_t i = 0; i < nResid; i++)
-                if (pPtr[i])
-                    return false; // overflow
+            auto val = Base58Impl::DecodeChar(szEnc[i]);
+            if (val >= s_Radix)
+                return i;
 
-            memcpy(p, pPtr + sizeof(uint32_t) - nResid, n);
+            pRaw[i] = val;
         }
-        else
-            memcpy(p, pWrk, n);
 
-        return retVal;
+        return nLen;
     }
-
-
-
 
 } // namespace beam
