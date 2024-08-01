@@ -11,12 +11,12 @@ namespace beam
 
         template <uint32_t nBytes>
         static constexpr uint32_t get_MaxEnc() {
-            return NumericUtils::RadixConverter<0x100, nBytes, s_Radix>::get_MaxLen();
+            return MultiWord::Factorization::get_MaxLen<nBytes>(0x100, s_Radix);
         }
 
         template <uint32_t nCharsEncoded>
         static constexpr uint32_t get_MaxDec() {
-            return NumericUtils::RadixConverter<s_Radix, nCharsEncoded, 0x100>::get_MaxLen();
+            return MultiWord::Factorization::get_MaxLen<nCharsEncoded>(s_Radix, 0x100);
         }
 
         template <uint32_t n>

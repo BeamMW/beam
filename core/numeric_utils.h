@@ -160,63 +160,6 @@ namespace NumericUtils
 
 		return details::Power<nMax>::template Log<T, base>(res, x);
 	}
-
-	// radix convertion, compile-time length calculation. Not the most effective algorithm, but should be ok for compile-time
-    template <uint32_t aRadix, const uint32_t aLen, uint32_t bRadix>
-    struct RadixConverter
-    {
-        static constexpr uint32_t get_MaxLen()
-        {
-            uint32_t pW[aLen + 1] = { 0 };
-            pW[0] = 1;
-            uint32_t nW = 1;
-
-            // calculate aRadix^aLen
-            for (uint32_t i = 0; i < aLen; i++)
-            {
-                uint64_t carry = 0;
-                for (uint32_t j = 0; j < nW; j++)
-                {
-                    carry += ((uint64_t)pW[j]) * aRadix;
-                    pW[j] = (uint32_t)carry;
-                    carry >>= 32;
-                }
-                if (carry)
-                    pW[nW++] = (uint32_t)carry;
-            }
-
-            // subtract 1
-            for (uint32_t j = 0; ; j++)
-                if (pW[j]--)
-                    break;
-
-            // calculate log, round up (how many times to devide before it turns zero)
-            uint32_t retVal = 0;
-
-            while (nW)
-            {
-                if (pW[nW - 1])
-                {
-                    // divide by new radix
-                    uint64_t carry = 0;
-                    for (uint32_t j = nW; j--; )
-                    {
-                        carry |= pW[j];
-                        pW[j] = (uint32_t)(carry / bRadix);
-                        carry %= bRadix;
-                        carry <<= 32;
-                    }
-
-                    retVal++;
-                }
-                else
-                    nW--;
-            }
-
-            return retVal;
-        }
-    };
-
 }
 
 namespace MultiWord {
@@ -365,96 +308,6 @@ namespace MultiWord {
 
 		Word SetDiv(Word div); // returns resid, trims itself
 
-		template <typename T>
-		void DecomposeDestroy(T* pDst, uint32_t nDst, Word radix)
-		{
-			static_assert(std::is_integral_v<T>, "");
-			assert(radix > 1);
-
-			while (nDst--)
-				pDst[nDst] = static_cast<T>(SetDiv(radix));
-		}
-
-		template <typename T>
-		static void DecomposeSplitPwr(T* pDst, uint32_t nDst, Word radix, uint32_t nPwr, ConstSlice src)
-		{
-			src.Trim();
-			while (src.m_n--)
-			{
-				Word val = src.m_p[src.m_n];
-
-				for (uint32_t i = 0; i < nPwr; i++)
-				{
-					if (!nDst)
-						return;
-					pDst[--nDst] = static_cast<T>(val % radix);
-
-					val /= radix;
-				}
-			}
-
-			while (nDst--)
-				pDst[nDst] = 0;
-		}
-
-		template <typename T>
-		void Compose(const T* pSrc, uint32_t nSrc, Word radix, Word* __restrict__ pBuf) const // buf must be of current slice size
-		{
-			static_assert(std::is_integral_v<T>, "");
-			assert(radix > 1);
-
-			Set0();
-			if (!nSrc)
-				return;
-
-			Slice sPwr{ pBuf + m_n - 1, 1 };
-			sPwr.m_p[0] = 1;
-
-			while (true)
-			{
-				Word w = static_cast<Word>(pSrc[--nSrc]);
-				AddOrSub_Mul<true>(sPwr.get_Const(), w);
-
-				if (!nSrc)
-					break;
-
-				if (!PowerNext(sPwr, radix))
-					break;
-			}
-		}
-
-		template <typename T>
-		void ComposeEx(const T* pSrc, uint32_t nSrc, Word radix, Word* __restrict__ pBuf, Word radixBig, uint32_t nPwr) const // buf must be of current slice size
-		{
-			static_assert(std::is_integral_v<T>, "");
-			assert(radixBig > 1);
-
-			Set0();
-			if (!nSrc)
-				return;
-
-			Slice sPwr{ pBuf + m_n - 1, 1 };
-			sPwr.m_p[0] = 1;
-
-			while (true)
-			{
-				uint32_t nPortion = std::min(nSrc, nPwr);
-				nSrc -= nPortion;
-
-				Word w = static_cast<Word>(pSrc[nSrc]);
-				for (uint32_t i = 1; i < nPortion; i++)
-					w = w * radix + static_cast<Word>(pSrc[nSrc + i]);
-
-				AddOrSub_Mul<true>(sPwr.get_Const(), w);
-
-				if (!nSrc)
-					break;
-
-				if (!PowerNext(sPwr, radixBig))
-					break;
-			}
-		}
-
 	private:
 
 		static void LShiftRaw(Word* pDst, const Word* pSrc, uint32_t nLen, uint32_t nShiftL, Word& w);
@@ -491,9 +344,216 @@ namespace MultiWord {
 		void AddOrSubMul_Internal(ConstSlice a, ConstSlice b) const;
 
 		void SetDivResidNormalized(Slice resid, ConstSlice div) const;
-
-		bool PowerNext(Slice& sPwr, Word radix) const;
 	};
+
+	struct Factorization
+	{
+		// radix convertion, compile-time length calculation. Not the most effective algorithm, but should be ok for compile-time
+
+		static constexpr uint32_t get_MaxLen(Word aRadix, uint32_t aLen, Word bRadix, Word* pW)
+		{
+			pW[0] = 1;
+			uint32_t nW = 1;
+
+			// calculate aRadix^aLen
+			for (uint32_t i = 0; i < aLen; i++)
+			{
+				DWord carry = 0;
+				for (uint32_t j = 0; j < nW; j++)
+				{
+					carry += static_cast<DWord>(pW[j]) * aRadix;
+					pW[j] = static_cast<Word>(carry);
+					carry >>= nWordBits;
+				}
+				if (carry)
+					pW[nW++] = static_cast<Word>(carry);
+			}
+
+			// subtract 1
+			for (uint32_t j = 0; ; j++)
+				if (pW[j]--)
+					break;
+
+			// calculate log, round up (how many times to divide before it turns zero)
+			uint32_t retVal = 0;
+
+			while (true)
+			{
+				Word resid = pW[nW - 1];
+				if (resid)
+				{
+					// divide by new radix
+					DWord nom = resid;
+					for (uint32_t j = nW - 1; ; )
+					{
+						Word res = static_cast<Word>(nom / bRadix);
+						pW[j] = res;
+
+						if (!j--)
+							break;
+
+						res = resid - res * bRadix; // don't care about overflow, we need only last word
+						resid = pW[j];
+
+						nom = (static_cast<DWord>(res) << nWordBits) | resid;
+					}
+
+					retVal++;
+				}
+				else
+				{
+					nW--;
+					if (!nW)
+						break;
+				}
+
+			}
+
+			return retVal;
+		}
+
+		template <uint32_t aLen>
+		static constexpr uint32_t get_MaxLen(uint32_t aRadix, uint32_t bRadix)
+		{
+			Word pBuf[aLen + 1] = { 0 }; // zero-init not necessary, but required by constexpr
+			return get_MaxLen(aRadix, aLen, bRadix, pBuf);
+		}
+
+		struct Decomposer
+		{
+			Slice m_s;
+
+			template <typename T>
+			void Process(T* pDst, uint32_t nDst, Word radix)
+			{
+				static_assert(std::is_integral_v<T>, "");
+				assert(radix > 1);
+
+				while (nDst--)
+					pDst[nDst] = static_cast<T>(m_s.SetDiv(radix));
+			}
+
+			template <Word radix, typename T>
+			void Process_T(T* pDst, uint32_t nDst)
+			{
+				static_assert(std::is_integral_v<T>, "");
+				static_assert(radix > 1, "");
+
+				const uint32_t nPwr = NumericUtils::LogOf<static_cast<Word>(-1), radix>::N;
+				static_assert(nPwr >= 1, "");
+
+				if constexpr (nPwr == 1)
+					Process(pDst, nDst, radix); // already saturated
+				else
+				{
+					// raise the radix to power. Factorize according to it, would be less divisions
+					const Word radixBig = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
+
+					if (!nDst)
+						return;
+
+					while (true)
+					{
+						Word val = m_s.SetDiv(radixBig);
+
+						for (uint32_t i = nPwr; ; )
+						{
+							pDst[--nDst] = static_cast<T>(val % radix);
+							if (!nDst)
+								return;
+
+							if (!--i)
+								break;
+
+							val /= radix;
+						}
+
+					}
+				}
+			}
+		};
+
+		struct Composer
+		{
+			Slice m_sRes;
+			Slice m_sPwr;
+
+			void Init(Word* __restrict__ pBuf) // buf must be of m_sRes size
+			{
+				assert(m_sRes.m_n);
+				m_sRes.Set0();
+
+				m_sPwr.m_p = pBuf + m_sRes.m_n - 1;
+				m_sPwr.m_n = 1;
+				m_sPwr.m_p[0] = 1;
+			}
+
+			template <typename T>
+			void Process(const T* pSrc, uint32_t nSrc, Word radix)
+			{
+				static_assert(std::is_integral_v<T>, "");
+				assert(radix > 1);
+
+				if (!nSrc)
+					return;
+				while (true)
+				{
+					Word w = static_cast<Word>(pSrc[--nSrc]);
+					m_sRes.AddOrSub_Mul<true>(m_sPwr.get_Const(), w);
+
+					if (!nSrc)
+						break;
+
+					if (!PowerNext(radix))
+						break;
+				}
+			}
+
+			template <Word radix, typename T>
+			void Process_T(const T* pSrc, uint32_t nSrc)
+			{
+				static_assert(std::is_integral_v<T>, "");
+				static_assert(radix > 1, "");
+
+				const uint32_t nPwr = NumericUtils::LogOf<static_cast<Word>(-1), radix>::N;
+				static_assert(nPwr >= 1, "");
+
+				if constexpr (nPwr == 1)
+					Process(pSrc, nSrc, radix); // already saturated
+				else
+				{
+					// raise the radix to power. Factorize according to it, would be less divisions
+					const Word radixBig = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
+
+					if (!nSrc)
+						return;
+
+					while (true)
+					{
+						uint32_t nPortion = std::min(nSrc, nPwr);
+						nSrc -= nPortion;
+
+						Word w = static_cast<Word>(pSrc[nSrc]);
+						for (uint32_t i = 1; i < nPortion; i++)
+							w = w * radix + static_cast<Word>(pSrc[nSrc + i]);
+
+						m_sRes.AddOrSub_Mul<true>(m_sPwr.get_Const(), w);
+
+						if (!nSrc)
+							break;
+
+						if (!PowerNext(radixBig))
+							break;
+					}
+				}
+			}
+		private:
+			bool PowerNext(Word radix);
+		};
+
+	};
+
+
 
 	template <uint32_t nWords_>
 	struct Number
@@ -678,76 +738,76 @@ namespace MultiWord {
 			return *this;
 		}
 
-		template <Word radix>
-		static constexpr uint32_t get_Decomposed_MaxLen()
+		static constexpr uint32_t get_Decomposed_MaxLen(Word radix)
 		{
-			return NumericUtils::RadixConverter<(1u << (nWordBits / 2)), nWords * 2, radix>::get_MaxLen();
+			return Factorization::get_MaxLen<nWords * 2>(1u << (nWordBits / 2), radix);
 		}
+
+		struct DecomposeCtx
+			:public Factorization::Decomposer
+		{
+			Word m_pBuf[nWords];
+			DecomposeCtx(const Number& x)
+			{
+				auto sSrc = x.get_ConstSlice();
+				sSrc.Trim();
+
+				m_s.m_p = m_pBuf;
+				m_s.m_n = sSrc.m_n;
+
+				m_s.Copy(sSrc); // copy only nnz part
+			}
+		};
 
 		template <typename T>
 		void Decompose(T* pDst, uint32_t nDst, Word radix) const
 		{
-			auto sSrc = get_ConstSlice();
-			sSrc.Trim();
-
-			Word pBuf[nWords];
-			Slice sDst{ pBuf, sSrc.m_n };
-			sDst.Copy(sSrc);
-
-			sDst.DecomposeDestroy(pDst, nDst, radix);
+			DecomposeCtx ctx(*this);
+			ctx.Process(pDst, nDst, radix);
 		}
 
 		template <Word radix, typename T>
 		void DecomposeEx(T* pDst, uint32_t nDst) const
 		{
-			static_assert(radix > 1, "");
-
-			const uint32_t nPwr = NumericUtils::LogOf<1ull << nWordBits, radix>::N;
-			static_assert(nPwr >= 1, "");
-
-			if constexpr (nPwr == 1)
-				Decompose(pDst, nDst, radix); // already saturated
-			else
-			{
-				// raise the radix to power. Factorize according to it, would be less divisions
-				const Word radixMax = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
-				const uint32_t nLen = get_Decomposed_MaxLen<radixMax>();
-
-				Number<nLen> buf;
-				Decompose(buf.m_p, buf.nWords, radixMax);
-
-				Slice::DecomposeSplitPwr(pDst, nDst, radix, nPwr, buf.get_ConstSlice());
-			}
+			DecomposeCtx ctx(*this);
+			ctx.Process_T<radix>(pDst, nDst);
 		}
+
+		struct ComposeCtx
+			:public Factorization::Composer
+		{
+			Word m_pBuf[nWords];
+			ComposeCtx(Number& x)
+			{
+				m_sRes = x.get_Slice();
+				Init(m_pBuf);
+			}
+		};
+
 
 		template <typename T>
 		void Compose(const T* pSrc, uint32_t nSrc, Word radix)
 		{
-			Word pBuf[nWords];
-			get_Slice().Compose(pSrc, nSrc, radix, pBuf);
+			ComposeCtx ctx(*this);
+			ctx.Process(pSrc, nSrc, radix);
 		}
 
 		template <Word radix, typename T>
 		void ComposeEx(const T* pSrc, uint32_t nSrc)
 		{
-			static_assert(radix > 1, "");
-
-			const uint32_t nPwr = NumericUtils::LogOf<1ull << nWordBits, radix>::N;
-			static_assert(nPwr >= 1, "");
-
-			Word pBuf[nWords];
-
-			if constexpr (nPwr == 1)
-				get_Slice().Compose(pSrc, nSrc, radix, pBuf); // already saturated
-			else
-			{
-				// raise the radix to power. Factorize according to it, would be less divisions
-				const Word radixMax = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
-				get_Slice().ComposeEx(pSrc, nSrc, radix, pBuf, radixMax, nPwr);
-			}
+			ComposeCtx ctx(*this);
+			ctx.Process_T<radix>(pSrc, nSrc);
 		}
 
-		static const uint32_t s_TextLen10 = get_Decomposed_MaxLen<10>();
+		static const uint32_t s_TextLen10 = get_Decomposed_MaxLen(10);
+
+		template <Word radix>
+		void PrintBase(char* szDst, uint32_t nDst)
+		{
+			DecomposeEx<radix>(szDst, nDst);
+			for (uint32_t i = 0; i < nDst; i++)
+				szDst[i] += '0';
+		}
 	};
 
 	template <uint32_t nBytes>

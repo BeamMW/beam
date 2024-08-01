@@ -590,19 +590,19 @@ Word Slice::SetDiv(Word div)
 	return resid;
 }
 
-bool Slice::PowerNext(Slice& sPwr, Word radix) const
+bool Factorization::Composer::PowerNext(Word radix)
 {
-	auto carry = sPwr.Mul(radix);
-	if (carry && (sPwr.m_n < m_n))
+	auto carry = m_sPwr.Mul(radix);
+	if (carry && (m_sPwr.m_n < m_sRes.m_n))
 	{
-		sPwr.m_n++;
-		sPwr.m_p--;
-		sPwr.m_p[0] = static_cast<Word>(carry);
+		m_sPwr.m_n++;
+		m_sPwr.m_p--;
+		m_sPwr.m_p[0] = static_cast<Word>(carry);
 	}
 	else
 	{
-		sPwr.Trim();
-		if (!sPwr.m_n)
+		m_sPwr.Trim();
+		if (!m_sPwr.m_n)
 			return false; // can happen due to overflow
 	}
 
