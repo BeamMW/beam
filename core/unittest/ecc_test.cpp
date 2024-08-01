@@ -231,10 +231,10 @@ void TestUintBig()
 			zz.Power(beam::MultiWord::From(29u), pwr);
 
 			char szBuf1[zz.s_TextLen10 + 1];
-			zz.Decompose(szBuf1, zz.s_TextLen10, 10);
+			zz.Decompose(beam::MultiWord::Factorization::MakeDefaultOut(szBuf1, zz.s_TextLen10), 10);
 
 			char szBuf2[zz.s_TextLen10 + 1];
-			zz.DecomposeEx<10>(szBuf2, zz.s_TextLen10);
+			zz.DecomposeEx<10>(beam::MultiWord::Factorization::MakeDefaultOut(szBuf2, zz.s_TextLen10) );
 
 			szBuf1[_countof(szBuf1) - 1] = 0;
 			szBuf2[_countof(szBuf2) - 1] = 0;
@@ -242,11 +242,11 @@ void TestUintBig()
 			verify_test(!memcmp(szBuf1, szBuf2, zz.s_TextLen10));
 
 			beam::MultiWord::Number<10> zz2;
-			zz2.Compose(szBuf1, zz.s_TextLen10, 10);
+			zz2.Compose(beam::MultiWord::Factorization::MakeDefaultIn(szBuf1, zz.s_TextLen10), 10);
 			verify_test(zz == zz2);
 
 			zz2.get_Slice().SetMax();
-			zz2.ComposeEx<10>(szBuf1, zz.s_TextLen10);
+			zz2.ComposeEx<10>(beam::MultiWord::Factorization::MakeDefaultIn(szBuf1, zz.s_TextLen10));
 			verify_test(zz == zz2);
 		}
 

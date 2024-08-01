@@ -282,6 +282,12 @@ namespace MultiWord {
 		template <bool bAdd>
 		void AddOrSub(ConstSlice b, DWord& carry) const;
 
+		template <bool bAdd>
+		void AddOrSub(DWord& carry) const
+		{
+			AddOrSub_Internal<bAdd, false>(nullptr, carry);
+		}
+
 		void SetMul(ConstSlice a, ConstSlice b) const
 		{
 			Set0();
@@ -419,55 +425,81 @@ namespace MultiWord {
 			return get_MaxLen(aRadix, aLen, bRadix, pBuf);
 		}
 
+		template <typename T>
+		struct DefaultOut {
+			T* m_pB;
+			T* m_pE;
+
+			bool IsDone() const { return m_pB == m_pE; }
+			void PushBackInternal(T val) { *(--m_pE) = val;  }
+			void PushBack(Word w) { PushBackInternal(static_cast<T>(w)); }
+		};
+
+		template <typename T>
+		static DefaultOut<T> MakeDefaultOut(T* p, uint32_t n) {
+			return DefaultOut<T>{ p, p + n };
+		}
+
+		template <typename T>
+		struct DefaultIn
+		{
+			const T* m_pB;
+			const T* m_pE;
+			bool PopFront(Word& w)
+			{
+				if (m_pB == m_pE)
+					return false;
+				w = *m_pB++;
+				return true;
+
+			}
+		};
+
+		template <typename T>
+		static DefaultIn<T> MakeDefaultIn(const T* p, uint32_t n) {
+			return DefaultIn<T>{ p, p + n };
+		}
+
 		struct Decomposer
 		{
 			Slice m_s;
 
-			template <typename T>
-			void Process(T* pDst, uint32_t nDst, Word radix)
+			template <typename TOut>
+			void Process(TOut&& out, Word radix)
 			{
-				static_assert(std::is_integral_v<T>, "");
 				assert(radix > 1);
 
-				while (nDst--)
-					pDst[nDst] = static_cast<T>(m_s.SetDiv(radix));
+				while (!out.IsDone())
+					out.PushBack(m_s.SetDiv(radix));
 			}
 
-			template <Word radix, typename T>
-			void Process_T(T* pDst, uint32_t nDst)
+			template <Word radix, typename TOut>
+			void Process_T(TOut&& out)
 			{
-				static_assert(std::is_integral_v<T>, "");
 				static_assert(radix > 1, "");
 
 				const uint32_t nPwr = NumericUtils::LogOf<static_cast<Word>(-1), radix>::N;
 				static_assert(nPwr >= 1, "");
 
 				if constexpr (nPwr == 1)
-					Process(pDst, nDst, radix); // already saturated
+					Process(out, radix); // already saturated
 				else
 				{
 					// raise the radix to power. Factorize according to it, would be less divisions
 					const Word radixBig = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
 
-					if (!nDst)
-						return;
-
-					while (true)
+					while (!out.IsDone())
 					{
 						Word val = m_s.SetDiv(radixBig);
 
-						for (uint32_t i = nPwr; ; )
+						for (uint32_t nPortion = nPwr; --nPortion; val /= radix)
 						{
-							pDst[--nDst] = static_cast<T>(val % radix);
-							if (!nDst)
+							out.PushBack(val % radix);
+							if (out.IsDone())
 								return;
-
-							if (!--i)
-								break;
-
-							val /= radix;
 						}
 
+						out.PushBack(val);
 					}
 				}
 			}
@@ -476,79 +508,85 @@ namespace MultiWord {
 		struct Composer
 		{
 			Slice m_sRes;
-			Slice m_sPwr;
+			uint32_t m_Len;
 
-			void Init(Word* __restrict__ pBuf) // buf must be of m_sRes size
+			void Init()
 			{
-				assert(m_sRes.m_n);
 				m_sRes.Set0();
-
-				m_sPwr.m_p = pBuf + m_sRes.m_n - 1;
-				m_sPwr.m_n = 1;
-				m_sPwr.m_p[0] = 1;
+				m_Len = m_sRes.m_n;
+				m_sRes.m_p += m_sRes.m_n;
+				m_sRes.m_n = 0;
 			}
 
-			template <typename T>
-			void Process(const T* pSrc, uint32_t nSrc, Word radix)
+			template <typename TIn>
+			void Process(TIn&& in, Word radix)
 			{
-				static_assert(std::is_integral_v<T>, "");
 				assert(radix > 1);
 
-				if (!nSrc)
-					return;
 				while (true)
 				{
-					Word w = static_cast<Word>(pSrc[--nSrc]);
-					m_sRes.AddOrSub_Mul<true>(m_sPwr.get_Const(), w);
-
-					if (!nSrc)
+					Word w;
+					if (!in.PopFront(w))
 						break;
 
-					if (!PowerNext(radix))
-						break;
+					SelfMul(radix);
+					SelfAdd(w);
 				}
 			}
 
-			template <Word radix, typename T>
-			void Process_T(const T* pSrc, uint32_t nSrc)
+			template <Word radix, typename TIn>
+			void Process_T(TIn&& in)
 			{
-				static_assert(std::is_integral_v<T>, "");
 				static_assert(radix > 1, "");
 
 				const uint32_t nPwr = NumericUtils::LogOf<static_cast<Word>(-1), radix>::N;
 				static_assert(nPwr >= 1, "");
 
 				if constexpr (nPwr == 1)
-					Process(pSrc, nSrc, radix); // already saturated
+					Process(pSrc, radix); // already saturated
 				else
 				{
 					// raise the radix to power. Factorize according to it, would be less divisions
 					const Word radixBig = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
 
-					if (!nSrc)
-						return;
-
 					while (true)
 					{
-						uint32_t nPortion = std::min(nSrc, nPwr);
-						nSrc -= nPortion;
+						Word w;
+						if (!in.PopFront(w))
+							return;
 
-						Word w = static_cast<Word>(pSrc[nSrc]);
-						for (uint32_t i = 1; i < nPortion; i++)
-							w = w * radix + static_cast<Word>(pSrc[nSrc + i]);
+						uint32_t nNaggle = 1;
+						while (true)
+						{
+							Word w2;
+							if (!in.PopFront(w2))
+							{
+								// partial naggle
+								// use correct radix
+								Word radix2 = radix;
+								while (--nNaggle)
+									radix2 *= radix;
 
-						m_sRes.AddOrSub_Mul<true>(m_sPwr.get_Const(), w);
+								SelfMul(radix2);
+								SelfAdd(w);
+								return;
+							}
 
-						if (!nSrc)
-							break;
+							w = w * radix + w2;
+							if (++nNaggle == nPwr)
+								break;
+						}
 
-						if (!PowerNext(radixBig))
-							break;
+						SelfMul(radixBig);
+						SelfAdd(w);
 					}
 				}
 			}
 		private:
-			bool PowerNext(Word radix);
+
+			void SelfAdd(Word);
+			void SelfMul(Word);
+			void HandleCarry(DWord);
 		};
 
 	};
@@ -759,55 +797,46 @@ namespace MultiWord {
 			}
 		};
 
-		template <typename T>
-		void Decompose(T* pDst, uint32_t nDst, Word radix) const
+		template <typename TOut>
+		void Decompose(TOut&& out, Word radix) const
 		{
 			DecomposeCtx ctx(*this);
-			ctx.Process(pDst, nDst, radix);
+			ctx.Process(out, radix);
 		}
 
-		template <Word radix, typename T>
-		void DecomposeEx(T* pDst, uint32_t nDst) const
+		template <Word radix, typename TOut>
+		void DecomposeEx(TOut&& out) const
 		{
 			DecomposeCtx ctx(*this);
-			ctx.Process_T<radix>(pDst, nDst);
+			ctx.Process_T<radix>(out);
 		}
 
 		struct ComposeCtx
 			:public Factorization::Composer
 		{
-			Word m_pBuf[nWords];
 			ComposeCtx(Number& x)
 			{
 				m_sRes = x.get_Slice();
-				Init(m_pBuf);
+				Init();
 			}
 		};
 
 
-		template <typename T>
-		void Compose(const T* pSrc, uint32_t nSrc, Word radix)
+		template <typename TIn>
+		void Compose(TIn&& in, Word radix)
 		{
 			ComposeCtx ctx(*this);
-			ctx.Process(pSrc, nSrc, radix);
+			ctx.Process(in, radix);
 		}
 
-		template <Word radix, typename T>
-		void ComposeEx(const T* pSrc, uint32_t nSrc)
+		template <Word radix, typename TIn>
+		void ComposeEx(TIn&& in)
 		{
 			ComposeCtx ctx(*this);
-			ctx.Process_T<radix>(pSrc, nSrc);
+			ctx.Process_T<radix>(in);
 		}
 
 		static const uint32_t s_TextLen10 = get_Decomposed_MaxLen(10);
-
-		template <Word radix>
-		void PrintBase(char* szDst, uint32_t nDst)
-		{
-			DecomposeEx<radix>(szDst, nDst);
-			for (uint32_t i = 0; i < nDst; i++)
-				szDst[i] += '0';
-		}
 	};
 
 	template <uint32_t nBytes>

@@ -67,28 +67,62 @@ namespace beam {
 
     } // namespace Base58Impl
 
-    void Base58::EncodeSymbols(char* szEnc, const uint8_t* pRaw, uint32_t nLen)
+    void Base58::EncodeEx(char* szEnc, uint32_t nEnc, const uint8_t* p, uint32_t n, MultiWord::Slice sBuf)
     {
-        for (uint32_t i = 0; i < nLen; i++)
+        uintBigImpl::_ToNum(sBuf, p, n);
+        sBuf.Trim();
+
+        MultiWord::Factorization::Decomposer ctx;
+        ctx.m_s = sBuf;
+
+        struct MyOut
+            :public MultiWord::Factorization::DefaultOut<char>
         {
-            uint32_t iIdx = pRaw[i];
-            assert(iIdx < _countof(Base58Impl::s_pAlphabet));
-            szEnc[i] = Base58Impl::s_pAlphabet[iIdx];
-        }
+            void PushBack(MultiWord::Word w)
+            {
+                assert(w < _countof(Base58Impl::s_pAlphabet));
+                PushBackInternal(Base58Impl::s_pAlphabet[w]);
+            }
+        } out;
+
+        out.m_pB = szEnc;
+        out.m_pE = szEnc + nEnc;
+
+        ctx.Process_T<s_Radix>(out);
     }
 
-    uint32_t Base58::DecodeSymbols(uint8_t* pRaw, const char* szEnc, uint32_t nLen)
+    uint32_t Base58::DecodeEx(uint8_t* p, uint32_t n, const char* szEnc, uint32_t nEnc, MultiWord::Slice sBuf)
     {
-        for (uint32_t i = 0; i < nLen; i++)
+        MultiWord::Factorization::Composer ctx;
+        ctx.m_sRes = sBuf;
+        ctx.Init();
+
+        struct MyIn
+            :public MultiWord::Factorization::DefaultIn<char>
         {
-            auto val = Base58Impl::DecodeChar(szEnc[i]);
-            if (val >= s_Radix)
-                return i;
+            bool PopFront(MultiWord::Word& w)
+            {
+                if (m_pB == m_pE)
+                    return false;
 
-            pRaw[i] = val;
-        }
+                auto val = Base58Impl::DecodeChar(*m_pB);
+                if (val >= s_Radix)
+                    return false;
 
-        return nLen;
+                w = val;
+                m_pB++;
+                return true;
+            }
+        } in;
+
+        in.m_pB = szEnc;
+        in.m_pE = szEnc + nEnc;
+
+        ctx.Process_T<s_Radix>(in);
+
+        uintBigImpl::_FromNum(sBuf.get_Const(), p, n);
+
+        return static_cast<uint32_t>(in.m_pB - szEnc);
     }
 
 } // namespace beam

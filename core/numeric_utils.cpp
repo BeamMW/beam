@@ -590,23 +590,27 @@ Word Slice::SetDiv(Word div)
 	return resid;
 }
 
-bool Factorization::Composer::PowerNext(Word radix)
+void Factorization::Composer::SelfAdd(Word val)
 {
-	auto carry = m_sPwr.Mul(radix);
-	if (carry && (m_sPwr.m_n < m_sRes.m_n))
-	{
-		m_sPwr.m_n++;
-		m_sPwr.m_p--;
-		m_sPwr.m_p[0] = static_cast<Word>(carry);
-	}
-	else
-	{
-		m_sPwr.Trim();
-		if (!m_sPwr.m_n)
-			return false; // can happen due to overflow
-	}
+	DWord carry = val;
+	m_sRes.AddOrSub<true>(carry);
+	HandleCarry(carry);
+}
 
-	return true;
+void Factorization::Composer::SelfMul(Word val)
+{
+	auto carry = m_sRes.Mul(val);
+	HandleCarry(carry);
+}
+
+void Factorization::Composer::HandleCarry(DWord carry)
+{
+	if (carry && (m_sRes.m_n < m_Len))
+	{
+		m_sRes.m_p--;
+		m_sRes.m_n++;
+		m_sRes.m_p[0] = static_cast<Word>(carry);
+	}
 }
 
 } // namespace MultiWord
