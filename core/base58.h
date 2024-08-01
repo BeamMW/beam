@@ -3,62 +3,6 @@
 
 namespace beam
 {
-    template <uint32_t aRadix, const uint32_t aLen, uint32_t bRadix>
-    struct RadixConverter
-    {
-        static constexpr uint32_t get_MaxLen()
-        {
-            uint32_t pW[aLen + 1] = { 0 };
-            pW[0] = 1;
-            uint32_t nW = 1;
-
-            // calculate aRadix^aLen
-            for (uint32_t i = 0; i < aLen; i++)
-            {
-                uint64_t carry = 0;
-                for (uint32_t j = 0; j < nW; j++)
-                {
-                    carry += ((uint64_t)pW[j]) * aRadix;
-                    pW[j] = (uint32_t)carry;
-                    carry >>= 32;
-                }
-                if (carry)
-                    pW[nW++] = (uint32_t)carry;
-            }
-
-            // subtract 1
-            for (uint32_t j = 0; ; j++)
-                if (pW[j]--)
-                    break;
-
-            // calculate log, round up (how many times to devide before it turns zero)
-            uint32_t retVal = 0;
-
-            while (nW)
-            {
-                if (pW[nW - 1])
-                {
-                    // divide by new radix
-                    uint64_t carry = 0;
-                    for (uint32_t j = nW; j--; )
-                    {
-                        carry |= pW[j];
-                        pW[j] = (uint32_t)(carry / bRadix);
-                        carry %= bRadix;
-                        carry <<= 32;
-                    }
-
-                    retVal++;
-                }
-                else
-                    nW--;
-            }
-
-            return retVal;
-        }
-    };
-
-
     struct Base58
     {
         static const uint32_t s_Radix = 58;
@@ -67,12 +11,12 @@ namespace beam
 
         template <uint32_t nBytes>
         static constexpr uint32_t get_MaxEnc() {
-            return RadixConverter<0x100, nBytes, s_Radix>::get_MaxLen();
+            return NumericUtils::RadixConverter<0x100, nBytes, s_Radix>::get_MaxLen();
         }
 
         template <uint32_t nCharsEncoded>
         static constexpr uint32_t get_MaxDec() {
-            return RadixConverter<s_Radix, nCharsEncoded, 0x100>::get_MaxLen();
+            return NumericUtils::RadixConverter<s_Radix, nCharsEncoded, 0x100>::get_MaxLen();
         }
 
         template <uint32_t nBytes>

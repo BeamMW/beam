@@ -14,6 +14,7 @@
 
 #pragma once
 #include "common.h"
+#include "numeric_utils.h"
 
 namespace beam
 {

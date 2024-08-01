@@ -351,7 +351,7 @@ void Slice::AddOrSubMul_Internal(ConstSlice a, ConstSlice b) const
 	}
 }
 
-void Slice::SetDivResid(Slice resid, ConstSlice div, Word* pBufResid, Word* pBufDiv) const
+void Slice::SetDivResid(Slice resid, ConstSlice div, Word* __restrict__ pBufResid, Word* __restrict__ pBufDiv) const
 {
 	// me = resid / div
 	// resid -= me * div (residual)
@@ -500,7 +500,7 @@ void MyMul(Slice& sRes, Slice& sTmp, uint32_t nMaxLen, ConstSlice a, ConstSlice 
 	std::swap(sRes, sTmp);
 }
 
-void Slice::Power(ConstSlice s, uint32_t n, Word* pBuf1, Word* pBuf2) const
+void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const
 {
 	if (!m_n)
 		return;
@@ -558,6 +558,56 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* pBuf1, Word* pBuf2) const
 		Copy(sRes.get_Const());
 }
 
+Word Slice::SetDiv(Word div)
+{
+	if (!div)
+	{
+		SetMax();
+		return 0;
+	}
+
+	Trim();
+	if (!m_n)
+		return 0;
+
+	DWord nom = m_p[0];
+	Word resid;
+
+	for (uint32_t i = 0; ; )
+	{
+		auto res = static_cast<Word>(nom / div);
+		resid = static_cast<Word>(nom - res * div); // should not overflow
+
+		m_p[i] = res;
+
+		if (++i == m_n)
+			break;
+
+		nom = (static_cast<DWord>(resid) << nWordBits) | m_p[i];
+	}
+
+	Trim(); // can trim up to 1 word
+	return resid;
+}
+
+bool Slice::PowerNext(Slice& sPwr, Word radix) const
+{
+	auto carry = sPwr.Mul(radix);
+	if (carry && (sPwr.m_n < m_n))
+	{
+		sPwr.m_n++;
+		sPwr.m_p--;
+		sPwr.m_p[0] = static_cast<Word>(carry);
+	}
+	else
+	{
+		sPwr.Trim();
+		if (!sPwr.m_n)
+			return false; // can happen due to overflow
+	}
+
+	return true;
+}
 
 } // namespace MultiWord
 } // namespace beam
