@@ -859,6 +859,10 @@
 		content: '\21c5 \00a0';
 		visibility: hidden;
 	}
+	.filtersOff th::after { /* Empty symbol, just to keep the text centered */
+		content: '\00a0 \00a0';
+		visibility: hidden;
+	}
 	/* Force same min column width as when filters are on */
 	.filtersOff th {
 		min-width: 5ch;
@@ -891,6 +895,10 @@
 	.sortable::before {
 		content: '\21c5 \00a0'; /* Symbol when not sorted */
 		color: var(--color_sorting_indicator);
+	}
+	.sortable::after {
+		content: '\00a0 \00a0'; /* Empty symbol, just to keep the text centered */
+		visibility: hidden;
 	}
 	.sortable:hover::before { /* Highlight symbol on hover */
 		color: var(--color_sorting_indicator_hover);
