@@ -451,13 +451,92 @@ namespace MultiWord {
 					return false;
 				w = *m_pB++;
 				return true;
-
 			}
 		};
 
 		template <typename T>
 		static DefaultIn<T> MakeDefaultIn(const T* p, uint32_t n) {
 			return DefaultIn<T>{ p, p + n };
+		}
+
+
+		template <uint32_t radix>
+		struct Printable
+		{
+			static char To(Word x)
+			{
+				static_assert(radix <= 0x10);
+				assert(x < radix);
+
+				if constexpr (radix > 0xa)
+				{
+					if (x >= 0xa)
+						return static_cast<char>(x + 'a' - 0xa);
+				}
+				return static_cast<char>(x + '0');
+			}
+
+			static bool From(Word& w, char ch)
+			{
+				static_assert('0' < 'A', "");
+				static_assert('A' < 'a', "");
+
+				if constexpr (radix <= 0xa)
+					w = ch - '0';
+				else
+				{
+					if (ch < 'A')
+						w = ch - '0';
+					else
+					{
+						if (ch < 'a')
+							w = ch - 'A' + 0xa;
+						else
+							w = ch - 'a' + 0xa;
+					}
+				}
+				return (w < radix);
+			}
+		};
+
+		template <uint32_t radix>
+		struct PrintOut
+			:public DefaultOut<char>
+			,public Printable<radix>
+		{
+			void PushBack(Word w)
+			{
+				static_assert(radix <= 0x10, "");
+				PushBackInternal(To(w));
+			}
+		};
+
+		template <uint32_t radix>
+		static PrintOut<radix> MakePrintOut(char* p, uint32_t n) {
+			return PrintOut<radix>{ p, p + n };
+		}
+
+		template <uint32_t radix>
+		struct ScanIn
+			:public DefaultIn<char>
+			,public Printable<radix>
+		{
+			bool PopFront(Word& w)
+			{
+				if (m_pB == m_pE)
+					return false;
+
+				if (!From(w, *m_pB))
+					return false;
+				
+				*m_pB++;
+				return true;
+			}
+		};
+
+		template <uint32_t radix>
+		static ScanIn<radix> MakeScanIn(const char* p, uint32_t n) {
+			return ScanIn<radix>{ p, p + n };
 		}
 
 		struct Decomposer
@@ -835,6 +914,23 @@ namespace MultiWord {
 			ComposeCtx ctx(*this);
 			ctx.Process_T<radix>(in);
 		}
+
+		template <uint32_t radix>
+		void Print(char* sz, uint32_t len = get_Decomposed_MaxLen(radix), bool bZTerm = true)
+		{
+			DecomposeEx<radix>(Factorization::MakePrintOut<radix>(sz, len));
+			if (bZTerm)
+				sz[len] = 0;
+		}
+
+		template <uint32_t radix>
+		uint32_t Scan(const char* sz, uint32_t len = get_Decomposed_MaxLen(radix))
+		{
+			auto in = Factorization::MakeScanIn<radix>(sz, len);
+			ComposeEx<radix>(in);
+			return static_cast<uint32_t>(in.m_pB - sz);
+		}
+
 
 		static const uint32_t s_TextLen10 = get_Decomposed_MaxLen(10);
 	};

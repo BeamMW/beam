@@ -224,29 +224,28 @@ void TestUintBig()
 	{
 		beam::MultiWord::Number<7> zz;
 
-		const uint32_t nnn = zz.s_TextLen10;
+		const uint32_t myRadix = 13;
+		const uint32_t nTxtLen = zz.get_Decomposed_MaxLen(myRadix);
 
 		for (uint32_t pwr = 0; pwr < 60; pwr++)
 		{
 			zz.Power(beam::MultiWord::From(29u), pwr);
 
-			char szBuf1[zz.s_TextLen10 + 1];
-			zz.Decompose(beam::MultiWord::Factorization::MakeDefaultOut(szBuf1, zz.s_TextLen10), 10);
-
-			char szBuf2[zz.s_TextLen10 + 1];
-			zz.DecomposeEx<10>(beam::MultiWord::Factorization::MakeDefaultOut(szBuf2, zz.s_TextLen10) );
-
+			char szBuf1[nTxtLen + 1];
+			zz.Decompose(beam::MultiWord::Factorization::MakePrintOut<myRadix>(szBuf1, nTxtLen), myRadix);
 			szBuf1[_countof(szBuf1) - 1] = 0;
-			szBuf2[_countof(szBuf2) - 1] = 0;
 
-			verify_test(!memcmp(szBuf1, szBuf2, zz.s_TextLen10));
+			char szBuf2[nTxtLen + 1];
+			zz.Print<myRadix>(szBuf2);
+
+			verify_test(!memcmp(szBuf1, szBuf2, nTxtLen));
 
 			beam::MultiWord::Number<10> zz2;
-			zz2.Compose(beam::MultiWord::Factorization::MakeDefaultIn(szBuf1, zz.s_TextLen10), 10);
+			zz2.Compose(beam::MultiWord::Factorization::MakeScanIn<myRadix>(szBuf1, nTxtLen), myRadix);
 			verify_test(zz == zz2);
 
 			zz2.get_Slice().SetMax();
-			zz2.ComposeEx<10>(beam::MultiWord::Factorization::MakeDefaultIn(szBuf1, zz.s_TextLen10));
+			zz2.Scan<myRadix>(szBuf1);
 			verify_test(zz == zz2);
 		}
 
