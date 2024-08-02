@@ -720,7 +720,7 @@ namespace MultiWord {
 				m_p[nWords - 2] = static_cast<Word>(x >> nWordBits);
 
 				if constexpr (nWords > 2)
-					get_Slice().get_Head(nWords - 2).Set0();
+					Cast::Up<Slice>(get_Slice().get_Head(nWords - 2)).Set0();
 			}
 
 			return *this;
