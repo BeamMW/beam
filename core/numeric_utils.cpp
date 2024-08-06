@@ -70,7 +70,7 @@ void Slice::Copy(ConstSlice x) const
 	else
 	{
 		auto h = *this;
-		auto t = Cast::Up<Slice>(h.CutTail(x.m_n));
+		auto t = h.CutTail(x.m_n);
 		h.Set0();
 		t.CopyInternal(x.m_p);
 	}
@@ -172,7 +172,7 @@ void Slice::LShift(ConstSlice a, uint32_t nBits) const
 		else
 		{
 			auto x = *this;
-			Cast::Up<Slice>(x.CutTail(nWords)).Set0();
+			x.CutTail(nWords).Set0();
 			x.LShiftNormalized(nBits, a);
 		}
 	}
@@ -200,22 +200,24 @@ void Slice::RShift(ConstSlice a, uint32_t nBits) const
 		RShiftNormalized(nBits, a);
 }
 
-template <bool bAdd>
+template <bool bAdd, bool bOp0>
 void Slice::AddOrSub(ConstSlice b, DWord& carry) const
 {
 	if (b.m_n >= m_n)
-		AddOrSub_Internal<bAdd, true>(b.get_TailPtr(m_n), carry);
+		AddOrSub_Internal<bAdd, bOp0, true>(b.get_TailPtr(m_n), carry);
 	else
 	{
 		auto x = *this;
 
-		Cast::Up<Slice>(x.CutTail(b.m_n)).AddOrSub_Internal<bAdd, true>(b.m_p, carry);
-		x.AddOrSub_Internal<bAdd, false>(nullptr, carry);
+		x.CutTail(b.m_n).AddOrSub_Internal<bAdd, bOp0, true>(b.m_p, carry);
+		x.AddOrSub_Internal<bAdd, bOp0, false>(nullptr, carry);
 	}
 }
 
-template void Slice::AddOrSub<true>(ConstSlice b, DWord& carry) const;
-template void Slice::AddOrSub<false>(ConstSlice b, DWord& carry) const;
+template void Slice::AddOrSub<true, true>(ConstSlice b, DWord& carry) const;
+template void Slice::AddOrSub<false, true>(ConstSlice b, DWord& carry) const;
+template void Slice::AddOrSub<true, false>(ConstSlice b, DWord& carry) const;
+template void Slice::AddOrSub<false, false>(ConstSlice b, DWord& carry) const;
 
 template <bool bAdd>
 void Slice::AddOrSub_Mul(ConstSlice a, ConstSlice b) const
@@ -261,12 +263,12 @@ void Slice::AddOrSub_Mul(ConstSlice a, ConstSlice b) const
 template void Slice::AddOrSub_Mul<true>(ConstSlice a, ConstSlice b) const;
 template void Slice::AddOrSub_Mul<false>(ConstSlice a, ConstSlice b) const;
 
-template <bool bAdd, bool bOp2>
+template <bool bAdd, bool bOp0, bool bOp2>
 void Slice::AddOrSub_Internal(const Word* b, DWord& carry) const
 {
 	for (uint32_t i = m_n; i; )
 	{
-		if constexpr (!bOp2)
+		if constexpr (bOp0 && !bOp2)
 		{
 			if (!carry)
 				break;
@@ -282,7 +284,11 @@ void Slice::AddOrSub_Internal(const Word* b, DWord& carry) const
 				carry -= b[i];
 		}
 
-		AddToWord(m_p[i], carry);
+		if constexpr (bOp0)
+			AddToWord(m_p[i], carry);
+		else
+			m_p[i] = static_cast<Word>(carry);
+
 		MoveCarry<bAdd>(carry);
 	}
 }
@@ -316,7 +322,7 @@ void Slice::AddOrSub_Mul_Once(ConstSlice a, Word mul, DWord& carry) const
 		}
 	}
 
-	x.AddOrSub_Internal<bAdd, false>(nullptr, carry);
+	x.AddOrSub_Internal<bAdd, true, false>(nullptr, carry);
 }
 
 template <bool bAdd, bool bFit>
@@ -398,7 +404,7 @@ void Slice::SetDivResidNormalized(Slice resid, ConstSlice div) const
 		uint32_t nResMax = resid.m_n - div.m_n + 1;
 
 		if (m_n > nResMax)
-			Cast::Up<Slice>(get_Head(m_n - nResMax)).Set0();
+			get_Head(m_n - nResMax).Set0();
 
 		Word hiDenom = div.m_p[0];
 		Word hiNom = 0;
@@ -436,14 +442,14 @@ void Slice::SetDivResidNormalized(Slice resid, ConstSlice div) const
 					// overflow
 					res--;
 					carry = 0;
-					resid.AddOrSub<true>(div, carry);
+					resid.AddOrSub<true, true>(div, carry);
 
 					if (!carry)
 					{
 						// overflow (back) wasn't reached. Do it again
 						res--;
 						carry = 0;
-						resid.AddOrSub<true>(div, carry);
+						resid.AddOrSub<true, true>(div, carry);
 
 						assert(carry);
 					}
@@ -520,7 +526,7 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __re
 	if (s.m_n > m_n)
 		s = s.get_Tail(m_n);
 
-	Slice sRes = Cast::Up<Slice>(get_Tail(0));
+	Slice sRes = get_Tail(0);
 	Slice sFree{ pBuf1, m_n };
 	Slice sPwr{ pBuf2, m_n };
 
@@ -534,7 +540,7 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __re
 			else
 			{
 				// 1st time
-				sRes = Cast::Up<Slice>(get_Tail(s.m_n));
+				sRes = get_Tail(s.m_n);
 				sRes.CopyInternal(s.m_p);
 			}
 
@@ -553,7 +559,7 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __re
 
 	if (sRes.get_TailPtr(0) == get_TailPtr(0))
 		// already in our obj. Just zero heading
-		Cast::Up<Slice>(get_Head(m_n - sRes.m_n)).Set0();
+		get_Head(m_n - sRes.m_n).Set0();
 	else
 		Copy(sRes.get_Const());
 }
@@ -593,7 +599,7 @@ Word Slice::SetDiv(Word div)
 void Factorization::Composer::SelfAdd(Word val)
 {
 	DWord carry = val;
-	m_sRes.AddOrSub<true>(carry);
+	m_sRes.AddOrSub<true, true>(carry);
 	HandleCarry(carry);
 }
 

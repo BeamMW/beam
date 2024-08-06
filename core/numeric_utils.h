@@ -21,6 +21,9 @@
 
 namespace beam {
 
+	// Syntactic sugar!
+	enum Zero_ { Zero };
+
 namespace NumericUtils
 {
 	template <typename T>
@@ -170,7 +173,7 @@ namespace MultiWord {
 
 	static const uint32_t nWordBits = sizeof(Word) * 8;
 
-	template <typename T>
+	template <typename T, typename TCast>
 	struct BaseSlice
 	{
 		T* m_p; // msb at the beginning
@@ -181,10 +184,10 @@ namespace MultiWord {
 			return (i < m_n) ? m_p[i] : 0;
 		}
 
-		BaseSlice get_Head(uint32_t n) const
+		TCast get_Head(uint32_t n) const
 		{
 			assert(n <= m_n);
-			return BaseSlice{ m_p, n };
+			return TCast{ m_p, n };
 		}
 
 		T* get_TailPtr(uint32_t n) const
@@ -193,12 +196,12 @@ namespace MultiWord {
 			return m_p + m_n - n;
 		}
 
-		BaseSlice get_Tail(uint32_t n) const
+		TCast get_Tail(uint32_t n) const
 		{
-			return BaseSlice{ get_TailPtr(n), n };
+			return TCast{ get_TailPtr(n), n };
 		}
 
-		BaseSlice CutTail(uint32_t n)
+		TCast CutTail(uint32_t n)
 		{
 			auto ret = get_Tail(n);
 			m_n -= n;
@@ -249,10 +252,12 @@ namespace MultiWord {
 		}
 	};
 
-	typedef BaseSlice<const Word> ConstSlice;
+	struct ConstSlice
+		:public BaseSlice<const Word, ConstSlice> {
+	};
 
 	struct Slice
-		:public BaseSlice<Word>
+		:public BaseSlice<Word, Slice>
 	{
 		// msb at the beginning
 
@@ -276,16 +281,16 @@ namespace MultiWord {
 		void Set_AddOrSub(ConstSlice a, ConstSlice b, DWord& carry) const
 		{
 			Copy(a);
-			AddOrSub<bAdd>(b, carry);
+			AddOrSub<bAdd, true>(b, carry);
 		}
 
-		template <bool bAdd>
+		template <bool bAdd, bool bOp0>
 		void AddOrSub(ConstSlice b, DWord& carry) const;
 
-		template <bool bAdd>
+		template <bool bAdd, bool bOp0>
 		void AddOrSub(DWord& carry) const
 		{
-			AddOrSub_Internal<bAdd, false>(nullptr, carry);
+			AddOrSub_Internal<bAdd, bOp0, false>(nullptr, carry);
 		}
 
 		void SetMul(ConstSlice a, ConstSlice b) const
@@ -340,7 +345,7 @@ namespace MultiWord {
 				((DWordSigned&) carry) >>= nWordBits;
 		}
 
-		template <bool bAdd, bool bOp2>
+		template <bool bAdd, bool bOp0, bool bOp2>
 		void AddOrSub_Internal(const Word* b, DWord& carry) const;
 
 		template <bool bAdd>
@@ -699,10 +704,15 @@ namespace MultiWord {
 			return Slice{ m_p, nWords };
 		}
 
+		Number& operator = (Zero_)
+		{
+			get_Slice().Set0();
+			return *this;
+		}
+
 		Number& operator = (Word x)
 		{
-			static_assert(nWords >= 1);
-			m_p[nWords - 1] = x;
+			set_Element(x);
 
 			if constexpr (nWords > 1)
 				get_Slice().get_Head(nWords - 1).Set0();
@@ -710,32 +720,73 @@ namespace MultiWord {
 			return *this;
 		}
 
-		Number& operator = (uint64_t x)
+		Number& operator = (DWord x)
 		{
-			static_assert(nWords >= 1);
-			m_p[nWords - 1] = static_cast<Word>(x);
+			set_Element(x);
 
-			if constexpr (nWords > 1)
-			{
-				m_p[nWords - 2] = static_cast<Word>(x >> nWordBits);
-
-				if constexpr (nWords > 2)
-					Cast::Up<Slice>(get_Slice().get_Head(nWords - 2)).Set0();
-			}
+			if constexpr (nWords > 2)
+				get_Slice().get_Head(nWords - 2).Set0();
 
 			return *this;
 		}
 
-		void Export(Word& x) const
+		struct Neg { ConstSlice m_Arg; };
+
+		Neg operator - () const
 		{
-			static_assert(nWords >= 1);
-			x = m_p[nWords - 1];
+			return Neg{ get_ConstSlice() };
 		}
 
-		void Export(DWord& x) const
+		Number& operator = (const Neg& neg)
 		{
-			static_assert(nWords >= 2);
-			x = (static_cast<DWord>(m_p[nWords - 2]) << nWordBits) | m_p[nWords - 1];
+			DWord carry = 0;
+			get_Slice().AddOrSub<false, false>(neg.m_Arg, carry);
+			return *this;
+		}
+
+		Word get_Msb() const
+		{
+			static_assert(nWords > 0);
+			return m_p[0] >> (nWordBits - 1);
+		}
+
+		template <uint32_t i = 0>
+		void get_Element(Word& x) const
+		{
+			static_assert(nWords >= i + 1);
+			x = m_p[nWords - (i + 1)];
+		}
+
+		template <uint32_t i = 0>
+		void get_Element(DWord& x) const
+		{
+			const uint32_t i2 = i * sizeof(DWord) / sizeof(Word);
+			static_assert(nWords >= (i2 + 2));
+			x = (static_cast<DWord>(m_p[nWords - (i2 + 2)]) << nWordBits) | m_p[nWords - (i2 + 1)];
+		}
+
+		template <typename T, uint32_t i = 0>
+		T get_Element() const
+		{
+			T x;
+			get_Element<i>(x);
+			return x;
+		}
+
+		template <uint32_t i = 0>
+		void set_Element(Word x)
+		{
+			static_assert(nWords >= i + 1);
+			m_p[nWords - (i + 1)] = x;
+		}
+
+		template <uint32_t i = 0>
+		void set_Element(DWord x)
+		{
+			const uint32_t i2 = i * sizeof(DWord) / sizeof(Word);
+			static_assert(nWords >= (i2 + 2));
+			m_p[nWords - (i2 + 1)] = static_cast<Word>(x);
+			m_p[nWords - (i2 + 2)] = static_cast<Word>(x >> nWordBits);
 		}
 
 		template <uint32_t wa>
@@ -758,11 +809,14 @@ namespace MultiWord {
 		template <typename T> bool operator == (const T& x) const { return cmp(x) == 0; }
 		template <typename T> bool operator != (const T& x) const { return cmp(x) != 0; }
 
+		bool operator == (Zero_) const { return get_ConstSlice().IsZero(); }
+		bool operator != (Zero_) const { return !get_ConstSlice().IsZero(); }
+
 		template <uint32_t wa>
 		Number& operator += (const Number<wa>& a)
 		{
 			DWord carry = 0;
-			get_Slice().AddOrSub<true>(a.get_ConstSlice(), carry);
+			get_Slice().AddOrSub<true, true>(a.get_ConstSlice(), carry);
 			return *this;
 		}
 
@@ -770,7 +824,7 @@ namespace MultiWord {
 		Number& operator -= (const Number<wa>& a)
 		{
 			DWord carry = 0;
-			get_Slice().AddOrSub<false>(a.get_ConstSlice(), carry);
+			get_Slice().AddOrSub<false, true>(a.get_ConstSlice(), carry);
 			return *this;
 		}
 
@@ -793,10 +847,9 @@ namespace MultiWord {
 		}
 
 		template <uint32_t wa>
-		Number< 1 + ((nWords >= wa) ? nWords : wa) > operator - (const Number<wa>& a) const
+		Number operator - (const Number<wa>& a) const
 		{
-			Number< 1 + ((nWords >= wa) ? nWords : wa) > ret;
-			ret = *this;
+			Number ret(*this);
 			ret -= a;
 			return ret;
 		}

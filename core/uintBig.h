@@ -18,8 +18,6 @@
 
 namespace beam
 {
-	// Syntactic sugar!
-	enum Zero_ { Zero };
 
 	// Simple arithmetics. For casual use only (not performance-critical)
 
@@ -122,11 +120,13 @@ namespace beam
 
 		typedef typename MultiWord::NumberForSize<nBytes>::Type Number;
 
-		void ToNumber(Number& x) const {
+		template <uint32_t nWords>
+		void ToNumber(MultiWord::Number<nWords>& x) const {
 			_ToNum(x.get_Slice(), m_pData, nBytes);
 		}
 
-		void FromNumber(const Number& x) {
+		template <uint32_t nWords>
+		void FromNumber(const MultiWord::Number<nWords>& x) {
 			_FromNum(x.get_ConstSlice(), m_pData, nBytes);
 		}
 
