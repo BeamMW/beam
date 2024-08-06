@@ -178,12 +178,12 @@ int main()
                 storage::Totals totalsCalc_2(*(laserSecond->getWalletDB()), false);
                 totals_2_a = totalsCalc_2.GetBeamTotals();
 
-                AmountBig::Type val1{ totals_1_a.Unspent };
-                val1 += AmountBig::Type(kTransferFirst * transfersCount + fee);
+                AmountBig::Number val1 = totals_1_a.Unspent;
+                val1 += AmountBig::Number(kTransferFirst * transfersCount + fee);
                 WALLET_CHECK(totals_1.Unspent == val1);
 
-                AmountBig::Type val2{ totals_2.Unspent };
-                val2 += AmountBig::Type(kTransferFirst * transfersCount - fee);
+                AmountBig::Number val2 = totals_2.Unspent;
+                val2 += AmountBig::Number(kTransferFirst * transfersCount - fee);
                 WALLET_CHECK(totals_2_a.Unspent == val2);
 
                 BEAM_LOG_INFO() << "Test laser SEND: finished";

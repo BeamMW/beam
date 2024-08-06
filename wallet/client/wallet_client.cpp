@@ -1200,7 +1200,7 @@ namespace beam::wallet
         return assets;
     }
 
-    beam::AmountBig::Type WalletClient::getAvailable(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getAvailable(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
 
@@ -1211,31 +1211,31 @@ namespace beam::wallet
     }
 
 
-    beam::AmountBig::Type WalletClient::getAvailableRegular(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getAvailableRegular(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.available;
     }
 
-    beam::AmountBig::Type WalletClient::getAvailableShielded(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getAvailableShielded(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.shielded;
     }
 
-    beam::AmountBig::Type WalletClient::getReceiving(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getReceiving(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.receiving;
     }
 
-    beam::AmountBig::Type WalletClient::getReceivingIncoming(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getReceivingIncoming(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.receivingIncoming;
     }
 
-    beam::AmountBig::Type WalletClient::getMatutingMP(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getMatutingMP(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.maturingMP;
@@ -1247,19 +1247,19 @@ namespace beam::wallet
         return status.shielded != Zero;
     }
 
-    beam::AmountBig::Type WalletClient::getReceivingChange(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getReceivingChange(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.receivingChange;
     }
 
-    beam::AmountBig::Type WalletClient::getSending(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getSending(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.sending;
     }
 
-    beam::AmountBig::Type WalletClient::getMaturing(beam::Asset::ID id) const
+    beam::AmountBig::Number WalletClient::getMaturing(beam::Asset::ID id) const
     {
         const auto& status = m_status.GetStatus(id);
         return status.maturing;

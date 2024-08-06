@@ -67,14 +67,14 @@ namespace beam::wallet
     {
         struct AssetStatus
         {
-            AmountBig::Type available = 0U;
-            AmountBig::Type receiving = 0U;
-            AmountBig::Type receivingIncoming = 0U;
-            AmountBig::Type receivingChange = 0U;
-            AmountBig::Type sending    = 0U;
-            AmountBig::Type maturing   = 0U;
-            AmountBig::Type maturingMP = 0U;
-            AmountBig::Type shielded   = 0U;
+            AmountBig::Number available = Zero;
+            AmountBig::Number receiving = Zero;
+            AmountBig::Number receivingIncoming = Zero;
+            AmountBig::Number receivingChange = Zero;
+            AmountBig::Number sending    = Zero;
+            AmountBig::Number maturing   = Zero;
+            AmountBig::Number maturingMP = Zero;
+            AmountBig::Number shielded   = Zero;
         };
 
         bool HasStatus(Asset::ID assetId) const;
@@ -152,15 +152,15 @@ namespace beam::wallet
 
         std::set<beam::Asset::ID> getAssetsFull() const;
         std::set<beam::Asset::ID> getAssetsNZ() const;
-        beam::AmountBig::Type getAvailable(beam::Asset::ID) const;
-        beam::AmountBig::Type getAvailableRegular(beam::Asset::ID) const;
-        beam::AmountBig::Type getAvailableShielded(beam::Asset::ID) const;
-        beam::AmountBig::Type getReceiving(beam::Asset::ID) const;
-        beam::AmountBig::Type getReceivingIncoming(beam::Asset::ID) const;
-        beam::AmountBig::Type getReceivingChange(beam::Asset::ID) const;
-        beam::AmountBig::Type getSending(beam::Asset::ID) const;
-        beam::AmountBig::Type getMaturing(beam::Asset::ID) const;
-        beam::AmountBig::Type getMatutingMP(beam::Asset::ID) const;
+        beam::AmountBig::Number getAvailable(beam::Asset::ID) const;
+        beam::AmountBig::Number getAvailableRegular(beam::Asset::ID) const;
+        beam::AmountBig::Number getAvailableShielded(beam::Asset::ID) const;
+        beam::AmountBig::Number getReceiving(beam::Asset::ID) const;
+        beam::AmountBig::Number getReceivingIncoming(beam::Asset::ID) const;
+        beam::AmountBig::Number getReceivingChange(beam::Asset::ID) const;
+        beam::AmountBig::Number getSending(beam::Asset::ID) const;
+        beam::AmountBig::Number getMaturing(beam::Asset::ID) const;
+        beam::AmountBig::Number getMatutingMP(beam::Asset::ID) const;
         bool hasShielded(beam::Asset::ID) const;
 
         beam::Height getCurrentHeight() const;

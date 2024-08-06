@@ -6240,7 +6240,7 @@ namespace beam::wallet
                 totals.MinCoinHeightMW = totals.MinCoinHeightMW == 0 ? c.m_confirmHeight :
                                          std::min(c.m_confirmHeight, totals.MinCoinHeightMW);
 
-                const AmountBig::Type value = c.m_ID.m_Value;
+                const auto value = MultiWord::From(c.m_ID.m_Value);
                 switch (c.m_status)
                 {
                 case Coin::Status::Available:
@@ -6311,7 +6311,7 @@ namespace beam::wallet
                 totals.MinCoinHeightShielded = totals.MinCoinHeightShielded == 0 ? c.m_confirmHeight :
                                                std::min(c.m_confirmHeight, totals.MinCoinHeightShielded);
 
-                const AmountBig::Type value = c.m_CoinID.m_Value;
+                const auto value = MultiWord::From(c.m_CoinID.m_Value);
                 switch(c.m_Status) {
                     case ShieldedCoin::Status::Available:
                         totals.AvailShielded += value;

@@ -69,7 +69,7 @@ namespace beam::wallet
 
         // This is for jscript compatibility
         // Number.MAX_SAFE_INTEGER
-        static inline const auto kMaxAllowedInt = AmountBig::Type(9'007'199'254'740'991U);
+        static inline const auto kMaxAllowedInt = MultiWord::From(9'007'199'254'740'991U);
 
         // user api key and read/write access
         ApiBase(IWalletApiHandler& handler, const ApiInitData& initData);

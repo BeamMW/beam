@@ -121,12 +121,12 @@ int main()
                 Amount nFeeSecond = feeSecond / 2;
                 Amount nFeeFirst = feeFirst - nFeeSecond;
 
-                AmountBig::Type val1{ totals_1_a.Unspent };
-                val1 += AmountBig::Type(channelFirst->get_amountMy() + nFeeFirst * 3);
+                AmountBig::Number val1 = totals_1_a.Unspent;
+                val1 += AmountBig::Number(channelFirst->get_amountMy() + nFeeFirst * 3);
                 WALLET_CHECK(totals_1.Unspent == val1);
 
-                AmountBig::Type val2{ totals_2_a.Unspent };
-                val2 += AmountBig::Type(channelSecond->get_amountMy() + nFeeSecond * 3);
+                AmountBig::Number val2 = totals_2_a.Unspent;
+                val2 += AmountBig::Number(channelSecond->get_amountMy() + nFeeSecond * 3);
                 WALLET_CHECK(totals_2.Unspent == val2);
 
                 BEAM_LOG_INFO() << "Test laser OPEN: finished";

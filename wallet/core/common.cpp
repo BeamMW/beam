@@ -34,13 +34,10 @@
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
-#include <boost/multiprecision/cpp_int.hpp>
-using boost::multiprecision::cpp_int;
-
 using namespace std;
 using namespace ECC;
 using namespace beam;
-using boost::multiprecision::cpp_dec_float_50;
+
 namespace
 {
     string SkipLeadingZeroes(const char* szPtr)
@@ -161,15 +158,16 @@ namespace std
         }
      }
 
+     string to_string(const beam::AmountBig::Number& amount)
+     {
+         char sz[amount.nTxtLen10Max + 1];
+         auto len = amount.PrintDecimal(sz);
+         return string(sz, len);
+     }
+
     string to_string(const beam::AmountBig::Type& amount)
     {
-        cpp_int intval;
-        import_bits(intval, amount.m_pData, amount.m_pData + beam::AmountBig::Type::nBytes);
-
-        stringstream ss;
-        ss << intval;
-
-        return ss.str();
+        return to_string(amount.ToNumber());
     }
 
 }  // namespace std

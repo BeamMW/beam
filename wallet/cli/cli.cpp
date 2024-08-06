@@ -377,7 +377,7 @@ namespace
                     Treasury::Request::Group& g = pE->m_Request.m_vGroups[iG];
                     Treasury::Request::Group::Coin& c = g.m_vCoins[0];
 
-                    AmountBig::Type valInBurst = Zero;
+                    AmountBig::Number valInBurst = Zero;
 
                     for (Treasury::EntryMap::const_iterator it = tres.m_Entries.begin(); tres.m_Entries.end() != it; ++it)
                     {
@@ -392,7 +392,7 @@ namespace
                                 continue;
 
                             for (size_t i = 0; i < g2.m_vCoins.size(); i++)
-                                valInBurst += uintBigFrom(g2.m_vCoins[i].m_Value);
+                                valInBurst += MultiWord::From(g2.m_vCoins[i].m_Value);
                         }
                     }
 
@@ -1081,13 +1081,13 @@ namespace
             emission = ss.str();
         }
 
-        beam::AmountBig::Type available = totals.Avail;
+        beam::AmountBig::Number available = totals.Avail;
         available += totals.AvailShielded;
 
-        beam::AmountBig::Type unspent = totals.Unspent;
+        beam::AmountBig::Number unspent = totals.Unspent;
         unspent += totals.UnspentShielded;
 
-        beam::AmountBig::Type maturing = totals.Maturing;
+        beam::AmountBig::Number maturing = totals.Maturing;
         maturing += totals.MaturingShielded;
 
         const unsigned kWidth = 26;

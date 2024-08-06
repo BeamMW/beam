@@ -1227,9 +1227,10 @@ namespace beam::wallet
         res["metadata"]      = strMeta;
         res["emission_str"]  = std::to_string(info.m_Value);
 
-        if(info.m_Value <= kMaxAllowedInt)
+        auto val = info.m_Value.ToNumber();
+        if(val <= kMaxAllowedInt)
         {
-            res["emission"] = AmountBig::get_Lo(info.m_Value);
+            res["emission"] = AmountBig::get_Lo(val);
         }
     }
 

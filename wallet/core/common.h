@@ -106,7 +106,7 @@ namespace beam::wallet
     struct PrintableAmount
     {
         explicit PrintableAmount(
-            const AmountBig::Type& amount,
+            const AmountBig::Number& amount,
             bool /* showPoint */ = false,
             Asset::ID aid = static_cast<Asset::ID>(-1),
             const char* szCoinName = nullptr,
@@ -119,7 +119,7 @@ namespace beam::wallet
         }
 
         explicit PrintableAmount(
-            const AmountBig::Type& amount,
+            const AmountBig::Number& amount,
             bool /* showPoint */,
             Asset::ID aid,
             const std::string& sCoin,
@@ -131,7 +131,7 @@ namespace beam::wallet
         {
         }
 
-        const AmountBig::Type& m_value;
+        const AmountBig::Number& m_value;
         Asset::ID m_Aid;
         const char* m_szCoinName;
     };
@@ -867,6 +867,7 @@ namespace std
     string to_string(const beam::PeerID&);
     string to_base58(const beam::PeerID&);
     string to_string(const beam::AmountBig::Type&);
+    string to_string(const beam::AmountBig::Number&);
 
     template<>
     struct hash<beam::wallet::WalletID>
