@@ -1675,23 +1675,23 @@ void TestDifficulty()
 {
 	using namespace beam;
 
-	Difficulty::Raw r1, r2;
+	Difficulty::Number r1, r2;
 	Difficulty(Difficulty::s_Inf).Unpack(r1);
 	Difficulty(Difficulty::s_Inf - 1).Unpack(r2);
 	verify_test(r1 > r2);
 
-	uintBig val(Zero);
+	Difficulty::Number val(Zero);
 
 	verify_test(Difficulty(Difficulty::s_Inf).IsTargetReached(val));
 
-	val.m_pData[0] = 0x80; // msb set
+	val.m_p[0] = 1u << (MultiWord::nWordBits - 1); // msb set
 
 	verify_test(Difficulty(0).IsTargetReached(val));
 	verify_test(Difficulty(1).IsTargetReached(val));
 	verify_test(Difficulty(0xffffff).IsTargetReached(val)); // difficulty almost 2
 	verify_test(!Difficulty(0x1000000).IsTargetReached(val)); // difficulty == 2
 
-	val.m_pData[0] = 0x7f;
+	val -= MultiWord::From(1u);
 	verify_test(Difficulty(0x1000000).IsTargetReached(val));
 
 	// Adjustments

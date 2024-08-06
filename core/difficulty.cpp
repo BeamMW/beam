@@ -40,50 +40,69 @@ namespace beam
 
 	bool Difficulty::IsTargetReached(const ECC::uintBig& hv) const
 	{
+		return IsTargetReached(hv.ToNumber());
+	}
+
+	bool Difficulty::IsTargetReached(const Number& trg) const
+	{
 		if (m_Packed > s_Inf)
 			return false; // invalid
 
 		// multiply by (raw) difficulty, check if the result fits wrt normalization.
-		Raw val;
-		Unpack(val);
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
 
-		auto a = hv * val; // would be 512 bits
+		auto a = trg * MultiWord::From(mantissa);
 
-		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
-
-		return memis0(a.m_pData, Raw::nBytes - (s_MantissaBits >> 3));
+		uint32_t nZeroes = (MultiWord::nWordBits - s_MantissaBits) + order;
+		return a.get_ConstSlice().get_clz_Bits() >= nZeroes;
 	}
 
-	bool Difficulty::get_Target(ECC::uintBig& hv) const
+	bool Difficulty::get_Target(Number& trg) const
 	{
-		hv = Zero;
+		trg = Zero;
 
 		if (m_Packed > s_Inf)
 			return false; // invalid
 
-		Raw rDiff;
-		Unpack(rDiff);
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
 
-		static_assert(!(s_MantissaBits & 7), ""); // fix the following code lines to support non-byte-aligned mantissa size
-		uintBig_t<Raw::nBytes + (s_MantissaBits >> 3)> rMax;
-		memset(rMax.m_pData, 0xff, rMax.nBytes);
+		MultiWord::Number<Number::nWords + 1> rMax, rDiv;
+		rMax.get_Slice().SetMax();
+		rDiv.SetDivResid(rMax, MultiWord::From(mantissa));
 
-		hv.SetDiv(rMax, rDiff);
+		trg.get_Slice().RShift(rDiv.get_ConstSlice(), (MultiWord::nWordBits - s_MantissaBits) + order);
+
 		return true;
 	}
 
-	void Difficulty::Unpack(Raw& res) const
+	bool Difficulty::get_Target(ECC::uintBig& hv) const
 	{
-		res = Zero;
+		Number trg;
+		bool ret = get_Target(trg);
+
+		hv.FromNumber(trg);
+		return ret;
+	}
+
+	void Difficulty::Unpack(Number& res) const
+	{
 		if (m_Packed < s_Inf)
 		{
 			uint32_t order, mantissa;
 			Unpack(order, mantissa);
-			res.AssignSafe(mantissa, order);
-
+			res.get_Slice().LShift(MultiWord::From(mantissa).get_ConstSlice(), order);
 		}
 		else
-			res.Inv();
+			res.get_Slice().SetMax();
+	}
+
+	void Difficulty::Unpack(Raw& res) const
+	{
+		Number x;
+		Unpack(x);
+		res.FromNumber(x);
 	}
 
 	Difficulty::Raw operator + (const Difficulty::Raw& base, const Difficulty& d)
@@ -214,19 +233,34 @@ namespace beam
 		return ldexp(mantissa, nOrderCorrected);
 	}
 
-	double Difficulty::ToFloat(Raw& x)
+	double Difficulty::ToFloat(const Number& x)
 	{
-		double res = 0;
+		auto s = x.get_ConstSlice();
+		s.Trim();
 
-		int nOrder = x.nBits - 8 - s_MantissaBits;
-		for (uint32_t i = 0; i < x.nBytes; i++, nOrder -= 8)
+		if (!s.m_n)
+			return 0;
+
+		int nOrder = (s.m_n - 1) * MultiWord::nWordBits - s_MantissaBits;
+		uint64_t num = s.m_p[0];
+
+		if (s.m_n > 1)
 		{
-			uint8_t n = x.m_pData[i];
-			if (n)
-				res += ldexp(n, nOrder);
+			nOrder--;
+			num = (num << MultiWord::nWordBits) | s.m_p[1];
+
+			if (s.m_n > 2)
+			{
+				auto nz = NumericUtils::clz(s.m_p[0]);
+				if (nz)
+				{
+					nOrder -= nz;
+					num = (num << nz) | (s.m_p[2] >> (MultiWord::nWordBits - nz));
+				}
+			}
 		}
 
-		return res;
+		return ldexp(num, nOrder);
 	}
 
 	std::ostream& operator << (std::ostream& s, const Difficulty& d)

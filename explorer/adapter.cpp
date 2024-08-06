@@ -605,54 +605,28 @@ private:
 
     struct NiceDecimal
     {
-        static uint32_t ExpandCommas(char* sz, uint32_t len)
+        template <uint32_t nWords>
+        static uint32_t Print(char* sz, uint32_t nMaxLen, const MultiWord::Number<nWords>& x, bool bExpandCommas)
         {
-            const uint32_t nGroupLen = 3;
-            // szDst and szSrc may be the same
-            if (len)
-            {
-                uint32_t numCommas = (len - 1) / nGroupLen;
-                uint32_t pos = len;
-                len += numCommas;
-                sz[len] = 0;
+            auto out = MultiWord::Factorization::MakePrintOut<10>(sz, nMaxLen);
+            x.DecomposeEx<10>(out, true);
+            if (bExpandCommas)
+                return Group3Base::Expand(sz, out.m_pE, nMaxLen - out.get_Reserve());
 
-                while (numCommas)
-                {
-                    pos -= nGroupLen;
-                    memmove(sz + pos + numCommas, sz + pos, nGroupLen);
-                    sz[pos + (--numCommas)] = ',';
-                }
-
-                memmove(sz, sz, pos);
-            }
-
-            return len;
+            return out.Finalize(nMaxLen, true);
         }
 
         template <typename T>
-        static uint32_t Print(char* sz, T val)
+        static uint32_t Print(char* sz, uint32_t nMaxLen, T val, bool bExpandCommas)
         {
-            uint32_t digs = 1u;
-            for (T val2 = val; val2 /= 10; )
-                digs++;
-
-            auto ret = digs;
-
-            for (sz[digs] = 0; digs--; val /= 10)
-                sz[digs] = '0' + (val % 10);
-
-            return ret;
-        }
-
-        template <uint32_t nBytes>
-        static uint32_t Print(char* sz, const uintBig_t<nBytes>& x)
-        {
-            return x.PrintDecimal(sz);
+            return Print(sz, nMaxLen, MultiWord::From(val), bExpandCommas);
         }
 
         template <uint32_t nBytes> struct Str
         {
-            static const uint32_t s_MaxLen = 10 * ((nBytes + 2) / 3); // upper bound
+            static const uint32_t s_MaxLenUndecorated = MultiWord::Factorization::Decomposed<nBytes, 0x100, 10>::nMaxLen;
+            static const uint32_t s_MaxLen = Group3< s_MaxLenUndecorated>::nLenDecorated;
+
             char m_sz[s_MaxLen + 1];
 
             operator const char* () const
@@ -665,11 +639,7 @@ private:
         static Str<sizeof(T)> Make(const T& x, bool bExpandCommas)
         {
             Str<sizeof(T)> ret;
-            uint32_t nLen = Print(ret.m_sz, x);
-            if (bExpandCommas)
-                nLen = ExpandCommas(ret.m_sz, nLen);
-
-            assert(nLen < _countof(ret.m_sz));
+            Print(ret.m_sz, ret.s_MaxLen, x, bExpandCommas);
             return ret;
         }
 
@@ -712,10 +682,7 @@ private:
                 ret.m_sz[nLen++] = '-';
             }
 
-            uint32_t nLenUns = NiceDecimal::Print(ret.m_sz + nLen, static_cast<uint64_t>(x));;
-
-            if (get_ExpandWithCommas())
-                nLenUns = NiceDecimal::ExpandCommas(ret.m_sz + nLen, nLenUns);
+            uint32_t nLenUns = NiceDecimal::Print(ret.m_sz + nLen, ret.s_MaxLen - nLen, static_cast<uint64_t>(x), get_ExpandWithCommas());
 
             nLen += nLenUns;
             assert(nLen < _countof(ret.m_sz));

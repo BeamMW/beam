@@ -253,6 +253,24 @@ namespace MultiWord {
 
 			return 0;
 		}
+
+		uint32_t get_clz_Words() const
+		{
+			uint32_t ret = 0;
+			for (; ret < m_n; ret++)
+				if (m_p[ret])
+					break;
+			return ret;
+		}
+
+		uint32_t get_clz_Bits() const
+		{
+			uint32_t n = get_clz_Words();
+			uint32_t ret = n * nWordBits;
+			if (n < m_n)
+				ret += NumericUtils::clz(m_p[n]);
+			return ret;
+		}
 	};
 
 	struct ConstSlice
@@ -786,6 +804,7 @@ namespace MultiWord {
 	{
 		static const uint32_t nWords = nWords_;
 		static const uint32_t nSize = sizeof(Word) * nWords;
+		static const uint32_t nBits = nSize * 8;
 
 		Word m_p[nWords];
 

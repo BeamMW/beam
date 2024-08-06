@@ -26,6 +26,7 @@ namespace beam
 		Difficulty(uint32_t d = 0) :m_Packed(d) {}
 
 		typedef ECC::uintBig Raw;
+		typedef Raw::Number Number;
 
 		// maximum theoretical difficulty value, which corresponds to 'infinite' (only Zero hash value meet the target).
 		// Corresponds to 0xffff...fff raw value.
@@ -33,8 +34,12 @@ namespace beam
 		static const uint32_t s_Inf = (s_MaxOrder + 1) << s_MantissaBits;
 
 		bool IsTargetReached(const ECC::uintBig&) const;
-		bool get_Target(ECC::uintBig&) const; // more expensive to calculate. Use to test many variants for the same target
+		bool IsTargetReached(const Number&) const;
 
+		bool get_Target(ECC::uintBig&) const; // more expensive to calculate. Use to test many variants for the same target
+		bool get_Target(Number&) const;
+
+		void Unpack(Number&) const;
 		void Unpack(Raw&) const;
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
@@ -48,7 +53,7 @@ namespace beam
 		friend Raw& operator -= (Raw&, const Difficulty&);
 
 		double ToFloat() const;
-		static double ToFloat(Raw&);
+		static double ToFloat(const Number&);
 
 		struct BigFloat;
 

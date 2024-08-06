@@ -109,6 +109,21 @@ namespace beam
 		bool IsInRangeRelative(Height) const; // assuming m_Min was already subtracted
 	};
 
+	struct Group3Base
+	{
+		static const uint32_t nGroup = 3;
+		static uint32_t Expand(char* szDst, const char* szSrc, uint32_t nSrc);
+	};
+
+	template <uint32_t len>
+	struct Group3
+		:public Group3Base
+	{
+		static const uint32_t nNumSeparators = (len - 1) / nGroup;
+		static const uint32_t nLenUndecorated = len;
+		static const uint32_t nLenDecorated = nLenUndecorated + nNumSeparators;
+	};
+
 	namespace AmountBig
 	{
 		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
@@ -130,7 +145,7 @@ namespace beam
 			static const uint32_t nLenUndecorated = Number::nTxtLen10Max;
 
 			// max decorated length, printed as x.xxx,xxx,xxx,xxx.yyyyyyyy
-			static const uint32_t nLenMax = nLenUndecorated + 1 + (nLenUndecorated - nGrothDigits - 1) / 3;
+			static const uint32_t nLenMax = nGrothDigits + 1 + Group3<nLenUndecorated - nGrothDigits>::nLenDecorated;
 			// includes 1 groth separator (dot), and multiple group separaters (commas)
 
 			// buf assumed to be nLenMax + 1
@@ -139,9 +154,6 @@ namespace beam
 
 			// if szDst and szSrc may overlap, szSrc must be aligned to end
 			static uint32_t Expand(char* szDst, const char* szSrc, uint32_t nSrc, bool bTrimGroths = true);
-
-			static uint32_t ExpandGroups(char* szDst, const char* szSrc, uint32_t nSrc);
-
 		};
 
 		void Print(std::ostream&, const Number&, bool bTrim = true);

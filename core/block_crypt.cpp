@@ -1939,7 +1939,7 @@ namespace beam
 			if (nSrc > nGrothDigits)
 			{
 				uint32_t nDelta = nSrc - nGrothDigits;
-				szPos += ExpandGroups(szPos, szSrc, nDelta);
+				szPos += Group3Base::Expand(szPos, szSrc, nDelta);
 
 				ExpandGroths(szPos, szSrc + nDelta, nGrothDigits, bTrimGroths);
 			}
@@ -1952,27 +1952,6 @@ namespace beam
 			*szPos = 0;
 			return static_cast<uint32_t>(szPos - szDst);
 		}
-
-		uint32_t Text::ExpandGroups(char* szDst, const char* szSrc, uint32_t nSrc)
-		{
-			if (!nSrc)
-				return 0;
-
-			char* szPos = szDst;
-			while (true)
-			{
-				*szPos++ = *szSrc++;
-
-				if (!--nSrc)
-					break;
-				if (!(nSrc % 3))
-					*szPos++ = ',';
-			}
-
-			*szPos = 0;
-			return static_cast<uint32_t>(szPos - szDst);
-		}
-
 
 		void Print(std::ostream& os, const Number& x, bool bTrim /* = true */)
 		{
@@ -1989,6 +1968,26 @@ namespace beam
 		}
 
 	} // namespace AmountBig
+
+	uint32_t Group3Base::Expand(char* szDst, const char* szSrc, uint32_t nSrc)
+	{
+		if (!nSrc)
+			return 0;
+
+		char* szPos = szDst;
+		while (true)
+		{
+			*szPos++ = *szSrc++;
+
+			if (!--nSrc)
+				break;
+			if (!(nSrc % 3))
+				*szPos++ = ',';
+		}
+
+		*szPos = 0;
+		return static_cast<uint32_t>(szPos - szDst);
+	}
 
 
 	/////////////
