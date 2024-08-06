@@ -2551,7 +2551,7 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
 	return proto::TxStatus::Ok;
 }
 
-bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const AmountBig::Type& fees, uint32_t nBvmCharge, Amount& feeReserve)
+bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const AmountBig::Number& fees, uint32_t nBvmCharge, Amount& feeReserve)
 {
     feeReserve = static_cast<Amount>(-1);
 
@@ -2563,7 +2563,7 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
         if (nBvmCharge)
             feesMin += fs.CalculateForBvm(s, nBvmCharge);
 
-        AmountBig::Type val(feesMin);
+        AmountBig::Number val(feesMin);
 
         if (fees < val)
         {
@@ -2571,8 +2571,7 @@ bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const Am
             return false;
         }
 
-        val.Negate();
-        val += fees;
+        val = fees - val;
 
         if (!AmountBig::get_Hi(val))
             feeReserve = AmountBig::get_Lo(val);
@@ -3211,7 +3210,7 @@ void Node::Dandelion::OnTimedOut(Element& x)
     get_ParentObj().m_Dandelion.Delete(x);
 }
 
-bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Type& fees, Amount& feeReserve)
+bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Number& fees, Amount& feeReserve)
 {
     uint32_t nBvmCharge = 0;
     if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr, nullptr))
@@ -4125,11 +4124,11 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
         if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
             ThrowUnexpected(sErr.c_str());
 
-        if (ctx.m_Stats.m_Coinbase != AmountBig::Type(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+        if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
             ThrowUnexpected();
 
         ctx.m_Sigma = -ctx.m_Sigma;
-        ctx.m_Stats.m_Coinbase += AmountBig::Type(x.m_Fees);
+        ctx.m_Stats.m_Coinbase += AmountBig::Number(x.m_Fees);
         AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
 
         if (!(ctx.m_Sigma == Zero))

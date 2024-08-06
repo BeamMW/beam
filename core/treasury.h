@@ -42,7 +42,7 @@ namespace beam
 
 				std::vector<Coin> m_vCoins;
 
-				void AddSubsidy(AmountBig::Type& res) const;
+				void AddSubsidy(AmountBig::Number& res) const;
 
 				template <typename Archive>
 				void serialize(Archive& ar)
@@ -154,7 +154,7 @@ namespace beam
 			struct Group
 			{
 				Transaction m_Data;
-				AmountBig::Type m_Value;
+				AmountBig::Number m_Value;
 
 				bool IsValid() const;
 

@@ -260,6 +260,36 @@ void TestUintBig()
 		}
 
 	}
+
+	{
+		beam::AmountBig::Number n;
+		char sz[beam::AmountBig::Text::nLenMax + 1];
+
+		n = Zero;
+
+		beam::AmountBig::Text::Print(sz, n);
+		verify_test(std::string("0") == sz);
+		beam::AmountBig::Text::Print(sz, n, false);
+		verify_test(std::string("0.00000000") == sz);
+
+		n = 450000u;
+
+		beam::AmountBig::Text::Print(sz, n);
+		verify_test(std::string("0.0045") == sz);
+		beam::AmountBig::Text::Print(sz, n, false);
+		verify_test(std::string("0.00450000") == sz);
+
+		n = beam::MultiWord::From(1234567u) * beam::MultiWord::From(beam::AmountBig::Text::nCoin) + beam::MultiWord::From(65000u);
+
+		beam::AmountBig::Text::Print(sz, n);
+		verify_test(std::string("1,234,567.00065") == sz);
+		beam::AmountBig::Text::Print(sz, n, false);
+		verify_test(std::string("1,234,567.00065000") == sz);
+
+		n.get_Slice().SetMax();
+		auto nLen = beam::AmountBig::Text::Print(sz, n, false);
+		verify_test(nLen == beam::AmountBig::Text::nLenMax);
+	}
 }
 
 template <typename T>
@@ -1454,7 +1484,7 @@ void TestTransaction()
 	beam::TxBase::Context ctx;
 	ctx.m_Height.m_Min = g_hFork;
 	verify_test(tm.m_Trans.IsValid(ctx));
-	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Type(fee1 + fee2));
+	verify_test(ctx.m_Stats.m_Fee == beam::AmountBig::Number(fee1 + fee2));
 }
 
 void TestCutThrough()

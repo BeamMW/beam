@@ -95,12 +95,9 @@ namespace beam
 
 	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
-		AmountBig::Type vbig;
+		AmountBig::Number vbig;
 		Rules::get().get_Emission(vbig, hr, base);
-
-		Amount res;
-		vbig.ExportWord<1>(res);
-		return res;
+		return AmountBig::get_Lo(vbig);
 	}
 
 	void PrintEmissionSchedule()
@@ -3495,18 +3492,18 @@ namespace beam
 			if (!v)
 				break;
 
-			AmountBig::Type sum0(v);
+			AmountBig::Number sum0(v);
 
 			uint32_t nZeroTest = 200;
 			for (hr.m_Max = hr.m_Min; nZeroTest; )
 			{
-				AmountBig::Type sum1;
+				AmountBig::Number sum1;
 				Rules::get_Emission(sum1, hr);
 				verify_test(sum0 == sum1);
 
 				v = Rules::get_Emission(++hr.m_Max);
 				if (v)
-					sum0 += uintBigFrom(v);
+					sum0 += MultiWord::From(v);
 				else
 					nZeroTest--;
 			}

@@ -243,7 +243,7 @@ namespace beam
 
 	void TxBase::Context::TestValidBlock()
 	{
-		AmountBig::Type subsTotal, subsLocked;
+		AmountBig::Number subsTotal, subsLocked;
 		Rules::get_Emission(subsTotal, m_Height);
 
 		m_Sigma = -m_Sigma;

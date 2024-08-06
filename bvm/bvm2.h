@@ -394,6 +394,22 @@ namespace bvm2 {
 			return SaveNnz(vk, x.m_pData, x.nBytes);
 		}
 
+		template <uint32_t nWords>
+		bool Load_T(const VarKey& vk, MultiWord::Number<nWords>& x) 
+		{
+			uintBig_t<x.nSize> y;
+			bool ret = Load_T(vk, y);
+			y.ToNumber(x);
+			return ret;
+		}
+
+		template <uint32_t nWords>
+		void Save_T(const VarKey& vk, const MultiWord::Number<nWords>& x) {
+			uintBig_t<x.nSize> y;
+			y.FromNumber(x);
+			Save_T(vk, y);
+		}
+
 		void TestCanWrite();
 		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 

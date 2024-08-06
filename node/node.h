@@ -378,7 +378,7 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type&, Amount& feeReserve) override;
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Number&, Amount& feeReserve) override;
 		virtual void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
@@ -418,7 +418,7 @@ private:
 
 	uint8_t ValidateTx(TxPool::Stats&, const Transaction&, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected); // complete validation
 	uint8_t ValidateTx2(Transaction::Context&, const Transaction&, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx);
-	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Type&, uint32_t nBvmCharge, Amount& feeReserve);
+	static bool CalculateFeeReserve(const TxStats&, const HeightRange&, const AmountBig::Number&, uint32_t nBvmCharge, Amount& feeReserve);
 	void LogTx(const Transaction&, uint8_t nStatus, const Transaction::KeyType&);
 	void LogTxStem(const Transaction&, const char* szTxt);
 

@@ -3876,7 +3876,7 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 			if (ai.m_Value != Zero)
 			{
 				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Value=" << ai.m_Value;
+					*bic.m_pTxErrorInfo << "Value=" << AmountBig::Printable(ai.m_Value);
 				return false;
 			}
 
@@ -3997,7 +3997,6 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(val, bAdd);
 
-	AmountBig::Type valBig = valUns;
 	if (bic.m_Fwd)
 	{
 		if (!bic.m_AlreadyValidated && (ai.m_Owner != pidOwner))
@@ -4010,12 +4009,15 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 	else
 		bAdd = !bAdd;
 
+	auto val0 = ai.m_Value.ToNumber();
+	AmountBig::Number valDelta = valUns;
+
 	bool bWasZero = (ai.m_Value == Zero);
 
 	if (bAdd)
 	{
-		ai.m_Value += valBig;
-		if (ai.m_Value < valBig)
+		val0 += valDelta;
+		if (val0 < valDelta)
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "too large";
@@ -4025,7 +4027,7 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 	}
 	else
 	{
-		if (ai.m_Value < valBig)
+		if (val0 < valDelta)
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "too low";
@@ -4033,11 +4035,12 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 			return false; // not enough to burn
 		}
 
-		valBig.Negate();
-		ai.m_Value += valBig;
+		val0 -= valDelta;
 	}
 
-	bool bZero = (ai.m_Value == Zero);
+	ai.m_Value.FromNumber(val0);
+
+	bool bZero = (val0 == Zero);
 	if (bZero != bWasZero)
 	{
 		if (bic.m_Fwd)

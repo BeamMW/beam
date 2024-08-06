@@ -3766,10 +3766,10 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKey(vk, VarKey::Tag::LockedAmount, uintBigFrom(aid));
 
-		AmountBig::Type val0;
+		AmountBig::Number val0;
 		Load_T(vk, val0);
 
-		auto val = uintBigFrom(amount);
+		auto val = MultiWord::From(amount);
 
 		if (bLock)
 		{
@@ -3779,10 +3779,7 @@ namespace bvm2 {
 		else
 		{
 			Exc::Test(val0 >= val); // overflow test
-
-			val0.Negate();
-			val0 += val;
-			val0.Negate();
+			val0 -= val;
 		}
 
 		Save_T(vk, val0);
@@ -3883,7 +3880,7 @@ namespace bvm2 {
 						auto val = it->second;
 						bool bSpend = !!val.get_Msb();
 						if (bSpend)
-							val.Negate();
+							val = -val;
 
 						os << (bSpend ? '+' : '-');
 						os << it->first << ':';

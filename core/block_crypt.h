@@ -112,15 +112,39 @@ namespace beam
 	namespace AmountBig
 	{
 		typedef uintBig_t<sizeof(Amount) + sizeof(Height)> Type; // 128 bits
-		Amount get_Lo(const Type&);
-		Amount get_Hi(const Type&);
+		typedef Type::Number Number;
+		Amount get_Lo(const Number&);
+		Amount get_Hi(const Number&);
 
-		void AddTo(ECC::Point::Native&, const Type&);
+		void AddTo(ECC::Point::Native&, const Number&);
 
 		// This one is not optimized (slow)
-		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen);
+		void AddTo(ECC::Point::Native& res, const Number& x, const ECC::Point::Native& hGen);
 
-		void Print(std::ostream&, const Type&, bool bTrim = true);
+		struct Text {
+
+			// how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
+			static const uint32_t nGrothDigits = 8;
+			static const uint32_t nCoin = (uint32_t) NumericUtils::PowerOf<10, nGrothDigits>::N;
+
+			static const uint32_t nLenUndecorated = Number::nTxtLen10Max;
+
+			// max decorated length, printed as x.xxx,xxx,xxx,xxx.yyyyyyyy
+			static const uint32_t nLenMax = nLenUndecorated + 1 + (nLenUndecorated - nGrothDigits - 1) / 3;
+			// includes 1 groth separator (dot), and multiple group separaters (commas)
+
+			// buf assumed to be nLenMax + 1
+			static uint32_t Print(char*, Amount, bool bTrimGroths = true); 
+			static uint32_t Print(char*, const Number&, bool bTrimGroths = true);
+
+			// if szDst and szSrc may overlap, szSrc must be aligned to end
+			static uint32_t Expand(char* szDst, const char* szSrc, uint32_t nSrc, bool bTrimGroths = true);
+
+			static uint32_t ExpandGroups(char* szDst, const char* szSrc, uint32_t nSrc);
+
+		};
+
+		void Print(std::ostream&, const Number&, bool bTrim = true);
 		void Print(std::ostream&, Amount, bool bTrim = true);
 
 		template <typename T>
@@ -326,7 +350,7 @@ namespace beam
 		};
 
 		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
-		static constexpr Amount Coin = 100000000; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
+		static constexpr Amount Coin = AmountBig::Text::nCoin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
 #define RulesNetworks(macro) \
 		macro(mainnet) \
@@ -421,8 +445,8 @@ namespace beam
 		void UpdateChecksum();
 
 		static Amount get_Emission(Height);
-		static void get_Emission(AmountBig::Type&, const HeightRange&);
-		static void get_Emission(AmountBig::Type&, const HeightRange&, Amount base);
+		static void get_Emission(AmountBig::Number&, const HeightRange&);
+		static void get_Emission(AmountBig::Number&, const HeightRange&, Amount base);
 
 		HeightHash pForks[7];
 
@@ -604,8 +628,8 @@ namespace beam
 
 	struct TxStats
 	{
-		AmountBig::Type m_Fee;
-		AmountBig::Type m_Coinbase;
+		AmountBig::Number m_Fee;
+		AmountBig::Number m_Coinbase;
 
 		uint32_t m_Kernels;
 		uint32_t m_KernelsNonStd;
@@ -1818,10 +1842,10 @@ namespace beam
 
 	struct FundsChangeMap
 	{
-		std::map<Asset::ID, AmountBig::Type> m_Map;
+		std::map<Asset::ID, AmountBig::Number> m_Map;
 
 		void Add(Amount val, Asset::ID, bool bSpend);
-		void Add(const AmountBig::Type&, Asset::ID);
+		void Add(const AmountBig::Number&, Asset::ID);
 		void ToCommitment(ECC::Point::Native&) const;
 	};
 }

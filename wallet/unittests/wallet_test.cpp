@@ -4857,7 +4857,7 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
         hr.m_Min = hr.m_Max + 1;
         hr.m_Max += params.m_MaturityStep;
 
-        AmountBig::Type valBig;
+        AmountBig::Number valBig;
         Rules::get_Emission(valBig, hr, value);
         if (AmountBig::get_Hi(valBig))
             throw std::runtime_error("too large");

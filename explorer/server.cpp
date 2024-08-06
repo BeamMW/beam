@@ -205,14 +205,13 @@ struct HtmlConverter
         return sRet.empty() ? s : sRet;
     }
 
-    static bool ReadAmount(const json& objV, Amount& val, AmountBig::Type& valBig, bool& bBig, char& chSign)
+    static bool ReadAmount(const json& objV, AmountBig::Number& res, char& chSign)
     {
         chSign = 0;
 
         if (objV.is_number())
         {
-            val = objV.get<int64_t>();
-            bBig = false;
+            res = objV.get<uint64_t>();
             return true;
         }
 
@@ -229,11 +228,8 @@ struct HtmlConverter
             sz++;
         }
 
-        // convert it. NOTE - this may be a BIG number, don't use std::stoll.
-        ReadUIntBig(valBig, sz);
-        bBig = true;
-
-        return true;
+        auto nLen = res.ScanDecimal(sz);
+        return !sz[nLen]; // must stop at 0-term
     }
 
     bool OnObjSpecial(const json& obj)
@@ -265,12 +261,10 @@ struct HtmlConverter
 
         if (sType == "amount")
         {
-            uint64_t val;
-            AmountBig::Type valBig;
+            AmountBig::Number valBig;
             char chSign;
-            bool bBig;
 
-            if (!ReadAmount(objV, val, valBig, bBig, chSign))
+            if (!ReadAmount(objV, valBig, chSign))
                 return false;
 
             const char* szClr = ('-' == chSign) ? "red" : ('+' == chSign) ? "green" : "blue";
@@ -279,10 +273,7 @@ struct HtmlConverter
             if (chSign)
                 m_os << chSign;
 
-            if (bBig)
-                AmountBig::Print(m_os, valBig, false);
-            else
-                AmountBig::Print(m_os, val, false);
+            AmountBig::Print(m_os, valBig, false);
 
             m_os << "</p2>";
 
@@ -364,46 +355,6 @@ struct HtmlConverter
 
 
         return false;
-    }
-
-    static void ReadUIntBig(AmountBig::Type& res, const char* sz)
-    {
-        res = Zero;
-
-        for (bool bFirstTime = true; ; )
-        {
-            uint32_t nAdd = 0;
-            uint32_t nMul = 1;
-
-            const uint32_t maxChars = 9u;
-            uint32_t iChar = 0;
-
-            for (; iChar < maxChars; iChar++)
-            {
-                uint8_t val = sz[iChar] - '0';
-                if (val > 9)
-                    break;
-
-                nAdd = nAdd * 10u + val;
-                nMul *= 10u;
-            }
-
-
-            if (!iChar)
-                break;
-
-            if (bFirstTime)
-                bFirstTime = false;
-            else
-                res = res * uintBigFrom(nMul);
-
-            res += uintBigFrom(nAdd);
-
-            if (iChar < maxChars)
-                break;
-            sz += maxChars;
-        }
-
     }
 
     static std::string SubstituteArg(const std::string& sUrl, const std::string& sKey_, const std::string& sVal)
@@ -583,22 +534,17 @@ void jsonExp(json& obj, uint32_t nDepth)
         const auto& sType = objT.get<std::string>();
         if (sType == "amount")
         {
-            uint64_t val;
-            AmountBig::Type valBig;
+            AmountBig::Number valBig;
             char chSign;
-            bool bBig;
 
-            if (!HtmlConverter::ReadAmount(objV, val, valBig, bBig, chSign))
+            if (!HtmlConverter::ReadAmount(objV, valBig, chSign))
                 return;
 
             std::ostringstream os;
             if (chSign)
                 os << chSign;
 
-            if (bBig)
-                AmountBig::Print(os, valBig, false);
-            else
-                AmountBig::Print(os, val, false);
+            AmountBig::Print(os, valBig, false);
 
             objV = os.str();
         }

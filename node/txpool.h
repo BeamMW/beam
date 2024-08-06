@@ -168,7 +168,7 @@ struct TxPool
 
 		~Stem() { Clear(); }
 
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Type& fees, Amount& feeReserve) = 0; // assuming context-free validation is already performed, but 
+		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Number& fees, Amount& feeReserve) = 0; // assuming context-free validation is already performed, but 
 		virtual void OnTimedOut(Element&) = 0;
 
 	private:

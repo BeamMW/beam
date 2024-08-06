@@ -125,6 +125,12 @@ namespace beam
 			_ToNum(x.get_Slice(), m_pData, nBytes);
 		}
 
+		Number ToNumber() const {
+			Number x;
+			ToNumber(x);
+			return x;
+		}
+
 		template <uint32_t nWords>
 		void FromNumber(const MultiWord::Number<nWords>& x) {
 			_FromNum(x.get_ConstSlice(), m_pData, nBytes);

@@ -461,7 +461,7 @@ namespace beam
 		s.m_Outputs++;
 
 		if (m_Coinbase && m_pPublic)
-			s.m_Coinbase += uintBigFrom(m_pPublic->m_Value);
+			s.m_Coinbase += MultiWord::From(m_pPublic->m_Value);
 	}
 
 #pragma pack (push, 1)
@@ -859,7 +859,7 @@ namespace beam
 	void TxKernel::AddStats(TxStats& s) const
 	{
 		s.m_Kernels++;
-		s.m_Fee += uintBigFrom(m_Fee);
+		s.m_Fee += MultiWord::From(m_Fee);
 
 		for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
 			(*it)->AddStats(s);
@@ -1856,28 +1856,25 @@ namespace beam
 	// AmountBig
 	namespace AmountBig
 	{
-		Amount get_Lo(const Type& x)
+		Amount get_Lo(const Number& x)
 		{
-			Amount res;
-			x.ExportWord<1>(res);
-			return res;
+			static_assert(sizeof(x) == sizeof(Amount) * 2);
+			return x.get_Element<Amount, 0>();
 		}
 
-		Amount get_Hi(const Type& x)
+		Amount get_Hi(const Number& x)
 		{
-			Amount res;
-			x.ExportWord<0>(res);
-			return res;
+			return x.get_Element<Amount, 1>();
 		}
 
-		void AddTo(ECC::Point::Native& res, const Type& x)
+		void AddTo(ECC::Point::Native& res, const Number& x)
 		{
 			ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 			if (get_Hi(x))
 			{
 				ECC::Scalar s;
-				s.m_Value = x;
+				s.m_Value.FromNumber(x);
 				res += ECC::Context::get().H_Big * s;
 			}
 			else
@@ -1888,128 +1885,107 @@ namespace beam
 			}
 		}
 
-		void AddTo(ECC::Point::Native& res, const Type& x, const ECC::Point::Native& hGen)
+		void AddTo(ECC::Point::Native& res, const Number& x, const ECC::Point::Native& hGen)
         {
             ECC::Mode::Scope scope(ECC::Mode::Fast);
             ECC::Scalar s;
-            s.m_Value = x;
+            s.m_Value.FromNumber(x);
 			res += hGen * s;
         }
 
-		namespace Text
+		uint32_t Text::Print(char* sz, const Number& x, bool bTrimGroths)
 		{
-			void PrintDigs(char* sz, uint32_t nDigs, Amount val)
-			{
-				for ( ; nDigs--; val /= 10)
-					sz[nDigs] = '0' + (val % 10);
-			}
+			auto out = MultiWord::Factorization::MakePrintOut<10>(sz, nLenMax);
+			x.DecomposeEx<10>(out, true);
+			return Expand(sz, out.m_pE, nLenMax - out.get_Reserve(), bTrimGroths);
+		}
 
-			void PrintPortion(std::ostream& os, Amount val, bool bFirst)
-			{
-				assert(val);
-
-				char szBuf[4];
-				PrintDigs(szBuf, _countof(szBuf) - 1, val);
-				szBuf[_countof(szBuf) - 1] = 0;
-
-				if (bFirst)
-				{
-					// trim leading zeroes
-					const char* sz = szBuf;
-					while ('0' == *sz)
-						sz++;
-
-					os << sz;
-				}
-				else
-					os << ',' << szBuf;
-			}
-
-			Amount SplitBy(const Type& val, uint32_t div, Type& valHi)
-			{
-				Type valResid;
-				valHi.SetDiv(val, uintBigFrom(div), valResid);
-
-				valResid.Negate();
-				valResid += val;
-
-				return get_Lo(valResid);
-			}
-
-			void PrintRec(std::ostream& os, Amount val)
-			{
-				Amount valNext = val / 1000;
-				if (valNext)
-				{
-					PrintRec(os, valNext);
-					PrintPortion(os, val, false);
-				}
-				else
-					PrintPortion(os, val, true);
-			}
-
-			void PrintRec(std::ostream& os, const Type& val)
-			{
-				if (get_Hi(val))
-				{
-					Type valHi;
-					Amount valLo = SplitBy(val, 1000000000ul, valHi);
-
-					PrintRec(os, valHi);
-					PrintPortion(os, valLo, false);
-
-				}
-				else
-					PrintRec(os, get_Lo(val));
-			}
-
-			void PrintGroths(std::ostream& os, Amount val, bool bTrim)
-			{
-				if (!val && bTrim)
-					return;
-
-				char szBuf[9];
-				PrintDigs(szBuf, _countof(szBuf) - 1, val);
-
-				uint32_t nLen = _countof(szBuf) - 1;
-				if (bTrim)
-				{
-					// trim trailing zeroes
-					while ('0' == szBuf[nLen - 1])
-						nLen--;
-				}
-
-				szBuf[nLen] = 0;
-				os << '.' << szBuf;
-			}
-
-
-		} // namespace Text
-
-		void Print(std::ostream& os, const Type& x, bool bTrim /* = true */)
+		uint32_t Text::Print(char* sz, Amount val, bool bTrimGroths)
 		{
-			if (get_Hi(x))
+			auto out = MultiWord::Factorization::MakePrintOut<10>(sz, nLenMax);
+			MultiWord::From(val).DecomposeEx<10>(out, true);
+			return Expand(sz, out.m_pE, nLenMax - out.get_Reserve(), bTrimGroths);
+		}
+
+		void ExpandGroths(char*& szPos, const char* szSrc, uint32_t nSrc, bool bTrim)
+		{
+			assert(nSrc <= Text::nGrothDigits);
+			uint32_t nZeroes = Text::nGrothDigits - nSrc;
+
+			if (bTrim)
 			{
-				Type val;
-				Amount groths = Text::SplitBy(x, (uint32_t) Rules::Coin, val);
-				Text::PrintRec(os, val);
-				Text::PrintGroths(os, groths, bTrim);
+				for (; ; nSrc--)
+				{
+					if (!nSrc)
+						return;
+					if ('0' != szSrc[nSrc - 1])
+						break;
+				}
+			}
+
+			*szPos++ = '.';
+			while (nZeroes--)
+				*szPos++ = '0';
+
+			memmove(szPos, szSrc, nSrc);
+			szPos += nSrc;
+		}
+
+		uint32_t Text::Expand(char* szDst, const char* szSrc, uint32_t nSrc, bool bTrimGroths)
+		{
+			assert(nSrc <= nLenUndecorated);
+			char* szPos = szDst;
+
+			if (nSrc > nGrothDigits)
+			{
+				uint32_t nDelta = nSrc - nGrothDigits;
+				szPos += ExpandGroups(szPos, szSrc, nDelta);
+
+				ExpandGroths(szPos, szSrc + nDelta, nGrothDigits, bTrimGroths);
 			}
 			else
-				Print(os, get_Lo(x), bTrim);
+			{
+				*szPos++ = '0';
+				ExpandGroths(szPos, szSrc, nSrc, bTrimGroths);
+			}
+
+			*szPos = 0;
+			return static_cast<uint32_t>(szPos - szDst);
+		}
+
+		uint32_t Text::ExpandGroups(char* szDst, const char* szSrc, uint32_t nSrc)
+		{
+			if (!nSrc)
+				return 0;
+
+			char* szPos = szDst;
+			while (true)
+			{
+				*szPos++ = *szSrc++;
+
+				if (!--nSrc)
+					break;
+				if (!(nSrc % 3))
+					*szPos++ = ',';
+			}
+
+			*szPos = 0;
+			return static_cast<uint32_t>(szPos - szDst);
+		}
+
+
+		void Print(std::ostream& os, const Number& x, bool bTrim /* = true */)
+		{
+			char sz[Text::nLenMax + 1];
+			Text::Print(sz, x, bTrim);
+			os << sz;
 		}
 
 		void Print(std::ostream& os, Amount x, bool bTrim /* = true */)
 		{
-			Amount groths = x % Rules::Coin;
-			x /= Rules::Coin;
-
-			if (x)
-				Text::PrintRec(os, x);
-			else
-				os << '0';
-
-			Text::PrintGroths(os, groths, bTrim);
+			char sz[Text::nLenMax + 1];
+			Text::Print(sz, x, bTrim);
+			os << sz;
 		}
 
 	} // namespace AmountBig
@@ -2224,12 +2200,12 @@ namespace beam
 		return get().get_EmissionEx(h, h, get().Emission.Value0);
 	}
 
-	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr)
+	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr)
 	{
 		get_Emission(res, hr, get().Emission.Value0);
 	}
 
-	void Rules::get_Emission(AmountBig::Type& res, const HeightRange& hr, Amount base)
+	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr, Amount base)
 	{
 		res = Zero;
 
@@ -2247,11 +2223,11 @@ namespace beam
 
 			if (hr.m_Max < hEnd)
 			{
-				res += uintBigFrom(nCurrent) * uintBigFrom(hr.m_Max - hPos + 1);
+				res += MultiWord::From(nCurrent) * MultiWord::From(hr.m_Max - hPos + 1);
 				break;
 			}
 
-			res += uintBigFrom(nCurrent) * uintBigFrom(hEnd - hPos);
+			res += MultiWord::From(nCurrent) * MultiWord::From(hEnd - hPos);
 			hPos = hEnd;
 		}
 	}
@@ -3643,14 +3619,14 @@ namespace beam
 		if (!val)
 			return;
 
-		AmountBig::Type valBig(val);
+		AmountBig::Number valBig(val);
 		if (bSpend)
-			valBig.Negate();
+			valBig = -valBig;
 
 		Add(valBig, aid);
 	}
 
-	void FundsChangeMap::Add(const AmountBig::Type& valBig, Asset::ID aid)
+	void FundsChangeMap::Add(const AmountBig::Number& valBig, Asset::ID aid)
 	{
 		assert(valBig != Zero);
 
@@ -3698,12 +3674,11 @@ namespace beam
 				auto bNegative = valBig.get_Msb();
 				if (bNegative)
 				{
-					AmountBig::Type dup(valBig);
-					dup.Negate();
-					s.m_Value = dup;
+					AmountBig::Number dup = -valBig;
+					s.m_Value.FromNumber(dup);
 				}
 				else
-					s.m_Value = valBig;
+					s.m_Value.FromNumber(valBig);
 
 				pK->Import(s);
 				if (bNegative)

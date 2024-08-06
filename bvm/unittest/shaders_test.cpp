@@ -1602,13 +1602,19 @@ namespace bvm2 {
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
 
 				if (sizeof(AmountBig::Type) == b.n)
-					valCol = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
+				{
+					auto val = ((const uintBig_t<AmountBig::Number::nSize>*) b.p)->ToNumber();
+					valCol = AmountBig::get_Lo(val);
+				}
 
 				key.m_KeyInContract = g.m_Aid;
 				m_Proc.LoadVar(Blob(&key, sizeof(key)), b);
 
 				if (sizeof(AmountBig::Type) == b.n)
-					valTok = AmountBig::get_Lo(*((AmountBig::Type*)b.p));
+				{
+					auto val = ((const uintBig_t<AmountBig::Number::nSize>*) b.p)->ToNumber();
+					valTok = AmountBig::get_Lo(val);
+				}
 
 				std::cout << "Dao-vault , Col=" << Val2Num(valCol) << ", Tok=" << Val2Num(valTok) << std::endl;
 			}

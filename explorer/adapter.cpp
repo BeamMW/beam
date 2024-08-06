@@ -265,7 +265,7 @@ private:
 #pragma pack (push, 1)
     struct Totals
     {
-        AmountBig::Type m_Fee;
+        AmountBig::Number m_Fee;
 
         struct CountAndSize
         {
@@ -320,7 +320,7 @@ private:
 
                 bool OnKrn(const TxKernel& krn) override
                 {
-                    m_Totals.m_Fee += AmountBig::Type(krn.m_Fee);
+                    m_Totals.m_Fee += AmountBig::Number(krn.m_Fee);
 
                     switch (krn.get_Subtype())
                     {
@@ -860,32 +860,29 @@ private:
         return MakeObjAmount_T(x);
     }
 
-    static json MakeObjAmount(const AmountBig::Type& x)
+    static json MakeObjAmount(const AmountBig::Number& x)
     {
         if (!AmountBig::get_Hi(x))
             return MakeObjAmount(AmountBig::get_Lo(x));
 
-        char sz[AmountBig::Type::nTxtLen10Max + 1];
+        char sz[AmountBig::Number::nTxtLen10Max + 1];
         x.PrintDecimal(sz);
 
         return MakeObjAmount_T(sz);
     }
 
-    static json MakeObjAmountS(AmountBig::Type x)
+    static json MakeObjAmountS(AmountBig::Number x)
     {
-        char sz[AmountBig::Type::nTxtLen10Max + 2];
+        char sz[AmountBig::Number::nTxtLen10Max + 2];
         if (x.get_Msb())
         {
-            x.Negate();
+            x = -x;
             sz[0] = '-';
         }
         else
             sz[0] = '+';
 
-        if (AmountBig::get_Hi(x))
-            x.PrintDecimal(sz + 1);
-        else
-            uintBigFrom(AmountBig::get_Lo(x)).PrintDecimal(sz + 1); // awkward, but ok
+        x.PrintDecimal(sz + 1);
 
         return MakeObjAmount_T(sz);
     }
@@ -934,7 +931,7 @@ private:
             {
                 auto val = it->second;
                 if (!bAdd)
-                    val.Negate();
+                    val = -val;
                 dst.Add(val, it->first);
             }
         }
@@ -978,7 +975,7 @@ private:
                 m_json["aid"] = aid;
             }
 
-            void AddValBig(const char* szName, const AmountBig::Type& x)
+            void AddValBig(const char* szName, const AmountBig::Number& x)
             {
                 if (!AmountBig::get_Hi(x))
                 {
@@ -990,7 +987,7 @@ private:
                 }
                 else
                 {
-                    char sz[AmountBig::Type::nTxtLen10Max + 1];
+                    char sz[AmountBig::Number::nTxtLen10Max + 1];
                     x.PrintDecimal(sz);
 
                     if (szName)
@@ -1143,8 +1140,7 @@ private:
 
                     for (auto it = info.m_FundsIO.m_Map.begin(); info.m_FundsIO.m_Map.end() != it; it++)
                     {
-                        auto val = it->second;
-                        val.Negate();
+                        auto val = -it->second;
 
                         json jEntry = json::array();
                         jEntry.push_back(MakeObjAid(it->first));
@@ -1165,8 +1161,7 @@ private:
 
                     for (auto it = info.m_Emission.m_Map.begin(); info.m_Emission.m_Map.end() != it; it++)
                     {
-                        auto val = it->second;
-                        val.Negate();
+                        auto val = -it->second;
 
                         json jEntry = json::array();
                         jEntry.push_back(MakeObjAid(it->first));
@@ -1495,7 +1490,7 @@ private:
 
             json jEntry = json::array();
             jEntry.push_back(MakeObjAid(aid));
-            jEntry.push_back(MakeObjAmount(*reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p)));
+            jEntry.push_back(MakeObjAmount(reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p)->ToNumber()));
 
             jArr.push_back(std::move(jEntry));
         }
@@ -2020,18 +2015,18 @@ private:
             case Type::Emit:
                 {
                     auto& evt = Cast::Up<AssetHistoryWalker::Event_Emit>(x);
-                    AmountBig::Type delta = evt.m_Adp.m_Amount;
+                    auto delta = evt.m_Adp.m_Amount.ToNumber();
 
                     if ((wlk.m_Lst.end() != it) && (it->get_Type() == Type::Emit))
                     {
-                        AmountBig::Type v0 = Cast::Up<AssetHistoryWalker::Event_Emit>(*it).m_Adp.m_Amount;
-                        v0.Negate();
-                        delta += v0;
+                        auto v0 = Cast::Up<AssetHistoryWalker::Event_Emit>(*it).m_Adp.m_Amount.ToNumber();
+                        delta -= v0;
                     }
 
                     wrItem.m_json.push_back(delta.get_Msb() ? "Burn" : "Mint");
                     wrItem.m_json.push_back(MakeObjAmountS(delta)); // handles negative sign
-                    wrItem.m_json.push_back(MakeObjAmount(evt.m_Adp.m_Amount));
+                    auto val = evt.m_Adp.m_Amount.ToNumber();
+                    wrItem.m_json.push_back(MakeObjAmount(val));
                     wrItem.m_json.push_back("");
                 }
                 break;
@@ -2194,12 +2189,7 @@ private:
         void OnName_Fee_Abs() { m_json.push_back(MakeTableHdr("T.Fee")); }
         void OnName_Fee_Rel() { m_json.push_back(MakeTableHdr("Fee")); }
         void OnData_Fee_Abs() { m_json.push_back(MakeObjAmount(m_pThis->m_Totals.m_Fee)); }
-        void OnData_Fee_Rel() {
-            auto val = m_pPrev->m_Totals.m_Fee;
-            val.Negate();
-            val += m_pThis->m_Totals.m_Fee;
-            m_json.push_back(MakeObjAmount(val));
-        }
+        void OnData_Fee_Rel() { m_json.push_back(MakeObjAmount(m_pThis->m_Totals.m_Fee - m_pPrev->m_Totals.m_Fee)); }
 
         void OnName_Kernels_Abs() { m_json.push_back(MakeTableHdr("T.Txs")); }
         void OnName_Kernels_Rel() { m_json.push_back(MakeTableHdr("Txs")); }
@@ -2384,7 +2374,7 @@ private:
         jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz });
         jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
 
-        AmountBig::Type valCurrent, valTotal;
+        AmountBig::Number valCurrent, valTotal;
         Rules::get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
         jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
@@ -2414,8 +2404,8 @@ private:
             jInfo.push_back({ MakeTableHdr("Treasury Released"), MakeObjAmount(valTresCurrent) });
             jInfo.push_back({ MakeTableHdr("Treasury Total"), MakeObjAmount(valTresTotal) });
 
-            valTotal += uintBigFrom(valTresTotal);
-            valCurrent += uintBigFrom(valTresCurrent);
+            valTotal += MultiWord::From(valTresTotal);
+            valCurrent += MultiWord::From(valTresCurrent);
 
             if (pPrev)
                 jInfo.push_back({ MakeTableHdr("Treasury Prev release"), MakeObjHeight(pPrev->m_Key) });
@@ -2548,9 +2538,9 @@ private:
                 jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
 
                 struct FeeCalculator :public TxKernel::IWalker {
-                    AmountBig::Type m_Fees = Zero;
+                    AmountBig::Number m_Fees = Zero;
                     bool OnKrn(const TxKernel& krn) override {
-                        m_Fees +=  uintBigFrom(krn.m_Fee);
+                        m_Fees += MultiWord::From(krn.m_Fee);
                         return true;
                     }
                 } fc;

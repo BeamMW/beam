@@ -24,6 +24,9 @@ namespace beam {
 	// Syntactic sugar!
 	enum Zero_ { Zero };
 
+	template <uint32_t nBytes>
+	struct uintBig_t;
+
 namespace NumericUtils
 {
 	template <typename T>
@@ -897,6 +900,13 @@ namespace MultiWord {
 			return *this;
 		}
 
+		template <uint32_t nBytes>
+		Number& operator = (const uintBig_t<nBytes>& a)
+		{
+			a.ToNumber(*this);
+			return *this;
+		}
+
 		template <uint32_t wa>
 		int cmp(const Number<wa>& a) const
 		{
@@ -1097,7 +1107,7 @@ namespace MultiWord {
 
 		uint32_t PrintDecimal(char* sz, uint32_t len = nTxtLen10Max, bool bTrim = true, bool bZTerm = true) const
 		{
-			return Print<10>(len, bTrim, bZTerm);
+			return Print<10>(sz, len, bTrim, bZTerm);
 		}
 
 		uint32_t ScanDecimal(const char* sz, uint32_t len = nTxtLen10Max)

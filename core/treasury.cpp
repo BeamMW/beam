@@ -147,10 +147,10 @@ namespace beam
 		}
 	};
 
-	void Treasury::Request::Group::AddSubsidy(AmountBig::Type& res) const
+	void Treasury::Request::Group::AddSubsidy(AmountBig::Number& res) const
 	{
 		for (size_t i = 0; i < m_vCoins.size(); i++)
-			res += uintBigFrom(m_vCoins[i].m_Value);
+			res += MultiWord::From(m_vCoins[i].m_Value);
 	}
 
 	void Treasury::Response::Group::Coin::get_SigMsg(Hash::Value& hv) const
@@ -383,7 +383,7 @@ namespace beam
 			hr.m_Min = hr.m_Max + 1;
 			hr.m_Max += pars.m_MaturityStep;
 
-			AmountBig::Type valBig;
+			AmountBig::Number valBig;
 			Rules::get_Emission(valBig, hr, nPerBlockAvg);
 			if (AmountBig::get_Hi(valBig))
 				throw std::runtime_error("too large");
