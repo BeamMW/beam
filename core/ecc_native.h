@@ -601,6 +601,14 @@ namespace ECC
 		void Write(const char(&sz)[n]) { Write(sz, n); }
 		void Write(const std::string& str) { Write(str.c_str(), static_cast<uint32_t>(str.size() + 1)); }
 
+		template <uint32_t nWords>
+		void Write(const beam::MultiWord::Number<nWords>& x)
+		{
+			beam::uintBig_t<x.nSize> val;
+			val.FromNumber(x);
+			Write(val);
+		}
+
 		template <typename T>
 		void Write(T v)
 		{

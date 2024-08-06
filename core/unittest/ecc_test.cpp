@@ -229,14 +229,18 @@ void TestUintBig()
 
 		for (uint32_t pwr = 0; pwr < 60; pwr++)
 		{
-			zz.Power(beam::MultiWord::From(29u), pwr);
+			if (pwr == 17)
+				zz = Zero; // test zero-print/scan too
+			else
+				zz.Power(beam::MultiWord::From(29u), pwr);
 
+			// print full
 			char szBuf1[nTxtLen + 1];
-			zz.Decompose(beam::MultiWord::Factorization::MakePrintOut<myRadix>(szBuf1, nTxtLen), myRadix);
+			zz.Decompose(beam::MultiWord::Factorization::MakePrintOut<myRadix>(szBuf1, nTxtLen), myRadix, false);
 			szBuf1[_countof(szBuf1) - 1] = 0;
 
 			char szBuf2[nTxtLen + 1];
-			zz.Print<myRadix>(szBuf2);
+			zz.Print<myRadix>(szBuf2, nTxtLen, false);
 
 			verify_test(!memcmp(szBuf1, szBuf2, nTxtLen));
 
@@ -244,6 +248,12 @@ void TestUintBig()
 			zz2.Compose(beam::MultiWord::Factorization::MakeScanIn<myRadix>(szBuf1, nTxtLen), myRadix);
 			verify_test(zz == zz2);
 
+			zz2.get_Slice().SetMax();
+			zz2.Scan<myRadix>(szBuf1);
+			verify_test(zz == zz2);
+
+			// print trimmed
+			zz.Print<myRadix>(szBuf2);
 			zz2.get_Slice().SetMax();
 			zz2.Scan<myRadix>(szBuf1);
 			verify_test(zz == zz2);
@@ -1790,14 +1800,8 @@ void TestFourCC()
 template <uint32_t nTxtSize>
 void TestBase58_Once(const char(&szTxt)[nTxtSize], const char* szVerify)
 {
-	auto sTxt = beam::Base58::to_string<nTxtSize - 1>(reinterpret_cast<const uint8_t*>(szTxt));
-
-	// trim potential leading '1'
-	uint32_t nTrim = 0;
-	while (nTrim < sTxt.size() && ('1' == sTxt[nTrim]))
-		nTrim++;
-
-	verify_test(!memcmp(sTxt.c_str() + nTrim, szVerify, sTxt.size() - nTrim + 1));
+	auto sTxt = beam::Base58::to_string<nTxtSize - 1>(reinterpret_cast<const uint8_t*>(szTxt), true);
+	verify_test(sTxt == szVerify);
 
 	// decode
 	uint8_t pDec[nTxtSize - 1];

@@ -317,7 +317,7 @@ namespace MultiWord {
 		DWord Mul(Word) const; // returns carry
 		void Power(ConstSlice, uint32_t n, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const; // both buffers must be of current slice size
 
-		Word SetDiv(Word div); // returns resid, trims itself
+		Word SetDivTrim(Word div); // returns resid, trims itself
 
 	private:
 
@@ -430,6 +430,12 @@ namespace MultiWord {
 			return get_MaxLen(aRadix, aLen, bRadix, pBuf);
 		}
 
+		template <uint32_t aLen, uint32_t aRadix, uint32_t bRadix>
+		struct Decomposed
+		{
+			static const uint32_t nMaxLen = get_MaxLen<aLen>(aRadix, bRadix);
+		};
+
 		template <typename T>
 		struct DefaultOut {
 			T* m_pB;
@@ -438,6 +444,13 @@ namespace MultiWord {
 			bool IsDone() const { return m_pB == m_pE; }
 			void PushBackInternal(T val) { *(--m_pE) = val;  }
 			void PushBack(Word w) { PushBackInternal(static_cast<T>(w)); }
+			uint32_t get_Reserve() const { return static_cast<uint32_t>(m_pE - m_pB); }
+
+			void MoveHead(uint32_t n)
+			{
+				static_assert(std::is_integral_v<T>);
+				memmove(m_pB, m_pE, sizeof(T) * n);
+			}
 		};
 
 		template <typename T>
@@ -457,6 +470,7 @@ namespace MultiWord {
 				w = *m_pB++;
 				return true;
 			}
+			uint32_t get_Reserve() const { return static_cast<uint32_t>(m_pE - m_pB); }
 		};
 
 		template <typename T>
@@ -514,6 +528,29 @@ namespace MultiWord {
 				static_assert(radix <= 0x10, "");
 				PushBackInternal(To(w));
 			}
+
+			uint32_t Finalize(uint32_t len, bool bZTerm)
+			{
+				uint32_t nTrim = get_Reserve();
+				if ((nTrim == len) && len)
+				{
+					// empty. Emit at least 1 zero character
+					PushBack(0);
+					nTrim--;
+				}
+
+				if (nTrim)
+				{
+					len -= nTrim;
+					MoveHead(len);
+				}
+
+				if (bZTerm)
+					m_pB[len] = 0;
+
+				return len;
+			}
+
 		};
 
 		template <uint32_t radix>
@@ -547,46 +584,110 @@ namespace MultiWord {
 		struct Decomposer
 		{
 			Slice m_s;
+			bool m_FillPadding = true;
 
 			template <typename TOut>
 			void Process(TOut&& out, Word radix)
 			{
 				assert(radix > 1);
-
-				while (!out.IsDone())
-					out.PushBack(m_s.SetDiv(radix));
+				m_s.Trim();
+				Process_N(out, radix);
 			}
 
 			template <Word radix, typename TOut>
 			void Process_T(TOut&& out)
 			{
 				static_assert(radix > 1, "");
+				m_s.Trim();
 
 				const uint32_t nPwr = NumericUtils::LogOf<static_cast<Word>(-1), radix>::N;
 				static_assert(nPwr >= 1, "");
 
 				if constexpr (nPwr == 1)
-					Process(out, radix); // already saturated
+					Process_N(out, radix); // already saturated
 				else
 				{
 					// raise the radix to power. Factorize according to it, would be less divisions
 					const Word radixBig = static_cast<Word>(NumericUtils::PowerOf<radix, nPwr>::N);
-
-					while (!out.IsDone())
-					{
-						Word val = m_s.SetDiv(radixBig);
-
-						for (uint32_t nPortion = nPwr; --nPortion; val /= radix)
-						{
-							out.PushBack(val % radix);
-							if (out.IsDone())
-								return;
-						}
-
-						out.PushBack(val);
-					}
+					Process_N_Big(out, radix, radixBig, nPwr);
 				}
 			}
+
+		private:
+
+			template <typename TOut>
+			void Process_N_Big(TOut&& out, Word radix, Word radixBig, uint32_t nPwr)
+			{
+				while (m_s.m_n > 1)
+				{
+					if (out.IsDone())
+						return;
+
+					Word w = m_s.SetDivTrim(radixBig);
+
+					for (uint32_t nPortion = nPwr; --nPortion; )
+					{
+						PushMod(out, w, radix);
+						if (out.IsDone())
+							return;
+					}
+
+					out.PushBack(w);
+
+				}
+
+				Process_1(out, radix);
+			}
+
+			template <typename TOut>
+			void Process_N(TOut&& out, Word radix)
+			{
+				while (m_s.m_n > 1)
+				{
+					if (out.IsDone())
+						return;
+					out.PushBack(m_s.SetDivTrim(radix));
+				}
+
+				Process_1(out, radix);
+			}
+
+			template <typename TOut>
+			void PushMod(TOut&& out, Word& w, Word radix)
+			{
+				out.PushBack(w % radix);
+				w /= radix;
+			}
+
+			template <typename TOut>
+			void Process_1(TOut&& out, Word radix)
+			{
+				assert(m_s.m_n <= 1);
+				if (m_s.m_n)
+				{
+					for (Word w = m_s.m_p[0]; ; )
+					{
+						if (out.IsDone())
+							return;
+
+						assert(w);
+						if (w < radix)
+						{
+							out.PushBack(w);
+							break;
+						}
+
+						PushMod(out, w, radix);
+					}
+				}
+
+				if (m_FillPadding)
+				{
+					while (!out.IsDone())
+						out.PushBack(static_cast<Word>(0));
+				}
+			}
+
 		};
 
 		struct Composer
@@ -913,6 +1014,11 @@ namespace MultiWord {
 			return Factorization::get_MaxLen<nWords * 2>(1u << (nWordBits / 2), radix);
 		}
 
+		template <uint32_t radix>
+		struct Decomposed {
+			static const uint32_t nMaxLen = get_Decomposed_MaxLen(radix);
+		};
+
 		struct DecomposeCtx
 			:public Factorization::Decomposer
 		{
@@ -930,16 +1036,18 @@ namespace MultiWord {
 		};
 
 		template <typename TOut>
-		void Decompose(TOut&& out, Word radix) const
+		void Decompose(TOut&& out, Word radix, bool bTrim = true) const
 		{
 			DecomposeCtx ctx(*this);
+			ctx.m_FillPadding = !bTrim;
 			ctx.Process(out, radix);
 		}
 
 		template <Word radix, typename TOut>
-		void DecomposeEx(TOut&& out) const
+		void DecomposeEx(TOut&& out, bool bTrim = true) const
 		{
 			DecomposeCtx ctx(*this);
+			ctx.m_FillPadding = !bTrim;
 			ctx.Process_T<radix>(out);
 		}
 
@@ -969,23 +1077,35 @@ namespace MultiWord {
 		}
 
 		template <uint32_t radix>
-		void Print(char* sz, uint32_t len = get_Decomposed_MaxLen(radix), bool bZTerm = true)
+		uint32_t Print(char* sz, uint32_t len = Decomposed<radix>::nMaxLen, bool bTrim = true, bool bZTerm = true) const
 		{
-			DecomposeEx<radix>(Factorization::MakePrintOut<radix>(sz, len));
-			if (bZTerm)
-				sz[len] = 0;
+			auto out = Factorization::MakePrintOut<radix>(sz, len);
+			DecomposeEx<radix>(out, bTrim);
+
+			return out.Finalize(len, bZTerm);
 		}
 
 		template <uint32_t radix>
-		uint32_t Scan(const char* sz, uint32_t len = get_Decomposed_MaxLen(radix))
+		uint32_t Scan(const char* sz, uint32_t len = Decomposed<radix>::nMaxLen)
 		{
 			auto in = Factorization::MakeScanIn<radix>(sz, len);
 			ComposeEx<radix>(in);
 			return static_cast<uint32_t>(in.m_pB - sz);
 		}
 
+		static const uint32_t nTxtLen10Max = Decomposed<10>::nMaxLen;
 
-		static const uint32_t s_TextLen10 = get_Decomposed_MaxLen(10);
+		uint32_t PrintDecimal(char* sz, uint32_t len = nTxtLen10Max, bool bTrim = true, bool bZTerm = true) const
+		{
+			return Print<10>(len, bTrim, bZTerm);
+		}
+
+		uint32_t ScanDecimal(const char* sz, uint32_t len = nTxtLen10Max)
+		{
+			auto in = Factorization::MakeScanIn<10>(sz, len);
+			ComposeEx<10>(in);
+			return static_cast<uint32_t>(in.m_pB - sz);
+		}
 	};
 
 	template <uint32_t nBytes>

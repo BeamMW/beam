@@ -67,13 +67,11 @@ namespace beam {
 
     } // namespace Base58Impl
 
-    void Base58::EncodeEx(char* szEnc, uint32_t nEnc, const uint8_t* p, uint32_t n, MultiWord::Slice sBuf)
+    uint32_t Base58::EncodeEx(char* szEnc, uint32_t nEnc, const uint8_t* p, uint32_t n, bool bTrim, MultiWord::Slice sBuf)
     {
-        uintBigImpl::_ToNum(sBuf, p, n);
-        sBuf.Trim();
-
         MultiWord::Factorization::Decomposer ctx;
         ctx.m_s = sBuf;
+        uintBigImpl::_ToNum(ctx.m_s, p, n);
 
         struct MyOut
             :public MultiWord::Factorization::DefaultOut<char>
@@ -88,7 +86,17 @@ namespace beam {
         out.m_pB = szEnc;
         out.m_pE = szEnc + nEnc;
 
+        ctx.m_FillPadding = !bTrim;
         ctx.Process_T<s_Radix>(out);
+
+        uint32_t nReserve = out.get_Reserve();
+        if (nReserve)
+        {
+            nEnc -= nReserve;
+            out.MoveHead(nEnc);
+        }
+
+        return nEnc;
     }
 
     uint32_t Base58::DecodeEx(uint8_t* p, uint32_t n, const char* szEnc, uint32_t nEnc, MultiWord::Slice sBuf)

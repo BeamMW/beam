@@ -564,7 +564,7 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __re
 		Copy(sRes.get_Const());
 }
 
-Word Slice::SetDiv(Word div)
+Word Slice::SetDivTrim(Word div)
 {
 	if (!div)
 	{
@@ -572,7 +572,6 @@ Word Slice::SetDiv(Word div)
 		return 0;
 	}
 
-	Trim();
 	if (!m_n)
 		return 0;
 
