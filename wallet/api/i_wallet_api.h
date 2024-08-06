@@ -105,7 +105,7 @@ namespace beam::wallet
 
         struct MethodInfo
         {
-            typedef std::map<beam::Asset::ID, beam::AmountBig::Type> Funds;
+            typedef std::map<beam::Asset::ID, beam::AmountBig::Number> Funds;
 
             Funds spend;
             Funds receive;
@@ -117,7 +117,7 @@ namespace beam::wallet
             boost::optional<std::string> confirm_comment;
             boost::optional<std::string> token;
 
-            inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Type& val)
+            inline void appendReceive(beam::Asset::ID id, const beam::AmountBig::Number& val)
             {
                 if (receive.find(id) == receive.end())
                 {
@@ -129,7 +129,7 @@ namespace beam::wallet
                 }
             }
 
-            inline void appendSpend(beam::Asset::ID id, const beam::AmountBig::Type& val)
+            inline void appendSpend(beam::Asset::ID id, const beam::AmountBig::Number& val)
             {
                 if (spend.find(id) == spend.end())
                 {

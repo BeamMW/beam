@@ -257,7 +257,7 @@ namespace beam::wallet {
 
         const auto currHeight = wdb.getCurrentHeight();
         HeightRange hrange = getRange(*this);
-        if (m_Value > AmountBig::Type(0U))
+        if (m_Value != Zero)
         {
             wdb.visitCoins([&](const Coin& coin) -> bool {
                 if (coin.m_ID.m_AssetID != m_ID) return true;

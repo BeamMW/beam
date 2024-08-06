@@ -632,7 +632,7 @@ namespace beam::wallet
         split.assetId = readOptionalAssetID(*this, params);
 
         const json coins = getMandatoryParam<NonEmptyJsonArray>(params, "coins");
-        beam::AmountBig::Type splitAmount = 0UL;
+        beam::AmountBig::Number splitAmount = Zero;
 
         for (const auto& amount: coins)
         {
@@ -648,7 +648,7 @@ namespace beam::wallet
             }
 
             split.coins.push_back(uamount);
-            splitAmount += beam::AmountBig::Type(uamount);
+            splitAmount += beam::AmountBig::Number(uamount);
         }
 
         auto& fs = Transaction::FeeSettings::get(get_TipHeight());
@@ -945,12 +945,12 @@ namespace beam::wallet
             if (spend.second < 0)
             {
                 Amount amount = std::abs(spend.second);
-                info.appendReceive(spend.first, beam::AmountBig::Type(amount));
+                info.appendReceive(spend.first, beam::AmountBig::Number(amount));
             }
             else
             {
                 Amount amount = spend.second;
-                info.appendSpend(spend.first, beam::AmountBig::Type(amount));
+                info.appendSpend(spend.first, beam::AmountBig::Number(amount));
             }
         }
 

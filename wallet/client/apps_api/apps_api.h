@@ -364,10 +364,10 @@ namespace beam::wallet
                     {"spend",   true}
                 });
 
-                beam::AmountBig::Type totalAmount = amount;
+                beam::AmountBig::Number totalAmount = amount;
                 if (assetId == beam::Asset::s_BeamID)
                 {
-                    totalAmount += beam::AmountBig::Type(parse.minfo.fee);
+                    totalAmount += beam::MultiWord::From(parse.minfo.fee);
                 }
                 isEnough = isEnough && (totalAmount <= getClinet()->getAvailable(assetId));
             }
