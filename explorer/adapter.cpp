@@ -249,9 +249,16 @@ private:
         _quote.data += 3;
     }
 
+    static const uint64_t s_TotalsVer = 1;
+
     void Initialize() override
     {
-        EnsureHaveCumulativeStats();
+        auto& db = _node.get_Processor().get_DB();
+
+        auto nVer = db.ParamIntGetDef(NodeDB::ParamID::TreasuryTotals);
+        bool bForceReset = (s_TotalsVer != nVer);
+
+        EnsureHaveCumulativeStats(bForceReset);
     }
 
     /// Returns body for /status request
@@ -382,9 +389,12 @@ private:
         auto& db = _node.get_Processor().get_DB();
 
         Blob blob(&ret, sizeof(ret));
-        if (db.ParamGet(NodeDB::ParamID::TreasuryTotals, nullptr, &blob, nullptr))
-            return;
+        if (!db.ParamGet(NodeDB::ParamID::TreasuryTotals, nullptr, &blob, nullptr))
+            CalculateTreasuryTotals(ret);
+    }
 
+    void CalculateTreasuryTotals(Totals& ret)
+    {
         ZeroObject(ret);
 
         if (Rules::get().TreasuryChecksum == Zero)
@@ -400,7 +410,8 @@ private:
             ret.OnHiLevelKrnls(tg.m_Data.m_vKernels);
         }
 
-        db.ParamSet(NodeDB::ParamID::TreasuryTotals, nullptr, &blob);
+        Blob blob(&ret, sizeof(ret));
+        _node.get_Processor().get_DB().ParamSet(NodeDB::ParamID::TreasuryTotals, &s_TotalsVer, &blob);
     }
 
     void OnTotalsTxo(Totals::CountAndSize& dst, NodeDB::WalkerTxo& wlk)
@@ -417,7 +428,7 @@ private:
             get_TreasuryTotals(sd.m_Totals);
     }
 
-    void EnsureHaveCumulativeStats()
+    void EnsureHaveCumulativeStats(bool bForceReset = false)
     {
         auto& proc = _node.get_Processor();
         auto& db = proc.get_DB();
@@ -436,15 +447,18 @@ private:
 
         for (uint64_t row = proc.m_Cursor.m_Sid.m_Row; ; )
         {
-            uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
-            if (nSize >= sizeof(sd))
+            if (!bForceReset)
             {
-                if (!lst.empty())
-                    txos = db.get_StateTxos(row);
-                break;
-            }
+                uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
+                if (nSize >= sizeof(sd))
+                {
+                    if (!lst.empty())
+                        txos = db.get_StateTxos(row);
+                    break;
+                }
 
-            assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
+                assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
+            }
 
             lst.emplace_back();
             lst.back().first = row;
@@ -452,7 +466,10 @@ private:
 
             if (!db.get_Prev(row))
             {
-                get_TreasuryTotals(sd.m_Totals);
+                if (bForceReset)
+                    CalculateTreasuryTotals(sd.m_Totals);
+                else
+                    get_TreasuryTotals(sd.m_Totals);
                 break;
             }
 
