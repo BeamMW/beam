@@ -365,7 +365,21 @@ void Slice::SetDivResid(Slice resid, ConstSlice div, Word* __restrict__ pBufResi
 	// the result is truncated is this obj is too short, yet resid will be correct
 
 	div.Trim();
-	if (div.m_n)
+	if (!div.m_n)
+	{
+		SetMax();
+		return;
+	}
+
+	resid.Trim();
+	if (resid.m_n < div.m_n)
+	{
+		Set0();
+		return;
+	}
+
+	// div should be normalized, unless it's only 1 word
+	if (div.m_n > 1)
 	{
 		uint32_t nz = NumericUtils::clz(div.m_p[0]);
 		assert(nz < nWordBits);
@@ -386,97 +400,92 @@ void Slice::SetDivResid(Slice resid, ConstSlice div, Word* __restrict__ pBufResi
 			SetDivResidNormalized(resid2, div2.get_Const());
 
 			resid.RShiftNormalized_nnz(nz, resid2.get_Const());
+			return;
 		}
-		else
-			SetDivResidNormalized(resid, div);
 	}
-	else
-		SetMax();
+
+	SetDivResidNormalized(resid, div);
 }
 
 void Slice::SetDivResidNormalized(Slice resid, ConstSlice div) const
 {
-	// divisor is normalized, i.e. msb is set
-	if (resid.m_n < div.m_n)
-		Set0();
-	else
+	assert(div.m_n && div.m_p[0]);
+	assert(resid.m_n >= div.m_n);
+
+	uint32_t nResMax = resid.m_n - div.m_n + 1;
+
+	if (m_n > nResMax)
+		get_Head(m_n - nResMax).Set0();
+
+	Word hiDenom = div.m_p[0];
+	Word hiNom = 0;
+	DWord nom = resid.m_p[0];
+
+	resid.m_n = div.m_n;
+
+	for (uint32_t i = 0; ; )
 	{
-		uint32_t nResMax = resid.m_n - div.m_n + 1;
+		// init-guess
+		Word res = static_cast<Word>(nom / hiDenom);
+		//
+		// the actual result is within: Nom/(hiDenom+1) < guess < (Nom+1)/hiDenom
+		//
+		// since denom is normalized (msb is set), the result is actually limited within: (guess-2) <= res <= guess
 
-		if (m_n > nResMax)
-			get_Head(m_n - nResMax).Set0();
-
-		Word hiDenom = div.m_p[0];
-		Word hiNom = 0;
-		DWord nom = resid.m_p[0];
-
-		resid.m_n = div.m_n;
-
-		for (uint32_t i = 0; ; )
+		if (!res)
 		{
-			// init-guess
-			Word res = static_cast<Word>(nom / hiDenom);
-			//
-			// the actual result is within: Nom/(hiDenom+1) < guess < (Nom+1)/hiDenom
-			//
-			// since denom is normalized (msb is set), the result is actually limited within: (guess-2) <= res <= guess
-
-			if (!res)
+			// could be overflow
+			if (hiNom)
 			{
-				// could be overflow
-				if (hiNom)
-				{
-					assert(hiNom == hiDenom);
-					res = static_cast<Word>(-1);
-				}
+				assert(hiNom == hiDenom);
+				res = static_cast<Word>(-1);
 			}
+		}
 
-			if (res)
+		if (res)
+		{
+			// multiply & subtract
+			DWord carry = 0;
+			resid.AddOrSub_Mul_Once<false>(div, res, carry);
+
+			if (carry)
 			{
-				// multiply & subtract
-				DWord carry = 0;
-				resid.AddOrSub_Mul_Once<false>(div, res, carry);
+				// overflow
+				res--;
+				carry = 0;
+				resid.AddOrSub<true, true>(div, carry);
 
-				if (carry)
+				if (!carry)
 				{
-					// overflow
+					// overflow (back) wasn't reached. Do it again
 					res--;
 					carry = 0;
 					resid.AddOrSub<true, true>(div, carry);
 
-					if (!carry)
-					{
-						// overflow (back) wasn't reached. Do it again
-						res--;
-						carry = 0;
-						resid.AddOrSub<true, true>(div, carry);
-
-						assert(carry);
-					}
+					assert(carry);
 				}
-
 			}
 
-			// store result
-			if (m_n + i >= nResMax)
-				m_p[m_n + i - nResMax] = res;
-
-			// advance
-			if (i)
-			{
-				assert(!resid.m_p[0]);
-				resid.m_p++;
-			}
-			else
-				resid.m_n++;
-
-			if (++i == nResMax)
-				break;
-
-			hiNom = resid.m_p[0];
-			nom = (static_cast<DWord>(hiNom) << nWordBits) | resid.m_p[1];
 		}
 
+		// store result
+		if (m_n + i >= nResMax)
+			m_p[m_n + i - nResMax] = res;
+
+		// advance
+		if (i)
+		{
+			assert(!resid.m_p[0]);
+			resid.m_p++;
+		}
+		else
+			resid.m_n++;
+
+		if (++i == nResMax)
+			break;
+
+		hiNom = resid.m_p[0];
+		nom = (static_cast<DWord>(hiNom) << nWordBits) | resid.m_p[1];
 	}
 }
 

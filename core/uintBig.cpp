@@ -134,66 +134,6 @@ namespace beam {
 		sz[nDst << 1] = 0;
 	}
 
-	uint32_t uintBigImpl::_PrintDecimal(uint8_t* pDst, uint32_t nDst, char* sz, uint8_t* pTmp1, uint8_t* pTmp2, uint8_t* pTmp3)
-	{
-		uint32_t nRes = 0;
-
-		const uint32_t nDigs = 9;
-		typedef uint32_t TSection;
-		const TSection nSegment = 1000000000u;
-		uintBigFor<TSection>::Type div(nSegment);
-
-		while (true)
-		{
-			_Div(pTmp1, nDst, pDst, nDst, div.m_pData, div.nBytes, pTmp2, pTmp3);
-			// pTmp1 == pDst / div
-			// pTmp2 == pTmp1 * div
-
-			bool bLast = memis0(pTmp1, nDst);
-			if (!bLast)
-			{
-				_Inv(pTmp2, nDst);
-				_Inc(pTmp2, nDst);
-				_Inc(pDst, nDst, pTmp2, nDst);
-				// pDst == resid
-			}
-
-			uintBigFor<TSection>::Type valResid;
-			_Assign(valResid.m_pData, valResid.nBytes, pDst, nDst);
-
-			TSection nResid;
-			valResid.Export(nResid);
-
-			uint32_t nPrintDigs = nDigs;
-			if (bLast)
-			{
-				// could be less
-				nPrintDigs = 1;
-				for (auto val = nResid; val /= 10; )
-					nPrintDigs++;
-			}
-
-			memmove(sz + nPrintDigs, sz, nRes);
-			nRes += nPrintDigs;
-
-			for (uint32_t i = 0; ; nResid /= 10)
-			{
-				++i;
-				sz[nPrintDigs - i] = '0' + (nResid % 10);
-				if (i == nPrintDigs)
-					break;
-			}
-
-			if (bLast)
-				break;
-
-			memcpy(pDst, pTmp1, nDst);
-		}
-
-		sz[nRes] = 0;
-		return nRes;
-	}
-
 	uint32_t uintBigImpl::_Scan(uint8_t* pDst, const char* sz, uint32_t nTxtLen)
 	{
 		uint32_t ret = 0;
@@ -508,36 +448,6 @@ namespace beam {
 			memmove(pDst, pSrc, nSrc);
 
 		memset0(pDst0 + nDst, nBytes);
-	}
-
-	void uintBigImpl::_Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pTmp)
-	{
-		memset0(pDst, nDst);
-		memset0(pMul, nA);
-
-		uint32_t nOrder = _GetOrder(pB, nB);
-		if (nOrder > (nA << 3))
-			return;
-
-		for (uint32_t nShift = 1 + std::min((nA << 3) - nOrder, (nDst << 3) - 1); nShift--; )
-		{
-			_ShiftLeft(pTmp, nA, pB, nB, nShift);
-			_Inc(pTmp, nA, pMul, nA);
-
-			if (_Cmp(pMul, nA, pTmp, nA) > 0)
-				continue; // overflow
-
-			if (_Cmp(pA, nA, pTmp, nA) < 0)
-				continue; // exceeded
-
-			memcpy(pMul, pTmp, nA);
-			pDst[nDst - (nShift >> 3) - 1] |= (1 << (7 & nShift));
-		}
-
-#ifndef NDEBUG
-		_Mul(pTmp, nA, pB, nB, pDst, nDst);
-		assert(!_Cmp(pTmp, nA, pMul, nA));
-#endif // NDEBUG
 	}
 
 } // namespace beam

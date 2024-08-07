@@ -42,7 +42,6 @@ namespace beam
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&); // truncates if too long
 		static void _PrintFull(const uint8_t* pDst, uint32_t nDst, std::ostream&);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, char*);
-		static uint32_t _PrintDecimal(uint8_t* pDst, uint32_t nDst, char*, uint8_t* pTmp1, uint8_t* pTmp2, uint8_t* pTmp3);
 		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
 		static uint32_t _Scan(uint8_t* pDst, const char*, uint32_t nTxtLen);
 
@@ -317,22 +316,6 @@ namespace beam
 			_ShiftLeft(res.m_pData, res.nBytes, m_pData, nBytes, nBits);
 		}
 
-		template <uint32_t nBytesA, uint32_t nBytesB>
-		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b)
-		{
-			// Calculates a/b. Rounding to a smaller side. if b = 0, then the result is max value. Same if the type is too small to hold the full result
-			// In other words, the result is the maximum value for which (*this * b <= a)
-			uintBig_t<nBytesA> mul;
-			SetDiv(a, b, mul);
-		}
-
-		template <uint32_t nBytesA, uint32_t nBytesB>
-		void SetDiv(const uintBig_t<nBytesA>& a, const uintBig_t<nBytesB>& b, uintBig_t<nBytesA>& mul)
-		{
-			uintBig_t<nBytesA> tmp;
-			_Div(m_pData, nBytes, a.m_pData, a.nBytes, b.m_pData, b.nBytes, mul.m_pData, tmp.m_pData);
-		}
-
 		// helper, for uniform random generation within specific bounds
 		struct Threshold
 		{
@@ -357,18 +340,9 @@ namespace beam
 
 		static const uint32_t nTxtLen = nBytes * 2; // not including 0-term
 
-		static const uint32_t nTxtLen10Max = 10 * ((nBytes + 3) / 4); // upper bound, practically could be less
-
 		void Print(char* sz) const
 		{
 			_Print(m_pData, nBytes, sz);
-		}
-
-		uint32_t PrintDecimal(char* sz) const
-		{
-			uintBig_t dup(*this);
-			uintBig_t tmp1, tmp2, tmp3;
-			return _PrintDecimal(dup.m_pData, nBytes, sz, tmp1.m_pData, tmp2.m_pData, tmp3.m_pData);
 		}
 
 		uint32_t Scan(const char* sz)

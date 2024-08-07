@@ -2354,6 +2354,18 @@ namespace bvm2 {
 		}
 	}
 
+	template <uint32_t nWords>
+	MultiWord::Number<nWords> To_MultiWord(const Shaders::MultiPrecision::UInt<nWords>& x)
+	{
+		MultiWord::Number<nWords> res;
+		const auto* pW = x.get_AsArr();
+
+		for (uint32_t i = 0; i < nWords; i++)
+			res.m_p[i] = pW[nWords - i - 1];
+
+		return res;
+	}
+
 	template <uint32_t wNom, uint32_t wDenom, uint32_t wQuotient>
 	void TestMultiPrecisionDiv(
 		const Shaders::MultiPrecision::UInt<wNom>& nom,
@@ -2368,6 +2380,15 @@ namespace bvm2 {
 		// in-host results should be the same
 		verify_test(myResid == resid);
 		verify_test(myQuotient == quotient);
+
+		// also calculate with our impl
+		auto resid_ = To_MultiWord(nom);
+		auto denom_ = To_MultiWord(denom);
+		MultiWord::Number<wQuotient> quotient_;
+		quotient_.SetDivResid(resid_, denom_);
+
+		verify_test(resid_ == To_MultiWord(resid));
+		verify_test(quotient_ == To_MultiWord(quotient));
 
 		if (denom.IsZero())
 		{

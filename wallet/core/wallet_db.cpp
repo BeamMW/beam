@@ -405,14 +405,11 @@ namespace beam::wallet
                 uint32_t get_Slot_Big(Amount v) const
                 {
                     // Use slower 'robust' arithmetics, guaranteed not to overflow
-                    uintBigFor<uint32_t>::Type val;
-                    val.SetDiv(uintBigFrom(v) * uintBigFrom(s_Factor), uintBigFrom(m_Goal));
+                    MultiWord::NumberForType<uint32_t>::Type val;
+                    val.SetDiv(MultiWord::From(v) * MultiWord::From(s_Factor), MultiWord::From(m_Goal));
 
-                    uint32_t res;
-                    val.Export(res);
-
-                    std::setmin(res, s_Factor);
-                    return res;
+                    auto res = val.get_Element<uint32_t, 0>();
+                    return std::min(res, s_Factor);
                 }
 
                 uint32_t get_Slot(Amount v) const
