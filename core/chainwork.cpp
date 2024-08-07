@@ -86,8 +86,9 @@ namespace beam
 		static void TakeFraction(Difficulty::Raw& v)
 		{
 			// The fraction is 1/103. Which is roughly 635 / 65536
-			auto val = v * uintBigFrom((uint16_t) 635);
-			memcpy(v.m_pData, val.m_pData, v.nBytes); // i.e. get the upper part of the result
+			auto val = v.ToNumber() * MultiWord::From(635u);
+			val.get_Slice().RShift(val.get_ConstSlice(), 16);
+			v.FromNumber(val);
 		}
 
 		bool UniformRandom(Difficulty::Raw& out, const Difficulty::Raw& threshold)

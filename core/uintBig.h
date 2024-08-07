@@ -37,7 +37,7 @@ namespace beam
 		static void _Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc);
 		static void _Xor(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc);
 
-		static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
+		//static void _Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static int _Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1);
 		static void _Print(const uint8_t* pDst, uint32_t nDst, std::ostream&); // truncates if too long
 		static void _PrintFull(const uint8_t* pDst, uint32_t nDst, std::ostream&);
@@ -107,7 +107,6 @@ namespace beam
 
 		static void _ShiftRight(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
 		static void _ShiftLeft(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc, uint32_t nSrc, uint32_t nBits);
-		static void _Div(uint8_t* pDst, uint32_t nDst, const uint8_t* pA, uint32_t nA, const uint8_t* pB, uint32_t nB, uint8_t* pMul, uint8_t* pBuf);
 	};
 
 	template <uint32_t nBytes_>
@@ -258,20 +257,6 @@ namespace beam
 		void operator += (const uintBig_t<nBytesOther_>& x)
 		{
 			_Inc(m_pData, nBytes, x.m_pData, x.nBytes);
-		}
-
-		template <uint32_t nBytes0, uint32_t nBytes1>
-		void AssignMul(const uintBig_t<nBytes0>& x0, const uintBig_t<nBytes1> & x1)
-		{
-			_Mul(m_pData, nBytes, x0.m_pData, x0.nBytes, x1.m_pData, x1.nBytes);
-		}
-
-		template <uint32_t nBytesOther_>
-		uintBig_t<nBytes + nBytesOther_> operator * (const uintBig_t<nBytesOther_>& x) const
-		{
-			uintBig_t<nBytes + nBytesOther_> res;
-			res.AssignMul(*this, x);
-			return res;
 		}
 
 		void Inv()

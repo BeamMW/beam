@@ -633,7 +633,10 @@ ECC::uintBig EthereumSide::GetSwapAmount() const
 {
     auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
     uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
-    swapAmount = swapAmount * ECC::uintBig(ethereum::GetCoinUnitsMultiplier(swapCoin));
+
+    auto num = swapAmount.ToNumber() * MultiWord::From(ethereum::GetCoinUnitsMultiplier(swapCoin));
+
+    swapAmount.FromNumber(num);
     return swapAmount;
 }
 

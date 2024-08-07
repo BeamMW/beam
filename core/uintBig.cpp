@@ -219,56 +219,6 @@ namespace beam {
 			_Xor(pDst + nDst - nSrc, nSrc, pSrc);
 	}
 
-	void uintBigImpl::_Mul(uint8_t* pDst, uint32_t nDst, const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1)
-	{
-		memset0(pDst, nDst);
-
-		if (nSrc0 > nDst)
-		{
-			pSrc0 += nSrc0 - nDst;
-			nSrc0 = nDst;
-		}
-
-		if (nSrc1 > nDst)
-		{
-			pSrc1 += nSrc1 - nDst;
-			nSrc1 = nDst;
-		}
-
-		int32_t nDelta = nSrc0 + nSrc1 - nDst - 1;
-
-		for (uint32_t i0 = nSrc0; i0--; )
-		{
-			uint8_t x0 = pSrc0[i0];
-			uint16_t carry = 0;
-
-			uint32_t iDst = i0 - nDelta; // don't care if overflows
-			uint32_t i1Min = (iDst > nDst) ? (-static_cast<int32_t>(iDst)) : 0;
-			for (uint32_t i1 = nSrc1; i1-- > i1Min; )
-			{
-				uint8_t& dst = pDst[iDst + i1];
-
-				uint16_t x1 = pSrc1[i1];
-				x1 *= x0;
-				carry += x1;
-				carry += dst;
-
-				dst = (uint8_t) carry;
-				carry >>= 8;
-			}
-
-			if (iDst <= nDst)
-				while (carry && iDst--)
-				{
-					uint8_t& dst = pDst[iDst];
-					carry += dst;
-
-					dst = (uint8_t) carry;
-					carry >>= 8;
-				}
-		}
-	}
-
 	int uintBigImpl::_Cmp(const uint8_t* pSrc0, uint32_t nSrc0, const uint8_t* pSrc1, uint32_t nSrc1)
 	{
 		if (nSrc0 > nSrc1)

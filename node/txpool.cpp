@@ -46,8 +46,8 @@ bool TxPool::Profit::operator < (const Profit& t) const
 	// handle overflow. To be precise need to use big-int (96-bit) arithmetics
 
 	return
-		(uintBigFrom(m_Stats.m_Fee) * uintBigFrom(t.m_Stats.m_Size + t.m_Stats.m_SizeCorrection)) >
-		(uintBigFrom(t.m_Stats.m_Fee) * uintBigFrom(m_Stats.m_Size + m_Stats.m_SizeCorrection));
+		(MultiWord::From(m_Stats.m_Fee) * MultiWord::From(t.m_Stats.m_Size + t.m_Stats.m_SizeCorrection)) >
+		(MultiWord::From(t.m_Stats.m_Fee) * MultiWord::From(m_Stats.m_Size + m_Stats.m_SizeCorrection));
 }
 
 /////////////////////////////

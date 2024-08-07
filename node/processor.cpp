@@ -6120,11 +6120,13 @@ Difficulty NodeProcessor::get_NextDifficulty()
 		thw0.first -= static_cast<int64_t>(r.DA.Target_s) * nDelta;
 		thw0.second.first -= nDelta;
 
-		Difficulty::Raw wrk, wrk2;
+		Difficulty::Number wrk, wrk2;
 		r.DA.Difficulty0.Unpack(wrk);
-		wrk2.AssignMul(wrk, uintBigFrom(nDelta));
-		wrk2.Negate();
-		thw0.second.second += wrk2;
+		wrk2.get_Slice().SetMul(wrk.get_ConstSlice(), MultiWord::ConstSlice{ &nDelta, 1 });
+
+		thw0.second.second.ToNumber(wrk);
+		wrk -= wrk2;
+		thw0.second.second.FromNumber(wrk);
 	}
 
 	assert(r.DA.WindowWork > r.DA.WindowMedian1); // when getting median - the target height can be shifted by some value, ensure it's smaller than the window

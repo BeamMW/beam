@@ -185,7 +185,7 @@ void TestUintBig()
 		uintBig v0, v1;
 		v0 = a;
 		v1 = b;
-		v0 = v0 * v1;
+		v0.FromNumber(v0.ToNumber() * v1.ToNumber());
 		v1 = ab;
 
 		verify_test(v0 == v1);
@@ -1701,7 +1701,7 @@ void TestDifficulty()
 	Difficulty::Raw raw, wrk;
 	d.Unpack(raw);
 	uint32_t dh = 1440;
-	wrk.AssignMul(raw, uintBigFrom(dh));
+	wrk.FromNumber(raw.ToNumber() * MultiWord::From(dh));
 
 	d2.Calculate(wrk, dh, 100500, 100500);
 	TestRatio(d2, d, 1.);
