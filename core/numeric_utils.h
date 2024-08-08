@@ -863,7 +863,7 @@ namespace MultiWord {
 		Number& operator = (const Neg& neg)
 		{
 			DWord carry = 0;
-			get_Slice().AddOrSub<false, false>(neg.m_Arg, carry);
+			get_Slice().template AddOrSub<false, false>(neg.m_Arg, carry);
 			return *this;
 		}
 
