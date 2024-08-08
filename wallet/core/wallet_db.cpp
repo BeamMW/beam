@@ -295,20 +295,20 @@ namespace fs = std::filesystem;
 
 #define IM_FIELDS ENUM_IM_FIELDS(LIST, COMMA, )
 
-namespace std
-{
-    template<>
-    struct hash<pair<beam::Amount, beam::Amount>>
-    {
-        typedef pair<beam::Amount, beam::Amount> argument_type;
-        typedef std::size_t result_type;
-
-        result_type operator()(const argument_type& a) const noexcept
-        {
-            return boost::hash<argument_type>()(a);
-        }
-    };
-}
+//namespace std
+//{
+//    template<>
+//    struct hash<pair<beam::Amount, beam::Amount>>
+//    {
+//        typedef pair<beam::Amount, beam::Amount> argument_type;
+//        typedef std::size_t result_type;
+//
+//        result_type operator()(const argument_type& a) const noexcept
+//        {
+//            return boost::hash<argument_type>()(a);
+//        }
+//    };
+//}
 
 namespace beam::wallet
 {

@@ -411,7 +411,9 @@ private:
         }
 
         Blob blob(&ret, sizeof(ret));
-        _node.get_Processor().get_DB().ParamSet(NodeDB::ParamID::TreasuryTotals, &s_TotalsVer, &blob);
+
+        auto ver = s_TotalsVer; // copy value, don't use static const in the following expression (this will lead to link error on gcc)
+        _node.get_Processor().get_DB().ParamSet(NodeDB::ParamID::TreasuryTotals, &ver, &blob);
     }
 
     void OnTotalsTxo(Totals::CountAndSize& dst, NodeDB::WalkerTxo& wlk)
