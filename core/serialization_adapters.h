@@ -213,7 +213,7 @@ namespace detail
 		template<typename Archive, uint32_t nWords>
 		Archive& save(Archive& ar, const beam::MultiWord::Number<nWords>& val)
 		{
-			beam::uintBig_t<val.nSize> val2;
+			beam::uintBig_t<beam::MultiWord::Number<nWords>::nSize> val2;
 			val2.FromNumber(val);
 
 			ar & val2;
@@ -223,7 +223,7 @@ namespace detail
 		template<typename Archive, uint32_t nWords>
 		Archive& load(Archive& ar, beam::MultiWord::Number<nWords>& val)
 		{
-			beam::uintBig_t<val.nSize> val2;
+			beam::uintBig_t<beam::MultiWord::Number<nWords>::nSize> val2;
 			ar & val2;
 
 			val2.ToNumber(val);

@@ -604,7 +604,7 @@ namespace ECC
 		template <uint32_t nWords>
 		void Write(const beam::MultiWord::Number<nWords>& x)
 		{
-			beam::uintBig_t<x.nSize> val;
+			beam::uintBig_t<beam::MultiWord::Number<nWords>::nSize> val;
 			val.FromNumber(x);
 			Write(val);
 		}

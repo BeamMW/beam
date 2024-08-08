@@ -397,7 +397,7 @@ namespace bvm2 {
 		template <uint32_t nWords>
 		bool Load_T(const VarKey& vk, MultiWord::Number<nWords>& x) 
 		{
-			uintBig_t<x.nSize> y;
+			uintBig_t<MultiWord::Number<nWords>::nSize> y;
 			bool ret = Load_T(vk, y);
 			y.ToNumber(x);
 			return ret;
@@ -405,7 +405,7 @@ namespace bvm2 {
 
 		template <uint32_t nWords>
 		void Save_T(const VarKey& vk, const MultiWord::Number<nWords>& x) {
-			uintBig_t<x.nSize> y;
+			uintBig_t<MultiWord::Number<nWords>::nSize> y;
 			y.FromNumber(x);
 			Save_T(vk, y);
 		}
