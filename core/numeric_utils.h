@@ -749,7 +749,7 @@ namespace MultiWord {
 				static_assert(nPwr >= 1, "");
 
 				if constexpr (nPwr == 1)
-					Process(pSrc, radix); // already saturated
+					Process(in, radix); // already saturated
 				else
 				{
 					// raise the radix to power. Factorize according to it, would be less divisions
