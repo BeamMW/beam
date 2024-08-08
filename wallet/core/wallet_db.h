@@ -914,7 +914,7 @@ namespace beam::wallet
         const std::set<TxParameterID> m_mandatoryTxParams;
         boost::optional<WalletID> m_widDefaultAddr;
 
-        // Wallet has ablity to track blockchain state
+        // Wallet has ability to track blockchain state
         // This interface allows to check and update the blockchain state 
         // in the wallet database. Used in FlyClient implementation
         struct History :public Block::SystemState::IHistory {
