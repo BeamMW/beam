@@ -547,7 +547,7 @@ namespace MultiWord {
 			void PushBack(Word w)
 			{
 				static_assert(radix <= 0x10, "");
-				PushBackInternal(To(w));
+				PushBackInternal(Printable<radix>::To(w));
 			}
 
 			uint32_t Finalize(uint32_t len, bool bZTerm)
