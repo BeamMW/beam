@@ -576,7 +576,7 @@ namespace MultiWord {
 
 		template <uint32_t radix>
 		static PrintOut<radix> MakePrintOut(char* p, uint32_t n) {
-			return PrintOut<radix>{ p, p + n };
+			return PrintOut<radix>{ { p, p + n } };
 		}
 
 		template <uint32_t radix>
@@ -599,7 +599,7 @@ namespace MultiWord {
 
 		template <uint32_t radix>
 		static ScanIn<radix> MakeScanIn(const char* p, uint32_t n) {
-			return ScanIn<radix>{ p, p + n };
+			return ScanIn<radix>{ { p, p + n } };
 		}
 
 		struct Decomposer
