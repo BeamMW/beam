@@ -160,7 +160,7 @@ namespace std
 
      string to_string(const beam::AmountBig::Number& amount)
      {
-         char sz[amount.nTxtLen10Max + 1];
+         char sz[beam::AmountBig::Number::nTxtLen10Max + 1];
          auto len = amount.PrintDecimal(sz);
          return string(sz, len);
      }
