@@ -232,7 +232,7 @@ void TestUintBig()
 			if (pwr == 17)
 				zz = Zero; // test zero-print/scan too
 			else
-				zz.Power(beam::MultiWord::From(29u), pwr);
+				zz.Power(beam::MultiWord::From(29), pwr);
 
 			// print full
 			char szBuf1[nTxtLen + 1];
@@ -279,7 +279,7 @@ void TestUintBig()
 		beam::AmountBig::Text::Print(sz, n, false);
 		verify_test(std::string("0.00450000") == sz);
 
-		n = beam::MultiWord::From(1234567u) * beam::MultiWord::From(beam::AmountBig::Text::nCoin) + beam::MultiWord::From(65000u);
+		n = beam::MultiWord::From(1234567) * beam::MultiWord::From(beam::AmountBig::Text::nCoin) + beam::MultiWord::From(65000);
 
 		beam::AmountBig::Text::Print(sz, n);
 		verify_test(std::string("1,234,567.00065") == sz);
@@ -1691,7 +1691,7 @@ void TestDifficulty()
 	verify_test(Difficulty(0xffffff).IsTargetReached(val)); // difficulty almost 2
 	verify_test(!Difficulty(0x1000000).IsTargetReached(val)); // difficulty == 2
 
-	val -= MultiWord::From(1u);
+	val -= MultiWord::From(1);
 	verify_test(Difficulty(0x1000000).IsTargetReached(val));
 
 	// Adjustments

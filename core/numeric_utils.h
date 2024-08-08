@@ -833,26 +833,6 @@ namespace MultiWord {
 			return *this;
 		}
 
-		Number& operator = (Word x)
-		{
-			set_Element(x);
-
-			if constexpr (nWords > 1)
-				get_Slice().get_Head(nWords - 1).Set0();
-
-			return *this;
-		}
-
-		Number& operator = (DWord x)
-		{
-			set_Element(x);
-
-			if constexpr (nWords > 2)
-				get_Slice().get_Head(nWords - 2).Set0();
-
-			return *this;
-		}
-
 		struct Neg { ConstSlice m_Arg; };
 
 		Neg operator - () const
@@ -864,6 +844,25 @@ namespace MultiWord {
 		{
 			DWord carry = 0;
 			get_Slice().template AddOrSub<false, false>(neg.m_Arg, carry);
+			return *this;
+		}
+
+		template <typename T>
+		Number& operator = (T val)
+		{
+			// default assignment for any integral type
+			static_assert(std::is_integral_v<T>);
+
+			constexpr uint32_t wSet = sizeof(T) / sizeof(Word);
+
+			if constexpr (nWords > wSet)
+				get_Slice().get_Head(nWords - wSet).Set0();
+
+			if constexpr (sizeof(T) <= sizeof(Word))
+				set_Element(static_cast<Word>(val));
+			else
+				set_Element(static_cast<DWord>(val));
+
 			return *this;
 		}
 

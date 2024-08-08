@@ -86,7 +86,7 @@ namespace beam
 		static void TakeFraction(Difficulty::Raw& v)
 		{
 			// The fraction is 1/103. Which is roughly 635 / 65536
-			auto val = v.ToNumber() * MultiWord::From(635u);
+			auto val = v.ToNumber() * MultiWord::From(635);
 			val.get_Slice().RShift(val.get_ConstSlice(), 16);
 			v.FromNumber(val);
 		}
