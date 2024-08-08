@@ -62,8 +62,3 @@ us-nodes.mainnet.beam.mw:8100
 ### BUILD FROM SOURCE
 
 [Building Instructions](https://github.com/BeamMW/beam/wiki/How-to-build)
-
-If you build from source please use 'mainnet' branch for Mainnet
-
-
-
