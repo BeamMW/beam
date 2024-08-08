@@ -25,7 +25,7 @@ namespace beam
         static uint32_t Encode(char* szEnc, const uint8_t* p, bool bTrim = false)
         {
             typedef uintBig_t<n> Type;
-            Type::Number buf;
+            typename Type::Number buf;
 
             const uint32_t nEnc = get_MaxEnc<n>();
             return EncodeEx(szEnc, nEnc, p, n, bTrim, buf.get_Slice());
@@ -39,7 +39,7 @@ namespace beam
             const uint32_t nEnc = get_MaxEnc<n>();
 
             typedef uintBig_t<n> Type;
-            Type::Number buf;
+            typename Type::Number buf;
 
             auto nDec = DecodeEx(p, n, szEnc, nEnc, buf.get_Slice());
             if (nDec == nEnc)

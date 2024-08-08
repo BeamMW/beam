@@ -946,7 +946,7 @@ namespace MultiWord {
 		Number& operator += (const Number<wa>& a)
 		{
 			DWord carry = 0;
-			get_Slice().AddOrSub<true, true>(a.get_ConstSlice(), carry);
+			get_Slice().template AddOrSub<true, true>(a.get_ConstSlice(), carry);
 			return *this;
 		}
 
@@ -954,7 +954,7 @@ namespace MultiWord {
 		Number& operator -= (const Number<wa>& a)
 		{
 			DWord carry = 0;
-			get_Slice().AddOrSub<false, true>(a.get_ConstSlice(), carry);
+			get_Slice().template AddOrSub<false, true>(a.get_ConstSlice(), carry);
 			return *this;
 		}
 
@@ -989,7 +989,7 @@ namespace MultiWord {
 		{
 			Number<nWords + wa> ret;
 			ret.get_Slice().Set0();
-			ret.get_Slice().AddOrSub_Mul<true>(get_ConstSlice(), a.get_ConstSlice());
+			ret.get_Slice().template AddOrSub_Mul<true>(get_ConstSlice(), a.get_ConstSlice());
 			return ret;
 		}
 
@@ -1002,7 +1002,7 @@ namespace MultiWord {
 			{
 				auto x = *this; // copy
 				get_Slice().Set0();
-				get_Slice().AddOrSub_Mul<true>(x.get_ConstSlice(), a.get_ConstSlice());
+				get_Slice().template AddOrSub_Mul<true>(x.get_ConstSlice(), a.get_ConstSlice());
 			}
 			return *this;
 		}
@@ -1151,7 +1151,7 @@ namespace MultiWord {
 	template <typename T>
 	inline typename NumberForType<T>::Type From(T x)
 	{
-		return NumberForType<T>::Type(x);
+		return typename NumberForType<T>::Type(x);
 	}
 
 } // namespace MultiWord
