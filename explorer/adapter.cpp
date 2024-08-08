@@ -609,7 +609,7 @@ private:
         static uint32_t Print(char* sz, uint32_t nMaxLen, const MultiWord::Number<nWords>& x, bool bExpandCommas)
         {
             auto out = MultiWord::Factorization::MakePrintOut<10>(sz, nMaxLen);
-            x.DecomposeEx<10>(out, true);
+            x.template DecomposeEx<10>(out, true);
             if (bExpandCommas)
                 return Group3Base::Expand(sz, out.m_pE, nMaxLen - out.get_Reserve());
 

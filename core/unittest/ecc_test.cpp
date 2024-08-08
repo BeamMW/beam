@@ -244,18 +244,18 @@ void TestUintBig()
 
 			verify_test(!memcmp(szBuf1, szBuf2, nTxtLen));
 
-			beam::MultiWord::Number<10> zz2;
+			beam::MultiWord::Number<10> zz2; // Note: larger size!
 			zz2.Compose(beam::MultiWord::Factorization::MakeScanIn<myRadix>(szBuf1, nTxtLen), myRadix);
 			verify_test(zz == zz2);
 
 			zz2.get_Slice().SetMax();
-			zz2.Scan<myRadix>(szBuf1);
+			zz2.Scan<myRadix>(szBuf1, _countof(szBuf1));
 			verify_test(zz == zz2);
 
 			// print trimmed
 			zz.Print<myRadix>(szBuf2);
 			zz2.get_Slice().SetMax();
-			zz2.Scan<myRadix>(szBuf1);
+			zz2.Scan<myRadix>(szBuf1, _countof(szBuf1));
 			verify_test(zz == zz2);
 		}
 

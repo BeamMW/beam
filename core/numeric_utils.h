@@ -1077,7 +1077,7 @@ namespace MultiWord {
 		{
 			DecomposeCtx ctx(*this);
 			ctx.m_FillPadding = !bTrim;
-			ctx.Process_T<radix>(out);
+			ctx.template Process_T<radix>(out);
 		}
 
 		struct ComposeCtx
@@ -1102,7 +1102,7 @@ namespace MultiWord {
 		void ComposeEx(TIn&& in)
 		{
 			ComposeCtx ctx(*this);
-			ctx.Process_T<radix>(in);
+			ctx.template Process_T<radix>(in);
 		}
 
 		template <uint32_t radix>
