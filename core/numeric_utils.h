@@ -589,7 +589,7 @@ namespace MultiWord {
 				if (m_pB == m_pE)
 					return false;
 
-				if (!From(w, *m_pB))
+				if (!Printable<radix>::From(w, *m_pB))
 					return false;
 				
 				*m_pB++;
