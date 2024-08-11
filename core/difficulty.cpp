@@ -53,9 +53,7 @@ namespace beam
 		Unpack(order, mantissa);
 
 		auto a = trg * MultiWord::From(mantissa);
-
-		uint32_t nZeroes = (MultiWord::nWordBits - s_MantissaBits) + order;
-		return a.get_ConstSlice().get_clz_Bits() >= nZeroes;
+		return a.get_ConstSlice().IsWithinOrder(Number::nBits + s_MantissaBits - order);
 	}
 
 	bool Difficulty::get_Target(Number& trg) const

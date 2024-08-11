@@ -271,6 +271,36 @@ namespace MultiWord {
 				ret += NumericUtils::clz(m_p[n]);
 			return ret;
 		}
+
+		uint32_t get_Order() const
+		{
+			auto me = *this;
+			me.Trim();
+			if (!me.m_n)
+				return 0;
+
+			return nWordBits * me.m_n - NumericUtils::clz(me.m_p[0]);
+		}
+
+		bool IsWithinOrder(uint32_t n) const
+		{
+			auto nBits = m_n * nWordBits;
+			if (nBits <= n)
+				return true;
+			nBits -= n;
+
+			const Word* p = m_p;
+			for (; nBits >= nWordBits; nBits -= nWordBits)
+			{
+				if (*p++)
+					return false;
+			}
+
+			if (nBits && (*p >> (nWordBits - nBits)))
+				return false;
+
+			return true;
+		}
 	};
 
 	struct ConstSlice
