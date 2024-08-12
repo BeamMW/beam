@@ -515,14 +515,15 @@ void MyMul(Slice& sRes, Slice& sTmp, uint32_t nMaxLen, ConstSlice a, ConstSlice 
 	std::swap(sRes, sTmp);
 }
 
-void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const
+void Slice::Power(ConstSlice s, ConstSlice sExp, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const
 {
 	if (!m_n)
 		return;
 
 	Set0();
 
-	if (!n)
+	sExp.Trim();
+	if (!sExp.m_n)
 	{
 		m_p[m_n - 1] = 1;
 		return;
@@ -539,31 +540,36 @@ void Slice::Power(ConstSlice s, uint32_t n, Word* __restrict__ pBuf1, Word* __re
 	Slice sFree{ pBuf1, m_n };
 	Slice sPwr{ pBuf2, m_n };
 
-	while (true)
+	for (uint32_t iExp = sExp.m_n - 1; ; )
 	{
-		if (1 & n)
+		Word wExp = sExp.m_p[iExp];
+
+		for (uint32_t iBit = 0; iBit < nWordBits; iBit++)
 		{
-			// multiply result by current pwr
-			if (sRes.m_n)
-				MyMul(sRes, sFree, m_n, sRes.get_Const(), s);
-			else
+			if (1 & wExp)
 			{
-				// 1st time
-				sRes = get_Tail(s.m_n);
-				sRes.CopyInternal(s.m_p);
+				// multiply result by current pwr
+				if (sRes.m_n)
+					MyMul(sRes, sFree, m_n, sRes.get_Const(), s);
+				else
+				{
+					// 1st time
+					sRes = get_Tail(s.m_n);
+					sRes.CopyInternal(s.m_p);
+				}
 			}
 
-			if (!sRes.m_n)
-				break; // turned into 0, can happen due to overflow/truncation
+			wExp >>= 1;
+			if (!wExp&& !iExp)
+				break;
+
+			// squre
+			MyMul(sPwr, sFree, m_n, s, s);
+			s = sPwr.get_Const();
 		}
 
-		n >>= 1;
-		if (!n)
+		if (!iExp--)
 			break;
-
-		// squre
-		MyMul(sPwr, sFree, m_n, s, s);
-		s = sPwr.get_Const();
 	}
 
 	if (sRes.get_TailPtr(0) == get_TailPtr(0))

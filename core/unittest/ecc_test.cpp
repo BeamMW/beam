@@ -232,7 +232,7 @@ void TestUintBig()
 			if (pwr == 17)
 				zz = Zero; // test zero-print/scan too
 			else
-				zz.Power(beam::MultiWord::From(29), pwr);
+				zz.Power(beam::MultiWord::From(29), beam::MultiWord::From(pwr));
 
 			// print full
 			char szBuf1[nTxtLen + 1];
