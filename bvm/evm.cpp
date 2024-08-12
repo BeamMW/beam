@@ -508,7 +508,9 @@ OnOpcodeBinary(add)
 
 OnOpcodeBinary(mul)
 {
-	b = a * b;
+	Word::Number b_;
+	b_.get_Slice().SetMul(a.ToNumber().get_ConstSlice(), b.ToNumber().get_ConstSlice());
+	b.FromNumber(b_);
 }
 
 OnOpcodeBinary(sub)
@@ -524,8 +526,9 @@ OnOpcodeBinary(div)
 	if (b == Zero)
 		return;
 
-	auto x = b;
-	b.SetDiv(a, x);
+	Word::Number quot;
+	quot.SetDiv(a.ToNumber(), b.ToNumber());
+	b.FromNumber(quot);
 }
 
 OnOpcodeBinary(sdiv)
@@ -534,20 +537,26 @@ OnOpcodeBinary(sdiv)
 	if (b == Zero)
 		return;
 
+	auto resid = a.ToNumber();
+	auto div = b.ToNumber();
+
 	bool bNeg = IsNeg(a);
 	if (bNeg)
-		a.Negate();
+		resid = -resid;
 
-	auto x = b;
-	if (IsNeg(x))
+	if (IsNeg(b))
 	{
 		bNeg = !bNeg;
-		x.Negate();
+		div = -div;
 	}
 
-	b.SetDiv(a, x);
+	Word::Number quot;
+	quot.SetDivResid(resid, div);
+
 	if (bNeg)
-		b.Negate();
+		quot = -quot;
+
+	b.FromNumber(quot);
 }
 
 OnOpcodeBinary(mod)
@@ -556,13 +565,11 @@ OnOpcodeBinary(mod)
 	if (b == Zero)
 		return;
 
-	Word mul, div;
-	div.SetDiv(a, b, mul);
+	auto resid = a.ToNumber();
+	Word::Number quot;
+	quot.SetDivResid(resid, b.ToNumber());
 
-	b = a;
-
-	mul.Negate();
-	b += mul;
+	b.FromNumber(resid);
 }
 
 OnOpcodeBinary(smod)
@@ -570,46 +577,29 @@ OnOpcodeBinary(smod)
 	if (b == Zero)
 		return;
 
+	auto resid = a.ToNumber();
 	bool bNeg = IsNeg(a);
 	if (bNeg)
-		a.Negate();
+		resid = -resid;
 
+	auto div = b.ToNumber();
 	if (IsNeg(b))
-	{
-		b.Negate();
-		bNeg = !bNeg;
-	}
+		div = -div;
 
-	Word mul, div;
-	div.SetDiv(a, b, mul);
-
-	b = a;
+	Word::Number quot;
+	quot.SetDivResid(resid, b.ToNumber());
 
 	if (bNeg)
-		b.Negate();
-	else
-		mul.Negate();
-
-	b += mul;
+		resid = -resid;
+	b.FromNumber(resid);
 }
 
 OnOpcodeBinary(exp)
 {
 	// b = a ^ b
-	auto n = b;
-	b = 1u;
-
-	// double-and-add
-	for (uint32_t nBit = n.nBits - 1; ; )
-	{
-		if (1u & (n.m_pData[nBit >> 3] >> (7 & nBit)))
-			b = b * a;
-
-		if (!nBit--)
-			break;
-
-		a = a * a;
-	}
+	Word::Number res;
+	res.Power(a.ToNumber(), b.ToNumber());
+	b.FromNumber(res);
 }
 
 OnOpcodeBinary(lt)
