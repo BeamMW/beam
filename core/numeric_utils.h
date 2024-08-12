@@ -366,7 +366,7 @@ namespace MultiWord {
 		void RShift(ConstSlice a, uint32_t nBits) const;
 
 		DWord Mul(Word) const; // returns carry
-		void Power(ConstSlice, uint32_t n, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const; // both buffers must be of current slice size
+		void Power(ConstSlice, ConstSlice, Word* __restrict__ pBuf1, Word* __restrict__ pBuf2) const; // both buffers must be of current slice size
 
 		Word SetDivTrim(Word div); // returns resid, trims itself
 
@@ -1059,11 +1059,11 @@ namespace MultiWord {
 			return ret;
 		}
 
-		template <uint32_t wa>
-		Number& Power(const Number<wa>& __restrict__ x, uint32_t n)
+		template <uint32_t wa, uint32_t wb>
+		Number& Power(const Number<wa>& __restrict__ x, const Number<wb>& __restrict__ exp)
 		{
 			Word pBuf1[nWords], pBuf2[nWords];
-			get_Slice().Power(x.get_ConstSlice(), n, pBuf1, pBuf2);
+			get_Slice().Power(x.get_ConstSlice(), exp.get_ConstSlice(), pBuf1, pBuf2);
 			return *this;
 		}
 
