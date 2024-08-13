@@ -1051,19 +1051,14 @@
 		return UrlSelf(type, "&id=" + id + extra);
 	}
 
-	function MakeCellEx(text, styles)
+	function MakeCell(text, styles = "")
 	{
 		return "<td" + styles + ">" + text + "</td>";
 	}
 
-	function MakeCell(text)
+	function MakeCellRA(text, styles = "")
 	{
-		return MakeCellEx(text, "");
-	}
-
-	function MakeCellRA(text, styles)
-	{
-		return MakeCellEx(text, " align='right'");
+		return MakeCell(text, " align='right'" + styles);
 	}
 	
 	function MakeAmountClr(amount)
@@ -1339,7 +1334,7 @@
 				{
 					const jFR = jOwned[iF];
 					text += "<tr>";
-					text += MakeCellEx(MakeAsset(jFR[0]["value"]), " style='width:10%'");
+					text += MakeCell(MakeAsset(jFR[0]["value"]), " style='width:10%'");
 					text += MakeCell(AddClass(jFR[1], "metadata"));
 					text += MakeCellAmount(jFR[2]["value"], " style='width:40%'");
 					text += "</tr>"
@@ -1701,10 +1696,10 @@
 			// (all these rows are kept together within a dedicated tbody).
 			if (depth == 0) {
 				// Display block height for main contract call
-				text += MakeCellEx(MakeBlock(jRow[0])," class='mainCall'");
+				text += MakeCell(MakeBlock(jRow[0])," class='mainCall'");
 			} else {
 				// Use an empty cell for subsequent contract calls
-				text += MakeCellEx(""," class='subCall'");
+				text += MakeCell(""," class='subCall'");
 			}
 
 			text += MakeCell(Obj2Html(jRow[1]));
@@ -2449,7 +2444,7 @@
 	// SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
 	function sortTable(e) {
 		// Declare variables
-		let input, col, headRow, table, nbr_tbodies, dir, items, switching, i, x, y, xVal, yVal, shouldSwitch, switchcount = 0;
+		let input, col, headRow, table, nbr_tbodies, dir, items;
 
 		// Get element, table and column number of the event
 		input = e.currentTarget;
@@ -2480,7 +2475,6 @@
 			// Get the content of the cell in the column being sorted
 			// (for tbodies with multiple lines, we concatenate the content of their cells in that column)
 			let val = "";
-			let myCell;
 			if (nbr_tbodies > 1) {
 				// Loop on all rows of the tbody
 				for (let trow of item.rows) {
