@@ -45,6 +45,7 @@ namespace beam
 		static std::string _Str(const uint8_t* pDst, uint32_t nDst);
 		static uint32_t _Scan(uint8_t* pDst, const char*, uint32_t nTxtLen);
 
+		static uint32_t _GetOrderBytes(const uint8_t* pDst, uint32_t nDst);
 		static uint32_t _GetOrder(const uint8_t* pDst, uint32_t nDst);
 		static bool _Accept(uint8_t* pDst, const uint8_t* pThr, uint32_t nDst, uint32_t nThrOrder);
 

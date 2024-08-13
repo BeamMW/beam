@@ -1551,7 +1551,7 @@ namespace beam
 		TestValidBase(hScheme, exc, pParent);
 
 		const Rules& r = Rules::get(); // alias
-		r.TestForkAtLeast(hScheme, 6);
+		r.TestForkAtLeast_<6>(hScheme);
 
 		ECC::Point::Native pComm[2];
 		pComm[0].ImportNnzStrict(m_Commitment);
