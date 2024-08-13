@@ -125,6 +125,7 @@ void EvmProcessor::InitVars()
 	macro(0x06, mod, 5) \
 	macro(0x07, smod, 5) \
 	macro(0x0a, exp, 0) \
+	macro(0x0b, signextend, 5) \
 	macro(0x10, lt, 3) \
 	macro(0x11, gt, 3) \
 	macro(0x12, slt, 3) \
@@ -145,6 +146,8 @@ void EvmProcessor::InitVars()
 
 #define EvmOpcodes_Custom(macro) \
 	macro(0x00, stop, 0) \
+	macro(0x08, addmod, 8) \
+	macro(0x09, mulmod, 8) \
 	macro(0x30, address, 2) \
 	macro(0x33, caller, 2) \
 	macro(0x34, callvalue, 2) \
@@ -505,6 +508,56 @@ OnOpcode(stop)
 	OnFrameDone(p, true, false);
 }
 
+OnOpcode(addmod)
+{
+	auto& a = m_Stack.Pop();
+	auto& b = m_Stack.Pop();
+	auto& c = m_Stack.get_At(0);
+
+	LogOperand(a);
+	LogOperand(b);
+	LogOperand(c);
+
+	// c = (a + b) % c
+	if (c != Zero)
+	{
+		auto num = a.ToNumber();
+		num += b.ToNumber();
+
+		Word::Number quot;
+		quot.SetDivResid(num, c.ToNumber());
+
+		c.FromNumber(num);
+	}
+
+	LogOperand(c);
+}
+
+OnOpcode(mulmod)
+{
+	auto& a = m_Stack.Pop();
+	auto& b = m_Stack.Pop();
+	auto& c = m_Stack.get_At(0);
+
+	LogOperand(a);
+	LogOperand(b);
+	LogOperand(c);
+
+	// c = (a * b) % c
+	if (c != Zero)
+	{
+		Word::Number num;
+		num.get_Slice().SetMul(a.ToNumber().get_ConstSlice(), b.ToNumber().get_ConstSlice());
+
+		Word::Number quot;
+		quot.SetDivResid(num, c.ToNumber());
+
+		c.FromNumber(num);
+	}
+
+	LogOperand(c);
+}
+
 OnOpcodeBinary(add)
 {
 	b += a;
@@ -612,6 +665,20 @@ OnOpcodeBinary(exp)
 	Word::Number res;
 	res.Power(a.ToNumber(), b.ToNumber());
 	b.FromNumber(res);
+}
+
+OnOpcodeBinary(signextend)
+{
+	if (memis0(a.m_pData, a.nBytes - sizeof(uint32_t)))
+	{
+		uint32_t ret;
+		a.ExportWord<sizeof(Word) / sizeof(ret) - 1>(ret);
+
+		if ((ret < b.nBytes) && (0x80 & b.m_pData[ret]))
+			memset(b.m_pData, 0xff, b.nBytes - ret - 1);
+	}
+
+
 }
 
 OnOpcodeBinary(lt)
