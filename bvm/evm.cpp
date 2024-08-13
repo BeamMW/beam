@@ -124,7 +124,7 @@ void EvmProcessor::InitVars()
 	macro(0x05, sdiv, 5) \
 	macro(0x06, mod, 5) \
 	macro(0x07, smod, 5) \
-	macro(0x0a, exp, 10) \
+	macro(0x0a, exp, 0) \
 	macro(0x10, lt, 3) \
 	macro(0x11, gt, 3) \
 	macro(0x12, slt, 3) \
@@ -137,7 +137,7 @@ void EvmProcessor::InitVars()
 	macro(0x1b, shl, 3) \
 	macro(0x1c, shr, 3) \
 	macro(0x1d, sar, 3) \
-	macro(0x20, sha3, 30) \
+	macro(0x20, sha3, 0) \
 
 #define EvmOpcodes_Unary(macro) \
 	macro(0x15, iszero, 3) \
@@ -151,9 +151,9 @@ void EvmProcessor::InitVars()
 	macro(0x35, calldataload, 3) \
 	macro(0x36, calldatasize, 2) \
 	macro(0x38, codesize, 2) \
-	macro(0x39, codecopy, 3) \
+	macro(0x39, codecopy, 0) \
 	macro(0x3b, extcodesize, 700) \
-	macro(0x3c, extcodecopy, 700) \
+	macro(0x3c, extcodecopy, 0) \
 	macro(0x3d, returndatasize, 2) \
 	macro(0x3e, returndatacopy, 3) \
 	macro(0x40, blockhash, 20) \
@@ -168,7 +168,7 @@ void EvmProcessor::InitVars()
 	macro(0x52, mstore, 3) \
 	macro(0x53, mstore8, 3) \
 	macro(0x54, sload, 800) \
-	macro(0x55, sstore, 20000) \
+	macro(0x55, sstore, 0) \
 	macro(0x56, jump, 8) \
 	macro(0x57, jumpi, 10) \
 	macro(0x58, pc, 2) \
@@ -278,6 +278,11 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	{
 		uint8_t val = !!b;
 		w = val;
+	}
+
+	static uint32_t NumWordsRoundUp(uint32_t n)
+	{
+		return (n + sizeof(Word) - 1) / sizeof(Word);
 	}
 
 	struct NoGasException
@@ -435,7 +440,7 @@ void EvmProcessor::Context::RunOnce(EvmProcessor& p)
 #define THE_MACRO(code, name, gas) \
 	case code: \
 		LogOpCode(#name); \
-		DrainGas(gas); \
+		if constexpr (gas > 0) DrainGas(gas); \
 		On_##name(p); \
 		break;
 
@@ -480,7 +485,6 @@ void EvmProcessor::Context::RunOnce(EvmProcessor& p)
 				Test(nLog <= 4);
 
 				LogOpCode("log", nLog);
-				DrainGas(375 * (nLog + 1));
 				LogN(nLog);
 			}
 			break;
@@ -596,6 +600,14 @@ OnOpcodeBinary(smod)
 
 OnOpcodeBinary(exp)
 {
+	{
+		// (exp == 0) ? 10 : (10 + 10 * (1 + log256(exp)))
+		// If exponent is 0, gas used is 10. If exponent is greater than 0, gas used is 10 plus 10 times a factor related to how large the log of the exponent is.
+
+		uint32_t nBytes = uintBigImpl::_GetOrderBytes(b.m_pData, b.nBytes);
+		DrainGas((nBytes + 1) * 10);
+	}
+
 	// b = a ^ b
 	Word::Number res;
 	res.Power(a.ToNumber(), b.ToNumber());
@@ -679,6 +691,10 @@ OnOpcodeBinary(sha3)
 	Blob blob;
 	blob.n = WtoU32(b);
 	blob.p = get_Memory(a, blob.n);
+
+	// 30 + 6 * (size of input in words)
+	// 30 is the paid for the operation plus 6 paid for each word(rounded up) for the input data.
+	DrainGas(30 + 6u * Context::NumWordsRoundUp(blob.n));
 
 	HashOf(b, blob);
 }
@@ -772,6 +788,10 @@ OnOpcode(codecopy)
 	auto nAddrSrc = WtoU32(w2);
 	auto nSize = WtoU32(w3);
 
+	// 2 + 3 * (number of words copied, rounded up)
+	// 2 is paid for the operation plus 3 for each word copied(rounded up).
+	DrainGas(2 + 3u * Context::NumWordsRoundUp(nSize));
+
 	m_Code.TestAccess(nAddrSrc, nSize); // access code pointer
 	const auto* pSrc = m_Code.m_p + nAddrSrc;
 
@@ -803,6 +823,10 @@ OnOpcode(extcodecopy)
 	auto& wOffsetDst = m_Stack.Pop();
 	auto nOffsetSrc = WtoU32(m_Stack.Pop());
 	auto nSize = WtoU32(m_Stack.Pop());
+
+	// 700 + 3 * (number of words copied, rounded up)
+	// 700 is paid for the operation plus 3 for each word copied(rounded up).
+	DrainGas(700 + 3u * Context::NumWordsRoundUp(nSize));
 
 	Blob code;
 	pS->GetCode(code);
@@ -924,6 +948,22 @@ OnOpcode(sstore)
 	Word wPrev;
 	m_Storage.SStore(w1, w2, wPrev);
 
+	// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
+	// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
+	{
+		bool b0 = (wPrev == Zero);
+		bool b1 = (w2 == Zero);
+		if (b0 == b1)
+			DrainGas(5000);
+		else
+		{
+			if (b0)
+				DrainGas(20000);
+			else
+				m_Gas += 15000; // refund gas
+		}
+	}
+
 	UndoOp* pOp = m_lstUndo.Create_back();
 	pOp->m_pStorage = &m_Storage;
 	pOp->m_IsContract = false;
@@ -1028,6 +1068,10 @@ void EvmProcessor::Context::LogN(uint32_t n)
 	auto& wAddr = m_Stack.Pop();
 	auto nSize = WtoU32(m_Stack.Pop());
 	auto* pSrc = get_Memory(wAddr, nSize);
+
+	// 375 + 8 * (number of bytes in log data) + 375
+	// 375 is paid for operation plus 8 for each byte in data to be logged plus 375 for the X topics to be logged.
+	DrainGas(375u * (n + 1) + 8u * nSize);
 
 	while (n--)
 		m_Stack.Pop(); // topic
