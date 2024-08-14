@@ -203,8 +203,19 @@ namespace beam {
 			struct BalanceChange;
 		};
 
+		struct BaseFrame
+		{
+			IAccount* m_pAccount = nullptr;
+			UndoOp::List m_lstUndo;
+			uint64_t m_Gas;
+
+			void InitAccount(IAccount::Guard&);
+			void UndoChanges();
+		};
+
 		struct Frame
 			:public boost::intrusive::list_base_hook<>
+			,public BaseFrame
 		{
 			typedef intrusive::list_autoclear<Frame> List;
 
@@ -214,23 +225,16 @@ namespace beam {
 				CallRetStatus,
 			};
 
-			Frame(IAccount& account) :m_Account(account) {}
-
-			IAccount& m_Account;
-
 			Stack m_Stack;
 			Memory m_Memory;
 			Code m_Code;
 			Args m_Args;
-			uint64_t m_Gas;
 			Type m_Type = Type::Normal;
-
-			UndoOp::List m_lstUndo;
 		};
 
 		Frame::List m_lstFrames;
-		Address m_Caller;
-		uint64_t m_Gas;
+
+		BaseFrame m_Top;
 
 		struct RetVal
 		{
