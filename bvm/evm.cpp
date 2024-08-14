@@ -264,7 +264,6 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void LogOpCode(const char* sz);
 	void LogOpCode(const char* sz, uint32_t n);
 	void LogOperand(const Word&);
-	void DrainGas(uint64_t);
 
 	BaseFrame& get_Prev(EvmProcessor& p)
 	{
@@ -361,12 +360,12 @@ void EvmProcessor::Context::LogOperand(const Word& x)
 	printf("\t\t%s\n", sz);
 }
 
-void EvmProcessor::Context::DrainGas(uint64_t n)
+void EvmProcessor::BaseFrame::DrainGas(uint64_t n)
 {
 	if (m_Gas < n)
 	{
 		m_Gas = 0;
-		throw NoGasException();
+		throw Context::NoGasException();
 	}
 
 	m_Gas -= n;
@@ -425,21 +424,31 @@ void EvmProcessor::BaseFrame::InitAccount(IAccount::Guard& g)
 	g.m_p = nullptr;
 }
 
-EvmProcessor::Frame& EvmProcessor::PushFrame(IAccount::Guard& g)
+struct EvmProcessor::UndoOp::BalanceChange
+	:public Base
 {
-	auto* pF = new Frame;
-	m_lstFrames.push_back(*pF);
-	pF->InitAccount(g);
+	Word m_Val;
+	~BalanceChange() override {}
+	void Undo() override
+	{
+		m_pAccount->set_Balance(m_Val);
+	}
+};
 
-	Blob code;
-	pF->m_pAccount->GetCode(code);
-	pF->m_Code = code;
-	pF->m_Code.m_Ip = 0;
 
-	ZeroObject(pF->m_Args);
-	pF->m_Gas = 0;
+void EvmProcessor::UpdateBalance(IAccount* pAccount, const Word& val0, const Word& val1)
+{
+	if (val0 == val1)
+		return;
 
-	return *pF;
+	BaseFrame& f = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
+
+	auto* pOp = new UndoOp::BalanceChange;
+	f.m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = pAccount;
+	pOp->m_Val = val0;
+
+	pAccount->set_Balance(val1);
 }
 
 struct EvmProcessor::UndoOp::AccountDelete
@@ -452,6 +461,34 @@ struct EvmProcessor::UndoOp::AccountDelete
 	}
 };
 
+EvmProcessor::Frame& EvmProcessor::PushFrame(IAccount::Guard& g, bool bCreated)
+{
+	auto* pF = new Frame;
+	m_lstFrames.push_back(*pF);
+	pF->InitAccount(g);
+
+	if (bCreated)
+	{
+		ZeroObject(pF->m_Code);
+
+		auto* pOp = new UndoOp::AccountDelete;
+		pF->m_lstUndo.push_back(*pOp);
+		pOp->m_pAccount = pF->m_pAccount;
+	}
+	else
+	{
+		Blob code;
+		pF->m_pAccount->GetCode(code);
+		pF->m_Code = code;
+		pF->m_Code.m_Ip = 0;
+	}
+
+	ZeroObject(pF->m_Args);
+	pF->m_Gas = 0;
+
+	return *pF;
+}
+
 EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContract, const Blob& code)
 {
 	IAccount::Guard g;
@@ -459,14 +496,10 @@ EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContr
 	if (!bCreated)
 		return nullptr; // addr already exists?
 
-	auto& f = PushFrame(g);
+	auto& f = PushFrame(g, true);
 	f.m_Type = Frame::Type::CreateContract;
 
 	f.m_Code = code;
-
-	auto* pOp = new UndoOp::AccountDelete;
-	f.m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = f.m_pAccount;
 
 	return &f;
 }
@@ -1354,44 +1387,83 @@ OnOpcode(Create2)
 		m_Stack.Push() = Zero; // failure
 }
 
+void EvmProcessor::Call(const Address& addr, const Args& args, uint64_t gas)
+{
+	BaseFrame& fPrev = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
+
+	IAccount::Guard g;
+	bool bCreated = GetAccount(addr, true, g);
+
+	auto& f = Cast::Up<Context>(PushFrame(g, bCreated));
+
+	f.m_Type = Frame::Type::CallRetStatus;
+
+	if (args.m_CallValue != Zero)
+	{
+		Word valFrom0, valFrom1, valTo0, valTo1;
+		fPrev.m_pAccount->get_Balance(valFrom0);
+		if (valFrom0 < args.m_CallValue)
+		{
+			f.OnFrameDone(*this, false, false);
+			return; // insufficient funds
+		}
+
+		valFrom1 = args.m_CallValue;
+		valFrom1.Negate();
+		valFrom1 += valFrom0;
+
+		f.m_pAccount->get_Balance(valTo0);
+		valTo1 = valTo0;
+		valTo1 += args.m_CallValue;
+
+		if (valTo1 < valTo0)
+		{
+			f.OnFrameDone(*this, false, false);
+			return; // overflow
+		}
+
+		UpdateBalance(fPrev.m_pAccount, valFrom0, valFrom1);
+		UpdateBalance(f.m_pAccount, valTo0, valTo1);
+	}
+
+	if (f.m_Code.m_n)
+	{
+		f.m_Args = args;
+
+		// adjust gas
+		if (gas >= fPrev.m_Gas)
+		{
+			f.m_Gas = fPrev.m_Gas;
+			fPrev.m_Gas = 0;
+		}
+		else
+		{
+			f.m_Gas = gas;
+			fPrev.m_Gas -= gas;
+		}
+	}
+	else
+		f.OnFrameDone(*this, true, false); // EOA, we're done
+}
+
 void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 {
 	auto nGas = WtoU64(m_Stack.Pop());
 	auto& wAddr = m_Stack.Pop();
 
-	const Word* pVal = bStatic ? nullptr  : &m_Stack.Pop();
+	Args args;
+	if (bStatic)
+		args.m_CallValue = Zero;
+	else
+		args.m_CallValue = m_Stack.Pop();
 
 	auto& wArgsAddr = m_Stack.Pop();
-	auto nArgsSize = WtoU32(m_Stack.Pop());
-	auto* pArgs = get_Memory(wArgsAddr, nArgsSize);
+	args.m_Buf.n = WtoU32(m_Stack.Pop());
+	args.m_Buf.p = get_Memory(wArgsAddr, args.m_Buf.n);
 
-	IAccount::Guard g;
-	p.GetAccount(Address::W2A(wAddr), false, g);
-	if (g.m_p)
-	{
-		DrainGas(nGas);
+	DrainGas(40);
 
-		auto& f = p.PushFrame(g);
-
-		f.m_Args.m_Buf.p = pArgs;
-		f.m_Args.m_Buf.n = nArgsSize;
-
-		if (pVal)
-			f.m_Args.m_CallValue = *pVal;
-		else
-			f.m_Args.m_CallValue = Zero;
-
-		f.m_Gas = nGas;
-		f.m_Type = Type::CallRetStatus;
-
-		Cast::Up<Context>(f).DrainGas(40);
-	}
-	else
-	{
-		m_Stack.Pop(); // res addr
-		m_Stack.Pop(); // res size
-		m_Stack.Push() = Zero; // failure
-	}
+	p.Call(Address::W2A(wAddr), args, nGas);
 }
 
 OnOpcode(call)

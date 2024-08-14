@@ -265,7 +265,7 @@ namespace beam
 			if (!g.m_p)
 				return false;
 
-			auto& f = PushFrame(g);
+			auto& f = PushFrame(g, false);
 			f.m_Args.m_Buf = Blob(&m, nSizeMethod);
 
 			RunFull();

@@ -211,6 +211,7 @@ namespace beam {
 
 			void InitAccount(IAccount::Guard&);
 			void UndoChanges();
+			void DrainGas(uint64_t);
 		};
 
 		struct Frame
@@ -257,7 +258,7 @@ namespace beam {
 		};
 #pragma pack (pop)
 
-		Frame& PushFrame(IAccount::Guard&);
+		Frame& PushFrame(IAccount::Guard&, bool bCreated);
 		Frame* PushFrameContractCreate(const Address&, const Blob& code);
 
 		void RunOnce();
@@ -267,6 +268,10 @@ namespace beam {
 
 		virtual Height get_Height() = 0;
 		virtual bool get_BlockHeader(BlockHeader&, Height) = 0;
+
+		void UpdateBalance(IAccount*, const Word& val0, const Word& val1);
+
+		void Call(const Address&, const Args&, uint64_t gas);
 
 	private:
 
