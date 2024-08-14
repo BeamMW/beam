@@ -258,9 +258,6 @@ namespace beam {
 		};
 #pragma pack (pop)
 
-		Frame& PushFrame(IAccount::Guard&, bool bCreated);
-		Frame* PushFrameContractCreate(const Address&, const Blob& code);
-
 		void RunOnce();
 
 		virtual bool GetAccount(const Address&, bool bCreate, IAccount::Guard&) = 0; // returns if the account was created
@@ -271,12 +268,16 @@ namespace beam {
 
 		void UpdateBalance(IAccount*, const Word& val0, const Word& val1);
 
-		void Call(const Address&, const Args&, uint64_t gas);
+		// hi-level
+		void Call(const Address& to, const Args&);
+		void Deploy(Address& to, const Args&, const Word& wNonce);
 
 	private:
 
 		struct Context;
 		void InitVars();
+
+		void CallInternal(const Address&, const Args&, uint64_t gas, bool isDeploy);
 	};
 
 } // namespace beam

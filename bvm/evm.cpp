@@ -461,50 +461,6 @@ struct EvmProcessor::UndoOp::AccountDelete
 	}
 };
 
-EvmProcessor::Frame& EvmProcessor::PushFrame(IAccount::Guard& g, bool bCreated)
-{
-	auto* pF = new Frame;
-	m_lstFrames.push_back(*pF);
-	pF->InitAccount(g);
-
-	if (bCreated)
-	{
-		ZeroObject(pF->m_Code);
-
-		auto* pOp = new UndoOp::AccountDelete;
-		pF->m_lstUndo.push_back(*pOp);
-		pOp->m_pAccount = pF->m_pAccount;
-	}
-	else
-	{
-		Blob code;
-		pF->m_pAccount->GetCode(code);
-		pF->m_Code = code;
-		pF->m_Code.m_Ip = 0;
-	}
-
-	ZeroObject(pF->m_Args);
-	pF->m_Gas = 0;
-
-	return *pF;
-}
-
-EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContract, const Blob& code)
-{
-	IAccount::Guard g;
-	bool bCreated = GetAccount(aContract, true, g);
-	if (!bCreated)
-		return nullptr; // addr already exists?
-
-	auto& f = PushFrame(g, true);
-	f.m_Type = Frame::Type::CreateContract;
-
-	f.m_Code = code;
-
-	return &f;
-}
-
-
 void EvmProcessor::RunOnce()
 {
 	static_assert(sizeof(Context) == sizeof(Frame), "");
@@ -1350,14 +1306,14 @@ OnOpcode(Return)
 
 OnOpcode(Create2)
 {
-	Blob code;
-
-	auto& wValue = m_Stack.Pop();
+	Args args;
+	args.m_CallValue = m_Stack.Pop();
 	auto& wOffset = m_Stack.Pop();
-	code.n = WtoU32(m_Stack.Pop());
-	auto& wSalt = m_Stack.Pop();
 
-	code.p = get_Memory(wOffset, code.n);
+	args.m_Buf.n = WtoU32(m_Stack.Pop());
+	args.m_Buf.p = get_Memory(wOffset, args.m_Buf.n);
+
+	auto& wSalt = m_Stack.Pop();
 
 	// new_address = hash(0xFF, sender, salt, bytecode)
 	Address aNew;
@@ -1377,26 +1333,52 @@ OnOpcode(Create2)
 		aNew = Address::W2A(wRes);
 	}
 
-	auto* pF = p.PushFrameContractCreate(aNew, code);
-	if (pF)
-	{
-		pF->m_Args.m_CallValue = wValue;
-		std::swap(pF->m_Gas, m_Gas);
-	}
-	else
-		m_Stack.Push() = Zero; // failure
+	p.CallInternal(aNew, args, m_Gas, true);
 }
 
-void EvmProcessor::Call(const Address& addr, const Args& args, uint64_t gas)
+void EvmProcessor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
 {
 	BaseFrame& fPrev = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
 
 	IAccount::Guard g;
 	bool bCreated = GetAccount(addr, true, g);
 
-	auto& f = Cast::Up<Context>(PushFrame(g, bCreated));
+	auto* pF = new Frame;
+	m_lstFrames.push_back(*pF);
+	pF->InitAccount(g);
+	auto& f = Cast::Up<Context>(*pF);
 
-	f.m_Type = Frame::Type::CallRetStatus;
+	if (bCreated)
+	{
+		ZeroObject(f.m_Code);
+
+		auto* pOp = new UndoOp::AccountDelete;
+		f.m_lstUndo.push_back(*pOp);
+		pOp->m_pAccount = f.m_pAccount;
+	}
+	else
+	{
+		Blob code;
+		f.m_pAccount->GetCode(code);
+		f.m_Code = code;
+		f.m_Code.m_Ip = 0;
+	}
+
+	ZeroObject(f.m_Args);
+	f.m_Gas = 0;
+
+	if (isDeploy)
+	{
+		f.m_Type = Frame::Type::CreateContract;
+
+		if (!bCreated)
+		{
+			f.OnFrameDone(*this, false, false);
+			return; // addr collision
+		}
+	}
+	else
+		f.m_Type = Frame::Type::CallRetStatus;
 
 	if (args.m_CallValue != Zero)
 	{
@@ -1426,24 +1408,62 @@ void EvmProcessor::Call(const Address& addr, const Args& args, uint64_t gas)
 		UpdateBalance(f.m_pAccount, valTo0, valTo1);
 	}
 
-	if (f.m_Code.m_n)
+	if (isDeploy)
 	{
-		f.m_Args = args;
-
-		// adjust gas
-		if (gas >= fPrev.m_Gas)
-		{
-			f.m_Gas = fPrev.m_Gas;
-			fPrev.m_Gas = 0;
-		}
-		else
-		{
-			f.m_Gas = gas;
-			fPrev.m_Gas -= gas;
-		}
+		f.m_Code = args.m_Buf;
+		f.m_Args.m_CallValue = args.m_CallValue;
 	}
 	else
-		f.OnFrameDone(*this, true, false); // EOA, we're done
+	{
+		if (!f.m_Code.m_n)
+		{
+			f.OnFrameDone(*this, true, false); // EOA, we're done
+			return;
+		}
+
+		f.m_Args = args;
+	}
+
+	// adjust gas
+	if (gas >= fPrev.m_Gas)
+	{
+		f.m_Gas = fPrev.m_Gas;
+		fPrev.m_Gas = 0;
+	}
+	else
+	{
+		f.m_Gas = gas;
+		fPrev.m_Gas -= gas;
+	}
+}
+
+void EvmProcessor::Call(const Address& addr, const Args& args)
+{
+	assert(m_lstFrames.empty());
+	CallInternal(addr, args, m_Top.m_Gas, false);
+}
+
+void EvmProcessor::Deploy(Address& to, const Args& args, const Word& wNonce)
+{
+	assert(m_lstFrames.empty());
+
+	// new contract address
+	{
+		Word w;
+		m_Top.m_pAccount->get_Address().ToWord(w);
+
+		KeccakProcessor<Word::nBits> hp;
+		hp
+			<< w
+			<< wNonce;
+
+		hp.Write(args.m_Buf.p, args.m_Buf.n);
+		hp >> w;
+
+		to = Address::W2A(w);
+	}
+
+	CallInternal(to, args, m_Top.m_Gas, true);
 }
 
 void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
@@ -1463,7 +1483,7 @@ void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 
 	DrainGas(40);
 
-	p.Call(Address::W2A(wAddr), args, nGas);
+	p.CallInternal(Address::W2A(wAddr), args, nGas, false);
 }
 
 OnOpcode(call)
