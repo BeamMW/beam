@@ -77,7 +77,7 @@ namespace beam
 			MyProcessor* m_pThis;
 
 			Word m_Balance = Zero;
-			Word m_Nonce = Zero;
+			uint64_t m_Nonce = 0;
 
 			virtual ~AccountData() {} // auto
 
@@ -207,7 +207,7 @@ namespace beam
 			return true;
 		}
 
-		Word& get_CallerNonceRef()
+		uint64_t& get_CallerNonceRef()
 		{
 			assert(m_Top.m_pAccount);
 			return Cast::Up<AccountData>(m_Top.m_pAccount)->m_Nonce;
@@ -224,7 +224,7 @@ namespace beam
 			m_Top.InitAccount(g);
 			m_Top.m_Gas = gas; // TODO - should pay for it
 
-			get_CallerNonceRef().Inc();
+			get_CallerNonceRef()++;
 		}
 
 
@@ -253,7 +253,9 @@ namespace beam
 			args.m_CallValue = Zero;
 			args.m_Buf = code;
 
-			Deploy(aContract, args, get_CallerNonceRef());
+			aContract.ForContract(m_Top.m_pAccount->get_Address(), get_CallerNonceRef());
+
+			Call(aContract, args, true);
 
 			RunFull();
 
@@ -268,7 +270,7 @@ namespace beam
 			args.m_CallValue = Zero;
 			args.m_Buf = Blob(&m, nSizeMethod);
 
-			Call(to, args);
+			Call(to, args, false);
 
 			RunFull();
 
@@ -302,6 +304,29 @@ namespace beam
 
 			verify_test(addr == addr2);
 		}
+
+		{
+			// test contract address derivation
+			EvmProcessor::Address addr, addr2, addr3;
+			addr.Scan("6ac7ea33f8831ea9dcc53393aaa88b25a785dbf0");
+
+			addr2.ForContract(addr, 0);
+			addr3.Scan("cd234a471b72ba2f1ccf0a70fcaba648a5eecd8d");
+			verify_test(addr2 == addr3);
+
+			addr2.ForContract(addr, 1);
+			addr3.Scan("343c43a37d37dff08ae8c4a11544c718abb4fcf8");
+			verify_test(addr2 == addr3);
+
+			addr2.ForContract(addr, 2);
+			addr3.Scan("f778b86fa74e846c4f0a1fbd1335fe81c00a0c91");
+			verify_test(addr2 == addr3);
+			
+			addr2.ForContract(addr, 3);
+			addr3.Scan("fffd933a0bc612844eaf0c6fe3e5b8e9b6c1d19c");
+			verify_test(addr2 == addr3);
+		}
+
 
 		// storage example
 
