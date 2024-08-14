@@ -117,6 +117,34 @@ void EvmProcessor::InitVars()
 	m_Gas = 0;
 }
 
+
+/*
+
+	// 0x30 range - closure state.
+	BALANCE        OpCode = 0x31, gas=400
+	ORIGIN         OpCode = 0x32, gas=2
+	CALLDATACOPY   OpCode = 0x37, gas= 2 + 3 * (number of words copied, rounded up)	2 is paid for the operation plus 3 for each word copied (rounded up).			
+	GASPRICE       OpCode = 0x3a, gas=2
+	EXTCODEHASH    OpCode = 0x3f, gas=700??
+
+	// 0x40 range - block operations.
+	SELFBALANCE OpCode = 0x47
+	BASEFEE     OpCode = 0x48
+
+	// 0x50 range - 'storage' and execution.
+	MSIZE    OpCode = 0x59, gas=2
+
+	// 0xf0 range - closures.
+	CREATE       OpCode = 0xf0, gas=32000
+	CALLCODE     OpCode = 0xf2
+	DELEGATECALL OpCode = 0xf4
+	CREATE2      OpCode = 0xf5
+
+	INVALID      OpCode = 0xfe
+	SELFDESTRUCT OpCode = 0xff
+*/
+
+
 #define EvmOpcodes_Binary(macro) \
 	macro(0x01, add, 3) \
 	macro(0x02, mul, 5) \
@@ -366,13 +394,28 @@ uint64_t EvmProcessor::Context::get_MemoryCost(uint32_t nSize)
 	return (a * 3) + (a * a / 512);
 }
 
-EvmProcessor::Frame& EvmProcessor::PushFrame(IStorage& s)
+struct EvmProcessor::UndoOp::Guard
+	:public Base
 {
-	auto* pF = new Frame(s);
+	~Guard() override {}
+	void Undo() override
+	{
+		m_pAccount->Release();
+	}
+};
+
+EvmProcessor::Frame& EvmProcessor::PushFrame(IAccount::Guard& g)
+{
+	auto* pF = new Frame(*g.m_p);
 	m_lstFrames.push_back(*pF);
 
+	auto* pOp = new UndoOp::Guard;
+	pF->m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = g.m_p;
+	g.m_p = nullptr;
+
 	Blob code;
-	s.GetCode(code);
+	pF->m_Account.GetCode(code);
 	pF->m_Code = code;
 	pF->m_Code.m_Ip = 0;
 
@@ -382,20 +425,31 @@ EvmProcessor::Frame& EvmProcessor::PushFrame(IStorage& s)
 	return *pF;
 }
 
+struct EvmProcessor::UndoOp::AccountDelete
+	:public Base
+{
+	~AccountDelete() override {}
+	void Undo() override
+	{
+		m_pAccount->Delete();
+	}
+};
+
 EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContract, const Blob& code)
 {
-	auto* pS = GetContractData(aContract, true);
-	if (!pS)
-		return nullptr;
+	IAccount::Guard g;
+	bool bCreated = GetAccount(aContract, true, g);
+	if (!bCreated)
+		return nullptr; // addr already exists?
 
-	pS->SetCode(code);
-
-	auto& f = PushFrame(*pS);
+	auto& f = PushFrame(g);
 	f.m_Type = Frame::Type::CreateContract;
 
-	UndoOp* pOp = f.m_lstUndo.Create_back();
-	pOp->m_pStorage = pS;
-	pOp->m_IsContract = true;
+	f.m_Code = code;
+
+	auto* pOp = new UndoOp::AccountDelete;
+	f.m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = &f.m_Account;
 
 	return &f;
 }
@@ -804,7 +858,7 @@ OnOpcodeBinary(byte)
 
 OnOpcode(address)
 {
-	m_Stack.Push() = m_Storage.get_Address().ToWord();
+	m_Stack.Push() = m_Account.get_Address().ToWord();
 }
 
 const EvmProcessor::Address& EvmProcessor::Context::get_Caller(EvmProcessor& p)
@@ -813,7 +867,7 @@ const EvmProcessor::Address& EvmProcessor::Context::get_Caller(EvmProcessor& p)
 	if (1u == p.m_lstFrames.size())
 		return p.m_Caller;
 
-	return get_Prev().m_Storage.get_Address();
+	return get_Prev().m_Account.get_Address();
 }
 
 OnOpcode(caller)
@@ -870,13 +924,14 @@ OnOpcode(codecopy)
 
 OnOpcode(extcodesize)
 {
-	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()), false);
+	IAccount::Guard g;
+	p.GetAccount(Address::W2A(m_Stack.Pop()), false, g);
 
 	auto& wRes = m_Stack.Push();
-	if (pS)
+	if (g.m_p)
 	{
 		Blob b;
-		pS->GetCode(b);
+		g.m_p->GetCode(b);
 		wRes = b.n;
 	}
 	else
@@ -885,8 +940,9 @@ OnOpcode(extcodesize)
 
 OnOpcode(extcodecopy)
 {
-	auto* pS = p.GetContractData(Address::W2A(m_Stack.Pop()), false);
-	Test(pS != nullptr);
+	IAccount::Guard g;
+	p.GetAccount(Address::W2A(m_Stack.Pop()), false, g);
+	Test(g.m_p != nullptr);
 
 	auto& wOffsetDst = m_Stack.Pop();
 	auto nOffsetSrc = WtoU32(m_Stack.Pop());
@@ -897,7 +953,7 @@ OnOpcode(extcodecopy)
 	DrainGas(700 + 3u * Context::NumWordsRoundUp(nSize));
 
 	Blob code;
-	pS->GetCode(code);
+	g.m_p->GetCode(code);
 
 	auto nEndSrc = nOffsetSrc + nSize;
 	Test(nEndSrc >= nOffsetSrc);
@@ -1002,11 +1058,25 @@ OnOpcode(sload)
 	Word& w = m_Stack.get_At(0);
 	LogOperand(w);
 
-	if (!m_Storage.SLoad(w, w))
+	if (!m_Account.SLoad(w, w))
 		w = Zero;
 
 	LogOperand(w);
 }
+
+struct EvmProcessor::UndoOp::VarSet
+	:public Base
+{
+	Word m_Key;
+	Word m_Val;
+
+	~VarSet() override {}
+	void Undo() override
+	{
+		Word wPrev;
+		m_pAccount->SStore(m_Key, m_Val, wPrev);
+	}
+};
 
 OnOpcode(sstore)
 {
@@ -1014,7 +1084,7 @@ OnOpcode(sstore)
 	const Word& w2 = m_Stack.Pop();
 
 	Word wPrev;
-	m_Storage.SStore(w1, w2, wPrev);
+	m_Account.SStore(w1, w2, wPrev);
 
 	// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
 	// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
@@ -1032,11 +1102,11 @@ OnOpcode(sstore)
 		}
 	}
 
-	UndoOp* pOp = m_lstUndo.Create_back();
-	pOp->m_pStorage = &m_Storage;
-	pOp->m_IsContract = false;
-	pOp->m_wKey = w1;
-	pOp->m_wVal = wPrev;
+	auto* pOp = new UndoOp::VarSet;
+	m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = &m_Account;
+	pOp->m_Key = w1;
+	pOp->m_Val = wPrev;
 
 	LogOperand(w1);
 	LogOperand(w2);
@@ -1153,15 +1223,7 @@ void EvmProcessor::Context::UndoChanges()
 	while (!m_lstUndo.empty())
 	{
 		auto& op = m_lstUndo.back();
-
-		if (op.m_IsContract)
-			op.m_pStorage->Delete();
-		else
-		{
-			Word wPrev;
-			op.m_pStorage->SStore(op.m_wKey, op.m_wVal, wPrev);
-		}
-
+		op.Undo();
 		m_lstUndo.Delete(op);
 	}
 }
@@ -1204,7 +1266,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 
 		if (bSuccess)
 		{
-			m_Storage.SetCode(p.m_RetVal.m_Blob);
+			m_Account.SetCode(p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
 		}
 
@@ -1212,7 +1274,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 		{
 			auto& wRes = pPrev->m_Stack.Push();
 			if (bSuccess)
-				m_Storage.get_Address().ToWord(wRes);
+				m_Account.get_Address().ToWord(wRes);
 			else
 				wRes = Zero;
 		}
@@ -1295,12 +1357,13 @@ void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
 	auto nArgsSize = WtoU32(m_Stack.Pop());
 	auto* pArgs = get_Memory(wArgsAddr, nArgsSize);
 
-	auto* pS = p.GetContractData(Address::W2A(wAddr), false);
-	if (pS)
+	IAccount::Guard g;
+	p.GetAccount(Address::W2A(wAddr), false, g);
+	if (g.m_p)
 	{
 		DrainGas(nGas);
 
-		auto& f = p.PushFrame(*pS);
+		auto& f = p.PushFrame(g);
 
 		f.m_Args.m_Buf.p = pArgs;
 		f.m_Args.m_Buf.n = nArgsSize;
