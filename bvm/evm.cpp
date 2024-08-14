@@ -15,11 +15,38 @@
 #define _CRT_SECURE_NO_WARNINGS // sprintf
 #include "evm.h"
 #include "../core/keccak.h"
-//#include <sstream>
-//#include <iomanip>
-//#include <string>
 
 namespace beam {
+
+	namespace Shaders {
+
+		typedef ECC::Point PubKey;
+		typedef ECC::Point Secp_point_data;
+		typedef ECC::Point::Storage Secp_point_dataEx;
+		typedef ECC::Scalar Secp_scalar_data;
+		typedef beam::Asset::ID AssetID;
+		typedef ECC::uintBig ShaderID;
+		typedef ECC::uintBig HashValue;
+		typedef beam::uintBig_t<64> HashValue512;
+		using beam::ContractID;
+		using beam::Amount;
+		using beam::Height;
+		using beam::Timestamp;
+		using beam::HeightPos;
+
+		template<bool bToShader, typename T>
+		inline void ConvertOrd(T& x)
+		{
+			if constexpr (bToShader)
+				x = beam::ByteOrder::to_le(x);
+			else
+				x = beam::ByteOrder::from_le(x);
+		}
+
+#define HOST_BUILD
+#include "Shaders/Eth.h" // Rlp encoding
+	}
+
 
 void EvmProcessor::Fail()
 {
@@ -50,6 +77,22 @@ uint64_t EvmProcessor::WtoU64(const Word& w)
 	return ret;
 }
 
+void EvmProcessor::Address::ForContract(const Address& from, uint64_t nonce)
+{
+	KeccakProcessor<Word::nBits> hp;
+
+	// Rlp encode
+	Shaders::Eth::Rlp::Node pC[] = {
+		Shaders::Eth::Rlp::Node(from),
+		Shaders::Eth::Rlp::Node(nonce)
+	};
+
+	Shaders::Eth::Rlp::Node(pC).Write(hp);
+
+	Word res;
+	hp >> res;
+	*this = W2A(res);
+}
 
 void EvmProcessor::Address::FromPubKey(const ECC::Point::Storage& pk)
 {
@@ -67,7 +110,7 @@ void EvmProcessor::Address::FromPubKey(const ECC::Point::Storage& pk)
 	Word w;
 	hp.Read(w.m_pData);
 
-	Cast::Down<uintBig_t<20> >(*this) = w; // takes the last portion
+	*this = W2A(w);
 }
 
 bool EvmProcessor::Address::FromPubKey(const ECC::Point& pk)
@@ -122,14 +165,10 @@ void EvmProcessor::InitVars()
 /*
 
 	// 0x30 range - closure state.
-	BALANCE        OpCode = 0x31, gas=400
-	ORIGIN         OpCode = 0x32, gas=2
-	CALLDATACOPY   OpCode = 0x37, gas= 2 + 3 * (number of words copied, rounded up)	2 is paid for the operation plus 3 for each word copied (rounded up).			
 	GASPRICE       OpCode = 0x3a, gas=2
 	EXTCODEHASH    OpCode = 0x3f, gas=700??
 
 	// 0x40 range - block operations.
-	SELFBALANCE OpCode = 0x47
 	BASEFEE     OpCode = 0x48
 
 	// 0x50 range - 'storage' and execution.
@@ -179,10 +218,13 @@ void EvmProcessor::InitVars()
 	macro(0x08, addmod, 8) \
 	macro(0x09, mulmod, 8) \
 	macro(0x30, address, 2) \
+	macro(0x31, balance, 700) \
+	macro(0x32, origin, 2) \
 	macro(0x33, caller, 2) \
 	macro(0x34, callvalue, 2) \
 	macro(0x35, calldataload, 3) \
 	macro(0x36, calldatasize, 2) \
+	macro(0x37, calldatacopy, 0) \
 	macro(0x38, codesize, 2) \
 	macro(0x39, codecopy, 0) \
 	macro(0x3b, extcodesize, 700) \
@@ -196,6 +238,7 @@ void EvmProcessor::InitVars()
 	macro(0x44, difficulty, 2) \
 	macro(0x45, gaslimit, 2) \
 	macro(0x46, chainid, 2) \
+	macro(0x47, selfbalance, 3) \
 	macro(0x50, pop, 2) \
 	macro(0x51, mload, 3) \
 	macro(0x52, mstore, 3) \
@@ -867,6 +910,23 @@ OnOpcode(address)
 	m_Stack.Push() = m_pAccount->get_Address().ToWord();
 }
 
+OnOpcode(balance)
+{
+	auto& w1 = m_Stack.get_At(0);
+	IAccount::Guard g;
+	p.GetAccount(Address::W2A(w1), false, g);
+
+	if (g.m_p)
+		g.m_p->get_Balance(w1);
+	else
+		w1 = Zero;
+}
+
+OnOpcode(origin)
+{
+	p.m_Top.m_pAccount->get_Address().ToWord(m_Stack.Push());
+}
+
 OnOpcode(caller)
 {
 	m_Stack.Push() = get_Caller(p).ToWord();
@@ -892,6 +952,27 @@ OnOpcode(calldatasize)
 {
 	m_Stack.Push() = m_Args.m_Buf.n;
 }
+
+OnOpcode(calldatacopy)
+{
+	auto& w1 = m_Stack.Pop();
+	auto& w2 = m_Stack.Pop();
+	auto& w3 = m_Stack.Pop();
+
+	auto nAddrSrc = WtoU32(w2);
+	auto nSize = WtoU32(w3);
+
+	// 2 + 3 * (number of words copied, rounded up)
+	// 2 is paid for the operation plus 3 for each word copied(rounded up).
+	DrainGas(2 + 3u * Context::NumWordsRoundUp(nSize));
+
+	Test(nSize <= m_Args.m_Buf.n - nAddrSrc); // overflow-resistant
+	const auto* pSrc = reinterpret_cast<const uint8_t*>(m_Args.m_Buf.p) + nAddrSrc;
+
+	auto* pDst = get_Memory(w1, nSize);
+	memcpy(pDst, pSrc, nSize);
+}
+
 
 OnOpcode(codesize)
 {
@@ -1156,6 +1237,11 @@ OnOpcode(push0)
 OnOpcode(chainid)
 {
 	p.get_ChainID(m_Stack.Push());
+}
+
+OnOpcode(selfbalance)
+{
+	m_pAccount->get_Balance(m_Stack.Push());
 }
 
 void EvmProcessor::get_ChainID(Word& w)
@@ -1437,33 +1523,10 @@ void EvmProcessor::CallInternal(const Address& addr, const Args& args, uint64_t 
 	}
 }
 
-void EvmProcessor::Call(const Address& addr, const Args& args)
+void EvmProcessor::Call(const Address& addr, const Args& args, bool isDeploy)
 {
 	assert(m_lstFrames.empty());
-	CallInternal(addr, args, m_Top.m_Gas, false);
-}
-
-void EvmProcessor::Deploy(Address& to, const Args& args, const Word& wNonce)
-{
-	assert(m_lstFrames.empty());
-
-	// new contract address
-	{
-		Word w;
-		m_Top.m_pAccount->get_Address().ToWord(w);
-
-		KeccakProcessor<Word::nBits> hp;
-		hp
-			<< w
-			<< wNonce;
-
-		hp.Write(args.m_Buf.p, args.m_Buf.n);
-		hp >> w;
-
-		to = Address::W2A(w);
-	}
-
-	CallInternal(to, args, m_Top.m_Gas, true);
+	CallInternal(addr, args, m_Top.m_Gas, isDeploy);
 }
 
 void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)

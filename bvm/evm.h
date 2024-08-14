@@ -61,6 +61,8 @@ namespace beam {
 			void FromPubKey(const ECC::Point::Storage&);
 			bool FromPubKey(const ECC::Point&);
 			bool FromPubKey(const PeerID&);
+
+			void ForContract(const Address& from, uint64_t nonce);
 		};
 
 		struct BlockHeader
@@ -269,8 +271,7 @@ namespace beam {
 		void UpdateBalance(IAccount*, const Word& val0, const Word& val1);
 
 		// hi-level
-		void Call(const Address& to, const Args&);
-		void Deploy(Address& to, const Args&, const Word& wNonce);
+		void Call(const Address& to, const Args&, bool isDeploy);
 
 	private:
 

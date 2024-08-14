@@ -57,6 +57,11 @@ namespace beam
 			Write(reinterpret_cast<const uint8_t*>(pSrc), nSrc);
 		}
 
+		void Write(uint8_t n)
+		{
+			Write(&n, 1);
+		}
+
 		template <uint32_t nBytes_>
 		void Write(const beam::uintBig_t<nBytes_>& x) { Write(x.m_pData, x.nBytes); }
 
