@@ -109,12 +109,13 @@ void EvmProcessor::Reset()
 {
 	InitVars();
 	m_lstFrames.Clear();
+	m_Top.m_lstUndo.Clear();
 }
 
 void EvmProcessor::InitVars()
 {
-	Cast::Down<Address::Base>(m_Caller) = Zero;
-	m_Gas = 0;
+	m_Top.m_Gas = 0;
+	m_Top.m_pAccount = nullptr;
 }
 
 
@@ -265,13 +266,20 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void LogOperand(const Word&);
 	void DrainGas(uint64_t);
 
-	const Address& get_Caller(EvmProcessor& p);
-
-	Frame& get_Prev()
+	BaseFrame& get_Prev(EvmProcessor& p)
 	{
+		assert(!p.m_lstFrames.empty());
+		if (p.m_lstFrames.size() == 1)
+			return p.m_Top;
+
 		auto it = Frame::List::s_iterator_to(*this);
 		--it;
 		return *it;
+	}
+
+	const Address& get_Caller(EvmProcessor& p)
+	{
+		return get_Prev(p).m_pAccount->get_Address();
 	}
 
 	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
@@ -284,7 +292,6 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void LogN(uint32_t n);
 	void OnFrameDone(EvmProcessor&, bool bSuccess, bool bHaveRetval);
 	void OnCall(EvmProcessor&, bool bStatic);
-	void UndoChanges();
 
 	template <bool bPadLeft>
 	static void AssignPartial(Word&, const uint8_t* p, uint32_t n);
@@ -397,25 +404,35 @@ uint64_t EvmProcessor::Context::get_MemoryCost(uint32_t nSize)
 struct EvmProcessor::UndoOp::Guard
 	:public Base
 {
-	~Guard() override {}
-	void Undo() override
+	~Guard() override
 	{
 		m_pAccount->Release();
 	}
+	void Undo() override
+	{
+	}
 };
+
+void EvmProcessor::BaseFrame::InitAccount(IAccount::Guard& g)
+{
+	assert(!m_pAccount && g.m_p);
+
+	auto* pOp = new UndoOp::Guard;
+	m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = g.m_p;
+
+	m_pAccount = g.m_p;
+	g.m_p = nullptr;
+}
 
 EvmProcessor::Frame& EvmProcessor::PushFrame(IAccount::Guard& g)
 {
-	auto* pF = new Frame(*g.m_p);
+	auto* pF = new Frame;
 	m_lstFrames.push_back(*pF);
-
-	auto* pOp = new UndoOp::Guard;
-	pF->m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = g.m_p;
-	g.m_p = nullptr;
+	pF->InitAccount(g);
 
 	Blob code;
-	pF->m_Account.GetCode(code);
+	pF->m_pAccount->GetCode(code);
 	pF->m_Code = code;
 	pF->m_Code.m_Ip = 0;
 
@@ -449,7 +466,7 @@ EvmProcessor::Frame* EvmProcessor::PushFrameContractCreate(const Address& aContr
 
 	auto* pOp = new UndoOp::AccountDelete;
 	f.m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = &f.m_Account;
+	pOp->m_pAccount = f.m_pAccount;
 
 	return &f;
 }
@@ -858,16 +875,7 @@ OnOpcodeBinary(byte)
 
 OnOpcode(address)
 {
-	m_Stack.Push() = m_Account.get_Address().ToWord();
-}
-
-const EvmProcessor::Address& EvmProcessor::Context::get_Caller(EvmProcessor& p)
-{
-	assert(!p.m_lstFrames.empty());
-	if (1u == p.m_lstFrames.size())
-		return p.m_Caller;
-
-	return get_Prev().m_Account.get_Address();
+	m_Stack.Push() = m_pAccount->get_Address().ToWord();
 }
 
 OnOpcode(caller)
@@ -1058,7 +1066,7 @@ OnOpcode(sload)
 	Word& w = m_Stack.get_At(0);
 	LogOperand(w);
 
-	if (!m_Account.SLoad(w, w))
+	if (!m_pAccount->SLoad(w, w))
 		w = Zero;
 
 	LogOperand(w);
@@ -1084,7 +1092,7 @@ OnOpcode(sstore)
 	const Word& w2 = m_Stack.Pop();
 
 	Word wPrev;
-	m_Account.SStore(w1, w2, wPrev);
+	m_pAccount->SStore(w1, w2, wPrev);
 
 	// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
 	// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
@@ -1104,7 +1112,7 @@ OnOpcode(sstore)
 
 	auto* pOp = new UndoOp::VarSet;
 	m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = &m_Account;
+	pOp->m_pAccount = m_pAccount;
 	pOp->m_Key = w1;
 	pOp->m_Val = wPrev;
 
@@ -1218,7 +1226,7 @@ void EvmProcessor::Context::LogN(uint32_t n)
 
 }
 
-void EvmProcessor::Context::UndoChanges()
+void EvmProcessor::BaseFrame::UndoChanges()
 {
 	while (!m_lstUndo.empty())
 	{
@@ -1226,6 +1234,8 @@ void EvmProcessor::Context::UndoChanges()
 		op.Undo();
 		m_lstUndo.Delete(op);
 	}
+
+	m_pAccount = nullptr; // for more safety, since we're no longer holding the guard
 }
 
 void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHaveRetval)
@@ -1249,13 +1259,11 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
 
 	Context* pPrev = p.m_lstFrames.empty() ? nullptr : &Cast::Up<Context>(p.m_lstFrames.back());
-	(pPrev ? pPrev->m_Gas : p.m_Gas) += m_Gas;
+	BaseFrame& fPrev = pPrev ? *pPrev : p.m_Top;
+	fPrev.m_Gas += m_Gas;
 
 	if (bSuccess)
-	{
-		if (pPrev)
-			pPrev->m_lstUndo.splice(pPrev->m_lstUndo.end(), m_lstUndo);
-	}
+		fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
 	else
 		UndoChanges();
 
@@ -1266,7 +1274,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 
 		if (bSuccess)
 		{
-			m_Account.SetCode(p.m_RetVal.m_Blob);
+			m_pAccount->SetCode(p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
 		}
 
@@ -1274,7 +1282,7 @@ void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHa
 		{
 			auto& wRes = pPrev->m_Stack.Push();
 			if (bSuccess)
-				m_Account.get_Address().ToWord(wRes);
+				m_pAccount->get_Address().ToWord(wRes);
 			else
 				wRes = Zero;
 		}

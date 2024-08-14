@@ -157,6 +157,11 @@ namespace beam
 
 		};
 
+		~MyProcessor()
+		{
+			Reset();
+		}
+
 		intrusive::multiset_autoclear<ContractData> m_mapContracts;
 
 		void PrintVars(std::ostream& os) const
@@ -201,20 +206,32 @@ namespace beam
 			return true;
 		}
 
+		void InitCaller(const Address& aCaller, uint64_t gas = 1000000000ULL)
+		{
+			Reset();
 
-		void RunFull(const Address& aCaller)
+			IAccount::Guard g;
+			GetAccount(aCaller, true, g);
+			assert(g.m_p);
+
+			m_Top.InitAccount(g);
+			m_Top.m_Gas = gas; // TODO - should pay for it
+		}
+
+
+		void RunFull()
 		{
 			assert(1u == m_lstFrames.size());
 			auto& f = m_lstFrames.back();
 
-			f.m_Gas = 1000000000ULL;
-			m_Caller = aCaller;
+			assert(!f.m_Gas);
+			std::swap(f.m_Gas, m_Top.m_Gas);
 
 			while (!m_lstFrames.empty())
 				RunOnce();
 		}
 
-		bool Construct(const Address& aContract, const Address& aCaller, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
+		bool Construct(const Address& aContract, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
 		{
 			ByteBuffer code;
 
@@ -228,18 +245,17 @@ namespace beam
 			}
 
 			std::cout << "\nCtor" << std::endl;
-			Reset();
 
 			auto* pF = PushFrameContractCreate(aContract, code);
 			if (!pF)
 				return false;
 
-			RunFull(aCaller);
+			RunFull();
 
 			return m_RetVal.m_Success;
 		}
 
-		bool RunMethod(const Address& aContract, const Address& aCaller, const EvmProcessor::Method& m, uint32_t nSizeMethod)
+		bool RunMethod(const Address& aContract, const EvmProcessor::Method& m, uint32_t nSizeMethod)
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
@@ -249,19 +265,18 @@ namespace beam
 			if (!g.m_p)
 				return false;
 
-			Reset();
 			auto& f = PushFrame(g);
 			f.m_Args.m_Buf = Blob(&m, nSizeMethod);
 
-			RunFull(aCaller);
+			RunFull();
 			return m_RetVal.m_Success;
 
 		}
 
 		template <typename TMethod>
-		bool RunMethod_T(const Address& aContract, const Address& aCaller, const TMethod& m)
+		bool RunMethod_T(const Address& aContract, const TMethod& m)
 		{
-			return RunMethod(aContract, aCaller, m, sizeof(m));
+			return RunMethod(aContract, m, sizeof(m));
 		}
 
 	};
@@ -316,7 +331,8 @@ namespace beam
 		ECC::GenRandom(aContract);
 		ECC::GenRandom(aOwner);
 
-		verify_test(evm.Construct(aContract, aOwner, szCode, _countof(szCode) - 1, nullptr, 0));
+		evm.InitCaller(aOwner);
+		verify_test(evm.Construct(aContract, szCode, _countof(szCode) - 1, nullptr, 0));
 
 #pragma pack (push, 1)
 		struct MyMethod
@@ -335,7 +351,8 @@ namespace beam
 			myArg.SetSelector("add(uint256)");
 			myArg.m_MyValue = valAdd;
 
-			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aContract, myArg));
 
 			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
 			const auto& wRes = *(const EvmProcessor::Word*) evm.m_RetVal.m_Blob.p;
@@ -373,7 +390,8 @@ namespace beam
 			memcpy(myArgs.m_pszName[0].m_pData, "Hello", 5);
 			memcpy(myArgs.m_pszName[1].m_pData, "world!", 6);
 
-			verify_test(evm.Construct(aContract, aOwner, szCode, _countof(szCode) - 1, &myArgs, sizeof(myArgs)));
+			evm.InitCaller(aOwner);
+			verify_test(evm.Construct(aContract, szCode, _countof(szCode) - 1, &myArgs, sizeof(myArgs)));
 		}
 
 
@@ -392,7 +410,8 @@ namespace beam
 			myArg.SetSelector("giveRightToVote(address)");
 			myArg.m_wVoter = aVoter.ToWord();
 
-			verify_test(evm.RunMethod_T(aContract, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aContract, myArg));
 			verify_test(!evm.m_RetVal.m_Blob.n);
 		}
 
@@ -408,7 +427,8 @@ namespace beam
 			myArg.SetSelector("vote(uint256)");
 			myArg.m_iVote = 1u;
 
-			verify_test(evm.RunMethod_T(aContract, aVoter, myArg));
+			evm.InitCaller(aVoter);
+			verify_test(evm.RunMethod_T(aContract, myArg));
 			verify_test(!evm.m_RetVal.m_Blob.n);
 		}
 
@@ -416,7 +436,8 @@ namespace beam
 			EvmProcessor::Method myArg;
 			myArg.SetSelector("winningProposal()");
 
-			verify_test(evm.RunMethod_T(aContract, aVoter, myArg));
+			evm.InitCaller(aVoter);
+			verify_test(evm.RunMethod_T(aContract, myArg));
 
 			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
 			const auto& wRes = *(const EvmProcessor::Word*)evm.m_RetVal.m_Blob.p;
@@ -427,7 +448,8 @@ namespace beam
 			EvmProcessor::Method myArg;
 			myArg.SetSelector("winnerName()");
 
-			verify_test(evm.RunMethod_T(aContract, aVoter, myArg));
+			evm.InitCaller(aVoter);
+			verify_test(evm.RunMethod_T(aContract, myArg));
 			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
 		}
 
@@ -467,14 +489,17 @@ namespace beam
 			sCode += szCodeUniswapV2Factory_4;
 
 			auto wBenefit = aBenefit.ToWord();
-			verify_test(evm.Construct(aFactory, aOwner, sCode.c_str(), (uint32_t) sCode.size(), wBenefit.m_pData, wBenefit.nBytes));
+			evm.InitCaller(aOwner);
+			verify_test(evm.Construct(aFactory, sCode.c_str(), (uint32_t) sCode.size(), wBenefit.m_pData, wBenefit.nBytes));
 		}
 
 		ECC::GenRandom(aTokA);
 		ECC::GenRandom(aTokB);
 
-		verify_test(evm.Construct(aTokA, aOwner, szCodeMyErc20, _countof(szCodeMyErc20) - 1, nullptr, 0));
-		verify_test(evm.Construct(aTokB, aOwner, szCodeMyErc20, _countof(szCodeMyErc20) - 1, nullptr, 0));
+		evm.InitCaller(aOwner);
+		verify_test(evm.Construct(aTokA, szCodeMyErc20, _countof(szCodeMyErc20) - 1, nullptr, 0));
+		evm.InitCaller(aOwner);
+		verify_test(evm.Construct(aTokB, szCodeMyErc20, _countof(szCodeMyErc20) - 1, nullptr, 0));
 
 		evm.PrintVars(std::cout);
 
@@ -493,7 +518,8 @@ namespace beam
 			myArg.m_wTokA = aTokA.ToWord();
 			myArg.m_wTokB = aTokB.ToWord();
 
-			verify_test(evm.RunMethod_T(aFactory, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aFactory, myArg));
 			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 			aPairAB = EvmProcessor::Address::W2A(*((EvmProcessor::Word*) evm.m_RetVal.m_Blob.p));
 		}
@@ -501,7 +527,8 @@ namespace beam
 		{
 			EvmProcessor::Method myArg;
 			myArg.SetSelector("allPairsLength()");
-			verify_test(evm.RunMethod_T(aFactory, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aFactory, myArg));
 		}
 
 		for (uint32_t iP = 0; iP < 1; iP++)
@@ -517,7 +544,8 @@ namespace beam
 			myArg.SetSelector("allPairs(uint256)");
 			myArg.m_Idx = iP;
 
-			verify_test(evm.RunMethod_T(aFactory, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aFactory, myArg));
 			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 		}
 
@@ -539,8 +567,10 @@ namespace beam
 			aPairAB.ToWord(myArg.m_aTo);
 			myArg.m_Value = 725000u;
 
-			verify_test(evm.RunMethod_T(aTokA, aOwner, myArg));
-			verify_test(evm.RunMethod_T(aTokB, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aTokA, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aTokB, myArg));
 		}
 
 		evm.PrintVars(std::cout);
@@ -565,7 +595,8 @@ namespace beam
 			aOwner.ToWord(myArg.m_Addr);
 			EvmProcessor::Address::WPad(myArg.m_Addr);
 
-			verify_test(evm.RunMethod_T(aPairAB, aOwner, myArg));
+			evm.InitCaller(aOwner);
+			verify_test(evm.RunMethod_T(aPairAB, myArg));
 			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
 			
 		}
