@@ -151,9 +151,29 @@ namespace beam {
 			Word m_CallValue; // amonth of eth to be received by the caller?
 		};
 
-		struct IStorage
+		struct IAccount
 		{
+			virtual void Release() = 0;
+
+			struct Guard {
+				IAccount* m_p = nullptr;
+				~Guard()
+				{
+					if (m_p)
+						m_p->Release();
+				}
+			};
+
+			// each account has the following 4 fields:
+			//		nonce
+			//		balance
+			//		codeHash
+			//		storageRoot
+
 			virtual const Address& get_Address() = 0;
+
+			virtual void get_Balance(Word&) = 0;
+			virtual void set_Balance(const Word&) = 0;
 
 			virtual void SStore(const Word& key, const Word&, Word& wPrev) = 0;
 			virtual bool SLoad(const Word& key, Word&) = 0;
@@ -161,18 +181,26 @@ namespace beam {
 			virtual void SetCode(const Blob&) = 0;
 			virtual void GetCode(Blob&) = 0;
 
-			virtual void Delete() = 0; // will be last function called
+			virtual void Delete() = 0;
 		};
 
 		struct UndoOp
-			:public boost::intrusive::list_base_hook<>
 		{
-			typedef intrusive::list_autoclear<UndoOp> List;
+			struct Base
+				:public boost::intrusive::list_base_hook<>
+			{
+				IAccount* m_pAccount;
 
-			Word m_wKey;
-			Word m_wVal;
-			IStorage* m_pStorage;
-			bool m_IsContract;
+				virtual ~Base() {}
+				virtual void Undo() = 0;
+			};
+
+			typedef intrusive::list_autoclear<Base> List;
+
+			struct Guard;
+			struct VarSet;
+			struct AccountDelete;
+			struct BalanceChange;
 		};
 
 		struct Frame
@@ -186,9 +214,9 @@ namespace beam {
 				CallRetStatus,
 			};
 
-			IStorage& m_Storage;
+			Frame(IAccount& account) :m_Account(account) {}
 
-			Frame(IStorage& s) :m_Storage(s) {}
+			IAccount& m_Account;
 
 			Stack m_Stack;
 			Memory m_Memory;
@@ -225,12 +253,12 @@ namespace beam {
 		};
 #pragma pack (pop)
 
-		Frame& PushFrame(IStorage&);
+		Frame& PushFrame(IAccount::Guard&);
 		Frame* PushFrameContractCreate(const Address&, const Blob& code);
 
 		void RunOnce();
 
-		virtual IStorage* GetContractData(const Address&, bool bCreate) = 0;
+		virtual bool GetAccount(const Address&, bool bCreate, IAccount::Guard&) = 0; // returns if the account was created
 		virtual void get_ChainID(Word&);
 
 		virtual Height get_Height() = 0;

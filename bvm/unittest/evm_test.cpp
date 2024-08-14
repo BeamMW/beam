@@ -70,13 +70,26 @@ namespace beam
 	{
 		struct ContractData
 			:public intrusive::set_base_hook<Address>
-			,public IStorage
+			,public IAccount
 		{
 			ByteBuffer m_Code;
 			std::map<Word, Word> m_Vars;
 			MyProcessor* m_pThis;
 
+			Word m_Balance = Zero;
+
 			virtual ~ContractData() {} // auto
+
+			void Release() override {
+			}
+
+			void get_Balance(Word& res) override {
+				res = m_Balance;
+			}
+
+			void set_Balance(const Word& val) override {
+				m_Balance = val;
+			}
 
 			const Address& get_Address() override
 			{
@@ -158,23 +171,23 @@ namespace beam
 			}
 		}
 
-		IStorage* GetContractData(const Address& aContract, bool bCreate) override
+		bool GetAccount(const Address& addr, bool bCreate, IAccount::Guard& g) override
 		{
-			auto it = m_mapContracts.find(aContract, ContractData::Comparator());
-			if (m_mapContracts.end() == it)
+			auto it = m_mapContracts.find(addr, ContractData::Comparator());
+			if (m_mapContracts.end() != it)
 			{
-				if (!bCreate)
-					return nullptr;
-
-				auto* pCd = m_mapContracts.Create(aContract);
-				pCd->m_pThis = this;
-				return pCd;
+				g.m_p = &(*it);
+				return false; // not created
 			}
 
-			if (bCreate)
-				return nullptr;
+			if (!bCreate)
+				return false;
 
-			return &(*it);
+			auto* pCd = m_mapContracts.Create(addr);
+			pCd->m_pThis = this;
+
+			g.m_p = pCd;
+			return true;
 		}
 
 		Height get_Height() override
@@ -221,8 +234,6 @@ namespace beam
 			if (!pF)
 				return false;
 
-			pF->m_Storage.SetCode(code);
-
 			RunFull(aCaller);
 
 			return m_RetVal.m_Success;
@@ -232,12 +243,14 @@ namespace beam
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
-			IStorage* pS = GetContractData(aContract, false);
-			if (!pS)
+			IAccount::Guard g;
+
+			GetAccount(aContract, false, g);
+			if (!g.m_p)
 				return false;
 
 			Reset();
-			auto& f = PushFrame(*pS);
+			auto& f = PushFrame(g);
 			f.m_Args.m_Buf = Blob(&m, nSizeMethod);
 
 			RunFull(aCaller);
