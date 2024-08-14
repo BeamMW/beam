@@ -256,6 +256,22 @@ namespace beam
 
 	void EvmTest1()
 	{
+		{
+			// test pubkey derivation
+			ECC::Scalar sk_;
+			sk_.m_Value.Scan("b533ffad9736e46ef0fbe34018fb0a30572fbe477bcc3a4e641c210ecc3ed8b5");
+			ECC::Point::Native pt = ECC::Context::get().G * sk_;
+
+			ECC::Point::Storage pt_s;
+			pt.Export(pt_s);
+
+			EvmProcessor::Address addr, addr2;
+			addr.FromPubKey(pt_s);
+			addr2.Scan("b90d65a624909bc36eee6bffdecf3c5acd7774c0");
+
+			verify_test(addr == addr2);
+		}
+
 		// storage example
 
 /*
