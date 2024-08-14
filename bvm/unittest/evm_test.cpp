@@ -68,7 +68,7 @@ namespace beam
 	struct MyProcessor
 		:public EvmProcessor
 	{
-		struct ContractData
+		struct AccountData
 			:public intrusive::set_base_hook<Address>
 			,public IAccount
 		{
@@ -77,8 +77,9 @@ namespace beam
 			MyProcessor* m_pThis;
 
 			Word m_Balance = Zero;
+			Word m_Nonce = Zero;
 
-			virtual ~ContractData() {} // auto
+			virtual ~AccountData() {} // auto
 
 			void Release() override {
 			}
@@ -139,7 +140,7 @@ namespace beam
 
 			void Delete() override
 			{
-				m_pThis->m_mapContracts.Delete(*this);
+				m_pThis->m_mapAccounts.Delete(*this);
 			}
 
 			void Print(std::ostream& os) const
@@ -162,11 +163,11 @@ namespace beam
 			Reset();
 		}
 
-		intrusive::multiset_autoclear<ContractData> m_mapContracts;
+		intrusive::multiset_autoclear<AccountData> m_mapAccounts;
 
 		void PrintVars(std::ostream& os) const
 		{
-			for (const auto& cd : m_mapContracts)
+			for (const auto& cd : m_mapAccounts)
 			{
 				char sz1[Word::nTxtLen + 1];
 				cd.m_Key.Print(sz1);
@@ -178,8 +179,8 @@ namespace beam
 
 		bool GetAccount(const Address& addr, bool bCreate, IAccount::Guard& g) override
 		{
-			auto it = m_mapContracts.find(addr, ContractData::Comparator());
-			if (m_mapContracts.end() != it)
+			auto it = m_mapAccounts.find(addr, AccountData::Comparator());
+			if (m_mapAccounts.end() != it)
 			{
 				g.m_p = &(*it);
 				return false; // not created
@@ -188,7 +189,7 @@ namespace beam
 			if (!bCreate)
 				return false;
 
-			auto* pCd = m_mapContracts.Create(addr);
+			auto* pCd = m_mapAccounts.Create(addr);
 			pCd->m_pThis = this;
 
 			g.m_p = pCd;
@@ -206,6 +207,12 @@ namespace beam
 			return true;
 		}
 
+		Word& get_CallerNonceRef()
+		{
+			assert(m_Top.m_pAccount);
+			return Cast::Up<AccountData>(m_Top.m_pAccount)->m_Nonce;
+		}
+
 		void InitCaller(const Address& aCaller, uint64_t gas = 1000000000ULL)
 		{
 			Reset();
@@ -216,22 +223,18 @@ namespace beam
 
 			m_Top.InitAccount(g);
 			m_Top.m_Gas = gas; // TODO - should pay for it
+
+			get_CallerNonceRef().Inc();
 		}
 
 
 		void RunFull()
 		{
-			assert(1u == m_lstFrames.size());
-			auto& f = m_lstFrames.back();
-
-			assert(!f.m_Gas);
-			std::swap(f.m_Gas, m_Top.m_Gas);
-
 			while (!m_lstFrames.empty())
 				RunOnce();
 		}
 
-		bool Construct(const Address& aContract, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
+		bool Construct(Address& aContract, const char* szCode, uint32_t nLenCode, const void* pArg, uint32_t nArg)
 		{
 			ByteBuffer code;
 
@@ -246,29 +249,29 @@ namespace beam
 
 			std::cout << "\nCtor" << std::endl;
 
-			auto* pF = PushFrameContractCreate(aContract, code);
-			if (!pF)
-				return false;
+			Args args;
+			args.m_CallValue = Zero;
+			args.m_Buf = code;
+
+			Deploy(aContract, args, get_CallerNonceRef());
 
 			RunFull();
 
 			return m_RetVal.m_Success;
 		}
 
-		bool RunMethod(const Address& aContract, const EvmProcessor::Method& m, uint32_t nSizeMethod)
+		bool RunMethod(const Address& to, const EvmProcessor::Method& m, uint32_t nSizeMethod)
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
-			IAccount::Guard g;
+			Args args;
+			args.m_CallValue = Zero;
+			args.m_Buf = Blob(&m, nSizeMethod);
 
-			GetAccount(aContract, false, g);
-			if (!g.m_p)
-				return false;
-
-			auto& f = PushFrame(g, false);
-			f.m_Args.m_Buf = Blob(&m, nSizeMethod);
+			Call(to, args);
 
 			RunFull();
+
 			return m_RetVal.m_Success;
 
 		}
