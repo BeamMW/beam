@@ -2591,7 +2591,7 @@ struct NodeProcessor::BlockInterpretCtx
 		:public VmProcessorBase
 		,public EvmProcessor
 	{
-		IStorage* GetContractData(const Address&, bool bCreate) override;
+		bool GetAccount(const Address& addr, bool bCreate, IAccount::Guard& g) override;
 		Height get_Height() override;
 		bool get_BlockHeader(BlockHeader&, Height) override;
 
@@ -3274,7 +3274,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke&, uint32_
 {
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelEvmInvoke& v, Height h, uint32_t nKrnIdx)
+void NodeProcessor::Recognizer::Recognize(const TxKernelEvmInvoke&, uint32_t)
 {
 }
 
@@ -5079,7 +5079,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 	Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
 
 	EvmProcessor::Word wSubsidy;
-	wSubsidy = uintBigFrom(valUns) * uintBigFrom(r.Evm.Groth2Wei); // won't overflow
+	wSubsidy.FromNumber(MultiWord::From(valUns) * MultiWord::From(r.Evm.Groth2Wei)); // won't overflow
 
 	EvmProcessor::Address aFrom;
 	if (!aFrom.FromPubKey(krn.m_From))
@@ -5117,16 +5117,14 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 
 	if (krn.m_To != Zero)
 	{
-		EvmProcessor::Word wPay, wGas;
-		wPay = uintBigFrom(krn.m_Fee) * uintBigFrom(r.Evm.Groth2Wei);
-		wGas.SetDiv(wPay, uintBigFrom(r.Evm.BaseGasPrice));
+		auto numGas = (MultiWord::From(krn.m_Fee) * MultiWord::From(r.Evm.Groth2Wei)) / MultiWord::From(r.Evm.BaseGasPrice);
 
 		uint64_t nGas = 0;
 
-		if (wGas.get_Order() >= (sizeof(nGas) * 8))
+		if (numGas.get_ConstSlice().get_clz_Words() < numGas.nWords - MultiWord::NumberForType<uint64_t>::Type::nWords)
 			nGas = static_cast<uint64_t>(-1); // max
 		else
-			wGas.ExportWord<(wGas.nBytes / sizeof(nGas)) - 1>(nGas);
+			numGas.get_Element(nGas);
 
 		if (nGas < r.Evm.MinTxGasUnits)
 			Exc::Fail("gaw too low");
@@ -5164,14 +5162,20 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 			static_assert(sizeof(krn.m_To) == sizeof(Address), "");
 			const auto& aContract = Cast::Up<Address>(krn.m_To);
 
-			IStorage* pS = GetContractData(aContract, false);
+			IAccount::Guard g;
+			GetAccount(aFrom, false, g);
+			assert(g.m_p);
 
 			Reset();
-			auto& f = PushFrame(*pS);
-			f.m_Args.m_Buf = krn.m_Args;
-			f.m_Args.m_CallValue = krn.m_Amount;
-			f.m_Gas = nGas;
-			m_Caller = aFrom;
+
+			m_Top.InitAccount(g);
+			m_Top.m_Gas = nGas; // TODO - should pay for it
+
+			Args args;
+			args.m_Buf = krn.m_Args;
+			args.m_CallValue = krn.m_Amount;
+
+			Call(aContract, args, false);
 
 			while (!m_lstFrames.empty())
 				RunOnce();
@@ -5210,9 +5214,9 @@ bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_BlockHeader(BlockHead
 	return true;
 }
 
-EvmProcessor::IStorage* NodeProcessor::BlockInterpretCtx::MyEvmProcessor::GetContractData(const Address&, bool bCreate)
+bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::GetAccount(const Address&, bool, IAccount::Guard&)
 {
-	return nullptr; // TODO
+	return false; // TODO
 }
 
 struct NodeProcessor::ProcessorInfoParser
