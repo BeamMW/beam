@@ -116,12 +116,12 @@ void Processor::Reset()
 	InitVars();
 	m_lstFrames.Clear();
 	m_Top.m_lstUndo.Clear();
+	m_Top.m_Account.Reset();
 }
 
 void Processor::InitVars()
 {
 	m_Top.m_Gas = 0;
-	m_Top.m_pAccount = nullptr;
 }
 
 
@@ -284,7 +284,7 @@ struct Processor::Context :public Processor::Frame
 
 	const Address& get_Caller(Processor& p)
 	{
-		return get_Prev(p).m_pAccount->get_Address();
+		return get_Prev(p).m_Account.m_p->get_Address();
 	}
 
 	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
@@ -420,14 +420,20 @@ struct Processor::UndoOp::Guard
 
 void Processor::BaseFrame::InitAccount(IAccount::Guard& g)
 {
-	assert(!m_pAccount && g.m_p);
+	assert(!m_Account.m_p && g.m_p);
+	std::swap(m_Account.m_p, g.m_p);
+
+}
+
+void Processor::BaseFrame::ReleaseAccountIntoUndo()
+{
+	assert(m_Account.m_p);
 
 	auto* pOp = new UndoOp::Guard;
-	m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = g.m_p;
+	m_lstUndo.push_front(*pOp);
 
-	m_pAccount = g.m_p;
-	g.m_p = nullptr;
+	pOp->m_pAccount = m_Account.m_p;
+	m_Account.m_p = nullptr;
 }
 
 struct Processor::UndoOp::BalanceChange
@@ -494,6 +500,8 @@ void Processor::RunOnce()
 			f.UndoChanges();
 			m_lstFrames.Delete(f);
 		}
+
+		// Don't touch m_Top undo list. It only contains balance update w.r.t. gas
 
 		m_RetVal.m_Success = false;
 		ZeroObject(m_RetVal.m_Blob);
@@ -870,7 +878,7 @@ OnOpcodeBinary(byte)
 
 OnOpcode(address)
 {
-	m_Stack.Push() = m_pAccount->get_Address().ToWord();
+	m_Stack.Push() = m_Account.m_p->get_Address().ToWord();
 }
 
 OnOpcode(balance)
@@ -887,7 +895,7 @@ OnOpcode(balance)
 
 OnOpcode(origin)
 {
-	p.m_Top.m_pAccount->get_Address().ToWord(m_Stack.Push());
+	p.m_Top.m_Account.m_p->get_Address().ToWord(m_Stack.Push());
 }
 
 OnOpcode(caller)
@@ -1099,7 +1107,7 @@ OnOpcode(sload)
 	Word& w = m_Stack.get_At(0);
 	LogOperand(w);
 
-	if (!m_pAccount->SLoad(w, w))
+	if (!m_Account.m_p->SLoad(w, w))
 		w = Zero;
 
 	LogOperand(w);
@@ -1125,7 +1133,7 @@ OnOpcode(sstore)
 	const Word& w2 = m_Stack.Pop();
 
 	Word wPrev;
-	m_pAccount->SStore(w1, w2, wPrev);
+	m_Account.m_p->SStore(w1, w2, wPrev);
 
 	// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
 	// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
@@ -1145,7 +1153,7 @@ OnOpcode(sstore)
 
 	auto* pOp = new UndoOp::VarSet;
 	m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = m_pAccount;
+	pOp->m_pAccount = m_Account.m_p;
 	pOp->m_Key = w1;
 	pOp->m_Val = wPrev;
 
@@ -1204,7 +1212,7 @@ OnOpcode(chainid)
 
 OnOpcode(selfbalance)
 {
-	m_pAccount->get_Balance(m_Stack.Push());
+	m_Account.m_p->get_Balance(m_Stack.Push());
 }
 
 void Processor::get_ChainID(Word& w)
@@ -1272,8 +1280,6 @@ void Processor::BaseFrame::UndoChanges()
 		op.Undo();
 		m_lstUndo.Delete(op);
 	}
-
-	m_pAccount = nullptr; // for more safety, since we're no longer holding the guard
 }
 
 void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetval)
@@ -1301,7 +1307,13 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 	fPrev.m_Gas += m_Gas;
 
 	if (bSuccess)
-		fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
+	{
+		if (!m_lstUndo.empty())
+		{
+			ReleaseAccountIntoUndo();
+			fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
+		}
+	}
 	else
 		UndoChanges();
 
@@ -1312,7 +1324,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 		if (bSuccess)
 		{
-			m_pAccount->SetCode(p.m_RetVal.m_Blob);
+			m_Account.m_p->SetCode(p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
 		}
 
@@ -1320,7 +1332,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 		{
 			auto& wRes = pPrev->m_Stack.Push();
 			if (bSuccess)
-				m_pAccount->get_Address().ToWord(wRes);
+				m_Account.m_p->get_Address().ToWord(wRes);
 			else
 				wRes = Zero;
 		}
@@ -1403,12 +1415,12 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 
 		auto* pOp = new UndoOp::AccountDelete;
 		f.m_lstUndo.push_back(*pOp);
-		pOp->m_pAccount = f.m_pAccount;
+		pOp->m_pAccount = f.m_Account.m_p;
 	}
 	else
 	{
 		Blob code;
-		f.m_pAccount->GetCode(code);
+		f.m_Account.m_p->GetCode(code);
 		f.m_Code = code;
 		f.m_Code.m_Ip = 0;
 	}
@@ -1432,7 +1444,7 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 	if (args.m_CallValue != Zero)
 	{
 		Word valFrom0, valFrom1, valTo0, valTo1;
-		fPrev.m_pAccount->get_Balance(valFrom0);
+		fPrev.m_Account.m_p->get_Balance(valFrom0);
 		if (valFrom0 < args.m_CallValue)
 		{
 			f.OnFrameDone(*this, false, false);
@@ -1443,7 +1455,7 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 		valFrom1.Negate();
 		valFrom1 += valFrom0;
 
-		f.m_pAccount->get_Balance(valTo0);
+		f.m_Account.m_p->get_Balance(valTo0);
 		valTo1 = valTo0;
 		valTo1 += args.m_CallValue;
 
@@ -1453,8 +1465,8 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 			return; // overflow
 		}
 
-		UpdateBalance(fPrev.m_pAccount, valFrom0, valFrom1);
-		UpdateBalance(f.m_pAccount, valTo0, valTo1);
+		UpdateBalance(fPrev.m_Account.m_p, valFrom0, valFrom1);
+		UpdateBalance(f.m_Account.m_p, valTo0, valTo1);
 	}
 
 	if (isDeploy)

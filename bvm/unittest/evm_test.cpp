@@ -213,8 +213,8 @@ namespace beam
 
 		uint64_t& get_CallerNonceRef()
 		{
-			assert(m_Top.m_pAccount);
-			return Cast::Up<AccountData>(m_Top.m_pAccount)->m_Nonce;
+			assert(m_Top.m_Account.m_p);
+			return Cast::Up<AccountData>(m_Top.m_Account.m_p)->m_Nonce;
 		}
 
 		void InitCaller(const Address& aCaller, uint64_t gas = 1000000000ULL)
@@ -257,7 +257,7 @@ namespace beam
 			args.m_CallValue = Zero;
 			args.m_Buf = code;
 
-			AddressForContract(aContract, m_Top.m_pAccount->get_Address(), get_CallerNonceRef());
+			AddressForContract(aContract, m_Top.m_Account.m_p->get_Address(), get_CallerNonceRef());
 
 			Call(aContract, args, true);
 
