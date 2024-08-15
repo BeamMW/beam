@@ -17,6 +17,7 @@
 #include "../../core/block_crypt.h"
 #include "../../utility/test_helpers.h"
 #include "../evm.h"
+#include "nlohmann/json.hpp"
 
 namespace ECC {
 
@@ -229,6 +230,59 @@ namespace beam
 			m_Top.m_Gas = gas; // TODO - should pay for it
 
 			get_CallerNonceRef()++;
+		}
+
+		bool InitCallerStrict(const Address& aCaller, uint64_t gas, uint64_t gasPrice)
+		{
+			Reset();
+
+			IAccount::Guard g;
+			GetAccount(aCaller, false, g);
+			if (!g.m_p)
+				return false;
+
+			const uint64_t nMinGas = 21000;
+			if (gas < nMinGas)
+				return false; // shouldn't be accepted in a block
+
+			Word wBal, wGasPay;
+			g.m_p->get_Balance(wBal);
+			if (wBal == Zero)
+				return false;
+
+			wGasPay.FromNumber(MultiWord::From(gas) * MultiWord::From(gasPrice));
+			if (wBal < wGasPay)
+			{
+				Word zero = Zero;
+				UpdateBalance(g.m_p, wBal, zero);
+				return false;
+			}
+
+			wGasPay.Negate();
+			wGasPay += wBal;
+			UpdateBalance(g.m_p, wBal, wGasPay);
+
+			m_Top.InitAccount(g);
+			m_Top.m_Gas = gas - nMinGas;
+
+			get_CallerNonceRef()++;
+			return true;
+		}
+
+		void RefundCaller(uint64_t gasPrice)
+		{
+			assert(m_Top.m_Account.m_p);
+			if (m_Top.m_Gas)
+			{
+				Word wBal;
+				m_Top.m_Account.m_p->get_Balance(wBal);
+
+				Word wRefund;
+				wRefund.FromNumber(MultiWord::From(m_Top.m_Gas) * MultiWord::From(gasPrice));
+				wRefund += wBal; // assume overflow not possible
+
+				UpdateBalance(m_Top.m_Account.m_p, wBal, wRefund);
+			}
 		}
 
 
@@ -631,6 +685,274 @@ namespace beam
 		}
 
 		evm.PrintVars(std::cout);
+	}
+
+
+
+
+	namespace AutoTest
+	{
+		using namespace nlohmann;
+		using namespace Evm;
+
+		json FReadTxtJson(const char* sz)
+		{
+			std::FStream fs;
+			verify_test(fs.Open(sz, true));
+
+			std::string sRet;
+			size_t n = fs.get_Remaining();
+
+			if (n)
+			{
+				sRet.resize(n);
+				fs.read(&sRet.front(), n);
+			}
+
+			return json::parse(sRet);
+		}
+
+		uint32_t ScanTxtRaw(uint8_t* pDst, uint32_t nDst, const char* sz)
+		{
+			if ((sz[0] == '0') && (sz[1] == 'x'))
+				sz += 2;
+			return uintBigImpl::_Scan(pDst, sz, nDst * 2) >> 1;
+		}
+
+		void ScanTxt(uint8_t* pDst, uint32_t nDst, const char* sz)
+		{
+			auto len = ScanTxtRaw(pDst, nDst, sz);
+
+			if (len < nDst)
+			{
+				auto nHead = nDst - len;
+				memmove(pDst + nHead, pDst, len);
+				memset0(pDst, nHead);
+			}
+
+		}
+
+		template <uint32_t nBytes>
+		void ScanTxt(uintBig_t<nBytes>& val, const char* sz)
+		{
+			ScanTxt(val.m_pData, nBytes, sz);
+		}
+
+		uint64_t ScanTxtUint(const char* sz)
+		{
+			uintBigFor<uint64_t>::Type x;
+			ScanTxt(x, sz);
+
+			uint64_t val;
+			x.Export(val);
+
+			return val;
+		}
+
+		ByteBuffer ScanBuf(const std::string& s)
+		{
+			ByteBuffer ret;
+			if (s.size() > 2) // 1st 2 characers are probably 0x
+			{
+				auto len = static_cast<uint32_t>(s.size());
+				ret.resize(len);
+				len = ScanTxtRaw(&ret.front(), len, s.c_str());
+				ret.resize(len);
+			}
+			return ret;
+		}
+
+		void HandleAccount(Processor& proc, json::const_iterator it, bool bPre)
+		{
+			const auto& sAddr = it.key();
+			std::cout << "\t\tAddress = " << sAddr << std::endl;
+
+			const json& jAcc = it.value();
+
+			Address addr;
+			ScanTxt(addr, sAddr.c_str());
+
+			Processor::IAccount::Guard g;
+			bool bCreated = proc.GetAccount(addr, bPre, g);
+			if (bPre)
+			{
+				assert(g.m_p);
+				if (!bCreated)
+				{
+					std::cout << "\t\t\tDuplicated" << std::endl;
+					return;
+				}
+			}
+			else
+			{
+				if (!g.m_p)
+				{
+					std::cout << "\t\t\tMissing" << std::endl;
+					return;
+				}
+			}
+
+			auto& x = Cast::Up<MyProcessor::AccountData>(*g.m_p);
+
+			Word wBal;
+			ScanTxt(wBal, jAcc["balance"].get<std::string>().c_str());
+
+			if (bPre)
+				x.m_Balance = wBal;
+			else
+			{
+				if (x.m_Balance != wBal)
+					std::cout << "\t\t\tBalance is " << x.m_Balance.ToNumber() << ", should be " << wBal.ToNumber() << std::endl;
+			}
+
+			uint64_t nonce = ScanTxtUint(jAcc["nonce"].get<std::string>().c_str());
+			if (bPre)
+				x.m_Nonce = nonce;
+			else
+			{
+				if (x.m_Nonce != nonce)
+					std::cout << "\t\t\tNonce is " << x.m_Nonce << ", should be " << nonce << std::endl;
+			}
+
+			const auto& sCode = jAcc["code"].get<std::string>();
+			auto bufCode = ScanBuf(sCode);
+
+			if (bPre)
+				x.m_Code.swap(bufCode);
+			else
+			{
+				if (Blob(bufCode).cmp(x.m_Code))
+					std::cout << "\t\t\tCode is different" << std::endl;
+			}
+
+			// storage
+			auto& jS = jAcc["storage"];
+
+			for (auto itS = jS.begin(); jS.end() != itS; itS++)
+			{
+				Word wKey, wVal;
+				ScanTxt(wVal, itS.value().get<std::string>().c_str());
+				if (wVal == Zero)
+					continue;
+
+				ScanTxt(wKey, itS.key().c_str());
+
+				if (bPre)
+					x.m_Vars[wKey] = wVal;
+				else
+				{
+					auto itVal = x.m_Vars.find(wKey);
+					if (x.m_Vars.end() == itVal)
+						std::cout << "\t\t\t[" << wKey.str() << "]-[" << wVal.str() << "] missing" << std::endl;
+					else
+					{
+						if (itVal->second != wVal)
+							std::cout << "\t\t\t[" << wKey.str() << "]-[" << wVal.str() << "] actual value " << itVal->second.str() << std::endl;
+
+						x.m_Vars.erase(itVal);
+					}
+				}
+			}
+
+			if (!bPre)
+			{
+				for (auto itVal = x.m_Vars.begin(); x.m_Vars.end() != itVal; itVal++)
+					std::cout << "\t\t\t[" << itVal->first.str() << "]-[" << itVal->second.str() << "] spare" << std::endl;
+
+				g.Reset(); // workaround, until we truly implement safe Release/Delete logic
+				x.Delete();
+			}
+		}
+
+		void HandleAccounts(Processor& proc, const json& j, bool bPre)
+		{
+			for (auto it = j.begin(); j.end() != it; it++)
+				HandleAccount(proc, it, bPre);
+		}
+
+
+		void PerformTestFromJSon(const char* sz)
+		{
+			std::cout << "Tests from file: " << sz << std::endl;
+
+			auto jFile = FReadTxtJson(sz);
+
+			for (auto itTst = jFile.begin(); jFile.end() != itTst; itTst++)
+			{
+				std::cout << "Test: " << itTst.key() << std::endl;
+				const auto& jTst = itTst.value();
+
+				auto itPre = jTst.find("pre");
+				auto itPost = jTst.find("postState");
+
+				if ((jTst.end() == itPre) || (jTst.end() == itPost))
+				{
+					std::cout << "\t\tMissing pre/post, skipping" << std::endl;
+					continue;
+				}
+
+				MyProcessor proc;
+				HandleAccounts(proc, itPre.value(), true);
+
+				const auto& jBlocks = jTst["blocks"];
+				if (jBlocks.is_array())
+				{
+					for (uint32_t iB = 0; iB < jBlocks.size(); iB++)
+					{
+						const auto& jB = jBlocks[iB];
+						std::cout << "\tBlock " << jB["blocknumber"] << std::endl;
+
+						const auto& jTxs = jB["transactions"];
+						if (jTxs.is_array())
+						{
+							for (uint32_t iTx = 0; iTx < jTxs.size(); iTx++)
+							{
+								const auto& jTx = jTxs[iTx];
+
+								Address aFrom, aTo;
+								ScanTxt(aFrom, jTx["sender"].get<std::string>().c_str());
+								ScanTxt(aTo, jTx["to"].get<std::string>().c_str());
+
+								std::cout << "\t\t Tx from " << aFrom.str() << std::endl;
+
+								uint64_t gasLimit = ScanTxtUint(jTx["gasLimit"].get<std::string>().c_str());
+								uint64_t gasPrice = ScanTxtUint(jTx["gasPrice"].get<std::string>().c_str());
+
+								Processor::Args args;
+								ScanTxt(args.m_CallValue, jTx["value"].get<std::string>().c_str());
+
+								auto vData = ScanBuf(jTx["data"].get<std::string>().c_str());
+								args.m_Buf = vData;
+
+								if (proc.InitCallerStrict(aFrom, gasLimit, gasPrice))
+								{
+									bool isDeploy = (aTo == Zero);
+									if (isDeploy)
+										AddressForContract(aTo, aFrom, proc.get_CallerNonceRef());
+
+									proc.Call(aTo, args, isDeploy);
+									proc.RunFull();
+
+									proc.RefundCaller(gasPrice);
+									proc.Reset();
+								}
+
+
+							}
+						}
+					}
+				}
+
+				std::cout << "\tComparing results" << std::endl;
+
+				HandleAccounts(proc, itPost.value(), false);
+
+				for (auto it = proc.m_mapAccounts.begin(); proc.m_mapAccounts.end() != it; it++)
+					std::cout << "Spare account " << it->m_Key << std::endl;
+			}
+		}
+
+
 	}
 
 	void TestEvmTxKernel()
