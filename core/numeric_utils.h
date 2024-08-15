@@ -1164,6 +1164,15 @@ namespace MultiWord {
 			ComposeEx<10>(in);
 			return static_cast<uint32_t>(in.m_pB - sz);
 		}
+
+		friend std::ostream& operator << (std::ostream& os, const Number& x)
+		{
+			char sz[Number::nTxtLen10Max + 1];
+			x.PrintDecimal(sz);
+			os << sz;
+			return os;
+		}
+
 	};
 
 	template <uint32_t nBytes>
