@@ -83,6 +83,7 @@ namespace beam
 				return w;
 			}
 
+			void FromPubKey(const ECC::Point::Native&);
 			void FromPubKey(const ECC::Point::Storage&);
 			bool FromPubKey(const ECC::Point&);
 			bool FromPubKey(const PeerID&);
@@ -1401,13 +1402,15 @@ namespace beam
 	struct TxKernelEvmInvoke
 		:public TxKernelContractControl
 	{
-		ECC::uintBig m_From;
-		uintBig_t<20> m_To;
+		Evm::Address m_From;
+		Evm::Address m_To;
 		uint64_t m_Nonce; // not necessary
-		ECC::uintBig m_Amount; // in wei
+		Evm::Word m_CallValue; // in wei
 		AmountSigned m_Subsidy;
 
 		typedef std::unique_ptr<TxKernelEvmInvoke> Ptr;
+
+		void Sign(const ECC::Scalar::Native& skFrom, const ECC::Scalar::Native& skBlind);
 
 		virtual ~TxKernelEvmInvoke() {}
 		virtual Subtype::Enum get_Subtype() const override;
@@ -1415,6 +1418,7 @@ namespace beam
 		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void get_SubsidyCorrection(ECC::Point::Native& dst, bool isVerifying) const;
 	};
 
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }

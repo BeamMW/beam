@@ -84,6 +84,12 @@ namespace beam
 		return FromPubKey(pt);
 	}
 
+	void Evm::Address::FromPubKey(const ECC::Point::Native& pt)
+	{
+		ECC::Point::Storage pt_s;
+		pt.Export(pt_s);
+		FromPubKey(pt_s);
+	}
 
 	/////////////
 	// HeightRange
@@ -1567,7 +1573,7 @@ namespace beam
 		v.m_From = m_From;
 		v.m_To = m_To;
 		v.m_Nonce = m_Nonce;
-		v.m_Amount = m_Amount;
+		v.m_CallValue = m_CallValue;
 		v.m_Subsidy = m_Subsidy;
 	}
 
@@ -1575,11 +1581,28 @@ namespace beam
 	{
 		TxKernelContractControl::HashSelfForMsg(hp);
 		hp
-			<< m_From
-			<< m_To
+			<< Cast::Down<Evm::Address::Base>(m_From)
+			<< Cast::Down<Evm::Address::Base>(m_To)
 			<< m_Nonce
-			<< m_Amount
+			<< m_CallValue
 			<< static_cast<Amount>(m_Subsidy);
+	}
+
+	void TxKernelEvmInvoke::get_SubsidyCorrection(ECC::Point::Native& pt, bool isVerifying) const
+	{
+		if (m_Subsidy)
+		{
+			bool isPositive;
+			Amount val = SplitAmountSigned(m_Subsidy, isPositive);
+
+			ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+			ECC::Point::Native ptFunds = ECC::Context::get().H * val;
+			if (isPositive == isVerifying)
+				ptFunds = -ptFunds;
+
+			pt += ptFunds;
+		}
 	}
 
 	void TxKernelEvmInvoke::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
@@ -1589,34 +1612,41 @@ namespace beam
 		const Rules& r = Rules::get(); // alias
 		r.TestForkAtLeast_<6>(hScheme);
 
-		ECC::Point::Native pComm[2];
-		pComm[0].ImportNnzStrict(m_Commitment);
-		exc += pComm[0];
+		ECC::Point::Native pt;
+		pt.ImportNnzStrict(m_Commitment);
+		exc += pt;
 
-		if (m_Subsidy)
-		{
-			bool isPositive;
-			Amount val = SplitAmountSigned(m_Subsidy, isPositive);
+		// Compute pubkey from the signature, and compare to the caller address
+		get_SubsidyCorrection(pt, true);
 
-			ECC::Mode::Scope scope(ECC::Mode::Fast);
+		ECC::Point::Native ptPk;
+		if (!m_Signature.RecoverPubKey(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, &m_Signature.m_k, &pt, 0, ptPk))
+			TxBase::Fail_Signature();
 
-			pComm[1] = ECC::Context::get().H * val;
-			if (isPositive)
-				pComm[1] = -pComm[1];
+		Evm::Address addr;
+		addr.FromPubKey(ptPk);
 
-			pComm[0] += pComm[1];
-		}
+		if (addr != m_From)
+			TxBase::Fail_Signature();
+	}
 
-		{
-			auto& s = Cast::Down<ECC::SignatureBase>(m_Signature);
+	void TxKernelEvmInvoke::Sign(const ECC::Scalar::Native& skFrom, const ECC::Scalar::Native& skBlind)
+	{
+		ECC::Point::Native pt = ECC::Context::get().G * skFrom;
+		m_From.FromPubKey(pt);
 
-			ECC::Point pt;
-			pt.m_X = m_From;
-			pt.m_Y = 0;
-			pComm[1].ImportNnzStrict(pt);
+		pt = ECC::Context::get().G * skBlind;
+		get_SubsidyCorrection(pt, false);
+		m_Commitment = pt;
 
-			s.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Internal.m_ID, &m_Signature.m_k, pComm);
-		}
+		UpdateMsg();
+
+		ECC::Scalar::Native pSk[] = { skFrom, skBlind };
+		ECC::Scalar::Native nnc;
+
+		Cast::Down<ECC::SignatureBase>(m_Signature).Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, &m_Signature.m_k, pSk, &nnc);
+
+		MsgToID();
 	}
 
 	/////////////
