@@ -182,6 +182,8 @@ namespace ECC
 		bool IsValid(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk) const;
 		bool IsValidPartial(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const;
 
+		bool RecoverPubKey(const Config&, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, uint32_t iNum, Point::Native& res) const;
+
 		void Sign(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes);
 		void SignRaw(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, Scalar::Native* pRes) const;
 		void SignPartial(const Config&, const Hash::Value& msg, Scalar* pK, const Scalar::Native* pSk, const Scalar::Native* pNonce, Scalar::Native* pRes) const;

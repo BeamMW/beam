@@ -661,6 +661,10 @@ void TestSigning()
 
 		verify_test(mysig.IsValid(msg, pk));
 
+		Point::Native pk_rec;
+		verify_test(mysig.RecoverPubKey(Context::get().m_Sig.m_CfgG1, msg, &mysig.m_k, nullptr, 0, pk_rec));
+		verify_test(pk_rec == pk);
+
 		// tamper msg
 		uintBig msg2 = msg;
 		msg2.Inc();
@@ -683,6 +687,62 @@ void TestSigning()
 		mysig2 = mysig;
 		SetRandom(mysig2.m_k.m_Value);
 		verify_test(!mysig2.IsValid(msg, pk));
+	}
+
+	// generalized sigs
+	{
+		const uint32_t nGens = 2;
+		const uint32_t nKeys = 5; // per generator
+
+		SignatureBase::Config cfg;
+		cfg.m_nKeys = nKeys;
+		cfg.m_nG = nGens;
+		cfg.m_pG = Context::get().m_Sig.m_pGenGH;
+
+
+		Point::Native pPk[nKeys];
+		Scalar::Native pSk[nGens * nKeys];
+
+		for (uint32_t iKey = 0; iKey < nKeys; iKey++)
+		{
+			auto& pk = pPk[iKey];
+
+			for (uint32_t iGen = 0; iGen < nGens; iGen++)
+			{
+				auto& sk = pSk[iKey * nGens + iGen];
+				SetRandom(sk);
+
+				pk += (*cfg.m_pG[iGen].m_pGen) * sk;
+			}
+		}
+
+		Scalar::Native pNnc[nGens]; // nonces
+
+		uintBig msg;
+		SetRandom(msg);
+
+		SignatureGeneralized<nGens> sig;
+		sig.Sign(cfg, msg, sig.m_pK, pSk, pNnc);
+
+		verify_test(sig.IsValid(cfg, msg, sig.m_pK, pPk));
+
+		// recover each pubkey
+		for (uint32_t iRecover = 0; iRecover < nKeys; iRecover++)
+		{
+			Point::Native pKnownPks[nKeys - 1];
+			Point::Native* pDst = pKnownPks;
+			for (uint32_t i = 0; i < nKeys; i++)
+			{
+				if (i != iRecover)
+					*pDst++ = pPk[i];
+			}
+
+			Point::Native ptRec;
+
+			verify_test(sig.RecoverPubKey(cfg, msg, sig.m_pK, pKnownPks, iRecover, ptRec));
+			verify_test(ptRec == pPk[iRecover]);
+		}
+
 	}
 }
 

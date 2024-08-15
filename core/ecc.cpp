@@ -2299,6 +2299,58 @@ namespace ECC {
 		return IsValidPartialInternal(cfg, mmDyn, msg, pK, pPk, noncePub);
 	}
 
+	bool SignatureBase::RecoverPubKey(const Config& cfg, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, uint32_t iNum, Point::Native& res) const
+	{
+		if (iNum >= cfg.m_nKeys)
+			return false;
+
+		MultiMac_Dyn mm;
+		mm.Prepare(cfg.m_nKeys, cfg.m_nG);
+		mm.m_Prepared = cfg.m_nG;
+		mm.m_Casual = cfg.m_nKeys;
+
+		Mode::Scope scope(Mode::Fast);
+
+		Oracle oracle;
+		Expose(oracle, msg);
+
+		Scalar::Native& eTrg = mm.m_pKCasual[iNum];
+
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++)
+		{
+			oracle >> mm.m_pKCasual[iK];
+
+			if (iK == iNum)
+			{
+				if (!res.Import(m_NoncePub))
+					return false;
+
+				mm.m_pCasual[iK].Init(res);
+			}
+			else
+				mm.m_pCasual[iK].Init(*pPk++);
+		}
+
+		eTrg.Inv();
+		eTrg = -eTrg;
+
+		for (uint32_t iK = 0; iK < cfg.m_nKeys; iK++)
+		{
+			if (iK != iNum)
+				mm.m_pKCasual[iK] *= eTrg;
+		}
+
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			mm.m_ppPrepared[iG] = cfg.m_pG[iG].m_pGenPrep;
+			mm.m_pKPrep[iG] = pK[iG];
+			mm.m_pKPrep[iG] *= eTrg;
+		}
+
+		mm.Calculate(res);
+		return true;
+	}
+
 	bool SignatureBase::IsValidPartialInternal(const Config& cfg, MultiMac& mm, const Hash::Value& msg, const Scalar* pK, const Point::Native* pPk, const Point::Native& noncePub) const
 	{
 		Mode::Scope scope(Mode::Fast);
@@ -2369,9 +2421,9 @@ namespace ECC {
 
 		NoLeak<Scalar> s_;
 
-		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		for (uint32_t i = 0; i < cfg.m_nG * cfg.m_nKeys; i++)
 		{
-			s_.V = pSk[iG];
+			s_.V = pSk[i];
 			nonceGen << s_.V.m_Value;
 		}
 
