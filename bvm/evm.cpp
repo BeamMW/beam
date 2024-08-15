@@ -144,7 +144,6 @@ void Processor::InitVars()
 	CREATE2      OpCode = 0xf5
 
 	INVALID      OpCode = 0xfe
-	SELFDESTRUCT OpCode = 0xff
 */
 
 
@@ -219,6 +218,7 @@ void Processor::InitVars()
 	macro(0xf5, Create2, 0) \
 	macro(0xfa, staticcall, 0) \
 	macro(0xfd, revert, 0) \
+	macro(0xff, selfdestruct, 0) \
 
 #define EvmOpcodes_All(macro) \
 	EvmOpcodes_Binary(macro) \
@@ -425,15 +425,15 @@ void Processor::BaseFrame::InitAccount(IAccount::Guard& g)
 
 }
 
-void Processor::BaseFrame::ReleaseAccountIntoUndo()
+void Processor::BaseFrame::PushUndoAccountGuard(IAccount::Guard& g)
 {
-	assert(m_Account.m_p);
+	assert(g.m_p);
 
 	auto* pOp = new UndoOp::Guard;
 	m_lstUndo.push_front(*pOp);
 
-	pOp->m_pAccount = m_Account.m_p;
-	m_Account.m_p = nullptr;
+	pOp->m_pAccount = g.m_p;
+	g.m_p = nullptr;
 }
 
 struct Processor::UndoOp::BalanceChange
@@ -1310,7 +1310,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 	{
 		if (!m_lstUndo.empty())
 		{
-			ReleaseAccountIntoUndo();
+			fPrev.PushUndoAccountGuard(m_Account);
 			fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
 		}
 	}
@@ -1397,6 +1397,13 @@ OnOpcode(Create2)
 	p.CallInternal(aNew, args, m_Gas, true);
 }
 
+void Processor::BaseFrame::PushUndoAccountDelete(IAccount* pAccount)
+{
+	auto* pOp = new UndoOp::AccountDelete;
+	m_lstUndo.push_back(*pOp);
+	pOp->m_pAccount = pAccount;
+}
+
 void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
 {
 	BaseFrame& fPrev = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
@@ -1412,10 +1419,7 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 	if (bCreated)
 	{
 		ZeroObject(f.m_Code);
-
-		auto* pOp = new UndoOp::AccountDelete;
-		f.m_lstUndo.push_back(*pOp);
-		pOp->m_pAccount = f.m_Account.m_p;
+		f.PushUndoAccountDelete(g.m_p);
 	}
 	else
 	{
@@ -1537,6 +1541,50 @@ OnOpcode(staticcall)
 OnOpcode(revert)
 {
 	OnFrameDone(p, false, true);
+}
+
+OnOpcode(selfdestruct)
+{
+	// 5000 + ((create_new_account) ? 25000 : 0)
+	// 5000 for the operation plus 25000 if a new account is also created.A refund of 24000 gas is also added to the refund counter for self - destructing the account.
+	uint64_t nGas = 5000;
+
+	const auto& aTrg = Address::W2A(m_Stack.Pop()); // funds recipient
+
+	Word w0;
+	m_Account.m_p->get_Balance(w0);
+	if (w0 != Zero)
+	{
+		Test(aTrg != m_Account.m_p->get_Address());
+
+		IAccount::Guard g;
+		bool bCreated = p.GetAccount(aTrg, true, g);
+		auto* pTrg = g.m_p;
+		assert(pTrg);
+		
+		PushUndoAccountGuard(g);
+		if (bCreated)
+		{
+			PushUndoAccountDelete(pTrg);
+			nGas += 25000;
+		}
+
+		Word w1 = Zero;
+		p.UpdateBalance(m_Account.m_p, w0, w1);
+
+		pTrg->get_Balance(w1);
+		w0 += w1;
+		Test(w0 > w1);
+
+		p.UpdateBalance(pTrg, w1, w0);
+	}
+
+	DrainGas(nGas);
+	OnFrameDone(p, true, false);
+
+
+	
+
 }
 
 } // namespace Evm

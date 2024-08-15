@@ -185,9 +185,10 @@ namespace Evm {
 			uint64_t m_Gas;
 
 			void InitAccount(IAccount::Guard&);
-			void ReleaseAccountIntoUndo();
 			void UndoChanges();
 			void DrainGas(uint64_t);
+			void PushUndoAccountDelete(IAccount*);
+			void PushUndoAccountGuard(IAccount::Guard&);
 		};
 
 		struct Frame
