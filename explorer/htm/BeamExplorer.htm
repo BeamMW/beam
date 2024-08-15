@@ -123,6 +123,8 @@
     --color_banner_navigation_icon_hover: #505050;
     --color_footer_text: #17204e;
     --color_footer_link: #17204e;
+    --color_about_text: black;
+    --color_about_link: #0066CC;
     --color_historical_title: #17204e;
     --color_historical_notes: grey;
     --color_sorting_indicator: #666;
@@ -205,6 +207,8 @@
     --color_banner_navigation_icon_hover: rgba(255,255,255,0.7);
     --color_footer_text: #0bccf7;
     --color_footer_link: #0bccf7;
+    --color_about_text: #ddd;
+    --color_about_link: #5eafff;
     --color_historical_title: #17204e;
     --color_historical_notes: #656565;
     --color_sorting_indicator: #888;
@@ -663,6 +667,24 @@
   #Back:hover *, #Reload:hover *, #ExpandAll:hover *, #ColorMode:hover * {
     fill: var(--color_banner_navigation_icon_hover); /* Color all SVG elements */
   }
+  .about {
+    padding-top: 10px;
+  }
+  .aboutText {
+    font-size: 1.4rem;
+    color: var(--color_about_text);
+    line-height: 1.9rem;
+    padding-bottom: 0px;
+  }
+  .aboutText a {
+    color: var(--color_about_link);
+  }
+  .aboutDisclaimer {
+    font-size: 1.4rem;
+    color: var(--color_about_text);
+    line-height: 1.9rem;
+    font-style: italic;
+  }
   #TopButton, #BottomButton {
     position: fixed; /* Fixed position */
     z-index: 99; /* Make sure it does not overlap */
@@ -1026,7 +1048,7 @@
     </div>
 
     <!-- Fixed footer on all pages -->
-    <div id='Footer'><a href='https://www.beam.mw'>beam.mw</a> & <a href="https://github.com/BeamMW/beam/tree/master/explorer/htm">GitHub</a></div>
+    <div id='Footer'><a href='https://www.beam.mw' target='_blank'>beam.mw</a></div>
 
     <!-- No JavaScript warning -->
     <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -1766,6 +1788,9 @@
     text += Obj2Html(jData);
     text += '</div>';
 
+    // Add an "About" text below the Blockchain Status table
+    text += AboutSection();
+
     SetContent(text);
   }
 
@@ -2101,6 +2126,37 @@
 
 <!-- ************ SECTION 5 - EXTRA JS FUNCTIONS ************ -->
 <script>
+  // ADD 'ABOUT' SECTION
+  function AboutSection() {
+    let text = "<div class='about'>\n";
+    text += "<h2 class='title'>About</h2>\n";
+    text += "<p class='aboutText'>";
+    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with confidential assets and smart contracts.\
+            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
+            It's a proof-of-work blockchain, with one-minute blocks and a capped supply of coins following Bitcoin-like halvings.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Although amounts are concealed and addresses are not stored onchain, \
+            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
+            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Beam <b>Confidential Assets</b> (or 'privacy tokens') are also visible, with their complete mint and burn history. \
+            The <b>smart contracts</b> history is also avilable, with details of all their calls (although their users remain confidential!).";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "This app is an interactive display of the data queried to a Beam explorer node. \
+            The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
+            You can save the file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
+    text += "</p>\n";
+    text += "<p class='aboutDisclaimer'>";
+    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no guarantees whatsoever.";
+    text += "</p>\n";
+    text += "</div>";
+
+    return text;
+  }
+
   // PROCESS A BLOCK/KERNEL SEARCH REQUEST
   function submitSearch() {
     // Get search string
