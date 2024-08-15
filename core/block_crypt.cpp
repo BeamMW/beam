@@ -18,6 +18,7 @@
 #include "block_crypt.h"
 #include "serialization_adapters.h"
 #include "../utility/logger.h"
+#include "keccak.h"
 
 namespace beam
 {
@@ -48,6 +49,41 @@ namespace beam
 		sk = -sk;
 		return false;
 	}
+
+	/////////////
+	// Evm::Address
+	void Evm::Address::FromPubKey(const ECC::Point::Storage& pk)
+	{
+		KeccakProcessor<Word::nBits> hp;
+
+		hp.Write(pk.m_X);
+		hp.Write(pk.m_Y);
+
+		Word w;
+		hp.Read(w.m_pData);
+
+		*this = W2A(w);
+	}
+
+	bool Evm::Address::FromPubKey(const ECC::Point& pk)
+	{
+		ECC::Point::Native pt_n;
+		ECC::Point::Storage pt_s;
+		if (!pt_n.ImportNnz(pk, &pt_s))
+			return false;
+
+		FromPubKey(pt_s);
+		return true;
+	}
+
+	bool Evm::Address::FromPubKey(const PeerID& pid)
+	{
+		ECC::Point pt;
+		pt.m_X = Cast::Down<ECC::uintBig>(pid);
+		pt.m_Y = 0;
+		return FromPubKey(pt);
+	}
+
 
 	/////////////
 	// HeightRange

@@ -17,11 +17,12 @@
 #include "../utility/containers.h"
 
 namespace beam {
+namespace Evm {
 
-	struct EvmProcessor
+	void AddressForContract(Address&, const Address& from, uint64_t nonce);
+
+	struct Processor
 	{
-		typedef uintBig_t<32> Word;
-
 		static void Fail();
 		static void Test(bool b);
 
@@ -29,41 +30,6 @@ namespace beam {
 		static uint64_t WtoU64(const Word& w);
 
 		static void HashOf(Word&, const Blob&);
-
-		struct Address
-			:public uintBig_t<20>
-		{
-			typedef uintBig_t<20> Base;
-
-			static void WPad(Word& w)
-			{
-				memset0(w.m_pData, Word::nBytes - nBytes);
-			}
-			static Address& W2A(Word& w)
-			{
-				static_assert(Word::nBytes >= nBytes);
-				return *(Address*) (w.m_pData + Word::nBytes - nBytes);
-			}
-
-			void ToWord(Word& w) const
-			{
-				WPad(w);
-				W2A(w) = *this;
-			}
-
-			Word ToWord() const
-			{
-				Word w;
-				ToWord(w);
-				return w;
-			}
-
-			void FromPubKey(const ECC::Point::Storage&);
-			bool FromPubKey(const ECC::Point&);
-			bool FromPubKey(const PeerID&);
-
-			void ForContract(const Address& from, uint64_t nonce);
-		};
 
 		struct BlockHeader
 		{
@@ -247,7 +213,7 @@ namespace beam {
 
 		} m_RetVal;
 
-		EvmProcessor()
+		Processor()
 		{
 			InitVars();
 		}
@@ -281,4 +247,5 @@ namespace beam {
 		void CallInternal(const Address&, const Args&, uint64_t gas, bool isDeploy);
 	};
 
+} // namespace Evm
 } // namespace beam

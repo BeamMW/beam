@@ -66,8 +66,12 @@ namespace beam
 {
 
 	struct MyProcessor
-		:public EvmProcessor
+		:public Evm::Processor
 	{
+
+		typedef Evm::Address Address;
+		typedef Evm::Word Word;
+
 		struct AccountData
 			:public intrusive::set_base_hook<Address>
 			,public IAccount
@@ -253,7 +257,7 @@ namespace beam
 			args.m_CallValue = Zero;
 			args.m_Buf = code;
 
-			aContract.ForContract(m_Top.m_pAccount->get_Address(), get_CallerNonceRef());
+			AddressForContract(aContract, m_Top.m_pAccount->get_Address(), get_CallerNonceRef());
 
 			Call(aContract, args, true);
 
@@ -262,7 +266,7 @@ namespace beam
 			return m_RetVal.m_Success;
 		}
 
-		bool RunMethod(const Address& to, const EvmProcessor::Method& m, uint32_t nSizeMethod)
+		bool RunMethod(const Address& to, const Evm::Processor::Method& m, uint32_t nSizeMethod)
 		{
 			std::cout << "\nCalling method " << m.m_Selector << std::endl;
 
@@ -298,7 +302,7 @@ namespace beam
 			ECC::Point::Storage pt_s;
 			pt.Export(pt_s);
 
-			EvmProcessor::Address addr, addr2;
+			Evm::Address addr, addr2;
 			addr.FromPubKey(pt_s);
 			addr2.Scan("b90d65a624909bc36eee6bffdecf3c5acd7774c0");
 
@@ -307,22 +311,22 @@ namespace beam
 
 		{
 			// test contract address derivation
-			EvmProcessor::Address addr, addr2, addr3;
+			Evm::Address addr, addr2, addr3;
 			addr.Scan("6ac7ea33f8831ea9dcc53393aaa88b25a785dbf0");
 
-			addr2.ForContract(addr, 0);
+			AddressForContract(addr2, addr, 0);
 			addr3.Scan("cd234a471b72ba2f1ccf0a70fcaba648a5eecd8d");
 			verify_test(addr2 == addr3);
 
-			addr2.ForContract(addr, 1);
+			AddressForContract(addr2, addr, 1);
 			addr3.Scan("343c43a37d37dff08ae8c4a11544c718abb4fcf8");
 			verify_test(addr2 == addr3);
 
-			addr2.ForContract(addr, 2);
+			AddressForContract(addr2, addr, 2);
 			addr3.Scan("f778b86fa74e846c4f0a1fbd1335fe81c00a0c91");
 			verify_test(addr2 == addr3);
 			
-			addr2.ForContract(addr, 3);
+			AddressForContract(addr2, addr, 3);
 			addr3.Scan("fffd933a0bc612844eaf0c6fe3e5b8e9b6c1d19c");
 			verify_test(addr2 == addr3);
 		}
@@ -364,9 +368,9 @@ namespace beam
 
 #pragma pack (push, 1)
 		struct MyMethod
-			:public EvmProcessor::Method
+			:public Evm::Processor::Method
 		{
-			EvmProcessor::Word m_MyValue;
+			Evm::Word m_MyValue;
 		} myArg;
 #pragma pack (pop)
 
@@ -382,10 +386,10 @@ namespace beam
 			evm.InitCaller(aOwner);
 			verify_test(evm.RunMethod_T(aContract, myArg));
 
-			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
-			const auto& wRes = *(const EvmProcessor::Word*) evm.m_RetVal.m_Blob.p;
+			verify_test(sizeof(Evm::Word) == evm.m_RetVal.m_Blob.n);
+			const auto& wRes = *(const Evm::Word*) evm.m_RetVal.m_Blob.p;
 
-			verify_test(EvmProcessor::Word(valExpected) == wRes);
+			verify_test(Evm::Word(valExpected) == wRes);
 
 		}
 	}
@@ -405,9 +409,9 @@ namespace beam
 #pragma pack (push, 1)
 			struct MyArgs
 			{
-				EvmProcessor::Word m_ArrMark;
-				EvmProcessor::Word m_Count;
-				EvmProcessor::Word m_pszName[2];
+				Evm::Word m_ArrMark;
+				Evm::Word m_Count;
+				Evm::Word m_pszName[2];
 			} myArgs;
 #pragma pack (pop)
 
@@ -429,9 +433,9 @@ namespace beam
 		{
 #pragma pack (push, 1)
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				EvmProcessor::Word m_wVoter;
+				Evm::Word m_wVoter;
 			} myArg;
 #pragma pack (pop)
 
@@ -446,9 +450,9 @@ namespace beam
 		{
 #pragma pack (push, 1)
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				EvmProcessor::Word m_iVote;
+				Evm::Word m_iVote;
 			} myArg;
 #pragma pack (pop)
 
@@ -461,24 +465,24 @@ namespace beam
 		}
 
 		{
-			EvmProcessor::Method myArg;
+			Evm::Processor::Method myArg;
 			myArg.SetSelector("winningProposal()");
 
 			evm.InitCaller(aVoter);
 			verify_test(evm.RunMethod_T(aContract, myArg));
 
-			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
-			const auto& wRes = *(const EvmProcessor::Word*)evm.m_RetVal.m_Blob.p;
-			verify_test(EvmProcessor::Word(1u) == wRes);
+			verify_test(sizeof(Evm::Word) == evm.m_RetVal.m_Blob.n);
+			const auto& wRes = *(const Evm::Word*)evm.m_RetVal.m_Blob.p;
+			verify_test(Evm::Word(1u) == wRes);
 		}
 
 		{
-			EvmProcessor::Method myArg;
+			Evm::Processor::Method myArg;
 			myArg.SetSelector("winnerName()");
 
 			evm.InitCaller(aVoter);
 			verify_test(evm.RunMethod_T(aContract, myArg));
-			verify_test(sizeof(EvmProcessor::Word) == evm.m_RetVal.m_Blob.n);
+			verify_test(sizeof(Evm::Word) == evm.m_RetVal.m_Blob.n);
 		}
 
 	}
@@ -535,10 +539,10 @@ namespace beam
 			// "c9c65396": "createPair(address,address)",
 #pragma pack (push, 1)
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				EvmProcessor::Word m_wTokA;
-				EvmProcessor::Word m_wTokB;
+				Evm::Word m_wTokA;
+				Evm::Word m_wTokB;
 			} myArg;
 #pragma pack (pop)
 
@@ -548,12 +552,12 @@ namespace beam
 
 			evm.InitCaller(aOwner);
 			verify_test(evm.RunMethod_T(aFactory, myArg));
-			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
-			aPairAB = EvmProcessor::Address::W2A(*((EvmProcessor::Word*) evm.m_RetVal.m_Blob.p));
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(Evm::Word));
+			aPairAB = Evm::Address::W2A(*((Evm::Word*) evm.m_RetVal.m_Blob.p));
 		}
 
 		{
-			EvmProcessor::Method myArg;
+			Evm::Processor::Method myArg;
 			myArg.SetSelector("allPairsLength()");
 			evm.InitCaller(aOwner);
 			verify_test(evm.RunMethod_T(aFactory, myArg));
@@ -563,9 +567,9 @@ namespace beam
 		{
 #pragma pack (push, 1)
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				EvmProcessor::Word m_Idx;
+				Evm::Word m_Idx;
 			} myArg;
 #pragma pack (pop)
 
@@ -574,7 +578,7 @@ namespace beam
 
 			evm.InitCaller(aOwner);
 			verify_test(evm.RunMethod_T(aFactory, myArg));
-			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(Evm::Word));
 		}
 
 		evm.PrintVars(std::cout);
@@ -582,11 +586,11 @@ namespace beam
 		// transfer tokens to pairAB
 		{
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				//EvmProcessor::Word m_aFrom;
-				EvmProcessor::Word m_aTo;
-				EvmProcessor::Word m_Value;
+				//Evm::Word m_aFrom;
+				Evm::Word m_aTo;
+				Evm::Word m_Value;
 			} myArg;
 
 			//myArg.SetSelector("transferFrom(address,address,uint256)");
@@ -604,7 +608,7 @@ namespace beam
 		evm.PrintVars(std::cout);
 
 		//{
-		//	EvmProcessor::Method myArg;
+		//	Evm::Processor::Method myArg;
 		//	myArg.SetSelector("getReserves()");
 		//	verify_test(evm.RunMethod_T(aPairAB, aOwner, myArg));
 		//}
@@ -612,20 +616,20 @@ namespace beam
 		{
 #pragma pack (push, 1)
 			struct MyMethod
-				:public EvmProcessor::Method
+				:public Evm::Processor::Method
 			{
-				EvmProcessor::Word m_Addr;
+				Evm::Word m_Addr;
 			} myArg;
 #pragma pack (pop)
 
 			myArg.SetSelector("mint(address)");
 			ECC::GenRandom(myArg.m_Addr);
 			aOwner.ToWord(myArg.m_Addr);
-			EvmProcessor::Address::WPad(myArg.m_Addr);
+			Evm::Address::WPad(myArg.m_Addr);
 
 			evm.InitCaller(aOwner);
 			verify_test(evm.RunMethod_T(aPairAB, myArg));
-			verify_test(evm.m_RetVal.m_Blob.n == sizeof(EvmProcessor::Word));
+			verify_test(evm.m_RetVal.m_Blob.n == sizeof(Evm::Word));
 			
 		}
 

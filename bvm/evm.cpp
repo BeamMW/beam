@@ -47,19 +47,20 @@ namespace beam {
 #include "Shaders/Eth.h" // Rlp encoding
 	}
 
+namespace Evm {
 
-void EvmProcessor::Fail()
+void Processor::Fail()
 {
 	throw std::runtime_error("evm");
 }
 
-void EvmProcessor::Test(bool b)
+void Processor::Test(bool b)
 {
 	if (!b)
 		Fail();
 }
 
-uint32_t EvmProcessor::WtoU32(const Word& w)
+uint32_t Processor::WtoU32(const Word& w)
 {
 	uint32_t ret;
 	Test(memis0(w.m_pData, w.nBytes - sizeof(ret)));
@@ -68,7 +69,7 @@ uint32_t EvmProcessor::WtoU32(const Word& w)
 	return ret;
 }
 
-uint64_t EvmProcessor::WtoU64(const Word& w)
+uint64_t Processor::WtoU64(const Word& w)
 {
 	uint64_t ret;
 	Test(memis0(w.m_pData, w.nBytes - sizeof(ret)));
@@ -77,7 +78,7 @@ uint64_t EvmProcessor::WtoU64(const Word& w)
 	return ret;
 }
 
-void EvmProcessor::Address::ForContract(const Address& from, uint64_t nonce)
+void AddressForContract(Address& res, const Address& from, uint64_t nonce)
 {
 	KeccakProcessor<Word::nBits> hp;
 
@@ -89,50 +90,12 @@ void EvmProcessor::Address::ForContract(const Address& from, uint64_t nonce)
 
 	Shaders::Eth::Rlp::Node(pC).Write(hp);
 
-	Word res;
-	hp >> res;
-	*this = W2A(res);
+	Word wRes;
+	hp >> wRes;
+	res = Address::W2A(wRes);
 }
 
-void EvmProcessor::Address::FromPubKey(const ECC::Point::Storage& pk)
-{
-	KeccakProcessor<Word::nBits> hp;
-
-	//static const uint8_t s_pPrefix[] = {
-	//	0x30,0x59,0x30,0x13,0x06,0x07,0x2A,0x86,0x48,0xCE,0x3D,0x02,0x01,0x06,0x08,0x2A,0x86,0x48,0xCE,0x3D,0x03,0x01,0x07,0x03,0x42,0x00,0x04
-	//};
-
-	//hp.Write(s_pPrefix, sizeof(s_pPrefix));
-
-	hp.Write(pk.m_X);
-	hp.Write(pk.m_Y);
-
-	Word w;
-	hp.Read(w.m_pData);
-
-	*this = W2A(w);
-}
-
-bool EvmProcessor::Address::FromPubKey(const ECC::Point& pk)
-{
-	ECC::Point::Native pt_n;
-	ECC::Point::Storage pt_s;
-	if (!pt_n.ImportNnz(pk, &pt_s))
-		return false;
-
-	FromPubKey(pt_s);
-	return true;
-}
-
-bool EvmProcessor::Address::FromPubKey(const PeerID& pid)
-{
-	ECC::Point pt;
-	pt.m_X = Cast::Down<ECC::uintBig>(pid);
-	pt.m_Y = 0;
-	return FromPubKey(pt);
-}
-
-void EvmProcessor::Method::SetSelector(const Blob& b)
+void Processor::Method::SetSelector(const Blob& b)
 {
 	Word w;
 	HashOf(w, b);
@@ -140,7 +103,7 @@ void EvmProcessor::Method::SetSelector(const Blob& b)
 	memcpy(m_Selector.m_pData, w.m_pData, m_Selector.nBytes);
 }
 
-void EvmProcessor::Method::SetSelector(const char* szSignature)
+void Processor::Method::SetSelector(const char* szSignature)
 {
 	Blob blob;
 	blob.p = szSignature;
@@ -148,14 +111,14 @@ void EvmProcessor::Method::SetSelector(const char* szSignature)
 	SetSelector(blob);
 }
 
-void EvmProcessor::Reset()
+void Processor::Reset()
 {
 	InitVars();
 	m_lstFrames.Clear();
 	m_Top.m_lstUndo.Clear();
 }
 
-void EvmProcessor::InitVars()
+void Processor::InitVars()
 {
 	m_Top.m_Gas = 0;
 	m_Top.m_pAccount = nullptr;
@@ -262,15 +225,15 @@ void EvmProcessor::InitVars()
 	EvmOpcodes_Unary(macro) \
 	EvmOpcodes_Custom(macro) \
 
-struct EvmProcessor::Context :public EvmProcessor::Frame
+struct Processor::Context :public Processor::Frame
 {
-#define THE_MACRO(code, name, gas) void On_##name(EvmProcessor&);
+#define THE_MACRO(code, name, gas) void On_##name(Processor&);
 	EvmOpcodes_Custom(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(code, name, gas) \
 	void OnBinary_##name(Word& a, Word& b); \
-	void On_##name(EvmProcessor&) \
+	void On_##name(Processor&) \
 	{ \
 		auto& w1 = m_Stack.Pop(); \
 		auto& w2 = m_Stack.get_At(0); \
@@ -285,7 +248,7 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 
 #define THE_MACRO(code, name, gas) \
 	void OnUnary_##name(Word& a); \
-	void On_##name(EvmProcessor&) \
+	void On_##name(Processor&) \
 	{ \
 		auto& w = m_Stack.get_At(0); \
 		LogOperand(w); \
@@ -302,13 +265,13 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 #undef THE_MACRO
 	};
 
-	void RunOnce(EvmProcessor&);
+	void RunOnce(Processor&);
 
 	void LogOpCode(const char* sz);
 	void LogOpCode(const char* sz, uint32_t n);
 	void LogOperand(const Word&);
 
-	BaseFrame& get_Prev(EvmProcessor& p)
+	BaseFrame& get_Prev(Processor& p)
 	{
 		assert(!p.m_lstFrames.empty());
 		if (p.m_lstFrames.size() == 1)
@@ -319,7 +282,7 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 		return *it;
 	}
 
-	const Address& get_Caller(EvmProcessor& p)
+	const Address& get_Caller(Processor& p)
 	{
 		return get_Prev(p).m_pAccount->get_Address();
 	}
@@ -332,8 +295,8 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	void DupN(uint32_t n);
 	void SwapN(uint32_t n);
 	void LogN(uint32_t n);
-	void OnFrameDone(EvmProcessor&, bool bSuccess, bool bHaveRetval);
-	void OnCall(EvmProcessor&, bool bStatic);
+	void OnFrameDone(Processor&, bool bSuccess, bool bHaveRetval);
+	void OnCall(Processor&, bool bStatic);
 
 	template <bool bPadLeft>
 	static void AssignPartial(Word&, const uint8_t* p, uint32_t n);
@@ -371,14 +334,14 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	{
 	};
 
-	Height get_BlockArg(EvmProcessor& p, BlockHeader& bh)
+	Height get_BlockArg(Processor& p, BlockHeader& bh)
 	{
 		Height h = WtoU64(m_Stack.Pop());
 		Test(p.get_BlockHeader(bh, h));
 		return h;
 	}
 
-	Height get_BlockLast(EvmProcessor& p, BlockHeader& bh)
+	Height get_BlockLast(Processor& p, BlockHeader& bh)
 	{
 		Height h = p.get_Height();
 		Test(p.get_BlockHeader(bh, h));
@@ -386,24 +349,24 @@ struct EvmProcessor::Context :public EvmProcessor::Frame
 	}
 };
 
-void EvmProcessor::Context::LogOpCode(const char* sz)
+void Processor::Context::LogOpCode(const char* sz)
 {
 	printf("\t%08x, %s\n", m_Code.m_Ip - 1, sz);
 }
 
-void EvmProcessor::Context::LogOpCode(const char* sz, uint32_t n)
+void Processor::Context::LogOpCode(const char* sz, uint32_t n)
 {
 	printf("\t%08x, %s%u\n", m_Code.m_Ip - 1, sz, n);
 }
 
-void EvmProcessor::Context::LogOperand(const Word& x)
+void Processor::Context::LogOperand(const Word& x)
 {
 	char sz[Word::nTxtLen + 1];
 	x.Print(sz);
 	printf("\t\t%s\n", sz);
 }
 
-void EvmProcessor::BaseFrame::DrainGas(uint64_t n)
+void Processor::BaseFrame::DrainGas(uint64_t n)
 {
 	if (m_Gas < n)
 	{
@@ -414,7 +377,7 @@ void EvmProcessor::BaseFrame::DrainGas(uint64_t n)
 	m_Gas -= n;
 }
 
-uint8_t* EvmProcessor::Context::get_Memory(const Word& wAddr, uint32_t nSize)
+uint8_t* Processor::Context::get_Memory(const Word& wAddr, uint32_t nSize)
 {
 	if (!nSize)
 		return nullptr;
@@ -433,7 +396,7 @@ uint8_t* EvmProcessor::Context::get_Memory(const Word& wAddr, uint32_t nSize)
 	return &m_Memory.m_v.front() + n0;
 }
 
-uint64_t EvmProcessor::Context::get_MemoryCost(uint32_t nSize)
+uint64_t Processor::Context::get_MemoryCost(uint32_t nSize)
 {
 	// cost := a * 3 + floor(a^2 / 512)
 	uint64_t a = nSize / Word::nBytes;
@@ -443,7 +406,7 @@ uint64_t EvmProcessor::Context::get_MemoryCost(uint32_t nSize)
 	return (a * 3) + (a * a / 512);
 }
 
-struct EvmProcessor::UndoOp::Guard
+struct Processor::UndoOp::Guard
 	:public Base
 {
 	~Guard() override
@@ -455,7 +418,7 @@ struct EvmProcessor::UndoOp::Guard
 	}
 };
 
-void EvmProcessor::BaseFrame::InitAccount(IAccount::Guard& g)
+void Processor::BaseFrame::InitAccount(IAccount::Guard& g)
 {
 	assert(!m_pAccount && g.m_p);
 
@@ -467,7 +430,7 @@ void EvmProcessor::BaseFrame::InitAccount(IAccount::Guard& g)
 	g.m_p = nullptr;
 }
 
-struct EvmProcessor::UndoOp::BalanceChange
+struct Processor::UndoOp::BalanceChange
 	:public Base
 {
 	Word m_Val;
@@ -479,7 +442,7 @@ struct EvmProcessor::UndoOp::BalanceChange
 };
 
 
-void EvmProcessor::UpdateBalance(IAccount* pAccount, const Word& val0, const Word& val1)
+void Processor::UpdateBalance(IAccount* pAccount, const Word& val0, const Word& val1)
 {
 	if (val0 == val1)
 		return;
@@ -494,7 +457,7 @@ void EvmProcessor::UpdateBalance(IAccount* pAccount, const Word& val0, const Wor
 	pAccount->set_Balance(val1);
 }
 
-struct EvmProcessor::UndoOp::AccountDelete
+struct Processor::UndoOp::AccountDelete
 	:public Base
 {
 	~AccountDelete() override {}
@@ -504,7 +467,7 @@ struct EvmProcessor::UndoOp::AccountDelete
 	}
 };
 
-void EvmProcessor::RunOnce()
+void Processor::RunOnce()
 {
 	static_assert(sizeof(Context) == sizeof(Frame), "");
 
@@ -538,7 +501,7 @@ void EvmProcessor::RunOnce()
 
 }
 
-void EvmProcessor::Context::RunOnce(EvmProcessor& p)
+void Processor::Context::RunOnce(Processor& p)
 {
 	auto nCode = m_Code.Read1();
 
@@ -603,9 +566,9 @@ void EvmProcessor::Context::RunOnce(EvmProcessor& p)
 	}
 }
 
-#define OnOpcode(name) void EvmProcessor::Context::On_##name(EvmProcessor& p)
-#define OnOpcodeBinary(name) void EvmProcessor::Context::OnBinary_##name(Word& a, Word& b)
-#define OnOpcodeUnary(name) void EvmProcessor::Context::OnUnary_##name(Word& a)
+#define OnOpcode(name) void Processor::Context::On_##name(Processor& p)
+#define OnOpcodeBinary(name) void Processor::Context::OnBinary_##name(Word& a, Word& b)
+#define OnOpcodeUnary(name) void Processor::Context::OnUnary_##name(Word& a)
 
 OnOpcode(stop)
 {
@@ -850,7 +813,7 @@ OnOpcodeBinary(sar)
 	}
 }
 
-void EvmProcessor::HashOf(Word& w, const Blob& b)
+void Processor::HashOf(Word& w, const Blob& b)
 {
 	KeccakProcessor<Word::nBits> hp;
 	hp.Write(b.p, b.n);
@@ -1142,7 +1105,7 @@ OnOpcode(sload)
 	LogOperand(w);
 }
 
-struct EvmProcessor::UndoOp::VarSet
+struct Processor::UndoOp::VarSet
 	:public Base
 {
 	Word m_Key;
@@ -1190,7 +1153,7 @@ OnOpcode(sstore)
 	LogOperand(w2);
 }
 
-void EvmProcessor::Context::Jump(const Word& w)
+void Processor::Context::Jump(const Word& w)
 {
 	auto nAddr = WtoU32(w);
 	m_Code.m_Ip = nAddr;
@@ -1244,13 +1207,13 @@ OnOpcode(selfbalance)
 	m_pAccount->get_Balance(m_Stack.Push());
 }
 
-void EvmProcessor::get_ChainID(Word& w)
+void Processor::get_ChainID(Word& w)
 {
 	w = Zero;
 }
 
 template <bool bPadLeft>
-void EvmProcessor::Context::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
+void Processor::Context::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
 {
 	assert(n <= w.nBytes);
 	auto* pDst = w.m_pData;
@@ -1263,20 +1226,20 @@ void EvmProcessor::Context::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
 	memcpy(pDst, p, n);
 }
 
-void EvmProcessor::Context::PushN(uint32_t n)
+void Processor::Context::PushN(uint32_t n)
 {
 	auto pSrc = m_Code.Consume(n);
 	auto& wDst = m_Stack.Push();
 	AssignPartial<true>(wDst, pSrc, n);
 }
 
-void EvmProcessor::Context::DupN(uint32_t n)
+void Processor::Context::DupN(uint32_t n)
 {
 	auto& wDst = m_Stack.Push();
 	wDst = m_Stack.get_At(n);
 }
 
-void EvmProcessor::Context::SwapN(uint32_t n)
+void Processor::Context::SwapN(uint32_t n)
 {
 	auto& w1 = m_Stack.get_At(0);
 	auto& w2 = m_Stack.get_At(n);
@@ -1284,7 +1247,7 @@ void EvmProcessor::Context::SwapN(uint32_t n)
 	std::swap(w1, w2);
 }
 
-void EvmProcessor::Context::LogN(uint32_t n)
+void Processor::Context::LogN(uint32_t n)
 {
 	auto& wAddr = m_Stack.Pop();
 	auto nSize = WtoU32(m_Stack.Pop());
@@ -1301,7 +1264,7 @@ void EvmProcessor::Context::LogN(uint32_t n)
 
 }
 
-void EvmProcessor::BaseFrame::UndoChanges()
+void Processor::BaseFrame::UndoChanges()
 {
 	while (!m_lstUndo.empty())
 	{
@@ -1313,7 +1276,7 @@ void EvmProcessor::BaseFrame::UndoChanges()
 	m_pAccount = nullptr; // for more safety, since we're no longer holding the guard
 }
 
-void EvmProcessor::Context::OnFrameDone(EvmProcessor& p, bool bSuccess, bool bHaveRetval)
+void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetval)
 {
 	p.m_RetVal.m_Success = bSuccess;
 
@@ -1422,7 +1385,7 @@ OnOpcode(Create2)
 	p.CallInternal(aNew, args, m_Gas, true);
 }
 
-void EvmProcessor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
+void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
 {
 	BaseFrame& fPrev = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
 
@@ -1523,13 +1486,13 @@ void EvmProcessor::CallInternal(const Address& addr, const Args& args, uint64_t 
 	}
 }
 
-void EvmProcessor::Call(const Address& addr, const Args& args, bool isDeploy)
+void Processor::Call(const Address& addr, const Args& args, bool isDeploy)
 {
 	assert(m_lstFrames.empty());
 	CallInternal(addr, args, m_Top.m_Gas, isDeploy);
 }
 
-void EvmProcessor::Context::OnCall(EvmProcessor& p, bool bStatic)
+void Processor::Context::OnCall(Processor& p, bool bStatic)
 {
 	auto nGas = WtoU64(m_Stack.Pop());
 	auto& wAddr = m_Stack.Pop();
@@ -1564,4 +1527,5 @@ OnOpcode(revert)
 	OnFrameDone(p, false, true);
 }
 
+} // namespace Evm
 } // namespace beam

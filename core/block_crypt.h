@@ -51,6 +51,44 @@ namespace beam
 		Key::IKdf::Ptr get_Child(Key::IKdf&, Key::Index);
 	}
 
+	namespace Evm
+	{
+		typedef ECC::uintBig Word;
+
+		struct Address
+			:public uintBig_t<20>
+		{
+			typedef uintBig_t<20> Base;
+
+			static void WPad(Word& w)
+			{
+				memset0(w.m_pData, Word::nBytes - nBytes);
+			}
+			static Address& W2A(Word& w)
+			{
+				static_assert(Word::nBytes >= nBytes);
+				return *(Address*)(w.m_pData + Word::nBytes - nBytes);
+			}
+
+			void ToWord(Word& w) const
+			{
+				WPad(w);
+				W2A(w) = *this;
+			}
+
+			Word ToWord() const
+			{
+				Word w;
+				ToWord(w);
+				return w;
+			}
+
+			void FromPubKey(const ECC::Point::Storage&);
+			bool FromPubKey(const ECC::Point&);
+			bool FromPubKey(const PeerID&);
+		};
+	}
+
 	Timestamp getTimestamp();
 	uint32_t GetTime_ms(); // platform-independent GetTickCount
 	uint32_t GetTimeNnz_ms(); // guaranteed non-zero
