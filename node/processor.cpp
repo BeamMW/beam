@@ -2589,13 +2589,13 @@ struct NodeProcessor::BlockInterpretCtx
 
 	struct MyEvmProcessor
 		:public VmProcessorBase
-		,public EvmProcessor
+		,public Evm::Processor
 	{
-		bool GetAccount(const Address& addr, bool bCreate, IAccount::Guard& g) override;
+		bool GetAccount(const Evm::Address& addr, bool bCreate, IAccount::Guard& g) override;
 		Height get_Height() override;
 		bool get_BlockHeader(BlockHeader&, Height) override;
 
-		static void UpdateBalance(EvmAccount::Base& x, const EvmProcessor::Word& val, bool bAdd);
+		static void UpdateBalance(EvmAccount::Base& x, const Evm::Word& val, bool bAdd);
 
 		using VmProcessorBase::VmProcessorBase;
 		void InvokeGuarded(const TxKernelEvmInvoke&);
@@ -5050,7 +5050,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 	return bRes;
 }
 
-void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::UpdateBalance(EvmAccount::Base& x, const EvmProcessor::Word& val, bool bAdd)
+void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::UpdateBalance(EvmAccount::Base& x, const Evm::Word& val, bool bAdd)
 {
 	if (bAdd)
 	{
@@ -5078,12 +5078,10 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(krn.m_Subsidy, bAdd);
 
-	EvmProcessor::Word wSubsidy;
+	Evm::Word wSubsidy;
 	wSubsidy.FromNumber(MultiWord::From(valUns) * MultiWord::From(r.Evm.Groth2Wei)); // won't overflow
 
-	EvmProcessor::Address aFrom;
-	if (!aFrom.FromPubKey(krn.m_From))
-		Exc::Fail("bad from");
+	const Evm::Address& aFrom = krn.m_From;
 
 	// load account. If doesn't exist - consider it a new, with nonce=0 and balance=0. If exists - verify nonce
 	auto& e = m_Bic.get_ContractVar(aFrom, m_Proc.m_DB);
@@ -5111,7 +5109,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 	if (valUns && bAdd)
 		UpdateBalance(ua, wSubsidy, true);
 
-	UpdateBalance(ua, krn.m_Amount, false);
+	UpdateBalance(ua, krn.m_CallValue, false);
 
 	ContractDataSaveWithRecovery(e, Blob(&ua, sizeof(ua)));
 
@@ -5144,7 +5142,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 		if (bUser)
 		{
 			// tx to user
-			UpdateBalance(ua, krn.m_Amount, true);
+			UpdateBalance(ua, krn.m_CallValue, true);
 			ContractDataSaveWithRecovery(e2, Blob(&ua, sizeof(ua)));
 		}
 		else
@@ -5156,11 +5154,10 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 			EvmAccount::Contract ca;
 			memcpy(&ca, &e.m_Data.front(), sizeof(ca));
 
-			UpdateBalance(ca, krn.m_Amount, true);
+			UpdateBalance(ca, krn.m_CallValue, true);
 			ContractDataSaveWithRecovery(e2, Blob(&ca, sizeof(ca)));
 
-			static_assert(sizeof(krn.m_To) == sizeof(Address), "");
-			const auto& aContract = Cast::Up<Address>(krn.m_To);
+			const auto& aContract = krn.m_To;
 
 			IAccount::Guard g;
 			GetAccount(aFrom, false, g);
@@ -5173,7 +5170,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::InvokeGuarded(const TxKer
 
 			Args args;
 			args.m_Buf = krn.m_Args;
-			args.m_CallValue = krn.m_Amount;
+			args.m_CallValue = krn.m_CallValue;
 
 			Call(aContract, args, false);
 
@@ -5208,13 +5205,13 @@ bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_BlockHeader(BlockHead
 	s.get_Hash(res.m_Hash);
 	s.m_PoW.m_Difficulty.Unpack(res.m_Difficulty);
 	res.m_GasLimit = Zero;
-	Cast::Down<uintBig_t<EvmProcessor::Address::nBytes> >(res.m_Coinbase) = Zero;
+	Cast::Down<Evm::Address::Base>(res.m_Coinbase) = Zero;
 	res.m_Timestamp = s.m_TimeStamp;
 
 	return true;
 }
 
-bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::GetAccount(const Address&, bool, IAccount::Guard&)
+bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::GetAccount(const Evm::Address&, bool, IAccount::Guard&)
 {
 	return false; // TODO
 }
