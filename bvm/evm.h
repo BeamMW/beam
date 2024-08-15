@@ -123,12 +123,19 @@ namespace Evm {
 		{
 			virtual void Release() = 0;
 
-			struct Guard {
+			struct Guard
+			{
 				IAccount* m_p = nullptr;
-				~Guard()
+
+				~Guard() { Reset(); }
+
+				void Reset()
 				{
 					if (m_p)
+					{
 						m_p->Release();
+						m_p = nullptr;
+					}
 				}
 			};
 
@@ -173,11 +180,12 @@ namespace Evm {
 
 		struct BaseFrame
 		{
-			IAccount* m_pAccount = nullptr;
+			IAccount::Guard m_Account;
 			UndoOp::List m_lstUndo;
 			uint64_t m_Gas;
 
 			void InitAccount(IAccount::Guard&);
+			void ReleaseAccountIntoUndo();
 			void UndoChanges();
 			void DrainGas(uint64_t);
 		};
