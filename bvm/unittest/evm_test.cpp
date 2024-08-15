@@ -299,11 +299,8 @@ namespace beam
 			sk_.m_Value.Scan("b533ffad9736e46ef0fbe34018fb0a30572fbe477bcc3a4e641c210ecc3ed8b5");
 			ECC::Point::Native pt = ECC::Context::get().G * sk_;
 
-			ECC::Point::Storage pt_s;
-			pt.Export(pt_s);
-
 			Evm::Address addr, addr2;
-			addr.FromPubKey(pt_s);
+			addr.FromPubKey(pt);
 			addr2.Scan("b90d65a624909bc36eee6bffdecf3c5acd7774c0");
 
 			verify_test(addr == addr2);
@@ -636,6 +633,48 @@ namespace beam
 		evm.PrintVars(std::cout);
 	}
 
+	void TestEvmTxKernel()
+	{
+		Rules::get().pForks[6].m_Height = Rules::get().pForks[5].m_Height + 10;
+
+		ECC::Scalar::Native skFrom, skBlind, skInp;
+		skFrom.GenRandomNnz();
+		skBlind.GenRandomNnz();
+
+		Height h = 3100200;
+
+		auto pKrn = std::make_unique<TxKernelEvmInvoke>();
+		pKrn->m_Fee = 600000;
+		pKrn->m_Height.m_Min = h - 30;
+
+		ECC::GenRandom(pKrn->m_To);
+		pKrn->m_Nonce = 117;
+		pKrn->m_CallValue = 778899ull; // doesn't affect tx balance
+		pKrn->m_Subsidy = Rules::Coin * 600; // positive, i.e. Beams are consumed in a tx
+		pKrn->m_Args.resize(60);
+		ECC::GenRandom(&pKrn->m_Args.front(), (uint32_t)pKrn->m_Args.size());
+
+		pKrn->Sign(skFrom, skBlind);
+		verify_test(pKrn->IsValid(pKrn->m_Height.m_Min - 20));
+
+		skInp.GenRandomNnz();
+
+		auto pInp = std::make_unique<Input>();
+		ECC::Point::Native pt = ECC::Commitment(skInp, pKrn->m_Fee + pKrn->m_Subsidy); // // should compensate for subsidy and fee
+		pInp->m_Commitment = pt;
+
+		Transaction tx;
+		tx.m_vKernels.push_back(std::move(pKrn));
+		tx.m_vInputs.push_back(std::move(pInp));
+
+		skInp -= skBlind;
+		tx.m_Offset = skInp;
+
+		Transaction::Context ctx;
+		ctx.m_Height.m_Min = h;
+		verify_test(tx.IsValid(ctx));
+	}
+
 } // namespace beam
 
 int main()
@@ -646,6 +685,8 @@ int main()
 		ECC::PseudoRandomGenerator::Scope scope(&prg);
 
 		using namespace beam;
+
+		beam::TestEvmTxKernel();
 
 		beam::EvmTest1();
 		beam::EvmTest2();
