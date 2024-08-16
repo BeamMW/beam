@@ -1228,7 +1228,10 @@ void Processor::Context::AssignPartial(Word& w, const uint8_t* p, uint32_t n)
 	auto* pPad = pDst;
 
 	uint32_t nPad = w.nBytes - n;
-	(bPadLeft ? pDst : pPad) += nPad;
+	if constexpr (bPadLeft)
+		pDst += nPad; // padding on left, data on right
+	else
+		pPad += n;
 
 	memset0(pPad, nPad);
 	memcpy(pDst, p, n);
