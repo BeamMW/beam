@@ -1498,8 +1498,6 @@
         SetContent(text);
         return;
       }
-      // Display Genesis block (instead of Treasury) if nothing at all was queried
-      if (!g_kernel && !g_id && g_id !== 0) { g_id = 1 }
     }
 
     // If the request was a kernel, get the resulting height
@@ -2069,6 +2067,8 @@
       if (g_kernel) {
         urlSuffix += '&kernel=' + g_kernel;
       } else {
+        if (!g_id) { g_id = 1 } // Display Genesis block in case no block height is given
+        if (g_id < 0) { g_id = 0 } // Display Treasury for any negative block height
         urlSuffix += '&height=' + g_id;
       }
       xmlhttp.onload = DisplayBlock;
