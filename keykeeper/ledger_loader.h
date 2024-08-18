@@ -34,6 +34,7 @@ namespace beam::wallet
 			uint32_t m_TargetID = 0;
 			uint16_t m_HidProductID = 0;
 			std::string m_sTargetVer;
+			uint8_t m_ApiLevel;
 
 			typedef std::map<uint32_t, ByteBuffer> ZoneMap;
 			ZoneMap m_Zones;
@@ -53,6 +54,7 @@ namespace beam::wallet
 					& m_TargetID
 					& m_HidProductID
 					& m_sTargetVer
+					& m_ApiLevel
 					& m_Zones;
 			}
 
