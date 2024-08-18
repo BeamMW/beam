@@ -20,7 +20,7 @@ namespace LedgerFw {
 
 ///////////////////////////
 // AppData
-const char AppData::s_szSig[] = "beam.ledger.fw.1";
+const char AppData::s_szSig[] = "beam.ledger.fw.2";
 
 void AppData::Create(const char* szDir)
 {
@@ -300,6 +300,7 @@ void AppData::SetTargetNanoS()
 	m_HidProductID = 0x1011;
 	m_TargetID = 0x31100004;
 	m_sTargetVer = "2.1.0";
+	m_ApiLevel = 0;
 
 	static const char szIcon[] = "0100000000ffffff00000080018001400240022004a0059009500a481228142424f42f0240fe7f0000";
 	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
@@ -309,7 +310,8 @@ void AppData::SetTargetNanoSPlus()
 {
 	m_HidProductID = 0x5011;
 	m_TargetID = 0x33100004;
-	m_sTargetVer = "1.0.4";
+	m_sTargetVer = "1.1.2";
+	m_ApiLevel = 5;
 
 	static const char szIcon[] = "0100000000ffffff00000030001280041002b4804ca014240985223f0940fe1f0000";
 	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
@@ -924,8 +926,6 @@ void Loader::Install(const AppData& ad)
 	for (uint32_t i = 0; i < _countof(pCp); i++)
 		pCp[i] = ByteOrder::to_be(pCp[i]);
 
-	uint8_t apiLevel = 0;
-
 	ECC::Hash::Value hv;
 
 	std::cout << "Connecting to the device. Please approve the manager..." << std::endl;
@@ -946,17 +946,17 @@ void Loader::Install(const AppData& ad)
 				Exc::Fail();
 			}
 
-			const uint64_t verWithApiLevel = (1ull << 32) | (1ull << 16);
-			if ((0x33100004 == ad.m_TargetID) && (verAct >= verWithApiLevel))
-				apiLevel = 1;
+			//const uint64_t verWithApiLevel = (1ull << 32) | (1ull << 16);
+			//if ((0x33100004 == ad.m_TargetID) && (verAct >= verWithApiLevel))
+			//	apiLevel = 1;
 		}
 
 		// calculate expected hash
 		ECC::Hash::Processor hp;
 		hp << uintBigFrom(ad.m_TargetID);
 		
-		if (apiLevel)
-			hp.Write(&apiLevel, sizeof(apiLevel));
+		if (ad.m_ApiLevel)
+			hp.Write(&ad.m_ApiLevel, sizeof(ad.m_ApiLevel));
 		else
 			hp.Write(sMcuVer.c_str(), (uint32_t) sMcuVer.size());
 
@@ -981,8 +981,8 @@ void Loader::Install(const AppData& ad)
 
 	m_Data = 0;
 	DataOut_be<uint8_t>(0xb); // set create app params
-	if (apiLevel)
-		DataOut_be(apiLevel);
+	if (ad.m_ApiLevel)
+		DataOut_be(ad.m_ApiLevel);
 	DataOut(pCp, sizeof(pCp));
 
 	TestStatus(ExchangeSec(Cmd()));
