@@ -242,6 +242,9 @@
     font-size: 1.6rem;
     padding: 5px 0 5px 0;
   }
+  summary > * { /* This will avoid new lines if tags are used within a summary */ 
+    display: inline;
+  }
   ul {
     font-size: 1.4rem;
     padding: 0 10px 0 15px;
@@ -803,19 +806,15 @@
   }
 
   /* COLLAPSIBLE BLOCKS */
-  /* Remark: We use the 'checkbox hack' to make collapsibles 100% CSS */
   .collapsible {
     display: block;
     width: fit-content; /* Will have the width of its full content */
   }
-  .collapsible-checkbox {
-    display: none; /* Hide the actual checkbox (clicking will happen on its label only) */
-  }
   /* Normal collapsible header */
   .collapsible-label {
-    display: block;
-    width: 100%; /* Uses all the content width */
-    max-width: 97vw; /* But no more than the screen width (when collapsed) */
+    display: block; /* When display is not the default 'list-item', the default triangle disapears */
+    width: fit-content; /* Uses only its own needed width */
+    min-width: 20rem; /* Keeps most labels of similar width */
     white-space: nowrap; /* Never wrap text */
     cursor: pointer;
     font-size: 1.5rem;
@@ -826,7 +825,7 @@
     border: none;
     text-align: left;
     outline: none;
-    border-radius: 0.5em; /* Slightly round corners */
+    border-radius: 0.4em; /* Slightly round corners */
   }
   .collapsible-label:hover {
     background-color: var(--color_collapsible_hover);
@@ -835,6 +834,7 @@
   .collapsible-label.small {
     display: block;
     width: fit-content; /* Uses only its own needed width */
+    min-width: unset; /* no min width for small collapsible labels */
     font-size: 1.2rem;
     color: var(--color_small_collapsible_text);
     background-color: var(--color_small_collapsible);
@@ -845,40 +845,32 @@
   .collapsible-label.small:hover {
     background-color: var(--color_small_collapsible_hover);
   }
-  .collapsible-checkbox:checked + .collapsible-label {
+  .collapsible[open] > .collapsible-label {
     border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
     border-bottom-left-radius: 0; /* ...just because it's nice! :-) */
-    max-width: unset; /* No limit on width when expanded */
   }
   /* Collapsible symbols */
+  .collapsible-label::-webkit-details-marker { /* On Chrome 83, this is needed to hide the default triangle */
+    display: none;
+  }
   .collapsible-label::before {
     content: '\002b \00a0'; /* Add plus sign when collapsed */
     font-weight: bold;
   }
-  .collapsible-checkbox:checked + .collapsible-label::before {
+  .collapsible[open] > .collapsible-label::before {
     content: '\2212 \00a0'; /* Add minus sign when expanded */
   }
   /* Collapsible content */
   .collapsible-content {
     display: block;
     width: 100%;
-    height: 0; /* Hide by collapsing its height only (thus maintaining its horizontal space) */
-    overflow: hidden;
     color: var(--color_collapsible_content_text);
     background-color: var(--color_collapsible_content_background);
-  }
-  .collapsible-content.small {
-    display: none; /* Hide completely for small collapsibles (width is not maintained) */
-    background-color: unset; /* No specific background color for small collapsibles */
-  }
-  .collapsible-checkbox:checked + .collapsible-label + .collapsible-content {
-    height: unset;  /* Show content's full height */
-    overflow: visible;
     border: 0.5px solid var(--color_collapsible); /* Add a thin border */
   }
-  .collapsible-checkbox:checked + .collapsible-label + .collapsible-content.small {
-    display: block; /* Show content */
-    overflow: visible;
+  .collapsible-content.small {
+    display: block;
+    background-color: unset; /* No specific background color for small collapsibles */
     border: none; /* No border for small collapsibles */
   }
 
@@ -1139,7 +1131,7 @@
     if (jFunds.length < maxRows) {
       text += "<table class='tableFunds_compact'>";
     } else {
-      text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'unchecked', 'small');
+      text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', '');
       text +="<table class='tableFunds_full'>\n\
                 <thead><tr>\n\
                   <th>Asset</th>\n\
@@ -1306,7 +1298,7 @@
         if (jOwned.length < maxRows) {
           text += "<table class='tableOwned_compact'>";
         } else {
-          text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'unchecked', 'small');
+          text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', '');
           text += "\
             <table class='tableOwned_full'>\n\
               <thead><tr>\n\
@@ -1664,21 +1656,18 @@
     return text;
   }
 
-  function MakeCollapsibleBegin(title, checked = 'checked', variant = '') {
-    // Create a random ID (to connect the checkbox to its label)
-    let someId = 'id_' + Math.floor(Math.random() * 1000000);
-    // Create a checkbox, its label and a div for the collapsible content
+  function MakeCollapsibleBegin(title, variant = '', status = 'open') {
+    // Create a details/summary/content combo
     return "\
-      <div class='collapsible'>\n\
-        <input type='checkbox' id='" + someId + "' class='collapsible-checkbox' " + checked + ">\n\
-        <label for='" + someId + "' class='collapsible-label " + variant + "'>" + title + "</label>\n\
+      <details class='collapsible " + variant + "' " + status + ">\n\
+        <summary class='collapsible-label " + variant + "'>" + title + "</summary>\n\
         <div class='collapsible-content " + variant + "'>\n\
     ";
   }
 
   function MakeCollapsibleEnd() {
-    // Close the opened divs
-    return '</div></div>\n';
+    // Close the opened tags
+    return '</div></details>\n';
   }
 
   function MakeLinkToOlderBlocks(jTblObj) {
@@ -2304,10 +2293,8 @@
       myItem.nextElementSibling.addEventListener('click', truncateMetadata);
     }
     // Expand all small collapsible blocks
-    for (let myItem of document.querySelectorAll('.collapsible-checkbox')) {
-      if (myItem.nextElementSibling.classList.contains('small')) {
-        myItem.checked = true;
-      }
+    for (let myItem of document.querySelectorAll('.collapsible.small')) {
+      myItem.open = true;
     }
     // Switch action of the main clickable symbol
     let icon = document.querySelector('#ExpandAll');
@@ -2333,10 +2320,8 @@
       myItem.nextElementSibling.addEventListener('click', expandMetadata);
     }
     // Collapse all small collapsible blocks
-    for (let myItem of document.querySelectorAll('.collapsible-checkbox')) {
-      if (myItem.nextElementSibling.classList.contains('small')) {
-        myItem.checked = false;
-      }
+    for (let myItem of document.querySelectorAll('.collapsible.small')) {
+      myItem.open = false;
     }
     // Switch action of the main clickable symbol
     let icon = document.querySelector('#ExpandAll');
