@@ -765,12 +765,14 @@ namespace beam
 		void HandleAccount(Processor& proc, json::const_iterator it, bool bPre)
 		{
 			const auto& sAddr = it.key();
-			std::cout << "\t\tAddress = " << sAddr << std::endl;
+			//std::cout << "\t\tAddress = " << sAddr << std::endl;
 
 			const json& jAcc = it.value();
 
 			Address addr;
 			ScanTxt(addr, sAddr.c_str());
+
+			std::string sPrefix = "\t\t\t " + sAddr + " ";
 
 			Processor::IAccount::Guard g;
 			bool bCreated = proc.GetAccount(addr, bPre, g);
@@ -779,7 +781,7 @@ namespace beam
 				assert(g.m_p);
 				if (!bCreated)
 				{
-					std::cout << "\t\t\tDuplicated" << std::endl;
+					std::cout << sPrefix << "Duplicated" << std::endl;
 					return;
 				}
 			}
@@ -787,7 +789,7 @@ namespace beam
 			{
 				if (!g.m_p)
 				{
-					std::cout << "\t\t\tMissing" << std::endl;
+					std::cout << sPrefix << "Missing" << std::endl;
 					return;
 				}
 			}
@@ -802,7 +804,7 @@ namespace beam
 			else
 			{
 				if (x.m_Balance != wBal)
-					std::cout << "\t\t\tBalance is " << x.m_Balance.ToNumber() << ", should be " << wBal.ToNumber() << std::endl;
+					std::cout << sPrefix << "Balance is " << x.m_Balance.ToNumber() << ", should be " << wBal.ToNumber() << std::endl;
 			}
 
 			uint64_t nonce = ScanTxtUint(jAcc["nonce"].get<std::string>().c_str());
@@ -811,7 +813,7 @@ namespace beam
 			else
 			{
 				if (x.m_Nonce != nonce)
-					std::cout << "\t\t\tNonce is " << x.m_Nonce << ", should be " << nonce << std::endl;
+					std::cout << sPrefix << "Nonce is " << x.m_Nonce << ", should be " << nonce << std::endl;
 			}
 
 			const auto& sCode = jAcc["code"].get<std::string>();
@@ -822,7 +824,7 @@ namespace beam
 			else
 			{
 				if (Blob(bufCode).cmp(x.m_Code))
-					std::cout << "\t\t\tCode is different" << std::endl;
+					std::cout << sPrefix << "Code is different" << std::endl;
 			}
 
 			// storage
@@ -843,11 +845,11 @@ namespace beam
 				{
 					auto itVal = x.m_Vars.find(wKey);
 					if (x.m_Vars.end() == itVal)
-						std::cout << "\t\t\t[" << wKey.str() << "]-[" << wVal.str() << "] missing" << std::endl;
+						std::cout << sPrefix << "[" << wKey.str() << "]-[" << wVal.str() << "] missing" << std::endl;
 					else
 					{
 						if (itVal->second != wVal)
-							std::cout << "\t\t\t[" << wKey.str() << "]-[" << wVal.str() << "] actual value " << itVal->second.str() << std::endl;
+							std::cout << sPrefix << "[" << wKey.str() << "]-[" << wVal.str() << "] actual value " << itVal->second.str() << std::endl;
 
 						x.m_Vars.erase(itVal);
 					}
@@ -857,7 +859,7 @@ namespace beam
 			if (!bPre)
 			{
 				for (auto itVal = x.m_Vars.begin(); x.m_Vars.end() != itVal; itVal++)
-					std::cout << "\t\t\t[" << itVal->first.str() << "]-[" << itVal->second.str() << "] spare" << std::endl;
+					std::cout << sPrefix << "[" << itVal->first.str() << "]-[" << itVal->second.str() << "] spare" << std::endl;
 
 				g.Reset(); // workaround, until we truly implement safe Release/Delete logic
 				x.Delete();

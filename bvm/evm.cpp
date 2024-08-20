@@ -487,6 +487,8 @@ void Processor::RunOnce()
 		}
 		catch (const Context::NoGasException&)
 		{
+			printf("\tno-gas exc\n");
+
 			assert(!m_lstFrames.empty());
 			auto& f = Cast::Up<Context>(m_lstFrames.back());
 			f.OnFrameDone(*this, false, false); // assume during revert no gas is drained
@@ -494,6 +496,8 @@ void Processor::RunOnce()
 	}
 	catch (const std::exception&)
 	{
+		printf("\tcrash exc\n");
+
 		while (!m_lstFrames.empty())
 		{
 			auto& f = Cast::Up<Context>(m_lstFrames.back());
@@ -729,11 +733,10 @@ OnOpcodeBinary(smod)
 OnOpcodeBinary(exp)
 {
 	{
-		// (exp == 0) ? 10 : (10 + 10 * (1 + log256(exp)))
-		// If exponent is 0, gas used is 10. If exponent is greater than 0, gas used is 10 plus 10 times a factor related to how large the log of the exponent is.
-
+		// static_gas = 10
+		// dynamic_gas = 50 * exponent_byte_size
 		uint32_t nBytes = uintBigImpl::_GetOrderBytes(b.m_pData, b.nBytes);
-		DrainGas((nBytes + 1) * 10);
+		DrainGas(10u + 50u * nBytes);
 	}
 
 	// b = a ^ b
@@ -834,8 +837,8 @@ OnOpcodeBinary(sha3)
 	blob.n = WtoU32(b);
 	blob.p = get_Memory(a, blob.n);
 
-	// 30 + 6 * (size of input in words)
-	// 30 is the paid for the operation plus 6 paid for each word(rounded up) for the input data.
+	// static_gas = 30
+	// dynamic_gas = 6 * minimum_word_size + memory_expansion_cost
 	DrainGas(30 + 6u * Context::NumWordsRoundUp(blob.n));
 
 	HashOf(b, blob);
@@ -1304,6 +1307,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 	std::unique_ptr<Frame> pGuard(this);
 	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
+	IAccount* pMyAccount = m_Account.m_p;
 
 	Context* pPrev = p.m_lstFrames.empty() ? nullptr : &Cast::Up<Context>(p.m_lstFrames.back());
 	BaseFrame& fPrev = pPrev ? *pPrev : p.m_Top;
@@ -1327,7 +1331,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 		if (bSuccess)
 		{
-			m_Account.m_p->SetCode(p.m_RetVal.m_Blob);
+			pMyAccount->SetCode(p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
 		}
 
@@ -1335,7 +1339,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 		{
 			auto& wRes = pPrev->m_Stack.Push();
 			if (bSuccess)
-				m_Account.m_p->get_Address().ToWord(wRes);
+				pMyAccount->get_Address().ToWord(wRes);
 			else
 				wRes = Zero;
 		}
@@ -1348,7 +1352,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 			auto& wResAddr = pPrev->m_Stack.Pop();
 			auto nResSize = WtoU32(pPrev->m_Stack.Pop());
-			auto* pRes = pPrev->get_Memory(wResAddr, nResSize);
+			auto* pRes = pPrev->get_Memory(wResAddr, nResSize); // may rasise no-gas exc
 
 			std::setmin(nResSize, p.m_RetVal.m_Blob.n);
 			memcpy(pRes, p.m_RetVal.m_Blob.p, nResSize);
@@ -1485,6 +1489,8 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 	{
 		if (!f.m_Code.m_n)
 		{
+			printf("\tEOA tx\n");
+
 			f.OnFrameDone(*this, true, false); // EOA, we're done
 			return;
 		}
