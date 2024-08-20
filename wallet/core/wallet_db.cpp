@@ -363,12 +363,12 @@ namespace beam::wallet
             {
             }
 
-            static const uint32_t s_Factor = 16;
-            static const uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
+            static constexpr uint32_t s_Factor = 16;
+            static constexpr uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
 
             struct Partial
             {
-                static const Amount s_Inf = Amount(-1);
+                static constexpr Amount s_Inf = Amount(-1);
 
                 struct Link {
                     size_t m_iNext; // 1-based, to distinguish "NULL" pointers
