@@ -2211,7 +2211,9 @@ namespace beam
 
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^10 groth
-		Evm.Groth2Wei = 100000;
+		// EVM is currently disabled by default
+		Evm.Groth2Wei = 0;
+		//Evm.Groth2Wei = 100000;
 		Evm.BaseGasPrice = 100ull * 1'000'000'000ull;
 		Evm.MinTxGasUnits = 21000;
 
@@ -2500,6 +2502,8 @@ namespace beam
 			<< "fork6"
 			<< pForks[6].m_Height
 			<< Evm.Groth2Wei
+			<< Evm.BaseGasPrice
+			<< Evm.MinTxGasUnits
 			>> pForks[6].m_Hash;
 	}
 
