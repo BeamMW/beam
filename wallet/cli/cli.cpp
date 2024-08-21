@@ -3302,16 +3302,9 @@ namespace
                 return -1;
             }
 
-            WalletAddress myAddress;
-            walletDB->createAddress(myAddress);
-            myAddress.m_label = comment;
-            myAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
-            walletDB->saveAddress(myAddress);
-
             auto params = beam::wallet::CreateDexTransactionParams(
                             offerId,
                             order->getSBBSID(),
-                            myAddress.m_BbsAddr,
                             sendAsset,
                             order->getSendAmount(),
                             receiveAsset,

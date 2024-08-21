@@ -20,7 +20,6 @@ namespace beam::wallet
     TxParameters CreateDexTransactionParams(
             const DexOrderID& dexOrderID,
             const WalletID& peerID,
-            const WalletID& myID,
             Asset::ID coinMy,
             Amount amountMy,
             Asset::ID coinPeer,
@@ -30,7 +29,6 @@ namespace beam::wallet
     {
         return CreateTransactionParameters(TxType::DexSimpleSwap, txId)
             .SetParameter(TxParameterID::PeerAddr, peerID)
-            .SetParameter(TxParameterID::MyAddr, myID)
             .SetParameter(TxParameterID::DexOrderID, dexOrderID)
             .SetParameter(TxParameterID::SavePeerAddress, false)
             .SetParameter(TxParameterID::DexReceiveAsset, coinPeer)
@@ -80,32 +78,6 @@ namespace beam::wallet
         if(!peerID)
         {
             throw InvalidTransactionParametersException("DexSimpleSwap missing PeerID");
-        }
-
-        // const auto peeraddr = _wdb->getAddress(*peerID);
-        // if (peeraddr)
-        // {
-        //     throw InvalidTransactionParametersException("DexSimpleSwap transaction should not save peer address");
-        // }
-
-        //
-        // Check self
-        //
-        const auto myID = params.GetParameter<WalletID>(TxParameterID::MyAddr);
-        if (!myID.is_initialized())
-        {
-            throw InvalidTransactionParametersException("DexSimpleSwap missing MyID");
-        }
-
-        auto myaddr = _wdb->getAddress(*myID);
-        if (myaddr && myaddr->isOwn())
-        {
-            if(!myaddr->isOwn())
-            {
-                throw InvalidTransactionParametersException("DexSimpleSwap not own address in MyID");
-            }
-
-            params.SetParameter(TxParameterID::MyAddressID, myaddr->m_OwnID);
         }
 
         //

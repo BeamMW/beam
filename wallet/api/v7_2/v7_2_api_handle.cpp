@@ -175,16 +175,9 @@ void V72Api::onHandleAssetsSwapAccept(const JsonRpcId& id, AssetsSwapAccept&& re
         throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds);
     }
 
-    WalletAddress myAddress;
-    walletDB->createAddress(myAddress);
-    myAddress.m_label = req.comment;
-    myAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
-    walletDB->saveAddress(myAddress);
-
     auto params = beam::wallet::CreateDexTransactionParams(
                     dexOrderId,
                     order->getSBBSID(),
-                    myAddress.m_BbsAddr,
                     sendAsset,
                     order->getSendAmount(),
                     receiveAsset,
