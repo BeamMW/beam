@@ -25,7 +25,7 @@ namespace beam::wallet
         static uint32_t getCurrentVersion() { return kCurrentOfferVer;}
 
         DexOrder() = default;
-        DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr);
+        DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature);
         DexOrder(const ByteBuffer& buffer, bool isMine);
         DexOrder(DexOrderID    orderId,
                  WalletID      sbbsId,
@@ -58,19 +58,18 @@ namespace beam::wallet
         [[nodiscard]] std::string getSecondAssetSname() const;
         [[nodiscard]] bool isCanceled() const;
 
-        [[nodiscard]] ECC::Scalar::Native derivePrivateKey(beam::Key::IKdf::Ptr) const;
-        [[nodiscard]] PeerID derivePublicKey(beam::Key::IKdf::Ptr) const;
-
         Amount getSendAmount() const;
         Amount getReceiveAmount() const;
         Asset::ID getSendAssetId() const;
         Asset::ID getReceiveAssetId() const;
         std::string getSendAssetSName() const;
         std::string getReceiveAssetSName() const;
+        uint64_t get_KeyID() const;
 
         void cancel();
         bool isAccepted() const;
         void setAccepted(bool value);
+        void setIsMine(bool);
 
     private:
         uint32_t      _version;

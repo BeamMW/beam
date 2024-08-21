@@ -122,9 +122,10 @@ namespace beam::wallet {
 
     BroadcastMsg DexBoard::createMessage(const DexOrder& order)
     {
-        const auto pkdf = _wdb.get_SbbsKdf();
+        ECC::Scalar::Native sk;
+        WalletID wid;
+        _wdb.get_SbbsWalletID(sk, wid, order.get_KeyID());
 
-        auto sk = order.derivePrivateKey(pkdf);
         auto buffer = toByteBuffer(order);
         auto message = BroadcastMsgCreator::createSignedMessage(buffer, sk);
 
@@ -135,8 +136,14 @@ namespace beam::wallet {
     {
         try
         {
-            const auto pkdf = _wdb.get_SbbsKdf();
-            DexOrder order(msg.m_content, msg.m_signature, pkdf);
+            DexOrder order(msg.m_content, msg.m_signature);
+
+            WalletID wid;
+            _wdb.get_SbbsWalletID(wid, order.get_KeyID());
+
+            bool isMine = (order.getSBBSID() == wid);
+            order.setIsMine(isMine);
+
             return order;
         }
         catch(std::runtime_error& err)
