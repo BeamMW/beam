@@ -64,10 +64,6 @@ std::pair<AssetsSwapCreate, IWalletApi::MethodInfo> V72Api::onParseAssetsSwapCre
     message.receiveAsset = getMandatoryParam<uint32_t>(params, "receive_asset_id");
     message.expireMinutes = getMandatoryParam<uint32_t>(params, "minutes_before_expire");
 
-    auto comment = getOptionalParam<std::string>(params, "comment");
-    if (comment)
-        message.comment = *comment;
-
     return std::make_pair(std::move(message), MethodInfo());
 }
 
@@ -114,9 +110,6 @@ std::pair<AssetsSwapAccept, IWalletApi::MethodInfo> V72Api::onParseAssetsSwapAcc
 {
     AssetsSwapAccept message;
     message.offerId = getMandatoryParam<std::string>(params, "offer_id");
-    auto comment = getOptionalParam<std::string>(params, "comment");
-    if (comment)
-        message.comment = *comment;
     return std::make_pair(std::move(message), MethodInfo());
 }
 

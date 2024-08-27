@@ -308,7 +308,6 @@ namespace beam
         extern const char* ASSETS_SWAP_RECEIVE_AMOUNT;
         extern const char* ASSETS_SWAP_RECEIVE_ASSET_ID;
         extern const char* ASSETS_SWAP_EXPIRATION;
-        extern const char* ASSETS_SWAP_COMMENT;
 
         extern const char* ASSETS_SWAP_OFFER_ID;
 #endif  // BEAM_ASSET_SWAP_SUPPORT

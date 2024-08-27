@@ -3099,14 +3099,12 @@ namespace
             return -1;
         }
 
-        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
-
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
         {
             return 0;
         },
         [sendAssetId, receiveAssetId, sendAmountGroth,
-         receiveAmountGroth, expirationMinutes, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+         receiveAmountGroth, expirationMinutes](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
         {
             std::string sendAssetUnitName = "BEAM";
             if (sendAssetId)
@@ -3242,13 +3240,11 @@ namespace
             return -1;
         }
 
-        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
-
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
         {
             return 0;
         },
-        [offerId, offerIdStr, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        [offerId, offerIdStr](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
         {
             auto order = dex->getDexOrder(offerId);
             if (!order)

@@ -51,7 +51,6 @@ namespace beam::wallet
         Amount           receiveAmount;
         beam::Asset::ID  receiveAsset = 0;
         uint32_t         expireMinutes = 0;
-        std::string      comment;
 
         struct Response
         {
@@ -71,7 +70,6 @@ namespace beam::wallet
     struct AssetsSwapAccept
     {
         std::string offerId;
-        std::string comment;
         struct Response
         {
             TxID txId;
