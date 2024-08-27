@@ -65,16 +65,14 @@ void V72Api::onHandleAssetsSwapCreate(const JsonRpcId& id, AssetsSwapCreate&& re
         throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "minutes_before_expire must be > 30 and < 720");
     }
 
-    WalletAddress receiverAddress;
-    walletDB->createAddress(receiverAddress);
-    receiverAddress.m_label = req.comment;
-    receiverAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
-    walletDB->saveAddress(receiverAddress);
+    uint64_t keyID = walletDB->AllocateKidRange(1);
+    WalletID wid;
+    walletDB->get_SbbsWalletID(wid, keyID);
 
     beam::wallet::DexOrder orderObj(
         beam::wallet::DexOrderID::generate(),
-        receiverAddress.m_BbsAddr,
-        receiverAddress.m_OwnID,
+        wid,
+        keyID,
         req.sendAsset,
         req.sendAmount,
         sendAssetUnitName,

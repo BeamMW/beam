@@ -262,12 +262,12 @@ namespace
         #endif
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-        void initDexFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet)
+        void initDexFeature(proto::FlyClient::INetwork::Ptr nnet, IWalletMessageEndpoint& wnet, Wallet& wallet)
         {
             _broadcastRouter = std::make_shared<BroadcastRouter>(
                 nnet, wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
 
-            auto dexBoard = std::make_shared<beam::wallet::DexBoard>(*_broadcastRouter, *_walletDB);
+            auto dexBoard = std::make_shared<beam::wallet::DexBoard>(*_broadcastRouter, wallet, *_walletDB);
 
             _dexWDBSubscriber = std::make_unique<WalletDbSubscriber>(
                 static_cast<IWalletDbObserver*>(dexBoard.get()), _walletDB);
@@ -924,7 +924,7 @@ int main(int argc, char* argv[])
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
             wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
-            server.initDexFeature(nnet, *wnet);
+            server.initDexFeature(nnet, *wnet, *wallet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 

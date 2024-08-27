@@ -18,8 +18,9 @@
 
 namespace beam::wallet {
 
-    DexBoard::DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb)
-        : _gateway(gateway)
+    DexBoard::DexBoard(IBroadcastMsgGateway& gatewayBroadcast, INegotiatorGateway& gatewayCtlListen, IWalletDB& wdb)
+        : _gatewayBroadcast(gatewayBroadcast)
+        , _gatewayCtlListen(gatewayCtlListen)
         , _wdb(wdb)
     {
         auto offersRaw = _wdb.loadDexOffers();
@@ -29,7 +30,10 @@ namespace beam::wallet {
             {
                 DexOrder offer(offerRaw.first, offerRaw.second);
                 if (!offer.isExpired())
+                {
                     _orders[offer.getID()] = offer;
+                    CtlListen(offer, true);
+                }
                 else
                     _wdb.dropDexOffer(offer.getID());
             }
@@ -39,7 +43,7 @@ namespace beam::wallet {
             }
         }
 
-        _gateway.registerListener(BroadcastContentType::DexOffers, this);
+        _gatewayBroadcast.registerListener(BroadcastContentType::DexOffers, this);
     }
 
     DexBoard::~DexBoard() {}
@@ -70,7 +74,7 @@ namespace beam::wallet {
     void DexBoard::publishOrder(const DexOrder &offer)
     {
         auto message = createMessage(offer);
-        _gateway.sendMessage(BroadcastContentType::DexOffers, message);
+        _gatewayBroadcast.sendMessage(BroadcastContentType::DexOffers, message);
     }
 
     void DexBoard::cancelDexOrder(const DexOrderID& id)
@@ -78,6 +82,7 @@ namespace beam::wallet {
         auto it = _orders.find(id);
         if(it == _orders.end() || !it->second.isMine()) return;
 
+        CtlListen(it->second, false);
         it->second.cancel();
         publishOrder(it->second);
     }
@@ -94,6 +99,7 @@ namespace beam::wallet {
                 _orders[order->getID()] = *order;
                 _wdb.saveDexOffer(order->getID(), toByteBuffer(*order), order->isMine());
                 notifyObservers(ChangeAction::Added, std::vector<DexOrder>{ *order });
+                CtlListen(*order, true);
             }
         }
         else
@@ -102,6 +108,7 @@ namespace beam::wallet {
             {
                 notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ *order });
                 _wdb.dropDexOffer(order->getID());
+                CtlListen(it->second, false);
                 _orders.erase(it);
             }
             else
@@ -205,6 +212,7 @@ namespace beam::wallet {
             const auto& offer = it.second;
             if (offer.isExpired())
             {
+                CtlListen(offer, false);
                 notActualOffers.emplace_back(it.first);
                 notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ it.second });
                 _wdb.dropDexOffer(it.first);
@@ -216,4 +224,19 @@ namespace beam::wallet {
             _orders.erase(idForRemove);
         }
     }
+
+    void DexBoard::CtlListen(const DexOrder& order, bool bListen)
+    {
+        if (bListen)
+        {
+            WalletID wid;
+            ECC::Scalar::Native sk;
+            _wdb.get_SbbsWalletID(sk, wid, order.get_KeyID());
+
+            _gatewayCtlListen.Listen(wid, sk);
+        }
+        else
+            _gatewayCtlListen.Unlisten(order.getSBBSID());
+    }
+
 }
