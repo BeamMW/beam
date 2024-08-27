@@ -18,7 +18,7 @@
 
 namespace beam::wallet {
 
-    DexBoard::DexBoard(IBroadcastMsgGateway& gatewayBroadcast, INegotiatorGateway& gatewayCtlListen, IWalletDB& wdb)
+    DexBoard::DexBoard(IBroadcastMsgGateway& gatewayBroadcast, IRawCommGateway& gatewayCtlListen, IWalletDB& wdb)
         : _gatewayBroadcast(gatewayBroadcast)
         , _gatewayCtlListen(gatewayCtlListen)
         , _wdb(wdb)
