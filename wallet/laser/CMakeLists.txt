@@ -4,7 +4,6 @@ set(LASER_SRC
     channel.cpp
     connection.cpp
     mediator.cpp
-    receiver.cpp
 )
 
 add_library(laser STATIC ${LASER_SRC})

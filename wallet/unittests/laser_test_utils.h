@@ -70,22 +70,37 @@ struct LaserObserver : public laser::Mediator::Observer
     }
 };
 
-proto::FlyClient::NetworkStd::Ptr CreateNetwork(proto::FlyClient& fc, uint16_t port = kDefaultTestNodePort)
-{
-    io::Address nodeAddress = io::Address::localhost().port(port);
-    auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(fc);
-    nnet->m_Cfg.m_PollPeriod_ms = 0;
-    nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-    nnet->Connect();
 
-    return nnet;
+struct TestLaserInst
+    :public laser::Mediator
+{
+    struct EmptyMsgConsumer :public IWalletMessageConsumer {
+        void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
+    } m_EmptyMsgConsumer;
+
+    WalletNetworkViaBbs::Ptr m_pWNet;
+
+    TestLaserInst(const IWalletDB::Ptr& walletDB, const Lightning::Channel::Params& params = {})
+        :laser::Mediator(walletDB, params)
+    {
+        // configure the network
+
+        io::Address nodeAddress = io::Address::localhost().port(kDefaultTestNodePort);
+        auto nnet = std::make_shared<proto::FlyClient::NetworkStd>(*this);
+        nnet->m_Cfg.m_PollPeriod_ms = 0;
+        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
+        nnet->Connect();
+
+        m_pWNet = std::make_shared<WalletNetworkViaBbs>(m_EmptyMsgConsumer, nnet, walletDB);
+
+        SetNetwork(nnet, *m_pWNet, false);
+    }
+
+    ~TestLaserInst()
+    {
+        CloseAll();
+    }
 };
-
-void ConfigureNetwork(laser::Mediator& laserFirst, laser::Mediator& laserSecond)
-{
-    laserFirst.SetNetwork(CreateNetwork(laserFirst), false);
-    laserSecond.SetNetwork(CreateNetwork(laserSecond), false);
-}
 
 void MakeTreasuryImpl(const IWalletDB::Ptr& db,
                       const Treasury::Parameters& treasury_params,

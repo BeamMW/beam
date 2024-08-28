@@ -162,7 +162,7 @@ namespace beam::wallet
     {
     public:
         virtual const std::shared_ptr<uintBig_t<16>>& get_chID() const = 0;
-        virtual const WalletID& get_myWID() const = 0;
+        virtual uint64_t get_ownID() const = 0;
         virtual const WalletID& get_trgWID() const = 0;
         virtual int get_State() const = 0;
         virtual const Amount& get_fee() const = 0;
@@ -174,14 +174,13 @@ namespace beam::wallet
         virtual const Height& get_LockHeight() const = 0;
         virtual const Timestamp& get_BbsTimestamp() const = 0;
         virtual const ByteBuffer& get_Data() const = 0;
-        virtual const WalletAddress& get_myAddr() const = 0;
     };
 
     class LaserFields
     {
     public:
         static constexpr size_t LASER_CH_ID = 0;
-        static constexpr size_t LASER_MY_WID = 1;
+        static constexpr size_t LASER_MY_BBS_ID = 1;
         static constexpr size_t LASER_TRG_WID = 2;
         static constexpr size_t LASER_STATE = 3;
         static constexpr size_t LASER_FEE = 4;
@@ -198,7 +197,7 @@ namespace beam::wallet
     // TODO: consider using struct here
     using TLaserChannelEntity = std::tuple<
         uintBig_t<16>,  // 0 chID
-        WalletID,       // 1 myWID
+        uint64_t,       // 1 myBbsID
         WalletID,       // 2 trgWID
         int,            // 3 State
         Amount,         // 4 fee

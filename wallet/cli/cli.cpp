@@ -2282,7 +2282,14 @@ namespace
         {
             return -1;
         }
-        laser->SetNetwork(nnet);
+
+        struct EmptyMsgConsumer :public IWalletMessageConsumer {
+            void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
+        } msgConsumer;
+
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(msgConsumer, nnet, walletDB);
+
+        laser->SetNetwork(nnet, *wnet);
         laser->ListenClosedChannelsWithPossibleRollback();
 
         LaserObserver laserObserver(walletDB, vm);

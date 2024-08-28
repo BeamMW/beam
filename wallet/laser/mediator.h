@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "wallet/laser/i_channel_holder.h"
-#include "wallet/laser/i_receiver_holder.h"
 #include "core/fly_client.h"
 #include "wallet/laser/channel.h"
 #include "wallet/core/wallet_db.h"
@@ -49,8 +48,7 @@ public:
         friend class Mediator;
         Mediator* m_observable;
     };
-    Mediator(const IWalletDB::Ptr& walletDB,
-             const Lightning::Channel::Params& params = {});
+    Mediator(const IWalletDB::Ptr& walletDB, const Lightning::Channel::Params& params = {});
     ~Mediator();
     // proto::FlyClient
     void OnNewTip() override;
@@ -61,11 +59,9 @@ public:
     // IChannelHolder implementation;
     IWalletDB::Ptr getWalletDB() final;
     proto::FlyClient::INetwork& get_Net() final;
-    // IReceiverHolder implementation;
-    void OnMsg(const ChannelIDPtr& chID, Blob&& blob) final;
-    bool Decrypt(const ChannelIDPtr& chID, uint8_t* pMsg, Blob* blob) final;
+    IRawCommGateway& get_Gateway() final;
     
-    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, bool mineOutgoing = true);
+    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, IRawCommGateway&, bool mineOutgoing = true);
     void ListenClosedChannelsWithPossibleRollback();
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee);
@@ -88,10 +84,10 @@ public:
     void AddObserver(Observer* observer);
     void RemoveObserver(Observer* observer);
 
+    void CloseAll();
+
 private:
-    bool get_skBbs(ECC::Scalar::Native&, const ChannelIDPtr& chID);
-    bool OnIncoming(const ChannelIDPtr& channelID,
-                    Negotiator::Storage::Map& dataIn);
+    bool OnIncoming(Negotiator::Storage::Map& dataIn);
     void OpenInternal(const ChannelIDPtr& chID, Height hOpenTxDh = beam::Lightning::kDefaultOpenTxDh);
     void TransferInternal(Amount amount, const Channel::Ptr& channel);
     void GracefulCloseInternal(const Channel::Ptr& channel);
@@ -103,7 +99,7 @@ private:
         const ChannelIDPtr& p_channelID);
     bool LoadAndStoreChannelInternal(const ChannelIDPtr& p_channelID);
     void UpdateChannels();
-    void UpdateChannelExterior(const Channel::Ptr& channel);
+    void UpdateChannelExterior(Channel&) final;
     bool ValidateTip();
     bool IsEnoughCoinsAvailable(Amount required);
     void Subscribe();
@@ -111,14 +107,24 @@ private:
     bool IsInSync();
     void ExpireChannel(const Channel::Ptr& channel);
 
+    struct CommHandler
+        :public IRawCommGateway::IHandler
+    {
+        void OnMsg(const Blob&) override;
+        IMPLEMENT_GET_PARENT_OBJ(Mediator, m_CommHandler)
+    } m_CommHandler;
+
     IWalletDB::Ptr m_pWalletDB;
     proto::FlyClient::INetwork::Ptr m_pConnection;
+    IRawCommGateway* m_pGateway = nullptr;
 
-    std::unique_ptr<Receiver> m_pInputReceiver;
     Amount m_myInAllowed = 0;
     Amount m_trgInAllowed = 0;
     Amount m_feeAllowed = 0;
-    WalletAddress m_myInAddr;
+
+    uint64_t m_bbsID = 0;
+    WalletID m_widMy;
+    ECC::Scalar::Native m_skBbsMy;
 
     std::unordered_map<ChannelIDPtr, Channel::Ptr> m_channels;
     std::vector<std::function<void()>> m_actionsQueue;
