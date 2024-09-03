@@ -116,11 +116,11 @@ void Processor::Reset()
 	InitVars();
 	m_lstFrames.Clear();
 	m_Top.m_lstUndo.Clear();
-	m_Top.m_Account.Reset();
 }
 
 void Processor::InitVars()
 {
+	m_Top.m_pAccount = nullptr;
 	m_Top.m_Gas = 0;
 }
 
@@ -267,6 +267,8 @@ struct Processor::Context :public Processor::Frame
 
 	void RunOnce(Processor&);
 
+	void UndoChanges(Processor& p);
+
 	void LogOpCode(const char* sz);
 	void LogOpCode(const char* sz, uint32_t n);
 	void LogOperand(const Word&);
@@ -284,7 +286,7 @@ struct Processor::Context :public Processor::Frame
 
 	const Address& get_Caller(Processor& p)
 	{
-		return get_Prev(p).m_Account.m_p->get_Address();
+		return get_Prev(p).m_pAccount->m_Key;
 	}
 
 	uint8_t* get_Memory(const Word& wAddr, uint32_t nSize);
@@ -406,72 +408,134 @@ uint64_t Processor::Context::get_MemoryCost(uint32_t nSize)
 	return (a * 3) + (a * a / 512);
 }
 
-struct Processor::UndoOp::Guard
+struct Processor::UndoOp::TouchAccount
 	:public Base
 {
-	~Guard() override
+	Account& m_Account;
+	TouchAccount(Account& acc) :m_Account(acc) {}
+	~TouchAccount() override {}
+	void Undo(Processor& p) override
 	{
-		m_pAccount->Release();
-	}
-	void Undo() override
-	{
+		p.m_Accounts.Delete(m_Account);
 	}
 };
 
-void Processor::BaseFrame::InitAccount(IAccount::Guard& g)
-{
-	assert(!m_Account.m_p && g.m_p);
-	std::swap(m_Account.m_p, g.m_p);
-
-}
-
-void Processor::BaseFrame::PushUndoAccountGuard(IAccount::Guard& g)
-{
-	assert(g.m_p);
-
-	auto* pOp = new UndoOp::Guard;
-	m_lstUndo.push_front(*pOp);
-
-	pOp->m_pAccount = g.m_p;
-	g.m_p = nullptr;
-}
-
-struct Processor::UndoOp::BalanceChange
+struct Processor::UndoOp::TouchSlot
 	:public Base
 {
-	Word m_Val;
-	~BalanceChange() override {}
-	void Undo() override
+	Account& m_Account;
+	Account::Slot& m_Slot;
+	TouchSlot(Account& acc, Account::Slot& slot)
+		:m_Account(acc)
+		,m_Slot(slot)
+	{}
+	~TouchSlot() override {}
+	void Undo(Processor& p) override
 	{
-		m_pAccount->set_Balance(m_Val);
+		m_Account.m_Slots.Delete(m_Slot);
 	}
 };
 
-
-void Processor::UpdateBalance(IAccount* pAccount, const Word& val0, const Word& val1)
+template <typename T>
+struct Processor::UndoOp::VarSet_T
+	:public Base
 {
-	if (val0 == val1)
-		return;
+	Account::Variable<T>& m_Trg;
+	T m_Val0;
 
-	BaseFrame& f = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
+	VarSet_T(Account::Variable<T>& trg)
+		:m_Trg(trg)
+	{
+		m_Val0 = trg.m_Value;
+		trg.m_Modified++;
+	}
 
-	auto* pOp = new UndoOp::BalanceChange;
+	~VarSet_T() override {}
+
+	void Undo(Processor&) override
+	{
+		assert(m_Trg.m_Modified);
+		m_Trg.m_Modified--;
+
+		m_Trg.m_Value = m_Val0;
+	}
+};
+
+struct Processor::UndoOp::SetCode
+	:public VarSet_T<Blob>
+{
+	typedef VarSet_T<Blob> Base;
+
+	ByteBuffer m_Buf;
+	using Base::Base;
+	~SetCode() override {}
+
+};
+
+template <typename T>
+void Processor::BaseFrame::UpdateVariable(Account::Variable<T>& trg, const T& x)
+{
+	auto* pOp = new UndoOp::VarSet_T<T>(trg);
+	m_lstUndo.push_back(*pOp);
+	trg.m_Value = x;
+}
+
+void Processor::BaseFrame::UpdateCode(Account& acc, const Blob& code)
+{
+	auto* pOp = new UndoOp::SetCode(acc.m_Code);
+	m_lstUndo.push_back(*pOp);
+
+	code.Export(pOp->m_Buf);
+	acc.m_Code.m_Value = pOp->m_Buf;
+}
+
+void Processor::BaseFrame::UpdateBalance(Account& acc, const Word& val1)
+{
+	if (acc.m_Balance.m_Value != val1)
+		UpdateVariable(acc.m_Balance, val1);
+}
+
+Processor::Account& Processor::TouchAccount(BaseFrame& f, const Address& addr, bool& wasWarm)
+{
+	auto it = m_Accounts.find(addr, Account::Comparator());
+	if (m_Accounts.end() != it)
+	{
+		wasWarm = true;
+		return *it;
+	}
+
+	wasWarm = false;
+	auto& ret = LoadAccount(addr);
+
+	auto* pOp = new UndoOp::TouchAccount(ret);
 	f.m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = pAccount;
-	pOp->m_Val = val0;
 
-	pAccount->set_Balance(val1);
+	return ret;
 }
 
-struct Processor::UndoOp::AccountDelete
-	:public Base
+void Processor::BaseFrame::EnsureAccountCreated(Account& acc)
 {
-	~AccountDelete() override {}
-	void Undo() override
+	if (!acc.m_Exists.m_Value)
+		UpdateVariable(acc.m_Exists, true);
+}
+
+Processor::Account::Slot& Processor::TouchSlot(BaseFrame& f, Account& acc, const Word& key, bool& wasWarm)
+{
+	auto it = acc.m_Slots.find(key, Account::Slot::Comparator());
+	if (acc.m_Slots.end() != it)
 	{
-		m_pAccount->Delete();
+		wasWarm = true;
+		return *it;
 	}
-};
+
+	wasWarm = false;
+	auto& ret = LoadSlot(acc, key);
+
+	auto* pOp = new UndoOp::TouchSlot(acc, ret);
+	f.m_lstUndo.push_back(*pOp);
+
+	return ret;
+}
 
 void Processor::RunOnce()
 {
@@ -501,7 +565,7 @@ void Processor::RunOnce()
 		while (!m_lstFrames.empty())
 		{
 			auto& f = Cast::Up<Context>(m_lstFrames.back());
-			f.UndoChanges();
+			f.UndoChanges(*this);
 			m_lstFrames.Delete(f);
 		}
 
@@ -515,7 +579,14 @@ void Processor::RunOnce()
 
 void Processor::Context::RunOnce(Processor& p)
 {
-	auto nCode = m_Code.Read1();
+	uint8_t nCode;
+	if (m_Code.m_Ip < m_Code.m_n)
+	{
+		nCode = m_Code.m_p[m_Code.m_Ip];
+		m_Code.m_Ip++;
+	}
+	else
+		nCode = 0; // stop
 
 	switch (nCode)
 	{
@@ -881,24 +952,22 @@ OnOpcodeBinary(byte)
 
 OnOpcode(address)
 {
-	m_Stack.Push() = m_Account.m_p->get_Address().ToWord();
+	m_Stack.Push() = m_pAccount->m_Key.ToWord();
 }
 
 OnOpcode(balance)
 {
 	auto& w1 = m_Stack.get_At(0);
-	IAccount::Guard g;
-	p.GetAccount(Address::W2A(w1), false, g);
 
-	if (g.m_p)
-		g.m_p->get_Balance(w1);
-	else
-		w1 = Zero;
+	bool wasWarm;
+	auto& acc = p.TouchAccount(*this, Address::W2A(w1), wasWarm);
+
+	w1 = acc.m_Balance.m_Value;
 }
 
 OnOpcode(origin)
 {
-	p.m_Top.m_Account.m_p->get_Address().ToWord(m_Stack.Push());
+	p.m_Top.m_pAccount->m_Key.ToWord(m_Stack.Push());
 }
 
 OnOpcode(caller)
@@ -976,25 +1045,19 @@ OnOpcode(codecopy)
 
 OnOpcode(extcodesize)
 {
-	IAccount::Guard g;
-	p.GetAccount(Address::W2A(m_Stack.Pop()), false, g);
+	auto& w1 = m_Stack.get_At(0);
 
-	auto& wRes = m_Stack.Push();
-	if (g.m_p)
-	{
-		Blob b;
-		g.m_p->GetCode(b);
-		wRes = b.n;
-	}
-	else
-		wRes = Zero;
+	bool wasWarm;
+	auto& acc = p.TouchAccount(*this, Address::W2A(w1), wasWarm);
+
+	w1 = acc.m_Code.m_Value.n;
 }
 
 OnOpcode(extcodecopy)
 {
-	IAccount::Guard g;
-	p.GetAccount(Address::W2A(m_Stack.Pop()), false, g);
-	Test(g.m_p != nullptr);
+	bool wasWarm;
+	auto& acc = p.TouchAccount(*this, Address::W2A(m_Stack.Pop()), wasWarm);
+
 
 	auto& wOffsetDst = m_Stack.Pop();
 	auto nOffsetSrc = WtoU32(m_Stack.Pop());
@@ -1004,15 +1067,12 @@ OnOpcode(extcodecopy)
 	// 700 is paid for the operation plus 3 for each word copied(rounded up).
 	DrainGas(700 + 3u * Context::NumWordsRoundUp(nSize));
 
-	Blob code;
-	g.m_p->GetCode(code);
-
 	auto nEndSrc = nOffsetSrc + nSize;
 	Test(nEndSrc >= nOffsetSrc);
-	Test(code.n >= nEndSrc);
+	Test(acc.m_Code.m_Value.n >= nEndSrc);
 
 	auto* pDst = get_Memory(wOffsetDst, nSize);
-	memcpy(pDst, (const uint8_t*) code.p + nOffsetSrc, nSize);
+	memcpy(pDst, (const uint8_t*) acc.m_Code.m_Value.p + nOffsetSrc, nSize);
 }
 
 OnOpcode(returndatasize)
@@ -1110,55 +1170,41 @@ OnOpcode(sload)
 	Word& w = m_Stack.get_At(0);
 	LogOperand(w);
 
-	if (!m_Account.m_p->SLoad(w, w))
-		w = Zero;
+	bool wasWarm;
+	auto& slot = p.TouchSlot(*this, *m_pAccount, w, wasWarm);
+
+	w = slot.m_Data.m_Value;
 
 	LogOperand(w);
 }
-
-struct Processor::UndoOp::VarSet
-	:public Base
-{
-	Word m_Key;
-	Word m_Val;
-
-	~VarSet() override {}
-	void Undo() override
-	{
-		Word wPrev;
-		m_pAccount->SStore(m_Key, m_Val, wPrev);
-	}
-};
 
 OnOpcode(sstore)
 {
 	const Word& w1 = m_Stack.Pop();
 	const Word& w2 = m_Stack.Pop();
 
-	Word wPrev;
-	m_Account.m_p->SStore(w1, w2, wPrev);
+	bool wasWarm;
+	auto& slot = p.TouchSlot(*this, *m_pAccount, w1, wasWarm);
 
-	// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
-	// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
-	{
-		bool b0 = (wPrev == Zero);
-		bool b1 = (w2 == Zero);
-		if (b0 == b1)
-			DrainGas(5000);
-		else
-		{
-			if (b0)
-				DrainGas(20000);
-			else
-				m_Gas += 15000; // refund gas
-		}
-	}
+	if (slot.m_Data.m_Value != w2)
+		UpdateVariable(slot.m_Data, w2);
 
-	auto* pOp = new UndoOp::VarSet;
-	m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = m_Account.m_p;
-	pOp->m_Key = w1;
-	pOp->m_Val = wPrev;
+
+	//// ((value != 0) && (storage_location == 0)) ? 20000 : 5000
+	//// 20000 is paid when storage value is set to non - zero from zero. 5000 is paid when the storage value's zeroness remains unchanged or is set to zero.								
+	//{
+	//	bool b0 = (wPrev == Zero);
+	//	bool b1 = (w2 == Zero);
+	//	if (b0 == b1)
+	//		DrainGas(5000);
+	//	else
+	//	{
+	//		if (b0)
+	//			DrainGas(20000);
+	//		else
+	//			m_Gas += 15000; // refund gas
+	//	}
+	//}
 
 	LogOperand(w1);
 	LogOperand(w2);
@@ -1215,7 +1261,7 @@ OnOpcode(chainid)
 
 OnOpcode(selfbalance)
 {
-	m_Account.m_p->get_Balance(m_Stack.Push());
+	m_Stack.Push() = m_pAccount->m_Balance.m_Value;
 }
 
 void Processor::get_ChainID(Word& w)
@@ -1278,12 +1324,12 @@ void Processor::Context::LogN(uint32_t n)
 
 }
 
-void Processor::BaseFrame::UndoChanges()
+void Processor::Context::UndoChanges(Processor& p)
 {
 	while (!m_lstUndo.empty())
 	{
 		auto& op = m_lstUndo.back();
-		op.Undo();
+		op.Undo(p);
 		m_lstUndo.Delete(op);
 	}
 }
@@ -1307,22 +1353,16 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 	std::unique_ptr<Frame> pGuard(this);
 	p.m_lstFrames.pop_back(); // if exc raises now - it'll be handled according to the prev frame
-	IAccount* pMyAccount = m_Account.m_p;
+	Account* pMyAccount = m_pAccount;
 
 	Context* pPrev = p.m_lstFrames.empty() ? nullptr : &Cast::Up<Context>(p.m_lstFrames.back());
 	BaseFrame& fPrev = pPrev ? *pPrev : p.m_Top;
 	fPrev.m_Gas += m_Gas;
 
 	if (bSuccess)
-	{
-		if (!m_lstUndo.empty())
-		{
-			fPrev.PushUndoAccountGuard(m_Account);
-			fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
-		}
-	}
+		fPrev.m_lstUndo.splice(fPrev.m_lstUndo.end(), m_lstUndo);
 	else
-		UndoChanges();
+		UndoChanges(p);
 
 
 	switch (m_Type)
@@ -1331,7 +1371,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 		if (bSuccess)
 		{
-			pMyAccount->SetCode(p.m_RetVal.m_Blob);
+			fPrev.UpdateCode(*pMyAccount, p.m_RetVal.m_Blob);
 			ZeroObject(p.m_RetVal.m_Blob);
 		}
 
@@ -1339,7 +1379,7 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 		{
 			auto& wRes = pPrev->m_Stack.Push();
 			if (bSuccess)
-				pMyAccount->get_Address().ToWord(wRes);
+				pMyAccount->m_Key.ToWord(wRes);
 			else
 				wRes = Zero;
 		}
@@ -1404,35 +1444,35 @@ OnOpcode(Create2)
 	p.CallInternal(aNew, args, m_Gas, true);
 }
 
-void Processor::BaseFrame::PushUndoAccountDelete(IAccount* pAccount)
-{
-	auto* pOp = new UndoOp::AccountDelete;
-	m_lstUndo.push_back(*pOp);
-	pOp->m_pAccount = pAccount;
-}
+//void Processor::BaseFrame::PushUndoAccountDelete(IAccount* pAccount)
+//{
+//	auto* pOp = new UndoOp::AccountDelete;
+//	m_lstUndo.push_back(*pOp);
+//	pOp->m_pAccount = pAccount;
+//}
 
 void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
 {
 	BaseFrame& fPrev = m_lstFrames.empty() ? m_Top : m_lstFrames.back();
 
-	IAccount::Guard g;
-	bool bCreated = GetAccount(addr, true, g);
+	bool wasWarm;
+	auto& acc = TouchAccount(fPrev, addr, wasWarm);
 
 	auto* pF = new Frame;
 	m_lstFrames.push_back(*pF);
-	pF->InitAccount(g);
+	pF->m_pAccount = &acc;
+
 	auto& f = Cast::Up<Context>(*pF);
 
+	bool bCreated = !acc.m_Exists.m_Value;
 	if (bCreated)
 	{
+		f.EnsureAccountCreated(acc);
 		ZeroObject(f.m_Code);
-		f.PushUndoAccountDelete(g.m_p);
 	}
 	else
 	{
-		Blob code;
-		f.m_Account.m_p->GetCode(code);
-		f.m_Code = code;
+		f.m_Code = acc.m_Code.m_Value;
 		f.m_Code.m_Ip = 0;
 	}
 
@@ -1454,30 +1494,27 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 
 	if (args.m_CallValue != Zero)
 	{
-		Word valFrom0, valFrom1, valTo0, valTo1;
-		fPrev.m_Account.m_p->get_Balance(valFrom0);
-		if (valFrom0 < args.m_CallValue)
+		if (fPrev.m_pAccount->m_Balance.m_Value < args.m_CallValue)
 		{
 			f.OnFrameDone(*this, false, false);
 			return; // insufficient funds
 		}
 
-		valFrom1 = args.m_CallValue;
+		Word valFrom1 = args.m_CallValue;
 		valFrom1.Negate();
-		valFrom1 += valFrom0;
+		valFrom1 += fPrev.m_pAccount->m_Balance.m_Value;
 
-		f.m_Account.m_p->get_Balance(valTo0);
-		valTo1 = valTo0;
+		Word valTo1 = acc.m_Balance.m_Value;
 		valTo1 += args.m_CallValue;
 
-		if (valTo1 < valTo0)
+		if (valTo1 < acc.m_Balance.m_Value)
 		{
 			f.OnFrameDone(*this, false, false);
 			return; // overflow
 		}
 
-		UpdateBalance(fPrev.m_Account.m_p, valFrom0, valFrom1);
-		UpdateBalance(f.m_Account.m_p, valTo0, valTo1);
+		f.UpdateBalance(*fPrev.m_pAccount, valFrom1);
+		f.UpdateBalance(acc, valTo1);
 	}
 
 	if (isDeploy)
@@ -1486,17 +1523,7 @@ void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas
 		f.m_Args.m_CallValue = args.m_CallValue;
 	}
 	else
-	{
-		if (!f.m_Code.m_n)
-		{
-			printf("\tEOA tx\n");
-
-			f.OnFrameDone(*this, true, false); // EOA, we're done
-			return;
-		}
-
 		f.m_Args = args;
-	}
 
 	// adjust gas
 	if (gas >= fPrev.m_Gas)
@@ -1560,40 +1587,29 @@ OnOpcode(selfdestruct)
 
 	const auto& aTrg = Address::W2A(m_Stack.Pop()); // funds recipient
 
-	Word w0;
-	m_Account.m_p->get_Balance(w0);
-	if (w0 != Zero)
+	if (m_pAccount->m_Balance.m_Value != Zero)
 	{
-		Test(aTrg != m_Account.m_p->get_Address());
+		Test(aTrg != m_pAccount->m_Key);
 
-		IAccount::Guard g;
-		bool bCreated = p.GetAccount(aTrg, true, g);
-		auto* pTrg = g.m_p;
-		assert(pTrg);
-		
-		PushUndoAccountGuard(g);
-		if (bCreated)
-		{
-			PushUndoAccountDelete(pTrg);
-			nGas += 25000;
-		}
+		bool wasWarm;
+		auto& acc = p.TouchAccount(*this, aTrg, wasWarm);
+		EnsureAccountCreated(acc);
 
-		Word w1 = Zero;
-		p.UpdateBalance(m_Account.m_p, w0, w1);
+		Word w1 = acc.m_Balance.m_Value;
+		w1 += m_pAccount->m_Balance.m_Value;
+		Test(w1 > acc.m_Balance.m_Value);
 
-		pTrg->get_Balance(w1);
-		w0 += w1;
-		Test(w0 > w1);
+		UpdateBalance(acc, w1);
 
-		p.UpdateBalance(pTrg, w1, w0);
+		w1 = Zero;
+		UpdateBalance(*m_pAccount, w1);
 	}
+
+	UpdateCode(*m_pAccount, Blob(nullptr, 0));
+	UpdateVariable(m_pAccount->m_Exists, false);
 
 	DrainGas(nGas);
 	OnFrameDone(p, true, false);
-
-
-	
-
 }
 
 } // namespace Evm

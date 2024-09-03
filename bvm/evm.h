@@ -77,11 +77,6 @@ namespace Evm {
 			uint32_t m_n;
 			uint32_t m_Ip;
 
-			void TestIp() const
-			{
-				Test(m_Ip <= m_n);
-			}
-
 			void TestAccess(uint32_t n0, uint32_t nSize) const
 			{
 				Test(nSize <= (m_n - n0));
@@ -97,11 +92,6 @@ namespace Evm {
 				return ret;
 			}
 
-			uint8_t Read1()
-			{
-				return *Consume(1);
-			}
-
 			void operator = (const Blob& x)
 			{
 				m_p = (const uint8_t*)x.p;
@@ -110,6 +100,33 @@ namespace Evm {
 
 		};
 
+		struct Account
+			:public intrusive::set_base_hook<Address>
+		{
+			virtual ~Account() {}
+			typedef intrusive::multiset_autoclear<Account> Map;
+
+			template <typename T>
+			struct Variable {
+				T m_Value;
+				uint32_t m_Modified = 0;
+			};
+
+			Variable<Word> m_Balance;
+			Variable<bool> m_Exists;
+			Variable<Blob> m_Code;
+
+			struct Slot
+				:public intrusive::set_base_hook<Word>
+			{
+				virtual ~Slot() {}
+				typedef intrusive::multiset_autoclear<Slot> Map;
+
+				Variable<Word> m_Data;
+			};
+
+			Slot::Map m_Slots;
+		};
 
 		void Reset();
 
@@ -119,77 +136,40 @@ namespace Evm {
 			Word m_CallValue; // amonth of eth to be received by the caller?
 		};
 
-		struct IAccount
-		{
-			virtual void Release() = 0;
-
-			struct Guard
-			{
-				IAccount* m_p = nullptr;
-
-				~Guard() { Reset(); }
-
-				void Reset()
-				{
-					if (m_p)
-					{
-						m_p->Release();
-						m_p = nullptr;
-					}
-				}
-			};
-
-			// each account has the following 4 fields:
-			//		nonce
-			//		balance
-			//		codeHash
-			//		storageRoot
-
-			virtual const Address& get_Address() = 0;
-
-			virtual void get_Balance(Word&) = 0;
-			virtual void set_Balance(const Word&) = 0;
-
-			virtual void SStore(const Word& key, const Word&, Word& wPrev) = 0;
-			virtual bool SLoad(const Word& key, Word&) = 0;
-
-			virtual void SetCode(const Blob&) = 0;
-			virtual void GetCode(Blob&) = 0;
-
-			virtual void Delete() = 0;
-		};
-
 		struct UndoOp
 		{
 			struct Base
 				:public boost::intrusive::list_base_hook<>
 			{
-				IAccount* m_pAccount;
-
 				virtual ~Base() {}
-				virtual void Undo() = 0;
+				virtual void Undo(Processor&) = 0;
 			};
 
 			typedef intrusive::list_autoclear<Base> List;
 
-			struct Guard;
-			struct VarSet;
-			struct AccountDelete;
-			struct BalanceChange;
+			struct TouchAccount;
+			struct TouchSlot;
+			struct SetCode;
+			template <typename T> struct VarSet_T;
 		};
 
 		struct BaseFrame
 		{
-			IAccount::Guard m_Account;
+			Account* m_pAccount  = nullptr;
 			UndoOp::List m_lstUndo;
 			uint64_t m_Gas;
 
-			void InitAccount(IAccount::Guard&);
-			void UndoChanges();
 			void DrainGas(uint64_t);
-			void PushUndoAccountDelete(IAccount*);
-			void PushUndoAccountGuard(IAccount::Guard&);
+
+			template <typename T>
+			void UpdateVariable(Account::Variable<T>&, const T&);
+			void UpdateCode(Account&, const Blob&);
+			void UpdateBalance(Account&, const Word& val1);
+			void EnsureAccountCreated(Account&);
 		};
+
+		Account& TouchAccount(BaseFrame&, const Address&, bool& wasWarm);
+		Account::Slot& TouchSlot(BaseFrame&, Account&, const Word& key, bool& wasWarm);
 
 		struct Frame
 			:public boost::intrusive::list_base_hook<>
@@ -222,6 +202,8 @@ namespace Evm {
 
 		} m_RetVal;
 
+		Account::Map m_Accounts;
+
 		Processor()
 		{
 			InitVars();
@@ -237,13 +219,14 @@ namespace Evm {
 
 		void RunOnce();
 
-		virtual bool GetAccount(const Address&, bool bCreate, IAccount::Guard&) = 0; // returns if the account was created
 		virtual void get_ChainID(Word&);
 
 		virtual Height get_Height() = 0;
 		virtual bool get_BlockHeader(BlockHeader&, Height) = 0;
 
-		void UpdateBalance(IAccount*, const Word& val0, const Word& val1);
+		// state access
+		virtual Account& LoadAccount(const Address&) = 0;
+		virtual Account::Slot& LoadSlot(Account&, const Word&) = 0;
 
 		// hi-level
 		void Call(const Address& to, const Args&, bool isDeploy);
