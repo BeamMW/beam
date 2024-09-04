@@ -230,6 +230,7 @@ namespace Evm {
 
 		// hi-level
 		void Call(const Address& to, const Args&, bool isDeploy);
+		void Call(const Address& to, const Args&, uint64_t nonce);
 
 	private:
 

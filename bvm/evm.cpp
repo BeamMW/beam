@@ -331,11 +331,6 @@ struct Processor::Context :public Processor::Frame
 		return (n + sizeof(Word) - 1) / sizeof(Word);
 	}
 
-	struct NoGasException
-		:public std::exception
-	{
-	};
-
 	Height get_BlockArg(Processor& p, BlockHeader& bh)
 	{
 		Height h = WtoU64(m_Stack.Pop());
@@ -373,7 +368,7 @@ void Processor::BaseFrame::DrainGas(uint64_t n)
 	if (m_Gas < n)
 	{
 		m_Gas = 0;
-		throw Context::NoGasException();
+		Exc::Fail("no gas");
 	}
 
 	m_Gas -= n;
@@ -540,41 +535,33 @@ Processor::Account::Slot& Processor::TouchSlot(BaseFrame& f, Account& acc, const
 void Processor::RunOnce()
 {
 	static_assert(sizeof(Context) == sizeof(Frame), "");
+	assert(!m_lstFrames.empty());
 
 	try
+	{
+		Cast::Up<Context>(m_lstFrames.back()).RunOnce(*this);
+		return; // ok
+	}
+	catch (const std::exception& e)
+	{
+		printf("\texc: %s\n", e.what());
+	}
+
+	while (true)
 	{
 		try
 		{
 			assert(!m_lstFrames.empty());
-			auto& f = Cast::Up<Context>(m_lstFrames.back());
-			f.RunOnce(*this);
+			Cast::Up<Context>(m_lstFrames.back()).OnFrameDone(*this, false, false);
+
+			return; // ok
 		}
-		catch (const Context::NoGasException&)
+		catch (const std::exception& e)
 		{
-			printf("\tno-gas exc\n");
-
-			assert(!m_lstFrames.empty());
-			auto& f = Cast::Up<Context>(m_lstFrames.back());
-			f.OnFrameDone(*this, false, false); // assume during revert no gas is drained
-		}
-	}
-	catch (const std::exception&)
-	{
-		printf("\tcrash exc\n");
-
-		while (!m_lstFrames.empty())
-		{
-			auto& f = Cast::Up<Context>(m_lstFrames.back());
-			f.UndoChanges(*this);
-			m_lstFrames.Delete(f);
+			printf("\texc during revert: %s\n", e.what());
 		}
 
-		// Don't touch m_Top undo list. It only contains balance update w.r.t. gas
-
-		m_RetVal.m_Success = false;
-		ZeroObject(m_RetVal.m_Blob);
 	}
-
 }
 
 void Processor::Context::RunOnce(Processor& p)
@@ -1392,9 +1379,9 @@ void Processor::Context::OnFrameDone(Processor& p, bool bSuccess, bool bHaveRetv
 
 			auto& wResAddr = pPrev->m_Stack.Pop();
 			auto nResSize = WtoU32(pPrev->m_Stack.Pop());
-			auto* pRes = pPrev->get_Memory(wResAddr, nResSize); // may rasise no-gas exc
-
 			std::setmin(nResSize, p.m_RetVal.m_Blob.n);
+
+			auto* pRes = pPrev->get_Memory(wResAddr, nResSize); // may rasise no-gas exc
 			memcpy(pRes, p.m_RetVal.m_Blob.p, nResSize);
 
 			pPrev->m_Stack.Push() = p.m_RetVal.m_Success ? 1u : 0u;
@@ -1443,13 +1430,6 @@ OnOpcode(Create2)
 
 	p.CallInternal(aNew, args, m_Gas, true);
 }
-
-//void Processor::BaseFrame::PushUndoAccountDelete(IAccount* pAccount)
-//{
-//	auto* pOp = new UndoOp::AccountDelete;
-//	m_lstUndo.push_back(*pOp);
-//	pOp->m_pAccount = pAccount;
-//}
 
 void Processor::CallInternal(const Address& addr, const Args& args, uint64_t gas, bool isDeploy)
 {
@@ -1542,6 +1522,18 @@ void Processor::Call(const Address& addr, const Args& args, bool isDeploy)
 {
 	assert(m_lstFrames.empty());
 	CallInternal(addr, args, m_Top.m_Gas, isDeploy);
+}
+
+void Processor::Call(const Address& to, const Args& args, uint64_t nonce)
+{
+	if (to == Zero)
+	{
+		Address aTo;
+		AddressForContract(aTo, m_Top.m_pAccount->m_Key, nonce);
+		Call(aTo, args, true);
+	}
+	else
+		Call(to, args, false);
 }
 
 void Processor::Context::OnCall(Processor& p, bool bStatic)
