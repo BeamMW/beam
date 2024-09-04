@@ -289,7 +289,7 @@ namespace beam
 			get_CallerNonceRef()++;
 		}
 
-		bool InitCallerStrict(const Address& aCaller, uint64_t gas, uint64_t gasPrice)
+		bool InitCallerStrict(const Address& aCaller, const Word& callValue, uint64_t gas, uint64_t gasPrice)
 		{
 			Reset();
 
@@ -302,18 +302,14 @@ namespace beam
 			if (acc.m_Balance.m_Value == Zero)
 				return false;
 
-			Word wGasPay;
-			wGasPay.FromNumber(MultiWord::From(gas) * MultiWord::From(gasPrice));
-			if (acc.m_Balance.m_Value < wGasPay)
-			{
-				Word zero = Zero;
-				m_Top.UpdateBalance(acc, zero);
-				return false;
-			}
+			Word wPay;
+			wPay.FromNumber(MultiWord::From(gas) * MultiWord::From(gasPrice));
+			wPay += callValue;
+			if (wPay < callValue)
+				return false; // overflow
 
-			wGasPay.Negate();
-			wGasPay += acc.m_Balance.m_Value;
-			m_Top.UpdateBalance(acc, wGasPay);
+			if (acc.m_Balance.m_Value < wPay)
+				return false; // not enough funds
 
 			m_Top.m_pAccount = &acc;
 			m_Top.m_Gas = gas - nMinGas;
@@ -322,17 +318,19 @@ namespace beam
 			return true;
 		}
 
-		void RefundCaller(uint64_t gasPrice)
+		void FinishCall(uint64_t gas, uint64_t gasPrice)
 		{
 			assert(m_Top.m_pAccount);
-			if (m_Top.m_Gas)
-			{
-				Word wRefund;
-				wRefund.FromNumber(MultiWord::From(m_Top.m_Gas) * MultiWord::From(gasPrice));
-				wRefund += m_Top.m_pAccount->m_Balance.m_Value; // assume overflow not possible
+			assert(m_Top.m_Gas < gas);
+			gas -= m_Top.m_Gas; // gas consumed
 
-				m_Top.UpdateBalance(*m_Top.m_pAccount, wRefund);
-			}
+			Word wPay;
+			wPay.FromNumber(MultiWord::From(m_Top.m_Gas) * MultiWord::From(gasPrice));
+			assert(m_Top.m_pAccount->m_Balance.m_Value >= wPay);
+
+			wPay.Negate();
+			wPay += m_Top.m_pAccount->m_Balance.m_Value;
+			m_Top.UpdateBalance(*m_Top.m_pAccount, wPay);
 		}
 
 
@@ -971,7 +969,14 @@ namespace beam
 								std::cout << "\t\t Tx from " << aFrom.str() << std::endl;
 
 								uint64_t gasLimit = ScanTxtUint(jTx["gasLimit"].get<std::string>().c_str());
-								uint64_t gasPrice = ScanTxtUint(jTx["gasPrice"].get<std::string>().c_str());
+
+								uint64_t gasPrice = 0;
+								auto it = jTx.find("gasPrice");
+								if (jTx.end() != it)
+									gasPrice = ScanTxtUint(it.value().get<std::string>().c_str());
+
+								if (!gasPrice)
+									gasPrice = 1000;
 
 								Processor::Args args;
 								ScanTxt(args.m_CallValue, jTx["value"].get<std::string>().c_str());
@@ -979,20 +984,16 @@ namespace beam
 								auto vData = ScanBuf(jTx["data"].get<std::string>().c_str());
 								args.m_Buf = vData;
 
-								if (proc.InitCallerStrict(aFrom, gasLimit, gasPrice))
+								if (proc.InitCallerStrict(aFrom, args.m_CallValue, gasLimit, gasPrice))
 								{
-									bool isDeploy = (aTo == Zero);
-									if (isDeploy)
-										AddressForContract(aTo, aFrom, proc.get_CallerNonceRef());
-
-									proc.Call(aTo, args, isDeploy);
+									proc.Call(aTo, args, proc.get_CallerNonceRef());
 									proc.RunFull();
 
-									proc.RefundCaller(gasPrice);
-									proc.Reset();
+									proc.FinishCall(gasLimit, gasPrice);
+									proc.CommitChanges();
 								}
 
-								proc.CommitChanges();
+								proc.Reset();
 							}
 						}
 					}
