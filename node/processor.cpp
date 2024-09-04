@@ -2546,6 +2546,8 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ContractDataSaveWithRecovery(BlobMap::Entry&, const Blob&);
 
+		void UpdChargeWithRecovery(uint32_t);
+
 		void UndoVars();
 	};
 
@@ -5002,15 +5004,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		bRes = true;
 
-		if (m_Bic.m_Temporary)
-		{
-			BlockInterpretCtx::Ser ser(m_Bic);
-			RecoveryTag::Type nTag = RecoveryTag::Recharge;
-			ser & nTag;
-			ser & m_Bic.m_ChargePerBlock;
-		}
-
-		m_Bic.m_ChargePerBlock = m_Charge;
+		UpdChargeWithRecovery(m_Charge);
 
 	}
 	catch (const Exc& e)
@@ -5539,6 +5533,21 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataSaveWithReco
 		data.Export(e.m_Data);
 	}
 }
+
+void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UpdChargeWithRecovery(uint32_t val)
+{
+	if (m_Bic.m_Temporary)
+	{
+		BlockInterpretCtx::Ser ser(m_Bic);
+		RecoveryTag::Type nTag = RecoveryTag::Recharge;
+		ser & nTag;
+		ser & m_Bic.m_ChargePerBlock;
+	}
+
+	m_Bic.m_ChargePerBlock = val;
+
+}
+
 
 void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataInsert(const Blob& key, const Blob& data)
 {

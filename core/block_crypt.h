@@ -510,7 +510,7 @@ namespace beam
 
 			uint64_t Groth2Wei; // set to 0 to disable EVM
 			uint64_t BaseGasPrice; // 100 gwei
-			uint64_t MinTxGasUnits;
+			uint32_t MinTxGasUnits;
 		} Evm;
 
 		void SetNetworkParams();

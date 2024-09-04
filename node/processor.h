@@ -901,7 +901,7 @@ public:
 #pragma pack (push, 1)
 		struct Base
 		{
-			ECC::uintBig m_Balance_Wei;
+			Evm::Word m_Balance_Wei;
 		};
 
 		struct User
@@ -913,7 +913,7 @@ public:
 		struct Contract
 			:public Base
 		{
-			ECC::uintBig m_CodeID;
+			Evm::Word m_CodeHash;
 		};
 
 #pragma pack (pop)
