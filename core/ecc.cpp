@@ -1809,14 +1809,7 @@ namespace ECC {
 
 				// fast data is already flushed
 
-				if (1 == j)
-				{
-					secp256k1_ge ge;
-					secp256k1_ge_from_storage(&ge, &p.m_Fast.m_pPt[0]);
-					secp256k1_ge_neg(&ge, &ge);
-					secp256k1_ge_to_storage(&ctx.m_Ipp.m_pGet1_Minus[i], &ge);
-				}
-				else
+				if (!j)
 					ptAux2 += p;
 			}
 		}

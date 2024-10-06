@@ -15,6 +15,27 @@
 #include "common.h"
 #include "ecc_native.h"
 
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic push
+#	pragma GCC diagnostic ignored "-Wunused-function"
+#else
+#	pragma warning (push, 0) // suppress warnings from secp256k1
+#	pragma warning (disable: 4706 4701) // assignment within conditional expression
+#endif
+
+#include "secp256k1/src/group_impl.h"
+#include "secp256k1/src/scalar_impl.h"
+#include "secp256k1/src/field_impl.h"
+#include "secp256k1/src/hash_impl.h"
+#include "secp256k1/src/int128_impl.h"
+
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+#	pragma GCC diagnostic pop
+#else
+#	pragma warning (default: 4706 4701)
+#	pragma warning (pop)
+#endif
+
 namespace ECC {
 
 	/////////////////////
@@ -911,17 +932,22 @@ namespace ECC {
 		Point::Native comm = Context::get().G * alpha;
 
 		{
-			NoLeak<Point::Compact> ge_s;
+			auto& ipp = Context::get().m_Ipp; // alias
 
 			for (uint32_t i = 0; i < InnerProduct::nDim; i++)
 			{
+				secp256k1_ge ge;
 				uint32_t iBit = 1 & (v >> i);
+				if (iBit)
+					secp256k1_ge_from_storage(&ge, ipp.m_pGen_[0][i].m_Fast.m_pPt);
+				else
+				{
+					secp256k1_ge_from_storage(&ge, ipp.m_pGen_[1][i].m_Fast.m_pPt);
+					secp256k1_ge_neg(&ge, &ge);
 
-				// protection against side-channel attacks
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGet1_Minus[i], 0 == iBit);
-				object_cmov(ge_s.V, Context::get().m_Ipp.m_pGen_[0][i].m_Fast.m_pPt[0], 1 == iBit);
+				}
 
-				comm += ge_s.V;
+				secp256k1_gej_add_ge_var(&comm.get_Raw(), &comm.get_Raw(), &ge, nullptr);
 			}
 		}
 
