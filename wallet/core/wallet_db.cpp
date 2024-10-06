@@ -2507,12 +2507,12 @@ namespace beam::wallet
                     CreateTxParamsIndex(walletDB->_db);
                     CreateAppDataTable(walletDB->_db);
 
-                    storage::setVar(*walletDB, Version, DbVersion);
                     // no break
 
                 case DbVersion38:
                     BEAM_LOG_INFO() << "Converting DB from format 38...";
 
+                    if (version > DbVersion20)
                     {
                         const char* req = "DROP TABLE IF EXISTS " LASER_CHANNELS_NAME ";";
                         int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
@@ -2520,6 +2520,8 @@ namespace beam::wallet
 
                         CreateLaserTables(walletDB->_db);
                     }
+
+                    storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
                     // drop private variables from public database for cold wallet
