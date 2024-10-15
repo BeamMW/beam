@@ -250,6 +250,7 @@ private:
     }
 
     static const uint64_t s_TotalsVer = 1;
+    static const int64_t timestamp_first_block = 1546522850;
 
     void Initialize() override
     {
@@ -696,7 +697,6 @@ private:
     }
 
     json get_status() override {
-
         const auto& c = _nodeBackend.m_Cursor;
 
         if (Mode::Legacy == m_Mode)
@@ -735,6 +735,7 @@ private:
         json jInfo_L = json::array();
 
         jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height)  });
+        jInfo_L.push_back({ MakeTableHdr("Blockchain Age"), MakeTypeObj("time", c.m_Full.m_TimeStamp - timestamp_first_block) });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
         jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
@@ -2175,6 +2176,11 @@ private:
         void OnName_Difficulty_Rel() { m_json.push_back(MakeTableHdr("Difficulty")); }
         void OnData_Difficulty_Abs() { m_json.push_back(NiceDecimal::MakeDifficulty(m_pThis->m_Hdr.m_ChainWork).m_sz); }
         void OnData_Difficulty_Rel() { m_json.push_back(NiceDecimal::MakeDifficulty(m_pThis->m_Hdr.m_PoW.m_Difficulty).m_sz); }
+
+        void OnName_BlockchainAge_Abs() { m_json.push_back(MakeTableHdr("Blockchain_Age[s]")); }
+        void OnName_BlockchainAge_Rel() { m_json.push_back(MakeTableHdr("BlockchainAge")); }
+        void OnData_BlockchainAge_Abs() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - timestamp_first_block).m_sz);}
+        void OnData_BlockchainAge_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - timestamp_first_block).m_sz);}
 
         void OnName_Fee_Abs() { m_json.push_back(MakeTableHdr("T.Fee")); }
         void OnName_Fee_Rel() { m_json.push_back(MakeTableHdr("Fee")); }

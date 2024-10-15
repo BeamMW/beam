@@ -1175,6 +1175,48 @@
     return text;
   }
 
+  function convertSecondsToYMDHMS(seconds) {
+    const years = Math.floor(seconds / (365 * 24 * 60 * 60));
+    seconds %= (365 * 24 * 60 * 60);
+
+    const months = Math.floor(seconds / (30 * 24 * 60 * 60)); // Approximate months
+    seconds %= (30 * 24 * 60 * 60);
+
+    const days = Math.floor(seconds / (24 * 60 * 60));
+    seconds %= (24 * 60 * 60);
+
+    const hours = Math.floor(seconds / (60 * 60));
+    seconds %= (60 * 60);
+
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    return `${years}Y:${months}M:${days}D:${hours}H:${minutes}min:${secs}s`;
+}
+
+  function findCellWithValue(jTbl, searchValue) {
+    for (let i = 0; i < jTbl.length; i++) {
+        const row = jTbl[i];
+        for (let j = 0; j < row.length; j++) {
+            if (row[j].value === searchValue) {
+                return [i, j];  // Return both row and column as a tuple (array)
+            }
+        }
+    }
+    return [-1, -1];  // Return [-1, -1] if the value is not found
+ }
+
+  function parseBlockchainAgeFormat(jTbl) {
+     let [row, col] = findCellWithValue(jTbl, 'BlockchainAge');
+    if (row != -1 )
+    {
+      let age =  jTbl[row+1][col];
+      let ageAsCleanNumber = age.replace(/,/g, '');
+      jTbl[row+1][col] = convertSecondsToYMDHMS(ageAsCleanNumber)
+
+    }
+  }
+
   function Obj2HtmlSpecial(obj) {
     //console.log(JSON.stringify(obj))
 
@@ -1187,6 +1229,7 @@
     if (obj.type == 'table') {
       const jTbl = obj.value;
       let text = "<table class='tableGeneric'>";
+      parseBlockchainAgeFormat(jTbl);
       text += Obj2Html_TableRows(jTbl);
       text += '</table>';
       return text;
@@ -1785,6 +1828,9 @@
 
     let text = "<h2 class='title'>Blockchain status</h2>";
     text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
+    const originalTimestamp = jData.value[0][0].value[1][1].value;
+    let age = convertSecondsToYMDHMS(originalTimestamp);
+    jData.value[0][0].value[1][1] = age;
     text += Obj2Html(jData);
     text += '</div>';
 

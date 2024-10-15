@@ -25,6 +25,7 @@ using nlohmann::json;
     macro(Time) \
     macro(Hash) \
     macro(Difficulty) \
+    macro(BlockchainAge) \
     macro(Fee) \
     macro(Kernels) \
     macro(MwOutputs) \
