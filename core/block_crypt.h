@@ -496,11 +496,6 @@ namespace beam
 
 		struct
 		{
-			// 1 eth == 10^18 wei == 10^9 gwei
-			// Block limit is 30 mln gas units.
-			// Simple transaction cost is 21K gas units
-			// 1 gas unit base price is 100 gwei = 10^-7 eth
-
 			// So, here's our interpretation of the above.
 			// - Gas is drawn from the BVM charge (which is 100 mln per block) at 1:1 ratio, i.e. bvm and evm would use this shared limit
 			// - Tx gas limit is calculated from the kernel fee (w.r.t. groth/wei conversion ratio)

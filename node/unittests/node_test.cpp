@@ -27,6 +27,7 @@
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
 #include "../../bvm/ManagerStd.h"
+#include "../../bvm/evm.h"
 
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
@@ -2161,6 +2162,17 @@ namespace beam
 				m_Assets.m_ListReceived = true;
 			}
 
+            struct EvmTest
+            {
+                ECC::Scalar::Native m_skMyAddr;
+                Height m_hDeployed = 0;
+                Height m_hInvoked = 0;
+                Merkle::Hash m_hvDeployID;
+                bool m_DeployConfirmed = false;
+                const uint32_t m_KrnProofIdx = 0x20000000;
+                Evm::Address m_addrMyContract;
+            } m_Evm;
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -2196,7 +2208,8 @@ namespace beam
 				t.Test(m_Shielded.m_EvtAdd, "Shielded Add event didn't arrive");
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
 				t.Test(m_Contract.m_VarProof, "Contract variable proof not received");
-
+                t.Test(m_Evm.m_DeployConfirmed, "EVM Contract wasn't deployed");
+				
 				return t.m_AllDone;
 			}
 
@@ -2241,6 +2254,16 @@ namespace beam
 					msgOut2.m_Height = MaxHeight;
 					Send(msgOut2);
 				}
+
+                if (m_Evm.m_hDeployed && !m_Evm.m_DeployConfirmed)
+                {
+                    proto::GetProofKernel2 msgOut2;
+                    msgOut2.m_ID = m_Evm.m_hvDeployID;
+                    msgOut2.m_Fetch = true;
+                    Send(msgOut2);
+
+                    m_queProofsKrnExpected.push_back(m_Evm.m_KrnProofIdx);
+                }
 
 				proto::BbsMsg msgBbs;
 				msgBbs.m_Channel = 11;
@@ -2334,6 +2357,8 @@ namespace beam
 						MaybeCreateAsset(msgTx, val);
 						MaybeEmitAsset(msgTx, val);
 						MaybeInvokeContract(msgTx, val);
+                        MaybeDeployEvmContract(msgTx, val);
+                        MaybeInvokeEvmContract(msgTx, val);
 						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
 					}
 
@@ -2789,6 +2814,123 @@ namespace beam
 
 			bool m_MiningFinalization = false;
 
+
+            bool MaybeDeployEvmContract(proto::NewTransaction& msg, Amount& val)
+            {
+                if (m_Evm.m_hDeployed)
+                    return false;
+
+                const Amount nFee = 5000000;
+                const Amount nSubsidy = Rules::Coin * 8;
+                if (val < nFee + nSubsidy)
+                    return false;
+
+                const Block::SystemState::Full& s = m_vStates.back();
+                if (!Rules::get().IsPastFork_<6>(s.m_Height + 1))
+                    return false;
+
+                val -= (nFee + nSubsidy);
+
+                /*
+                        pragma solidity >=0.7.0 <0.9.0;
+
+                        contract Storage {
+
+                            uint256 m_Num;
+
+                            function add(uint num) public returns (uint256) {
+                                uint256 val = m_Num;
+                                val += num;
+                                m_Num = val;
+                                return val;
+                            }
+                        }
+                */
+
+                static const char szCode[] = "608060405234801561001057600080fd5b5060da8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80631003e2d214602d575b600080fd5b603c60383660046066565b604e565b60405190815260200160405180910390f35b60008054605a8382607e565b60008190559392505050565b600060208284031215607757600080fd5b5035919050565b80820180821115609e57634e487b7160e01b600052601160045260246000fd5b9291505056fea26469706673582212207663ee6b0b30fe36e38ed6d65e28b6b9dbc407ec0e21a3a4c8213814e8bcf62864736f6c63430008110033";
+
+
+                TxKernelEvmInvoke::Ptr pKrn(new TxKernelEvmInvoke);
+                pKrn->m_Height.m_Min = s.m_Height + 1;
+                pKrn->m_Fee = nFee;
+                Cast::Down<Evm::Address::Base>(pKrn->m_To) = Zero; // contract deployment
+                pKrn->m_Nonce = 0;
+                pKrn->m_CallValue = Zero;
+                pKrn->m_Subsidy = nSubsidy;
+
+                pKrn->m_Args.resize((_countof(szCode) - 1) / 2);
+                uintBigImpl::_Scan(&pKrn->m_Args.front(), szCode, _countof(szCode) - 1);
+
+                ECC::SetRandom(m_Evm.m_skMyAddr);
+
+                ECC::Scalar::Native skKrn;
+                ECC::SetRandom(skKrn);
+
+                pKrn->Sign(m_Evm.m_skMyAddr, skKrn);
+
+                m_Evm.m_hDeployed = s.m_Height;
+                m_Evm.m_hvDeployID = pKrn->m_Internal.m_ID;
+
+                Evm::AddressForContract(m_Evm.m_addrMyContract, pKrn->m_From, pKrn->m_Nonce); // expected contract addr
+
+                msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+                m_Wallet.UpdateOffset(*msg.m_Transaction, skKrn, true);
+
+                printf("Deploying EVM contract...\n");
+
+                return true;
+            }
+
+
+            bool MaybeInvokeEvmContract(proto::NewTransaction& msg, Amount& val)
+            {
+                if (m_Evm.m_hInvoked || !m_Evm.m_DeployConfirmed)
+                    return false;
+
+                const Amount nFee = 3000000;
+                if (val < nFee)
+                    return false;
+
+                val -= nFee;
+                const Block::SystemState::Full& s = m_vStates.back();
+
+                TxKernelEvmInvoke::Ptr pKrn(new TxKernelEvmInvoke);
+                pKrn->m_Height.m_Min = s.m_Height + 1;
+                pKrn->m_Fee = nFee;
+                pKrn->m_To = m_Evm.m_addrMyContract;
+                pKrn->m_Nonce = 1;
+                pKrn->m_CallValue = Zero;
+                pKrn->m_Subsidy = 0;
+
+#pragma pack (push, 1)
+                struct MyMethod
+                    :public Evm::Processor::Method
+                {
+                    Evm::Word m_MyValue;
+                } myArg;
+#pragma pack (pop)
+
+                myArg.SetSelector("add(uint256)");
+                myArg.m_MyValue = 750000u;
+
+                Blob(&myArg, sizeof(myArg)).Export(pKrn->m_Args);
+
+                ECC::Scalar::Native skKrn;
+                ECC::SetRandom(skKrn);
+
+                pKrn->Sign(m_Evm.m_skMyAddr, skKrn);
+
+                m_Evm.m_hInvoked = s.m_Height;
+
+                msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+                m_Wallet.UpdateOffset(*msg.m_Transaction, skKrn, true);
+
+                printf("Invoking EVM contract...\n");
+
+                return true;
+            }
+
+
 			virtual void SetupLogin(proto::Login& msg) override
 			{
 				if (m_MiningFinalization)
@@ -2838,6 +2980,7 @@ namespace beam
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
+                    auto nKrnIdx = m_queProofsKrnExpected.front();
 					m_queProofsKrnExpected.pop_front();
 
 					if (!msg.m_Proof.empty())
@@ -2851,6 +2994,18 @@ namespace beam
 						verify_test(s.m_Height == msg.m_Height);
 
 						verify_test(s.IsValidProofKernel(msg.m_Kernel->m_Internal.m_ID, msg.m_Proof));
+
+                        if (m_Evm.m_KrnProofIdx == nKrnIdx)
+                        {
+                            verify_test(msg.m_Kernel->get_Subtype() == TxKernel::Subtype::EvmInvoke);
+
+                            if (!m_Evm.m_DeployConfirmed)
+                            {
+                                printf("EVM contract deploy confirmed\n");
+                                m_Evm.m_DeployConfirmed = true;
+                            }
+
+                        }
 					}
 				}
 				else
@@ -3944,10 +4099,13 @@ void TestAll()
 	beam::Rules::get().pForks[2].m_Height = 17;
 	beam::Rules::get().pForks[3].m_Height = 17;
 	beam::Rules::get().pForks[4].m_Height = 17;
+    beam::Rules::get().pForks[5].m_Height = 17;
+    beam::Rules::get().pForks[6].m_Height = 17;
 	beam::Rules::get().CA.DepositForList2 = beam::Rules::Coin * 16;
 	beam::Rules::get().CA.LockPeriod = 2;
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
+    beam::Rules::get().Evm.Groth2Wei = 10'000'000'000ull;
 	beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");

@@ -689,7 +689,7 @@ namespace proto {
             };
         };
 
-        Mode::Enum m_Mode;
+        Mode::Enum m_Mode = Mode::Plaintext;
 
         typedef uintBig_t<8> MacValue;
         static void get_HMac(ECC::Hash::Mac&, MacValue&);

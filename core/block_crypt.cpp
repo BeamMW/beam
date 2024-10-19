@@ -2210,11 +2210,12 @@ namespace beam
 		Magic.v2 = 2;
 
 		// 1 eth == 10^18 wei
-		// 1 beam == 10^10 groth
-		// EVM is currently disabled by default
-		Evm.Groth2Wei = 0;
-		//Evm.Groth2Wei = 100000;
-		Evm.BaseGasPrice = 100ull * 1'000'000'000ull;
+		// 1 beam == 10^8 groth
+		// for equivalency we define  1 groth == 10^0 wei
+		Evm.Groth2Wei = 0; // EVM is currently disabled by default
+		//Evm.Groth2Wei = 10'000'000'000ull;
+
+		Evm.BaseGasPrice = 10ull * 1'000'000'000ull; // 10 gwei
 		Evm.MinTxGasUnits = 21000;
 
 		static_assert(static_cast<int>(Network::mainnet) == 0);
