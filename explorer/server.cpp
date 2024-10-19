@@ -756,6 +756,7 @@ OnRequest(hdrs)
 
             case 'H': val = C::Hash_Abs; break;
             COL_CASE('T', 't', Time)
+            COL_CASE('G', 'g', Age)
             COL_CASE('D', 'd', Difficulty)
             COL_CASE('F', 'f', Fee)
             COL_CASE('K', 'k', Kernels)

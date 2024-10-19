@@ -430,6 +430,22 @@ private:
             get_TreasuryTotals(sd.m_Totals);
     }
 
+    Timestamp m_tsBlock1 = 0;
+
+    Timestamp get_TimeStampGenesis()
+    {
+        if (!m_tsBlock1 && (_nodeBackend.m_Cursor.m_Full.m_Height >= Rules::HeightGenesis))
+        {
+            Block::SystemState::Full s;
+            auto row = _nodeBackend.FindActiveAtStrict(Rules::HeightGenesis);
+            _nodeBackend.get_DB().get_State(row, s);
+
+            m_tsBlock1 = s.m_TimeStamp;
+        }
+
+        return m_tsBlock1;
+    }
+
     void EnsureHaveCumulativeStats(bool bForceReset = false)
     {
         auto& proc = _node.get_Processor();
@@ -2169,7 +2185,12 @@ private:
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
         void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", m_pThis->m_Hdr.m_TimeStamp)); }
-        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_pPrev->m_Hdr.m_TimeStamp).m_sz);; }
+        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_pPrev->m_Hdr.m_TimeStamp).m_sz); }
+
+        void OnName_Age_Abs() { m_json.push_back(MakeTableHdr("Age")); }
+        void OnName_Age_Rel() { m_json.push_back(MakeTableHdr("d.Age")); }
+        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_This.get_TimeStampGenesis()).m_sz); }
+        void OnData_Age_Rel() { OnData_Time_Rel(); }
 
         void OnName_Difficulty_Abs() { m_json.push_back(MakeTableHdr("Chainwork")); }
         void OnName_Difficulty_Rel() { m_json.push_back(MakeTableHdr("Difficulty")); }
