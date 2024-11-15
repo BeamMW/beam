@@ -1780,7 +1780,7 @@ namespace beam::wallet
             }
         }
 
-        void MigrateFrom32(sqlite3* db)
+        void MigrateFrom32_After20(sqlite3* db)
         {
             assert(db != nullptr);
 
@@ -2478,7 +2478,8 @@ namespace beam::wallet
 
                 case DbVersion32:
                     BEAM_LOG_INFO() << "Converting DB from format 32...";
-                    MigrateFrom32(walletDB->_db);
+                    if (version > DbVersion20)
+                        MigrateFrom32_After20(walletDB->_db);
 
                 case DbVersion33:
                     BEAM_LOG_INFO() << "Converting DB from format 33...";
