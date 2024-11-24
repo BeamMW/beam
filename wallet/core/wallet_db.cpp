@@ -7404,6 +7404,11 @@ namespace beam::wallet
         return !(*this == other);
     }
 
+    bool WalletAddress::operator < (const WalletAddress& other) const
+    {
+        return m_BbsAddr < other.m_BbsAddr;//&& m_OwnID < other.m_OwnID;
+    }
+
     bool WalletAddress::isExpired() const
     {
         return getTimestamp() > getExpirationTime();
