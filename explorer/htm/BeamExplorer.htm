@@ -15,7 +15,7 @@
   - Except for filtering and sorting, JS functions shall mainly modify classes while most display features are done by CSS.
   - That way, if we disable styling, the raw filtred data can directly be copy-pasted somewhere else.
 
-  The file is organized in four main sections:
+  The file is organized in the following main sections:
   - SECTION 1 : All the CSS styling.
   - SECTION 2 : Base static HTML (banner, footer, etc.).
   - SECTION 3 : Core JS functions to parse the data into HTML.
@@ -157,7 +157,7 @@
     --color_metadata: #505050;
     --color_hash: #505050;
     --color_hash_highlight: darkred;
-    --color_more: #17204e;
+    --color_more: #ddd;
     --color_icon: rgba(255,255,255,0.5);
     --color_icon_hover: #eee;
     --color_icon_off: #1e4c71;
@@ -985,7 +985,7 @@
     <div id="Content-wrap">
 
       <!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
-      <!-- Remark: We don't define any fixed size here, so that they will adapat to the SVG size what will call them. -->
+      <!-- Remark: We don't define any fixed size here, so that they will adapt to the SVG size calling them. -->
       <!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
       <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
       <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
@@ -1243,12 +1243,38 @@
     if (typeof obj === 'string') {
       // If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
-      // We can add here some changes to common labels and table header...
-      else if (obj == 'MW.Inputs') { return 'MW&nbsp;in' }
-      else if (obj == 'MW.Outputs') { return 'MW&nbsp;out' }
-      else if (obj == 'SH.Inputs') { return 'SH&nbsp;in' }
-      else if (obj == 'SH.Outputs') { return 'SH&nbsp;out' }
-      else if (obj == 'ContractCalls') { return 'Contract&nbsp;calls' }
+
+      // We can add here some changes to default labels in table header...
+      //else if (obj == 'Height') { return 'Height' }
+      //else if (obj == 'Hash') { return 'Hash' }
+      else if (obj == 'd.Time') { return 'Time' }
+      //else if (obj == 'Timestamp') { return 'Timestamp' }
+      //else if (obj == 'Age') { return 'Age' }
+      else if (obj == 'd.Age') { return 'Duration' }
+      //else if (obj == 'Difficulty') { return 'Difficulty' }
+      //else if (obj == 'Chainwork') { return 'Chainwork' }
+      //else if (obj == 'Fee') { return 'Fee' }
+      else if (obj == 'T.Fee') { return 'Total fees' }
+      //else if (obj == 'Txs') { return 'Txs' }
+      else if (obj == 'T.Txs') { return 'Total txs' }
+      else if (obj == 'MW.Inputs') { return 'MW in' }
+      else if (obj == 'T.MW.Inputs') { return 'Total MW in' }
+      else if (obj == 'MW.Outputs') { return 'MW out' }
+      else if (obj == 'T.MW.Outputs') { return 'Total MW out' }
+      else if (obj == 'MW.Utxos') { return 'MW UTXOs' }
+      else if (obj == 'T.MW.Utxos') { return 'Total MW UTXOs' }
+      else if (obj == 'SH.Inputs') { return 'SH in' }
+      else if (obj == 'T.SH.Inputs') { return 'Total SH inputs' }
+      else if (obj == 'SH.Outputs') { return 'SH out' }
+      else if (obj == 'T.SH.Outputs') { return 'Total SH out' }
+      else if (obj == 'Contracts') { return 'New contracts' }
+      else if (obj == 'T.Contracts') { return 'Total contracts' }
+      else if (obj == 'ContractCalls') { return 'Contract calls' }
+      else if (obj == 'T.ContractCalls') { return 'Total contract calls' }
+      else if (obj == 'D.Size.Compressed') { return 'Size variation' }
+      else if (obj == 'Size.Compressed') { return 'Total size' }
+      else if (obj == 'D.Size.Archive') { return 'Archive size' }
+      else if (obj == 'Size.Archive') { return 'Total archive size' }
     }
 
     return obj;
@@ -1869,7 +1895,7 @@
   // - Description should contain links to interesting explorer pages.
   // - External links are provided afterwards.
   // - "block_list" is used for a one or several individual blocks, "block_range" for all blocks between two.
-  // - The list shall be completed: important tokens, first atomic swap, important smart contracts (Nephrite, DEX, Oracle, etc.).
+  // - The list can be completed with important tokens, first atomic swap, important smart contracts (Nephrite, DEX, Oracle, etc.).
   const specialBlocks = [
     {
       block_list: [0],
@@ -2085,23 +2111,25 @@
       xmlhttp.onload = DisplayContractState;
 
     } else if (g_type == 'hdrs') { // Arguments for 'hdrs': cols, hMax, nMax, dh
-      // Code s for 'cols' (lowercase if relative, uppercase if absolute):
-      // Remark: First column is always the block height
+      // Codes for 'cols' (lowercase if relative, uppercase if absolute):
+      // First column is always the block height
       // H = Hash
-      // T = Time
-      // d = Difficulty
-      // f = Fee
-      // k = Kernels
-      // o = MW Outputs
-      // i = MW Inputs
-      // u = MW Utxos
-      // z = Shielded Outputs
-      // y = Shielded Inputs
-      // b = Active Contracts
-      // p = Contract Calls
-      // c = SizeCompressed
-      // a = SizeArchive
-      if (!g_cols) { g_cols = 'THdfkoizyp' }
+      // t|T = block duration (in seconds) | Timestamp (date and time)
+      // g|G = Block duration (in seconds) | Blockchain age (in seconds)
+      // d|D = Difficulty | Chainwork
+      // f|F = Fee | Total fees
+      // k|K = Txs (kenels) | Total txs
+      // i|I = MW inputs | Total MW inputs
+      // o|O = MW outputs | Total MW outputs
+      // u|U = MW UTXOs | Total MW UTXOs
+      // y|Y = Shielded inputs | Total Shielded inputs
+      // z|Z = Shielded outputs | Total Shielded outputs
+      // b|B = New contracts | Total active contracts
+      // p|P = Contract calls | Total contract calls
+      // c|C = Variation of compressed size | Total compressed size
+      // a|A = Change of archive size | Total archive size
+
+      if (!g_cols) { g_cols = 'THdfkioyzp' } // Default columns
       if (!g_nMax) { g_nMax = 100 }
       urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax;
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
@@ -2134,9 +2162,9 @@
     let text = "<div class='about'>\n";
     text += "<h2 class='title'>About</h2>\n";
     text += "<p class='aboutText'>";
-    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with confidential assets and smart contracts.\
+    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
             It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
-            It's a proof-of-work blockchain, with one-minute blocks and a capped supply of coins following Bitcoin-like halvings.";
+            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
     text += "</p>\n";
     text += "<p class='aboutText'>";
     text += "Although amounts are concealed and addresses are not stored onchain, \
@@ -2144,16 +2172,16 @@
             They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
     text += "</p>\n";
     text += "<p class='aboutText'>";
-    text += "Beam <b>Confidential Assets</b> (or 'privacy tokens') are also visible, with their complete mint and burn history. \
-            The <b>smart contracts</b> history is also avilable, with details of all their calls (although their users remain confidential!).";
+    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
+            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
     text += "</p>\n";
     text += "<p class='aboutText'>";
-    text += "This app is an interactive display of the data queried to a Beam explorer node. \
+    text += "This app is an interactive web display of the data queried to a Beam explorer node. \
             The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
-            You can save the file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
+            You can save the HTML file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
     text += "</p>\n";
     text += "<p class='aboutDisclaimer'>";
-    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no guarantees whatsoever.";
+    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
     text += "</p>\n";
     text += "</div>";
 
