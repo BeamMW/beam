@@ -1920,9 +1920,15 @@
     ]
     },
     {
+      block_list: [159, 160],
+      title: 'The fastest blocks on Earth',
+      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=160&nMax=10\"'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occured again a few times after that (example with <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25709&nMax=10\"'>blocks 25708 and 25709</a>). Indeed, the event is theoretically possible, but very unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
+      links: [['Poisson distribution', 'https://en.wikipedia.org/wiki/Poisson_distribution']]
+    },
+    {
       block_range: [25709, 25820],
       title: 'Blockchain Stop Event',
-      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25710&nMax=2\"'>for 2.5 hours</a>, and no transactions were processed for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25822&nMax=114\"' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25820\"'>25820</a> and <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25822\"'>25822</a> processed all the pending ones. No funds were lost.",
+      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25710&nMax=5\"'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25822&nMax=120\"' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25820\"'>25820</a> and <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25822\"'>25822</a> processed all the pending ones. No funds were lost.",
       links: [['Postmortem analysis', 'https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813']]
     },
     {
