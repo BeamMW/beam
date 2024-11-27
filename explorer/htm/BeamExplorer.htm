@@ -6,7 +6,7 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP address of the explorer node can be changed in var 'urlPrefix'.
-  - Current version of the file: v0.6
+  - Current version of the file: v0.7
 
   General rules for developement:
   - Let's keep everything in one single standalone file!
@@ -24,7 +24,7 @@
 
   Disclaimer:
   - This is an experimental work-in-progress.
-  - It is provided AS-IS, with no guarantees whatsoever.
+  - It is provided AS-IS, with no warranties whatsoever.
   -->
 
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -459,6 +459,9 @@
     font-family: "Lucida Console", ui-monospace, monospace;
     font-size: 1.4rem;
     color: var(--color_amount); /* Unsigned amounts */
+  }
+  .amount .dot {
+    font-size: 2rem; /* Decimal dot */
   }
   .amount.pos {
     color: var(--color_pos); /* Positive amounts */
@@ -1088,6 +1091,9 @@
 
     if (amount[0] == '-') { type = 'amount neg' }
     if (amount[0] == '+') { type = 'amount pos' }
+
+    // Add a span to the decimal dot (to allow speical formatting)
+    amount = amount.replace('.', AddClass('.','dot'));
 
     return AddClass(amount, type);
   }
