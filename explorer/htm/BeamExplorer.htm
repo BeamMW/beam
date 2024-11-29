@@ -889,8 +889,8 @@
     content: '\21c5 \00a0';
     visibility: hidden;
   }
-  .filtersOff th::after { /* Empty symbol, just to keep the text centered */
-    content: '\00a0 \00a0';
+  .filtersOff th::after { /* Hidden symbol, just to keep the text centered */
+    content: '\00a0 \21c5';
     visibility: hidden;
   }
   /* Force same min column width as when filters are on */
@@ -904,6 +904,11 @@
   .filtersOff:hover th {
     cursor: pointer; /* Change mouse to pointer to show it's clickable */
     background-color: var(--color_table_header_hover);
+  }
+  .filtersOff th:hover::before { /* Show sorting indicator on hover */
+    content: '\21c5 \00a0';
+    color: var(--color_sorting_indicator);
+    visibility: visible;
   }
   /* Headers when filters are on */
   .filtersOn th {
@@ -926,8 +931,8 @@
     content: '\21c5 \00a0'; /* Symbol when not sorted */
     color: var(--color_sorting_indicator);
   }
-  .sortable::after {
-    content: '\00a0 \00a0'; /* Empty symbol, just to keep the text centered */
+  .sortable::after { /* Hidden symbol, just to keep the text centered */
+    content: '\00a0 \21c5';
     visibility: hidden;
   }
   .sortable:hover::before { /* Highlight symbol on hover */
@@ -1250,37 +1255,37 @@
       // If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
 
-      // We can add here some changes to default labels in table header...
-      //else if (obj == 'Height') { return 'Height' }
-      //else if (obj == 'Hash') { return 'Hash' }
-      else if (obj == 'd.Time') { return 'Time' }
-      //else if (obj == 'Timestamp') { return 'Timestamp' }
-      //else if (obj == 'Age') { return 'Age' }
-      else if (obj == 'd.Age') { return 'Duration' }
-      //else if (obj == 'Difficulty') { return 'Difficulty' }
-      //else if (obj == 'Chainwork') { return 'Chainwork' }
-      //else if (obj == 'Fee') { return 'Fee' }
-      else if (obj == 'T.Fee') { return 'Total fees' }
-      //else if (obj == 'Txs') { return 'Txs' }
-      else if (obj == 'T.Txs') { return 'Total txs' }
-      else if (obj == 'MW.Inputs') { return 'MW in' }
-      else if (obj == 'T.MW.Inputs') { return 'Total MW in' }
-      else if (obj == 'MW.Outputs') { return 'MW out' }
-      else if (obj == 'T.MW.Outputs') { return 'Total MW out' }
-      else if (obj == 'MW.Utxos') { return 'MW UTXOs' }
-      else if (obj == 'T.MW.Utxos') { return 'Total MW UTXOs' }
-      else if (obj == 'SH.Inputs') { return 'SH in' }
-      else if (obj == 'T.SH.Inputs') { return 'Total SH inputs' }
-      else if (obj == 'SH.Outputs') { return 'SH out' }
-      else if (obj == 'T.SH.Outputs') { return 'Total SH out' }
-      else if (obj == 'Contracts') { return 'New contracts' }
-      else if (obj == 'T.Contracts') { return 'Total contracts' }
-      else if (obj == 'ContractCalls') { return 'Contract calls' }
-      else if (obj == 'T.ContractCalls') { return 'Total contract calls' }
-      else if (obj == 'D.Size.Compressed') { return 'Size variation' }
-      else if (obj == 'Size.Compressed') { return 'Total size' }
-      else if (obj == 'D.Size.Archive') { return 'Archive size' }
-      else if (obj == 'Size.Archive') { return 'Total archive size' }
+      // We can make here some changes to the default labels in table header, and also add some tooltips!
+      else if (obj == 'Height') { return '<span title="Block height">Height</span>' }
+      else if (obj == 'Hash') { return '<span title="Block hash">Hash</span>' }
+      else if (obj == 'd.Time') { return '<span title="Block duration (in seconds)">Time</span>' }
+      else if (obj == 'Timestamp') { return '<span title="Block timestamp (UTC)">Timestamp</span>' }
+      else if (obj == 'Age') { return '<span title="Age (in seconds since genesis)">Age</span>' }
+      else if (obj == 'd.Age') { return '<span title="Block duration (in seconds)">Duration</span>' }
+      else if (obj == 'Difficulty') { return '<span title="Block difficulty">Difficulty</span>' }
+      else if (obj == 'Chainwork') { return '<span title="Total difficulty since genesis">Chainwork</span>' }
+      else if (obj == 'Fee') { return '<span title="Fees paid in the block (in Beam)">Fees</span>' }
+      else if (obj == 'T.Fee') { return '<span title="Total fees paid since genesis (in Beam)">Total fees</span>' }
+      else if (obj == 'Txs') { return '<span title="Number of transactions (kernels) in the block">Txs</span>' }
+      else if (obj == 'T.Txs') { return '<span title="Total number of transactions (kernels) since genesis">Total txs</span>' }
+      else if (obj == 'MW.Inputs') { return '<span title="Number of MimbleWimble inputs in the block">MW in</span>' }
+      else if (obj == 'T.MW.Inputs') { return '<span title="Total number of MimbleWimble inputs since genesis">Total MW in</span>' }
+      else if (obj == 'MW.Outputs') { return '<span title="Number of MimbleWimble outputs in the block">MW out</span>' }
+      else if (obj == 'T.MW.Outputs') { return '<span title="Total number of MimbleWimble outputs since genesis">Total MW out</span>' }
+      else if (obj == 'MW.Utxos') { return '<span title="Change in the number of unspent MimbleWimble UTXOs (i.e. outputs minus inputs in the block)">MW UTXOs</span>' }
+      else if (obj == 'T.MW.Utxos') { return '<span title="Total number of unspent MimbleWimble UTXOs in the chain">Total MW UTXOs</span>' }
+      else if (obj == 'SH.Inputs') { return '<span title="Number of inputs in the block coming from the Lelantus Shielded Pool">SH in</span>' }
+      else if (obj == 'T.SH.Inputs') { return '<span title="Total number of inputs spent from the Lelantus Shielded Pool since genesis">Total SH inputs</span>' }
+      else if (obj == 'SH.Outputs') { return '<span title="Number of outputs in the block sent to the Lelantus Shielded Pool">SH out</span>' }
+      else if (obj == 'T.SH.Outputs') { return '<span title="Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of UTXOs in the Shielded Pool)">Total SH out</span>' }
+      else if (obj == 'Contracts') { return '<span title="Number of new smart contracts deployed in the block">New contracts</span>' }
+      else if (obj == 'T.Contracts') { return '<span title="Total number of smart contracts deployed in the blockchain">Total contracts</span>' }
+      else if (obj == 'ContractCalls') { return '<span title="Number of smart contract calls in the block">Contract calls</span>' }
+      else if (obj == 'T.ContractCalls') { return '<span title="Total number of smart contract calls since genesis">Total contract calls</span>' }
+      else if (obj == 'D.Size.Compressed') { return '<span title="Blockchain size increase (in Bytes). Since the UTXOs spent in the block are removed, blockchain size can sometimes decrease!">Size variation</span>' }
+      else if (obj == 'Size.Compressed') { return '<span title="Total blockchain size (in Bytes)">Total size</span>' }
+      else if (obj == 'D.Size.Archive') { return '<span title="Block size if the spent UTXOs are kept (in Bytes)">Archive size</span>' }
+      else if (obj == 'Size.Archive') { return '<span title="Total blockchain size if the spent UTXOs are kept (in Bytes)">Total archive size</span>' }
     }
 
     return obj;
@@ -2123,14 +2128,16 @@
       xmlhttp.onload = DisplayContractState;
 
     } else if (g_type == 'hdrs') { // Arguments for 'hdrs': cols, hMax, nMax, dh
-      // Codes for 'cols' (lowercase if relative, uppercase if absolute):
+      // The codes for 'cols' are the following (lowercase if relative, uppercase if absolute).
+      // Remark: The data will be provided in the same order.
+      // Example to see all possible columns: cols=HtTgGdDfFkKiIoOuUyYzZbBpPcCaA
       // First column is always the block height
       // H = Hash
       // t|T = block duration (in seconds) | Timestamp (date and time)
       // g|G = Block duration (in seconds) | Blockchain age (in seconds)
       // d|D = Difficulty | Chainwork
       // f|F = Fee | Total fees
-      // k|K = Txs (kenels) | Total txs
+      // k|K = Txs (kernels) | Total txs
       // i|I = MW inputs | Total MW inputs
       // o|O = MW outputs | Total MW outputs
       // u|U = MW UTXOs | Total MW UTXOs
