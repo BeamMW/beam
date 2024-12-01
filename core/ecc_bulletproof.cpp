@@ -857,8 +857,8 @@ namespace ECC {
 			}
 			else
 			{
-				comm += Context::get().H_Big * t1;
-				comm2 += Context::get().H_Big * t2;
+				comm += Context::get().H * t1;
+				comm2 += Context::get().H * t2;
 			}
 
 			if (Phase::SinglePass != ePhase)
@@ -1196,8 +1196,8 @@ namespace ECC {
 		sum2 *= cs.z;
 		delta += -sum2;
 
-		// H_Big * m_tDot + G * m_TauX =?= commitment * z^2 + H_Big * delta(y,z) + m_T1*x + m_T2*x^2
-		// H_Big * (m_tDot - delta(y,z)) + G * m_TauX =?= commitment * z^2 + m_T1*x + m_T2*x^2
+		// H * m_tDot + G * m_TauX =?= commitment * z^2 + H * delta(y,z) + m_T1*x + m_T2*x^2
+		// H * (m_tDot - delta(y,z)) + G * m_TauX =?= commitment * z^2 + m_T1*x + m_T2*x^2
 
 
 		xx = cs.x * cs.x;

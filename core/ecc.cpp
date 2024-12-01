@@ -867,7 +867,7 @@ namespace ECC {
 		m_Batch.m_Size = 0;
 	}
 
-	void Point::Compact::Converter::set_Deferred(Compact& trg, Point::Native& src)
+	void Point::Compact::Converter::set_Deferred(Compact& trg, const Point::Native& src)
 	{
 		if (m_Batch.m_Size == N)
 			Flush();
@@ -902,6 +902,68 @@ namespace ECC {
 	// Generator
 	namespace Generator
 	{
+		void Simple::Initialize(const Point::Native& p, Point::Compact::Converter& cpc)
+		{
+			Point::Native pLevel[nPointsPerLevel];
+			pLevel[0] = p;
+
+			auto* pDst = m_pPts;
+
+			for (uint32_t iLevel = 0; ; )
+			{
+				for (uint32_t i = 1; i < nPointsPerLevel; i++)
+				{
+					if (1u & i)
+						pLevel[i] = pLevel[i >> 1] * Two;
+					else
+						pLevel[i] = pLevel[i - 1] + pLevel[0];
+				}
+
+				for (uint32_t i = 0; i < nPointsPerLevel; i++)
+					cpc.set_Deferred(pDst[i], pLevel[i]);
+
+				if (++iLevel == s_nLevels)
+					break;
+
+				pLevel[0] = pLevel[nPointsPerLevel >> 1] * Two;
+				pDst += nPointsPerLevel;
+			}
+		}
+
+		void Simple::SetMul(Point::Native& res, bool bSet, const Scalar::Native::uint* p, uint32_t nWords) const
+		{
+			static_assert(8 % nBitsPerLevel == 0, "");
+			const uint32_t nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
+			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
+
+			const auto* pPts = m_pPts;
+
+			for (uint32_t iWord = 0; iWord < nWords; iWord++)
+			{
+				Scalar::Native::uint n = p[iWord];
+
+				for (uint32_t j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel, n >>= nBitsPerLevel)
+				{
+					uint32_t nSel = nPointsPerLevel & n;
+					if (nSel)
+					{
+						const auto& pt = pPts[nSel - 1];
+
+						if (bSet)
+						{
+							bSet = false;
+							res = pt;
+						}
+						else
+							res += pt;
+					}
+				}
+			}
+
+			if (bSet)
+				res = Zero;
+		}
+
 		void CreatePointNnz(Point::Native& out, Oracle& oracle, Hash::Processor* phpRes)
 		{
 			Point pt;
@@ -915,65 +977,97 @@ namespace ECC {
 				*phpRes << pt;
 		}
 
-		bool CreatePts(Point::Compact* pPts, Point::Native& gpos, uint32_t nLevels, Oracle& oracle, Point::Compact::Converter& cpc)
+		void Obscured::Initialize(const Point::Native& p, Oracle& oracle, Point::Compact::Converter& cpc)
 		{
-			Point::Native nums, npos, pt;
-			CreatePointNnz(nums, oracle, NULL);
+			while (!InitializeTry(p, oracle, cpc))
+				; // very unlikely to happen
+		}
 
-			nums += gpos;
-			npos = nums;
+		bool Obscured::InitializeTry(const Point::Native& p, Oracle& oracle, Point::Compact::Converter& cpc)
+		{
+			Point::Native nums;
+			CreatePointNnz(nums, oracle, nullptr);
 
-			for (uint32_t iLev = 1; ; iLev++)
+			oracle >> m_AddScalar;
+
+			const auto* pAddSrc = m_AddScalar.get().d;
+			const uint32_t nWordsBits = sizeof(*pAddSrc) * 8;
+
+			Point::Native pLevel[nPointsPerLevel - 1];
+			pLevel[0] = p;
+
+			Point::Native pt2, ptAdd(Zero);
+
+			auto* pDst = m_pPts;
+
+			for (uint32_t iBit = 0; ; )
 			{
-				pt = npos;
-
-				for (uint32_t iPt = 1; ; iPt++)
+				for (uint32_t i = 1; i < nPointsPerLevel - 1; i++)
 				{
-					if (pt == Zero)
-						return false;
-
-					cpc.set_Deferred(*pPts++, pt);
-
-					if (iPt == nPointsPerLevel)
-						break;
-
-					pt += gpos;
+					if (1u & i)
+						pLevel[i] = pLevel[i >> 1] * Two;
+					else
+						pLevel[i] = pLevel[i - 1] + pLevel[0];
 				}
 
-				if (iLev == nLevels)
+				uint32_t nAddMsk = (pAddSrc[iBit / nWordsBits] >> (iBit & (nWordsBits - 1))) & (nPointsPerLevel - 1);
+				if (nAddMsk)
+					ptAdd += pLevel[nAddMsk - 1];
+
+				iBit += nBitsPerLevel;
+				bool bLast = (iBit == nBits);
+				if (bLast)
+				{
+					nums = -ptAdd;
+					if (nums == Zero)
+						return false;
+				}
+
+				for (uint32_t i = 0; i < nPointsPerLevel; i++)
+				{
+					pt2 = nums;
+					if (i)
+					{
+						pt2 += pLevel[i - 1];
+						if (pt2 == Zero)
+							return false;
+					}
+
+					cpc.set_Deferred(pDst[i], pt2);
+				}
+
+				if (bLast)
 					break;
 
-				for (uint32_t i = 0; i < nBitsPerLevel; i++)
-					gpos = gpos * Two;
-
-				npos = npos * Two;
-				if (iLev + 1 == nLevels)
-				{
-					npos = -npos;
-					npos += nums;
-				}
+				pLevel[0] = pLevel[(nPointsPerLevel - 1) >> 1] * Two;
+				ptAdd += nums;
+				pDst += nPointsPerLevel;
 			}
 
 			return true;
 		}
 
-		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords)
+		void Obscured::SetMul(Point::Native& res, bool bSet, const Scalar::Native& sk) const
 		{
+			Scalar::Native sk2 = sk + m_AddScalar;
+
+			const Scalar::Native::uint* p = sk2.get().d;
+			const uint32_t nWords = _countof(sk2.get().d);
+
 			static_assert(8 % nBitsPerLevel == 0, "");
-			const int nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
+			const uint32_t nLevelsPerWord = (sizeof(Scalar::Native::uint) << 3) / nBitsPerLevel;
 			static_assert(!(nLevelsPerWord & (nLevelsPerWord - 1)), "should be power-of-2");
 
+			const auto* pPts = m_pPts;
 			NoLeak<Point::Compact> ge_s;
 
-			// iterating in lsb to msb order
-			for (int iWord = 0; iWord < nWords; iWord++)
+			for (uint32_t iWord = 0; iWord < nWords; iWord++)
 			{
 				Scalar::Native::uint n = p[iWord];
 
-				for (int j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel)
+				for (uint32_t j = 0; j < nLevelsPerWord; j++, pPts += nPointsPerLevel, n >>= nBitsPerLevel)
 				{
 					uint32_t nSel = (nPointsPerLevel - 1) & n;
-					n >>= nBitsPerLevel;
 
 					/** This uses a conditional move to avoid any secret data in array indexes.
 					*   _Any_ use of secret indexes has been demonstrated to result in timing
@@ -1005,70 +1099,6 @@ namespace ECC {
 						res += *pSel;
 				}
 			}
-		}
-
-		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native& k)
-		{
-			SetMul(res, bSet, pPts, k.get().d, _countof(k.get().d));
-		}
-
-		void GeneratePts(const Point::Native& pt, Oracle& oracle, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter& cpc)
-		{
-			while (true)
-			{
-				Point::Native pt2 = pt;
-				if (CreatePts(pPts, pt2, nLevels, oracle, cpc))
-					break;
-			}
-		}
-
-		void Obscured::Initialize(const Point::Native& pt, Oracle& oracle, Point::Compact::Converter& cpc)
-		{
-			Point::Native pt2;
-			while (true)
-			{
-				pt2 = pt;
-				if (CreatePts(m_pPts, pt2, nLevels, oracle, cpc))
-					break;
-			}
-
-			oracle >> m_AddScalar;
-
-			cpc.Flush(); // using self
-
-			Generator::SetMul(pt2, true, m_pPts, m_AddScalar); // pt2 = G * blind
-			cpc.set_Deferred(m_AddPt, pt2);
-
-			m_AddScalar = -m_AddScalar;
-		}
-
-		void Obscured::AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native& k) const
-		{
-			if (Mode::Secure == g_Mode)
-			{
-				m_AddPt.Assign(res, bSet);
-
-				kTmp = k + m_AddScalar;
-
-				Generator::SetMul(res, false, m_pPts, kTmp);
-			}
-			else
-				Generator::SetMul(res, bSet, m_pPts, k);
-		}
-
-		template <>
-		void Obscured::Mul<Scalar::Native>::Assign(Point::Native& res, bool bSet) const
-		{
-			Scalar::Native k2;
-			me.AssignInternal(res, bSet, k2, k);
-		}
-
-		template <>
-		void Obscured::Mul<Scalar>::Assign(Point::Native& res, bool bSet) const
-		{
-			Scalar::Native k2;
-			k2.Import(k); // don't care if overflown (still valid operation)
-			me.AssignInternal(res, bSet, k2, k2);
 		}
 
 	} // namespace Generator
@@ -1781,10 +1811,15 @@ namespace ECC {
 		Generator::CreatePointNnz(H_raw, oracle, &hpRes);
 		Generator::CreatePointNnz(J_raw, oracle, &hpRes);
 
-
 		ctx.G.Initialize(G_raw, oracle, cpc);
-		ctx.H.Initialize(H_raw, oracle, cpc);
-		ctx.H_Big.Initialize(H_raw, oracle, cpc);
+
+		// for historical reasons
+		for (uint32_t i = 0; i < 2; i++)
+		{
+			Point::Native ptDummy;
+			Generator::CreatePointNnz(ptDummy, oracle, nullptr);
+		}
+		ctx.H.Initialize(H_raw, cpc);
 		ctx.J.Initialize(J_raw, oracle, cpc);
 
 		cpc.Flush();
@@ -1850,7 +1885,8 @@ namespace ECC {
 			<< uint32_t(2) // increment this each time we change signature formula (rangeproof and etc.)
 			>> ctx.m_hvChecksum;
 
-		ctx.m_Sig.m_GenG.m_pGen = &ctx.G;
+		ctx.m_Sig.m_GenG.m_pGen_s = &ctx.G;
+		ctx.m_Sig.m_GenG.m_pGen_f = nullptr;
 		ctx.m_Sig.m_GenG.m_pGenPrep = &ctx.m_Ipp.G_;
 		ctx.m_Sig.m_GenG.m_nBatchIdx = InnerProduct::BatchContext::s_Idx_G;
 
@@ -1860,13 +1896,15 @@ namespace ECC {
 
 		ctx.m_Sig.m_pGenGJ[0] = ctx.m_Sig.m_GenG;
 
-		ctx.m_Sig.m_pGenGJ[1].m_pGen = &ctx.J;
+		ctx.m_Sig.m_pGenGJ[1].m_pGen_s = &ctx.J;
+		ctx.m_Sig.m_pGenGJ[1].m_pGen_f = nullptr;
 		ctx.m_Sig.m_pGenGJ[1].m_pGenPrep = &ctx.m_Ipp.J_;
 		ctx.m_Sig.m_pGenGJ[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_J;
 
 		ctx.m_Sig.m_pGenGH[0] = ctx.m_Sig.m_GenG;
 
-		ctx.m_Sig.m_pGenGH[1].m_pGen = &ctx.H_Big;
+		ctx.m_Sig.m_pGenGH[1].m_pGen_s = nullptr;
+		ctx.m_Sig.m_pGenGH[1].m_pGen_f = &ctx.H;
 		ctx.m_Sig.m_pGenGH[1].m_pGenPrep = &ctx.m_Ipp.H_;
 		ctx.m_Sig.m_pGenGH[1].m_nBatchIdx = InnerProduct::BatchContext::s_Idx_H;
 
@@ -2400,10 +2438,16 @@ namespace ECC {
 
 	void SignatureBase::SetNoncePub(const Config& cfg, const Scalar::Native* pNonce)
 	{
-		Point::Native pubNonce = (*cfg.m_pG[0].m_pGen) * pNonce[0];
+		Point::Native pubNonce(Zero);
 
-		for (uint32_t iG = 1; iG < cfg.m_nG; iG++)
-			pubNonce += (*cfg.m_pG[iG].m_pGen) * pNonce[iG];
+		for (uint32_t iG = 0; iG < cfg.m_nG; iG++)
+		{
+			const auto& g = cfg.m_pG[iG];
+			if (g.m_pGen_s)
+				pubNonce += (*g.m_pGen_s) * pNonce[iG];
+			else
+				pubNonce += (*g.m_pGen_f) * pNonce[iG];
+		}
 
 		m_NoncePub = pubNonce;
 	}

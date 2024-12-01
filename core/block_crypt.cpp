@@ -2013,7 +2013,7 @@ namespace beam
 			{
 				ECC::Scalar s;
 				s.m_Value.FromNumber(x);
-				res += ECC::Context::get().H_Big * s;
+				res += ECC::Context::get().H * ECC::Scalar::Native(s);
 			}
 			else
 			{

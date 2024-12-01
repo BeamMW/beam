@@ -1050,7 +1050,7 @@ namespace beam::wallet
                 if (krn.m_pAsset)
                     comm = plus.m_hGen * m_Prover.m_Witness.m_R_Output;
                 else
-                    comm = ECC::Context::get().H_Big * m_Prover.m_Witness.m_R_Output;
+                    comm = ECC::Context::get().H * m_Prover.m_Witness.m_R_Output;
 
                 comm.Export(Cast::Reinterpret<ECC::Point>(msgOut2.m_NoncePub));
             }
