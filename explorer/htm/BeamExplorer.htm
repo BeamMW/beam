@@ -84,6 +84,9 @@
     --color_small_collapsible: #b8bbd8;
     --color_small_collapsible_hover: #8c94e0;
     --color_small_collapsible_text: black;
+    --color_config_collapsible_title: black;
+    --color_config_collapsible_text: black;
+    --color_config_collapsible_description: grey;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -171,6 +174,9 @@
     --color_small_collapsible: #a2a6ca;
     --color_small_collapsible_hover: #8c94e0;
     --color_small_collapsible_text: black;
+    --color_config_collapsible_title: #ddd;
+    --color_config_collapsible_text: black;
+    --color_config_collapsible_description: grey;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -794,7 +800,6 @@
   /* Smaller compact collapsible header */
   .collapsible-label.small {
     display: block;
-    width: fit-content; /* Uses only its own needed width */
     min-width: unset; /* no min width for small collapsible labels */
     font-size: 1.2rem;
     color: var(--color_small_collapsible_text);
@@ -830,9 +835,84 @@
     border: 0.5px solid var(--color_collapsible); /* Add a thin border */
   }
   .collapsible-content.small {
-    display: block;
     background-color: unset; /* No specific background color for small collapsibles */
     border: none; /* No border for small collapsibles */
+  }
+  /* Column config collapsible header */
+  .collapsible.columnConfig {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  .collapsible-label.columnConfig { /* remove default behavior of the other collapsibles */
+    min-width: unset;
+    background-color: unset;
+    color: var(--color_config_collapsible_title);
+    font-size: 1.3rem;
+    margin: 0;
+    padding: 2px 5px 0px 5px;
+    border-radius: 0;
+  }
+  .collapsible-label.columnConfig:hover { /* remove default behavior of the other collapsibles */
+    background-color: unset;
+  }
+  .collapsible-content.columnConfig {
+    color: var(--color_config_collapsible_text);
+    padding: 2px 2px 5px 2px;
+    margin: 5px 0 10px 0;
+    vertical-align: middle;
+  }
+  #columnSelectionForm { /* Form */
+    /* Nothing special */
+  }
+  #allSelection, #currentSelection, #defaultSelection, #applySelection { /* Buttons */
+    cursor: pointer;
+    margin: 2px 2px 2px 2px;
+    padding: 5px 10px 5px 10px;
+  }
+  #applySelection {
+    margin-left: 50px;
+    padding: 5px 15px 5px 15px;
+    font-weight: bold;
+  }
+  .showDescription { /* Container for the 'Show details' Icon */
+    /* Nothing special */
+  }
+  .showDescription svg { /* 'Show details' Icon */
+    cursor: pointer;
+    height: 2.5rem;
+    width: 2.5rem;
+    fill: var(--color_eye_icons);
+    margin: 0 5px 0 5px;
+    padding-bottom: 5px;
+    vertical-align: middle;
+  }
+  .showDescription:hover svg { /* Highlight symbol when hovering on it */
+    fill: var(--color_eye_icons_hover);
+  }
+  .columnOptions { /* Checkboxes group: Displayed as an invisble auto-fitting table */
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    grid-template-rows: auto;
+    margin-top: 5px;
+  }
+  .columnOption { /* Checkboxes and labels: Displayed as small invisble tables to keep text well aligned */
+    font-size: 1.3rem;
+    display: table;
+  }
+  .columnOptionCheckbox { /* Checkboxes */
+    display: table-cell;
+    width: min-content;
+  }
+  .columnOptionText { /* Checkboxes text */
+    display: table-cell;
+    width: 100%;
+  }
+  .columnOptionDescription { /* Checkboxes detailed description (hidden by default) */
+    display: block;
+    color: var(--color_config_collapsible_description);
+    padding-top: 2px;
+    padding-bottom: 10px;
   }
 
   /* SPECIAL HISTORICAL BLOCKS */
@@ -1012,7 +1092,7 @@
           </a>
         </span>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.6</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
@@ -1254,38 +1334,11 @@
     if (typeof obj === 'string') {
       // If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
-
-      // We can make here some changes to the default labels in table header, and also add some tooltips!
-      else if (obj == 'Height') { return '<span title="Block height">Height</span>' }
-      else if (obj == 'Hash') { return '<span title="Block hash">Hash</span>' }
-      else if (obj == 'd.Time') { return '<span title="Block duration (in seconds)">Time</span>' }
-      else if (obj == 'Timestamp') { return '<span title="Block timestamp (UTC)">Timestamp</span>' }
-      else if (obj == 'Age') { return '<span title="Age (in seconds since genesis)">Age</span>' }
-      else if (obj == 'd.Age') { return '<span title="Block duration (in seconds)">Duration</span>' }
-      else if (obj == 'Difficulty') { return '<span title="Block difficulty">Difficulty</span>' }
-      else if (obj == 'Chainwork') { return '<span title="Total difficulty since genesis">Chainwork</span>' }
-      else if (obj == 'Fee') { return '<span title="Fees paid in the block (in Beam)">Fees</span>' }
-      else if (obj == 'T.Fee') { return '<span title="Total fees paid since genesis (in Beam)">Total fees</span>' }
-      else if (obj == 'Txs') { return '<span title="Number of transactions (kernels) in the block">Txs</span>' }
-      else if (obj == 'T.Txs') { return '<span title="Total number of transactions (kernels) since genesis">Total txs</span>' }
-      else if (obj == 'MW.Inputs') { return '<span title="Number of MimbleWimble inputs in the block">MW in</span>' }
-      else if (obj == 'T.MW.Inputs') { return '<span title="Total number of MimbleWimble inputs since genesis">Total MW in</span>' }
-      else if (obj == 'MW.Outputs') { return '<span title="Number of MimbleWimble outputs in the block">MW out</span>' }
-      else if (obj == 'T.MW.Outputs') { return '<span title="Total number of MimbleWimble outputs since genesis">Total MW out</span>' }
-      else if (obj == 'MW.Utxos') { return '<span title="Change in the number of unspent MimbleWimble UTXOs (i.e. outputs minus inputs in the block)">MW UTXOs</span>' }
-      else if (obj == 'T.MW.Utxos') { return '<span title="Total number of unspent MimbleWimble UTXOs in the chain">Total MW UTXOs</span>' }
-      else if (obj == 'SH.Inputs') { return '<span title="Number of inputs in the block coming from the Lelantus Shielded Pool">SH in</span>' }
-      else if (obj == 'T.SH.Inputs') { return '<span title="Total number of inputs spent from the Lelantus Shielded Pool since genesis">Total SH inputs</span>' }
-      else if (obj == 'SH.Outputs') { return '<span title="Number of outputs in the block sent to the Lelantus Shielded Pool">SH out</span>' }
-      else if (obj == 'T.SH.Outputs') { return '<span title="Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of UTXOs in the Shielded Pool)">Total SH out</span>' }
-      else if (obj == 'Contracts') { return '<span title="Number of new smart contracts deployed in the block">New contracts</span>' }
-      else if (obj == 'T.Contracts') { return '<span title="Total number of smart contracts deployed in the blockchain">Total contracts</span>' }
-      else if (obj == 'ContractCalls') { return '<span title="Number of smart contract calls in the block">Contract calls</span>' }
-      else if (obj == 'T.ContractCalls') { return '<span title="Total number of smart contract calls since genesis">Total contract calls</span>' }
-      else if (obj == 'D.Size.Compressed') { return '<span title="Blockchain size increase (in Bytes). Since the UTXOs spent in the block are removed, blockchain size can sometimes decrease!">Size variation</span>' }
-      else if (obj == 'Size.Compressed') { return '<span title="Total blockchain size (in Bytes)">Total size</span>' }
-      else if (obj == 'D.Size.Archive') { return '<span title="Block size if the spent UTXOs are kept (in Bytes)">Archive size</span>' }
-      else if (obj == 'Size.Archive') { return '<span title="Total blockchain size if the spent UTXOs are kept (in Bytes)">Total archive size</span>' }
+      // We also make here some changes to the default labels in table header, and also add descriptions in tooltips
+      for (let n in columnHeaders) {
+        let item = columnHeaders[n];
+        if (obj == item.original) { return "<span title='" + item.description + "'>" + item.title + "</span>" }
+      }
     }
 
     return obj;
@@ -1808,8 +1861,32 @@
     text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"), 'olderBlocks', "title='Previous blocks'");
     text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
     text += '</h2>\n';
-    text += "<div class='divTableBlocks'>";
 
+    // Column selection
+    text += MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
+    text += "<form id='columnSelectionForm' name='columnSelectionForm'>";
+    text += "<button type='button' id='allSelection'>All/None</button>";
+    text += "<button type='button' id='currentSelection'>Current</button>";
+    text += "<button type='button' id='defaultSelection'>Default</button>";
+    text += "<span class='showDescription' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></span>";
+    text += "<button type='submit' id='applySelection'>Apply</button>";
+    text += "<div class='columnOptions'>";
+    // List of checkboxes
+    for (let n in columnHeaders) {
+      let item = columnHeaders[n];
+      if (n == 0) {
+        // First item (block height) is mandatory (checkbox checked and disabled)
+        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='Always displayed' name='" + item.code + "' value='" + item.code + "' checked disabled><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription'>" + item.description + "</span></span></label></div>";
+      } else {
+        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' name='" + item.code + "' value='" + item.code + "'><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription'>" + item.description + "</span></span></label></div>";
+      }
+    }
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    // Main table
+    text += "<div class='divTableBlocks'>";
     text += Obj2Html(jData);
     text += '</div>';
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
@@ -1900,6 +1977,40 @@
 <!-- ************ SECTION 4 - MAIN JS CODE ************ -->
 <script>
   // GLOBAL VARIABLES
+
+  // Array of codes, names and descriptions for the Block Header columns
+  const columnHeaders = [
+    { code: "", original: "Height", title: "Height", description: "Block height" },
+    { code: "H", original: "Hash", title: "Hash", description: "Block hash" },
+    { code: "t", original: "d.Time", title: "Time", description: "Block duration (in seconds)" },
+    { code: "T", original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
+    { code: "g", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
+    { code: "G", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
+    { code: "d", original: "Difficulty", title: "Difficulty", description: "Block difficulty" },
+    { code: "D", original: "Chainwork", title: "Chainwork", description: "Total difficulty since genesis" },
+    { code: "f", original: "Fee", title: "Fees", description: "Block fees (in Beams)" },
+    { code: "F", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
+    { code: "k", original: "Txs", title: "Txs", description: "Number of transactions (kernels) in the block" },
+    { code: "K", original: "T.Txs", title: "Total txs", description: "Total number of transactions (kernels) since genesis" },
+    { code: "i", original: "MW.Inputs", title: "MW in", description: "Number of MimbleWimble inputs in the block" },
+    { code: "I", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of MimbleWimble inputs since genesis" },
+    { code: "o", original: "MW.Outputs", title: "MW out", description: "Number of MimbleWimble outputs in the block" },
+    { code: "O", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of MimbleWimble outputs since genesis" },
+    { code: "u", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. outputs minus inputs in the block)" },
+    { code: "U", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent MimbleWimble UTXOs in the blockchain" },
+    { code: "y", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
+    { code: "Y", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
+    { code: "z", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
+    { code: "Z", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of UTXOs in the Shielded Pool)" },
+    { code: "b", original: "Contracts", title: "New contracts", description: "Number of new smart contracts deployed in the block" },
+    { code: "B", original: "T.Contracts", title: "Total contracts", description: "Total number of smart contracts deployed in the blockchain" },
+    { code: "p", original: "ContractCalls", title: "Contract calls", description: "Number of smart contract calls in the block" },
+    { code: "P", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of smart contract calls since genesis" },
+    { code: "c", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in Bytes)" },
+    { code: "C", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in Bytes)" },
+    { code: "a", original: "D.Size.Archive", title: "Archive size", description: "Block size if all spent UTXOs are kept (in Bytes)" },
+    { code: "A", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size if all spent UTXOs are kept (in Bytes)" }
+  ];
 
   // Array of objects listing the special historical blocks.
   // Remarks:
@@ -2128,26 +2239,9 @@
       xmlhttp.onload = DisplayContractState;
 
     } else if (g_type == 'hdrs') { // Arguments for 'hdrs': cols, hMax, nMax, dh
-      // The codes for 'cols' are the following (lowercase if relative, uppercase if absolute).
-      // Remark: The data will be provided in the same order.
-      // Example to see all possible columns: cols=HtTgGdDfFkKiIoOuUyYzZbBpPcCaA
-      // First column is always the block height
-      // H = Hash
-      // t|T = block duration (in seconds) | Timestamp (date and time)
-      // g|G = Block duration (in seconds) | Blockchain age (in seconds)
-      // d|D = Difficulty | Chainwork
-      // f|F = Fee | Total fees
-      // k|K = Txs (kernels) | Total txs
-      // i|I = MW inputs | Total MW inputs
-      // o|O = MW outputs | Total MW outputs
-      // u|U = MW UTXOs | Total MW UTXOs
-      // y|Y = Shielded inputs | Total Shielded inputs
-      // z|Z = Shielded outputs | Total Shielded outputs
-      // b|B = New contracts | Total active contracts
-      // p|P = Contract calls | Total contract calls
-      // c|C = Variation of compressed size | Total compressed size
-      // a|A = Change of archive size | Total archive size
-
+      // See Global Variables for the codes for 'cols'.
+      // The data will be provided in the same order as in 'cols'.
+      // Example to see ALL possible columns: cols=HtTgGdDfFkKiIoOuUyYzZbBpPcCaA
       if (!g_cols) { g_cols = 'THdfkioyzp' } // Default columns
       if (!g_nMax) { g_nMax = 100 }
       urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax;
@@ -2381,10 +2475,10 @@
       // Ignore tables of certain specific classes
       if (!myTable.classList.contains('tableTotals') && !myTable.classList.contains('tableSummary') && !myTable.closest('.divTableStatus')) {
         let myRow = myTable.rows[0];
-        // If all cells of the first row are <th> or have a span with a "th" class, then mark the row as header.
+        // If first row exists and all its cells are <th> or have a span with a "th" class, then mark the row as header.
         // We also enforce the use of <thead> to ensure that the row won't be included in the tbodies that will be filtered and sorted.
         // And since Chrome 83 (as in Beam Wallet) can only do 'sticky' on 'th' elements, we also change all its 'td' into 'th'.
-        if (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length) {
+        if (myRow && (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length)) {
           // If that first row is not already inside a thead (which means it's implicitely inside a tbody), then create a thead and move the row inside it.
           if (myRow.parentNode.nodeName != 'THEAD') {
             let myTHead = myTable.createTHead();
