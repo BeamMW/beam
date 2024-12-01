@@ -26,7 +26,6 @@ namespace beam::wallet
     class LocalPrivateKeyKeeper2
         : public PrivateKeyKeeper_AsyncNotify
     {
-        static Status::Type ToImage(ECC::Point::Native& res, uint32_t iGen, const ECC::Scalar::Native& sk);
         static void UpdateOffset(Method::TxCommon&, const ECC::Scalar::Native& kDiff, const ECC::Scalar::Native& kKrn);
 
         struct Aggregation;

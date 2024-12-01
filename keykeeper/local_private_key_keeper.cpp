@@ -29,23 +29,6 @@ namespace beam::wallet
     {
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::ToImage(Point::Native& res, uint32_t iGen, const Scalar::Native& sk)
-    {
-        const Generator::Obscured* pGen;
-
-        switch (iGen)
-        {
-        case 0: pGen = &Context::get().G; break;
-        case 1: pGen = &Context::get().J; break;
-        case 2: pGen = &Context::get().H_Big; break;
-        default:
-            return Status::Unspecified;
-        }
-
-        res = (*pGen) * sk;
-        return Status::Success;
-    }
-
     struct LocalPrivateKeyKeeper2::Aggregation
     {
         LocalPrivateKeyKeeper2& m_This;
