@@ -875,10 +875,10 @@
     padding: 5px 15px 5px 15px;
     font-weight: bold;
   }
-  .showDescription { /* Container for the 'Show details' Icon */
+  #toggleDescriptions { /* Container for the 'Show details' Icon */
     /* Nothing special */
   }
-  .showDescription svg { /* 'Show details' Icon */
+  #toggleDescriptions svg { /* 'Show details' Icon */
     cursor: pointer;
     height: 2.5rem;
     width: 2.5rem;
@@ -887,7 +887,7 @@
     padding-bottom: 5px;
     vertical-align: middle;
   }
-  .showDescription:hover svg { /* Highlight symbol when hovering on it */
+  #toggleDescriptions:hover svg { /* Highlight symbol when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
   .columnOptions { /* Checkboxes group: Displayed as an invisble auto-fitting table */
@@ -908,11 +908,14 @@
     display: table-cell;
     width: 100%;
   }
-  .columnOptionDescription { /* Checkboxes detailed description (hidden by default) */
+  .columnOptionDescription { /* Show checkboxes descriptions */
     display: block;
     color: var(--color_config_collapsible_description);
     padding-top: 2px;
     padding-bottom: 10px;
+  }
+  .columnOptionDescription.hidden { /* Hide checkboxes descriptions (default) */
+    display:none;
   }
 
   /* SPECIAL HISTORICAL BLOCKS */
@@ -1868,7 +1871,7 @@
     text += "<button type='button' id='allSelection'>All/None</button>";
     text += "<button type='button' id='currentSelection'>Current</button>";
     text += "<button type='button' id='defaultSelection'>Default</button>";
-    text += "<span class='showDescription' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></span>";
+    text += "<a href='javascript:showDescriptions();' id='toggleDescriptions' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a>";
     text += "<button type='submit' id='applySelection'>Apply</button>";
     text += "<div class='columnOptions'>";
     // List of checkboxes
@@ -1876,9 +1879,9 @@
       let item = columnHeaders[n];
       if (n == 0) {
         // First item (block height) is mandatory (checkbox checked and disabled)
-        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='Always displayed' name='" + item.code + "' value='" + item.code + "' checked disabled><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription'>" + item.description + "</span></span></label></div>";
+        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='Always displayed' name='" + item.code + "' value='" + item.code + "' checked disabled><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription hidden'>" + item.description + "</span></span></label></div>";
       } else {
-        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' name='" + item.code + "' value='" + item.code + "'><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription'>" + item.description + "</span></span></label></div>";
+        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' name='" + item.code + "' value='" + item.code + "'><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription hidden'>" + item.description + "</span></span></label></div>";
       }
     }
     text += "</div>";
@@ -2417,6 +2420,28 @@
     }
   }
 
+  function showDescriptions() {
+    // Show all descriptions of the column selection checkboxes
+    for (let myItem of document.querySelectorAll('.columnOptionDescription')) {
+      myItem.classList.remove('hidden');
+      // Switch action of the clickable symbol
+      let icon = document.querySelector('#toggleDescriptions');
+      icon.setAttribute('href', 'javascript:hideDescriptions();');
+      icon.setAttribute('title', 'Hide details');
+    }
+  }
+
+  function hideDescriptions() {
+    // Hide all descriptions of the column selection checkboxes
+    for (let myItem of document.querySelectorAll('.columnOptionDescription')) {
+      myItem.classList.add('hidden');
+      // Switch action of the clickable symbol
+      let icon = document.querySelector('#toggleDescriptions');
+      icon.setAttribute('href', 'javascript:showDescriptions();');
+      icon.setAttribute('title', 'Show details');
+    }
+  }
+
   function expandEverything() {
     // Expand all truncated Hashes
     for (let myItem of document.querySelectorAll('.truncated')) {
@@ -2437,6 +2462,8 @@
     // Expand all small and special collapsible blocks
     for (let myItem of document.querySelectorAll('.collapsible.small')) { myItem.open = true }
     for (let myItem of document.querySelectorAll('.collapsible.special')) { myItem.open = true }
+    // Show colum selection descriptions
+    showDescriptions();
     // Switch action of the main clickable symbol
     let icon = document.querySelector('#ExpandAll');
     icon.setAttribute('href', 'javascript:truncateEverything();');
@@ -2463,6 +2490,8 @@
     // Collapse all small and special collapsible blocks
     for (let myItem of document.querySelectorAll('.collapsible.small')) { myItem.open = false }
     for (let myItem of document.querySelectorAll('.collapsible.special')) { myItem.open = false }
+    // Hide colum selection descriptions
+    hideDescriptions();
     // Switch action of the main clickable symbol
     let icon = document.querySelector('#ExpandAll');
     icon.setAttribute('href', 'javascript:expandEverything();');
