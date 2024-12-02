@@ -1108,11 +1108,9 @@
           </div>
           <div id="SearchArea">
             <!-- Search field -->
-            <form id="SearchForm" name="SearchForm">
+            <form id="SearchForm" name="SearchForm" action="javascript:submitSearch();">
               <input id="SearchField" type="text" required value="" size="66" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
               <button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
-              <!-- Take over form submission -->
-              <script>document.getElementById("SearchForm").addEventListener("submit", (event) => {event.preventDefault(); submitSearch()});</script>
             </form>
           </div>
         </div>
