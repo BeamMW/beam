@@ -1468,17 +1468,26 @@ private:
         }
     };
 
-    void get_LockedFunds(json& jArr, const bvm2::ContractID& cid)
-    {
 #pragma pack (push, 1)
-        struct KeyFund
-        {
-            bvm2::ContractID m_Cid;
-            uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
-            uintBigFor<Asset::ID>::Type m_Aid;
-        };
+    struct KeyFund
+    {
+        bvm2::ContractID m_Cid;
+        uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
+        uintBigFor<Asset::ID>::Type m_Aid;
+    };
 #pragma pack (pop)
 
+    static bool get_ValueFromContract(AmountBig::Number& res, const Blob& b)
+    {
+        if (sizeof(AmountBig::Type) != b.n)
+            return false;
+
+        res = reinterpret_cast<const AmountBig::Type*>(b.p)->ToNumber();
+        return true;
+    }
+
+    void get_LockedFunds(json& jArr, const bvm2::ContractID& cid)
+    {
         KeyFund k0, k1;
         k0.m_Cid = cid;
         k0.m_Aid = Zero;
@@ -1488,15 +1497,19 @@ private:
         NodeDB::WalkerContractData wlk;
         for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
         {
-            if ((sizeof(KeyFund) != wlk.m_Key.n) || (sizeof(AmountBig::Type) != wlk.m_Val.n))
+            if (sizeof(KeyFund) != wlk.m_Key.n)
                 continue;
 
             Asset::ID aid;
             reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
 
+            AmountBig::Number valLocked;
+            if (!get_ValueFromContract(valLocked, wlk.m_Val))
+                continue;
+
             json jEntry = json::array();
             jEntry.push_back(MakeObjAid(aid));
-            jEntry.push_back(MakeObjAmount(reinterpret_cast<const AmountBig::Type*>(wlk.m_Val.p)->ToNumber()));
+            jEntry.push_back(MakeObjAmount(valLocked));
 
             jArr.push_back(std::move(jEntry));
         }
@@ -1552,24 +1565,33 @@ private:
 
         if (wr.m_json.find("kind") == wr.m_json.end())
             AssignField(wr.m_json, "kind", MakeObjBlob(sid));
-
     }
 
-    json get_contracts() override
+#pragma pack (push, 1)
+    struct SidCid
     {
-        json j;
+        bvm2::ShaderID m_Sid;
+        bvm2::ContractID m_Cid;
+    };
+#pragma pack (pop)
 
+    struct LatestContractList
+    {
+        LatestContractList() { ZeroObject(m_Sid); }
+
+        Block::SystemState::ID m_Sid;
+        std::vector<std::pair<SidCid, Height> > m_vec;
+    } m_LatestContractList;
+
+    void RefreshContractList()
+    {
 #pragma pack (push, 1)
         struct KeyEntry
         {
             bvm2::ContractID m_Zero;
             uint8_t m_Tag;
 
-            struct SidCid
-            {
-                bvm2::ShaderID m_Sid;
-                bvm2::ContractID m_Cid;
-            } m_SidCid;
+            SidCid m_SidCid;
         };
 #pragma pack (pop)
 
@@ -1581,21 +1603,34 @@ private:
         k1.m_Tag = Shaders::KeyTag::SidCid;
         memset(reinterpret_cast<void*>(&k1.m_SidCid), 0xff, sizeof(k1.m_SidCid));
 
-        std::vector<std::pair<KeyEntry::SidCid, Height> > vIDs;
+        m_LatestContractList.m_vec.clear();
 
+
+        NodeDB::WalkerContractData wlk;
+        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
         {
-            NodeDB::WalkerContractData wlk;
-            for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
-            {
-                if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
-                    continue;
+            if ((sizeof(KeyEntry) != wlk.m_Key.n) || (sizeof(Height) != wlk.m_Val.n))
+                continue;
 
-                auto& x = vIDs.emplace_back();
-                x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
-                (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
-            }
+            auto& x = m_LatestContractList.m_vec.emplace_back();
+            x.first = reinterpret_cast<const KeyEntry*>(wlk.m_Key.p)->m_SidCid;
+            (reinterpret_cast<const uintBigFor<Height>::Type*>(wlk.m_Val.p))->Export(x.second);
         }
 
+    }
+
+    const std::vector<std::pair<SidCid, Height> >& get_contracts_vec()
+    {
+        if (m_LatestContractList.m_Sid != _nodeBackend.m_Cursor.m_ID)
+        {
+            RefreshContractList();
+            m_LatestContractList.m_Sid = _nodeBackend.m_Cursor.m_ID;
+        }
+        return m_LatestContractList.m_vec;
+    }
+
+    json get_contracts() override
+    {
         json out = json::array();
         out.push_back(json::array({
             MakeTableHdr("Cid"),
@@ -1605,6 +1640,7 @@ private:
             MakeTableHdr("Owned Assets"),
         }));
 
+        const auto& vIDs = get_contracts_vec();
         for (const auto& x : vIDs)
         {
             json jItem = json::array();
@@ -1966,11 +2002,19 @@ private:
         }
     };
 
-    json get_asset_history(Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
+    json get_asset_details(Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps) override
     {
         if (!aid)
             Exc::Fail("no aid");
 
+        ExtraInfo::Writer wr;
+        wr.m_json["Asset history"] = get_asset_history(aid, hMin, hMax, nMaxOps);
+        wr.m_json["Asset distribution"] = get_asset_distribution(aid);
+        return wr.m_json;
+    }
+
+    json get_asset_history(Asset::ID aid, Height hMin, Height hMax, uint32_t nMaxOps)
+    {
         AssetHistoryWalker wlk;
         wlk.Enum(_nodeBackend, aid, hMin, hMax, nMaxOps);
 
@@ -2069,9 +2113,81 @@ private:
         if (bMore && (hPrev != MaxHeight))
             MakeTblMore(jTbl, hPrev - 1);
 
-        ExtraInfo::Writer wr;
-        wr.m_json["Asset history"] = std::move(jTbl);
-        return wr.m_json;
+        return jTbl;
+    }
+
+    json get_asset_distribution(Asset::ID aid)
+    {
+        auto& db = _nodeBackend.get_DB();
+
+        AmountBig::Number valTotal;
+        {
+            Asset::Full ai;
+            ai.m_ID = aid;
+            if (db.AssetGetSafe(ai))
+                valTotal = ai.m_Value.ToNumber();
+            else
+                valTotal = Zero;
+        }
+
+        json out = json::array();
+        out.push_back(json::array({
+            MakeTableHdr("Cid"),
+            MakeTableHdr("Kind"),
+            MakeTableHdr("Locked Value"),
+            }));
+
+        KeyFund kf;
+        kf.m_Aid = aid;
+
+        const auto& vIDs = get_contracts_vec();
+        for (const auto& x : vIDs)
+        {
+            AmountBig::Number valLocked;
+
+            {
+                kf.m_Cid = x.first.m_Cid;
+
+                Blob blobVal;
+                NodeDB::Recordset rs;
+                if (!db.ContractDataFind(Blob(&kf, sizeof(kf)), blobVal, rs))
+                    continue;
+
+                if (!get_ValueFromContract(valLocked, blobVal))
+                    continue;
+            }
+
+            json jItem = json::array();
+            jItem.push_back(MakeObjCid(x.first.m_Cid));
+
+            {
+                ExtraInfo::Writer wr;
+                get_ContractDescr(wr, x.first.m_Sid, x.first.m_Cid, false);
+
+                auto it = wr.m_json.find("kind");
+                assert(wr.m_json.end() != it);
+                jItem.push_back(std::move(*it));
+            }
+
+            jItem.push_back(MakeObjAmount(valLocked));
+
+            out.push_back(std::move(jItem));
+
+            valTotal -= valLocked;
+        }
+
+        if (valTotal != Zero)
+        {
+            json jItem = json::array();
+            jItem.push_back("Unlocked");
+            jItem.push_back("");
+            jItem.push_back(MakeObjAmount(valTotal));
+
+            out.push_back(std::move(jItem));
+        }
+
+        return MakeTable(std::move(out));
+
     }
 
     json get_assets_at(Height h) override
