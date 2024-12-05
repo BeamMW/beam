@@ -1876,39 +1876,8 @@
     text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
     text += '</h2>\n';
 
-    // Display column selection options
-    // Remark: We are using backticks (a.k.a template strings) for some strings here because of the mix of single and double quotes inside them
-    text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
-    text += "<form id='columnSelectionForm' name='columnSelectionForm' action='javascript:applyColumnSelection();'>";
-    text += "<button type='submit' id='applySelection' title='Apply and reload with the selected columns'>Apply</button>";
-    text += `<a href='javascript:selectColumns("Current");' class='selectionOption' title='Select current columns'>Current</a>`;
-    text += "<span class='itemSeparator'> | </span>";
-    text += `<a href='javascript:selectColumns("Default");' class='selectionOption' title='Select default columns'>Default</a>`;
-    text += "<span class='itemSeparator'> | </span>";
-    text += `<a href='javascript:selectColumns("All");' id='selectAllColumns' class='selectionOption' title='Select all columns'>All</a>`;
-    text += "<a href='javascript:showDescriptions();' id='toggleDescriptions' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a>";
-    text += "<div class='columnOptions'>";
-    // Make list of all checkboxes
-    let nbr = 0;
-    for (let n in columnHeaders) {
-      let item = columnHeaders[n];
-      nbr += 1;
-      text += "<div class='columnOption'><label title='" + item.description + "'>";
-      if (n == 0) {
-        // First column (the block height) is mandatory: the checkbox is checked and disabled
-        text += "<input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled>";
-      } else {
-        text += "<input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'>";
-      }
-      text += "<span class='columnOptionText'>";
-      text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
-      text += "<span class='columnOptionLabel'>" + item.title + "</span>";
-      text += "<span class='columnOptionDescription hidden'> " + item.description + "</span>";
-      text += "</span></div></label>";
-    }
-    text += "</div>";
-    text += "</form>";
-    text += MakeCollapsibleEnd();
+    // Table parameters
+    text += DisplayHdrsOptions();
 
     // Main table
     text += "<div class='divTableBlocks'>";
@@ -2530,6 +2499,44 @@
   }
 
   // SELECTION OPTIONS FOR THE COLUMN HEADERS CHECKBOXES
+
+  function DisplayHdrsOptions() {
+    // Display column selection options
+    // Remark: We are using backticks (a.k.a template strings) for some strings here because of the mix of single and double quotes inside them
+    let text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
+    text += "<form id='columnSelectionForm' name='columnSelectionForm' action='javascript:applyColumnSelection();'>";
+    text += "<button type='submit' id='applySelection' title='Apply and reload with the selected columns'>Apply</button>";
+    text += `<a href='javascript:selectColumns("Current");' class='selectionOption' title='Select current columns'>Current</a>`;
+    text += "<span class='itemSeparator'> | </span>";
+    text += `<a href='javascript:selectColumns("Default");' class='selectionOption' title='Select default columns'>Default</a>`;
+    text += "<span class='itemSeparator'> | </span>";
+    text += `<a href='javascript:selectColumns("All");' id='selectAllColumns' class='selectionOption' title='Select all columns'>All</a>`;
+    text += "<a href='javascript:showDescriptions();' id='toggleDescriptions' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a>";
+    text += "<div class='columnOptions'>";
+    // Make list of all checkboxes
+    let nbr = 0;
+    for (let n in columnHeaders) {
+      let item = columnHeaders[n];
+      nbr += 1;
+      text += "<div class='columnOption'><label title='" + item.description + "'>";
+      if (n == 0) {
+        // First column (the block height) is mandatory: the checkbox is checked and disabled
+        text += "<input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled>";
+      } else {
+        text += "<input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'>";
+      }
+      text += "<span class='columnOptionText'>";
+      text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
+      text += "<span class='columnOptionLabel'>" + item.title + "</span>";
+      text += "<span class='columnOptionDescription hidden'> " + item.description + "</span>";
+      text += "</span></div></label>";
+    }
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
 
   function selectColumns(param) {
     let string;
