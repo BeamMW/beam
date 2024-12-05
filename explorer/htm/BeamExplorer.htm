@@ -860,20 +860,28 @@
     color: var(--color_config_collapsible_text);
     padding: 2px 2px 5px 2px;
     margin: 5px 0 10px 0;
-    vertical-align: middle;
+    border-radius: 0.4em; /* Slightly round corners */
   }
   #columnSelectionForm { /* Form */
     /* Nothing special */
   }
-  #allSelection, #currentSelection, #defaultSelection, #applySelection { /* Buttons */
+  #applySelection { /* Apply button */
     cursor: pointer;
-    margin: 2px 2px 2px 2px;
-    padding: 5px 10px 5px 10px;
-  }
-  #applySelection {
-    margin-left: 50px;
+    margin: 2px 10px 2px 2px;
     padding: 5px 15px 5px 15px;
     font-weight: bold;
+  }
+  #selectAllColumns { /* One of the selection link (its id is used by the function it calls) */
+    /* Nothing special */
+  }
+  .selectionOption { /* Selection links */
+    cursor: pointer;
+    font-size: 1.3rem;
+    padding: 5px 5px 5px 5px;
+    color: var(--color_config_collapsible_text);
+  }
+  .menuSeparator {
+    color: var(--color_config_collapsible_text);
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
     /* Nothing special */
@@ -883,38 +891,43 @@
     height: 2.5rem;
     width: 2.5rem;
     fill: var(--color_eye_icons);
-    margin: 0 5px 0 5px;
-    padding-bottom: 5px;
+    margin: 5px 10px 0 10px;
     vertical-align: middle;
+    float: right;
   }
   #toggleDescriptions:hover svg { /* Highlight symbol when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
-  .columnOptions { /* Checkboxes group: Displayed as an invisble auto-fitting table */
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    grid-template-rows: auto;
+  .columnOptions { /* Checkboxes group: Displayed in auto-adjusting columns */
+    column-width: 18rem; /* We set the width of the columns and the number of columns will be automatic! */
     margin-top: 5px;
   }
-  .columnOption { /* Checkboxes and labels: Displayed as small invisble tables to keep text well aligned */
+  .columnOption { /* Checkboxes and labels are displayed as small invisble tables to keep all well aligned */
     font-size: 1.3rem;
     display: table;
   }
-  .columnOptionCheckbox { /* Checkboxes */
+  .columnOptionCheckbox, .columnOptionCheckboxDisabled { /* Checkboxes */
     display: table-cell;
     width: min-content;
+    vertical-align: middle;
   }
-  .columnOptionText { /* Checkboxes text */
+  .columnOptionText { /* All text next to each checkbox */
     display: table-cell;
     width: 100%;
   }
-  .columnOptionDescription { /* Show checkboxes descriptions */
+  .columnOptionNumber { /* Option number (and dot) */
+    color: var(--color_config_collapsible_description);
+  }
+  .columnOptionLabel { /* Option label */
+    font-weight: bold;
+  }
+  .columnOptionDescription { /* Option description */
     display: block;
     color: var(--color_config_collapsible_description);
     padding-top: 2px;
     padding-bottom: 10px;
   }
-  .columnOptionDescription.hidden { /* Hide checkboxes descriptions (default) */
+  .columnOptionDescription.hidden { /* Hide option descriptions */
     display:none;
   }
 
@@ -1863,24 +1876,35 @@
     text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
     text += '</h2>\n';
 
-    // Column selection
-    text += MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
-    text += "<form id='columnSelectionForm' name='columnSelectionForm'>";
-    text += "<button type='button' id='allSelection'>All/None</button>";
-    text += "<button type='button' id='currentSelection'>Current</button>";
-    text += "<button type='button' id='defaultSelection'>Default</button>";
+    // Display column selection options
+    // Remark: We are using backticks (a.k.a template strings) for some strings here because of the mix of single and double quotes inside them
+    text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
+    text += "<form id='columnSelectionForm' name='columnSelectionForm' action='javascript:applyColumnSelection();'>";
+    text += "<button type='submit' id='applySelection' title='Apply and reload with the selected columns'>Apply</button>";
+    text += `<a href='javascript:selectColumns("Current");' class='selectionOption' title='Select current columns'>Current</a>`;
+    text += "<span class='itemSeparator'> | </span>";
+    text += `<a href='javascript:selectColumns("Default");' class='selectionOption' title='Select default columns'>Default</a>`;
+    text += "<span class='itemSeparator'> | </span>";
+    text += `<a href='javascript:selectColumns("All");' id='selectAllColumns' class='selectionOption' title='Select all columns'>All</a>`;
     text += "<a href='javascript:showDescriptions();' id='toggleDescriptions' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a>";
-    text += "<button type='submit' id='applySelection'>Apply</button>";
     text += "<div class='columnOptions'>";
-    // List of checkboxes
+    // Make list of all checkboxes
+    let nbr = 0;
     for (let n in columnHeaders) {
       let item = columnHeaders[n];
+      nbr += 1;
+      text += "<div class='columnOption'><label title='" + item.description + "'>";
       if (n == 0) {
-        // First item (block height) is mandatory (checkbox checked and disabled)
-        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='Always displayed' name='" + item.code + "' value='" + item.code + "' checked disabled><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription hidden'>" + item.description + "</span></span></label></div>";
+        // First column (the block height) is mandatory: the checkbox is checked and disabled
+        text += "<input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled>";
       } else {
-        text += "<div><label class='columnOption' title='" + item.description + "'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' name='" + item.code + "' value='" + item.code + "'><span class='columnOptionText'>" + item.title + " <span class='columnOptionDescription hidden'>" + item.description + "</span></span></label></div>";
+        text += "<input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'>";
       }
+      text += "<span class='columnOptionText'>";
+      text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
+      text += "<span class='columnOptionLabel'>" + item.title + "</span>";
+      text += "<span class='columnOptionDescription hidden'> " + item.description + "</span>";
+      text += "</span></div></label>";
     }
     text += "</div>";
     text += "</form>";
@@ -1893,6 +1917,9 @@
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
 
     SetContent(text);
+
+    // Check the checkboxes of the current column selection
+    selectColumns("Current");
   }
 
   function DisplayStatus() {
@@ -1981,9 +2008,9 @@
 
   // Array of codes, names and descriptions for the Block Header columns
   const columnHeaders = [
-    { code: "", original: "Height", title: "Height", description: "Block height" },
+    { code: "h", original: "Height", title: "Height", description: "Block height" },
     { code: "H", original: "Hash", title: "Hash", description: "Block hash" },
-    { code: "t", original: "d.Time", title: "Time", description: "Block duration (in seconds)" },
+    { code: "t", original: "d.Time", title: "Time", description: "Block time (in seconds)" },
     { code: "T", original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
     { code: "g", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
     { code: "G", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
@@ -1997,20 +2024,20 @@
     { code: "I", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of MimbleWimble inputs since genesis" },
     { code: "o", original: "MW.Outputs", title: "MW out", description: "Number of MimbleWimble outputs in the block" },
     { code: "O", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of MimbleWimble outputs since genesis" },
-    { code: "u", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. outputs minus inputs in the block)" },
+    { code: "u", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. block outputs minus inputs)" },
     { code: "U", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent MimbleWimble UTXOs in the blockchain" },
     { code: "y", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
     { code: "Y", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
     { code: "z", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
-    { code: "Z", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of UTXOs in the Shielded Pool)" },
-    { code: "b", original: "Contracts", title: "New contracts", description: "Number of new smart contracts deployed in the block" },
-    { code: "B", original: "T.Contracts", title: "Total contracts", description: "Total number of smart contracts deployed in the blockchain" },
-    { code: "p", original: "ContractCalls", title: "Contract calls", description: "Number of smart contract calls in the block" },
-    { code: "P", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of smart contract calls since genesis" },
-    { code: "c", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in Bytes)" },
-    { code: "C", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in Bytes)" },
-    { code: "a", original: "D.Size.Archive", title: "Archive size", description: "Block size if all spent UTXOs are kept (in Bytes)" },
-    { code: "A", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size if all spent UTXOs are kept (in Bytes)" }
+    { code: "Z", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)" },
+    { code: "b", original: "Contracts", title: "New contracts", description: "Number of Smart Contracts deployed in the block" },
+    { code: "B", original: "T.Contracts", title: "Total contracts", description: "Total number of Smart Contracts deployed since genesis" },
+    { code: "p", original: "ContractCalls", title: "Contract calls", description: "Number of Smart Contract calls in the block" },
+    { code: "P", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of Smart Contract calls since genesis" },
+    { code: "c", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in bytes)" },
+    { code: "C", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in bytes)" },
+    { code: "a", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent MimbleWimble UTXOs were kept" },
+    { code: "A", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent MimbleWimble UTXOs were kept" }
   ];
 
   // Array of objects listing the special historical blocks.
@@ -2184,6 +2211,13 @@
   let g_cols = args.get('cols'); // Only for hdrs
   let g_dh = args.get('dh'); // Only for hdrs
 
+  // If no columns selection was given in the URL, then we look in localStorage.
+  // If nothing is there, then we set a default values.
+  if (!g_cols) { g_cols = localStorage.getItem('columns'); }
+  if (!g_cols) { g_cols = 'THdfkioyzp'; }
+  // Save result in localStorage.
+  localStorage.setItem('columns', g_cols);
+
   // Address of the remote explorer node
   //let urlPrefix = "http://localhost:17328/";
   let urlPrefix = 'http://116.203.118.51:8100/';
@@ -2243,7 +2277,6 @@
       // See Global Variables for the codes for 'cols'.
       // The data will be provided in the same order as in 'cols'.
       // Example to see ALL possible columns: cols=HtTgGdDfFkKiIoOuUyYzZbBpPcCaA
-      if (!g_cols) { g_cols = 'THdfkioyzp' } // Default columns
       if (!g_nMax) { g_nMax = 100 }
       urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax;
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
@@ -2494,6 +2527,59 @@
     let icon = document.querySelector('#ExpandAll');
     icon.setAttribute('href', 'javascript:expandEverything();');
     icon.setAttribute('title', 'Expand everything');
+  }
+
+  // SELECTION OPTIONS FOR THE COLUMN HEADERS CHECKBOXES
+
+  function selectColumns(param) {
+    let string;
+    switch(param) {
+      case 'Current':
+        // Check current checkboxes (as per global variable)
+        string = g_cols;
+        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+          item.checked = (string.includes(item.id)) ? true : false; 
+        }
+        break;
+      case 'Default':
+        // Check default checkboxes
+        string = 'THdfkioyzp';
+        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+          item.checked = (string.includes(item.id)) ? true : false; 
+        }
+        break;
+      case 'All':
+        // Check all checkboxes
+        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = true; }
+        // Switch action of the link
+        link = document.getElementById('selectAllColumns');
+        link.setAttribute('href', 'javascript:selectColumns("None");');
+        link.setAttribute('title', 'Deselect all columns');
+        link.textContent = 'None';
+        break;
+      case 'None':
+        // Uncheck all checkboxes
+        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = false; }
+        // Switch action of the link
+        link = document.getElementById('selectAllColumns');
+        link.setAttribute('href', 'javascript:selectColumns("All");');
+        link.setAttribute('title', 'Select all columns');
+        link.textContent = 'All';
+        break;
+    }
+  }
+
+  function applyColumnSelection() {
+    // Get codes for checked checkboxes (they are automatically listed in their current order)
+    let string = "";
+    for (let item of document.querySelectorAll('.columnOptionCheckbox')) { if (item.checked == true) { string += item.id }; }
+    // Save selection in localStorage
+    g_cols = string;
+    localStorage.setItem('columns', g_cols);
+    // Create new URL...
+    // Reload page with new URL...
+    // Reload page with new column selection
+    window.location.href = UrlSelf('hdrs', "&cols=" + g_cols);
   }
 
   // ALLOW ADDING FILTERS TO FIRST ROW OF ALL LONG TABLES
