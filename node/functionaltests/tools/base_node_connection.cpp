@@ -85,7 +85,7 @@ void BaseTestNode::Run()
 
 void BaseTestNode::OnConnectedSecure()
 {
-	BEAM_LOG_INFO() << "connection is succeded";
+	BEAM_LOG_INFO() << "connection is succeeded";
 }
 
 void BaseTestNode::OnDisconnect(const DisconnectReason& reason)
