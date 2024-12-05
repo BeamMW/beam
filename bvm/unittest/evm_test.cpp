@@ -802,7 +802,7 @@ namespace beam
 		ByteBuffer ScanBuf(const std::string& s)
 		{
 			ByteBuffer ret;
-			if (s.size() > 2) // 1st 2 characers are probably 0x
+			if (s.size() > 2) // 1st 2 characters are probably 0x
 			{
 				auto len = static_cast<uint32_t>(s.size());
 				ret.resize(len);
