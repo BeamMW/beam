@@ -898,18 +898,21 @@
   #toggleDescriptions:hover svg { /* Highlight symbol when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
-  .columnOptions { /* Checkboxes group: Displayed in auto-adjusting columns */
+  .columnOptions { /* Checkboxes group: Displayed as auto-adjusting columns */
     column-width: 18rem; /* We set the width of the columns and the number of columns will be automatic! */
     margin-top: 5px;
   }
   .columnOption { /* Checkboxes and labels are displayed as small invisble tables to keep all well aligned */
-    font-size: 1.3rem;
     display: table;
+    font-size: 1.3rem;
+    vertical-align: top;
   }
-  .columnOptionCheckbox, .columnOptionCheckboxDisabled { /* Checkboxes */
+  .columnOptionCheck { /* Checkboxes container */
     display: table-cell;
     width: min-content;
-    vertical-align: middle;
+  }
+  .columnOptionCheckbox, .columnOptionCheckboxDisabled { /* Checkboxes */
+    /* Nothing special */
   }
   .columnOptionText { /* All text next to each checkbox */
     display: table-cell;
@@ -1111,13 +1114,13 @@
           <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
-            <span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=hdrs';" title="List of recent Block Headers">Block Headers</a></span>
+            <span class="menuItem"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=assets';" title="List of current Confidential Assets">Confidential Assets</a></span>
+            <span class="menuItem"><a href="?type=assets" title="List of current Confidential Assets">Confidential Assets</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=contracts';" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+            <span class="menuItem"><a href="?type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:window.location.href=window.location.pathname + '?type=historical';" title="List of special historical blocks">Historical blocks</a></span>
+            <span class="menuItem"><a href="?type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
             <!-- Search field -->
@@ -1236,7 +1239,7 @@
     if (jFunds.length < maxRows) {
       text += "<table class='tableFunds_compact'>";
     } else {
-      text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', '');
+      text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', 'close');
       text +="<table class='tableFunds_full'>\n\
                 <thead><tr>\n\
                   <th>Asset</th>\n\
@@ -1402,7 +1405,7 @@
         if (jOwned.length < maxRows) {
           text += "<table class='tableOwned_compact'>";
         } else {
-          text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', '');
+          text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', 'close');
           text += "\
             <table class='tableOwned_full'>\n\
               <thead><tr>\n\
@@ -1979,7 +1982,7 @@
   const columnHeaders = [
     { code: "h", original: "Height", title: "Height", description: "Block height" },
     { code: "H", original: "Hash", title: "Hash", description: "Block hash" },
-    { code: "t", original: "d.Time", title: "Time", description: "Block time (in seconds)" },
+    //{ code: "t", original: "d.Time", title: "Time", description: "Block duration (in seconds)" },
     { code: "T", original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
     { code: "g", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
     { code: "G", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
@@ -2019,7 +2022,7 @@
     {
       block_list: [0],
       title: 'Treasury',
-      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This Treasury is represented in the explorer as a <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='List Treasury UTXOs'>60 such groups</a>.",
+      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?type=block&id=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
@@ -2029,7 +2032,7 @@
     {
       block_list: [1],
       title: 'Genesis block',
-      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1\"' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?type=block&id=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
       links: [
         ['Original MimbleWimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
         ['First Beam Medium post', 'https://medium.com/beam-mw/introducing-beam-f35096a923ec'],
@@ -2041,19 +2044,19 @@
     {
       block_list: [159, 160],
       title: 'The fastest blocks on Earth',
-      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=160&nMax=10\"'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occured again a few times after that (example with <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25709&nMax=10\"'>blocks 25708 and 25709</a>). Indeed, the event is theoretically possible, but very unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
+      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='?type=hdrs&hMax=160&nMax=10'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occured again a few times after that (example with <a href='?type=hdrs&hMax=25709&nMax=10'>blocks 25708 and 25709</a>). Indeed, the event is theoretically possible, but very unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
       links: [['Poisson distribution', 'https://en.wikipedia.org/wiki/Poisson_distribution']]
     },
     {
       block_range: [25709, 25820],
       title: 'Blockchain Stop Event',
-      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25710&nMax=5\"'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=25822&nMax=120\"' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25820\"'>25820</a> and <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=25822\"'>25822</a> processed all the pending ones. No funds were lost.",
+      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?type=hdrs&hMax=25710&nMax=5'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?type=hdrs&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?type=block&id=25820'>25820</a> and <a href='?type=block&id=25822'>25822</a> processed all the pending ones. No funds were lost.",
       links: [['Postmortem analysis', 'https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813']]
     },
     {
       block_list: [321321],
       title: 'First Hard-Fork',
-      description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in difficulty was observed as not all miners performed a timely upgrade. However, after <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=322327&nMax=1010\"' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the hashrate had gone back to its pre-fork value.",
+      description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in difficulty was observed as not all miners performed a timely upgrade. However, after <a href='?type=hdrs&hMax=322327&nMax=1010' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the hashrate had gone back to its pre-fork value.",
       links: [['Medium post', 'https://medium.com/beam-mw/mimblewimble-hard-fork-first-completed-1171f9642e51']]
     },
     {
@@ -2065,7 +2068,7 @@
     {
       block_list: [777777],
       title: 'Second Hard-Fork',
-      description: "Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'><b>Confidential Assets</b></a> (sometimes also called 'Privacy Tokens', and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).",
+      description: "Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href='?type=assets'><b>Confidential Assets</b></a> (sometimes also called 'Privacy Tokens', and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).",
       links: [
         ['Medium post', 'https://medium.com/beam-mw/hard-fork-completed-72e8f1edb10b'],
         ['BeamHash III presentation', 'https://docs.beam.mw/Beam_Hash_III_Slides.pdf'],
@@ -2084,13 +2087,13 @@
     {
       block_list: [778857],
       title: 'First input UTXO from a Shielded Pool',
-      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=778857\"' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2878666\"'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
+      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?type=block&id=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?type=block&id=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='?type=block&id=2878666'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
       links: null
     },
     {
       block_list: [780219],
       title: 'Creation of the first Confidential Asset',
-      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=780219\"'>created</a>. Although it has changed named since then, and seems to be <a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=1\"'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=9\"'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2893306\"' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='javascript:window.location.href=window.location.pathname + \"?type=assets\"'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868\"' title='Smart contract call history'>Beam Asset Minter</a>.",
+      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?type=block&id=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?type=block&id=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='?type=assets'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
       links: [
         //["Tico website","https://www.ticotip.me"],
         ["Tico's first anniversary", 'https://ticotipme.substack.com/p/tico-turns-1'],
@@ -2100,7 +2103,7 @@
     {
       block_list: [1280000],
       title: 'Third Hard-Fork (and wallet v6.0)',
-      description: "This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. 'Shaders'), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"'>we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide 'efficient' markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful 'Privacy DeFi' (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!",
+      description: "This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. 'Shaders'), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href='?type=contracts'>we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide 'efficient' markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful 'Privacy DeFi' (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!",
       links: [
         ['Medium post', 'https://medium.com/beam-mw/hard-fork-completed-1608eb5ce439'],
         ['Beam smart contracts introduction', 'https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts'],
@@ -2111,13 +2114,13 @@
     {
       block_list: [1280003],
       title: 'Deployment of the first Smart Contract',
-      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=1280003\"' title='Block details'>1280003</a>. The contract is a simple <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716\"' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='javascript:window.location.href=window.location.pathname + \"?type=contracts\"' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440\"' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b\"' title='Smart contract call history'>Oracle</a> and the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a>).",
+      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?type=block&id=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
       links: [['Examples of smart contracts', 'https://github.com/BeamMW/beam/tree/master/bvm/Shaders']]
     },
     {
       block_list: [1464852],
       title: 'BeamX creation',
-      description: "The <b>BeamX</b> confidential asset (<a href='javascript:window.location.href=window.location.pathname + \"?type=asset&id=7\"' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b\"' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
+      description: "The <b>BeamX</b> confidential asset (<a href='?type=asset&id=7' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
       links: [
         ['The BeamX DAO', 'https://www.beamxdao.org'],
         ['The BeamX token', 'https://medium.com/beam-mw/introducing-beamx-privacy-by-default-maximum-confidentiality-defi-ecosystem-629670b905ba']
@@ -2126,7 +2129,7 @@
     {
       block_list: [1466500],
       title: 'Start of the first BeamX staking campaign',
-      description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&nMax=200\"' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&\"' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
+      description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&nMax=200' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
       links: [
         ['First BeamX reward campaign', 'https://medium.com/@beam_privacy/heres-everything-you-need-to-know-to-prepare-for-beam-staking-108eef344f7d'],
         ['Details on the campaign', 'https://medium.com/beam-mw/beamers-hodlers-beam-staking-is-coming-513bd196af57']
@@ -2145,7 +2148,7 @@
     {
       block_list: [1920000],
       title: 'Fifth Hard-Fork (and wallet v7.1)',
-      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='javascript:window.location.href=window.location.pathname + \"?type=assets&id=1981005\"' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e\"' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='?type=assets&id=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
       links: [
         ['Announcement', 'https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178'],
         ['Forum post for BIP-1', 'https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116']
@@ -2154,13 +2157,13 @@
     {
       block_list: [2272779],
       title: 'Blockchain incident',
-      description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='javascript:window.location.href=window.location.pathname + \"?type=hdrs&hMax=2272781&nMax=3\"' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2272781\"' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+      description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?type=hdrs&hMax=2272781&nMax=3' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?type=block&id=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
       links: [['Incident analysis', 'https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097']]
     },
     {
       block_list: [2628000, 2628001],
       title: 'Second Halving & End of the 5-year treasury allocation',
-      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628000\"'>2628000</a>) to 25 BEAM (block <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=2628001\"'>2628001</a>).<br>This halving also saw the <a href='javascript:window.location.href=window.location.pathname + \"?type=block&id=0\"' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='javascript:window.location.href=window.location.pathname + \"?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25\"' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='?type=block&id=2628000'>2628000</a>) to 25 BEAM (block <a href='?type=block&id=2628001'>2628001</a>).<br>This halving also saw the <a href='?type=block&id=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
       links: [['The 5-year recap', 'https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f']]
     },
   ];
@@ -2170,21 +2173,21 @@
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
   // URL and explorer node parameters
-  const args = new URL(document.location).searchParams;
-  let g_type = args.get('type'); // Remark: We've added two URL types not used by the explorer node ("historical" and "treasury")
-  let g_id = args.get('id'); // Serves for both 'id' (asset & contract) and 'height'
-  let g_kernel = args.get('kernel'); // Takes precedence over 'height' (blocks)
-  let g_hMin = args.get('hMin');
-  let g_hMax = args.get('hMax');
-  let g_nMax = args.get('nMax'); // Serves for nMax (hdrs), n (blocks), nMaxOps (asset) and nMaxTxs (contract)
-  let g_cols = args.get('cols'); // Only for hdrs
-  let g_dh = args.get('dh'); // Only for hdrs
+  const URLparams = new URL(document.location).searchParams;
+  let g_type = URLparams.get('type'); // Remark: We've added two URL 'types' not used by the explorer node ("historical" and "treasury")
+  let g_id = URLparams.get('id'); // Serves for both 'id' (assets & contracts) and 'height' (blocks)
+  let g_kernel = URLparams.get('kernel'); // Takes precedence over 'height' (blocks)
+  let g_hMin = URLparams.get('hMin');
+  let g_hMax = URLparams.get('hMax');
+  let g_nMax = URLparams.get('nMax'); // Serves for nMax (hdrs), n (blocks), nMaxOps (asset) and nMaxTxs (contract)
+  let g_cols = URLparams.get('cols'); // Only for hdrs
+  let g_dh = URLparams.get('dh'); // Only for hdrs
 
-  // If no columns selection was given in the URL, then we look in localStorage.
-  // If nothing is there, then we set a default values.
+  // If no columns selection was given in the URL, then we look in localStorage
+  // If nothing is there either, then we set the default values
   if (!g_cols) { g_cols = localStorage.getItem('columns'); }
   if (!g_cols) { g_cols = 'THdfkioyzp'; }
-  // Save result in localStorage.
+  // Save result in localStorage
   localStorage.setItem('columns', g_cols);
 
   // Address of the remote explorer node
@@ -2215,25 +2218,23 @@
       if (g_kernel) {
         urlSuffix += '&kernel=' + g_kernel;
       } else {
-        if (!g_id) { g_id = 1 } // Display Genesis block in case no block height is given
-        if (g_id < 0) { g_id = 0 } // Display Treasury for any negative block height
+        if (!g_id || g_id < 0) { g_id = 1 } // Display Genesis block for negative or no block height given
         urlSuffix += '&height=' + g_id;
       }
       xmlhttp.onload = DisplayBlock;
 
-    } else if (g_type == 'treasury') { // 'treasury' is 'block' with height=0
+    } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
       g_type = 'block';
       g_id = 0;
       urlSuffix += '&height=' + g_id;
       xmlhttp.onload = DisplayBlock;
     }
-    // Option to query and display the details of multiple blocks (not used here)
+    // Option to query and display the details of multiple blocks (NOT USED HERE)
     // else if (g_type == "blocks") // Arguments for 'blocks': height, n
     // {
     //   if (!g_nMax) { g_nMax = 5 }
     //   urlSuffix += "&height=" + g_id + "&n=" + g_nMax;
-    //   //xmlhttp.onload = DisplayBlocks; // Display function to be done...
-    //   xmlhttp.onload = DisplayStatus; // Until then, use this as test
+    //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
     // }
     else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
       if (!g_nMax) { g_nMax = 100 }
@@ -2265,7 +2266,6 @@
     }
 
     // Submit request
-    //console.log(urlPrefix + g_type + urlSuffix);
     xmlhttp.open('GET', urlPrefix + g_type + urlSuffix);
     xmlhttp.send();
   }
@@ -2503,7 +2503,7 @@
   function DisplayHdrsOptions() {
     // Display column selection options
     // Remark: We are using backticks (a.k.a template strings) for some strings here because of the mix of single and double quotes inside them
-    let text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'open'); // Collapsed by default
+    let text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'close'); // Collapsed by default
     text += "<form id='columnSelectionForm' name='columnSelectionForm' action='javascript:applyColumnSelection();'>";
     text += "<button type='submit' id='applySelection' title='Apply and reload with the selected columns'>Apply</button>";
     text += `<a href='javascript:selectColumns("Current");' class='selectionOption' title='Select current columns'>Current</a>`;
@@ -2521,15 +2521,16 @@
       text += "<div class='columnOption'><label title='" + item.description + "'>";
       if (n == 0) {
         // First column (the block height) is mandatory: the checkbox is checked and disabled
-        text += "<input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled>";
+        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled></span>";
       } else {
-        text += "<input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'>";
+        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'></span>";
       }
       text += "<span class='columnOptionText'>";
       text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
       text += "<span class='columnOptionLabel'>" + item.title + "</span>";
-      text += "<span class='columnOptionDescription hidden'> " + item.description + "</span>";
-      text += "</span></div></label>";
+      text += "<span class='columnOptionDescription hidden'> " + item.description + ".</span>";
+      text += "</span>";
+      text += "</label></div>";
     }
     text += "</div>";
     text += "</form>";
@@ -2580,13 +2581,14 @@
     // Get codes for checked checkboxes (they are automatically listed in their current order)
     let string = "";
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) { if (item.checked == true) { string += item.id }; }
-    // Save selection in localStorage
+    // Save selection in global variable and in localStorage
     g_cols = string;
     localStorage.setItem('columns', g_cols);
-    // Create new URL...
-    // Reload page with new URL...
-    // Reload page with new column selection
-    window.location.href = UrlSelf('hdrs', "&cols=" + g_cols);
+    // Update this parameters in search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('cols', g_cols); // Create or replace this search parameter
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
   }
 
   // ALLOW ADDING FILTERS TO FIRST ROW OF ALL LONG TABLES
