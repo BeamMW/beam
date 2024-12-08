@@ -1324,13 +1324,18 @@ namespace beam::wallet
             throwIfError(ret, db);
         }
 
+        void CreateLaserAddressTable(sqlite3* db)
+        {
+            CreateAddressesTable(db, LASER_ADDRESSES_NAME);
+        }
+
         void CreateLaserTables(sqlite3* db)
         {
             const char* req = "CREATE TABLE " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST_WITH_TYPES, COMMA, ) ") WITHOUT ROWID;";
             int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
             throwIfError(ret, db);
 
-            CreateAddressesTable(db, LASER_ADDRESSES_NAME);
+            CreateLaserAddressTable(db);
 
             BEAM_LOG_DEBUG() << "Create laser tables";
         }
@@ -2391,6 +2396,7 @@ namespace beam::wallet
                     // no break; 
                 case DbVersion16:
                     BEAM_LOG_INFO() << "Converting DB from format 16...";
+                    CreateLaserAddressTable(walletDB->_db);
 
                     // no break;
                 case DbVersion17:
