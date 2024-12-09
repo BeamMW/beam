@@ -88,6 +88,10 @@
     --color_config_collapsible_text: black;
     --color_config_collapsible_description: grey;
     --color_config_collapsible_drag-over: #555fb8;
+    --color_config_collapsible_button: #b8bbd8;
+    --color_config_collapsible_button_hover: #9ca2d2;
+    --color_config_collapsible_button_text: black;
+    --color_config_collapsible_button_border: grey;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -179,6 +183,10 @@
     --color_config_collapsible_text: black;
     --color_config_collapsible_description: grey;
     --color_config_collapsible_drag-over: #2b618d;
+    --color_config_collapsible_button: #1d3a5a;
+    --color_config_collapsible_button_hover: #1e4c71;
+    --color_config_collapsible_button_text: #ddd;
+    --color_config_collapsible_button_border: black;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -774,7 +782,7 @@
     20% { transform: translateY(-1rem) }
   }
 
-  /* COLLAPSIBLE BLOCKS */
+  /* GENERAL COLLAPSIBLE BLOCKS */
   .collapsible {
     display: block;
     width: fit-content; /* Will have the width of its full content */
@@ -840,13 +848,15 @@
     background-color: unset; /* No specific background color for small collapsibles */
     border: none; /* No border for small collapsibles */
   }
-  /* Column config collapsible header */
-  .collapsible.columnConfig {
+
+  /* OPTIONS FOR BLOCK HEADERS TABLE */
+  /* Collapsible for headers table options */
+  .collapsible.hdrsOptions {
     display: block;
     width: 100%;
     margin-bottom: 10px;
   }
-  .collapsible-label.columnConfig { /* remove default behavior of the other collapsibles */
+  .collapsible-label.hdrsOptions { /* remove default behavior of the other collapsibles */
     min-width: unset;
     background-color: unset;
     color: var(--color_config_collapsible_title);
@@ -855,60 +865,131 @@
     padding: 2px 5px 0px 5px;
     border-radius: 0;
   }
-  .collapsible-label.columnConfig:hover { /* remove default behavior of the other collapsibles */
+  .collapsible-label.hdrsOptions:hover { /* remove default behavior of the other collapsibles */
     background-color: unset;
   }
-  .collapsible-content.columnConfig {
+  .collapsible-content.hdrsOptions {
     color: var(--color_config_collapsible_text);
     padding: 2px 2px 5px 2px;
     margin: 5px 0 10px 0;
     border-radius: 0.4em; /* Slightly round corners */
   }
-  #columnSelectionForm { /* Form */
-    /* Nothing special */
+  #headersDisplayOptions { /* Form */
+    /* Nothing Special */
+  }
+  #selectionOptions { /* Row and Column selection options */
+    display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions */
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: stretch;
+    color: var(--color_config_collapsible_text);
+  }
+  #rowSelectionOptions { /* Options for rows */
+    flex-grow: 0; /* Flex-item: Uses only the horizontal space needded for its content */
+    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
+    align-items: center;
+    flex-wrap: nowrap;
+    font-size: 1.3rem;
+    margin: 0 15px 0 0;
   }
   #applySelection { /* Apply button */
     cursor: pointer;
     margin: 2px 10px 2px 2px;
     padding: 5px 15px 5px 15px;
     font-weight: bold;
+    color: var(--color_config_collapsible_button_text);
+    background-color: var(--color_config_collapsible_button);
+    border-style: solid;
+    border-width: 1px;
+    border-color: var(--color_config_collapsible_button_border);
+    border-radius: 0.35em;
+  }
+  #applySelection:hover, #applySelection:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    background-color: var(--color_config_collapsible_button_hover);
+    filter: drop-shadow(0 0 1px var(--color_config_collapsible_button_border));
+  }
+  #selectRows, #selectStep { /* div */
+    display: inline-block;
+    padding: 0 5px 0 5px;
+  }
+  #labelRows { /* label */
+    font-weight: bold;
+    margin: 0 0 0 4px;
+  }
+  #labelInterval { /* label */
+    /* Nothing special */
+  }
+  #nbrRows, #nbrStep { /* Input number */
+    height: 1.5em;
+    background: var(--color_collapsible_content_background);
+    color: var(--color_config_collapsible_text);
+    border-style: solid;
+    border-width: 1px;
+    border-color: var(--color_config_collapsible_description);
+    border-radius: 0.2em;
+  }
+  #nbrRows:focus, #nbrStep:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    filter: drop-shadow(0 0 1px var(--color_config_collapsible_text));
+  }
+  #columnSelectionOptions { /* Options for columns */
+    flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
+    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
+    align-items: center;
+    flex-wrap: nowrap;
+    font-size: 1.3rem;
+  }
+  #labelColumns {
+    font-weight: bold;
+    margin: 0 0 0 4px;
   }
   #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #reorderAllColumns { /* Columns selection links */
     /* Nothing special */
   }
   .selectionOption { /* Selection links */
     cursor: pointer;
-    font-size: 1.3rem;
-    padding: 5px 5px 5px 5px;
-    color: var(--color_config_collapsible_text);
+    display: inline-block;
+    padding: 0 5px 0 5px;
+    text-decoration-line: underline;
+    color: var(--color_config_collapsible_text); /* We keep it here, to avoid default link color */
+  }
+  .selectionOption:hover, .selectionOption:focus { /* Selection links */
+    outline: none; /* Avoid the browser default focus outline */
+    text-decoration-thickness: 10%;
   }
   .itemSeparator {
+    display: inline-block;
+    font-size: 1rem;
     color: var(--color_config_collapsible_text);
   }
   .selectionText {
-    cursor: pointer;
-    font-size: 1.3rem;
-    padding: 5px 5px 5px 5px;
+    display: inline-block;
+    padding: 0 5px 0 5px;
     color: var(--color_config_collapsible_description);
     font-style: italic;
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
-    /* Nothing special */
+    flex-grow: 1; /* So that it takes all the available width and the symbol can be right aligned */
+    text-align: right;
   }
-  #toggleDescriptions svg { /* 'Show details' Icon */
+  #toggleDescriptionsLink {
+    outline: none; /* Avoid the browser default focus outline */
+  }
+  #toggleDescriptionsLink svg { /* 'Show details' icon */
     cursor: pointer;
     height: 2.5rem;
     width: 2.5rem;
     fill: var(--color_eye_icons);
-    margin: 5px 10px 0 10px;
-    vertical-align: middle;
-    float: right;
+    margin: 0 10px 0 10px;
   }
-  #toggleDescriptions:hover svg { /* Highlight symbol when hovering on it */
+  #toggleDescriptionsLink svg:hover, #toggleDescriptionsLink:focus svg { /* Highlight icon when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
-  .columnOptions { /* Group of checkboxes: Displayed as auto-adjusting columns */
-    column-width: 18rem; /* We set the width of the columns and the number of columns will be automatic! */
+  #columnOptions { /* Group of checkboxes: Displayed as auto-adjusting columns */
+    display: block;
+    column-width: 18rem; /* We set the width of the internal columns (and the number of columns will be automatic!) */
     column-gap: 5px;
     margin-top: 5px;
   }
@@ -918,15 +999,15 @@
     vertical-align: top;
     width: 100%;
     padding-bottom: 2px;
-  }
-  .columnOption.drag-over { /* Replace bottom padding with a border when dragged-over */
-    padding-bottom: 0;
+    border-color: transparent; /* Add an invisible bottom border (will be displayed during drag and drop) */
     border-style: dotted;
     border-width: 0 0 2px 0;
+  }
+  .columnOption.drag-over { /* Show bottom border when dragged-over */
     border-color: var(--color_config_collapsible_drag-over);
   }
   .columnOption.hidden { /* Hide element (when being dragged) */
-    visibility: hidden; /* Its empty space is still maintained */
+    opacity: 0.2;
   }
   .columnOptionCheck { /* Checkboxes container */
     display: table-cell;
@@ -1900,7 +1981,7 @@
     text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
     text += '</h2>\n';
 
-    // Display column selection options
+    // Display table options
     text += DisplayHdrsOptions();
 
     // Main table
@@ -2002,7 +2083,7 @@
   // GLOBAL VARIABLES
 
   // Array of codes, names and descriptions for the Block Header columns
-  const columnDefaultOrder = "HTgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
+  const columnDefaultOrder = "THgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
   const columnDefaultDisplay = "THdfkioyzp";
   const columnHeaders = [
     { code: "h", original: "Height", title: "Height", description: "Block height" }, // Remark: The code here is useless as this is always the default first column
@@ -2208,12 +2289,14 @@
   let g_cols = URLparams.get('cols'); // Used only in hdrs
   let g_dh = URLparams.get('dh'); // Used only in hdrs
 
-  // If no columns selection was given in the URL, then we look in localStorage
+  // If no parameter was given in the URL, then we look in localStorage
   // If nothing is there either, then we set the default values
-  if (!g_cols) { g_cols = localStorage.getItem('columnSelection'); }
+  if (!g_cols) { g_cols = localStorage.getItem('columnsSelection') }
   if (!g_cols) { g_cols = columnDefaultDisplay; }
-  // Save result in localStorage
-  localStorage.setItem('columnSelection', g_cols);
+  if (!g_nMax) { g_nMax = localStorage.getItem('rowsSelection') }
+  if (!g_nMax) { g_nMax = 100 }
+  if (!g_dh) { g_dh = localStorage.getItem('intervalSelection'); }
+  if (!g_dh) { g_dh = 1 }
 
   // Address of the remote explorer node
   //let urlPrefix = "http://localhost:17328/";
@@ -2232,7 +2315,6 @@
 
     // Build request
     if (g_type == 'asset') { // Arguments for 'asset': id, hMin, hMax, nMaxOps
-      if (!g_nMax) { g_nMax = 100 }
       urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMax;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
@@ -2262,19 +2344,15 @@
     //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
     // }
     else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
-      if (!g_nMax) { g_nMax = 100 }
       urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMax;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayContractState;
 
     } else if (g_type == 'hdrs') { // Arguments for 'hdrs': cols, hMax, nMax, dh
-      // See Global Variables for the codes for 'cols'.
-      // The data will be provided in the same order as in 'cols'.
-      if (!g_nMax) { g_nMax = 100 }
-      urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax;
+      // Remark: The data will be provided in the same order as in 'cols'.
+      urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax + '&dh=' + g_dh;
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
-      if (g_dh) { urlSuffix += '&dh=' + g_dh }
       xmlhttp.onload = DisplayHdrs;
 
     } else if (g_type == 'contracts') { // Arguments for 'contracts': (none)
@@ -2500,28 +2578,48 @@
     icon.setAttribute('title', 'Expand everything');
   }
 
-  // SELECTION OPTIONS FOR THE COLUMN HEADERS CHECKBOXES
+  // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
   function DisplayHdrsOptions() {
-    // Display column selection options
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'hdrsOptions', 'close');
     // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
-    let text = MakeCollapsibleBegin('Add columns', 'columnConfig', 'close');
-    text += "<form id='columnSelectionForm' name='columnSelectionForm' action='javascript:applyColumnSelection();'>";
-    text += "<button type='submit' id='applySelection' title='Apply and reload with the selected columns'>Apply</button>";
-    text += `<a href='javascript:selectColumns("Current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>Current</a>`;
-    text += "<span class='itemSeparator'> | </span>";
-    text += `<a href='javascript:selectColumns("Default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>Default</a>`;
-    text += "<span class='itemSeparator'> | </span>";
-    text += `<a href='javascript:selectColumns("All");' id='selectAllColumns' class='selectionOption' title='Select all columns'>All</a>`;
-    text += "<span class='itemSeparator'> | </span>";
-    text += `<a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>Reset order</a>`;
-    text += "<span class='selectionText'>(or drag and drop manually)</span>";
-    text += "<a href='javascript:showDescriptions();' id='toggleDescriptions' title='Show details'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a>";
-    text += "<div class='columnOptions'>";
+    text += "<form id='headersDisplayOptions' name='headersDisplayOptions' action='javascript:applySelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+               // We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div id='selectRows'><label title='Number of rows to display (2000 max)'>\
+                 <span id='labelRows'>Rows: </span>\
+                 <input type='number' id='nbrRows' list='nbrOfRows' min='1' max='2000' value='' placeholder='" + g_nMax + "' step='1' size='4'>\
+                 <datalist id='nbrOfRows'>\
+                   <option value='100'><option value='200'><option value='500'><option value='1000'><option value='2000'>\
+                 </datalist>\
+               </label></div>";
+               // We display a placeholder instead of a default value, just to keep it visually similar to the other input!
+    text += "  <div id='selectStep'><label title='Blockheight interval between two rows'>\
+                 <span id='labelInterval'>Interval: </span>\
+                 <input type='number' id='nbrStep' min='1' value='' placeholder='" + g_dh + "' step='1' size='4'>\
+               </label></div>";
+    text += "</div>";
+    text += `<div id='columnSelectionOptions'>\
+               <span id='labelColumns'>Columns: </span>\
+               <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
+               <span class='itemSeparator'> | </span>\
+               <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
+               <span class='itemSeparator'> | </span>\
+               <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
+               <span class='itemSeparator'> | </span>\
+               <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
+               <span class='selectionText'>(or drag and drop manually)</span>\
+               <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>`;
+    text += "</div>";
+    text += "</div>";
+    text += "<div id='columnOptions'>";
     // Make list of all checkboxes
     let nbr = 0;
     for (let n in columnHeaders) {
       let item = columnHeaders[n];
-      nbr += 1;
+      nbr++;
       // Put each checkbox and its text into a div
       text += "<div class='columnOption' id='Option_" + item.code + "'><label title='" + item.description + "'>";
       if (n == 0) {
@@ -2549,7 +2647,7 @@
     for (let myItem of document.querySelectorAll('.columnOptionDescription')) {
       myItem.classList.remove('hidden');
       // Switch action of the clickable symbol
-      let icon = document.querySelector('#toggleDescriptions');
+      let icon = document.querySelector('#toggleDescriptionsLink');
       icon.setAttribute('href', 'javascript:hideDescriptions();');
       icon.setAttribute('title', 'Hide details');
     }
@@ -2560,88 +2658,96 @@
     for (let myItem of document.querySelectorAll('.columnOptionDescription')) {
       myItem.classList.add('hidden');
       // Switch action of the clickable symbol
-      let icon = document.querySelector('#toggleDescriptions');
+      let icon = document.querySelector('#toggleDescriptionsLink');
       icon.setAttribute('href', 'javascript:showDescriptions();');
       icon.setAttribute('title', 'Show details');
     }
   }
 
-  function selectColumns(param = "Current") { // Mark checkboxes as per current column selection
+  function selectColumns(param = "current") { // Mark checkboxes as per current column selection
     let string, link;
     switch(param) {
-      case 'Current':
+      case 'current':
         // Check current checkboxes (as per global variable)
         string = g_cols;
         for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
           item.checked = (string.includes(item.id)) ? true : false; 
         }
         break;
-      case 'Default':
+      case 'default':
         // Check default checkboxes (as per global variable)
         string = columnDefaultDisplay;
         for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
           item.checked = (string.includes(item.id)) ? true : false; 
         }
         break;
-      case 'All':
+      case 'all':
         // Check all checkboxes
         for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = true; }
         // Switch action of the link
         link = document.getElementById('selectAllColumns');
-        link.setAttribute('href', 'javascript:selectColumns("None");');
+        link.setAttribute('href', 'javascript:selectColumns("none");');
         link.setAttribute('title', 'Deselect all columns');
-        link.textContent = 'None';
+        link.textContent = 'none';
         break;
-      case 'None':
+      case 'none':
         // Uncheck all checkboxes
         for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = false; }
         // Switch action of the link
         link = document.getElementById('selectAllColumns');
-        link.setAttribute('href', 'javascript:selectColumns("All");');
+        link.setAttribute('href', 'javascript:selectColumns("all");');
         link.setAttribute('title', 'Select all columns');
-        link.textContent = 'All';
+        link.textContent = 'all';
         break;
     }
   }
 
   function reorderColumns(series = '') { // Reorder checkboxes (from localStorage, or in default order)
-    // If no order is given, check localStorage. It it's also empty, use the default order 
+    // If no order is given, check localStorage. It it's also empty, use the default order
     if (series == '') {
-      series = localStorage.getItem('columnOrder');
-      if (!series) { series = columnDefaultOrder}
+      series = localStorage.getItem('columnsOrder');
+      if (!series) { series = columnDefaultOrder; }
+      // Adjust checkboxes order to match the order of the displayed columns
+      // (we only reorder the displayed ones: If a letter is any of the displayed ones, we replace it with the next displayed one, in sequence)
+      let n = 0, series2 = "";
+      for (let char of series) { series2 += (g_cols.includes(char)) ? g_cols[n++] : char }
+      series = series2;
     }
-    // Adjust checkboxes order to match at least the order of the displayed columns
-    // We only reorder the displayed ones: If a letter is any of the displayed ones, we replace it with the next displayed one, in sequence.
-    let n = 0, series2 = "";
-    for (let char of series) { series2 += (g_cols.includes(char)) ? g_cols[n++] : char }
-    series = series2;
-    // Loop on each letter of the series
+    // Reorder elements according to the series of letters
     for (let letter of series) {
-      // Get the corresponding option element
+      // Get the corresponding checkbox element
       let item = document.getElementById('Option_' + letter);
-      // If the item exists, move it at the end of its siblings
+      // If the item exists, move it at the end of siblings series
       if (item) { item.parentElement.appendChild(item) }
-      // Update numbering of the reordered elements
+      // Then, update the numbering of the reordered elements
       renumberColumnOptions();
     }
-    // Store new order in localStorage
-    localStorage.setItem('columnOrder', series);
   }
 
-  function applyColumnSelection() {
-    // Get codes for the checked checkboxes (they are automatically listed in their current order)
+  function applySelection() {
+    // Get number of rows
+    let nMax = document.getElementById("nbrRows").value;
+    if (nMax) { g_nMax = nMax; };
+    // Get row interval
+    let dh = document.getElementById("nbrStep").value;
+    if (dh) { g_dh = dh; };
+    // Get codes for selected checkboxes (they are automatically listed in their current order)
     let params = '', series = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
       series += item.id; // String of codes with the order of all the checkboxes
       if (item.checked == true) { params += item.id }; // String of codes with the selected checkboxes only (in the same order)
     }
-    // Save selection in global variable and in localStorage
+    // Save results in localStorage
     g_cols = params;
-    localStorage.setItem('columnSelection', g_cols);
-    localStorage.setItem('columnOrder', series);
-    // Update this parameters in search parameters
+    localStorage.setItem('columnsOrder', series);
+    localStorage.setItem('columnsSelection', g_cols);
+    localStorage.setItem('rowsSelection', g_nMax);
+    localStorage.setItem('intervalSelection', g_dh);
+    // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
-    args.set('cols', g_cols); // Create or replace this search parameter
+    args.set('cols', g_cols);
+    args.set('nMax', g_nMax);
+    args.set('dh', g_dh);
     // Update the query part of the URL and reload page
     window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
   }
@@ -2715,7 +2821,7 @@
   function renumberColumnOptions() { // Update numbering of the checkboxes
     let nbr = 0;
     for (let item of document.querySelectorAll('.columnOptionNumber')) {
-      nbr += 1;
+      nbr++;
       item.innerHTML = nbr.toString().padStart(2,'0') + ". ";
     }
   }
