@@ -91,7 +91,7 @@
     --color_config_collapsible_button: #b8bbd8;
     --color_config_collapsible_button_hover: #9ca2d2;
     --color_config_collapsible_button_text: black;
-    --color_config_collapsible_button_border: grey;
+    --color_config_collapsible_button_border: #9ca2d2;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -186,7 +186,7 @@
     --color_config_collapsible_button: #1d3a5a;
     --color_config_collapsible_button_hover: #1e4c71;
     --color_config_collapsible_button_text: #ddd;
-    --color_config_collapsible_button_border: black;
+    --color_config_collapsible_button_border: #1e4c71;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -863,7 +863,7 @@
     font-size: 1.3rem;
     margin: 0;
     padding: 2px 5px 0px 5px;
-    border-radius: 0;
+    border-radius: 0; /* Slightly round corners */
   }
   .collapsible-label.hdrsOptions:hover { /* remove default behavior of the other collapsibles */
     background-color: unset;
@@ -903,7 +903,7 @@
     border-style: solid;
     border-width: 1px;
     border-color: var(--color_config_collapsible_button_border);
-    border-radius: 0.35em;
+    border-radius: 0.35em; /* Slightly round corners */
   }
   #applySelection:hover, #applySelection:focus {
     outline: none; /* Avoid the browser default focus outline */
@@ -928,7 +928,14 @@
     border-style: solid;
     border-width: 1px;
     border-color: var(--color_config_collapsible_description);
-    border-radius: 0.2em;
+    border-radius: 0.2em; /* Slightly round corners */
+    width: 6rem;
+    -moz-appearance: textfield; /* Hide arrows on Firefox */
+  }
+  #nbrRows::-webkit-outer-spin-button, #nbrRows::-webkit-inner-spin-button,
+  #nbrStep::-webkit-outer-spin-button, #nbrStep::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Hide arrows on Chrome */
+    margin: 0; /* This is also said to be needed... */
   }
   #nbrRows:focus, #nbrStep:focus {
     outline: none; /* Avoid the browser default focus outline */
@@ -952,12 +959,12 @@
     cursor: pointer;
     display: inline-block;
     padding: 0 5px 0 5px;
-    text-decoration-line: underline;
+    text-decoration-line: none;
     color: var(--color_config_collapsible_text); /* We keep it here, to avoid default link color */
   }
   .selectionOption:hover, .selectionOption:focus { /* Selection links */
     outline: none; /* Avoid the browser default focus outline */
-    text-decoration-thickness: 10%;
+    text-decoration-line: underline;
   }
   .itemSeparator {
     display: inline-block;
@@ -1013,12 +1020,21 @@
     display: table-cell;
     width: min-content;
   }
-  .columnOptionCheckbox, .columnOptionCheckboxDisabled { /* Checkboxes */
+  .columnOptionCheckbox { /* Normal checkboxes */
+    cursor: pointer;
+  }
+  .columnOptionCheckboxDisabled { /* Disabled checkboxes */
     /* Nothing special */
   }
   .columnOptionText { /* Container for the text next to each checkbox */
     display: table-cell;
     width: 100%;
+  }
+  .columnOptionText:hover { /* To show the element accepts drag and drop */
+    cursor: grab; 
+  }
+  .columnOptionText:active { /* During drag and drop */
+    cursor: grabbing;
   }
   .columnOptionNumber { /* Option number (and dot) */
     color: var(--color_config_collapsible_description);
@@ -1028,6 +1044,7 @@
   }
   .columnOptionDescription { /* Option description */
     display: block;
+    font-size: 1.2rem;
     color: var(--color_config_collapsible_description);
     padding-top: 2px;
     padding-bottom: 10px;
@@ -2587,18 +2604,29 @@
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
     text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
-               // We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+               // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
     text += "  <div id='selectRows'><label title='Number of rows to display (2000 max)'>\
                  <span id='labelRows'>Rows: </span>\
-                 <input type='number' id='nbrRows' list='nbrOfRows' min='1' max='2000' value='' placeholder='" + g_nMax + "' step='1' size='4'>\
+                 <input type='number' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
                  <datalist id='nbrOfRows'>\
-                   <option value='100'><option value='200'><option value='500'><option value='1000'><option value='2000'>\
+                   <option value='100'>100 (default)</option>\
+                   <option value='200'>200</option>\
+                   <option value='500'>500</option>\
+                   <option value='1000'>1000</option>\
+                   <option value='2000'>2000 (max)</option>\
                  </datalist>\
                </label></div>";
-               // We display a placeholder instead of a default value, just to keep it visually similar to the other input!
+               // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
     text += "  <div id='selectStep'><label title='Blockheight interval between two rows'>\
                  <span id='labelInterval'>Interval: </span>\
-                 <input type='number' id='nbrStep' min='1' value='' placeholder='" + g_dh + "' step='1' size='4'>\
+                 <input type='number' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
+                 <datalist id='nbrOfSteps'>\
+                   <option value='1'>1 (default)</option>\
+                   <option value='60'>60 (~hour)</option>\
+                   <option value='1440'>1,440 (~day)</option>\
+                   <option value='10080'>10,080 (~week)</option>\
+                   <option value='43200'>43,200 (~month)</option>\
+                 </datalist>\
                </label></div>";
     text += "</div>";
     text += `<div id='columnSelectionOptions'>\
