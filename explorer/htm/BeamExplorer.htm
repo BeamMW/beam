@@ -557,15 +557,15 @@
   #Page-container {
     position: relative;
     min-height: 96vh; /* Always use the whole screen space, so that the footer stays at the bottom */
-    min-width: 97vh;
+    /*min-width: 97vh;*/
     padding: 8px;
   }
   #Content-wrap {
     padding-bottom: 1.8rem; /* Leave some space for the footer */
   }
   #Banner {
-    width: 100%;
     display: table;
+    width: 100%;
     background-color: var(--color_banner_background);
     border-radius: 0.5em; /* Slightly round corners */
     padding: 8px 10px 7px 10px;
@@ -599,6 +599,11 @@
   #Menu {
     font-size: 1.5rem;
     color: var(--color_banner_menu_text);
+    display: flex; /* Flex-container to organize menu items */
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
   }
   .menuItem a {
     color: var(--color_banner_menu_link);
@@ -627,7 +632,9 @@
     padding: 1.5ch 1ch 1.2ch 1ch; /* Internal padding */
     font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
     font-size: 1.2rem;
-    width: 67ch;
+    width: 90%;
+    max-width: 67ch;
+    min-width: 10ch;
     color: var(--color_banner_search_text);
     height: 2rem;
     text-decoration: none;
@@ -961,6 +968,7 @@
     padding: 0 5px 0 5px;
     text-decoration-line: none;
     color: var(--color_config_collapsible_text); /* We keep it here, to avoid default link color */
+    text-wrap: nowrap;
   }
   .selectionOption:hover, .selectionOption:focus { /* Selection links */
     outline: none; /* Avoid the browser default focus outline */
@@ -1244,7 +1252,7 @@
           <div id="SearchArea">
             <!-- Search field -->
             <form id="SearchForm" name="SearchForm" action="javascript:submitSearch();">
-              <input id="SearchField" type="text" required value="" size="66" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
+              <input id="SearchField" type="text" required value="" size="20" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
               <button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
             </form>
           </div>
@@ -2638,7 +2646,7 @@
                <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
                <span class='itemSeparator'> | </span>\
                <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
-               <span class='selectionText'>(or drag and drop manually)</span>\
+               <span class='selectionText'>(or reorder with drag and drop)</span>\
                <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>`;
     text += "</div>";
     text += "</div>";
