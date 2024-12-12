@@ -1598,6 +1598,13 @@
     text += '</table>';
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
 
+    const jTbl2Obj = jData['Asset distribution'];
+    if (jTbl2Obj)
+    {
+        const jTbl2 = jTbl2Obj['value'];
+        text += Obj2Html(jTbl2Obj)
+    }
+
     SetContent(text);
   }
 
