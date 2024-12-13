@@ -71,6 +71,7 @@
     --color_hash: #505050;
     --color_hash_highlight: darkred;
     --color_more: #17204e;
+    --color_more_in_collapsible: #17204e;
     --color_icon: #777ebc;
     --color_icon_hover: #555fb8;
     --color_icon_off: lightgrey;
@@ -166,6 +167,7 @@
     --color_hash: #505050;
     --color_hash_highlight: darkred;
     --color_more: #ddd;
+    --color_more_in_collapsible: #17204e;
     --color_icon: rgba(255,255,255,0.5);
     --color_icon_hover: #eee;
     --color_icon_off: #1e4c71;
@@ -488,12 +490,12 @@
   .th {
     /* This class is a "header" type from the node explorer data */
   }
-  .more {
+  .more, .more a {
     font-weight: bold;
     color: var(--color_more);
   }
-  .more a {
-    color: var(--color_more);
+  .collapsible-content .more, .collapsible-content .more a {
+    color: var(--color_more_in_collapsible);
   }
   .more::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
