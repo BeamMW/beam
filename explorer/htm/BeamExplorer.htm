@@ -476,14 +476,14 @@
     font-size: 1.4rem;
     color: var(--color_amount); /* Unsigned amounts */
   }
-  .amount .dot {
-    font-size: 2rem; /* Decimal dot */
+  .amount .dot { /* Decimal dot */
+    font-size: 2rem;
   }
-  .amount.pos {
-    color: var(--color_pos); /* Positive amounts */
+  .amount.pos { /* Positive amounts */
+    color: var(--color_pos); 
   }
-  .amount.neg {
-    color: var(--color_neg); /* Negative amounts */
+  .amount.neg { /* Negative amounts */
+    color: var(--color_neg);
   }
   .th {
     /* This class is a "header" type from the node explorer data */
@@ -497,6 +497,11 @@
   }
   .more::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+  }
+  .noDataText { /* Text when no data is available */
+    display: block;
+    padding: 5px;
+    font-style: italic;
   }
 
   /* FORMAT TABLES */
@@ -847,6 +852,7 @@
   .collapsible-content {
     display: block;
     width: 100%;
+    font-size: 1.5rem;
     color: var(--color_collapsible_content_text);
     background-color: var(--color_collapsible_content_background);
     border: 0.5px solid var(--color_collapsible); /* Add a thin border */
@@ -1570,7 +1576,9 @@
     const jTblObj = jData['Asset history'];
     const jTbl = jTblObj['value'];
 
-    let text = "<h2 class='title'>History of Asset " + g_id + '</h2>\n';
+    let text = "<h2 class='title'>Status of Asset " + g_id + '</h2>\n';
+
+    text += MakeCollapsibleBegin('Asset History');
 
     text += "\
       <table class='tableAssetHistory'>\n\
@@ -1598,12 +1606,16 @@
     text += '</table>';
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
 
+    text+= MakeCollapsibleEnd();
+
+    text += MakeCollapsibleBegin('Asset Distribution');
     const jTbl2Obj = jData['Asset distribution'];
-    if (jTbl2Obj)
-    {
+    if (jTbl2Obj) {
         const jTbl2 = jTbl2Obj['value'];
-        text += Obj2Html(jTbl2Obj)
+        // Display special text if the table is empty (or only has headers)
+        text += (jTbl2.length > 1) ? Obj2Html(jTbl2Obj) : AddClass('(none)', 'noDataText');
     }
+    text+= MakeCollapsibleEnd();
 
     SetContent(text);
   }
@@ -2347,6 +2359,9 @@
 
     // Build request
     if (g_type == 'asset') { // Arguments for 'asset': id, hMin, hMax, nMaxOps
+      // In case Asset 0 is requested (which is not accepted by node explorer), reload the page with ALL assets instead
+      if (g_id == 0) { window.location.href = UrlSelf('assets') }
+      // Otherwise, process request
       urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMax;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
