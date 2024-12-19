@@ -2361,7 +2361,7 @@ namespace bvm2 {
 
 		CoinID::Generator gen(aid);
 		if (gen.m_hGen == Zero)
-			dst_ = ECC::Context::get().H_Big * s_;
+			dst_ = ECC::Context::get().H * s_;
 		else
 			dst_ = gen.m_hGen * s_;
 	}

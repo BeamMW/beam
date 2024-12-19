@@ -2282,7 +2282,14 @@ namespace
         {
             return -1;
         }
-        laser->SetNetwork(nnet);
+
+        struct EmptyMsgConsumer :public IWalletMessageConsumer {
+            void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
+        } msgConsumer;
+
+        auto wnet = std::make_shared<WalletNetworkViaBbs>(msgConsumer, nnet, walletDB);
+
+        laser->SetNetwork(nnet, *wnet);
         laser->ListenClosedChannelsWithPossibleRollback();
 
         LaserObserver laserObserver(walletDB, vm);
@@ -3099,14 +3106,12 @@ namespace
             return -1;
         }
 
-        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
-
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
         {
             return 0;
         },
         [sendAssetId, receiveAssetId, sendAmountGroth,
-         receiveAmountGroth, expirationMinutes, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+         receiveAmountGroth, expirationMinutes](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
         {
             std::string sendAssetUnitName = "BEAM";
             if (sendAssetId)
@@ -3132,16 +3137,14 @@ namespace
                 receiveAssetUnitName = receiveAssetMeta.GetUnitName();
             }
 
-            WalletAddress receiverAddress;
-            walletDB->createAddress(receiverAddress);
-            receiverAddress.m_label = comment;
-            receiverAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
-            walletDB->saveAddress(receiverAddress);
+            uint64_t keyID = walletDB->AllocateKidRange(1);
+            WalletID wid;
+            walletDB->get_SbbsWalletID(wid, keyID);
 
             DexOrder orderObj(
                 DexOrderID::generate(),
-                receiverAddress.m_BbsAddr,
-                receiverAddress.m_OwnID,
+                wid,
+                keyID,
                 sendAssetId,
                 sendAmountGroth,
                 sendAssetUnitName,
@@ -3158,8 +3161,6 @@ namespace
 
             return 0;
         });
-
-        return 1;
     }
 
     int AssetSwapCancel(const po::variables_map& vm)
@@ -3246,13 +3247,11 @@ namespace
             return -1;
         }
 
-        auto comment = vm[cli::ASSETS_SWAP_COMMENT].as<string>();
-
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
         {
             return 0;
         },
-        [offerId, offerIdStr, comment](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
+        [offerId, offerIdStr](auto&& vm, auto&& wallet, auto&& walletDB, DexBoard::Ptr dex)
         {
             auto order = dex->getDexOrder(offerId);
             if (!order)
@@ -3302,16 +3301,9 @@ namespace
                 return -1;
             }
 
-            WalletAddress myAddress;
-            walletDB->createAddress(myAddress);
-            myAddress.m_label = comment;
-            myAddress.m_duration = beam::wallet::WalletAddress::AddressExpirationAuto;
-            walletDB->saveAddress(myAddress);
-
             auto params = beam::wallet::CreateDexTransactionParams(
                             offerId,
                             order->getSBBSID(),
-                            myAddress.m_BbsAddr,
                             sendAsset,
                             order->getSendAmount(),
                             receiveAsset,

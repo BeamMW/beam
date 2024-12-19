@@ -174,7 +174,7 @@ namespace Amm
 
             if (dCtl < m_Ctl)
             {
-                // round the return part to the samller side, this way we'll never have empty components
+                // round the return part to the smaller side, this way we'll never have empty components
                 Float kRet = Float(dCtl) / Float(m_Ctl);
 
                 dRet.m_Tok1 = Float(m_Tok1) * kRet;

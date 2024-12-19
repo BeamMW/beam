@@ -268,7 +268,7 @@ namespace ECC
 		Converter();
 		void Flush();
 
-		void set_Deferred(Compact& trg, Native& src);
+		void set_Deferred(Compact& trg, const Native& src);
 	};
 
 	secp256k1_pubkey ConvertPointToPubkey(const Point& point);
@@ -497,89 +497,86 @@ namespace ECC
 	namespace Generator
 	{
 		static const uint32_t nBitsPerLevel = 4;
-		static const uint32_t nPointsPerLevel = 1 << nBitsPerLevel; // 16
+		static const uint32_t s_nLevels = nBits / nBitsPerLevel;
 
-		template <uint32_t nBits_>
-		class Base
-		{
-		protected:
-			static const uint32_t nLevels = nBits_ / nBitsPerLevel;
-			static_assert(nLevels * nBitsPerLevel == nBits_, "");
-
-			Point::Compact m_pPts[nLevels * nPointsPerLevel];
-		};
-
-		void GeneratePts(const Point::Native&, Oracle&, Point::Compact* pPts, uint32_t nLevels, Point::Compact::Converter&);
-		void SetMul(Point::Native& res, bool bSet, const Point::Compact* pPts, const Scalar::Native::uint* p, int nWords);
-
-		template <uint32_t nBits_>
 		class Simple
-			:public Base<nBits_>
 		{
+			static const uint32_t nPointsPerLevel = (1 << nBitsPerLevel) - 1; // 15
+
+			Point::Compact m_pPts[s_nLevels * nPointsPerLevel];
+
+			void SetMul(Point::Native& res, bool bSet, const Scalar::Native::uint* p, uint32_t nWords) const;
+
 			template <typename T>
-			struct Mul
+			struct Mul_Ord
 			{
 				const Simple& me;
 				const T& k;
-				Mul(const Simple& me_, const T& k_) :me(me_) ,k(k_) {}
+				Mul_Ord(const Simple& me_, const T& k_) :me(me_), k(k_) {}
 
 				void Assign(Point::Native& res, bool bSet) const
 				{
-					const int nWordBits = sizeof(Scalar::Native::uint) << 3;
-					static_assert(!(nBits_ % nWordBits), "generator size should be multiple of native words");
-					const int nWords = nBits_ / nWordBits;
-
-					const int nWordsSrc = (sizeof(T) + sizeof(Scalar::Native::uint) - 1) / sizeof(Scalar::Native::uint);
-
-					static_assert(nWordsSrc <= nWords, "generator too short");
-
+					const uint32_t nWordBits = sizeof(Scalar::Native::uint) << 3;
+					const uint32_t nWords = (sizeof(T) + sizeof(Scalar::Native::uint) - 1) / sizeof(Scalar::Native::uint);
 					Scalar::Native::uint p[nWords];
-					for (int i = 0; i < nWordsSrc; i++)
-						p[i] = (Scalar::Native::uint) (k >> (i * nWordBits));
 
-					for (int i = nWordsSrc; i < nWords; i++)
-						p[i] = 0;
+					for (uint32_t i = 0; i < nWords; i++)
+						p[i] = (Scalar::Native::uint)(k >> (i * nWordBits));
 
-					Generator::SetMul(res, bSet, me.m_pPts, p, nWords);
+					me.SetMul(res, bSet, p, nWords);
+				}
+			};
 
-					SecureErase(p, sizeof(Scalar::Native::uint) * nWordsSrc);
+			struct Mul_K
+			{
+				const Simple& me;
+				const Scalar::Native& k;
+				Mul_K(const Simple& me_, const Scalar::Native& k_) :me(me_), k(k_) {}
+
+				void Assign(Point::Native& res, bool bSet) const
+				{
+					me.SetMul(res, bSet, k.get().d, _countof(k.get().d));
 				}
 			};
 
 		public:
-			void Initialize(const Point::Native& p, Oracle& oracle, Point::Compact::Converter& cpc)
-			{
-				GeneratePts(p, oracle, Base<nBits_>::m_pPts, Base<nBits_>::nLevels, cpc);
-			}
+			void Initialize(const Point::Native& p, Point::Compact::Converter& cpc);
 
 			template <typename TScalar>
-			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
+			Mul_Ord<TScalar> operator * (const TScalar& k) const { return Mul_Ord<TScalar>(*this, k); }
+
+			Mul_K operator * (const Scalar::Native& k) const { return Mul_K(*this, k); }
 		};
 
 		class Obscured
-			:public Base<nBits>
 		{
-			Point::Compact m_AddPt;
+			static const uint32_t nPointsPerLevel = (1 << nBitsPerLevel);
 			Scalar::Native m_AddScalar;
 
-			template <typename TScalar>
-			struct Mul
+			Point::Compact m_pPts[s_nLevels * nPointsPerLevel];
+
+			void SetMul(Point::Native& res, bool bSet, const Scalar::Native&) const;
+
+			struct Mul_K
 			{
 				const Obscured& me;
-				const TScalar& k;
-				Mul(const Obscured& me_, const TScalar& k_) :me(me_) ,k(k_) {}
+				const Scalar::Native& k;
+				Mul_K(const Obscured& me_, const Scalar::Native& k_) :me(me_), k(k_) {}
 
-				void Assign(Point::Native& res, bool bSet) const;
+				void Assign(Point::Native& res, bool bSet) const
+				{
+					me.SetMul(res, bSet, k);
+				}
 			};
 
-			void AssignInternal(Point::Native& res, bool bSet, Scalar::Native& kTmp, const Scalar::Native&) const;
+			bool InitializeTry(const Point::Native& p, Oracle&, Point::Compact::Converter& cpc);
 
 		public:
-			void Initialize(const Point::Native&, Oracle&, Point::Compact::Converter&);
+			void Initialize(const Point::Native& p, Oracle&, Point::Compact::Converter& cpc);
 
-			template <typename TScalar>
-			Mul<TScalar> operator * (const TScalar& k) const { return Mul<TScalar>(*this, k); }
+			Mul_K operator * (const Scalar::Native& k) const { return Mul_K(*this, k); }
 		};
+
 
 	} // namespace Generator
 
@@ -801,7 +798,8 @@ namespace ECC
 		struct Generator
 		{
 			const MultiMac::Prepared* m_pGenPrep;
-			const ECC::Generator::Obscured* m_pGen;
+			const ECC::Generator::Obscured* m_pGen_s;
+			const ECC::Generator::Simple* m_pGen_f;
 			uint32_t m_nBatchIdx;
 		};
 
@@ -812,16 +810,14 @@ namespace ECC
 	{
 		static const Context& get();
 
-		Generator::Obscured						G;
-		Generator::Obscured						H_Big;
-		Generator::Simple<sizeof(Amount) << 3>	H;
-		Generator::Obscured						J; // for switch/ElGamal commitment
+		Generator::Obscured G;
+		Generator::Simple   H;
+		Generator::Obscured J; // for switch/ElGamal commitment
 
 		struct IppCalculator
 		{
 			// generators used for inner product proof
 			MultiMac::Prepared m_pGen_[2][InnerProduct::nDim];
-			Point::Compact m_pGet1_Minus[InnerProduct::nDim];
 			MultiMac::Prepared m_GenDot_; // seems that it's not necessary, can use G instead
 			MultiMac::Prepared m_Aux2_;
 			MultiMac::Prepared G_;

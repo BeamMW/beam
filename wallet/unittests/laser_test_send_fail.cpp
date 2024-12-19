@@ -53,8 +53,8 @@ int main()
 
         // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
         Lightning::Channel::Params params = { kRevisionMaxLifeTime, kLockTime, kPostLockReserve, fee };
-        auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
-        auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
+        auto laserFirst = std::make_unique<TestLaserInst>(wdbFirst, params);
+        auto laserSecond = std::make_unique<TestLaserInst>(wdbSecond, params);
 
         LaserObserver observer_1, observer_2;
         laser::ChannelIDPtr channel_1, channel_2;
@@ -115,7 +115,6 @@ int main()
         InitNodeToTest(
             node, binaryTreasury, &observer, kDefaultTestNodePort,
             kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
-        ConfigureNetwork(*laserFirst, *laserSecond);
 
         mainReactor->run();
     };

@@ -75,87 +75,37 @@ namespace beam
 
 		struct AccountData
 			:public intrusive::set_base_hook<Address>
-			,public IAccount
 		{
 			ByteBuffer m_Code;
-			std::map<Word, Word> m_Vars;
-			MyProcessor* m_pThis;
+
+			struct Wrap :public Account {
+				virtual ~Wrap() {}
+				AccountData* m_pOrg;
+			};
+
+			struct SlotData :public intrusive::set_base_hook<Word>
+			{
+				struct Wrap :public Account::Slot {
+					virtual ~Wrap() {}
+					SlotData* m_pOrg;
+				};
+
+				Word m_Data;
+			};
+
+			intrusive::multiset_autoclear<SlotData> m_Slots;
 
 			Word m_Balance = Zero;
 			uint64_t m_Nonce = 0;
 
-			virtual ~AccountData() {} // auto
-
-			void Release() override {
-			}
-
-			void get_Balance(Word& res) override {
-				res = m_Balance;
-			}
-
-			void set_Balance(const Word& val) override {
-				m_Balance = val;
-			}
-
-			const Address& get_Address() override
-			{
-				return m_Key;
-			}
-
-			void SStore(const Word& key, const Word& w, Word& wPrev) override
-			{
-				auto it = m_Vars.find(key);
-				if (m_Vars.end() == it)
-				{
-					wPrev = Zero;
-					if (w == Zero)
-						return;
-
-					m_Vars.emplace(key, w);
-				}
-				else
-				{
-					wPrev = it->second;
-					if (w == Zero)
-						m_Vars.erase(it);
-					else
-						it->second = w;
-				}
-			}
-
-			bool SLoad(const Word& key, Word& w) override
-			{
-				auto it = m_Vars.find(key);
-				if (m_Vars.end() == it)
-					return false;
-
-				w = it->second;
-				return true;
-			}
-
-			void SetCode(const Blob& b) override
-			{
-				b.Export(m_Code);
-			}
-
-			void GetCode(Blob& b) override
-			{
-				b = m_Code;
-			}
-
-			void Delete() override
-			{
-				m_pThis->m_mapAccounts.Delete(*this);
-			}
-
 			void Print(std::ostream& os) const
 			{
-				for (const auto& kv : m_Vars)
+				for (const auto& kv : m_Slots)
 				{
 					char sz1[Word::nTxtLen + 1];
 					char sz2[Word::nTxtLen + 1];
-					kv.first.Print(sz1);
-					kv.second.Print(sz2);
+					kv.m_Key.Print(sz1);
+					kv.m_Data.Print(sz2);
 
 					os << "\t" << sz1 << ": " << sz2 << std::endl;
 				}
@@ -170,6 +120,134 @@ namespace beam
 
 		intrusive::multiset_autoclear<AccountData> m_mapAccounts;
 
+		AccountData* get_Account(const Address& addr, bool& bCreate)
+		{
+			auto it = m_mapAccounts.find(addr, AccountData::Comparator());
+			if (m_mapAccounts.end() != it)
+			{
+				bCreate = false;
+				return &(*it);
+			}
+
+			if (!bCreate)
+				return nullptr;
+
+			bCreate = true;
+			return m_mapAccounts.Create(addr);
+		}
+
+		Account& LoadAccountInternal(const Address& addr, bool bCreate)
+		{
+			auto* p = new AccountData::Wrap;
+			p->m_Key = addr;
+			m_Accounts.insert(*p);
+
+			p->m_pOrg = get_Account(addr, bCreate);
+
+			if (!p->m_pOrg)
+			{
+				p->m_Balance.m_Value = Zero;
+				p->m_Exists.m_Value = false;
+				ZeroObject(p->m_Code.m_Value);
+			}
+			else
+			{
+				p->m_Balance.m_Value = p->m_pOrg->m_Balance;
+				p->m_Exists.m_Value = true;
+				p->m_Code.m_Value = p->m_pOrg->m_Code;
+			}
+			return *p;
+		}
+
+
+		Account& LoadAccount(const Address& addr) override
+		{
+			return LoadAccountInternal(addr, false);
+		}
+
+		Account::Slot& LoadSlot(Account& x, const Word& key) override
+		{
+			auto* p = new AccountData::SlotData::Wrap;
+			p->m_Key = key;
+			x.m_Slots.insert(*p);
+			p->m_pOrg = nullptr;
+
+			
+			auto& wr = Cast::Up<AccountData::Wrap>(x);
+			if (wr.m_pOrg)
+			{
+				auto it = wr.m_pOrg->m_Slots.find(key, AccountData::SlotData::Comparator());
+				if (wr.m_pOrg->m_Slots.end() != it)
+					p->m_pOrg = &(*it);
+			}
+
+			if (p->m_pOrg)
+				p->m_Data.m_Value = p->m_pOrg->m_Data;
+			else
+				p->m_Data.m_Value = Zero;
+
+			return *p;
+		}
+
+		void CommitChanges(AccountData& dst, AccountData::Wrap& src)
+		{
+			if (src.m_Balance.m_Modified)
+				dst.m_Balance = src.m_Balance.m_Value;
+
+			if (src.m_Code.m_Modified)
+				src.m_Code.m_Value.Export(dst.m_Code);
+			
+			for (auto& sd : src.m_Slots)
+			{
+				auto& wr = Cast::Up<AccountData::SlotData::Wrap>(sd);
+
+				if (!wr.m_Data.m_Modified)
+					continue;
+
+				if (wr.m_Data.m_Value == Zero)
+				{
+					if (wr.m_pOrg)
+						dst.m_Slots.Delete(*wr.m_pOrg);
+				}
+				else
+				{
+					if (!wr.m_pOrg)
+						wr.m_pOrg = dst.m_Slots.Create(wr.m_Key);
+					wr.m_pOrg->m_Data = wr.m_Data.m_Value;
+				}
+			}
+		}
+
+		void CommitChanges()
+		{
+			assert(m_lstFrames.empty());
+
+			for (auto& ad : m_Accounts)
+			{
+				auto& wr = Cast::Up<AccountData::Wrap>(ad);
+
+				if (!wr.m_Exists.m_Value)
+				{
+					if (wr.m_pOrg)
+					{
+						m_mapAccounts.Delete(*wr.m_pOrg);
+						wr.m_pOrg = nullptr; // for more safety
+					}
+				}
+				else
+				{
+					if (!wr.m_pOrg)
+						wr.m_pOrg = m_mapAccounts.Create(wr.m_Key); // allocate it
+
+					CommitChanges(*wr.m_pOrg, wr);
+				}
+			}
+
+			m_Accounts.Clear();
+
+			m_Top.m_lstUndo.Clear();
+		}
+
 		void PrintVars(std::ostream& os) const
 		{
 			for (const auto& cd : m_mapAccounts)
@@ -180,25 +258,6 @@ namespace beam
 				os << "Contract = " << sz1 << std::endl;
 				cd.Print(os);
 			}
-		}
-
-		bool GetAccount(const Address& addr, bool bCreate, IAccount::Guard& g) override
-		{
-			auto it = m_mapAccounts.find(addr, AccountData::Comparator());
-			if (m_mapAccounts.end() != it)
-			{
-				g.m_p = &(*it);
-				return false; // not created
-			}
-
-			if (!bCreate)
-				return false;
-
-			auto* pCd = m_mapAccounts.Create(addr);
-			pCd->m_pThis = this;
-
-			g.m_p = pCd;
-			return true;
 		}
 
 		Height get_Height() override
@@ -214,75 +273,64 @@ namespace beam
 
 		uint64_t& get_CallerNonceRef()
 		{
-			assert(m_Top.m_Account.m_p);
-			return Cast::Up<AccountData>(m_Top.m_Account.m_p)->m_Nonce;
+			assert(m_Top.m_pAccount);
+			auto& wr = Cast::Up<AccountData::Wrap>(*m_Top.m_pAccount);
+			assert(wr.m_pOrg);
+			return wr.m_pOrg->m_Nonce;
 		}
 
 		void InitCaller(const Address& aCaller, uint64_t gas = 1000000000ULL)
 		{
 			Reset();
 
-			IAccount::Guard g;
-			GetAccount(aCaller, true, g);
-			assert(g.m_p);
-
-			m_Top.InitAccount(g);
+			m_Top.m_pAccount = &LoadAccountInternal(aCaller, true);
 			m_Top.m_Gas = gas; // TODO - should pay for it
 
 			get_CallerNonceRef()++;
 		}
 
-		bool InitCallerStrict(const Address& aCaller, uint64_t gas, uint64_t gasPrice)
+		bool InitCallerStrict(const Address& aCaller, const Word& callValue, uint64_t gas, uint64_t gasPrice)
 		{
 			Reset();
 
-			IAccount::Guard g;
-			GetAccount(aCaller, false, g);
-			if (!g.m_p)
-				return false;
+			auto& acc = LoadAccountInternal(aCaller, false);
 
 			const uint64_t nMinGas = 21000;
 			if (gas < nMinGas)
 				return false; // shouldn't be accepted in a block
 
-			Word wBal, wGasPay;
-			g.m_p->get_Balance(wBal);
-			if (wBal == Zero)
+			if (acc.m_Balance.m_Value == Zero)
 				return false;
 
-			wGasPay.FromNumber(MultiWord::From(gas) * MultiWord::From(gasPrice));
-			if (wBal < wGasPay)
-			{
-				Word zero = Zero;
-				UpdateBalance(g.m_p, wBal, zero);
-				return false;
-			}
+			Word wPay;
+			wPay.FromNumber(MultiWord::From(gas) * MultiWord::From(gasPrice));
+			wPay += callValue;
+			if (wPay < callValue)
+				return false; // overflow
 
-			wGasPay.Negate();
-			wGasPay += wBal;
-			UpdateBalance(g.m_p, wBal, wGasPay);
+			if (acc.m_Balance.m_Value < wPay)
+				return false; // not enough funds
 
-			m_Top.InitAccount(g);
+			m_Top.m_pAccount = &acc;
 			m_Top.m_Gas = gas - nMinGas;
 
 			get_CallerNonceRef()++;
 			return true;
 		}
 
-		void RefundCaller(uint64_t gasPrice)
+		void FinishCall(uint64_t gas, uint64_t gasPrice)
 		{
-			assert(m_Top.m_Account.m_p);
-			if (m_Top.m_Gas)
-			{
-				Word wBal;
-				m_Top.m_Account.m_p->get_Balance(wBal);
+			assert(m_Top.m_pAccount);
+			assert(m_Top.m_Gas < gas);
+			gas -= m_Top.m_Gas; // gas consumed
 
-				Word wRefund;
-				wRefund.FromNumber(MultiWord::From(m_Top.m_Gas) * MultiWord::From(gasPrice));
-				wRefund += wBal; // assume overflow not possible
+			Word wPay;
+			wPay.FromNumber(MultiWord::From(m_Top.m_Gas) * MultiWord::From(gasPrice));
+			assert(m_Top.m_pAccount->m_Balance.m_Value >= wPay);
 
-				UpdateBalance(m_Top.m_Account.m_p, wBal, wRefund);
-			}
+			wPay.Negate();
+			wPay += m_Top.m_pAccount->m_Balance.m_Value;
+			m_Top.UpdateBalance(*m_Top.m_pAccount, wPay);
 		}
 
 
@@ -311,12 +359,13 @@ namespace beam
 			args.m_CallValue = Zero;
 			args.m_Buf = code;
 
-			AddressForContract(aContract, m_Top.m_Account.m_p->get_Address(), get_CallerNonceRef());
+			AddressForContract(aContract, m_Top.m_pAccount->m_Key, get_CallerNonceRef());
 
 			Call(aContract, args, true);
 
 			RunFull();
 
+			CommitChanges();
 			return m_RetVal.m_Success;
 		}
 
@@ -332,6 +381,7 @@ namespace beam
 
 			RunFull();
 
+			CommitChanges();
 			return m_RetVal.m_Success;
 
 		}
@@ -752,7 +802,7 @@ namespace beam
 		ByteBuffer ScanBuf(const std::string& s)
 		{
 			ByteBuffer ret;
-			if (s.size() > 2) // 1st 2 characers are probably 0x
+			if (s.size() > 2) // 1st 2 characters are probably 0x
 			{
 				auto len = static_cast<uint32_t>(s.size());
 				ret.resize(len);
@@ -762,7 +812,7 @@ namespace beam
 			return ret;
 		}
 
-		void HandleAccount(Processor& proc, json::const_iterator it, bool bPre)
+		void HandleAccount(MyProcessor& proc, json::const_iterator it, bool bPre)
 		{
 			const auto& sAddr = it.key();
 			//std::cout << "\t\tAddress = " << sAddr << std::endl;
@@ -774,12 +824,13 @@ namespace beam
 
 			std::string sPrefix = "\t\t\t " + sAddr + " ";
 
-			Processor::IAccount::Guard g;
-			bool bCreated = proc.GetAccount(addr, bPre, g);
+			bool bCreate = bPre;
+			auto* pAd = proc.get_Account(addr, bCreate);
 			if (bPre)
 			{
-				assert(g.m_p);
-				if (!bCreated)
+				assert(pAd);
+
+				if (!bCreate)
 				{
 					std::cout << sPrefix << "Duplicated" << std::endl;
 					return;
@@ -787,14 +838,15 @@ namespace beam
 			}
 			else
 			{
-				if (!g.m_p)
+				if (!pAd)
 				{
 					std::cout << sPrefix << "Missing" << std::endl;
 					return;
 				}
 			}
 
-			auto& x = Cast::Up<MyProcessor::AccountData>(*g.m_p);
+
+			auto& x = *pAd;
 
 			Word wBal;
 			ScanTxt(wBal, jAcc["balance"].get<std::string>().c_str());
@@ -840,33 +892,32 @@ namespace beam
 				ScanTxt(wKey, itS.key().c_str());
 
 				if (bPre)
-					x.m_Vars[wKey] = wVal;
+					x.m_Slots.Create(wKey)->m_Data = wVal;
 				else
 				{
-					auto itVal = x.m_Vars.find(wKey);
-					if (x.m_Vars.end() == itVal)
+					auto itVal = x.m_Slots.find(wKey, MyProcessor::AccountData::SlotData::Comparator());
+					if (x.m_Slots.end() == itVal)
 						std::cout << sPrefix << "[" << wKey.str() << "]-[" << wVal.str() << "] missing" << std::endl;
 					else
 					{
-						if (itVal->second != wVal)
-							std::cout << sPrefix << "[" << wKey.str() << "]-[" << wVal.str() << "] actual value " << itVal->second.str() << std::endl;
+						if (itVal->m_Data != wVal)
+							std::cout << sPrefix << "[" << wKey.str() << "]-[" << wVal.str() << "] actual value " << itVal->m_Data.str() << std::endl;
 
-						x.m_Vars.erase(itVal);
+						x.m_Slots.Delete(*itVal);
 					}
 				}
 			}
 
 			if (!bPre)
 			{
-				for (auto itVal = x.m_Vars.begin(); x.m_Vars.end() != itVal; itVal++)
-					std::cout << sPrefix << "[" << itVal->first.str() << "]-[" << itVal->second.str() << "] spare" << std::endl;
+				for (auto itVal = x.m_Slots.begin(); x.m_Slots.end() != itVal; itVal++)
+					std::cout << sPrefix << "[" << itVal->m_Key.str() << "]-[" << itVal->m_Data.str() << "] spare" << std::endl;
 
-				g.Reset(); // workaround, until we truly implement safe Release/Delete logic
-				x.Delete();
+				proc.m_mapAccounts.Delete(x);
 			}
 		}
 
-		void HandleAccounts(Processor& proc, const json& j, bool bPre)
+		void HandleAccounts(MyProcessor& proc, const json& j, bool bPre)
 		{
 			for (auto it = j.begin(); j.end() != it; it++)
 				HandleAccount(proc, it, bPre);
@@ -918,7 +969,14 @@ namespace beam
 								std::cout << "\t\t Tx from " << aFrom.str() << std::endl;
 
 								uint64_t gasLimit = ScanTxtUint(jTx["gasLimit"].get<std::string>().c_str());
-								uint64_t gasPrice = ScanTxtUint(jTx["gasPrice"].get<std::string>().c_str());
+
+								uint64_t gasPrice = 0;
+								auto it = jTx.find("gasPrice");
+								if (jTx.end() != it)
+									gasPrice = ScanTxtUint(it.value().get<std::string>().c_str());
+
+								if (!gasPrice)
+									gasPrice = 1000;
 
 								Processor::Args args;
 								ScanTxt(args.m_CallValue, jTx["value"].get<std::string>().c_str());
@@ -926,20 +984,16 @@ namespace beam
 								auto vData = ScanBuf(jTx["data"].get<std::string>().c_str());
 								args.m_Buf = vData;
 
-								if (proc.InitCallerStrict(aFrom, gasLimit, gasPrice))
+								if (proc.InitCallerStrict(aFrom, args.m_CallValue, gasLimit, gasPrice))
 								{
-									bool isDeploy = (aTo == Zero);
-									if (isDeploy)
-										AddressForContract(aTo, aFrom, proc.get_CallerNonceRef());
-
-									proc.Call(aTo, args, isDeploy);
+									proc.Call(aTo, args, proc.get_CallerNonceRef());
 									proc.RunFull();
 
-									proc.RefundCaller(gasPrice);
-									proc.Reset();
+									proc.FinishCall(gasLimit, gasPrice);
+									proc.CommitChanges();
 								}
 
-
+								proc.Reset();
 							}
 						}
 					}

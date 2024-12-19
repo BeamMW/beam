@@ -39,7 +39,6 @@ namespace beam
 	{
 		std::string m_sRes;
 		std::string m_sMeta;
-		ECC::NoLeak<Merkle::Hash> m_hvSecret;
 
 		void ExportS(const Key::IKdf&);
 		void ExportP(const Key::IPKdf&);

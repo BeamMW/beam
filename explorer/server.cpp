@@ -756,6 +756,7 @@ OnRequest(hdrs)
 
             case 'H': val = C::Hash_Abs; break;
             COL_CASE('T', 't', Time)
+            COL_CASE('G', 'g', Age)
             COL_CASE('D', 'd', Difficulty)
             COL_CASE('F', 'f', Fee)
             COL_CASE('K', 'k', Kernels)
@@ -829,7 +830,7 @@ OnRequest(asset)
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
     uint32_t nMaxOps = (uint32_t) _currentUrl.get_int_arg("nMaxOps", -1);
 
-    return _backend.get_asset_history((uint32_t) aid, hMin, hMax, nMaxOps);
+    return _backend.get_asset_details((uint32_t) aid, hMin, hMax, nMaxOps);
 }
 
 OnRequest(assets)

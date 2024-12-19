@@ -27,7 +27,7 @@ void AssetsSwapCliHandler::init(
     _broadcastRouter = std::make_shared<BroadcastRouter>(
         nnet, wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(walletDb));
 
-    _dexBoard = std::make_shared<DexBoard>(*_broadcastRouter, *walletDb);
+    _dexBoard = std::make_shared<DexBoard>(*_broadcastRouter, *wallet, *walletDb);
     _dexWDBSubscriber = std::make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(_dexBoard.get()), walletDb);
     _dexWalletSubscriber = std::make_unique<DexWalletSubscriber>(
         static_cast<ISimpleSwapHandler*>(_dexBoard.get()), wallet);

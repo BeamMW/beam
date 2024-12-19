@@ -16,7 +16,6 @@
 
 #include "core/lightning.h"
 #include "wallet/laser/i_channel_holder.h"
-#include "wallet/laser/receiver.h"
 #include "wallet/laser/types.h"
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/common.h"
@@ -30,27 +29,28 @@ public:
     {
         static const uint32_t Control0 = 1024 << 16;
         static const uint32_t MyWid = Control0 + 31;
+        static const uint32_t ChannelID = Control0 + 32;
     };
 
     using Ptr = std::unique_ptr<Channel>;
     static ChannelIDPtr ChannelIdFromString(const std::string& chIdStr);
 
     Channel(IChannelHolder& holder,
-            const WalletAddress& myAddr,
+            uint64_t bbsID,
             const WalletID& trg,
             const Amount& aMy,
             const Amount& aTrg,
             const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
-            const WalletAddress& myAddr,
+            uint64_t bbsID,
             const WalletID& trg,
             const Amount& aMy,
             const Amount& aTrg,
             const Lightning::Channel::Params& params = {});
     Channel(IChannelHolder& holder,
             const ChannelIDPtr& chID,
-            const WalletAddress& myAddr,
+            uint64_t bbsID,
             const TLaserChannelEntity& entity,
             const Lightning::Channel::Params& params = {});
     Channel(const Channel&) = delete;
@@ -74,7 +74,7 @@ public:
 
     // ILaserChannelEntity implementation
     const ChannelIDPtr& get_chID() const override;
-    const WalletID& get_myWID() const override;
+    uint64_t get_ownID() const override;
     const WalletID& get_trgWID() const override;
     const Amount& get_fee() const override;
     const Height& getLocktime() const override;
@@ -86,7 +86,6 @@ public:
     const Height& get_LockHeight() const override;
     const Timestamp& get_BbsTimestamp() const override;
     const ByteBuffer& get_Data() const override;
-    const WalletAddress& get_myAddr() const override;
 
     bool Open(Height hOpenTxDh);
     bool TransformLastState();
@@ -99,17 +98,30 @@ public:
     bool IsUpdateStuck() const;
     bool IsGracefulCloseStuck() const;
     bool IsSubscribed() const;
+    
+    void OnPeerDataEx(Negotiator::Storage::Map&);
+
+    bool m_SendMyWid = false;
+    bool m_SendChannelID = false;
 
 private:
     void RestoreInternalState(const ByteBuffer& data);
+    void EnsureMyBbsParams();
+    void UnsubscribeInternal();
 
     IChannelHolder& m_rHolder;
 
-    bool m_SendMyWid = true;
+    struct CommHandler
+        :public IRawCommGateway::IHandler
+    {
+        void OnMsg(const Blob&) override;
+        IMPLEMENT_GET_PARENT_OBJ(Channel, m_CommHandler)
+    } m_CommHandler;
+
     int m_lastState = State::None;
 
     ChannelIDPtr m_ID;
-    WalletAddress m_myAddr;
+    uint64_t m_bbsID;
     WalletID m_widTrg;
     Amount m_aMy;
     Amount m_aTrg;
@@ -119,8 +131,11 @@ private:
     Timestamp m_bbsTimestamp;
     Height m_lastUpdateStart = 0;
     
-    std::unique_ptr<Receiver> m_upReceiver;
     ByteBuffer m_data;
     bool m_isSubscribed = false;
+    bool m_bHaveMyParams = false;
+
+    WalletID m_widMy;
+    ECC::Scalar::Native m_skMy;
 };
 }  // namespace beam::wallet::laser

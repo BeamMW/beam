@@ -35,7 +35,7 @@ namespace beam::wallet {
             virtual void onFindDexOrder(const DexOrder& order) = 0;
         };
 
-        DexBoard(IBroadcastMsgGateway& gateway, IWalletDB& wdb);
+        DexBoard(IBroadcastMsgGateway& gatewayBroadcast, IRawCommGateway& gatewayCtlListen, IWalletDB& wdb);
         virtual ~DexBoard();
 
         [[nodiscard]] std::vector<DexOrder> getDexOrders() const;
@@ -59,6 +59,8 @@ namespace beam::wallet {
 
     private:
         bool handleDexOrder(const boost::optional<DexOrder>&);
+        void CtlListen(const DexOrder&, bool);
+
         //
         // IBroadcastListener
         //
@@ -88,7 +90,8 @@ namespace beam::wallet {
         void notifyObservers(ChangeAction action, const std::vector<DexOrder>&) const;
         std::vector<IObserver*> _observers;
 
-        IBroadcastMsgGateway& _gateway;
+        IBroadcastMsgGateway& _gatewayBroadcast;
+        IRawCommGateway& _gatewayCtlListen;
         IWalletDB& _wdb;
         std::map<DexOrderID, DexOrder> _orders;
     };

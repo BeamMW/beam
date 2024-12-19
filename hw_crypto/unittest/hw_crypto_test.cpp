@@ -1198,7 +1198,7 @@ void KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::
 		assert(N);
 
 		// take arbitrary point (doesn't matter which)
-		const auto& pt_ge_storage = ECC::Context::get().m_Ipp.m_pGet1_Minus;
+		const auto& pt_ge_storage = ECC::Context::get().m_Ipp.m_Aux2_.m_Secure.m_pPt;
 		secp256k1_ge ge;
 		pt_ge_storage->Assign(ge);
 

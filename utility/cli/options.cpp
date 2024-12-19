@@ -345,7 +345,6 @@ namespace beam
         const char* ASSETS_SWAP_RECEIVE_AMOUNT = "receive_amount";
         const char* ASSETS_SWAP_RECEIVE_ASSET_ID = "receive_asset_id";
         const char* ASSETS_SWAP_EXPIRATION = "minutes_before_expire";
-        const char* ASSETS_SWAP_COMMENT = "asset_swap_comment";
 
         const char* ASSETS_SWAP_OFFER_ID = "offer_id";
 #endif  // BEAM_ASSET_SWAP_SUPPORT
@@ -549,7 +548,6 @@ namespace beam
             (cli::ASSETS_SWAP_SEND_AMOUNT, po::value<Positive<double>>(), "amount to send")
             (cli::ASSETS_SWAP_RECEIVE_AMOUNT, po::value<Positive<double>>(), "amount to receive")
             (cli::ASSETS_SWAP_EXPIRATION, po::value<uint32_t>()->default_value(30), "expiration time in minutes")
-            (cli::ASSETS_SWAP_COMMENT, po::value<string>()->default_value(""), "comment")
             (cli::ASSETS_SWAP_OFFER_ID, po::value<string>()->default_value(""), "offer id");
 
 #endif  // BEAM_ASSET_SWAP_SUPPORT

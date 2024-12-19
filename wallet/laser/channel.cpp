@@ -36,7 +36,7 @@ ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
 }
 
 Channel::Channel(IChannelHolder& holder,
-                 const WalletAddress& myAddr,
+                 uint64_t bbsID,
                  const WalletID& trg,
                  const Amount& aMy,
                  const Amount& aTrg,
@@ -44,7 +44,7 @@ Channel::Channel(IChannelHolder& holder,
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(std::make_shared<ChannelID>(Zero))
-    , m_myAddr(myAddr)
+    , m_bbsID(bbsID)
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
@@ -53,7 +53,6 @@ Channel::Channel(IChannelHolder& holder,
     , m_bbsTimestamp(getTimestamp())
 {
     ECC::GenRandom(*m_ID);
-    m_upReceiver = std::make_unique<Receiver>(m_rHolder, m_ID);
 
     m_lastState = beam::Lightning::Channel::get_State();
     m_Params = params;
@@ -61,7 +60,7 @@ Channel::Channel(IChannelHolder& holder,
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
-                 const WalletAddress& myAddr,
+                 uint64_t bbsID,
                  const WalletID& trg,
                  const Amount& aMy,
                  const Amount& aTrg,
@@ -69,14 +68,13 @@ Channel::Channel(IChannelHolder& holder,
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
-    , m_myAddr(myAddr)
+    , m_bbsID(bbsID)
     , m_widTrg(trg)
     , m_aMy(aMy)
     , m_aTrg(aTrg)
     , m_aCurMy(aMy)
     , m_aCurTrg(aTrg)
     , m_bbsTimestamp(getTimestamp())
-    , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_lastState = beam::Lightning::Channel::get_State();
     m_Params = params;
@@ -84,13 +82,13 @@ Channel::Channel(IChannelHolder& holder,
 
 Channel::Channel(IChannelHolder& holder,
                  const ChannelIDPtr& chID,
-                 const WalletAddress& myAddr,
+                 uint64_t bbsID,
                  const TLaserChannelEntity& entity,
                  const Lightning::Channel::Params& params)
     : Lightning::Channel()
     , m_rHolder(holder)
     , m_ID(chID)
-    , m_myAddr(myAddr)
+    , m_bbsID(bbsID)
     , m_widTrg(std::get<LaserFields::LASER_TRG_WID>(entity))
     , m_aMy(std::get<LaserFields::LASER_AMOUNT_MY>(entity))
     , m_aTrg(std::get<LaserFields::LASER_AMOUNT_TRG>(entity))
@@ -98,7 +96,6 @@ Channel::Channel(IChannelHolder& holder,
     , m_aCurTrg(std::get<LaserFields::LASER_AMOUNT_CURRENT_TRG>(entity))
     , m_lockHeight(std::get<LaserFields::LASER_LOCK_HEIGHT>(entity))
     , m_bbsTimestamp(std::get<LaserFields::LASER_BBS_TIMESTAMP>(entity))
-    , m_upReceiver(std::make_unique<Receiver>(holder, chID))
 {
     m_Params = params;
     m_Params.m_Fee = std::get<LaserFields::LASER_FEE>(entity);
@@ -109,6 +106,7 @@ Channel::Channel(IChannelHolder& holder,
 
 Channel::~Channel()
 {
+    UnsubscribeInternal();
 }
 
 Height Channel::get_Tip() const
@@ -162,40 +160,29 @@ void Channel::SendPeer(Negotiator::Storage::Map&& dataOut)
 {
     assert(!dataOut.empty());
 
+    EnsureMyBbsParams();
+
     if (m_SendMyWid)
     {
         m_SendMyWid = false;
-        dataOut.Set(m_myAddr.m_BbsAddr, Codes::MyWid);
+        dataOut.Set(m_widMy, Codes::MyWid);
+    }
+
+    if (m_SendChannelID)
+    {
+        m_SendChannelID = false;
+        dataOut.Set(*m_ID, Codes::ChannelID);
     }
     
     Serializer ser;
-    ser & (*m_ID);
+    //ser & (*m_ID);
     ser & Cast::Down<FieldMap>(dataOut);
 
-    BEAM_LOG_INFO() << "Send From: " << std::to_string(m_myAddr.m_BbsAddr)
+    BEAM_LOG_INFO() << "Send From: " << std::to_string(m_widMy)
                << " To peer: " << std::to_string(m_widTrg);
 
-    proto::FlyClient::RequestBbsMsg::Ptr pReq(
-        new proto::FlyClient::RequestBbsMsg);
-	m_widTrg.m_Channel.Export(pReq->m_Msg.m_Channel);
 
-	ECC::NoLeak<ECC::Hash::Value> hvRandom;
-	ECC::GenRandom(hvRandom.V);
-
-	ECC::Scalar::Native nonce;
-    Key::IKdf::Ptr pKdf;
-    get_Kdf(pKdf);
-	pKdf->DeriveKey(nonce, hvRandom.V);
-
-	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message,
-                            m_widTrg.m_Pk,
-                            nonce,
-                            ser.buffer().first,
-                            static_cast<uint32_t>(ser.buffer().second)))
-	{
-		pReq->m_Msg.m_TimePosted = getTimestamp();
-		get_Net().PostRequest(*pReq, *m_upReceiver);
-	}
+    m_rHolder.get_Gateway().Send(m_widTrg, Blob(ser.buffer().first, (uint32_t) ser.buffer().second));
 }
 
 void Channel::OnCoin(const CoinID& cid,
@@ -294,9 +281,9 @@ const ChannelIDPtr& Channel::get_chID() const
     return m_ID;
 }
 
-const WalletID& Channel::get_myWID() const
+uint64_t Channel::get_ownID() const
 {
-    return m_myAddr.m_BbsAddr;
+    return m_bbsID;
 }
 
 const WalletID& Channel::get_trgWID() const
@@ -352,11 +339,6 @@ const Timestamp& Channel::get_BbsTimestamp() const
 const ByteBuffer& Channel::get_Data() const
 {
     return m_data;
-}
-
-const WalletAddress& Channel::get_myAddr() const
-{
-    return m_myAddr;
 }
 
 bool Channel::Open(Height hOpenTxDh)
@@ -528,25 +510,78 @@ void Channel::LogState()
     BEAM_LOG_DEBUG() << os.str();
 }
 
+void Channel::EnsureMyBbsParams()
+{
+    if (!m_bHaveMyParams)
+    {
+        m_rHolder.getWalletDB()->get_SbbsWalletID(m_skMy, m_widMy, m_bbsID);
+        m_bHaveMyParams = true;
+    }
+}
+
 void Channel::Subscribe()
 {
-    BbsChannel ch;
-    get_myWID().m_Channel.Export(ch);
-    get_Net().BbsSubscribe(ch, m_bbsTimestamp, m_upReceiver.get());
-    m_isSubscribed = true;
-    BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " subscribes to BBS channel: " << ch;
+    if (!m_isSubscribed)
+    {
+        EnsureMyBbsParams();
+        m_rHolder.get_Gateway().Listen(m_widMy, m_skMy, &m_CommHandler);
+        m_isSubscribed = true;
+        BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(m_widMy) << " subscribes";
+    }
 }
 
 void Channel::Unsubscribe()
 {
-    BbsChannel ch;
-    get_myWID().m_Channel.Export(ch);
-    get_Net().BbsSubscribe(ch, 0, nullptr);
-    m_isSubscribed = false;
     if (!m_lastUpdateStart && m_gracefulClose)
         m_lastUpdateStart = get_Tip();
-    BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(get_myWID()) << " unsubscribed from BBS channel: " << ch;
-    
+    UnsubscribeInternal();
+}
+
+void Channel::UnsubscribeInternal()
+{
+    if (m_isSubscribed)
+    {
+        m_isSubscribed = false;
+
+        EnsureMyBbsParams();
+        m_rHolder.get_Gateway().Unlisten(m_widMy);
+
+        BEAM_LOG_INFO() << "beam::wallet::laser::Channel WalletID: "  << std::to_string(m_widMy) << " unsubscribed";
+    }    
+}
+
+void Channel::CommHandler::OnMsg(const Blob& blob)
+{
+    try
+    {
+        Deserializer der;
+        der.reset(blob.p, blob.n);
+
+        beam::Negotiator::Storage::Map dataIn;
+        der & Cast::Down<FieldMap>(dataIn);
+
+        get_ParentObj().OnPeerDataEx(dataIn);
+    }
+    catch (const std::exception&)
+    {
+        // ignore
+    }
+}
+
+void Channel::OnPeerDataEx(Negotiator::Storage::Map& dataIn)
+{
+    WalletID trgWid;
+    if (dataIn.Get(trgWid, Channel::Codes::MyWid))
+        this->m_widTrg = trgWid; // usually happens after channel opening
+
+    OnPeerData(dataIn);
+    auto state = get_State();
+    if (state == Lightning::Channel::State::Closing1)
+    {
+        UpdateRestorePoint();
+        m_rHolder.getWalletDB()->saveLaserChannel(*this);
+    }
+    m_rHolder.UpdateChannelExterior(*this);
 }
 
 bool Channel::IsSafeToClose() const
@@ -653,8 +688,6 @@ void Channel::RestoreInternalState(const ByteBuffer& data)
     {
 		BEAM_LOG_ERROR() << "RestoreInternalState failed";
 	}
-
-    m_SendMyWid = false;
 }
 
 }  // namespace beam::wallet::laser

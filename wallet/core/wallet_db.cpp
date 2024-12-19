@@ -163,7 +163,7 @@ namespace fs = std::filesystem;
 
 #define ENUM_LASER_CHANNEL_FIELDS(each, sep, obj) \
     each(chID,             chID,             BLOB NOT NULL PRIMARY KEY, obj) sep \
-    each(myWID,            myWID,            BLOB NOT NULL, obj) sep \
+    each(bbsID,            bbsID,            INTEGER NOT NULL, obj) sep \
     each(trgWID,           trgWID,           BLOB NOT NULL, obj) sep \
     each(state,            state,            INTEGER NOT NULL, obj) sep \
     each(fee,              fee,              INTEGER, obj) sep \
@@ -363,12 +363,12 @@ namespace beam::wallet
             {
             }
 
-            static const uint32_t s_Factor = 16;
-            static const uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
+            static constexpr uint32_t s_Factor = 16;
+            static constexpr uint64_t s_NoOverflowSrc = uint64_t(-1) / s_Factor;
 
             struct Partial
             {
-                static const Amount s_Inf = Amount(-1);
+                static constexpr Amount s_Inf = Amount(-1);
 
                 struct Link {
                     size_t m_iNext; // 1-based, to distinguish "NULL" pointers
@@ -1022,7 +1022,8 @@ namespace beam::wallet
         const uint8_t kDefaultMaxPrivacyLockTimeLimitHours = 72;
         const int BusyTimeoutMs = 5000;
 
-        const int DbVersion   = 38;
+        const int DbVersion   = 39;
+        const int DbVersion38 = 38;
         const int DbVersion37 = 37;
         const int DbVersion36 = 36;
         const int DbVersion35 = 35;
@@ -1779,7 +1780,7 @@ namespace beam::wallet
             }
         }
 
-        void MigrateFrom32(sqlite3* db)
+        void MigrateFrom32_After20(sqlite3* db)
         {
             assert(db != nullptr);
 
@@ -2390,7 +2391,7 @@ namespace beam::wallet
                     // no break; 
                 case DbVersion16:
                     BEAM_LOG_INFO() << "Converting DB from format 16...";
-                    CreateLaserTables(walletDB->_db);
+
                     // no break;
                 case DbVersion17:
                     BEAM_LOG_INFO() << "Converting DB from format 17...";
@@ -2477,7 +2478,8 @@ namespace beam::wallet
 
                 case DbVersion32:
                     BEAM_LOG_INFO() << "Converting DB from format 32...";
-                    MigrateFrom32(walletDB->_db);
+                    if (version > DbVersion20)
+                        MigrateFrom32_After20(walletDB->_db);
 
                 case DbVersion33:
                     BEAM_LOG_INFO() << "Converting DB from format 33...";
@@ -2506,8 +2508,21 @@ namespace beam::wallet
                     CreateTxParamsIndex(walletDB->_db);
                     CreateAppDataTable(walletDB->_db);
 
-                    storage::setVar(*walletDB, Version, DbVersion);
                     // no break
+
+                case DbVersion38:
+                    BEAM_LOG_INFO() << "Converting DB from format 38...";
+
+                    if (version > DbVersion20)
+                    {
+                        const char* req = "DROP TABLE IF EXISTS " LASER_CHANNELS_NAME ";";
+                        int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                        throwIfError(ret, db);
+
+                        CreateLaserTables(walletDB->_db);
+                    }
+
+                    storage::setVar(*walletDB, Version, DbVersion);
 
                 case DbVersion:
                     // drop private variables from public database for cold wallet
@@ -4894,11 +4909,11 @@ namespace beam::wallet
 
         if (stm2.step())
         {
-            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET myWID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, lockHeight=?11, bbsTimestamp=?12, data=?13 WHERE chID=?1;";
+            const char* updateReq = "UPDATE " LASER_CHANNELS_NAME " SET bbsID=?2, trgWID=?3, state=?4, fee=?5, locktime=?6, amountMy=?7, amountTrg=?8, amountCurrentMy=?9, amountCurrentTrg=?10, lockHeight=?11, bbsTimestamp=?12, data=?13 WHERE chID=?1;";
             sqlite::Statement stm(this, updateReq);
 
             stm.bind(1, channelID->m_pData, channelID->nBytes);
-            stm.bind(2, ch.get_myWID());
+            stm.bind(2, ch.get_ownID());
             stm.bind(3, ch.get_trgWID());
             stm.bind(4, ch.get_State());
             stm.bind(5, ch.get_fee());
@@ -4917,7 +4932,7 @@ namespace beam::wallet
             const char* insertReq = "INSERT INTO " LASER_CHANNELS_NAME " (" ENUM_LASER_CHANNEL_FIELDS(LIST, COMMA, ) ") VALUES(" ENUM_LASER_CHANNEL_FIELDS(BIND_LIST, COMMA, ) ");";
             sqlite::Statement stm(this, insertReq);
             stm.bind(1, channelID->m_pData, channelID->nBytes);
-            stm.bind(2, ch.get_myWID());
+            stm.bind(2, ch.get_ownID());
             stm.bind(3, ch.get_trgWID());
             stm.bind(4, ch.get_State());
             stm.bind(5, ch.get_fee());
@@ -4930,8 +4945,6 @@ namespace beam::wallet
             stm.bind(12, ch.get_BbsTimestamp());
             stm.bind(13, ch.get_Data().data(), ch.get_Data().size());
             stm.step();
-
-            saveAddress(ch.get_myAddr(), true);
         }
 
         flushDB();
@@ -4947,7 +4960,7 @@ namespace beam::wallet
         if (stm.step())
         {
             stm.get(LaserFields::LASER_CH_ID, std::get<LaserFields::LASER_CH_ID>(*entity));
-            stm.get(LaserFields::LASER_MY_WID, std::get<LaserFields::LASER_MY_WID>(*entity));
+            stm.get(LaserFields::LASER_MY_BBS_ID, std::get<LaserFields::LASER_MY_BBS_ID>(*entity));
             stm.get(LaserFields::LASER_TRG_WID, std::get<LaserFields::LASER_TRG_WID>(*entity));
             stm.get(LaserFields::LASER_STATE, std::get<LaserFields::LASER_STATE>(*entity));
             stm.get(LaserFields::LASER_FEE, std::get<LaserFields::LASER_FEE>(*entity));
@@ -4970,7 +4983,7 @@ namespace beam::wallet
         BEAM_LOG_INFO() << "Removing channel: "
                    << to_hex(chId->m_pData, chId->nBytes);
 
-        const char* selectReq = "SELECT chID, myWID FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
+        const char* selectReq = "SELECT chID FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
         sqlite::Statement selectStm(this, selectReq);
         selectStm.bind(1, chId->m_pData, chId->nBytes);
 
@@ -4979,9 +4992,7 @@ namespace beam::wallet
             if (selectStm.step())
             {
                 uintBig_t<16> checkChId;
-                WalletID myWID;
                 selectStm.get(0, checkChId);
-                selectStm.get(1, myWID);
                 if (*chId == checkChId)
                 {
                     const char* deleteReq = "DELETE FROM " LASER_CHANNELS_NAME " WHERE chID=?1;";
@@ -4989,7 +5000,6 @@ namespace beam::wallet
                     stm.bind(1, chId->m_pData, chId->nBytes);
 
                     stm.step();
-                    deleteAddress(myWID, true);
                     return true;
                 }
             }
@@ -5025,7 +5035,7 @@ namespace beam::wallet
             auto& entity = channels.emplace_back();
 
             stm.get(LaserFields::LASER_CH_ID, std::get<LaserFields::LASER_CH_ID>(entity));
-            stm.get(LaserFields::LASER_MY_WID, std::get<LaserFields::LASER_MY_WID>(entity));
+            stm.get(LaserFields::LASER_MY_BBS_ID, std::get<LaserFields::LASER_MY_BBS_ID>(entity));
             stm.get(LaserFields::LASER_TRG_WID, std::get<LaserFields::LASER_TRG_WID>(entity));
             stm.get(LaserFields::LASER_STATE, std::get<LaserFields::LASER_STATE>(entity));
             stm.get(LaserFields::LASER_FEE, std::get<LaserFields::LASER_FEE>(entity));

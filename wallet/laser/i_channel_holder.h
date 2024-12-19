@@ -16,18 +16,17 @@
 
 #include "wallet/core/wallet_db.h"
 #include "core/fly_client.h"
-#include "wallet/laser/i_receiver_holder.h"
 
 namespace beam::wallet::laser
 {
-class IChannelHolder : public IReceiverHolder
+class Channel;
+
+class IChannelHolder
 {
 public:
     virtual IWalletDB::Ptr getWalletDB() = 0;
     virtual proto::FlyClient::INetwork& get_Net() = 0;
-    virtual void OnMsg(const ChannelIDPtr& chID, Blob&& blob) override = 0;
-    virtual bool Decrypt(const ChannelIDPtr& chID,
-                         uint8_t* pMsg,
-                         Blob* blob) override = 0;
+    virtual IRawCommGateway& get_Gateway() = 0;
+    virtual void UpdateChannelExterior(Channel&) = 0;
 };
 }  // namespace beam::wallet::laser

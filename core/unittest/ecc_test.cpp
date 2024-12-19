@@ -712,7 +712,11 @@ void TestSigning()
 				auto& sk = pSk[iKey * nGens + iGen];
 				SetRandom(sk);
 
-				pk += (*cfg.m_pG[iGen].m_pGen) * sk;
+				const auto& g = cfg.m_pG[iGen];
+				if (g.m_pGen_s)
+					pk += (*g.m_pGen_s) * sk;
+				else
+					pk += (*g.m_pGen_f) * sk;
 			}
 		}
 

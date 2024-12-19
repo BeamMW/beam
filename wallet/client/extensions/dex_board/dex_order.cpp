@@ -24,7 +24,7 @@ namespace {
 namespace beam::wallet
 {
 
-DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::Key::IKdf::Ptr pkdf)
+DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature)
 {
     if (!fromByteBuffer(buffer, *this))
     {
@@ -48,9 +48,6 @@ DexOrder::DexOrder(const ByteBuffer& buffer, const ByteBuffer& signature, beam::
     {
         throw std::runtime_error("DexOrder::DexOrder failed to verify signature");
     }
-
-    auto pubkey = derivePublicKey(pkdf);
-    _isMine = pubkey == _sbbsID.m_Pk;
 }
 
 DexOrder::DexOrder(const ByteBuffer& buffer, bool isMine)
@@ -165,35 +162,6 @@ bool DexOrder::isCanceled() const
     return _isCanceled;
 }
 
-ECC::Scalar::Native DexOrder::derivePrivateKey(beam::Key::IKdf::Ptr pkdf) const
-{
-    if (!pkdf)
-    {
-        throw std::runtime_error("DexOrder::getPrivateKey - no KDF");
-    }
-
-    using PrivateKey = ECC::Scalar::Native;
-
-    PrivateKey sk;
-    pkdf->DeriveKey(sk, ECC::Key::ID(_sbbsKeyIDX, Key::Type::Bbs));
-
-    // Do not delete FromSk can change sk
-    PeerID pubKey;
-    pubKey.FromSk(sk);
-
-    return sk;
-}
-
-PeerID DexOrder::derivePublicKey(beam::Key::IKdf::Ptr pkdf) const
-{
-    auto privKey = derivePrivateKey(std::move(pkdf));
-
-    PeerID pubKey;
-    pubKey.FromSk(privKey);
-
-    return pubKey;
-}
-
 Amount DexOrder::getSendAmount() const
 {
     return isMine() ? getFirstAmount() : getSecondAmount();
@@ -238,6 +206,16 @@ void DexOrder::setAccepted(bool value)
 {
     if (_isMine)
         _isAccepted = value;
+}
+
+void DexOrder::setIsMine(bool value)
+{
+    _isMine = value;
+}
+
+uint64_t DexOrder::get_KeyID() const
+{
+    return _sbbsKeyIDX;
 }
 
 }  // namespace beam::wallet

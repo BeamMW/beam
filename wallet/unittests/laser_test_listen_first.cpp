@@ -57,8 +57,8 @@ int main()
 
         // m_hRevisionMaxLifeTime, m_hLockTime, m_hPostLockReserve, m_Fee
         Lightning::Channel::Params params = { kRevisionMaxLifeTime, kLockTime, kPostLockReserve, fee };
-        auto laserFirst = std::make_unique<laser::Mediator>(wdbFirst, params);
-        auto laserSecond = std::make_unique<laser::Mediator>(wdbSecond, params);
+        auto laserFirst = std::make_unique<TestLaserInst>(wdbFirst, params);
+        auto laserSecond = std::make_unique<TestLaserInst>(wdbSecond, params);
 
         LaserObserver observer_1, observer_2;
         laser::ChannelIDPtr channel_1, channel_2;
@@ -143,9 +143,8 @@ int main()
             {
                 startListenAt = height;
                 BEAM_LOG_INFO() << "Test laser LISTEN 1: first serve";
-                laserFirst.reset(new laser::Mediator(wdbFirst, params));
+                laserFirst.reset(new TestLaserInst(wdbFirst, params));
                 laserFirst->AddObserver(&observer_1);
-                laserFirst->SetNetwork(CreateNetwork(*laserFirst), false);
 
                 auto channel1Str = to_hex(channel_1->m_pData, channel_1->nBytes);
                 WALLET_CHECK(laserFirst->Serve(channel1Str));
@@ -187,7 +186,6 @@ int main()
         InitNodeToTest(
             node, binaryTreasury, &observer, kDefaultTestNodePort,
             kNewBlockInterval, std::string(test_name(__FILE__)) + "-n.db");
-        ConfigureNetwork(*laserFirst, *laserSecond);
 
         mainReactor->run();
     };

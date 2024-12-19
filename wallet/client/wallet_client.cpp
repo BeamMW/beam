@@ -806,7 +806,7 @@ namespace beam::wallet
                 // DEX
                 //
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *m_walletDB);
+                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *wallet, *m_walletDB);
                 auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
 
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
