@@ -2525,6 +2525,10 @@ namespace beam::wallet
                         int ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
                         throwIfError(ret, db);
 
+                        req = "DROP TABLE IF EXISTS " LASER_ADDRESSES_NAME ";";
+                        ret = sqlite3_exec(db, req, nullptr, nullptr, nullptr);
+                        throwIfError(ret, db);
+
                         CreateLaserTables(walletDB->_db);
                     }
 
