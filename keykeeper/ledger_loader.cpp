@@ -308,12 +308,13 @@ void AppData::SetTargetNanoS()
 
 void AppData::SetTargetNanoSPlus()
 {
-	m_HidProductID = 0x5011;
+	m_HidProductID = 0x5000;
 	m_TargetID = 0x33100004;
-	m_sTargetVer = "1.1.2";
-	m_ApiLevel = 5;
+	m_sTargetVer = "1.3.1";
+	m_ApiLevel = 22;
 
-	static const char szIcon[] = "0100000000ffffff00000030001280041002b4804ca014240985223f0940fe1f0000";
+	
+	static const char szIcon[] = "0E000E0000190000000000E00C80C20C68C6A462918A31A831A030803200380000";
 	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
 }
 
@@ -521,6 +522,9 @@ uint16_t Loader::ExchangeSec(const Cmd& cmd)
 
 void Loader::TestStatus(uint16_t res)
 {
+	// Some error code description is available here:
+	// https://github.com/LedgerHQ/blue-loader-python/blob/master/ledgerblue/comm.py#L75
+
 	if (0x9000 != res)
 	{
 		std::ostringstream ss;
@@ -1094,7 +1098,7 @@ void FindAndLoadIntegrated()
 
 		switch (v.m_Product)
 		{
-		case 0x5011:
+		case 0x5000:
 			NanoSPlus::get(blob);
 			break;
 
