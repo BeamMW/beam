@@ -23,14 +23,9 @@ namespace beam::wallet
 	{
 		struct AppData
 		{
-
-			std::string m_sName;
-			std::string m_sAppVer;
-			ByteBuffer m_Icon;
-			ByteBuffer m_KeyPath;
-
 			uint32_t m_BootAddr = 0;
 			uint32_t m_SizeNVRam = 0;
+			uint32_t m_SizeInstallParams = 0;
 			uint32_t m_TargetID = 0;
 			uint16_t m_HidProductID = 0;
 			std::string m_sTargetVer;
@@ -45,19 +40,15 @@ namespace beam::wallet
 			void serialize(Archive& ar)
 			{
 				ar
-					& m_sName
-					& m_sAppVer
-					& m_Icon
-					& m_KeyPath
 					& m_BootAddr
 					& m_SizeNVRam
+					& m_SizeInstallParams
 					& m_TargetID
 					& m_HidProductID
 					& m_sTargetVer
 					& m_ApiLevel
 					& m_Zones;
 			}
-
 
 			static bool FindAddr(uint32_t& ret, const char* szLine, const char* szPattern);
 			static void HexReadStrict(uint8_t* pDst, const char* sz, uint32_t nBytes);
@@ -67,13 +58,16 @@ namespace beam::wallet
 			void ParseMap(const char* szPath);
 
 			void Create(const char* szDir);
-			void SetIconFromStr(const char* sz, uint32_t nLen);
-			void SetBeam();
 
 			void SetTargetNanoS();
 			void SetTargetNanoSPlus();
 
 			void Load(const char* szPath);
+
+			// Install params parsing
+			Blob GetInstallParams() const;
+			static bool GetNextParam(Blob& ret, uint8_t& tag, Blob& instParams);
+			static bool FindAppName(Blob& ret, Blob instParams);
 		};
 
 
@@ -154,6 +148,7 @@ namespace beam::wallet
 			uint32_t GetVersion(std::string& sMcuVer);
 
 			void DeleteApp(const std::string& sApp);
+			void DeleteApp(Blob bName);
 
 			void Install(const AppData&);
 		};

@@ -34,10 +34,15 @@ void AppData::Create(const char* szDir)
 	ParseMap((s + "app.map").c_str());
 	ParseHex((s + "app.hex").c_str());
 
+	// make sure app name can be parsed
+	Blob bName;
+	if (!FindAppName(bName, GetInstallParams()))
+		Exc::Fail("app name missing");
+
 	Serializer ser;
 	ser & (*this);
 
-/*
+
 	{
 		std::ofstream ofs;
 		ofs.open(s + "beam-ledger.cpp", std::ios_base::out);
@@ -55,7 +60,7 @@ void AppData::Create(const char* szDir)
 				ofs << '\n';
 		}
 	}
-*/
+
 	std::ofstream fs;
 	fs.open(s + "beam-ledger.bin", std::ios_base::out);
 	if (fs.fail())
@@ -242,7 +247,7 @@ bool AppData::FindAddr(uint32_t& ret, const char* szLine, const char* szPattern)
 
 void AppData::ParseMap(const char* szPath)
 {
-	uint32_t n0 = 0, n1 = 0;
+	std::pair<uint32_t, uint32_t> apNvRam(0, 0), apInstallParams(0, 0);
 
 	std::ifstream fs;
 	fs.open(szPath, std::ios_base::in);
@@ -251,49 +256,108 @@ void AppData::ParseMap(const char* szPath)
 
 	while (true)
 	{
-		if (n0 && n1)
-			break;
-
 		char sz[0x100];
 		fs.getline(sz, _countof(sz));
 		if (fs.eof())
-			Exc::Fail("couldn't find nvram size");
+			break;
 		if (fs.fail())
 			std::ThrowLastError();
 
 
-		FindAddr(n0, sz, "_nvram_data");
-		FindAddr(n1, sz, "_envram_data");
+		FindAddr(apNvRam.first, sz, "_nvram_data");
+		FindAddr(apNvRam.second, sz, "_envram_data");
+
+		FindAddr(apInstallParams.first, sz, "_install_parameters");
+		FindAddr(apInstallParams.second, sz, "_einstall_parameters");
 	}
 
-	if (n0 > n1)
-		Exc::Fail("invalid nvram size");
+	if (!apNvRam.first || (apNvRam.first > apNvRam.second))
+		Exc::Fail("couldn't find nvram size");
+	m_SizeNVRam = apNvRam.second - apNvRam.first;
 
-	m_SizeNVRam = n1 - n0;
+	if (!apInstallParams.first || (apInstallParams.first > apInstallParams.second))
+		Exc::Fail("couldn't find install params size");
+	m_SizeInstallParams = apInstallParams.second - apInstallParams.first;
+
 }
 
-void AppData::SetIconFromStr(const char* sz, uint32_t nLen)
+Blob AppData::GetInstallParams() const
 {
-	if (1 & nLen)
-		Exc::Fail("bad icon");
+	Blob ret; // has zero-init
 
-	uint32_t nB = nLen >> 1;
-	if (nB)
+	if (m_SizeInstallParams && !m_Zones.empty())
 	{
-		m_Icon.resize(nB);
-		if (uintBigImpl::_Scan(&m_Icon.front(), sz, nLen) != nLen)
-			Exc::Fail("bad icon");
+		const auto& buf = m_Zones.rbegin()->second;
+		if (buf.size() >= m_SizeInstallParams)
+		{
+			ret.p = &buf.front() + buf.size() - m_SizeInstallParams;
+			ret.n = m_SizeInstallParams;
+		}
 	}
+
+	return ret;
 }
 
-void AppData::SetBeam()
+bool AppData::GetNextParam(Blob& ret, uint8_t& tag, Blob& instParams)
 {
-	m_sName = "Beam";
+	if (instParams.n < 2)
+		return false;
 
-	// Our bip44 path is: "44'1533''"
-	static const uint8_t pPath[] = { /*secp256k1*/ 0xff,0, /*bip44*/ 0x80,0,0,44, /*beam*/ 0x80,0,5,0xfd };
-	m_KeyPath.assign(pPath, pPath + _countof(pPath));
+	auto* pPtr = reinterpret_cast<const uint8_t*>(instParams.p);
+	uint32_t nLen = pPtr[1];
+	uint32_t nBrutto = nLen + 2;
+
+	if (instParams.n < nBrutto)
+		return false;
+
+	tag = pPtr[0];
+	ret.n = nLen;
+	ret.p = pPtr + 2;
+
+	instParams.n -= nBrutto;
+	instParams.p = pPtr + nBrutto;
+
+	return true;
+
 }
+
+bool AppData::FindAppName(Blob& ret, Blob instParams)
+{
+	while (true)
+	{
+		uint8_t tag;
+		if (!GetNextParam(ret, tag, instParams))
+			break;
+
+		if (tag == 1)
+			return true;
+	}
+	return false;
+}
+
+
+//void AppData::SetIconFromStr(const char* sz, uint32_t nLen)
+//{
+//	if (1 & nLen)
+//		Exc::Fail("bad icon");
+//
+//	uint32_t nB = nLen >> 1;
+//	if (nB)
+//	{
+//		m_Icon.resize(nB);
+//		if (uintBigImpl::_Scan(&m_Icon.front(), sz, nLen) != nLen)
+//			Exc::Fail("bad icon");
+//	}
+//}
+
+//void AppData::SetBeam()
+//{
+//	m_sName = "Beam";
+//
+//	// Our bip44 path is: "44'1533''"
+//	static const uint8_t pPath[] = { /*secp256k1*/ 0xff,0, /*bip44*/ 0x80,0,0,44, /*beam*/ 0x80,0,5,0xfd };
+//	m_KeyPath.assign(pPath, pPath + _countof(pPath));
+//}
 
 void AppData::SetTargetNanoS()
 {
@@ -302,8 +366,8 @@ void AppData::SetTargetNanoS()
 	m_sTargetVer = "2.1.0";
 	m_ApiLevel = 0;
 
-	static const char szIcon[] = "0100000000ffffff00000080018001400240022004a0059009500a481228142424f42f0240fe7f0000";
-	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
+	//static const char szIcon[] = "0100000000ffffff00000080018001400240022004a0059009500a481228142424f42f0240fe7f0000";
+	//SetIconFromStr(szIcon, sizeof(szIcon) - 1);
 }
 
 void AppData::SetTargetNanoSPlus()
@@ -314,8 +378,8 @@ void AppData::SetTargetNanoSPlus()
 	m_ApiLevel = 22;
 
 	
-	static const char szIcon[] = "0E000E0000190000000000E00C80C20C68C6A462918A31A831A030803200380000";
-	SetIconFromStr(szIcon, sizeof(szIcon) - 1);
+	//static const char szIcon[] = "0E000E0000190000000000E00C80C20C68C6A462918A31A831A030803200380000";
+	//SetIconFromStr(szIcon, sizeof(szIcon) - 1);
 }
 
 ///////////////////////////
@@ -866,26 +930,31 @@ uint32_t Loader::GetVersion(std::string& sMcuVer)
 
 void Loader::DeleteApp(const std::string& sApp)
 {
+	DeleteApp(Blob(sApp.c_str(), (uint32_t) sApp.size()));
+}
+
+void Loader::DeleteApp(Blob bName)
+{
 	Exc::CheckpointTxt cp1("Delete app");
 
 	m_Data = 0;
 	DataOut_be<uint8_t>(0xc);
 
-	uint8_t n = (uint8_t) sApp.size();
+	uint8_t n = (uint8_t) bName.n;
 	DataOut_be<uint8_t>(n);
-	DataOut(sApp.c_str(), n);
+	DataOut(bName.p, n);
 
 	TestStatus(ExchangeSec(Cmd()));
 }
 
-template <typename TContainer>
-void BufAddVarArg(ByteBuffer& buf, uint8_t tag, const TContainer& x)
-{
-	buf.push_back(tag);
-	uint8_t nLen = (uint8_t)x.size();
-	buf.push_back(nLen);
-	buf.insert(buf.end(), x.begin(), x.end());
-}
+//template <typename TContainer>
+//void BufAddVarArg(ByteBuffer& buf, uint8_t tag, const TContainer& x)
+//{
+//	buf.push_back(tag);
+//	uint8_t nLen = (uint8_t)x.size();
+//	buf.push_back(nLen);
+//	buf.insert(buf.end(), x.begin(), x.end());
+//}
 
 uint64_t Loader::ParseVersionXYZ(const std::string& sVer)
 {
@@ -910,25 +979,20 @@ uint64_t Loader::ParseVersionXYZ(const std::string& sVer)
 
 void Loader::Install(const AppData& ad)
 {
-	ByteBuffer bufInstArgs;
-	BufAddVarArg(bufInstArgs, 0x01, ad.m_sName);
-	BufAddVarArg(bufInstArgs, 0x02, ad.m_sAppVer);
-	BufAddVarArg(bufInstArgs, 0x03, ad.m_Icon);
-	BufAddVarArg(bufInstArgs, 0x04, ad.m_KeyPath);
-
 	auto rit = ad.m_Zones.rbegin();
 	uint32_t nAddrBegin = ad.m_Zones.begin()->first;
 	uint32_t nAddrEnd = rit->first + (uint32_t)rit->second.size();
 
 	uint32_t pCp[5];
-	pCp[0] = nAddrEnd - nAddrBegin - ad.m_SizeNVRam; // Code length
+	pCp[0] = nAddrEnd - nAddrBegin - (ad.m_SizeNVRam + ad.m_SizeInstallParams); // Code length
 	pCp[1] = ad.m_SizeNVRam; // data length
-	pCp[2] = (uint32_t) bufInstArgs.size();
+	pCp[2] = ad.m_SizeInstallParams;
 	pCp[3] = 0; // flags
 	pCp[4] = ad.m_BootAddr - nAddrBegin; // boot offset
 
 	for (uint32_t i = 0; i < _countof(pCp); i++)
 		pCp[i] = ByteOrder::to_be(pCp[i]);
+
 
 	ECC::Hash::Value hv;
 
@@ -972,12 +1036,15 @@ void Loader::Install(const AppData& ad)
 			hp.Write(&seg.front(), (uint32_t) seg.size());
 		}
 
-		hp.Write(&bufInstArgs.front(), (uint32_t)bufInstArgs.size());
 		hp >> hv;
 	}
 
-	std::cout << "Deleting previous app installation (if exists). Please approve..." << std::endl;
-	DeleteApp(ad.m_sName);
+	Blob bName;
+	if (AppData::FindAppName(bName, ad.GetInstallParams()))
+	{
+		std::cout << "Deleting previous app installation (if exists). Please approve..." << std::endl;
+		DeleteApp(bName);
+	}
 
 
 	std::cout << "Expected app Hash: " << hv.str() << std::endl;
@@ -1013,24 +1080,6 @@ void Loader::Install(const AppData& ad)
 
 			nPos += nChunk;
 		}
-
-		m_Data = 0;
-		DataOut_be<uint8_t>(0x7); // flush segment
-		TestStatus(ExchangeSec(Cmd()));
-	}
-
-	// install args
-	{
-		m_Data = 0;
-		DataOut_be<uint8_t>(0x5); // select segment
-		DataOut_be(nAddrEnd - nAddrBegin);
-		TestStatus(ExchangeSec(Cmd()));
-
-		m_Data = 0;
-		DataOut_be<uint8_t>(0x6); // chunk
-		DataOut_be<uint16_t>(0);
-		DataOut(&bufInstArgs.front(), (uint8_t) bufInstArgs.size());
-		TestStatus(ExchangeSec(Cmd()));
 
 		m_Data = 0;
 		DataOut_be<uint8_t>(0x7); // flush segment
