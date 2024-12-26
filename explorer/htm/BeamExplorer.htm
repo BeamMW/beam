@@ -1607,18 +1607,17 @@
 
     text += '</table>';
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
-text += MakeCollapsibleEnd();
 
-text += MakeCollapsibleBegin('Asset Distribution');
-const jTbl2Obj = jData['Asset distribution'];
-if (jTbl2Obj) {
-    const jTbl2 = jTbl2Obj['value'];
-    // Display special text if the table is empty (or only has headers)
-    text += (jTbl2.length > 1) ? Obj2Html(jTbl2Obj) : AddClass('(none)', 'noDataText');
-}
-text += MakeCollapsibleEnd();
+    text += MakeCollapsibleEnd();
 
-SetContent(text);
+    text += MakeCollapsibleBegin('Asset Distribution');
+    const jTbl2Obj = jData['Asset distribution'];
+    if (jTbl2Obj) {
+        const jTbl2 = jTbl2Obj['value'];
+        // Display special text if the table is empty (or only has headers)
+        text += (jTbl2.length > 1) ? Obj2Html(jTbl2Obj) : AddClass('(none)', 'noDataText');
+    }
+    text += MakeCollapsibleEnd();
 
     SetContent(text);
   }
@@ -1912,7 +1911,7 @@ SetContent(text);
     return text;
   }
 
-  function MakeCollapsibleBegin(title, variant = '', status = 'open') { // Colapsible are open by default
+  function MakeCollapsibleBegin(title, variant = '', status = 'open') { // Collapsible are open by default
     // Create a details/summary/content combo
     return "\
       <details class='collapsible " + variant + "' " + status + ">\n\
