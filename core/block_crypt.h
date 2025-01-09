@@ -449,6 +449,13 @@ namespace beam
 			} Damp;
 		} DA;
 
+		enum struct Consensus {
+			PoW = 0,
+			FakePoW = 1,
+		};
+
+		Consensus m_Consensus;
+
 		struct {
 			bool Enabled;
 			Amount DepositForList2;
@@ -462,7 +469,6 @@ namespace beam
 		size_t MaxBodySize;
 
 		bool AllowPublicUtxos;
-		bool FakePoW;
 
 		Height MaxKernelValidityDH; // past Fork2
 		// if kernel has higher lifetime - its max height is implicitly decreased

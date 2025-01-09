@@ -1030,7 +1030,7 @@ int main_Guarded(int argc, char* argv[])
         ser.swap_buf(node.m_Cfg.m_Treasury);
 
         ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
-        Rules::get().FakePoW = true;
+        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
         Rules::get().MaxRollback = 10;
         Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
         Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16

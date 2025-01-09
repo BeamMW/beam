@@ -127,7 +127,7 @@ namespace beam::wallet
         node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
         node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
         //Rules::get().Maturity.Coinbase = 1;
-        Rules::get().FakePoW = true;
+        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
 
         ECC::uintBig seed = 345U;
         node.m_Keys.InitSingleKey(seed);

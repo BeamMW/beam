@@ -4982,7 +4982,7 @@ int main()
     prg.m_hv = 125U;
 
 
-    Rules::get().FakePoW = true;
+    Rules::get().m_Consensus = Rules::Consensus::FakePoW;
 	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
     Rules::get().DisableForksFrom(2);
     Rules::get().UpdateChecksum();

@@ -4028,7 +4028,7 @@ void TestAll()
 		beam::PrintEmissionSchedule();
 
 	beam::Rules::get().AllowPublicUtxos = true;
-	beam::Rules::get().FakePoW = true;
+	beam::Rules::get().m_Consensus = beam::Rules::Consensus::FakePoW;
 	beam::Rules::get().MaxRollback = 10;
 	beam::Rules::get().DA.WindowWork = 35;
 	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs

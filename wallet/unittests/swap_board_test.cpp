@@ -893,7 +893,7 @@ int main()
     io::Reactor::Scope scope(*mainReactor);
     
     auto& rules = beam::Rules::get();
-    rules.FakePoW = true;
+    rules.m_Consensus = Rules::Consensus::FakePoW;
     rules.UpdateChecksum();
     rules.pForks[1].m_Height = Fork1Height;
     rules.pForks[2].m_Height = Fork2Height;

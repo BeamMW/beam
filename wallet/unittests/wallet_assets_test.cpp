@@ -47,7 +47,7 @@ void InitTestNode(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver*
     node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
     node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
     //Rules::get().Maturity.Coinbase = 1;
-    Rules::get().FakePoW = true;
+    Rules::get().m_Consensus = Rules::Consensus::FakePoW;
 
     node.m_Cfg.m_Observer = observer;
     Rules::get().UpdateChecksum();
@@ -648,7 +648,7 @@ int main () {
     rules.CA.LockPeriod       = 20;
     rules.CA.DepositForList2  = rules.Coin * 1000;
     rules.MaxRollback         = 20;
-    rules.FakePoW             = true;
+    rules.m_Consensus         = Rules::Consensus::FakePoW;
     rules.pForks[1].m_Height  = 5;
     rules.pForks[2].m_Height  = 10;
     rules.UpdateChecksum();
