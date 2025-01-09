@@ -77,7 +77,7 @@ namespace
         node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
         node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
         //Rules::get().Maturity.Coinbase = 1;
-        Rules::get().FakePoW = true;
+        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
 
         node.m_Cfg.m_Observer = observer;
         Rules::get().UpdateChecksum();
@@ -1601,7 +1601,7 @@ int main()
 
     int logLevel = BEAM_LOG_LEVEL_DEBUG;
     auto logger = beam::Logger::create(logLevel, logLevel);
-    Rules::get().FakePoW = true;
+    Rules::get().m_Consensus = Rules::Consensus::FakePoW;
     Rules::get().pForks[1].m_Height = 6;
     Rules::get().pForks[2].m_Height = 12;
     Rules::get().pForks[3].m_Height = 800;

@@ -561,7 +561,7 @@ void Manager::LocalContext::OnStateChanged()
         const Rules& rRemote = m_Manager.m_pC[!m_iThread].m_Rules;
 
         Shaders::Pipe::Create arg;
-        arg.m_Cfg.m_In.m_FakePoW = rRemote.FakePoW;
+        arg.m_Cfg.m_In.m_FakePoW = (uint8_t) rRemote.m_Consensus;
         arg.m_Cfg.m_In.m_RulesRemote = rRemote.get_LastFork().m_Hash;
         arg.m_Cfg.m_In.m_ComissionPerMsg = Rules::Coin; // 1 beam
         arg.m_Cfg.m_In.m_StakeForRemote = Rules::Coin * 100;
@@ -963,7 +963,7 @@ int main_Guarded(int argc, char* argv[])
 
         po::variables_map vm = getOptions(argc, argv, options);
 
-        if (c.m_Rules.FakePoW)
+        if (Rules::Consensus::FakePoW == c.m_Rules.m_Consensus)
         {
             //c.m_Rules.TreasuryChecksum = Zero;
             //c.m_Rules.Prehistoric = i;

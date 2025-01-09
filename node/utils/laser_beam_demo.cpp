@@ -640,7 +640,7 @@ void Test()
 
 	Rules::get().pForks[1].m_Height = 1;
 	Rules::get().pForks[2].m_Height = 1;
-	Rules::get().FakePoW = true;
+	Rules::get().m_Consensus = Rules::Consensus::FakePoW;
 	Rules::get().MaxRollback = 5;
 	Rules::get().UpdateChecksum();
 

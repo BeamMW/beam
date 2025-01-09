@@ -721,7 +721,6 @@ namespace beam
             macro(Height, Fork5, "Height of the 5th fork") \
             macro(Height, Fork6, "Height of the 6th fork") \
             macro(bool, AllowPublicUtxos, "set to allow regular (non-coinbase) UTXO to have non-confidential signature") \
-            macro(bool, FakePoW, "Don't verify PoW. Mining is simulated by the timer. For tests only") \
             macro(Height, MaxKernelValidityDH, "Max implicit kernel lifespan after HF2 (a.k.a. kernel visibility horizon)") \
             macro(bool, CA.Enabled, "Enable/disable CA (confidential assets)") \
             macro(Amount, CA.DepositForList2, "Deposit for new CA allocation since HF2") \
@@ -755,7 +754,8 @@ namespace beam
             po::options_description rules_options("CONFIGURATION RULES");
             rules_options.add_options() 
                 (cli::NETWORK, po::value<std::string>(), "Network consensus parameters")
-                RulesParams(THE_MACRO);
+                RulesParams(THE_MACRO)
+                ("consensus", po::value<std::string>(), "Consensus algorithm");
 
         #undef THE_MACRO
 
@@ -835,7 +835,24 @@ namespace beam
                 TypeCvt<type>::set(r.name, par.as<type>()); \
         }
 
-        RulesParams(THE_MACRO);
+        RulesParams(THE_MACRO)
+
+        {
+            const auto& par = vm["consensus"];
+            if (!par.empty())
+            {
+                const auto& val = par.as<std::string>();
+                if (val == "pow")
+                    r.m_Consensus = Rules::Consensus::PoW;
+                else if (val == "FakePoW")
+                    r.m_Consensus = Rules::Consensus::FakePoW;
+                else if (val == "pbft")
+                    r.m_Consensus = Rules::Consensus::Pbft;
+                else
+                    Exc::Fail((std::string("Invalid consensus algorithm: ") + val).c_str());
+            }
+        }
+
         #undef THE_MACRO
     }
 

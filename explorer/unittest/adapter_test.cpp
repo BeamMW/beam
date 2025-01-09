@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     }
     if (seconds == 0) {
         seconds = 4;
-        Rules::get().FakePoW = true;
+        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
     }
 
     int ret = test_adapter(seconds);

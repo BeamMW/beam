@@ -1048,7 +1048,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
-    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && Rules::get().FakePoW)
+    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == Rules::get().m_Consensus))
         m_PostStartSynced = true;
 
 }
@@ -3857,7 +3857,7 @@ void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 {
-	if (Rules::get().IsPastFork_<1>(m_This.m_Processor.m_Cursor.m_ID.m_Height) && !Rules::get().FakePoW)
+	if (Rules::get().IsPastFork_<1>(m_This.m_Processor.m_Cursor.m_ID.m_Height) && (Rules::Consensus::FakePoW != Rules::get().m_Consensus))
 	{
 		// test the hash
 		ECC::Hash::Value hv;
@@ -4435,7 +4435,7 @@ bool Node::Miner::IsEnabled() const
     if (!m_External.m_pSolver && m_vThreads.empty())
         return false;
 
-    if (!Rules::get().FakePoW)
+    if (Rules::Consensus::PoW == Rules::get().m_Consensus)
         return true;
 
     if (get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms > 0)
@@ -4532,7 +4532,7 @@ void Node::Miner::OnRefresh(uint32_t iIdx)
             return false;
         };
 
-        if (Rules::get().FakePoW)
+        if (Rules::Consensus::FakePoW == Rules::get().m_Consensus)
         {
             uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
@@ -4890,7 +4890,7 @@ void Node::Miner::OnMined()
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
     if (m_FakeBlocksToGenerate)
     {
-        assert(Rules::get().FakePoW);
+        assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
         --m_FakeBlocksToGenerate;
     }
     p.FlushDB();
@@ -5565,7 +5565,7 @@ void Node::PrintRollbackStats()
 
 void Node::GenerateFakeBlocks(uint32_t n)
 {
-    assert(Rules::get().FakePoW);
+    assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
     m_Miner.m_FakeBlocksToGenerate = n;
     m_Miner.SetTimer(0, true);
 }

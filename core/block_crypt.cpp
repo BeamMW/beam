@@ -2251,7 +2251,7 @@ namespace beam
 		// forks and misc
 		Magic.v0 = 15;
 		Magic.IsTestnet = false;
-		FakePoW = false;
+		m_Consensus = Consensus::PoW;
 		CA.DepositForList2 = Coin * 3000; // after HF2
 		DA.Difficulty0 = Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
 
@@ -2288,7 +2288,7 @@ namespace beam
 			pForks[4].m_Height = 100;
 			pForks[5].m_Height = 599999;
 
-			FakePoW = true;
+			m_Consensus = Consensus::FakePoW;
 			break;
 
 		default: // mainnet
@@ -2418,7 +2418,7 @@ namespace beam
 			<< Maturity.Coinbase
 			<< Maturity.Std
 			<< MaxBodySize
-			<< FakePoW
+			<< (uint32_t) m_Consensus
 			<< AllowPublicUtxos
 			<< false // deprecated CA.Enabled
 			<< true // deprecated CA.Deposit
@@ -2728,7 +2728,7 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
-		if (Rules::get().FakePoW)
+		if (Rules::Consensus::PoW != Rules::get().m_Consensus)
 			return true;
 
 		Merkle::Hash hv;

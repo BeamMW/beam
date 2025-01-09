@@ -388,7 +388,7 @@ int main(int argc, char* argv[])
 					node.m_Cfg.m_Listen.ip(INADDR_ANY);
 					node.m_Cfg.m_sPathLocal = vm[cli::STORAGE].as<string>();
 
-					if (Rules::get().FakePoW)
+					if (Rules::get().m_Consensus == Rules::Consensus::PoW)
 					{
 						node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
 						node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = vm[cli::POW_SOLVE_TIME].as<uint32_t>();
