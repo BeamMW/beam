@@ -16,8 +16,8 @@
   - That way, if we disable styling, the raw filtred data can directly be copy-pasted somewhere else.
 
   The file is organized in the following main sections:
-  - SECTION 1 : All the CSS styling.
-  - SECTION 2 : Main global variables.
+  - SECTION 1 : Main global variables.
+  - SECTION 2 : All the CSS styling.
   - SECTION 3 : Base static HTML (banner, content, footer, etc.).
   - SECTION 4 : Core JS functions to parse the data into HTML.
   - SECTION 5 : Main JS code for additional global variables, and to request the node explorer data.
@@ -38,7 +38,20 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
   <title>Beam Smart Explorer</title>
 
-<!-- ************ SECTION 1 - CSS STYLES ************ -->
+  <!-- ************ SECTION 1 - MAIN GLOBAL VARIABLES ************ -->
+<script>
+  "use strict"; // Forces safer JavaScript code (e.g. forbids using undeclared variables, etc.).
+
+  // Check localStorage for dark mode status ("dark" or "")
+  let mode = localStorage.getItem('mode');
+  if (mode) { document.querySelector(':root').classList.add(mode) }
+
+  // Address of the remote explorer node
+  //var urlPrefix = "http://localhost:8888/";
+  var urlPrefix = 'http://116.203.118.51:8100/';
+</script>
+
+<!-- ************ SECTION 2 - CSS STYLES ************ -->
 <style>
 
   /* GENERAL ELEMENTS */
@@ -1228,19 +1241,6 @@
   }
 
 </style>
-
-<!-- ************ SECTION 2 - MAIN GLOBAL VARIABLES ************ -->
-<script>
-  "use strict"; // Forces safer JavaScript code (e.g. forbids using undeclared variables, etc.).
-
-  // Check localStorage for dark mode status ("dark" or "")
-  let mode = localStorage.getItem('mode');
-  if (mode) { document.querySelector(':root').classList.add(mode) }
-
-  // Address of the remote explorer node
-  //var urlPrefix = "http://localhost:8888/";
-  var urlPrefix = 'http://116.203.118.51:8100/';
-</script>
 
 </head>
 <body>
