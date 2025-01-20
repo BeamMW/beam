@@ -17,10 +17,11 @@
 
   The file is organized in the following main sections:
   - SECTION 1 : All the CSS styling.
-  - SECTION 2 : Base static HTML (banner, footer, etc.).
-  - SECTION 3 : Core JS functions to parse the data into HTML.
-  - SECTION 4 : Main JS code for global variables and to request the node explorer data.
-  - SECTION 5 : Extra JS functions for adjustments, filtering, sorting, etc.
+  - SECTION 2 : Main global variables.
+  - SECTION 3 : Base static HTML (banner, content, footer, etc.).
+  - SECTION 4 : Core JS functions to parse the data into HTML.
+  - SECTION 5 : Main JS code for additional global variables, and to request the node explorer data.
+  - SECTION 6 : Extra JS functions for adjustments, filtering, sorting, etc.
 
   Disclaimer:
   - This is an experimental work-in-progress.
@@ -61,6 +62,7 @@
     --color_text: black;
     --color_h1: black;
     --color_h2: black;
+    --color_h2_sub: black;
     --color_h3: #17204e;
     --color_h3_sub: #17204e;
     --color_link: #0066CC;
@@ -157,6 +159,7 @@
     --color_text: black;
     --color_h1: #ddd;
     --color_h2: #ddd;
+    --color_h2_sub: #ddd;
     --color_h3: #ddd;
     --color_h3_sub: #17204e;
     --color_link: #0066CC;
@@ -795,6 +798,14 @@
     0%,40%,100% { transform: translateY(0) }
     20% { transform: translateY(-1rem) }
   }
+  #Querying {
+    font-family: "Lucida Console", ui-monospace, monospace;
+    font-weight: normal;
+    font-size: 1rem;
+    white-space: nowrap; /* Don't wrap text */
+    color: var(--color_h2_sub);
+    vertical-align: middle;
+  }
 
   /* GENERAL COLLAPSIBLE BLOCKS */
   .collapsible {
@@ -1218,9 +1229,22 @@
 
 </style>
 
+<!-- ************ SECTION 2 - MAIN GLOBAL VARIABLES ************ -->
+<script>
+  "use strict"; // Forces safer JavaScript code (e.g. forbids using undeclared variables, etc.).
+
+  // Check localStorage for dark mode status ("dark" or "")
+  let mode = localStorage.getItem('mode');
+  if (mode) { document.querySelector(':root').classList.add(mode) }
+
+  // Address of the remote explorer node
+  //var urlPrefix = "http://localhost:8888/";
+  var urlPrefix = 'http://116.203.118.51:8100/';
+</script>
+
 </head>
 <body>
-<!-- ************ SECTION 2 - STATIC HTML ************ -->
+<!-- ************ SECTION 3 - STATIC HTML ************ -->
 
   <!-- Wrappers (added just to keep footer at the bottom) -->
   <div id="Page-container">
@@ -1288,7 +1312,8 @@
       <div id="my_content">
         <!-- Dots are isolated, for CSS animation... -->
         <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
-      </div>
+        <p id="Querying">Querying explorer node at <script>document.write(urlPrefix);</script></p>
+        </div>
 
     </div>
 
@@ -1300,7 +1325,7 @@
 
   </div>
 
-<!-- ************ SECTION 3 - CORE JS FUNCTIONS ************ -->
+<!-- ************ SECTION 4 - CORE JS FUNCTIONS ************ -->
 <script>
 
   function MakeRef(link, text, target = '_self') {
@@ -2124,9 +2149,8 @@
   }
 </script>
 
-<!-- ************ SECTION 4 - MAIN JS CODE ************ -->
-<script>
-  // GLOBAL VARIABLES
+<!-- ************ SECTION 5 - MAIN JS CODE ************ -->
+<script> // ADDITIONAL GLOBAL VARIABLES
 
   // Array of codes, names and descriptions for the Block Header columns
   const columnDefaultOrder = "THgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
@@ -2320,10 +2344,6 @@
     },
   ];
 
-  // Check localStorage for dark mode status ("dark" or "")
-  let mode = localStorage.getItem('mode');
-  if (mode) { document.querySelector(':root').classList.add(mode) }
-
   // URL and explorer node parameters
   const URLparams = new URL(document.location).searchParams;
   let g_type = URLparams.get('type'); // Remark: We use two URL 'types' not used by the explorer node ("historical" and "treasury")
@@ -2343,19 +2363,18 @@
   if (!g_nMax) { g_nMax = 100 }
   if (!g_dh) { g_dh = localStorage.getItem('intervalSelection'); }
   if (!g_dh) { g_dh = 1 }
+</script>
 
-  // Address of the remote explorer node
-  //let urlPrefix = "http://localhost:17328/";
-  let urlPrefix = 'http://116.203.118.51:8100/';
+<script> // QUERY EXPLORER NODE
 
   // Request 'nice' formatting from the node (timestamps as YYYYY-MM-DD, amounts as XXX,XXX,XXX.YYYYYYYY, etc.)
   let urlSuffix = '?exp_am=1';
 
-  // Static page
+  // Case of static page
   if (g_type == 'historical') { // Arguments for 'historical': (none)
     window.onload = DisplayHistoricalBlocks;
   }
-  // Dynamic pages (explorer node requests)
+  // Case of dynamic pages (explorer node requests)
   else {
     const xmlhttp = new XMLHttpRequest();
 
@@ -2422,7 +2441,7 @@
   }
 </script>
 
-<!-- ************ SECTION 5 - EXTRA JS FUNCTIONS ************ -->
+<!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
 <script>
   // ADD 'ABOUT' SECTION
   function AboutSection() {
