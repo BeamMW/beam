@@ -367,6 +367,13 @@ public:
 
 	} m_Extra;
 
+	struct PbftState
+	{
+		Merkle::Hash m_hvVs;
+	} m_PbftState;
+
+	void get_PbftVsHash(Merkle::Hash&);
+
 	struct SyncData
 	{
 		NodeDB::StateID m_Target; // can move fwd during sync

@@ -511,7 +511,17 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
+
+	if (!bMovingUp && (Rules::Consensus::Pbft == Rules::get().m_Consensus))
+		get_PbftVsHash(m_PbftState.m_hvVs);
 }
+
+void NodeProcessor::get_PbftVsHash(Merkle::Hash& hv)
+{
+	// TODO
+	hv = 55u;
+}
+
 
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
@@ -2913,6 +2923,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc);
 	Block::Body& block = pShared->m_Body;
 
+	const auto& r = Rules::get();
+	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
+
 	try {
 		Deserializer der;
 		der.reset(bbP);
@@ -2921,13 +2934,40 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		der.reset(bbE);
 		der & Cast::Down<TxVectors::Eternal>(block);
+
+		if (Rules::Consensus::Pbft == r.m_Consensus)
+		{
+			Exc::CheckpointTxt cp("pbft block data");
+
+			const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
+			if (d.m_hvVsPrev != m_PbftState.m_hvVs)
+				Exc::Fail();
+
+			uint32_t nSizeMetadata;
+			d.m_nSizeMetadata.Export(nSizeMetadata);
+
+			auto nBytes0 = der.bytes_left();
+			if (nBytes0 < nSizeMetadata)
+				Exc::Fail();
+
+			// TODO: deserialize the metadata
+
+			auto nBytes1 = der.bytes_left();
+			if (nBytes0 - nBytes1 != nSizeMetadata)
+				Exc::Fail(); // wrong metadata size
+
+			if (bFirstTime)
+			{
+				// Deserialize QC
+				// test QC
+			}
+		}
 	}
 	catch (const std::exception&) {
 		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
 		return false;
 	}
 
-	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
 	if (bFirstTime)
 	{
 		pShared->m_Size = bbP.size() + bbE.size();
@@ -2998,58 +3038,71 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	Merkle::Hash hvDef;
 	ev.m_Height++;
 
-	bool bPastFork3 = Rules::get().IsPastFork_<3>(sid.m_Height);
+	bool bPastFork3 = r.IsPastFork_<3>(sid.m_Height);
 	bool bPastFastSync = (sid.m_Height >= m_SyncData.m_TxoLo);
 	bool bDefinition = bPastFork3 || bPastFastSync;
 
 	if (bDefinition)
 		ev.get_Definition(hvDef);
 
-	if (bFirstTime && bOk)
+	if (bOk)
 	{
-		if (bDefinition)
+		if (bFirstTime)
 		{
-			// check the validity of state description.
-			if (s.m_Definition != hvDef)
+			if (bDefinition)
 			{
-				BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
-				bOk = false;
-			}
-		}
-
-		if (bPastFork3)
-		{
-			if (bPastFastSync)
-			{
-				get_Utxos().get_Hash(hvDef);
-				if (s.m_Kernels != hvDef)
+				// check the validity of state description.
+				if (s.m_Definition != hvDef)
 				{
-					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
 					bOk = false;
 				}
 			}
-		}
-		else
-		{
-			if (s.m_Kernels != ev.m_hvKernels)
+
+			if (bPastFork3)
 			{
-				BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
-				bOk = false;
+				if (bPastFastSync)
+				{
+					get_Utxos().get_Hash(hvDef);
+					if (s.m_Kernels != hvDef)
+					{
+						BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+						bOk = false;
+					}
+				}
+			}
+			else
+			{
+				if (s.m_Kernels != ev.m_hvKernels)
+				{
+					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
+					bOk = false;
+				}
+			}
+
+			if (sid.m_Height <= m_SyncData.m_TxoLo)
+			{
+				// make sure no spent txos above the requested h0
+				for (size_t i = 0; i < block.m_vInputs.size(); i++)
+				{
+					if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
+					{
+						BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
+						bOk = false;
+						break;
+					}
+				}
 			}
 		}
 
-		if (sid.m_Height <= m_SyncData.m_TxoLo)
+		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
-			// make sure no spent txos above the requested h0
-			for (size_t i = 0; i < block.m_vInputs.size(); i++)
-			{
-				if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
-				{
-					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
-					bOk = false;
-					break;
-				}
-			}
+			// exec metadata, modify the validator set
+
+			Merkle::Hash hv;
+			get_PbftVsHash(hv);
+			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+				bOk = false;
 		}
 
 		if (!bOk)
@@ -3136,6 +3189,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (bic.m_pvC)
 			bic.AddKrnInfo(ser, m_DB);
+
+		if (Rules::Consensus::Pbft == r.m_Consensus)
+			m_PbftState.m_hvVs = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext;
 	}
 	else
 	{
@@ -6379,6 +6435,7 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnBlock(const NodeDB::StateID& si
 	size_t nSize = size_t(bbP.n) + size_t(bbE.n);
 	if (nSize > Rules::get().MaxBodySize)
 	{
+		// TODO: don't account for QC and metadata
 		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block too large: " << nSize;
 		return DataStatus::Invalid;
 	}
@@ -6744,6 +6801,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
 {
 	Height h = m_Cursor.m_Sid.m_Height + 1;
+	const auto& r = Rules::get();
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
@@ -6756,10 +6814,13 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	Output::Ptr pOutp;
 	TxKernel::Ptr pKrn;
 
-	bb.AddCoinbaseAndKrn(pOutp, pKrn);
-	if (pOutp)
-		ssc & *pOutp;
-	yas::detail::SaveKrn(ssc, *pKrn, false); // pessimistic
+	if (Rules::Consensus::Pbft != r.m_Consensus)
+	{
+		bb.AddCoinbaseAndKrn(pOutp, pKrn);
+		if (pOutp)
+			ssc & *pOutp;
+		yas::detail::SaveKrn(ssc, *pKrn, false); // pessimistic
+	}
 
 	ECC::Scalar::Native offset = bc.m_Block.m_Offset;
 
@@ -6773,31 +6834,37 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 		}
 
-		if (!HandleBlockElement(*pKrn, bic))
-			return 0;
+		if (pKrn)
+		{
+			if (!HandleBlockElement(*pKrn, bic))
+				return 0;
 
-		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
+			bc.m_Block.m_vKernels.push_back(std::move(pKrn));
+		}
 	}
 
-	// estimate the size of the fees UTXO
-	if (!m_nSizeUtxoComissionUpperLimit)
+	if (Rules::Consensus::Pbft != r.m_Consensus)
 	{
-		Output outp;
-		outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
-		ZeroObject(*outp.m_pConfidential);
-		outp.m_pAsset = std::make_unique<Asset::Proof>();
-		outp.m_pAsset->InitArrays(Rules::get().CA.m_ProofCfg);
-		outp.m_pAsset->m_Begin = static_cast<Asset::ID>(-1);
+		// estimate the size of the fees UTXO
+		if (!m_nSizeUtxoComissionUpperLimit)
+		{
+			Output outp;
+			outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
+			ZeroObject(*outp.m_pConfidential);
+			outp.m_pAsset = std::make_unique<Asset::Proof>();
+			outp.m_pAsset->InitArrays(r.CA.m_ProofCfg);
+			outp.m_pAsset->m_Begin = static_cast<Asset::ID>(-1);
 
-		SerializerSizeCounter ssc2;
-		ssc2 & outp;
-		m_nSizeUtxoComissionUpperLimit = ssc2.m_Counter.m_Value;
+			SerializerSizeCounter ssc2;
+			ssc2 & outp;
+			m_nSizeUtxoComissionUpperLimit = ssc2.m_Counter.m_Value;
+		}
+
+		if (bc.m_Fees)
+			ssc.m_Counter.m_Value += m_nSizeUtxoComissionUpperLimit;
 	}
 
-	if (bc.m_Fees)
-		ssc.m_Counter.m_Value += m_nSizeUtxoComissionUpperLimit;
-
-	const size_t nSizeMax = Rules::get().MaxBodySize;
+	const size_t nSizeMax = r.MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
 	{
 		// the block may be non-empty (i.e. contain treasury)
@@ -6830,7 +6897,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
-		if (!bc.m_Fees && feesNext)
+		if (!bc.m_Fees && feesNext && (Rules::Consensus::Pbft != r.m_Consensus))
 			nSizeNext += m_nSizeUtxoComissionUpperLimit;
 
 		if (nSizeNext > nSizeMax)
@@ -6862,7 +6929,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			continue; // huge fees are unsupported
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_Stats.m_Size;
-		if (!bc.m_Fees && feesNext)
+		if (!bc.m_Fees && feesNext && (Rules::Consensus::Pbft != r.m_Consensus))
 			nSizeNext += m_nSizeUtxoComissionUpperLimit;
 
 		if (nSizeNext > nSizeMax)
@@ -6913,12 +6980,13 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		if (bc.m_Fees)
+		if (bc.m_Fees && (Rules::Consensus::Pbft != r.m_Consensus))
 		{
 			{
 				Asset::Proof::Params::Override po(get_AidMax());
 				bb.AddFees(bc.m_Fees, pOutp);
 			}
+
 			if (!HandleBlockElement(*pOutp, bic))
 				return 0;
 
@@ -7034,6 +7102,13 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_AlreadyValidated = true;
 	bic.m_SkipDefinition = false;
 
+	const auto& r = Rules::get();
+	if (Rules::Consensus::Pbft == r.m_Consensus)
+	{
+		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+		d.m_hvVsPrev = m_PbftState.m_hvVs;
+	}
+
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
 	if (!bOk)
 	{
@@ -7043,6 +7118,14 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		OnInvalidBlock(bc.m_Hdr, bc.m_Block);
 		return false; // ?!
 	}
+
+	if (Rules::Consensus::Pbft == r.m_Consensus)
+	{
+		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+		ZeroObject(d.m_pPad0);
+		get_PbftVsHash(d.m_hvVsNext);
+	}
+
 	GenerateNewHdr(bc, bic);
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
