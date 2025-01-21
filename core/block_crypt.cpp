@@ -2728,12 +2728,27 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidPoW() const
 	{
-		if (Rules::Consensus::PoW != Rules::get().m_Consensus)
-			return true;
+		const auto& r = Rules::get();
+		switch (r.m_Consensus)
+		{
+		case Rules::Consensus::PoW:
+			{
+				Merkle::Hash hv;
+				get_HashForPoW(hv);
+				return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
+			}
 
-		Merkle::Hash hv;
-		get_HashForPoW(hv);
-		return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
+		case Rules::Consensus::Pbft:
+			// make sure difficulty isn't adjusted
+			return m_PoW.m_Difficulty.m_Packed == r.DA.Difficulty0.m_Packed;
+
+		default:
+			assert(false);
+			// no break
+
+		case Rules::Consensus::FakePoW:
+			return true;
+		}
 	}
 
 	bool Block::SystemState::Full::GeneratePoW(const PoW::Cancel& fnCancel)

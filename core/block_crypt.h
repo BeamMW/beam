@@ -452,6 +452,7 @@ namespace beam
 		enum struct Consensus {
 			PoW = 0,
 			FakePoW = 1,
+			Pbft = 2,
 		};
 
 		Consensus m_Consensus;
@@ -1612,6 +1613,21 @@ namespace beam
 		private:
 			struct Helper;
 		};
+
+		struct Pbft
+		{
+			struct HdrData {
+				ECC::Hash::Value m_hvVsPrev;
+				ECC::Hash::Value m_hvVsNext;
+				ECC::Hash::Value m_hvMetadata;
+				uintBigFor<uint32_t>::Type m_nSizeMetadata;
+				uintBigFor<uint32_t>::Type m_dRound;
+				uint8_t m_pPad0[8];
+				Difficulty m_Difficulty;
+			};
+			static_assert(sizeof(HdrData) == sizeof(PoW), "");
+		};
+
 
 		static void get_HashContractVar(Merkle::Hash&, const Blob& key, const Blob& val);
 		static void get_HashContractLog(Merkle::Hash&, const Blob& key, const Blob& val, uint32_t nPos);
