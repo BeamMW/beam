@@ -298,6 +298,16 @@ namespace proto {
 #define BeamNodeMsg_ContractLogProof(macro) \
     macro(Merkle::Proof, Proof)
 
+#define BeamNodeMsg_PbftProposal(macro) \
+    macro(Block::SystemState::Full, Hdr) \
+    macro(BodyBuffers, Body) \
+    macro(ECC::Signature, Signature)
+
+#define BeamNodeMsg_PbftVote(macro) \
+    macro(Merkle::Hash, ID) /* ID should be calculated as either pre-vote or vote. That's how they're distinguished */ \
+    macro(Block::Pbft::Address, Address) \
+    macro(ECC::Signature, Signature)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x01, Bye) \
@@ -380,7 +390,10 @@ namespace proto {
     macro(0x47, GetShieldedOutputsAt) \
     macro(0x48, ShieldedOutputsAt) \
     macro(0x4c, GetAssetsListAt) \
-    macro(0x4d, AssetsListAt)
+    macro(0x4d, AssetsListAt) \
+    /* pbft-related */ \
+    macro(0x51, PbftProposal) \
+    macro(0x52, PbftVote) \
 
 
     struct LoginFlags {
