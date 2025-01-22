@@ -511,9 +511,15 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
+}
 
-	if (!bMovingUp && (Rules::Consensus::Pbft == Rules::get().m_Consensus))
-		m_PbftState.get_Hash(m_PbftState.m_hvVs);
+void NodeProcessor::PbftState::Hash::Update()
+{
+	if (!m_Valid)
+	{
+		get_ParentObj().get_Hash(m_hv);
+		m_Valid = true;
+	}
 }
 
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
@@ -2477,6 +2483,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_AlreadyValidated = false; // Block/tx already validated, i.e. this is not the 1st invocation (reorgs, block generation multi-pass, etc.)
 	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
+	bool m_DontUpdatePbft = true;
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
 	bool m_DependentCtxSet = false;
@@ -2933,7 +2940,9 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			Exc::CheckpointTxt cp("pbft block data");
 
 			const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
-			if (d.m_hvVsPrev != m_PbftState.m_hvVs)
+
+			m_PbftState.m_Hash.Update();
+			if (d.m_hvVsPrev != m_PbftState.m_Hash.m_hv)
 				Exc::Fail();
 
 			uint32_t nSizeMetadata;
@@ -2952,7 +2961,14 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			if (bFirstTime)
 			{
 				// Deserialize QC
-				// test QC
+				Block::Pbft::Quorum qc;
+				der & qc;
+
+				Merkle::Hash hv;
+				s.get_Hash(hv);
+
+				if (!m_PbftState.CheckQuorum(hv, qc))
+					Exc::Fail("QC");
 			}
 		}
 	}
@@ -3091,10 +3107,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
 			// exec metadata, modify the validator set
-
-			Merkle::Hash hv;
-			m_PbftState.get_Hash(hv);
-			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+			m_PbftState.m_Hash.Update();
+			if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 				bOk = false;
 		}
 
@@ -3182,9 +3196,6 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (bic.m_pvC)
 			bic.AddKrnInfo(ser, m_DB);
-
-		if (Rules::Consensus::Pbft == r.m_Consensus)
-			m_PbftState.m_hvVs = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext;
 	}
 	else
 	{
@@ -4794,6 +4805,18 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 	{
 		if (bic.m_Fwd)
 			bic.m_nKrnIdx++;
+
+		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && !bic.m_SkipDefinition && !bic.m_DontUpdatePbft && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
+		if (bHandleFee)
+		{
+			if (bic.m_Fwd)
+				m_PbftState.m_Totals.m_Amount += v.m_Fee;
+			else
+				m_PbftState.m_Totals.m_Amount -= v.m_Fee;
+
+			m_PbftState.m_Hash.m_Valid = false;
+		}
+
 	}
 	else
 	{
@@ -7099,7 +7122,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-		d.m_hvVsPrev = m_PbftState.m_hvVs;
+
+		m_PbftState.m_Hash.Update();
+		d.m_hvVsPrev = m_PbftState.m_Hash.m_hv;
 	}
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
@@ -7116,7 +7141,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
-		m_PbftState.get_Hash(d.m_hvVsNext);
+
+		m_PbftState.m_Hash.Update();
+		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
 	}
 
 	GenerateNewHdr(bc, bic);
@@ -7790,6 +7817,7 @@ void NodeProcessor::RebuildNonStd()
 			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
+			bic.m_DontUpdatePbft = true;
 
 			Process(v);
 
