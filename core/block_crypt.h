@@ -19,6 +19,7 @@
 #include "merkle.h"
 #include "difficulty.h"
 #include "../utility/executor.h"
+#include "../utility/containers.h"
 
 namespace beam
 {
@@ -1626,6 +1627,58 @@ namespace beam
 				Difficulty m_Difficulty;
 			};
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");
+
+			struct Validator
+				:public boost::intrusive::list_base_hook<>
+			{
+				typedef intrusive::list<Validator> List;
+
+				typedef PeerID Address;
+
+				struct Addr
+					:public intrusive::set_base_hook<Address>
+				{
+					typedef intrusive::multiset<Addr> Map;
+
+					IMPLEMENT_GET_PARENT_OBJ(Validator, m_Addr)
+				} m_Addr;
+
+				uint64_t m_Weight;
+			};
+
+			struct Quorum
+			{
+				std::vector<uint8_t> m_vValidatorsMsk;
+				std::vector<ECC::Signature> m_vSigs; // TODO: compress sigs, sig.k can be aggregated (whereas sig.NoncePub can not)
+			};
+
+			struct State
+			{
+				Validator::List m_lstVs;
+				Validator::Addr::Map m_mapVs;
+
+				struct Totals {
+					uint64_t m_Weight = 0;
+					Amount m_Amount = 0;
+				} m_Totals;
+
+				~State() { Clear(); }
+				void Clear();
+
+				void Delete(Validator&);
+				Validator* Find(const Validator::Address&, bool bCreate);
+
+				Validator* Select(const Merkle::Hash& hvInp, uint32_t iRound);
+
+				void get_Hash(Merkle::Hash&) const;
+
+				bool IsMajorityReached(uint64_t w) const;
+				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
+
+			private:
+				// uniform random within [0, nBound)
+				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
+			};
 		};
 
 

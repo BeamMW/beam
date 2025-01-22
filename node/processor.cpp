@@ -513,15 +513,8 @@ void NodeProcessor::InitCursor(bool bMovingUp)
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 
 	if (!bMovingUp && (Rules::Consensus::Pbft == Rules::get().m_Consensus))
-		get_PbftVsHash(m_PbftState.m_hvVs);
+		m_PbftState.get_Hash(m_PbftState.m_hvVs);
 }
-
-void NodeProcessor::get_PbftVsHash(Merkle::Hash& hv)
-{
-	// TODO
-	hv = 55u;
-}
-
 
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
@@ -3100,7 +3093,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			// exec metadata, modify the validator set
 
 			Merkle::Hash hv;
-			get_PbftVsHash(hv);
+			m_PbftState.get_Hash(hv);
 			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 				bOk = false;
 		}
@@ -7123,7 +7116,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
-		get_PbftVsHash(d.m_hvVsNext);
+		m_PbftState.get_Hash(d.m_hvVsNext);
 	}
 
 	GenerateNewHdr(bc, bic);
