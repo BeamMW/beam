@@ -775,6 +775,70 @@ private:
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Miner)
 	} m_Miner;
+
+	struct Validator
+	{
+		struct Me
+		{
+			ECC::Scalar::Native m_sk; // deduced from miner key
+			Block::Pbft::Address m_Addr;
+
+			const Block::Pbft::Validator* m_p; // refreshed after each block
+		} m_Me;
+
+		bool IsEnabled() const { return !!m_Me.m_p; }
+
+		//enum struct Status {
+		//	None,
+		//	WaitingProposal,
+		//	BadProposal,
+		//	Voted,
+		//	Committed,
+		//	Ignoring, // already committed to another proposal
+		//};
+
+		struct SigsAndPower {
+			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
+			uint64_t m_wVoted;
+
+			void Reset()
+			{
+				m_Sigs.clear();
+				m_wVoted = 0;
+			}
+		};
+
+		uint32_t m_iRoundCurrent = static_cast<uint32_t>(-1);
+		uint32_t m_iRoundCommitted;
+		const Block::Pbft::Validator* m_pLeader;
+
+		proto::PbftProposal m_Proposal;
+
+		Merkle::Hash m_hvPreVote;
+		Merkle::Hash m_hvCommit;
+
+		uint64_t m_wTotal;
+
+		SigsAndPower m_spPreVoted;
+		SigsAndPower m_spCommitted;
+
+		io::Timer::Ptr m_pTimer;
+		bool m_bTimerPending = false;
+
+		void OnNewState();
+		void OnNewRound(uint32_t);
+
+		bool OnMsg(const proto::PbftProposal&);
+		bool OnMsg(const proto::PbftVote&);
+
+		void CheckState();
+
+		void OnQuorumReached();
+
+
+		IMPLEMENT_GET_PARENT_OBJ(Node, m_Validator)
+	} m_Validator;
+
 };
 
 } // namespace beam

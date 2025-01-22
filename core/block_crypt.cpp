@@ -50,6 +50,14 @@ namespace beam
 		return false;
 	}
 
+	bool PeerID::CheckSignature(const Merkle::Hash& msg, const ECC::Signature& sig) const
+	{
+		ECC::Point::Native pt;
+		return
+			ExportNnz(pt) &&
+			sig.IsValid(msg, pt);
+	}
+
 	/////////////
 	// Evm::Address
 	void Evm::Address::FromPubKey(const ECC::Point::Storage& pk)
@@ -2636,7 +2644,6 @@ namespace beam
 		while (!m_lstVs.empty())
 			Delete(m_lstVs.front());
 
-		assert(!m_Totals.m_Weight);
 		m_Totals.m_Amount = 0;
 	}
 
@@ -2646,7 +2653,7 @@ namespace beam
 		m_lstVs.Delete(v);
 	}
 
-	Block::Pbft::Validator* Block::Pbft::State::Find(const Validator::Address& addr, bool bCreate)
+	Block::Pbft::Validator* Block::Pbft::State::Find(const Address& addr, bool bCreate)
 	{
 		auto it = m_mapVs.find(addr, Validator::Addr::Comparator());
 		if (m_mapVs.end() != it)
@@ -2683,9 +2690,19 @@ namespace beam
 		// unreachable
 	}
 
-	Block::Pbft::Validator* Block::Pbft::State::Select(const Merkle::Hash& hvInp, uint32_t iRound)
+	uint64_t Block::Pbft::State::get_Weight() const
 	{
-		if (!m_Totals.m_Weight)
+		uint64_t wTotal = 0;
+		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
+			wTotal += it->m_Weight;
+
+		return wTotal;
+	}
+
+	Block::Pbft::Validator* Block::Pbft::State::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound, uint64_t& wTotal)
+	{
+		wTotal = get_Weight();
+		if (!wTotal)
 			return nullptr;
 
 		// Select in a pseudo-random way. Probability according to the validator weight
@@ -2695,8 +2712,8 @@ namespace beam
 			<< hvInp
 			<< iRound;
 
-		uint64_t w = get_Random(oracle, m_Totals.m_Weight);
-		assert(w < m_Totals.m_Weight);
+		uint64_t w = get_Random(oracle, wTotal);
+		assert(w < wTotal);
 
 		for (auto it = m_lstVs.begin(); ; it++)
 		{
@@ -2731,21 +2748,21 @@ namespace beam
 		hp >> hv;
 	}
 
-	bool Block::Pbft::State::IsMajorityReached(uint64_t w) const
+	bool Block::Pbft::State::IsMajorityReached(uint64_t wVoted, uint64_t wTotal)
 	{
-		assert(w <= m_Totals.m_Weight);
-		return (w * 3 > m_Totals.m_Weight * 2); // TODO: overflow test
+		assert(wVoted <= wTotal);
+		return (wVoted * 3 > wTotal * 2); // TODO: overflow test
 	}
 
 	bool Block::Pbft::State::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc)
 	{
 		// check all signatures, and that the quorum is reached
-		uint64_t /*wTotal = 0, */wVoted = 0;
+		uint64_t wTotal = 0, wVoted = 0;
 		uint32_t iIdx = 0, iSig = 0;
 		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++, iIdx++)
 		{
 			auto& v = *it;
-			//wTotal += v.m_Weight;
+			wTotal += v.m_Weight;
 
 			uint32_t iByte = iIdx / 8;
 			if (iByte < qc.m_vValidatorsMsk.size())
@@ -2756,10 +2773,7 @@ namespace beam
 					if (iSig >= qc.m_vSigs.size())
 						return false;
 
-					ECC::Point::Native pt;
-					if (!v.m_Addr.m_Key.ExportNnz(pt)) // relatively simple op
-						return false;
-					if (!qc.m_vSigs[iSig++].IsValid(msg, pt))
+					if (!v.m_Addr.m_Key.CheckSignature(msg, qc.m_vSigs[iSig++]))
 						return false;
 
 					wVoted += v.m_Weight;
@@ -2771,7 +2785,7 @@ namespace beam
 			return false; // not all sigs used
 
 		// is quorum reached?
-		return IsMajorityReached(wVoted);
+		return IsMajorityReached(wVoted, wTotal);
 	}
 
 	/////////////

@@ -37,6 +37,8 @@ namespace beam
 		bool ExportNnz(ECC::Point::Native&) const;
 		bool Import(const ECC::Point::Native&); // returns if the sign is preserved
 		bool FromSk(ECC::Scalar::Native&); // will negate the scalar iff necessary. returns if the sign is preserved
+
+		bool CheckSignature(const Merkle::Hash&, const ECC::Signature&) const;
 	};
 
 	typedef uint64_t BbsChannel;
@@ -1628,12 +1630,13 @@ namespace beam
 			};
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");
 
+			typedef PeerID Address;
+
 			struct Validator
 				:public boost::intrusive::list_base_hook<>
 			{
 				typedef intrusive::list<Validator> List;
 
-				typedef PeerID Address;
 
 				struct Addr
 					:public intrusive::set_base_hook<Address>
@@ -1644,6 +1647,15 @@ namespace beam
 				} m_Addr;
 
 				uint64_t m_Weight;
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar
+						& m_Addr.m_Key
+						& m_Weight;
+				}
+
 			};
 
 			struct Quorum
@@ -1666,7 +1678,6 @@ namespace beam
 				Validator::Addr::Map m_mapVs;
 
 				struct Totals {
-					uint64_t m_Weight = 0;
 					Amount m_Amount = 0;
 				} m_Totals;
 
@@ -1674,14 +1685,24 @@ namespace beam
 				void Clear();
 
 				void Delete(Validator&);
-				Validator* Find(const Validator::Address&, bool bCreate);
+				Validator* Find(const Address&, bool bCreate);
 
-				Validator* Select(const Merkle::Hash& hvInp, uint32_t iRound);
+				uint64_t get_Weight() const;
+
+				Validator* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound, uint64_t& wTotal);
 
 				void get_Hash(Merkle::Hash&) const;
 
-				bool IsMajorityReached(uint64_t w) const;
+				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal);
 				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar
+						& m_Totals.m_Amount
+						& m_lstVs;
+				}
 
 			private:
 				// uniform random within [0, nBound)

@@ -4450,6 +4450,9 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
     if (!cfg.m_MiningThreads && !externalPOW)
         return;
 
+    if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+        return;
+
     m_LastRestart_ms = 0;
     m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
@@ -5569,5 +5572,227 @@ void Node::GenerateFakeBlocks(uint32_t n)
     m_Miner.m_FakeBlocksToGenerate = n;
     m_Miner.SetTimer(0, true);
 }
+
+///////////////////
+// Pbft
+
+void Node::Validator::OnNewState()
+{
+    if (Rules::Consensus::Pbft != Rules().m_Consensus)
+        return;
+
+    m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
+
+    m_iRoundCurrent = static_cast<uint32_t>(-1);
+    m_iRoundCommitted = static_cast<uint32_t>(-1);
+    m_spPreVoted.Reset();
+    m_spCommitted.Reset();
+    m_Proposal.m_Body.m_Eternal.clear();
+    m_Proposal.m_Body.m_Perishable.clear();
+    m_pLeader = nullptr;
+}
+
+void Node::Validator::OnNewRound(uint32_t iRound)
+{
+    if (Rules::Consensus::Pbft != Rules().m_Consensus)
+        return;
+
+    m_iRoundCurrent = iRound;
+
+    auto& p = get_ParentObj().m_Processor;
+    m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
+}
+
+bool Node::Validator::OnMsg(const proto::PbftProposal& msg)
+{
+    if (!m_pLeader)
+        return false;
+
+    if (!m_Proposal.m_Body.m_Eternal.empty())
+        return false; // we've already received the proposal for the current round, or committed to another proposal
+
+    auto& p = get_ParentObj().m_Processor;
+    if ((msg.m_Hdr.m_Height != p.m_Cursor.m_ID.m_Height + 1) || (msg.m_Hdr.m_Prev != p.m_Cursor.m_ID.m_Hash))
+        return false; // irrelevant
+
+    const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
+    if (d.m_dRound != uintBigFrom(m_iRoundCurrent))
+        return false; // irrelevant round
+
+    if (msg.m_Body.m_Eternal.empty())
+        return false; // invalid
+
+    msg.m_Hdr.get_Hash(m_hvCommit);
+
+    if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_hvCommit, msg.m_Signature))
+        return false;
+
+    // TODO: test the proposed block
+
+    // Proposal is ok
+    ECC::Hash::Processor()
+        << "pbft.vote.1"
+        << m_hvCommit
+        >> m_hvPreVote;
+
+    m_spCommitted.Reset();
+    m_spCommitted.m_wVoted = m_pLeader->m_Weight;
+    m_spCommitted.m_Sigs[m_pLeader->m_Addr.m_Key] = msg.m_Signature;
+
+    m_spPreVoted.Reset();
+    m_spPreVoted.m_wVoted = m_pLeader->m_Weight; // proposal is also an implicit pre-vote
+
+    if (m_Me.m_p && (m_Me.m_p != m_pLeader))
+    {
+        auto& sig = m_spPreVoted.m_Sigs[m_Me.m_Addr];
+        sig.Sign(m_hvPreVote, m_Me.m_sk);
+        m_spPreVoted.m_wVoted += m_Me.m_p->m_Weight;
+    }
+
+    return true;
+}
+
+bool Node::Validator::OnMsg(const proto::PbftVote& msg)
+{
+    if (!m_pLeader)
+        return false;
+
+    if (m_Proposal.m_Body.m_Eternal.empty())
+        return false; // no proposal yet
+
+    bool bCommit = (msg.m_ID == m_hvCommit);
+    if (!bCommit)
+    {
+        if (msg.m_ID != m_hvPreVote)
+            return false; // not a pre-vote either, irrelevant vote
+
+        if (m_iRoundCommitted <= m_iRoundCurrent)
+            return false; // already majority of pre-votes was observed
+    }
+
+    auto& sp = bCommit ? m_spCommitted : m_spPreVoted;
+    auto it = sp.m_Sigs.find(msg.m_Address);
+    if (sp.m_Sigs.end() != it)
+        return false; // already accounted
+
+    auto& p = get_ParentObj().m_Processor; // alias
+    auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
+    if (p.m_PbftState.m_mapVs.end() == itV)
+        return false; // not a validator!
+
+    if (!msg.m_Address.CheckSignature(bCommit ? m_hvCommit : m_hvPreVote, msg.m_Signature))
+        return false;
+
+    // ok
+    sp.m_Sigs[msg.m_Address] = msg.m_Signature;
+    sp.m_wVoted += itV->get_ParentObj().m_Weight;
+
+    return true;
+
+}
+
+void Node::Validator::CheckState()
+{
+    if (!m_pLeader)
+        return;
+
+    if (m_Proposal.m_Body.m_Eternal.empty())
+        return; // no valid proposal yet
+
+    if (m_iRoundCommitted > m_iRoundCurrent)
+    {
+        // should we commit?
+        if (Block::Pbft::State::IsMajorityReached(m_spPreVoted.m_wVoted, m_wTotal))
+        {
+            // commit to this proposal
+            m_iRoundCommitted = m_iRoundCurrent;
+
+            if (m_Me.m_p && (m_Me.m_p != m_pLeader))
+            {
+                auto it = m_spCommitted.m_Sigs.find(m_Me.m_Addr);
+                if (m_spCommitted.m_Sigs.end() == it)
+                {
+                    // cast our commit vote
+                    auto& sig = m_spCommitted.m_Sigs[m_Me.m_Addr];
+                    sig.Sign(m_hvCommit, m_Me.m_sk);
+                    m_spCommitted.m_wVoted += m_Me.m_p->m_Weight;
+                }
+            }
+
+        }
+    }
+
+    if (Block::Pbft::State::IsMajorityReached(m_spCommitted.m_wVoted, m_wTotal))
+    {
+        // We have the quorum
+        OnQuorumReached();
+        m_pLeader = nullptr;
+    }
+}
+
+void Node::Validator::OnQuorumReached()
+{
+    // We have the quorum
+    Block::Pbft::Quorum qc;
+    auto& p = get_ParentObj().m_Processor;
+
+    uint32_t iIdx = 0;
+    for (auto it = p.m_PbftState.m_lstVs.begin(); p.m_PbftState.m_lstVs.end() != it; it++, iIdx++)
+    {
+        auto& v = *it;
+
+        auto itSig = m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
+        if (m_spCommitted.m_Sigs.end() != itSig)
+        {
+            qc.m_vSigs.push_back(itSig->second);
+
+            uint32_t iByte = iIdx >> 3;
+            if (qc.m_vValidatorsMsk.size() <= iByte)
+                qc.m_vValidatorsMsk.resize(iByte + 1);
+            qc.m_vValidatorsMsk[iByte] |= (7 & iIdx);
+        }
+    }
+
+    auto eVal = p.OnState(m_Proposal.m_Hdr, Zero);
+
+    switch (eVal)
+    {
+    case NodeProcessor::DataStatus::Accepted:
+    case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
+        break; // ok
+
+    default:
+        return; // invalid or unreachable header?!
+    }
+
+    // append QC to block body
+    size_t n0 = m_Proposal.m_Body.m_Eternal.size();
+
+    Serializer ser;
+    ser.swap_buf(m_Proposal.m_Body.m_Eternal);
+    ser& qc;
+    ser.swap_buf(m_Proposal.m_Body.m_Eternal);
+
+    Block::SystemState::ID id;
+    id.m_Height = m_Proposal.m_Hdr.m_Height;
+    id.m_Hash = m_hvCommit;
+
+    eVal = p.OnBlock(id, m_Proposal.m_Body.m_Perishable, m_Proposal.m_Body.m_Eternal, Zero);
+
+    m_Proposal.m_Body.m_Eternal.resize(n0); // restore it
+
+    switch (eVal)
+    {
+    case NodeProcessor::DataStatus::Accepted:
+    case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
+        break; // ok
+
+    default:
+        return; // block with no header, or etc?!
+    }
+
+    // ok
+}
+
 
 } // namespace beam
