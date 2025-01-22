@@ -1650,6 +1650,14 @@ namespace beam
 			{
 				std::vector<uint8_t> m_vValidatorsMsk;
 				std::vector<ECC::Signature> m_vSigs; // TODO: compress sigs, sig.k can be aggregated (whereas sig.NoncePub can not)
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar
+						& m_vValidatorsMsk
+						& m_vSigs;
+				}
 			};
 
 			struct State

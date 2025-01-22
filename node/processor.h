@@ -370,7 +370,16 @@ public:
 	struct PbftState
 		:public Block::Pbft::State
 	{
-		Merkle::Hash m_hvVs;
+		struct Hash
+		{
+			Merkle::Hash m_hv;
+			bool m_Valid = false;
+
+			void Update();
+
+			IMPLEMENT_GET_PARENT_OBJ(PbftState, m_Hash)
+		} m_Hash;
+
 	} m_PbftState;
 
 	struct SyncData
