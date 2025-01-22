@@ -368,11 +368,10 @@ public:
 	} m_Extra;
 
 	struct PbftState
+		:public Block::Pbft::State
 	{
 		Merkle::Hash m_hvVs;
 	} m_PbftState;
-
-	void get_PbftVsHash(Merkle::Hash&);
 
 	struct SyncData
 	{

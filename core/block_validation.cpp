@@ -235,7 +235,9 @@ namespace beam
 	void TxBase::Context::TestValidTransaction()
 	{
 		if (m_Stats.m_Coinbase != Zero)
-			Exc::Fail("Coinbase in tx"); // regular transactions should not produce coinbase outputs, only the miner should do this.
+			// PoW mode: regular transactions should not produce coinbase outputs, only the miner should do this.
+			// Pbt mode: m_Coinbase is the diff between supposed and actual coinbase value. Hence it should be 0
+			Exc::Fail("Coinbase in tx");
 
 		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
 		TestSigma();
@@ -243,30 +245,54 @@ namespace beam
 
 	void TxBase::Context::TestValidBlock()
 	{
-		AmountBig::Number subsTotal, subsLocked;
-		Rules::get_Emission(subsTotal, m_Height);
+		const auto& r = Rules::get();
 
-		m_Sigma = -m_Sigma;
+		AmountBig::Number subsTotal;
+
+		bool bPbft = (Rules::Consensus::Pbft == r.m_Consensus);
+		if (bPbft)
+			subsTotal = m_Stats.m_Fee; // the value subtracted from the circulation
+		else
+		{
+			Rules::get_Emission(subsTotal, m_Height);
+			m_Sigma = -m_Sigma;
+		}
 
 		AmountBig::AddTo(m_Sigma, subsTotal);
 		TestSigma();
 
 		if (!m_Params.m_bAllowUnsignedOutputs)
 		{
-			// Subsidy is bounded by num of blocks multiplied by coinbase emission
-			// There must at least some unspent coinbase UTXOs wrt maturity settings
-			if (m_Height.m_Max - m_Height.m_Min < Rules::get().Maturity.Coinbase)
-				subsLocked = subsTotal;
+			bool bHasEnoughLocked = true;
+			bool bShortRange = (m_Height.m_Max - m_Height.m_Min < r.Maturity.Coinbase); // All the supposed coinbase UTXOs must be included (i.e. couldn't be spent and cut-through)
+
+			if (bPbft)
+			{
+				if (bShortRange)
+					bHasEnoughLocked = (m_Stats.m_Coinbase == Zero);
+
+				// for long range we don't really know which part of the coinbase could be spent already, hence we omit this verification
+			}
 			else
 			{
-				HeightRange hr;
-				hr.m_Min = m_Height.m_Max - Rules::get().Maturity.Coinbase;
-				hr.m_Max = m_Height.m_Max;
-				Rules::get_Emission(subsLocked, hr);
+				if (bShortRange)
+					bHasEnoughLocked = (m_Stats.m_Coinbase == subsTotal);
+				else
+				{
+					// calculate the minimum coinbase value that's supposed still to be locked
+					HeightRange hr;
+					hr.m_Min = m_Height.m_Max - r.Maturity.Coinbase;
+					hr.m_Max = m_Height.m_Max;
+					Rules::get_Emission(subsTotal, hr);
+
+					bHasEnoughLocked = (m_Stats.m_Coinbase >= subsTotal);
+
+				}
 			}
 
-			if (m_Stats.m_Coinbase < subsLocked)
+			if (!bHasEnoughLocked)
 				Exc::Fail("Coinbase value mismatch");
+
 		}
 	}
 

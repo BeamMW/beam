@@ -2630,6 +2630,151 @@ namespace beam
 	}
 
 	/////////////
+	// Pbft
+	void Block::Pbft::State::Clear()
+	{
+		while (!m_lstVs.empty())
+			Delete(m_lstVs.front());
+
+		assert(!m_Totals.m_Weight);
+		m_Totals.m_Amount = 0;
+	}
+
+	void Block::Pbft::State::Delete(Validator& v)
+	{
+		m_mapVs.erase(Validator::Addr::Map::s_iterator_to(v.m_Addr));
+		m_lstVs.Delete(v);
+	}
+
+	Block::Pbft::Validator* Block::Pbft::State::Find(const Validator::Address& addr, bool bCreate)
+	{
+		auto it = m_mapVs.find(addr, Validator::Addr::Comparator());
+		if (m_mapVs.end() != it)
+			return &it->get_ParentObj();
+
+		if (!bCreate)
+			return nullptr;
+
+		Validator* pV = m_lstVs.Create_back();
+		pV->m_Addr.m_Key = addr;
+		m_mapVs.insert(pV->m_Addr);
+
+		return pV;
+	}
+
+	uint64_t Block::Pbft::State::get_Random(ECC::Oracle& oracle, uint64_t nBound)
+	{
+		assert(nBound);
+
+		uint64_t nResid = ((static_cast<uint64_t>(-1) % nBound) + 1) % nBound;
+
+		while (true)
+		{
+			Merkle::Hash hv;
+			oracle >> hv;
+
+			uint64_t w;
+			hv.ExportWord<0>(w);
+
+			if (w <= static_cast<uint64_t>(-1) - nResid)
+				return w % nBound;
+		}
+
+		// unreachable
+	}
+
+	Block::Pbft::Validator* Block::Pbft::State::Select(const Merkle::Hash& hvInp, uint32_t iRound)
+	{
+		if (!m_Totals.m_Weight)
+			return nullptr;
+
+		// Select in a pseudo-random way. Probability according to the validator weight
+		ECC::Oracle oracle;
+		oracle
+			<< "vs.select"
+			<< hvInp
+			<< iRound;
+
+		uint64_t w = get_Random(oracle, m_Totals.m_Weight);
+		assert(w < m_Totals.m_Weight);
+
+		for (auto it = m_lstVs.begin(); ; it++)
+		{
+			assert(m_lstVs.end() != it);
+			auto& v = *it;
+
+			if (w < v.m_Weight)
+				return &v;
+
+			w -= v.m_Weight;
+		}
+
+		// unreachable
+	}
+
+	void Block::Pbft::State::get_Hash(Merkle::Hash& hv) const
+	{
+		ECC::Hash::Processor hp;
+		hp
+			<< "vs.state"
+			<< m_Totals.m_Amount
+			<< m_lstVs.size();
+
+		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
+		{
+			const auto& v = *it;
+			hp
+				<< v.m_Addr.m_Key
+				<< v.m_Weight;
+		}
+
+		hp >> hv;
+	}
+
+	bool Block::Pbft::State::IsMajorityReached(uint64_t w) const
+	{
+		assert(w <= m_Totals.m_Weight);
+		return (w * 3 > m_Totals.m_Weight * 2); // TODO: overflow test
+	}
+
+	bool Block::Pbft::State::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc)
+	{
+		// check all signatures, and that the quorum is reached
+		uint64_t /*wTotal = 0, */wVoted = 0;
+		uint32_t iIdx = 0, iSig = 0;
+		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++, iIdx++)
+		{
+			auto& v = *it;
+			//wTotal += v.m_Weight;
+
+			uint32_t iByte = iIdx / 8;
+			if (iByte < qc.m_vValidatorsMsk.size())
+			{
+				uint8_t msk = 1 << (iIdx & 7);
+				if (qc.m_vValidatorsMsk[iByte] & msk)
+				{
+					if (iSig >= qc.m_vSigs.size())
+						return false;
+
+					ECC::Point::Native pt;
+					if (!v.m_Addr.m_Key.ExportNnz(pt)) // relatively simple op
+						return false;
+					if (!qc.m_vSigs[iSig++].IsValid(msg, pt))
+						return false;
+
+					wVoted += v.m_Weight;
+				}
+			}
+		}
+
+		if (iSig != qc.m_vSigs.size())
+			return false; // not all sigs used
+
+		// is quorum reached?
+		return IsMajorityReached(wVoted);
+	}
+
+	/////////////
 	// Block
 
 	int Block::SystemState::Full::cmp(const Full& v) const
