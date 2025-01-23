@@ -49,6 +49,7 @@
   // Address of the remote explorer node
   //var urlPrefix = "http://localhost:8888/";
   var urlPrefix = 'http://116.203.118.51:8100/';
+  //var urlPrefix = 'https://explorer-api.beamprivacy.community/';
 </script>
 
 <!-- ************ SECTION 2 - CSS STYLES ************ -->
@@ -83,6 +84,8 @@
     --color_blockheight_title_link: #0066CC;
     --color_blockheight_title_link_visited: #3e1a8b;
     --color_metadata: #505050;
+    --color_metadata_assetname: #505050;
+    --color_metadata_assetname_AMML: #808080;
     --color_hash: #505050;
     --color_hash_highlight: darkred;
     --color_more: #17204e;
@@ -131,7 +134,7 @@
     --color_banner_version: #525252;
     --color_banner_menu_text: #17204e;
     --color_banner_menu_link: #2d3799;
-    --color_banner_menu_link_hover: #3e1a8b;
+    --color_banner_menu_link_hover: #1f276f;
     --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
     --color_banner_search_border: #636785;
     --color_banner_search_background: #afb3d8;
@@ -180,6 +183,8 @@
     --color_blockheight_title_link: #65a4e3;
     --color_blockheight_title_link_visited: #a17eec;
     --color_metadata: #505050;
+    --color_metadata_assetname: #505050;
+    --color_metadata_assetname_AMML: #707070;
     --color_hash: #505050;
     --color_hash_highlight: darkred;
     --color_more: #ddd;
@@ -340,7 +345,7 @@
     cursor: pointer;
     fill: var(--color_icon);
     display: inline-block;
-    vertical-align: top; /* Needed to align text and symbol */
+    vertical-align: text-bottom; /* Needed to align text and symbol */
   }
   .listOfBlockHeaders a {
     fill: var(--color_icon);
@@ -396,6 +401,16 @@
     color: var(--color_metadata);
     font-size: 1.2rem;
     vertical-align: middle; /* Needed to align text and symbol */
+  }
+  .metadataAssetName {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--color_metadata_assetname);
+    white-space: nowrap; /* Don't wrap text */
+  }
+  .metadataAssetName.AMML {
+    color: var(--color_metadata_assetname_AMML);
   }
   /* Display full metadata */
   .metadata .full {
@@ -516,8 +531,9 @@
   .more::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
   }
-  .noDataText { /* Text when no data is available */
+  .noDataText { /* Text displayed when no data is available */
     display: block;
+    font-size: 1.5rem;
     padding: 5px;
     font-style: italic;
   }
@@ -574,6 +590,9 @@
   .tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
   .divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
     background-color: var(--color_table_row_hover);
+  }
+  .emptyTable { /* Hide empty tables */
+    display: none;
   }
 
   /* TITLE BANNER AND FOOTER */
@@ -1258,7 +1277,7 @@
       <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
       <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
       <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
-      <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+      <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 10 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
       <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
       <!-- Fixed banner on all pages -->
       <div id="Banner">
@@ -1419,6 +1438,7 @@
 
   function Obj2Html_TableRows(jTbl) {
     let text = '';
+
     for (let iRow = 0; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
 
@@ -1476,7 +1496,8 @@
   }
 
   function Obj2Html(obj) {
-    if (obj == null) { return '' }
+    // Display empty span if data is empty
+    if (obj == null) { return AddClass('', 'emptySpan'); }
 
     if (Array.isArray(obj)) {
       let txt = '<ul>';
@@ -1519,10 +1540,14 @@
 
   function SetContent(text) {
     document.getElementById('my_content').innerHTML = text;
+    // Parse Metadata to add classes (Rem: we do this one first because its innerHTML destroys the even handlers!)
+    addClassesToMetadata();
     // Add truncate/expand options to all text of type hash, cid, metadata, etc.
     addExpandOptions();
     // Include options for adding filters to the first row of long tables
     addFilterOption();
+    // Replace empty tables with a text
+    hideEmptyTables();
   }
 
   function DisplayContracts() {
@@ -1614,7 +1639,7 @@
         </tr></thead>\n\
     ";
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
       text += '<tr>';
@@ -1635,8 +1660,7 @@
     const jTbl2Obj = jData['Asset distribution'];
     if (jTbl2Obj) {
         const jTbl2 = jTbl2Obj['value'];
-        // Display special text if the table is empty (or only has headers)
-        text += (jTbl2.length > 1) ? Obj2Html(jTbl2Obj) : AddClass('(none)', 'noDataText');
+        text += Obj2Html(jTbl2Obj);
     }
     text += MakeCollapsibleEnd();
 
@@ -1724,20 +1748,18 @@
       </tr></thead>\n\
     ";
 
-    let jTbl = j['value'];
+    const jTbl = j['value'];
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
       text += '<tr>';
-
       text += MakeCell(MakeAsset(jRow[0]['value']));
       text += MakeCell(Obj2Html(jRow[1]));
       text += MakeCellAmount(jRow[2]['value']);
       text += MakeCellAmount(jRow[3]['value']);
       text += MakeCellRA(MakeBlock(jRow[4]));
       text += MakeCell(AddClass(jRow[5], 'metadata'));
-
       text += '</tr>';
     }
 
@@ -1751,25 +1773,22 @@
 
   function DisplayBlock() {
     let text = '';
-
     const jData = JSON.parse(this.responseText);
 
-    let j = jData['info'];
-    if (!j) {
-      // Display error message if kernel or height was queried but no block was found
-      if (g_kernel || g_id > 0) {
-        if (g_kernel) {
-          text += "<h2 class='title errorMessage'>Kernel not found.</h2>";
-        } else {
-          text +=   "<h2 class='title errorMessage'>Block not found.</h2>";
-        }
-        SetContent(text);
-        return;
-      }
+    // Display error message if no block was found
+    // Remark: The explorer node often returns the treasury when no block is found. Here we only display it if height was explicitely set to 0.
+    if (jData['found']==false || (!jData['info'] && (!g_height || g_height != 0))) { // Remark: Only the Treasury lacks the 'info' field
+      text += "<h2 class='title errorMessage'>Block not found.</h2>";
+      SetContent(text);
+      return;
     }
 
-    // If the request was a kernel, get the resulting height
-    if (g_kernel) { g_id = j['value'][0][1]['value'] }
+    // Parse "info" section
+    let j = jData['info'];
+
+    // If the request included a kernel, get the resulting height
+    // (if the requested kernel did no exist, but a height was also given, then the same height will be obtained here)
+    if (j && g_kernel) { g_height = j['value'][0][1]['value'] }
 
     text += "<h2 class='title'>";
     if (g_height > 0) {
@@ -1786,7 +1805,6 @@
     text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     text += '</h2>';
 
-    // Parse "info" section
     if (j) {
       text += MakeCollapsibleBegin('Block Summary');
       text += "<table class='tableSummary'>";
@@ -2005,7 +2023,7 @@
         </tr></thead>\n\
     ";
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       // Multiple contract calls are grouped in dedicated tbodies (HTML tables can have multiple tbodies!)
       text += "<tbody class='contractCall'>";
@@ -2485,6 +2503,44 @@
     let key = query.length < 10 ? '&height=' : '&kernel=';
     // Load the corresponding URL
     window.location.href = UrlSelf('block', key + query);
+  }
+
+  // Parse Metadata to add classes
+  function addClassesToMetadata() {
+    for (let str of document.querySelectorAll('.metadata')) {
+      // Add a class around the asset name (the name field is detected with a regexp)
+      str.innerHTML = str.innerHTML.replace(/(:|;)N=([^;]*)/,'$1N=<span class="metadataAssetName">$2</span>');
+   }
+    for (str of document.querySelectorAll('.metadataAssetName')) {
+      // Add another class to AMML asset names
+      // (Here we only check the name, but it would be better to verify the owner too...)
+      if (str.innerHTML.startsWith('Amm Liquidity Token')) { str.classList.add('AMML') }
+    }
+  }
+
+  // Replace empty tables with a text
+  function hideEmptyTables() {
+    for (let myTable of document.getElementsByTagName('table')) {
+      // Check if table has only one row
+      if (myTable.rows.length == 1) {
+        let myRow = myTable.rows[0];
+        // If all cells are <th> or have a span with a "th" class, then consider the row as header.
+        if (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length) {
+          // Mark the table as empty (CSS will hide it)
+          myTable.classList.add('emptyTable'); 
+          // Add a span with a simple text after the table
+          let mySpan = document.createElement("span");
+          mySpan.className = 'noDataText';
+          mySpan.innerHTML = '(none)'
+          myTable.parentNode.insertBefore(mySpan, myTable.nextSibling); // (This is the way to add a node AFTER another...)
+        }
+      }
+    }
+    // While at it, add the same text in empty spans...
+    for (let myEmptySpan of document.getElementsByClassName('emptySpan')) {
+      myEmptySpan.classList.add('noDataText'); 
+      myEmptySpan.innerHTML = '(none)';
+    }
   }
 
   // ADD EXPAND OPTIONS TO ALL TEXT OF TYPE HASH OR METADATA (CSS WILL DISPLAYED THEM TRUNCATED BY DEFAULT)
