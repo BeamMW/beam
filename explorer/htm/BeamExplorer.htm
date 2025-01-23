@@ -1336,10 +1336,6 @@
     return window.location.pathname + '?type=' + type + extra;
   }
 
-  function UrlSelfWithID(type, id, extra = '') {
-    return UrlSelf(type, '&id=' + id + extra);
-  }
-
   function MakeCell(text, styles = '') {
     return '<td' + styles + '>' + text + '</td>';
   }
@@ -1369,7 +1365,7 @@
   }
 
   function UrlBlock(h) {
-    return UrlSelfWithID('block', h);
+    return UrlSelf('block', '&height=' + h);
   }
 
   function MakeBlock(h) {
@@ -1382,11 +1378,11 @@
 
   function MakeAsset(aid) {
     if (aid == 0) return AddClass('Beam', 'assetName');
-    return AddClass(MakeRef(UrlSelfWithID('asset', aid), 'Asset-' + aid), 'assetName');
+    return AddClass(MakeRef(UrlSelf('asset', '&id=' + aid), 'Asset-' + aid), 'assetName');
   }
 
   function MakeCid(cid) {
-    return AddClass(MakeRef(UrlSelfWithID('contract', cid), cid), 'cid', "title='" + cid + "'");
+    return AddClass(MakeRef(UrlSelf('contract', '&id=' + cid), cid), 'cid', "title='" + cid + "'");
   }
 
   function MakeFundsTbl(jFunds) {
@@ -1717,15 +1713,15 @@
 
   function MakeTblAssets(j) {
     let text = "\
-      <table class='tableAssets'>\n\
-        <thead><tr>\n\
-          <th>Id</th>\n\
-          <th>Owner</th>\n\
-          <th>Deposit</th>\n\
-          <th>Supply</th>\n\
-          <th>Lock-Height</th>\n\
-          <th>Metadata</th>\n\
-        </tr></thead>\n\
+    <table class='tableAssets'>\n\
+      <thead><tr>\n\
+        <th>Id</th>\n\
+        <th>Owner</th>\n\
+        <th>Deposit</th>\n\
+        <th>Supply</th>\n\
+        <th>Lock-Height</th>\n\
+        <th>Metadata</th>\n\
+      </tr></thead>\n\
     ";
 
     let jTbl = j['value'];
@@ -1750,7 +1746,7 @@
   }
 
   function MakeCAs(h) {
-    return '<h3>' + MakeRef(UrlSelfWithID('assets', h), 'Confidential Assets at this block height') + '</h3>';
+    return '<h3>' + MakeRef(UrlSelf('assets', '&height=' + h), 'Confidential Assets at this block height') + '</h3>';
   }
 
   function DisplayBlock() {
@@ -1765,7 +1761,7 @@
         if (g_kernel) {
           text += "<h2 class='title errorMessage'>Kernel not found.</h2>";
         } else {
-          text += "<h2 class='title errorMessage'>Block not found.</h2>";
+          text +=   "<h2 class='title errorMessage'>Block not found.</h2>";
         }
         SetContent(text);
         return;
@@ -1776,18 +1772,18 @@
     if (g_kernel) { g_id = j['value'][0][1]['value'] }
 
     text += "<h2 class='title'>";
-    if (g_id > 0) {
-      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"), 'listOfBlockHeaders', "title='List of blocks up to this one'");
+    if (g_height > 0) {
+      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_height), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"), 'listOfBlockHeaders', "title='List of blocks up to this one'");
       text += '&nbsp;';
-      text += 'Block ' + AddClass(g_id, 'blockHeight');
+      text += 'Block ' + AddClass(g_height, 'blockHeight');
       text += '&nbsp;';
-      text += AddClass(MakeRef(UrlBlock(g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      text += AddClass(MakeRef(UrlBlock(g_height - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
     } else {
       text += 'Treasury';
       text += '&nbsp;';
       text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
     }
-    text += AddClass(MakeRef(UrlBlock(g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     text += '</h2>';
 
     // Parse "info" section
@@ -1877,12 +1873,12 @@
       text += MakeCollapsibleEnd();
     }
 
-    j = jData['assets'];
+    j = jData['assets']; // Is this actually ever returned by the explorer node?...
     if (j) {
       text += MakeCollapsibleBegin('Assets state');
       text += MakeTblAssets(j);
       text += MakeCollapsibleEnd();
-    } else text += MakeCAs(g_id);
+    } else text += MakeCAs(g_height);
 
     SetContent(text);
   }
@@ -2069,6 +2065,37 @@
     defineDraggableElements(); // Make checkboxes draggable
   }
 
+  // Display an 'ABOUT' block
+  function AboutSection() {
+    let text = "<div class='about'>\n";
+    text += "<h2 class='title'>About</h2>\n";
+    text += "<p class='aboutText'>";
+    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
+            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
+            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Although amounts are concealed and addresses are not stored onchain, \
+            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
+            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
+            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "This app is an interactive web display of the data queried to a Beam explorer node. \
+            The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
+            You can save the HTML file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
+    text += "</p>\n";
+    text += "<p class='aboutDisclaimer'>";
+    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
+    text += "</p>\n";
+    text += "</div>";
+
+    return text;
+  }
+
   function DisplayStatus() {
     const jData = JSON.parse(this.responseText);
 
@@ -2087,15 +2114,15 @@
     const jData = JSON.parse(this.responseText);
 
     let text = "<h2 class='title'>\n";
-    if (g_id) {
-      text += 'Confidential Assets at block height ' + MakeBlock(g_id);
+    if (g_height) {
+      text += 'Confidential Assets at block height ' + MakeBlock(g_height);
       text += '&nbsp;';
-      if (g_id > 1) {
-        text += AddClass(MakeRef(UrlSelfWithID('assets', g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      if (g_height > 1) {
+        text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1)), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
       } else {
         text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
       }
-      text += AddClass(MakeRef(UrlSelfWithID('assets', g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+      text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1 + 2)), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     } else {
       text += 'Current Confidential Assets';
     }
@@ -2346,22 +2373,32 @@
 
   // URL and explorer node parameters
   const URLparams = new URL(document.location).searchParams;
-  let g_type = URLparams.get('type'); // Remark: We use two URL 'types' not used by the explorer node ("historical" and "treasury")
-  let g_id = URLparams.get('id'); // Serves for both 'id' (assets & contracts) and 'height' (blocks)
-  let g_kernel = URLparams.get('kernel'); // Takes precedence over 'height' (blocks)
-  let g_hMin = URLparams.get('hMin');
-  let g_hMax = URLparams.get('hMax');
-  let g_nMax = URLparams.get('nMax'); // Serves for nMax (hdrs), n (blocks), nMaxOps (asset) and nMaxTxs (contract)
-  let g_cols = URLparams.get('cols'); // Used only in hdrs
-  let g_dh = URLparams.get('dh'); // Used only in hdrs
+  let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ("historical" and "treasury")
+  let g_id = URLparams.get('id'); // Used for type=asset & contract
+  let g_height = URLparams.get('height'); // Used for type=block & blocks & assets
+  let g_kernel = URLparams.get('kernel'); // Used for type=block
+  let g_hMin = URLparams.get('hMin'); // Used for type=asset & contract
+  let g_hMax = URLparams.get('hMax'); // Used for type=asset & contract & hdrs
+  //let g_n = URLparams.get('n'); // Used for type=blocks
+  let g_nMax = URLparams.get('nMax'); // Used for type=hdrs
+  let g_nMaxOps = URLparams.get('nMaxOps'); // Used for type=asset
+  let g_nMaxTxs = URLparams.get('nMaxTxs'); // Used for type=contract
+  let g_cols = URLparams.get('cols'); // Used for type=hdrs
+  let g_dh = URLparams.get('dh'); // Used for type=hdrs
 
   // If no parameter was given in the URL, then we look in localStorage
   // If nothing is there either, then we set the default values
-  if (!g_cols) { g_cols = localStorage.getItem('columnsSelection') }
-  if (!g_cols) { g_cols = columnDefaultDisplay; }
-  if (!g_nMax) { g_nMax = localStorage.getItem('rowsSelection') }
+  //if (!g_n) { g_n = localStorage.getItem('g_n') }
+  //if (!g_n) { g_n = 1 }
+  if (!g_nMax) { g_nMax = localStorage.getItem('g_nMax') }
   if (!g_nMax) { g_nMax = 100 }
-  if (!g_dh) { g_dh = localStorage.getItem('intervalSelection'); }
+  if (!g_nMaxOps) { g_nMaxOps = localStorage.getItem('g_nMaxOps') }
+  if (!g_nMaxOps) { g_nMaxOps = 100 }
+  if (!g_nMaxTxs) { g_nMaxTxs = localStorage.getItem('g_nMaxTxs') }
+  if (!g_nMaxTxs) { g_nMaxTxs = 100 }
+  if (!g_cols) { g_cols = localStorage.getItem('g_cols') } // CHANGE NAME?
+  if (!g_cols) { g_cols = columnDefaultDisplay; }
+  if (!g_dh) { g_dh = localStorage.getItem('g_dh'); }
   if (!g_dh) { g_dh = 1 }
 </script>
 
@@ -2383,36 +2420,31 @@
       // In case Asset 0 is requested (which is not accepted by node explorer), reload the page with ALL assets instead
       if (g_id == 0) { window.location.href = UrlSelf('assets') }
       // Otherwise, process request
-      urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMax;
+      urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMaxOps;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayAssetHistory;
 
-    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel
-      // We decide that 'kernel' argument takes precedence over 'height'
-      if (g_kernel) {
-        urlSuffix += '&kernel=' + g_kernel;
-      } else {
-        if (!g_id || g_id < 0) { g_id = 1 } // Display Genesis block for negative or no block height given
-        urlSuffix += '&height=' + g_id;
-      }
+    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explore node handle the case where both are requested)
+      if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
+      if (g_height) { urlSuffix += '&height=' + g_height; }
       xmlhttp.onload = DisplayBlock;
 
     } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
       g_type = 'block';
-      g_id = 0;
-      urlSuffix += '&height=' + g_id;
+      g_height = 0;
+      urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayBlock;
     }
     // Option to query and display the details of multiple blocks (NOT USED HERE)
     // else if (g_type == "blocks") // Arguments for 'blocks': height, n
     // {
-    //   if (!g_nMax) { g_nMax = 5 }
-    //   urlSuffix += "&height=" + g_id + "&n=" + g_nMax;
+    //   if (!g_n) { g_n = 5 }
+    //   urlSuffix += "&height=" + g_height + "&n=" + g_n;
     //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
     // }
     else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
-      urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMax;
+      urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMaxTxs;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayContractState;
@@ -2427,7 +2459,8 @@
       xmlhttp.onload = DisplayContracts;
 
     } else if (g_type == 'assets') { // Arguments for 'assets': height
-      urlSuffix += '&height=' + g_id;
+      if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = "" } // For inexistant blocks, display current assets 
+      urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayAssets;
 
     } else {
@@ -2443,43 +2476,13 @@
 
 <!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
 <script>
-  // ADD 'ABOUT' SECTION
-  function AboutSection() {
-    let text = "<div class='about'>\n";
-    text += "<h2 class='title'>About</h2>\n";
-    text += "<p class='aboutText'>";
-    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
-            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
-            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Although amounts are concealed and addresses are not stored onchain, \
-            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
-            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
-            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "This app is an interactive web display of the data queried to a Beam explorer node. \
-            The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
-            You can save the HTML file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
-    text += "</p>\n";
-    text += "<p class='aboutDisclaimer'>";
-    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
-    text += "</p>\n";
-    text += "</div>";
 
-    return text;
-  }
-
-  // PROCESS A BLOCK/KERNEL SEARCH REQUEST
+  // Process a Block/Kernel search request
   function submitSearch() {
     // Get search string
     let query = document.getElementById('SearchField').value;
     // Simplistic test to check if search string is rather block height or kernel id
-    let key = query.length < 10 ? '&id=' : '&kernel=';
+    let key = query.length < 10 ? '&height=' : '&kernel=';
     // Load the corresponding URL
     window.location.href = UrlSelf('block', key + query);
   }
@@ -2784,7 +2787,7 @@
   function reorderColumns(series = '') { // Reorder checkboxes (from localStorage, or in default order)
     // If no order is given, check localStorage. It it's also empty, use the default order
     if (series == '') {
-      series = localStorage.getItem('columnsOrder');
+      series = localStorage.getItem('g_colsAll');
       if (!series) { series = columnDefaultOrder; }
       // Adjust checkboxes order to match the order of the displayed columns
       // (we only reorder the displayed ones: If a letter is any of the displayed ones, we replace it with the next displayed one, in sequence)
@@ -2818,10 +2821,10 @@
     }
     // Save results in localStorage
     g_cols = params;
-    localStorage.setItem('columnsOrder', series);
-    localStorage.setItem('columnsSelection', g_cols);
-    localStorage.setItem('rowsSelection', g_nMax);
-    localStorage.setItem('intervalSelection', g_dh);
+    localStorage.setItem('g_colsAll', series);
+    localStorage.setItem('g_cols', g_cols);
+    localStorage.setItem('g_nMax', g_nMax);
+    localStorage.setItem('g_dh', g_dh);
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('cols', g_cols);
