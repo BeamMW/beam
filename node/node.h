@@ -786,26 +786,26 @@ private:
 			const Block::Pbft::Validator* m_p; // refreshed after each block
 		} m_Me;
 
-		bool IsEnabled() const { return !!m_Me.m_p; }
 
-		//enum struct Status {
-		//	None,
-		//	WaitingProposal,
-		//	BadProposal,
-		//	Voted,
-		//	Committed,
-		//	Ignoring, // already committed to another proposal
-		//};
+		io::Timer::Ptr m_pTimer;
+		bool m_bTimerPending = false;
 
-		struct SigsAndPower {
+		void OnNewState();
+		void OnNewRound(uint32_t);
+
+		void OnMsg(proto::PbftProposal&&, const Peer&);
+		void OnMsg(const proto::PbftVote&, const Peer&);
+
+
+	private:
+
+		struct SigsAndPower
+		{
 			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
 			uint64_t m_wVoted;
 
-			void Reset()
-			{
-				m_Sigs.clear();
-				m_wVoted = 0;
-			}
+			void Reset();
+			void Add(const Block::Pbft::Validator&, const ECC::Signature&);
 		};
 
 		uint32_t m_iRoundCurrent = static_cast<uint32_t>(-1);
@@ -822,19 +822,16 @@ private:
 		SigsAndPower m_spPreVoted;
 		SigsAndPower m_spCommitted;
 
-		io::Timer::Ptr m_pTimer;
-		bool m_bTimerPending = false;
-
-		void OnNewState();
-		void OnNewRound(uint32_t);
-
-		bool OnMsg(const proto::PbftProposal&);
-		bool OnMsg(const proto::PbftVote&);
-
+		void ResetProposal();
+		void SetProposalHashes(const Block::SystemState::Full&);
+		void OnProposalAccepted(const Peer*);
 		void CheckState();
-
 		void OnQuorumReached();
+		void Vote(bool bCommit);
+		void CreateProposal();
 
+		template <typename TMsg>
+		void Broadcast(const TMsg&, const Peer* pSrc);
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Validator)
 	} m_Validator;

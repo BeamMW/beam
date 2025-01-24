@@ -5585,11 +5585,16 @@ void Node::Validator::OnNewState()
 
     m_iRoundCurrent = static_cast<uint32_t>(-1);
     m_iRoundCommitted = static_cast<uint32_t>(-1);
-    m_spPreVoted.Reset();
-    m_spCommitted.Reset();
+    m_pLeader = nullptr;
+    ResetProposal();
+}
+
+void Node::Validator::ResetProposal()
+{
     m_Proposal.m_Body.m_Eternal.clear();
     m_Proposal.m_Body.m_Perishable.clear();
-    m_pLeader = nullptr;
+    m_spPreVoted.Reset();
+    m_spCommitted.Reset();
 }
 
 void Node::Validator::OnNewRound(uint32_t iRound)
@@ -5599,97 +5604,171 @@ void Node::Validator::OnNewRound(uint32_t iRound)
 
     m_iRoundCurrent = iRound;
 
-    auto& p = get_ParentObj().m_Processor;
+    auto& p = get_ParentObj().m_Processor; // alias
+    if (!p.IsTreasuryHandled() || p.IsFastSync())
+    {
+        m_pLeader = nullptr;
+        return;
+    }
+
     m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
+
+    if (m_iRoundCommitted > m_iRoundCurrent)
+        ResetProposal();
+
+    CheckState();
 }
 
-bool Node::Validator::OnMsg(const proto::PbftProposal& msg)
+template <typename TMsg>
+void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc)
+{
+    auto& n = get_ParentObj();
+    for (PeerList::iterator it = n.m_lstPeers.begin(); n.m_lstPeers.end() != it; ++it)
+    {
+        Peer& peer = *it;
+        if ((&peer != pSrc) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
+            peer.Send(msg);
+    }
+}
+
+void Node::Validator::SigsAndPower::Reset()
+{
+    m_Sigs.clear();
+    m_wVoted = 0;
+}
+
+void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const ECC::Signature& sig)
+{
+    m_Sigs[v.m_Addr.m_Key] = sig;
+    m_wVoted += v.m_Weight;
+}
+
+void Node::Validator::Vote(bool bCommit)
+{
+    // must be a valid round, and there should be a proposal already
+    assert(m_pLeader && !m_Proposal.m_Body.m_Perishable.empty());
+
+    if (!m_Me.m_p)
+        return; // I'm not a validator
+
+    if ((m_Me.m_p == m_pLeader) && !bCommit)
+        return; // leader pre-vote is included in the proposal
+
+    auto& sp = bCommit ? m_spCommitted : m_spPreVoted;
+    auto it = sp.m_Sigs.find(m_Me.m_Addr);
+    if (sp.m_Sigs.end() != it)
+        return; // already voted
+
+    proto::PbftVote msg;
+    msg.m_ID = bCommit ? m_hvCommit : m_hvPreVote;
+    msg.m_Address = m_Me.m_Addr;
+    msg.m_Signature.Sign(msg.m_ID, m_Me.m_sk);
+
+    sp.Add(*m_Me.m_p, msg.m_Signature);
+
+    Broadcast(msg, nullptr);
+}
+
+
+void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
     if (!m_pLeader)
-        return false;
+        return;
 
-    if (!m_Proposal.m_Body.m_Eternal.empty())
-        return false; // we've already received the proposal for the current round, or committed to another proposal
+    if (!m_Proposal.m_Body.m_Perishable.empty())
+    {
+        // TODO: check if the leader makes different proposals, and save this info
+
+        return; // we've already received the proposal for the current round, or committed to another proposal
+    }
 
     auto& p = get_ParentObj().m_Processor;
     if ((msg.m_Hdr.m_Height != p.m_Cursor.m_ID.m_Height + 1) || (msg.m_Hdr.m_Prev != p.m_Cursor.m_ID.m_Hash))
-        return false; // irrelevant
+        return; // irrelevant
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
     if (d.m_dRound != uintBigFrom(m_iRoundCurrent))
-        return false; // irrelevant round
+        return; // irrelevant round
 
-    if (msg.m_Body.m_Eternal.empty())
-        return false; // invalid
+    SetProposalHashes(msg.m_Hdr);
 
-    msg.m_Hdr.get_Hash(m_hvCommit);
-
-    if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_hvCommit, msg.m_Signature))
-        return false;
+    if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_hvPreVote, msg.m_Signature))
+        src.ThrowUnexpected("invalid proposal sig");
 
     if (!p.TestBlock(msg.m_Hdr, msg.m_Body))
-        return false;
+    {
+        // TODO: don't disconnect this peer. Save and broadcast this info, punish leader for invalid proposal
+        src.ThrowUnexpected("invalid proposal");
+    }
 
-    // Proposal is ok
+    m_Proposal = std::move(m_Proposal);
+    OnProposalAccepted(&src);
+}
+
+void Node::Validator::SetProposalHashes(const Block::SystemState::Full& s)
+{
+    s.get_Hash(m_hvCommit);
     ECC::Hash::Processor()
         << "pbft.vote.1"
         << m_hvCommit
         >> m_hvPreVote;
-
-    m_spCommitted.Reset();
-    m_spCommitted.m_wVoted = m_pLeader->m_Weight;
-    m_spCommitted.m_Sigs[m_pLeader->m_Addr.m_Key] = msg.m_Signature;
-
-    m_spPreVoted.Reset();
-    m_spPreVoted.m_wVoted = m_pLeader->m_Weight; // proposal is also an implicit pre-vote
-
-    if (m_Me.m_p && (m_Me.m_p != m_pLeader))
-    {
-        auto& sig = m_spPreVoted.m_Sigs[m_Me.m_Addr];
-        sig.Sign(m_hvPreVote, m_Me.m_sk);
-        m_spPreVoted.m_wVoted += m_Me.m_p->m_Weight;
-    }
-
-    return true;
 }
 
-bool Node::Validator::OnMsg(const proto::PbftVote& msg)
+void Node::Validator::OnProposalAccepted(const Peer* pSrc)
+{
+    assert(!m_Proposal.m_Body.m_Perishable.empty());
+
+    m_spCommitted.Reset();
+    m_spPreVoted.Reset();
+    m_spPreVoted.m_wVoted = m_pLeader->m_Weight;
+
+    Broadcast(m_Proposal, pSrc);
+
+    Vote(false);
+
+    CheckState();
+}
+
+void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
 {
     if (!m_pLeader)
-        return false;
+        return;
 
-    if (m_Proposal.m_Body.m_Eternal.empty())
-        return false; // no proposal yet
+    if (m_Proposal.m_Body.m_Perishable.empty())
+        return; // no proposal yet
 
     bool bCommit = (msg.m_ID == m_hvCommit);
     if (!bCommit)
     {
         if (msg.m_ID != m_hvPreVote)
-            return false; // not a pre-vote either, irrelevant vote
+            return; // not a pre-vote either, irrelevant vote
 
         if (m_iRoundCommitted <= m_iRoundCurrent)
-            return false; // already majority of pre-votes was observed
+            return; // already majority of pre-votes was observed, pre-votes are no more relevant
+
+        if (msg.m_Address == m_pLeader->m_Addr.m_Key)
+            src.ThrowUnexpected("leader explicit pre-vote");
     }
 
     auto& sp = bCommit ? m_spCommitted : m_spPreVoted;
     auto it = sp.m_Sigs.find(msg.m_Address);
     if (sp.m_Sigs.end() != it)
-        return false; // already accounted
+        return; // already accounted
 
     auto& p = get_ParentObj().m_Processor; // alias
     auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
     if (p.m_PbftState.m_mapVs.end() == itV)
-        return false; // not a validator!
+        src.ThrowUnexpected("not a validator sig");
 
     if (!msg.m_Address.CheckSignature(bCommit ? m_hvCommit : m_hvPreVote, msg.m_Signature))
-        return false;
+        src.ThrowUnexpected("invalid validator sig");
 
     // ok
-    sp.m_Sigs[msg.m_Address] = msg.m_Signature;
-    sp.m_wVoted += itV->get_ParentObj().m_Weight;
+    sp.Add(itV->get_ParentObj(), msg.m_Signature);
 
-    return true;
+    Broadcast(msg, &src);
 
+    CheckState();
 }
 
 void Node::Validator::CheckState()
@@ -5697,29 +5776,29 @@ void Node::Validator::CheckState()
     if (!m_pLeader)
         return;
 
-    if (m_Proposal.m_Body.m_Eternal.empty())
-        return; // no valid proposal yet
-
+    // did we commit already?
     if (m_iRoundCommitted > m_iRoundCurrent)
     {
+        if (m_Proposal.m_Body.m_Perishable.empty())
+        {
+            if (m_Me.m_p != m_pLeader)
+                return; // no valid proposal yet
+
+            CreateProposal();
+
+            if (m_Proposal.m_Body.m_Perishable.empty())
+            {
+                m_pLeader = nullptr;
+                return; // failed to create the proposal. Round should be skipped
+            }
+        }
+
         // should we commit?
         if (Block::Pbft::State::IsMajorityReached(m_spPreVoted.m_wVoted, m_wTotal))
         {
             // commit to this proposal
             m_iRoundCommitted = m_iRoundCurrent;
-
-            if (m_Me.m_p && (m_Me.m_p != m_pLeader))
-            {
-                auto it = m_spCommitted.m_Sigs.find(m_Me.m_Addr);
-                if (m_spCommitted.m_Sigs.end() == it)
-                {
-                    // cast our commit vote
-                    auto& sig = m_spCommitted.m_Sigs[m_Me.m_Addr];
-                    sig.Sign(m_hvCommit, m_Me.m_sk);
-                    m_spCommitted.m_wVoted += m_Me.m_p->m_Weight;
-                }
-            }
-
+            Vote(true);
         }
     }
 
@@ -5792,8 +5871,36 @@ void Node::Validator::OnQuorumReached()
         return; // block with no header, or etc?!
     }
 
-    // ok
+    get_ParentObj().m_Processor.TryGoUpAsync();
 }
+
+void Node::Validator::CreateProposal()
+{
+    // In PBFT mode miner/owner keys are not used, since the block contains neither subsidy nor UTXO collecting fees
+    auto& kdfDummy = *get_ParentObj().m_Keys.m_pGeneric;
+
+    NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
+
+    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+
+    bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
+
+    if (bRes)
+    {
+        m_Proposal.m_Hdr = std::move(bc.m_Hdr);
+        m_Proposal.m_Body = std::move(bc.m_Body);
+
+        SetProposalHashes(m_Proposal.m_Hdr);
+        m_Proposal.m_Signature.Sign(m_hvPreVote, m_Me.m_sk);
+
+        OnProposalAccepted(nullptr);
+    }
+    else
+    {
+        BEAM_LOG_WARNING() << "Block generation failed, can't make a proposal!";
+    }
+}
+
 
 
 } // namespace beam
