@@ -5627,7 +5627,8 @@ bool Node::Validator::OnMsg(const proto::PbftProposal& msg)
     if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_hvCommit, msg.m_Signature))
         return false;
 
-    // TODO: test the proposed block
+    if (!p.TestBlock(msg.m_Hdr, msg.m_Body))
+        return false;
 
     // Proposal is ok
     ECC::Hash::Processor()
