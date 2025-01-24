@@ -638,8 +638,7 @@ public:
 	struct GeneratedBlock
 	{
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_BodyP;
-		ByteBuffer m_BodyE;
+		proto::BodyBuffers m_Body;
 		Amount m_Fees;
 		Block::Body m_Block; // in/out
 	};

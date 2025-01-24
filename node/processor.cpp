@@ -7175,13 +7175,13 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	ser.reset();
 	ser & Cast::Down<Block::BodyBase>(bc.m_Block);
 	ser & Cast::Down<TxVectors::Perishable>(bc.m_Block);
-	ser.swap_buf(bc.m_BodyP);
+	ser.swap_buf(bc.m_Body.m_Perishable);
 
 	ser.reset();
 	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
-	ser.swap_buf(bc.m_BodyE);
+	ser.swap_buf(bc.m_Body.m_Eternal);
 
-	size_t nSize = bc.m_BodyP.size() + bc.m_BodyE.size();
+	size_t nSize = bc.m_Body.m_Perishable.size() + bc.m_Body.m_Eternal.size();
 
 	if (BlockContext::Mode::SinglePass == bc.m_Mode)
 	{

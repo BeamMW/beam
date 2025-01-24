@@ -1064,8 +1064,7 @@ namespace beam
 		typedef std::unique_ptr<BlockPlus> Ptr;
 
 		Block::SystemState::Full m_Hdr;
-		ByteBuffer m_BodyP;
-		ByteBuffer m_BodyE;
+		proto::BodyBuffers m_Body;
 	};
 
 	void TestNodeProcessor1(std::vector<BlockPlus::Ptr>& blockChain)
@@ -1112,7 +1111,7 @@ namespace beam
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
 
-			np.OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			np.OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID());
 			np.TryGoUp();
 
 			np.m_Wallet.AddMyUtxo(CoinID(bc.m_Fees, h, Key::Type::Comission));
@@ -1120,8 +1119,7 @@ namespace beam
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
-			pBlock->m_BodyP = std::move(bc.m_BodyP);
-			pBlock->m_BodyE = std::move(bc.m_BodyE);
+			pBlock->m_Body = std::move(bc.m_Body);
 			blockChain.push_back(std::move(pBlock));
 		}
 
@@ -1188,7 +1186,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.OnBlock(id, blockChain[i]->m_Body.m_Perishable, blockChain[i]->m_Body.m_Eternal, peer);
 				np.TryGoUp();
 			}
 		}
@@ -1217,7 +1215,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.OnBlock(id, blockChain[i]->m_Body.m_Perishable, blockChain[i]->m_Body.m_Eternal, peer);
 				np.TryGoUp();
 			}
 		}
@@ -1234,7 +1232,7 @@ namespace beam
 			{
 				Block::SystemState::ID id;
 				blockChain[i]->m_Hdr.get_ID(id);
-				np.OnBlock(id, blockChain[i]->m_BodyP, blockChain[i]->m_BodyE, peer);
+				np.OnBlock(id, blockChain[i]->m_Body.m_Perishable, blockChain[i]->m_Body.m_Eternal, peer);
 				np.TryGoUp();
 			}
 		}
@@ -1275,7 +1273,7 @@ namespace beam
 
 			Block::SystemState::ID id;
 			bp.m_Hdr.get_ID(id);
-			verify_test(npSrc.OnBlock(id, bp.m_BodyP, bp.m_BodyE, pid) == NodeProcessor::DataStatus::Accepted);
+			verify_test(npSrc.OnBlock(id, bp.m_Body.m_Perishable, bp.m_Body.m_Eternal, pid) == NodeProcessor::DataStatus::Accepted);
 		}
 
 		npSrc.TryGoUp();
@@ -1649,7 +1647,7 @@ namespace beam
 					Block::SystemState::ID id;
 					bc.m_Hdr.get_ID(id);
 
-					n.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+					n.get_Processor().OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID());
 					n.get_Processor().TryGoUp();
 
 					std::setmax(m_HeightMax, bc.m_Hdr.m_Height);
@@ -3430,7 +3428,7 @@ namespace beam
 
 			Block::SystemState::ID id;
 			bc.m_Hdr.get_ID(id);
-			node.get_Processor().OnBlock(id, bc.m_BodyP, bc.m_BodyE, PeerID());
+			node.get_Processor().OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID());
 			node.get_Processor().TryGoUp();
 		}
 	}
