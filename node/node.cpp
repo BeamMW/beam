@@ -4746,7 +4746,7 @@ void Node::Miner::StartMining(Task::Ptr&& pTask)
     if (!IsShouldMine(x))
         return;
 
-    BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_BodyP.size() + x.m_BodyE.size());
+    BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_Body.m_Perishable.size() + x.m_Body.m_Eternal.size());
 
     m_FeesTrg = x.m_Fees + 1;
 
@@ -4889,7 +4889,7 @@ void Node::Miner::OnMined()
     }
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
-    eStatus = p.OnBlock(id, pTask->m_BodyP, pTask->m_BodyE, get_ParentObj().m_MyPublicID);
+    eStatus = p.OnBlock(id, pTask->m_Body.m_Perishable, pTask->m_Body.m_Eternal, get_ParentObj().m_MyPublicID);
     assert(NodeProcessor::DataStatus::Accepted == eStatus);
     if (m_FakeBlocksToGenerate)
     {
