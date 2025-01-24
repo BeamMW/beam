@@ -2906,33 +2906,56 @@ std::string NodeProcessor::Account::get_Endpoint() const
 	return Base58::to_string(pid);
 }
 
+bool NodeProcessor::TestBlock(const Block::SystemState::Full& s, const proto::BodyBuffers& bufs)
+{
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
+	MultiblockContext mbc(*this);
+
+	if (!HandleBlockInternal(id, s, mbc, bufs, true, true, Zero, 0))
+		return false;
+
+	return mbc.Flush();
+}
+
 bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemState::Full& s, MultiblockContext& mbc)
+{
+	Block::SystemState::ID id;
+	s.get_ID(id);
+
+	proto::BodyBuffers bufs;
+	m_DB.GetStateBlock(sid.m_Row, &bufs.m_Perishable, &bufs.m_Eternal, nullptr);
+
+	PeerID pid = Zero;
+
+	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
+	if (bFirstTime)
+		m_DB.get_Peer(sid.m_Row, pid);
+
+	return HandleBlockInternal(id, s, mbc, bufs, bFirstTime, false, pid, sid.m_Row);
+}
+
+bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const Block::SystemState::Full& s, MultiblockContext& mbc, const proto::BodyBuffers& bufs, bool bFirstTime, bool bTestOnly, const PeerID& pid, uint64_t row)
 {
 	if (s.m_Height == m_ManualSelection.m_Sid.m_Height)
 	{
-		Merkle::Hash hv;
-		s.get_Hash(hv);
-
-		if (!m_ManualSelection.IsAllowed(hv))
+		if (!m_ManualSelection.IsAllowed(id.m_Hash))
 			return false;
 	}
-
-	ByteBuffer bbP, bbE;
-	m_DB.GetStateBlock(sid.m_Row, &bbP, &bbE, nullptr);
 
 	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc);
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
-	bool bFirstTime = (m_DB.get_StateTxos(sid.m_Row) == MaxHeight);
 
 	try {
 		Deserializer der;
-		der.reset(bbP);
+		der.reset(bufs.m_Perishable);
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-		der.reset(bbE);
+		der.reset(bufs.m_Eternal);
 		der & Cast::Down<TxVectors::Eternal>(block);
 
 		if (Rules::Consensus::Pbft == r.m_Consensus)
@@ -2958,33 +2981,26 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			if (nBytes0 - nBytes1 != nSizeMetadata)
 				Exc::Fail(); // wrong metadata size
 
-			if (bFirstTime)
+			if (bFirstTime && !bTestOnly) // during block test the QC isn't ready yet
 			{
 				// Deserialize QC
 				Block::Pbft::Quorum qc;
 				der & qc;
 
-				Merkle::Hash hv;
-				s.get_Hash(hv);
-
-				if (!m_PbftState.CheckQuorum(hv, qc))
+				if (!m_PbftState.CheckQuorum(id.m_Hash, qc))
 					Exc::Fail("QC");
 			}
 		}
 	}
 	catch (const std::exception&) {
-		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Block deserialization failed";
+		BEAM_LOG_WARNING() << id << " Block deserialization failed";
 		return false;
 	}
 
 	if (bFirstTime)
 	{
-		pShared->m_Size = bbP.size() + bbE.size();
-		pShared->m_Ctx.m_Height = sid.m_Height;
-
-		PeerID pid;
-		if (!m_DB.get_Peer(sid.m_Row, pid))
-			pid = Zero;
+		pShared->m_Size = bufs.m_Perishable.size() + bufs.m_Eternal.size();
+		pShared->m_Ctx.m_Height = s.m_Height;
 
 		mbc.OnBlock(pid, pShared);
 
@@ -2993,33 +3009,33 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 
 		if (wrk != s.m_ChainWork)
 		{
-			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
+			BEAM_LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
 			return false;
 		}
 
 		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
 		{
-			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+			BEAM_LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
 			return false;
 		}
 
 		if (s.m_TimeStamp <= get_MovingMedian())
 		{
-			BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Timestamp inconsistent wrt median";
+			BEAM_LOG_WARNING() << id << " Timestamp inconsistent wrt median";
 			return false;
 		}
 	}
 
 	TxoID id0 = m_Extra.m_Txos;
 
-	BlockInterpretCtx bic(sid.m_Height, true);
+	BlockInterpretCtx bic(s.m_Height, true);
+	if (bTestOnly)
+		bic.m_Temporary = true;
+
 	BlockInterpretCtx::ChangesFlush cf(*this);
 	bic.SetAssetHi(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
-
-	bic.m_Rollback.swap((bbP.size() > bbE.size()) ? bbP : bbE); // optimization
-	bic.m_Rollback.clear();
 
 	std::ostringstream osErr;
 	bic.m_pTxErrorInfo = &osErr;
@@ -3033,7 +3049,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	{
 		assert(bFirstTime);
 		assert(m_Extra.m_Txos == id0);
-		BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " invalid in its context: " << osErr.str();
+		BEAM_LOG_WARNING() << id << " invalid in its context: " << osErr.str();
 	}
 	else
 	{
@@ -3047,8 +3063,8 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 	Merkle::Hash hvDef;
 	ev.m_Height++;
 
-	bool bPastFork3 = r.IsPastFork_<3>(sid.m_Height);
-	bool bPastFastSync = (sid.m_Height >= m_SyncData.m_TxoLo);
+	bool bPastFork3 = r.IsPastFork_<3>(s.m_Height);
+	bool bPastFastSync = (s.m_Height >= m_SyncData.m_TxoLo);
 	bool bDefinition = bPastFork3 || bPastFastSync;
 
 	if (bDefinition)
@@ -3063,7 +3079,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 				// check the validity of state description.
 				if (s.m_Definition != hvDef)
 				{
-					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Header Definition mismatch";
+					BEAM_LOG_WARNING() << id << " Header Definition mismatch";
 					bOk = false;
 				}
 			}
@@ -3075,7 +3091,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 					get_Utxos().get_Hash(hvDef);
 					if (s.m_Kernels != hvDef)
 					{
-						BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Utxos mismatch";
+						BEAM_LOG_WARNING() << id << " Utxos mismatch";
 						bOk = false;
 					}
 				}
@@ -3084,19 +3100,19 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			{
 				if (s.m_Kernels != ev.m_hvKernels)
 				{
-					BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Kernel commitment mismatch";
+					BEAM_LOG_WARNING() << id << " Kernel commitment mismatch";
 					bOk = false;
 				}
 			}
 
-			if (sid.m_Height <= m_SyncData.m_TxoLo)
+			if (s.m_Height <= m_SyncData.m_TxoLo)
 			{
 				// make sure no spent txos above the requested h0
 				for (size_t i = 0; i < block.m_vInputs.size(); i++)
 				{
 					if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
 					{
-						BEAM_LOG_WARNING() << LogSid(m_DB, sid) << " Invalid input in sparse block";
+						BEAM_LOG_WARNING() << id << " Invalid input in sparse block";
 						bOk = false;
 						break;
 					}
@@ -3109,17 +3125,20 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			// exec metadata, modify the validator set
 			m_PbftState.m_Hash.Update();
 			if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+			{
+				BEAM_LOG_WARNING() << id << " pbft vs mismatch";
 				bOk = false;
+			}
 		}
 
-		if (!bOk)
+		if (!bOk || bTestOnly)
 		{
 			bic.m_Fwd = false;
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
 		}
 	}
 
-	if (bOk)
+	if (bOk && !bTestOnly)
 	{
 		m_Cursor.m_hvKernels = ev.m_hvKernels;
 		m_Cursor.m_bKernels = true;
@@ -3150,7 +3169,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			blobExtra.n = sizeof(m_Cursor.m_StateExtra.m_TotalOffset);
 
 		Blob blobRB(bic.m_Rollback);
-		m_DB.set_StateTxosAndExtra(sid.m_Row, &m_Extra.m_Txos, &blobExtra, &blobRB);
+		m_DB.set_StateTxosAndExtra(row, &m_Extra.m_Txos, &blobExtra, &blobRB);
 
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
@@ -3158,12 +3177,12 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			m_DB.TxoSetSpent(x.m_Internal.m_ID, sid.m_Height);
+			m_DB.TxoSetSpent(x.m_Internal.m_ID, s.m_Height);
 			v.emplace_back().Set(x.m_Internal.m_ID, x.m_Commitment);
 		}
 
 		if (!v.empty())
-			m_DB.set_StateInputs(sid.m_Row, &v.front(), v.size());
+			m_DB.set_StateInputs(row, &v.front(), v.size());
 
 		// recognize all
 		MyRecognizer rec(*this);
@@ -3171,7 +3190,7 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 		for (const auto& acc : m_vAccounts)
 		{
 			rec.m_Handler.m_pAccount = &acc;
-			rec.m_Recognizer.m_Pos = sid.m_Height;
+			rec.m_Recognizer.m_Pos = s.m_Height;
 			rec.m_Recognizer.RecognizeBlock(block, bic.m_ShieldedOuts);
 		}
 
@@ -3190,16 +3209,16 @@ bool NodeProcessor::HandleBlock(const NodeDB::StateID& sid, const Block::SystemS
 			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
 		}
 
-		m_RecentStates.Push(sid.m_Row, s);
+		m_RecentStates.Push(row, s);
 
-		cf.Do(*this, sid.m_Height);
+		cf.Do(*this, s.m_Height);
 
 		if (bic.m_pvC)
 			bic.AddKrnInfo(ser, m_DB);
 	}
 	else
 	{
-		m_DB.AssetEvtsDeleteFrom(sid.m_Height);
+		m_DB.AssetEvtsDeleteFrom(s.m_Height);
 		OnInvalidBlock(s, block);
 	}
 

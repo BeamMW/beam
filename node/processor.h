@@ -162,6 +162,7 @@ class NodeProcessor
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
 	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
+	bool HandleBlockInternal(const Block::SystemState::ID& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
@@ -489,6 +490,8 @@ public:
 	DataStatus::Enum OnBlock(const Block::SystemState::ID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
+
+	bool TestBlock(const Block::SystemState::Full& s, const proto::BodyBuffers&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
@@ -949,7 +952,7 @@ struct LogSid
 
 	LogSid(NodeDB& db, const NodeDB::StateID& sid)
 		:m_DB(db)
-		, m_Sid(sid)
+		,m_Sid(sid)
 	{}
 };
 
