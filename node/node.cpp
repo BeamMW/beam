@@ -85,6 +85,8 @@ void Node::UpdateSyncStatus()
 					peer.SendLogin();
 			}
 
+            m_Validator.OnNewState();
+
 		}
 
 		if (m_Cfg.m_Observer)
@@ -681,6 +683,8 @@ void Node::Processor::OnNewState()
 		pObserver->OnStateChanged();
 
 	get_ParentObj().MaybeGenerateRecovery();
+
+    get_ParentObj().m_Validator.OnNewState();
 }
 
 void Node::Processor::OnFastSyncSucceeded()
@@ -1049,7 +1053,10 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
     if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == Rules::get().m_Consensus))
+    {
         m_PostStartSynced = true;
+        m_Validator.OnNewState();
+    }
 
 }
 
@@ -5581,12 +5588,17 @@ void Node::Validator::OnNewState()
     if (Rules::Consensus::Pbft != Rules().m_Consensus)
         return;
 
-    m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
-
-    m_iRoundCurrent = static_cast<uint32_t>(-1);
-    m_iRoundCommitted = static_cast<uint32_t>(-1);
     m_pLeader = nullptr;
+    m_iRoundCommitted = static_cast<uint32_t>(-1);
     ResetProposal();
+    KillTimer();
+
+    auto& p = get_ParentObj().m_Processor; // alias
+    if (!p.IsTreasuryHandled() || p.IsFastSync())
+        return;
+
+    m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
+    OnNewRound();
 }
 
 void Node::Validator::ResetProposal()
@@ -5597,26 +5609,63 @@ void Node::Validator::ResetProposal()
     m_spCommitted.Reset();
 }
 
-void Node::Validator::OnNewRound(uint32_t iRound)
+uint64_t Node::Validator::T2S(Timestamp t_s)
 {
-    if (Rules::Consensus::Pbft != Rules().m_Consensus)
-        return;
+    const auto& r = Rules::get();
+    auto trg_s = r.DA.Target_s ? r.DA.Target_s : 1;
 
-    m_iRoundCurrent = iRound;
+    return t_s / trg_s;
+}
 
-    auto& p = get_ParentObj().m_Processor; // alias
-    if (!p.IsTreasuryHandled() || p.IsFastSync())
+Timestamp Node::Validator::S2T(uint64_t iSlot)
+{
+    const auto& r = Rules::get();
+    auto trg_s = r.DA.Target_s ? r.DA.Target_s : 1;
+
+    return static_cast<Timestamp>(iSlot * trg_s);
+}
+
+uint32_t Node::Validator::CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast)
+{
+    assert(iSlotNow > iSlotLast);
+    return 0x7fffffff & (iSlotNow - iSlotLast - 1); // make sure iRound is less than max_uint32, this is a special value for committed round num
+}
+
+
+void Node::Validator::OnNewRound()
+{
+    assert(!m_pLeader && !m_bTimerPending);
+
+    m_iRoundCurrent = static_cast<uint32_t>(-1); // unless otherwise specified
+
+    auto iSlotLast = T2S(get_ParentObj().m_Processor.m_Cursor.m_Full.m_TimeStamp);
+
+    auto tNow_ms = get_RefTime_ms();
+    uint64_t iSlotNow = T2S(tNow_ms / 1000);
+
+    if (iSlotNow <= iSlotLast)
     {
-        m_pLeader = nullptr;
+        // set timer till the next round start
+        SetTimerEx(tNow_ms, iSlotLast + 1);
         return;
     }
 
-    m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
+    m_iRoundCurrent = CalculateRound(iSlotNow, iSlotLast);
+
+    OnNewRoundInternal(tNow_ms, iSlotNow);
+
+    CheckState();
+}
+
+void Node::Validator::OnNewRoundInternal(uint64_t tNow_ms, uint64_t iSlotNow)
+{
+    SetTimerEx(tNow_ms, iSlotNow + 1);
+
+    auto& p = get_ParentObj().m_Processor; // alias
+    m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, m_iRoundCurrent, m_wTotal);
 
     if (m_iRoundCommitted > m_iRoundCurrent)
         ResetProposal();
-
-    CheckState();
 }
 
 template <typename TMsg>
@@ -5672,23 +5721,58 @@ void Node::Validator::Vote(bool bCommit)
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
-    if (!m_pLeader)
-        return;
-
-    if (!m_Proposal.m_Body.m_Perishable.empty())
-    {
-        // TODO: check if the leader makes different proposals, and save this info
-
-        return; // we've already received the proposal for the current round, or committed to another proposal
-    }
-
     auto& p = get_ParentObj().m_Processor;
     if ((msg.m_Hdr.m_Height != p.m_Cursor.m_ID.m_Height + 1) || (msg.m_Hdr.m_Prev != p.m_Cursor.m_ID.m_Hash))
         return; // irrelevant
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
-    if (d.m_dRound != uintBigFrom(m_iRoundCurrent))
-        return; // irrelevant round
+
+    // Check that proposal timestamp and dRound are consistent
+    auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
+    auto iSlot1 = T2S(msg.m_Hdr.m_TimeStamp);
+    if (iSlot1 <= iSlot1)
+        src.ThrowUnexpected("invalid proposal slot");
+
+    uint32_t iProposedRound = CalculateRound(iSlot1, iSlot0);
+
+    if (d.m_dRound != uintBigFrom(iProposedRound))
+        src.ThrowUnexpected("invalid proposal dRound");
+
+    if (m_iRoundCommitted <= m_iRoundCurrent)
+    {
+        // already committed, ignore other proposals
+        assert(!m_Proposal.m_Body.m_Perishable.empty());
+        return;
+    }
+
+    if (iProposedRound != m_iRoundCurrent)
+    {
+        // due to time inaccuracy we can receive a proposal BEFORE our new round OnTimer
+        auto tNow_ms = get_RefTime_ms();
+        const uint32_t tAheadTolerance_ms = 800;
+
+        if (S2T(iSlot1) * 1000 > tNow_ms + tAheadTolerance_ms)
+            return; // too early
+
+        if (S2T(iSlot1 + 1) * 1000 <= tNow_ms)
+            return; // too late, this round is already over
+
+
+        // ok
+        m_iRoundCurrent = iProposedRound;
+        OnNewRoundInternal(tNow_ms, iSlot0 + iProposedRound + 1);
+    }
+    else
+    {
+        if (!m_pLeader) // we've finished this round (usually it means we've already reached the quorum)
+            return;
+    }
+
+    if (!m_Proposal.m_Body.m_Perishable.empty())
+    {
+        // TODO: check if the leader makes different proposals, and save this info
+        return; // we've already received the proposal for the current round, or committed to another proposal
+    }
 
     SetProposalHashes(msg.m_Hdr);
 
@@ -5901,6 +5985,45 @@ void Node::Validator::CreateProposal()
     }
 }
 
+uint64_t Node::Validator::get_RefTime_ms()
+{
+    using namespace std::chrono;
+    auto tNow = system_clock::now().time_since_epoch();
+    return duration_cast<milliseconds>(tNow).count();
+}
 
+void Node::Validator::OnTimer()
+{
+    m_bTimerPending = false;
+    m_pLeader = nullptr;
+    OnNewRound();
+}
+
+void Node::Validator::KillTimer()
+{
+    if (m_bTimerPending)
+    {
+        m_bTimerPending = false;
+        m_pTimer->cancel();
+    }
+}
+
+void Node::Validator::SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg)
+{
+    uint64_t tEnd_s = S2T(iSlotTrg);
+    uint64_t tEnd_ms = tEnd_s - tNow_ms;
+
+    auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms > tNow_ms) : 0;
+    SetTimer(dt_ms);
+}
+
+void Node::Validator::SetTimer(uint32_t timeout_ms)
+{
+    if (!m_pTimer)
+        m_pTimer = io::Timer::create(io::Reactor::get_Current());
+
+    m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+    m_bTimerPending = true;
+}
 
 } // namespace beam

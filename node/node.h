@@ -786,16 +786,12 @@ private:
 			const Block::Pbft::Validator* m_p; // refreshed after each block
 		} m_Me;
 
-
-		io::Timer::Ptr m_pTimer;
-		bool m_bTimerPending = false;
-
 		void OnNewState();
-		void OnNewRound(uint32_t);
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
 		void OnMsg(const proto::PbftVote&, const Peer&);
 
+		static uint64_t get_RefTime_ms();
 
 	private:
 
@@ -822,6 +818,8 @@ private:
 		SigsAndPower m_spPreVoted;
 		SigsAndPower m_spCommitted;
 
+		void OnNewRound();
+		void OnNewRoundInternal(uint64_t tNow_ms, uint64_t iSlotNow);
 		void ResetProposal();
 		void SetProposalHashes(const Block::SystemState::Full&);
 		void OnProposalAccepted(const Peer*);
@@ -829,9 +827,20 @@ private:
 		void OnQuorumReached();
 		void Vote(bool bCommit);
 		void CreateProposal();
+		static uint32_t CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast);
+
+		static uint64_t T2S(Timestamp);
+		static Timestamp S2T(uint64_t);
 
 		template <typename TMsg>
 		void Broadcast(const TMsg&, const Peer* pSrc);
+
+		io::Timer::Ptr m_pTimer;
+		bool m_bTimerPending = false;
+		void OnTimer();
+		void SetTimer(uint32_t timeout_ms);
+		void SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg);
+		void KillTimer();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Validator)
 	} m_Validator;
