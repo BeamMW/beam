@@ -64,6 +64,7 @@ public:
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor
 			CacheState,
 			TreasuryTotals, // for use in explorer node
+			PbftState,
 		};
 	};
 

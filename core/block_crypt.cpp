@@ -2443,6 +2443,20 @@ namespace beam
 			<< (uint32_t) Block::PoW::NonceType::nBits
 			<< Magic.v0; // increment this whenever we change something in the protocol
 
+		if (Rules::Consensus::Pbft == m_Consensus)
+		{
+			const auto& x = m_Pbft; // alias
+			oracle << x.m_Count;
+
+			for (uint32_t i = 0; i < x.m_Count; i++)
+			{
+				const auto& e = x.m_p0[i];
+				oracle
+					<< e.m_Addr
+					<< e.m_Stake;
+			}
+		}
+
 		if (!Magic.IsTestnet)
 			oracle << "masternet";
 
@@ -2666,6 +2680,7 @@ namespace beam
 		pV->m_Addr.m_Key = addr;
 		m_mapVs.insert(pV->m_Addr);
 
+		pV->m_Weight = 0;
 		return pV;
 	}
 
@@ -2786,6 +2801,23 @@ namespace beam
 
 		// is quorum reached?
 		return IsMajorityReached(wVoted, wTotal);
+	}
+
+	void Block::Pbft::State::SetInitial()
+	{
+		const auto& pars = Rules::get().m_Pbft;
+		for (uint32_t i = 0; i < pars.m_Count; i++)
+		{
+			const auto& v = pars.m_p0[i];
+			if (!v.m_Stake)
+				continue;
+
+			auto* pV = Find(v.m_Addr, true);
+			assert(pV);
+
+			pV->m_Weight += v.m_Stake;
+			m_Totals.m_Amount += v.m_Stake;
+		}
 	}
 
 	/////////////

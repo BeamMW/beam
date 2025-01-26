@@ -1899,6 +1899,39 @@ namespace detail
 		}
 
 		template<typename Archive>
+		Archive& save(Archive& ar, const beam::Block::Pbft::State& state)
+		{
+			ar
+				& state.m_Totals.m_Amount
+				& state.m_lstVs.size();
+
+			for (auto it = state.m_lstVs.begin(); state.m_lstVs.end() != it; it++)
+				ar & (*it);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		Archive& load(Archive& ar, beam::Block::Pbft::State& state)
+		{
+			size_t n;
+			ar
+				& state.m_Totals.m_Amount
+				& n;
+
+			while (n--)
+			{
+				beam::Block::Pbft::Validator v;
+				ar & v;
+
+				if (v.m_Weight)
+					state.Find(v.m_Addr.m_Key, true)->m_Weight += v.m_Weight;
+			}
+
+			return ar;
+		}
+
+		template<typename Archive>
         Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar

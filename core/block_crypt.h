@@ -468,6 +468,18 @@ namespace beam
 			Sigma::Cfg m_ProofCfg;
 		} CA;
 
+		struct Pbft {
+
+			struct Entry {
+				PeerID m_Addr;
+				Amount m_Stake;
+			};
+
+			const Entry* m_p0 = nullptr;
+			uint32_t m_Count = 0;
+
+		} m_Pbft;
+
 		uint32_t MaxRollback;
 
 		size_t MaxBodySize;
@@ -1637,7 +1649,6 @@ namespace beam
 			{
 				typedef intrusive::list<Validator> List;
 
-
 				struct Addr
 					:public intrusive::set_base_hook<Address>
 				{
@@ -1696,13 +1707,7 @@ namespace beam
 				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal);
 				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
 
-				template <typename Archive>
-				void serialize(Archive& ar)
-				{
-					ar
-						& m_Totals.m_Amount
-						& m_lstVs;
-				}
+				void SetInitial();
 
 			private:
 				// uniform random within [0, nBound)
