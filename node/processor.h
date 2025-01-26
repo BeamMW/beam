@@ -491,7 +491,7 @@ public:
 	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
 
-	bool TestBlock(const Block::SystemState::Full& s, const proto::BodyBuffers&);
+	bool TestBlock(const Block::SystemState::ID& id, const Block::SystemState::Full& s, const proto::BodyBuffers&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }
