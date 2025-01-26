@@ -93,6 +93,7 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 namespace beam
 {
 	ByteBuffer g_Treasury;
+	Key::IKdf::Ptr g_pTreasuryKdf;
 
 	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
@@ -164,21 +165,21 @@ namespace beam
 
 	void PrepareTreasury()
 	{
-		Key::IKdf::Ptr pKdf;
-		ECC::SetRandom(pKdf);
+		ECC::SetRandom(g_pTreasuryKdf);
 
 		PeerID pid;
 		ECC::Scalar::Native sk;
-		Treasury::get_ID(*pKdf, pid, sk);
+		Treasury::get_ID(*g_pTreasuryKdf, pid, sk);
 
 		Treasury tres;
 		Treasury::Parameters pars;
 		pars.m_Bursts = 1;
+		pars.m_MaturityStep = 4;
 		Treasury::Entry* pE = tres.CreatePlan(pid, Rules::get().Emission.Value0 / 5, pars);
 
 		pE->m_pResponse.reset(new Treasury::Response);
 		uint64_t nIndex = 1;
-		verify_test(pE->m_pResponse->Create(pE->m_Request, *pKdf, nIndex));
+		verify_test(pE->m_pResponse->Create(pE->m_Request, *g_pTreasuryKdf, nIndex));
 
 		Treasury::Data data;
 		data.m_sCustomMsg = "test treasury";
@@ -1755,10 +1756,18 @@ namespace beam
 		node.m_Cfg.m_sPathLocal = g_sz;
 		node.m_Cfg.m_Listen.port(g_Port);
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
-		node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
 		node.m_Cfg.m_MiningThreads = 1;
 
-		ECC::SetRandom(node);
+		if ((Rules::Consensus::Pbft == Rules::get().m_Consensus))
+		{
+			node.m_Keys.SetSingleKey(g_pTreasuryKdf);
+			node.m_Keys.m_pMiner = node.m_Keys.m_pGeneric;
+		}
+		else
+		{
+			ECC::SetRandom(node);
+			node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 100;
+		}
 
 		node.m_Cfg.m_Horizon.m_Branching = 6;
 		node.m_Cfg.m_Horizon.m_Sync.Hi = 10;
@@ -1770,6 +1779,42 @@ namespace beam
 		node.m_Cfg.m_Dandelion.m_OutputsMin = 3;
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeLo = 5;
 		node.m_Cfg.m_Dandelion.m_DummyLifetimeHi = 10;
+
+		Node node2;
+		node2.m_Cfg.m_sPathLocal = g_sz2;
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(g_Port);
+		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
+
+		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
+		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
+		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
+
+		node.m_PostStartSynced = true;
+		node2.m_PostStartSynced = true;
+
+		ECC::SetRandom(node2);
+
+		Rules::Pbft::Entry pE[2];
+
+		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+		{
+			ECC::Scalar::Native sk;
+
+			node.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
+			pE[0].m_Addr.FromSk(sk);
+			pE[0].m_Stake = Rules::Coin * 700;
+
+			node2.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
+			pE[1].m_Addr.FromSk(sk);
+			pE[1].m_Stake = Rules::Coin * 700;
+
+			Rules::get().m_Pbft.m_p0 = pE;
+			Rules::get().m_Pbft.m_Count = _countof(pE);
+			Rules::get().DA.Target_ms = 1100;
+			Rules::get().UpdateChecksum();
+		}
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -2263,14 +2308,17 @@ namespace beam
                     m_queProofsKrnExpected.push_back(m_Evm.m_KrnProofIdx);
                 }
 
-				proto::BbsMsg msgBbs;
-				msgBbs.m_Channel = 11;
-				msgBbs.m_TimePosted = getTimestamp();
-				msgBbs.m_Message.resize(1);
-				msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
-				Send(msgBbs);
+				if (Rules::Consensus::FakePoW == Rules::get().m_Consensus) // otherwise bbs msgs should be mined
+				{
+					proto::BbsMsg msgBbs;
+					msgBbs.m_Channel = 11;
+					msgBbs.m_TimePosted = getTimestamp();
+					msgBbs.m_Message.resize(1);
+					msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
+					Send(msgBbs);
 
-				m_nBbsMsgsPending++;
+					m_nBbsMsgsPending++;
+				}
 
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
@@ -3264,20 +3312,6 @@ namespace beam
 		cl2.m_pOtherClient = &cl;
 		cl2.Connect(addr);
 
-
-		Node node2;
-		node2.m_Cfg.m_sPathLocal = g_sz2;
-		node2.m_Cfg.m_Connect.resize(1);
-		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
-		node2.m_Cfg.m_Connect[0].port(g_Port);
-		node2.m_Cfg.m_Timeout = node.m_Cfg.m_Timeout;
-
-		node2.m_Cfg.m_Dandelion = node.m_Cfg.m_Dandelion;
-
-		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
-		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
-
-		ECC::SetRandom(node2);
 		node2.Initialize();
 		verify_test(node2.get_AcessiblePeerCount() == 1);
 
@@ -4020,6 +4054,7 @@ void TestAll()
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
 	bool bClientProtoOnly = false;
+	bool bTestPbft = true;
 
 	//auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
@@ -4104,7 +4139,11 @@ void TestAll()
 	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
 	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
     beam::Rules::get().Evm.Groth2Wei = 10'000'000'000ull;
-	beam::Rules::get().UpdateChecksum();
+
+	if (bTestPbft)
+		beam::Rules::get().m_Consensus = beam::Rules::Consensus::Pbft;
+	else
+		beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
@@ -4157,6 +4196,9 @@ void TestAll()
 
 	printf("Node <---> FlyClient test...\n");
 	fflush(stdout);
+
+	beam::Rules::get().m_Consensus = beam::Rules::Consensus::FakePoW;
+	beam::Rules::get().UpdateChecksum();
 
 	beam::TestFlyClient();
 	beam::DeleteFile(beam::g_sz);
