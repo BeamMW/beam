@@ -345,16 +345,16 @@ namespace
         if (nnet->m_Cfg.m_PollPeriod_ms)
         {
             BEAM_LOG_INFO() << "Node poll period = " << nnet->m_Cfg.m_PollPeriod_ms << " ms";
-            uint32_t timeout_ms = std::max(Rules::get().DA.Target_s * 1000, nnet->m_Cfg.m_PollPeriod_ms);
+            uint32_t timeout_ms = std::max(Rules::get().DA.Target_ms, nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
                 BEAM_LOG_INFO() << "Node poll period has been automatically rounded up to block rate: " << timeout_ms << " ms";
             }
         }
-        uint32_t responceTime_s = Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        uint32_t responceTime_ms = Rules::get().DA.Target_ms * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_ms)
         {
-            BEAM_LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_s / 3600) << " hours may cause transaction problems.";
+            BEAM_LOG_WARNING() << "The \"--node_poll_period\" parameter set to more than " << uint32_t(responceTime_ms / 3'600'000) << " hours may cause transaction problems.";
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->Connect();

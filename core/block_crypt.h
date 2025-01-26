@@ -438,12 +438,16 @@ namespace beam
 
 		struct {
 			// timestamp & difficulty.
-			uint32_t Target_s;
+			uint32_t Target_ms; // changed recently to ms, to support more precise PBFT timeslots
 			uint32_t WindowWork;
 			uint32_t MaxAhead_s;
 			uint32_t WindowMedian0;
 			uint32_t WindowMedian1;
 			Difficulty Difficulty0;
+
+			uint32_t get_Target_s() const {
+				return Target_ms / 1000;
+			}
 
 			struct {
 				// damp factor. Adjustment of actual dt toward expected, effectively dampens

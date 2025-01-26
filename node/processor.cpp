@@ -6606,7 +6606,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 		// how many immaginary prehistoric blocks should be offset
 		uint32_t nDelta = r.DA.WindowWork - static_cast<uint32_t>(m_Cursor.m_Full.m_Height - Rules::HeightGenesis);
 
-		thw0.first -= static_cast<int64_t>(r.DA.Target_s) * nDelta;
+		thw0.first -= static_cast<int64_t>(r.DA.get_Target_s()) * nDelta;
 		thw0.second.first -= nDelta;
 
 		Difficulty::Number wrk, wrk2;
@@ -6624,7 +6624,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 
 	uint32_t dh = static_cast<uint32_t>(thw1.second.first - thw0.second.first);
 
-	uint32_t dtTrg_s = r.DA.Target_s * dh;
+	uint32_t dtTrg_s = r.DA.get_Target_s() * dh;
 
 	// actual dt, only making sure it's non-negative
 	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
@@ -6703,7 +6703,7 @@ void NodeProcessor::get_MovingMedianEx(Height hLast, uint32_t nWindow, THW& res)
 			// append "prehistoric" blocks of starting difficulty and perfect timing
 			const THW& thwSrc = v[v.size() - 2];
 
-			thw.first = thwSrc.first - Rules::get().DA.Target_s;
+			thw.first = thwSrc.first - Rules::get().DA.get_Target_s();
 			thw.second.first = thwSrc.second.first - 1;
 			thw.second.second = thwSrc.second.second - Rules::get().DA.Difficulty0; // don't care about overflow
 		}

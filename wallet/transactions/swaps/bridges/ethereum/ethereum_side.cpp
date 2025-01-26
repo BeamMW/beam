@@ -89,7 +89,7 @@ bool EthereumSide::ValidateLockTime()
         return false;
     }
 
-    double blocksPerBeamBlock = GetBlocksPerHour() / beam::Rules::get().DA.Target_s;
+    double blocksPerBeamBlock = GetBlocksPerHour() / beam::Rules::get().DA.get_Target_s();
     Height beamCurrentHeight = m_tx.GetWalletDB()->getCurrentHeight();
     Height beamHeightDiff = beamCurrentHeight - m_tx.GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
 

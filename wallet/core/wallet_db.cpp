@@ -6629,12 +6629,12 @@ namespace beam::wallet
                 if (tip.m_Height > confirmHeight)
                 {
                     auto delta = (tip.m_Height - confirmHeight);
-                    ts -= delta * Rules::get().DA.Target_s;
+                    ts -= delta * Rules::get().DA.get_Target_s();
                 }
                 else if (tip.m_Height < confirmHeight)
                 {
                     auto delta = confirmHeight - tip.m_Height;
-                    ts += delta * Rules::get().DA.Target_s;
+                    ts += delta * Rules::get().DA.get_Target_s();
                 }
                 return ts;
             }

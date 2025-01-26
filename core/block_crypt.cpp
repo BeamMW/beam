@@ -2181,7 +2181,7 @@ namespace beam
 		Maturity.Std = 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
 		// timestamp & difficulty.
-		DA.Target_s = 60; // 1 minute
+		DA.Target_ms = 60'000; // 1 minute
 		DA.WindowWork = 120; // 2 hours roughly (under normal operation)
 		DA.MaxAhead_s = 60 * 15; // 15 minutes. Timestamps ahead by more than 15 minutes won't be accepted
 		DA.WindowMedian0 = 25; // Timestamp for a block must be (strictly) higher than the median of preceding window
@@ -2400,17 +2400,19 @@ namespace beam
 
 	void Rules::UpdateChecksum()
 	{
+		Exc::CheckpointTxt cp("Rules");
+
 		if (!IsForkHeightsConsistent())
-			throw std::runtime_error("Inconsistent Forks");
+			Exc::Fail("Inconsistent Forks");
 
 		if (!CA.m_ProofCfg.get_N())
-			throw std::runtime_error("Bad CA/Sigma cfg");
+			Exc::Fail("Bad CA/Sigma cfg");
 
 		uint32_t n1 = Shielded.m_ProofMin.get_N();
 		uint32_t n2 = Shielded.m_ProofMax.get_N();
 
 		if (!n1 || (n1 > n2))
-			throw std::runtime_error("Bad Shielded/Sigma cfg");
+			Exc::Fail("Bad Shielded/Sigma cfg");
 
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
@@ -2430,7 +2432,7 @@ namespace beam
 			<< AllowPublicUtxos
 			<< false // deprecated CA.Enabled
 			<< true // deprecated CA.Deposit
-			<< DA.Target_s
+			<< DA.get_Target_s()
 			<< DA.MaxAhead_s
 			<< DA.WindowWork
 			<< DA.WindowMedian0
@@ -2446,7 +2448,16 @@ namespace beam
 		if (Rules::Consensus::Pbft == m_Consensus)
 		{
 			const auto& x = m_Pbft; // alias
-			oracle << x.m_Count;
+			Exc::CheckpointTxt cp2("pbft");
+
+			if (!DA.Target_ms)
+				Exc::Fail("slot duration not specified");
+
+			oracle
+				<< DA.Target_ms
+				<< x.m_Count;
+
+			bool bHaveStake = false;
 
 			for (uint32_t i = 0; i < x.m_Count; i++)
 			{
@@ -2454,7 +2465,13 @@ namespace beam
 				oracle
 					<< e.m_Addr
 					<< e.m_Stake;
+
+				if (e.m_Stake)
+					bHaveStake = true;
 			}
+
+			if (!bHaveStake)
+				Exc::Fail("no stake");
 		}
 
 		if (!Magic.IsTestnet)

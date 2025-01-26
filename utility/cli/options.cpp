@@ -707,7 +707,7 @@ namespace beam
             macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
             macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
             macro(size_t, MaxBodySize, "Max block body size [bytes]") \
-            macro(uint32_t, DA.Target_s, "Desired rate of generated blocks [seconds]") \
+            macro(uint32_t, DA.Target_ms, "Desired rate of generated blocks [ms]") \
             macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \
             macro(uint32_t, DA.WindowWork, "num of blocks in the window for the mining difficulty adjustment") \
             macro(uint32_t, DA.WindowMedian0, "How many blocks are considered in calculating the timestamp median") \

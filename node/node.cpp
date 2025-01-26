@@ -161,9 +161,9 @@ void Node::UpdateSyncStatusRaw()
 
 			hTotal++;
 
-			const uint32_t& trg_s = Rules::get().DA.Target_s;
-			if (trg_s)
-				std::setmax(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s / trg_s);
+			const uint32_t& trg_ms = Rules::get().DA.Target_ms;
+			if (trg_ms)
+				std::setmax(hTotal, m_Processor.m_Cursor.m_ID.m_Height + ts1_s * 1000 / trg_ms);
 		}
 
 	}
@@ -5650,17 +5650,21 @@ void Node::Validator::OnNewState()
 uint64_t Node::Validator::T2S(Timestamp t_s)
 {
     const auto& r = Rules::get();
-    auto trg_s = r.DA.Target_s ? r.DA.Target_s : 1;
+    auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
 
-    return t_s / trg_s;
+    uint64_t t_ms = static_cast<uint64_t>(t_s) * 1000;
+
+    return (t_ms + 999) / trg_ms; // wokrs unless slot time is less than 1sec
 }
 
 Timestamp Node::Validator::S2T(uint64_t iSlot)
 {
     const auto& r = Rules::get();
-    auto trg_s = r.DA.Target_s ? r.DA.Target_s : 1;
+    auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
 
-    return static_cast<Timestamp>(iSlot * trg_s);
+    uint64_t t_ms = iSlot * trg_ms;
+
+    return static_cast<Timestamp>(t_ms / 1000);
 }
 
 uint32_t Node::Validator::CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast)
