@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
         }
     );
     ECC::InitializeContext();
-    Rules::get().DA.Target_s = 1; // 1 minute
+    Rules::get().DA.Target_ms = 1000; // 1 second
     Rules::get().DA.Difficulty0 = 1;
 
     int seconds = 0;

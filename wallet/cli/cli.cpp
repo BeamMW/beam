@@ -2038,7 +2038,7 @@ namespace
             BEAM_LOG_INFO() << boost::format(kNodePoolPeriod)
                        % nnet->m_Cfg.m_PollPeriod_ms;
             uint32_t timeout_ms =
-                std::max(Rules::get().DA.Target_s * 1000,
+                std::max(Rules::get().DA.Target_ms,
                          nnet->m_Cfg.m_PollPeriod_ms);
             if (timeout_ms != nnet->m_Cfg.m_PollPeriod_ms)
             {
@@ -2050,12 +2050,12 @@ namespace
         if (vm.count(cli::MINE_ONLINE))
             nnet->m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
-        uint32_t responceTime_s =
-            Rules::get().DA.Target_s * wallet::kDefaultTxResponseTime;
-        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_s * 1000)
+        uint32_t responceTime_ms =
+            Rules::get().DA.Target_ms * wallet::kDefaultTxResponseTime;
+        if (nnet->m_Cfg.m_PollPeriod_ms >= responceTime_ms)
         {
             BEAM_LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch)
-                          % uint32_t(responceTime_s / 3600);
+                          % uint32_t(responceTime_ms / 3'600'000);
         }
         nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         nnet->m_Cfg.m_UseProxy = vm[cli::PROXY_USE].as<bool>();
