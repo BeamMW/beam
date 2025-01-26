@@ -1015,6 +1015,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
         {
             m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
             m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
+            BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
         }
         else
             m_Validator.m_Me.m_Addr = Zero;
@@ -5594,10 +5595,30 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 ///////////////////
 // Pbft
+bool Node::Validator::IsProposalRelevant(const Block::SystemState::Full& s) const
+{
+    auto& c = get_ParentObj().m_Processor.m_Cursor;
+    return (s.m_Height == c.m_ID.m_Height + 1) && (s.m_Prev == c.m_ID.m_Hash);
+}
+
+bool Node::Validator::HaveProposal() const
+{
+    return !m_Proposal.m_Body.m_Perishable.empty();
+}
+
+bool Node::Validator::IsCommitted() const
+{
+    return m_iRoundCommitted <= m_iRoundCurrent;
+}
 
 void Node::Validator::OnNewState()
 {
     if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
+        return;
+
+    // Theoretically this method can be called WITHOUT new state (such as trying to interpret blocks, failing, and rolling back)
+    // it's important to preserve our commitment, if we already committed to a specific round
+    if (HaveProposal() && IsProposalRelevant(m_Proposal.m_Hdr))
         return;
 
     m_pLeader = nullptr;
@@ -5671,13 +5692,19 @@ void Node::Validator::OnNewRound()
 
 void Node::Validator::OnNewRoundInternal(uint64_t tNow_ms, uint64_t iSlotNow)
 {
+    BEAM_LOG_INFO() << "pbft round " << m_iRoundCurrent;
+
     SetTimerEx(tNow_ms, iSlotNow + 1);
 
-    auto& p = get_ParentObj().m_Processor; // alias
-    m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, m_iRoundCurrent, m_wTotal);
+    if (IsCommitted())
+        m_pLeader = nullptr; // ignore this round
+    else
+    {
+        auto& p = get_ParentObj().m_Processor; // alias
+        m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, m_iRoundCurrent, m_wTotal);
 
-    if (m_iRoundCommitted > m_iRoundCurrent)
         ResetProposal();
+    }
 }
 
 template <typename TMsg>
@@ -5707,7 +5734,7 @@ void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const E
 void Node::Validator::Vote(bool bCommit)
 {
     // must be a valid round, and there should be a proposal already
-    assert(m_pLeader && !m_Proposal.m_Body.m_Perishable.empty());
+    assert(m_pLeader && HaveProposal());
 
     if (!m_Me.m_p)
         return; // I'm not a validator
@@ -5720,6 +5747,8 @@ void Node::Validator::Vote(bool bCommit)
     if (sp.m_Sigs.end() != it)
         return; // already voted
 
+    BEAM_LOG_INFO() << "pbft " << (bCommit ? " committed" : " pre-voted");
+
     proto::PbftVote msg;
     msg.m_ID = bCommit ? m_hvCommit : m_hvPreVote;
     msg.m_Address = m_Me.m_Addr;
@@ -5730,14 +5759,13 @@ void Node::Validator::Vote(bool bCommit)
     Broadcast(msg, nullptr);
 }
 
-
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
-    auto& p = get_ParentObj().m_Processor;
-    if ((msg.m_Hdr.m_Height != p.m_Cursor.m_ID.m_Height + 1) || (msg.m_Hdr.m_Prev != p.m_Cursor.m_ID.m_Hash))
+    if (!IsProposalRelevant(msg.m_Hdr))
         return; // irrelevant
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
+    auto& p = get_ParentObj().m_Processor;
 
     // Check that proposal timestamp and dRound are consistent
     auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
@@ -5750,10 +5778,10 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
     if (d.m_dRound != uintBigFrom(iProposedRound))
         src.ThrowUnexpected("invalid proposal dRound");
 
-    if (m_iRoundCommitted <= m_iRoundCurrent)
+    if (IsCommitted())
     {
         // already committed, ignore other proposals
-        assert(!m_Proposal.m_Body.m_Perishable.empty());
+        assert(HaveProposal());
         return;
     }
 
@@ -5780,7 +5808,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
             return;
     }
 
-    if (!m_Proposal.m_Body.m_Perishable.empty())
+    if (HaveProposal())
     {
         // TODO: check if the leader makes different proposals, and save this info
         return; // we've already received the proposal for the current round, or committed to another proposal
@@ -5812,11 +5840,13 @@ void Node::Validator::SetProposalHashes(const Block::SystemState::Full& s)
 
 void Node::Validator::OnProposalAccepted(const Peer* pSrc)
 {
-    assert(!m_Proposal.m_Body.m_Perishable.empty());
+    assert(HaveProposal());
 
     m_spCommitted.Reset();
     m_spPreVoted.Reset();
     m_spPreVoted.m_wVoted = m_pLeader->m_Weight;
+
+    BEAM_LOG_INFO() << "pbft proposal accepted";
 
     Broadcast(m_Proposal, pSrc);
 
@@ -5830,7 +5860,7 @@ void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
     if (!m_pLeader)
         return;
 
-    if (m_Proposal.m_Body.m_Perishable.empty())
+    if (!HaveProposal())
         return; // no proposal yet
 
     bool bCommit = (msg.m_ID == m_hvCommit);
@@ -5839,7 +5869,7 @@ void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
         if (msg.m_ID != m_hvPreVote)
             return; // not a pre-vote either, irrelevant vote
 
-        if (m_iRoundCommitted <= m_iRoundCurrent)
+        if (IsCommitted())
             return; // already majority of pre-votes was observed, pre-votes are no more relevant
 
         if (msg.m_Address == m_pLeader->m_Addr.m_Key)
@@ -5873,25 +5903,26 @@ void Node::Validator::CheckState()
         return;
 
     // did we commit already?
-    if (m_iRoundCommitted > m_iRoundCurrent)
+    if (!IsCommitted())
     {
-        if (m_Proposal.m_Body.m_Perishable.empty())
+        if (!HaveProposal())
         {
             if (m_Me.m_p != m_pLeader)
                 return; // no valid proposal yet
 
             CreateProposal();
 
-            if (m_Proposal.m_Body.m_Perishable.empty())
-            {
-                m_pLeader = nullptr;
-                return; // failed to create the proposal. Round should be skipped
-            }
+            if (!HaveProposal())
+                m_pLeader = nullptr; // failed to create the proposal. Round should be skipped
+
+            return; // if the proposal was created successfully - it'll call this function recursively
         }
 
         // should we commit?
         if (Block::Pbft::State::IsMajorityReached(m_spPreVoted.m_wVoted, m_wTotal))
         {
+            BEAM_LOG_INFO() << "pbft pre-vote majority reached. Committing to this round";
+
             // commit to this proposal
             m_iRoundCommitted = m_iRoundCurrent;
             Vote(true);
@@ -5908,6 +5939,7 @@ void Node::Validator::CheckState()
 
 void Node::Validator::OnQuorumReached()
 {
+    BEAM_LOG_INFO() << "pbft quorum reached";
     // We have the quorum
     Block::Pbft::Quorum qc;
     auto& p = get_ParentObj().m_Processor;
@@ -5925,7 +5957,7 @@ void Node::Validator::OnQuorumReached()
             uint32_t iByte = iIdx >> 3;
             if (qc.m_vValidatorsMsk.size() <= iByte)
                 qc.m_vValidatorsMsk.resize(iByte + 1);
-            qc.m_vValidatorsMsk[iByte] |= (7 & iIdx);
+            qc.m_vValidatorsMsk[iByte] |= (1 << (7 & iIdx));
         }
     }
 
@@ -5946,7 +5978,7 @@ void Node::Validator::OnQuorumReached()
 
     Serializer ser;
     ser.swap_buf(m_Proposal.m_Body.m_Eternal);
-    ser& qc;
+    ser & qc;
     ser.swap_buf(m_Proposal.m_Body.m_Eternal);
 
     Block::SystemState::ID id;
