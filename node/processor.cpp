@@ -3000,14 +3000,24 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			if (nBytes0 - nBytes1 != nSizeMetadata)
 				Exc::Fail(); // wrong metadata size
 
-			if (bFirstTime && !bTestOnly) // during block test the QC isn't ready yet
+			if (bFirstTime)
 			{
-				// Deserialize QC
-				Block::Pbft::Quorum qc;
-				der & qc;
+				if (bTestOnly)
+				{
+					// during block test the QC isn't ready yet
+					// make sure nothing is appended instead of QC
+					if (nBytes1)
+						Exc::Fail(); // junk where the QC is supposed to be appended
+				}
+				else
+				{
+					// Deserialize QC
+					Block::Pbft::Quorum qc;
+					der& qc;
 
-				if (!m_PbftState.CheckQuorum(id.m_Hash, qc))
-					Exc::Fail("QC");
+					if (!m_PbftState.CheckQuorum(id.m_Hash, qc))
+						Exc::Fail("QC");
+				}
 			}
 		}
 	}
@@ -7104,13 +7114,7 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 		bc.m_Hdr.m_Kernels = ev.m_hvKernels;
 
 	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	bc.m_Hdr.m_TimeStamp = getTimestamp();
-
 	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork + bc.m_Hdr.m_PoW.m_Difficulty;
-
-	// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
-	Timestamp tm = get_MovingMedian() + 1;
-	std::setmax(bc.m_Hdr.m_TimeStamp, tm);
 }
 
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
@@ -7197,6 +7201,16 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 		m_PbftState.m_Hash.Update();
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
+
+		// Assume d.m_dRound and the hdr timestamp are already assigned by the caller
+		
+	}
+	else
+	{
+		bc.m_Hdr.m_TimeStamp = getTimestamp();
+		// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
+		Timestamp tm = get_MovingMedian() + 1;
+		std::setmax(bc.m_Hdr.m_TimeStamp, tm);
 	}
 
 	GenerateNewHdr(bc, bic);
