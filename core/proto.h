@@ -304,7 +304,8 @@ namespace proto {
     macro(ECC::Signature, Signature)
 
 #define BeamNodeMsg_PbftVote(macro) \
-    macro(Merkle::Hash, ID) /* ID should be calculated as either pre-vote or vote. That's how they're distinguished */ \
+    macro(uint32_t, iRound) \
+    macro(bool, Commit) \
     macro(Block::Pbft::Address, Address) \
     macro(ECC::Signature, Signature)
 

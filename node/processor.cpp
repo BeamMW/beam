@@ -2925,11 +2925,8 @@ std::string NodeProcessor::Account::get_Endpoint() const
 	return Base58::to_string(pid);
 }
 
-bool NodeProcessor::TestBlock(const Block::SystemState::Full& s, const proto::BodyBuffers& bufs)
+bool NodeProcessor::TestBlock(const Block::SystemState::ID& id, const Block::SystemState::Full& s, const proto::BodyBuffers& bufs)
 {
-	Block::SystemState::ID id;
-	s.get_ID(id);
-
 	MultiblockContext mbc(*this);
 
 	if (!HandleBlockInternal(id, s, mbc, bufs, true, true, Zero, 0))

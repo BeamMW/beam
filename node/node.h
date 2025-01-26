@@ -792,7 +792,7 @@ private:
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
 		void OnMsg(const proto::PbftVote&, const Peer&);
-		void SendRoundData(Peer&);
+		void SendState(Peer&) const;
 
 		static uint64_t get_RefTime_ms();
 
@@ -804,36 +804,37 @@ private:
 			uint64_t m_wVoted;
 			Merkle::Hash m_hv;
 
-			void Reset();
 			void Add(const Block::Pbft::Validator&, const ECC::Signature&);
-
-			void SendVotes(Peer&) const;
 		};
 
-		uint32_t m_iRoundCurrent = static_cast<uint32_t>(-1);
-		uint32_t m_iRoundCommitted;
-		uint64_t m_iSlot;
+		struct RoundData
+			:public intrusive::set_base_hook<uint32_t>
+		{
+			const Block::Pbft::Validator* m_pLeader;
 
-		const Block::Pbft::Validator* m_pLeader = nullptr;
+			proto::PbftProposal m_Proposal;
+			SigsAndPower m_spPreVoted;
+			SigsAndPower m_spCommitted;
+
+			typedef intrusive::multiset_autoclear<RoundData> Map;
+
+			void SetProposalHashes();
+			void SendVotes(Peer&, bool bCommit) const;
+		};
+
+
+		RoundData::Map m_mapRounds;
+		RoundData* m_pCommitted = nullptr;
 		uint64_t m_wTotal;
-
-		proto::PbftProposal m_Proposal;
-
-		SigsAndPower m_spPreVoted;
-		SigsAndPower m_spCommitted;
+		bool m_QuorumReached;
 
 		void OnNewRound();
-		void OnNewRoundInternal(uint64_t tNow_ms, uint64_t iSlotNow);
-		void ResetProposal();
-		void SetProposalHashes(const Block::SystemState::Full&);
-		void OnProposalAccepted(const Peer*);
-		void CheckState();
+		void OnProposalAccepted(RoundData&, const Peer*);
+		void CheckState(RoundData&);
 		bool IsProposalRelevant(const Block::SystemState::Full&) const;
-		bool HaveProposal() const;
-		bool IsCommitted() const;
 		void OnQuorumReached();
-		void Vote(bool bCommit);
-		void CreateProposal();
+		void Vote(RoundData&, bool bCommit);
+		bool CreateProposal(RoundData&, uint64_t iSlot);
 		static uint32_t CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast);
 
 		static uint64_t T2S(Timestamp);
