@@ -1814,7 +1814,7 @@ namespace beam
 
 			} m_Contract;
 
-			Height m_hEvts = 0;
+			Height m_hEvtsNext = 0;
 			bool m_bEvtsPending = false;
 
 			MyClient(const Key::IKdf::Ptr& pKdf)
@@ -2798,12 +2798,12 @@ namespace beam
 				if (m_bEvtsPending || m_vStates.empty())
 					return;
 
-				assert(m_hEvts <= m_vStates.back().m_Height);
-				if (m_hEvts == m_vStates.back().m_Height)
+				assert(m_hEvtsNext <= m_vStates.back().m_Height + 1);
+				if (m_hEvtsNext == m_vStates.back().m_Height + 1)
 					return;
 				
 				proto::GetEvents msg;
-				msg.m_HeightMin = m_hEvts + 1;
+				msg.m_HeightMin = m_hEvtsNext;
 				Send(msg);
 
 				m_bEvtsPending = true;
@@ -3161,7 +3161,7 @@ namespace beam
 
 				uint32_t nCount = p.Proceed(msg.m_Events);
 
-				m_hEvts = (nCount < proto::Event::s_Max) ? hTip : p.m_Height;
+				m_hEvtsNext = 1 + ((nCount < proto::Event::s_Max) ? hTip : p.m_Height);
 
 				MaybeAskEvents();
 
