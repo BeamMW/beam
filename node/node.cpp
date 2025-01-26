@@ -3292,6 +3292,9 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
 	}
 
+    if (proto::LoginFlags::SpreadingTransactions & m_LoginFlags)
+        m_This.m_Validator.SendRoundData(*this);
+
 	BroadcastTxs();
 	BroadcastBbs();
 }
@@ -4434,6 +4437,17 @@ void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
 {
     m_Dependent.m_pQuery = std::move(msg.m_Context);
 }
+
+void Node::Peer::OnMsg(proto::PbftProposal&& msg)
+{
+    m_This.m_Validator.OnMsg(std::move(msg), *this);
+}
+
+void Node::Peer::OnMsg(proto::PbftVote&& msg)
+{
+    m_This.m_Validator.OnMsg(std::move(msg), *this);
+}
+
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
@@ -5694,6 +5708,7 @@ void Node::Validator::OnNewRoundInternal(uint64_t tNow_ms, uint64_t iSlotNow)
 {
     BEAM_LOG_INFO() << "pbft round " << m_iRoundCurrent;
 
+    m_iSlot = iSlotNow;
     SetTimerEx(tNow_ms, iSlotNow + 1);
 
     if (IsCommitted())
@@ -5716,6 +5731,31 @@ void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc)
         Peer& peer = *it;
         if ((&peer != pSrc) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
             peer.Send(msg);
+    }
+}
+
+void Node::Validator::SendRoundData(Peer& peer)
+{
+    if (m_pLeader && HaveProposal())
+    {
+        peer.Send(m_Proposal);
+
+        if (!IsCommitted())
+            m_spPreVoted.SendVotes(peer);
+
+        m_spCommitted.SendVotes(peer);
+    }
+}
+
+void Node::Validator::SigsAndPower::SendVotes(Peer& peer) const
+{
+    proto::PbftVote msg;
+    msg.m_ID = m_hv;
+    for (auto it = m_Sigs.begin(); m_Sigs.end() != it; it++)
+    {
+        msg.m_Address = it->first;
+        msg.m_Signature = it->second;
+        peer.Send(msg);
     }
 }
 
@@ -5750,7 +5790,7 @@ void Node::Validator::Vote(bool bCommit)
     BEAM_LOG_INFO() << "pbft " << (bCommit ? " committed" : " pre-voted");
 
     proto::PbftVote msg;
-    msg.m_ID = bCommit ? m_hvCommit : m_hvPreVote;
+    msg.m_ID = sp.m_hv;
     msg.m_Address = m_Me.m_Addr;
     msg.m_Signature.Sign(msg.m_ID, m_Me.m_sk);
 
@@ -5761,6 +5801,9 @@ void Node::Validator::Vote(bool bCommit)
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
+    if (!m_pLeader)
+        return;
+
     if (!IsProposalRelevant(msg.m_Hdr))
         return; // irrelevant
 
@@ -5770,7 +5813,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
     // Check that proposal timestamp and dRound are consistent
     auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
     auto iSlot1 = T2S(msg.m_Hdr.m_TimeStamp);
-    if (iSlot1 <= iSlot1)
+    if (iSlot1 <= iSlot0)
         src.ThrowUnexpected("invalid proposal slot");
 
     uint32_t iProposedRound = CalculateRound(iSlot1, iSlot0);
@@ -5816,7 +5859,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
     SetProposalHashes(msg.m_Hdr);
 
-    if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_hvPreVote, msg.m_Signature))
+    if (!m_pLeader->m_Addr.m_Key.CheckSignature(m_spPreVoted.m_hv, msg.m_Signature))
         src.ThrowUnexpected("invalid proposal sig");
 
     if (!p.TestBlock(msg.m_Hdr, msg.m_Body))
@@ -5825,17 +5868,17 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
         src.ThrowUnexpected("invalid proposal");
     }
 
-    m_Proposal = std::move(m_Proposal);
+    m_Proposal = std::move(msg);
     OnProposalAccepted(&src);
 }
 
 void Node::Validator::SetProposalHashes(const Block::SystemState::Full& s)
 {
-    s.get_Hash(m_hvCommit);
+    s.get_Hash(m_spCommitted.m_hv);
     ECC::Hash::Processor()
         << "pbft.vote.1"
-        << m_hvCommit
-        >> m_hvPreVote;
+        << m_spCommitted.m_hv
+        >> m_spPreVoted.m_hv;
 }
 
 void Node::Validator::OnProposalAccepted(const Peer* pSrc)
@@ -5863,10 +5906,10 @@ void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
     if (!HaveProposal())
         return; // no proposal yet
 
-    bool bCommit = (msg.m_ID == m_hvCommit);
+    bool bCommit = (msg.m_ID == m_spCommitted.m_hv);
     if (!bCommit)
     {
-        if (msg.m_ID != m_hvPreVote)
+        if (msg.m_ID != m_spPreVoted.m_hv)
             return; // not a pre-vote either, irrelevant vote
 
         if (IsCommitted())
@@ -5886,7 +5929,7 @@ void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
     if (p.m_PbftState.m_mapVs.end() == itV)
         src.ThrowUnexpected("not a validator sig");
 
-    if (!msg.m_Address.CheckSignature(bCommit ? m_hvCommit : m_hvPreVote, msg.m_Signature))
+    if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
         src.ThrowUnexpected("invalid validator sig");
 
     // ok
@@ -5983,7 +6026,7 @@ void Node::Validator::OnQuorumReached()
 
     Block::SystemState::ID id;
     id.m_Height = m_Proposal.m_Hdr.m_Height;
-    id.m_Hash = m_hvCommit;
+    id.m_Hash = m_spCommitted.m_hv;
 
     eVal = p.OnBlock(id, m_Proposal.m_Body.m_Perishable, m_Proposal.m_Body.m_Eternal, Zero);
 
@@ -6008,8 +6051,11 @@ void Node::Validator::CreateProposal()
     auto& kdfDummy = *get_ParentObj().m_Keys.m_pGeneric;
 
     NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
-
+    bc.m_Hdr.m_TimeStamp = S2T(m_iSlot);
     bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+
+    auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+    d.m_dRound = m_iRoundCurrent;
 
     bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
@@ -6019,7 +6065,7 @@ void Node::Validator::CreateProposal()
         m_Proposal.m_Body = std::move(bc.m_Body);
 
         SetProposalHashes(m_Proposal.m_Hdr);
-        m_Proposal.m_Signature.Sign(m_hvPreVote, m_Me.m_sk);
+        m_Proposal.m_Signature.Sign(m_spPreVoted.m_hv, m_Me.m_sk);
 
         OnProposalAccepted(nullptr);
     }

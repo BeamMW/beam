@@ -655,6 +655,8 @@ private:
 		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
 		virtual void OnMsg(proto::SetDependentContext&&) override;
 		virtual void OnMsg(proto::GetAssetsListAt&&) override;
+		virtual void OnMsg(proto::PbftProposal&&) override;
+		virtual void OnMsg(proto::PbftVote&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -790,6 +792,7 @@ private:
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
 		void OnMsg(const proto::PbftVote&, const Peer&);
+		void SendRoundData(Peer&);
 
 		static uint64_t get_RefTime_ms();
 
@@ -799,21 +802,22 @@ private:
 		{
 			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
 			uint64_t m_wVoted;
+			Merkle::Hash m_hv;
 
 			void Reset();
 			void Add(const Block::Pbft::Validator&, const ECC::Signature&);
+
+			void SendVotes(Peer&) const;
 		};
 
 		uint32_t m_iRoundCurrent = static_cast<uint32_t>(-1);
 		uint32_t m_iRoundCommitted;
-		const Block::Pbft::Validator* m_pLeader;
+		uint64_t m_iSlot;
+
+		const Block::Pbft::Validator* m_pLeader = nullptr;
+		uint64_t m_wTotal;
 
 		proto::PbftProposal m_Proposal;
-
-		Merkle::Hash m_hvPreVote;
-		Merkle::Hash m_hvCommit;
-
-		uint64_t m_wTotal;
 
 		SigsAndPower m_spPreVoted;
 		SigsAndPower m_spCommitted;
