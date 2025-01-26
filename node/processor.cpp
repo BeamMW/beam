@@ -2994,7 +2994,7 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			if (nBytes0 < nSizeMetadata)
 				Exc::Fail();
 
-			// TODO: deserialize the metadata
+			// TODO: deserialize the metadata, check d.m_hvMetadata
 
 			auto nBytes1 = der.bytes_left();
 			if (nBytes0 - nBytes1 != nSizeMetadata)
@@ -7192,6 +7192,8 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
+		d.m_hvMetadata = Zero;
+		d.m_nSizeMetadata = Zero;
 
 		m_PbftState.m_Hash.Update();
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;

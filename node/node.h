@@ -824,6 +824,9 @@ private:
 		void SetProposalHashes(const Block::SystemState::Full&);
 		void OnProposalAccepted(const Peer*);
 		void CheckState();
+		bool IsProposalRelevant(const Block::SystemState::Full&) const;
+		bool HaveProposal() const;
+		bool IsCommitted() const;
 		void OnQuorumReached();
 		void Vote(bool bCommit);
 		void CreateProposal();
