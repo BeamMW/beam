@@ -55,14 +55,14 @@ void Node::RefreshCongestions()
 	for (TaskSet::iterator it = m_setTasks.begin(); m_setTasks.end() != it; ++it)
 		it->m_bNeeded = false;
 
-    m_Processor.EnumCongestions();
+	m_Processor.EnumCongestions();
 
-    for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
-    {
-        Task& t = *(it++);
-        if (!t.m_bNeeded)
-            DeleteUnassignedTask(t);
-    }
+	for (TaskList::iterator it = m_lstTasksUnassigned.begin(); m_lstTasksUnassigned.end() != it; )
+	{
+		Task& t = *(it++);
+		if (!t.m_bNeeded)
+			DeleteUnassignedTask(t);
+	}
 }
 
 void Node::UpdateSyncStatus()
@@ -85,7 +85,7 @@ void Node::UpdateSyncStatus()
 					peer.SendLogin();
 			}
 
-            m_Validator.OnNewState();
+			m_Validator.OnNewState();
 
 		}
 
@@ -174,152 +174,152 @@ void Node::UpdateSyncStatusRaw()
 
 void Node::DeleteUnassignedTask(Task& t)
 {
-    assert(!t.m_pOwner && !t.m_nCount);
-    m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
-    m_setTasks.erase(TaskSet::s_iterator_to(t));
-    delete &t;
+	assert(!t.m_pOwner && !t.m_nCount);
+	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
+	m_setTasks.erase(TaskSet::s_iterator_to(t));
+	delete &t;
 }
 
 uint32_t Node::WantedTx::get_Timeout_ms()
 {
-    return get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
+	return get_ParentObj().m_Cfg.m_Timeout.m_GetTx_ms;
 }
 
 void Node::WantedTx::OnExpired(const KeyType& key)
 {
-    proto::GetTransaction msg;
-    msg.m_ID = key;
+	proto::GetTransaction msg;
+	msg.m_ID = key;
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        if (peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
-            peer.Send(msg);
-    }
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		if (peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions)
+			peer.Send(msg);
+	}
 }
 
 void Node::Bbs::CalcMsgKey(NodeDB::WalkerBbs::Data& d)
 {
-    ECC::Hash::Processor()
-        << d.m_Message
-        << d.m_Channel
-        >> d.m_Key;
+	ECC::Hash::Processor()
+		<< d.m_Message
+		<< d.m_Channel
+		>> d.m_Key;
 }
 
 uint32_t Node::Bbs::WantedMsg::get_Timeout_ms()
 {
-    return get_ParentObj().get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
+	return get_ParentObj().get_ParentObj().m_Cfg.m_Timeout.m_GetBbsMsg_ms;
 }
 
 void Node::Bbs::WantedMsg::OnExpired(const KeyType& key)
 {
-    proto::BbsGetMsg msg;
-    msg.m_Key = key;
+	proto::BbsGetMsg msg;
+	msg.m_Key = key;
 
-    for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        if (peer.m_LoginFlags & proto::LoginFlags::Bbs)
-            peer.Send(msg);
-    }
+	for (PeerList::iterator it = get_ParentObj().get_ParentObj().m_lstPeers.begin(); get_ParentObj().get_ParentObj().m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		if (peer.m_LoginFlags & proto::LoginFlags::Bbs)
+			peer.Send(msg);
+	}
 
-    get_ParentObj().MaybeCleanup();
+	get_ParentObj().MaybeCleanup();
 }
 
 void Node::Wanted::Clear()
 {
-    while (!m_lst.empty())
-        DeleteInternal(m_lst.back());
+	while (!m_lst.empty())
+		DeleteInternal(m_lst.back());
 }
 
 void Node::Wanted::DeleteInternal(Item& n)
 {
-    m_lst.erase(List::s_iterator_to(n));
-    m_set.erase(Set::s_iterator_to(n));
-    delete &n;
+	m_lst.erase(List::s_iterator_to(n));
+	m_set.erase(Set::s_iterator_to(n));
+	delete &n;
 }
 
 void Node::Wanted::Delete(Item& n)
 {
-    bool bFront = (&m_lst.front() == &n);
-    DeleteInternal(n);
+	bool bFront = (&m_lst.front() == &n);
+	DeleteInternal(n);
 
-    if (bFront)
-        SetTimer();
+	if (bFront)
+		SetTimer();
 }
 
 bool Node::Wanted::Delete(const KeyType& key)
 {
-    Item n;
-    n.m_Key = key;
+	Item n;
+	n.m_Key = key;
 
-    Set::iterator it = m_set.find(n);
-    if (m_set.end() == it)
-        return false;
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() == it)
+		return false;
 
-    Delete(*it);
-    return true;
+	Delete(*it);
+	return true;
 }
 
 bool Node::Wanted::Add(const KeyType& key)
 {
-    Item n;
-    n.m_Key = key;
-    Set::iterator it = m_set.find(n);
-    if (m_set.end() != it)
-        return false; // already waiting for it
+	Item n;
+	n.m_Key = key;
+	Set::iterator it = m_set.find(n);
+	if (m_set.end() != it)
+		return false; // already waiting for it
 
-    bool bEmpty = m_lst.empty();
+	bool bEmpty = m_lst.empty();
 
-    Item* p = new Item;
-    p->m_Key = key;
-    p->m_Advertised_ms = GetTime_ms();
+	Item* p = new Item;
+	p->m_Key = key;
+	p->m_Advertised_ms = GetTime_ms();
 
-    m_set.insert(*p);
-    m_lst.push_back(*p);
+	m_set.insert(*p);
+	m_lst.push_back(*p);
 
-    if (bEmpty)
-        SetTimer();
+	if (bEmpty)
+		SetTimer();
 
-    return true;
+	return true;
 }
 
 void Node::Wanted::SetTimer()
 {
-    if (m_lst.empty())
-    {
-        if (m_pTimer)
-            m_pTimer->cancel();
-    }
-    else
-    {
-        if (!m_pTimer)
-            m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	if (m_lst.empty())
+	{
+		if (m_pTimer)
+			m_pTimer->cancel();
+	}
+	else
+	{
+		if (!m_pTimer)
+			m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
-        uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
-        const uint32_t timeout_ms = get_Timeout_ms();
+		uint32_t dt = GetTime_ms() - m_lst.front().m_Advertised_ms;
+		const uint32_t timeout_ms = get_Timeout_ms();
 
-        m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
-    }
+		m_pTimer->start((timeout_ms > dt) ? (timeout_ms - dt) : 0, false, [this]() { OnTimer(); });
+	}
 }
 
 void Node::Wanted::OnTimer()
 {
-    uint32_t t_ms = GetTime_ms();
-    const uint32_t timeout_ms = get_Timeout_ms();
+	uint32_t t_ms = GetTime_ms();
+	const uint32_t timeout_ms = get_Timeout_ms();
 
-    while (!m_lst.empty())
-    {
-        Item& n = m_lst.front();
-        if (t_ms - n.m_Advertised_ms < timeout_ms)
-        {
-            SetTimer();
-            break;
-        }
+	while (!m_lst.empty())
+	{
+		Item& n = m_lst.front();
+		if (t_ms - n.m_Advertised_ms < timeout_ms)
+		{
+			SetTimer();
+			break;
+		}
 
-        OnExpired(n.m_Key); // should not invalidate our structure
-        Delete(n); // will also reschedule the timer
-    }
+		OnExpired(n.m_Key); // should not invalidate our structure
+		Delete(n); // will also reschedule the timer
+	}
 }
 
 void Node::TryAssignTask(Task& t)
@@ -335,35 +335,35 @@ void Node::TryAssignTask(Task& t)
 
 bool Node::TryAssignTask(Task& t, Peer& p)
 {
-    if (!p.ShouldAssignTasks())
-        return false;
+	if (!p.ShouldAssignTasks())
+		return false;
 
-    if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
-        return false;
+	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
+		return false;
 
-    if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
-    {
-        if (t.m_Key.first.m_Height)
-        {
-            Merkle::Hash hv;
-            p.m_Tip.get_Hash(hv);
+	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
+	{
+		if (t.m_Key.first.m_Height)
+		{
+			Merkle::Hash hv;
+			p.m_Tip.get_Hash(hv);
 
-            if (hv != t.m_Key.first.m_Hash)
-                return false;
-        }
-        else
-        {
-            // treasury
-            if (!(Peer::Flags::HasTreasury & p.m_Flags))
-                return false;
-        }
-    }
+			if (hv != t.m_Key.first.m_Hash)
+				return false;
+		}
+		else
+		{
+			// treasury
+			if (!(Peer::Flags::HasTreasury & p.m_Flags))
+				return false;
+		}
+	}
 
-    if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
-        return false;
+	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
+		return false;
 
-    // check if the peer currently transfers a block
-    uint32_t nBlocks = 0;
+	// check if the peer currently transfers a block
+	uint32_t nBlocks = 0;
 	for (TaskList::iterator it = p.m_lstTasks.begin(); p.m_lstTasks.end() != it; ++it)
 	{
 		if (it->m_Key.second)
@@ -407,45 +407,45 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		t.m_nCount = std::min(static_cast<uint32_t>(msg.m_CountExtra), m_Cfg.m_BandwidthCtl.m_MaxBodyPackCount) + 1; // just an estimate, the actual num of blocks can be smaller
 		m_nTasksPackBody += t.m_nCount;
 
-        t.m_h0 = m_Processor.m_SyncData.m_h0;
-        t.m_hTxoLo = m_Processor.m_SyncData.m_TxoLo;
+		t.m_h0 = m_Processor.m_SyncData.m_h0;
+		t.m_hTxoLo = m_Processor.m_SyncData.m_TxoLo;
 	}
 	else
 	{
-        const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
+		const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
 		if (m_nTasksPackHdr >= nMaxHdrRequests)
 			return false; // too many hdrs requested
 
-        if (nBlocks)
-            return false; // don't requests headers from the peer that transfers a block
+		if (nBlocks)
+			return false; // don't requests headers from the peer that transfers a block
 
-        uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
+		uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
 
 		// try to avoid big overlaps when asking for headers, but also try to ask for as many headers as possible
-        // The best guess seems to be based on the diff between current height and target header (to either side)
-        // For big sync tasks (including deep reorgs) big packs are ok. 
+		// The best guess seems to be based on the diff between current height and target header (to either side)
+		// For big sync tasks (including deep reorgs) big packs are ok. 
 		Height h0 = m_Processor.m_Cursor.m_Full.m_Height;
-        Height dh = (t.m_Key.first.m_Height > h0) ? (t.m_Key.first.m_Height - h0) : (h0 - t.m_Key.first.m_Height);
+		Height dh = (t.m_Key.first.m_Height > h0) ? (t.m_Key.first.m_Height - h0) : (h0 - t.m_Key.first.m_Height);
 
-        if (nPackSize > dh)
-            nPackSize = dh ? (uint32_t) dh : 1;
+		if (nPackSize > dh)
+			nPackSize = dh ? (uint32_t) dh : 1;
 
-        proto::GetHdrPack msg;
-        msg.m_Top = t.m_Key.first;
-        msg.m_Count = nPackSize;
-        p.Send(msg);
+		proto::GetHdrPack msg;
+		msg.m_Top = t.m_Key.first;
+		msg.m_Count = nPackSize;
+		p.Send(msg);
 
-        t.m_nCount = nPackSize;
-        m_nTasksPackHdr += nPackSize;
-    }
+		t.m_nCount = nPackSize;
+		m_nTasksPackHdr += nPackSize;
+	}
 
-    bool bEmpty = p.m_lstTasks.empty();
+	bool bEmpty = p.m_lstTasks.empty();
 
-    assert(!t.m_pOwner);
-    t.m_pOwner = &p;
+	assert(!t.m_pOwner);
+	t.m_pOwner = &p;
 
-    m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
-    p.m_lstTasks.push_back(t);
+	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
+	p.m_lstTasks.push_back(t);
 
 	PeerManager::TimePoint tp;
 	m_PeerMan.m_LiveSet.erase(PeerMan::LiveSet::s_iterator_to(Cast::Up<PeerMan::PeerInfoPlus>(p.m_pInfo)->m_Live));
@@ -454,10 +454,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	t.m_TimeAssigned_ms = tp.get();
 
-    if (bEmpty)
-        p.SetTimerWrtFirstTask();
+	if (bEmpty)
+		p.SetTimerWrtFirstTask();
 
-    return true;
+	return true;
 }
 
 void Node::Peer::SetTimerWrtFirstTask()
@@ -485,25 +485,25 @@ void Node::Peer::SetTimerWrtFirstTask()
 void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock, const NodeDB::StateID& sidTrg)
 {
 	Node::Task tKey;
-    tKey.m_Key.first = id;
-    tKey.m_Key.second = bBlock;
+	tKey.m_Key.first = id;
+	tKey.m_Key.second = bBlock;
 
-    TaskSet::iterator it = get_ParentObj().m_setTasks.find(tKey);
-    if (get_ParentObj().m_setTasks.end() == it)
-    {
-        BEAM_LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
+	TaskSet::iterator it = get_ParentObj().m_setTasks.find(tKey);
+	if (get_ParentObj().m_setTasks.end() == it)
+	{
+		BEAM_LOG_INFO() << "Requesting " << (bBlock ? "block" : "header") << " " << id;
 
 		Node::Task* pTask = new Node::Task;
-        pTask->m_Key = tKey.m_Key;
-        pTask->m_sidTrg = sidTrg;
+		pTask->m_Key = tKey.m_Key;
+		pTask->m_sidTrg = sidTrg;
 		pTask->m_bNeeded = true;
-        pTask->m_nCount = 0;
-        pTask->m_pOwner = NULL;
+		pTask->m_nCount = 0;
+		pTask->m_pOwner = NULL;
 
-        get_ParentObj().m_setTasks.insert(*pTask);
-        get_ParentObj().m_lstTasksUnassigned.push_back(*pTask);
+		get_ParentObj().m_setTasks.insert(*pTask);
+		get_ParentObj().m_lstTasksUnassigned.push_back(*pTask);
 
-        get_ParentObj().TryAssignTask(*pTask);
+		get_ParentObj().TryAssignTask(*pTask);
 
 	}
 	else
@@ -523,171 +523,171 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 
 void Node::Processor::OnPeerInsane(const PeerID& peerID)
 {
-    // Deleting the insane peer in-place is dangerous, because we may be invoked in its context.
-    // Use "async-delete mechanism
-    if (!m_pAsyncPeerInsane)
-    {
-        io::AsyncEvent::Callback cb = [this]() { FlushInsanePeers(); };
-        m_pAsyncPeerInsane = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
-    }
+	// Deleting the insane peer in-place is dangerous, because we may be invoked in its context.
+	// Use "async-delete mechanism
+	if (!m_pAsyncPeerInsane)
+	{
+		io::AsyncEvent::Callback cb = [this]() { FlushInsanePeers(); };
+		m_pAsyncPeerInsane = io::AsyncEvent::create(io::Reactor::get_Current(), std::move(cb));
+	}
 
-    m_lstInsanePeers.push_back(peerID);
-    m_pAsyncPeerInsane->get_trigger()();
+	m_lstInsanePeers.push_back(peerID);
+	m_pAsyncPeerInsane->get_trigger()();
 }
 
 void Node::Processor::FlushInsanePeers()
 {
-    for (; !m_lstInsanePeers.empty(); m_lstInsanePeers.pop_front())
-    {
-        bool bCreate = false;
-        PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(m_lstInsanePeers.front(), bCreate));
+	for (; !m_lstInsanePeers.empty(); m_lstInsanePeers.pop_front())
+	{
+		bool bCreate = false;
+		PeerMan::PeerInfoPlus* pInfo = Cast::Up<PeerMan::PeerInfoPlus>(get_ParentObj().m_PeerMan.Find(m_lstInsanePeers.front(), bCreate));
 
-        if (pInfo)
-        {
-            Peer* pPeer = pInfo->m_Live.m_p;
-            if (pPeer)
-                pPeer->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
-            else
-                get_ParentObj().m_PeerMan.Ban(*pInfo);
+		if (pInfo)
+		{
+			Peer* pPeer = pInfo->m_Live.m_p;
+			if (pPeer)
+				pPeer->DeleteSelf(true, proto::NodeConnection::ByeReason::Ban);
+			else
+				get_ParentObj().m_PeerMan.Ban(*pInfo);
 
-        }
-    }
+		}
+	}
 }
 
 void Node::DeleteOutdated()
 {
-    Height h = m_Cfg.m_RollbackLimit.m_Max;
-    std::setmin(h, Rules::get().MaxRollback);
+	Height h = m_Cfg.m_RollbackLimit.m_Max;
+	std::setmin(h, Rules::get().MaxRollback);
 
-    if (m_Processor.m_Cursor.m_ID.m_Height > h)
-    {
-        h = m_Processor.m_Cursor.m_ID.m_Height - h;
+	if (m_Processor.m_Cursor.m_ID.m_Height > h)
+	{
+		h = m_Processor.m_Cursor.m_ID.m_Height - h;
 
-        while (!m_TxPool.m_lstOutdated.empty())
-        {
-            TxPool::Fluff::Element& x = m_TxPool.m_lstOutdated.front().get_ParentObj();
-            if (x.m_Hist.m_Height > h)
-                break;
+		while (!m_TxPool.m_lstOutdated.empty())
+		{
+			TxPool::Fluff::Element& x = m_TxPool.m_lstOutdated.front().get_ParentObj();
+			if (x.m_Hist.m_Height > h)
+				break;
 
-            m_TxPool.Delete(x);
-        }
-    }
+			m_TxPool.Delete(x);
+		}
+	}
 
 	for (TxPool::Fluff::ProfitSet::iterator it = m_TxPool.m_setProfit.begin(); m_TxPool.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
 		Transaction& tx = *x.m_pValue;
 
-        uint32_t nBvmCharge = 0;
-        if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr))
-        {
-            x.m_Hist.m_Height = m_Processor.m_Cursor.m_ID.m_Height;
-            m_TxPool.SetState(x, TxPool::Fluff::State::Outdated);
-        }
+		uint32_t nBvmCharge = 0;
+		if (proto::TxStatus::Ok != m_Processor.ValidateTxContextEx(tx, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr))
+		{
+			x.m_Hist.m_Height = m_Processor.m_Cursor.m_ID.m_Height;
+			m_TxPool.SetState(x, TxPool::Fluff::State::Outdated);
+		}
 	}
 
-    for (TxPool::Stem::TimeSet::iterator it = m_Dandelion.m_setTime.begin(); m_Dandelion.m_setTime.end() != it; )
-    {
-        TxPool::Stem::Element& x = (it++)->get_ParentObj();
+	for (TxPool::Stem::TimeSet::iterator it = m_Dandelion.m_setTime.begin(); m_Dandelion.m_setTime.end() != it; )
+	{
+		TxPool::Stem::Element& x = (it++)->get_ParentObj();
 
-        uint32_t nBvmCharge = 0;
-        uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
-        if (proto::TxStatus::Ok != nStatus)
-        {
-            LogTxStem(*x.m_pValue, "out-1");
-            m_Dandelion.Delete(x);
-        }
-    }
+		uint32_t nBvmCharge = 0;
+		uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
+		if (proto::TxStatus::Ok != nStatus)
+		{
+			LogTxStem(*x.m_pValue, "out-1");
+			m_Dandelion.Delete(x);
+		}
+	}
 
-    if (m_Processor.m_Cursor.m_ID.m_Height >= m_Cfg.m_Dandelion.m_dhStemConfirm)
-    {
-        h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
+	if (m_Processor.m_Cursor.m_ID.m_Height >= m_Cfg.m_Dandelion.m_dhStemConfirm)
+	{
+		h = m_Processor.m_Cursor.m_ID.m_Height - m_Cfg.m_Dandelion.m_dhStemConfirm;
 
-        while (!m_TxPool.m_lstWaitFluff.empty())
-        {
-            auto& c = m_TxPool.m_lstWaitFluff.front();
-            if (c.m_Height >= h)
-                break;
+		while (!m_TxPool.m_lstWaitFluff.empty())
+		{
+			auto& c = m_TxPool.m_lstWaitFluff.front();
+			if (c.m_Height >= h)
+				break;
 
-            auto& x = c.get_ParentObj();
+			auto& x = c.get_ParentObj();
 
-            uint32_t nBvmCharge = 0;
-            uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
-            if (proto::TxStatus::Ok == nStatus)
-            {
-                LogTxStem(*x.m_pValue, "auto-fluffing");
+			uint32_t nBvmCharge = 0;
+			uint8_t nStatus = m_Processor.ValidateTxContextEx(*x.m_pValue, x.m_Profit.m_Stats.m_Hr, true, nBvmCharge, nullptr, nullptr, nullptr);
+			if (proto::TxStatus::Ok == nStatus)
+			{
+				LogTxStem(*x.m_pValue, "auto-fluffing");
 
-                m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
-                OnTransactionFluff(x, nullptr);
-            }
-            else
-            {
-                LogTxStem(*x.m_pValue, "out-2");
-                m_TxPool.Delete(x);
-            }
-        }
-    }
+				m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
+				OnTransactionFluff(x, nullptr);
+			}
+			else
+			{
+				LogTxStem(*x.m_pValue, "out-2");
+				m_TxPool.Delete(x);
+			}
+		}
+	}
 }
 
 
 void Node::Processor::OnNewState()
 {
-    m_Cwp.Reset();
+	m_Cwp.Reset();
 
 	if (!IsTreasuryHandled())
-        return;
+		return;
 
-    BEAM_LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
+	BEAM_LOG_INFO() << "My Tip: " << m_Cursor.m_ID << ", Work = " << Difficulty::ToFloat(m_Cursor.m_Full.m_ChainWork);
 
 	if (IsFastSync())
 		return;
 
-    get_ParentObj().m_TxReject.clear();
-    get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
-    // because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
-    get_ParentObj().m_TxDependent.Clear();
+	get_ParentObj().m_TxReject.clear();
+	get_ParentObj().DeleteOutdated(); // Better to delete all irrelevant txs explicitly, even if the node is supposed to mine
+	// because in practice mining could be OFF (for instance, if miner key isn't defined, and owner wallet is offline).
+	get_ParentObj().m_TxDependent.Clear();
 
-    if (get_ParentObj().m_Miner.IsEnabled())
-    {
-        get_ParentObj().m_Miner.HardAbortSafe();
-        get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
-    }
+	if (get_ParentObj().m_Miner.IsEnabled())
+	{
+		get_ParentObj().m_Miner.HardAbortSafe();
+		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
+	}
 
-    proto::NewTip msg;
-    msg.m_Description = m_Cursor.m_Full;
+	proto::NewTip msg;
+	msg.m_Description = m_Cursor.m_Full;
 
-    // normally we send our tip only if it's ahead of peer's.
-    // In Pbft mode, however, it's important to send it always
-    bool bSendTipToActiveNodes =
-        get_ParentObj().m_PostStartSynced &&
-        !IsFastSync() &&
-        (Rules::Consensus::Pbft == Rules::get().m_Consensus);
+	// normally we send our tip only if it's ahead of peer's.
+	// In Pbft mode, however, it's important to send it always
+	bool bSendTipToActiveNodes =
+		get_ParentObj().m_PostStartSynced &&
+		!IsFastSync() &&
+		(Rules::Consensus::Pbft == Rules::get().m_Consensus);
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        if (!(Peer::Flags::Connected & peer.m_Flags))
-            continue;
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		if (!(Peer::Flags::Connected & peer.m_Flags))
+			continue;
 
-        bool bMustSendTip = (bSendTipToActiveNodes && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags));
-        if (!bMustSendTip)
-        {
-            if (msg.m_Description.m_Height >= Rules::HeightGenesis)
-            {
-                if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
-                    continue;
-            }
-            else
-            {
-                if (Peer::Flags::HasTreasury & peer.m_Flags)
-                    continue;
-            }
-        }
+		bool bMustSendTip = (bSendTipToActiveNodes && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags));
+		if (!bMustSendTip)
+		{
+			if (msg.m_Description.m_Height >= Rules::HeightGenesis)
+			{
+				if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+					continue;
+			}
+			else
+			{
+				if (Peer::Flags::HasTreasury & peer.m_Flags)
+					continue;
+			}
+		}
 
-        peer.Send(msg);
-    }
+		peer.Send(msg);
+	}
 
-    get_ParentObj().RefreshCongestions();
+	get_ParentObj().RefreshCongestions();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -695,26 +695,26 @@ void Node::Processor::OnNewState()
 
 	get_ParentObj().MaybeGenerateRecovery();
 
-    get_ParentObj().m_Validator.OnNewState();
+	get_ParentObj().m_Validator.OnNewState();
 }
 
 void Node::Processor::OnFastSyncSucceeded()
 {
-    if (m_vAccounts.empty())
-        return;
+	if (m_vAccounts.empty())
+		return;
 
-    for (auto& acc : m_vAccounts)
-    {
-        acc.m_hTxoHi = m_Extra.m_TxoHi;
-        get_DB().SetAccountTxoHi(acc);
-    }
+	for (auto& acc : m_vAccounts)
+	{
+		acc.m_hTxoHi = m_Extra.m_TxoHi;
+		get_DB().SetAccountTxoHi(acc);
+	}
 
-    for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        peer.m_Flags &= ~Peer::Flags::SerifSent;
-        peer.MaybeSendSerif();
-    }
+	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		peer.m_Flags &= ~Peer::Flags::SerifSent;
+		peer.MaybeSendSerif();
+	}
 }
 
 void Node::MaybeGenerateRecovery()
@@ -765,27 +765,27 @@ void Node::MaybeGenerateRecovery()
 
 void Node::Processor::OnRolledBack()
 {
-    BEAM_LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
+	BEAM_LOG_INFO() << "Rolled back to: " << m_Cursor.m_ID;
 
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
-    while (!txp.m_lstOutdated.empty())
-    {
-        TxPool::Fluff::Element& x = txp.m_lstOutdated.back().get_ParentObj();
-        if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
-            break;
+	while (!txp.m_lstOutdated.empty())
+	{
+		TxPool::Fluff::Element& x = txp.m_lstOutdated.back().get_ParentObj();
+		if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
+			break;
 
-        txp.SetState(x, TxPool::Fluff::State::Fluffed); // may be deferred by the next loop
-    }
+		txp.SetState(x, TxPool::Fluff::State::Fluffed); // may be deferred by the next loop
+	}
 
 	// Shielded txs that referenced shielded outputs which were reverted - must be reprocessed
 	for (TxPool::Fluff::ProfitSet::iterator it = txp.m_setProfit.begin(); txp.m_setProfit.end() != it; )
 	{
 		TxPool::Fluff::Element& x = (it++)->get_ParentObj();
-        if (!IsShieldedInPool(*x.m_pValue))
-        {
-            get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, nullptr, true);
-            get_ParentObj().m_TxPool.Delete(x);
-        }
+		if (!IsShieldedInPool(*x.m_pValue))
+		{
+			get_ParentObj().OnTransactionDeferred(std::move(x.m_pValue), nullptr, nullptr, true);
+			get_ParentObj().m_TxPool.Delete(x);
+		}
 	}
 
 	TxPool::Stem& txps = get_ParentObj().m_Dandelion;
@@ -796,16 +796,16 @@ void Node::Processor::OnRolledBack()
 			txps.Delete(x);
 	}
 
-    while (!txp.m_lstWaitFluff.empty())
-    {
-        TxPool::Fluff::Element& x = txp.m_lstWaitFluff.back().get_ParentObj();
-        if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
-            break;
+	while (!txp.m_lstWaitFluff.empty())
+	{
+		TxPool::Fluff::Element& x = txp.m_lstWaitFluff.back().get_ParentObj();
+		if (x.m_Hist.m_Height <= m_Cursor.m_ID.m_Height)
+			break;
 
-        txp.Delete(x); // never mind
-    }
+		txp.Delete(x); // never mind
+	}
 
-    get_ParentObj().m_TxDependent.Clear();
+	get_ParentObj().m_TxDependent.Clear();
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
@@ -814,24 +814,24 @@ void Node::Processor::OnRolledBack()
 
 void Node::Processor::MyExecutorMT::RunThread(uint32_t iThread)
 {
-    MyExecutor::MyContext ctx;
-    ctx.m_iThread = iThread;
-    ECC::InnerProduct::BatchContext::Scope scope(ctx.m_BatchCtx);
+	MyExecutor::MyContext ctx;
+	ctx.m_iThread = iThread;
+	ECC::InnerProduct::BatchContext::Scope scope(ctx.m_BatchCtx);
 
-    RunThreadCtx(ctx);
+	RunThreadCtx(ctx);
 }
 
 void Node::Processor::OnModified()
 {
-    if (!m_bFlushPending)
-    {
-        if (!m_pFlushTimer)
-            m_pFlushTimer = io::Timer::create(io::Reactor::get_Current());
+	if (!m_bFlushPending)
+	{
+		if (!m_pFlushTimer)
+			m_pFlushTimer = io::Timer::create(io::Reactor::get_Current());
 
-        m_pFlushTimer->start(50, false, [this]() { OnFlushTimer(); });
+		m_pFlushTimer->start(50, false, [this]() { OnFlushTimer(); });
 
-        m_bFlushPending = true;
-    }
+		m_bFlushPending = true;
+	}
 }
 
 void Node::Processor::TryGoUpAsync()
@@ -857,42 +857,42 @@ void Node::Processor::OnGoUpTimer()
 
 void Node::Processor::Stop()
 {
-    m_ExecutorMT.Stop();
-    m_bGoUpPending = false;
-    m_bFlushPending = false;
+	m_ExecutorMT.Stop();
+	m_bGoUpPending = false;
+	m_bFlushPending = false;
 
-    if (m_pGoUpTimer)
-    {
-        m_pGoUpTimer->cancel();
-    }
+	if (m_pGoUpTimer)
+	{
+		m_pGoUpTimer->cancel();
+	}
 
-    if (m_pFlushTimer)
-    {
-        m_pFlushTimer->cancel();
-    }
+	if (m_pFlushTimer)
+	{
+		m_pFlushTimer->cancel();
+	}
 }
 
 Height Node::Processor::get_MaxAutoRollback()
 {
-    Height h = NodeProcessor::get_MaxAutoRollback();
-    if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
-    {
-        Timestamp ts_s = getTimestamp();
-        if (ts_s < m_Cursor.m_Full.m_TimeStamp + get_ParentObj().m_Cfg.m_RollbackLimit.m_TimeoutSinceTip_s)
-            std::setmin(h, get_ParentObj().m_Cfg.m_RollbackLimit.m_Max);
-    }
-    return h;
+	Height h = NodeProcessor::get_MaxAutoRollback();
+	if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+	{
+		Timestamp ts_s = getTimestamp();
+		if (ts_s < m_Cursor.m_Full.m_TimeStamp + get_ParentObj().m_Cfg.m_RollbackLimit.m_TimeoutSinceTip_s)
+			std::setmin(h, get_ParentObj().m_Cfg.m_RollbackLimit.m_Max);
+	}
+	return h;
 }
 
 void Node::Processor::OnEvent(Height h, const proto::Event::Base& evt)
 {
 	if (get_ParentObj().m_Cfg.m_LogEvents)
 	{
-        std::ostringstream os;
-        os << "Event Height=" << h << ", ";
-        evt.Dump(os);
+		std::ostringstream os;
+		os << "Event Height=" << h << ", ";
+		evt.Dump(os);
 
-        BEAM_LOG_INFO() << os.str();
+		BEAM_LOG_INFO() << os.str();
 	}
 }
 
@@ -911,131 +911,131 @@ void Node::Processor::OnDummy(const CoinID& cid, Height)
 
 void Node::Processor::InitializeUtxosProgress(uint64_t done, uint64_t total)
 {
-    auto& node = get_ParentObj();
+	auto& node = get_ParentObj();
 
-    if (node.m_Cfg.m_Observer)
-        node.m_Cfg.m_Observer->InitializeUtxosProgress(done, total);   
+	if (node.m_Cfg.m_Observer)
+		node.m_Cfg.m_Observer->InitializeUtxosProgress(done, total);   
 }
 
 void Node::Processor::OnFlushTimer()
 {
-    m_bFlushPending = false;
-    CommitDB();
+	m_bFlushPending = false;
+	CommitDB();
 }
 
 void Node::Processor::FlushDB()
 {
-    if (m_bFlushPending)
-    {
-        assert(m_pFlushTimer);
-        m_pFlushTimer->cancel();
+	if (m_bFlushPending)
+	{
+		assert(m_pFlushTimer);
+		m_pFlushTimer->cancel();
 
-        OnFlushTimer();
-    }
+		OnFlushTimer();
+	}
 }
 
 void Node::Processor::OnInvalidBlock(const Block::SystemState::Full& s, const Block::Body& block)
 {
-    if (!get_ParentObj().m_Miner.IsEnabled())
-        return;
+	if (!get_ParentObj().m_Miner.IsEnabled())
+		return;
 
-    // format path
-    std::string sPath = get_ParentObj().m_Cfg.m_sPathLocal;
-    {
-        for (uint32_t i = (uint32_t) sPath.size(); ; )
-        {
-            if (!i--)
-            {
-                sPath.clear();
-                break;
-            }
+	// format path
+	std::string sPath = get_ParentObj().m_Cfg.m_sPathLocal;
+	{
+		for (uint32_t i = (uint32_t) sPath.size(); ; )
+		{
+			if (!i--)
+			{
+				sPath.clear();
+				break;
+			}
 
-            if (('/' == sPath[i]) || ('\\' == sPath[i]))
-            {
-                sPath.resize(i + 1);
-                break;
-            }
-        }
+			if (('/' == sPath[i]) || ('\\' == sPath[i]))
+			{
+				sPath.resize(i + 1);
+				break;
+			}
+		}
 
-        Merkle::Hash hv;
-        s.get_Hash(hv);
+		Merkle::Hash hv;
+		s.get_Hash(hv);
 
-        std::ostringstream os;
-        os << s.m_Height << '-' << hv << ".inv_block";
-        sPath += os.str();
-    }
+		std::ostringstream os;
+		os << s.m_Height << '-' << hv << ".inv_block";
+		sPath += os.str();
+	}
 
-    std::FStream fs;
-    if (fs.Open(sPath.c_str(), false))
-    {
-        Serializer ser;
-        ser & s;
-        ser & block;
+	std::FStream fs;
+	if (fs.Open(sPath.c_str(), false))
+	{
+		Serializer ser;
+		ser & s;
+		ser & block;
 
-        fs.write(ser.buffer().first, ser.buffer().second);
-    }
+		fs.write(ser.buffer().first, ser.buffer().second);
+	}
 }
 
 Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 {
-    Peer* pPeer = new Peer(*this);
-    m_lstPeers.push_back(*pPeer);
+	Peer* pPeer = new Peer(*this);
+	m_lstPeers.push_back(*pPeer);
 
 	pPeer->m_UnsentHiMark = m_Cfg.m_BandwidthCtl.m_Drown;
-    pPeer->m_pInfo = NULL;
-    pPeer->m_Flags = 0;
-    pPeer->m_Port = 0;
-    ZeroObject(pPeer->m_Tip);
-    pPeer->m_RemoteAddr = addr;
+	pPeer->m_pInfo = NULL;
+	pPeer->m_Flags = 0;
+	pPeer->m_Port = 0;
+	ZeroObject(pPeer->m_Tip);
+	pPeer->m_RemoteAddr = addr;
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
-    BEAM_LOG_VERBOSE() << "+Peer " << addr;
+	BEAM_LOG_VERBOSE() << "+Peer " << addr;
 
-    return pPeer;
+	return pPeer;
 }
 
 void Node::Keys::InitSingleKey(const ECC::uintBig& seed)
 {
-    Key::IKdf::Ptr pKdf;
-    ECC::HKdf::Create(pKdf, seed);
-    SetSingleKey(pKdf);
+	Key::IKdf::Ptr pKdf;
+	ECC::HKdf::Create(pKdf, seed);
+	SetSingleKey(pKdf);
 }
 
 void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 {
-    m_nMinerSubIndex = 0;
-    m_pMiner = pKdf;
-    m_pGeneric = pKdf;
-    m_pOwner = pKdf;
+	m_nMinerSubIndex = 0;
+	m_pMiner = pKdf;
+	m_pGeneric = pKdf;
+	m_pOwner = pKdf;
 
-    if (CoinID(Zero).get_ChildKdfIndex(m_nMinerSubIndex))
-        m_pMiner = MasterKey::get_Child(*pKdf, m_nMinerSubIndex);
+	if (CoinID(Zero).get_ChildKdfIndex(m_nMinerSubIndex))
+		m_pMiner = MasterKey::get_Child(*pKdf, m_nMinerSubIndex);
 }
 
 void Node::Initialize(IExternalPOW* externalPOW)
 {
-    if (m_Cfg.m_VerificationThreads < 0)
-        // use all the cores, don't subtract 'mining threads'. Verification has higher priority
-        m_Cfg.m_VerificationThreads = m_Processor.m_ExecutorMT.get_Threads();
+	if (m_Cfg.m_VerificationThreads < 0)
+		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
+		m_Cfg.m_VerificationThreads = m_Processor.m_ExecutorMT.get_Threads();
 
-    const auto& r = Rules::get();
-    if (Rules::Consensus::Pbft == r.m_Consensus)
-    {
-        if (m_Keys.m_pMiner)
-        {
-            m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
-            m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
-            BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
-        }
-        else
-            m_Validator.m_Me.m_Addr = Zero;
-    }
+	const auto& r = Rules::get();
+	if (Rules::Consensus::Pbft == r.m_Consensus)
+	{
+		if (m_Keys.m_pMiner)
+		{
+			m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
+			m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
+			BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
+		}
+		else
+			m_Validator.m_Me.m_Addr = Zero;
+	}
 
-    m_Processor.m_ExecutorMT.set_Threads(std::max<uint32_t>(m_Cfg.m_VerificationThreads, 1U));
+	m_Processor.m_ExecutorMT.set_Threads(std::max<uint32_t>(m_Cfg.m_VerificationThreads, 1U));
 
-    m_Processor.m_Horizon = m_Cfg.m_Horizon;
-    m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
+	m_Processor.m_Horizon = m_Cfg.m_Horizon;
+	m_Processor.Initialize(m_Cfg.m_sPathLocal.c_str(), m_Cfg.m_ProcessorParams, m_Cfg.m_Observer ? m_Cfg.m_Observer->GetLongActionHandler() : nullptr);
 
 	if (m_Cfg.m_ProcessorParams.m_EraseSelfID)
 	{
@@ -1046,11 +1046,11 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		return;
 	}
 
-    InitKeys();
-    InitIDs();
+	InitKeys();
+	InitIDs();
 
-    BEAM_LOG_INFO() << "Node ID=" << m_MyPublicID;
-    BEAM_LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
+	BEAM_LOG_INFO() << "Node ID=" << m_MyPublicID;
+	BEAM_LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_ID;
 	BEAM_LOG_INFO() << "Tx replication is OFF";
 
 	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {
@@ -1058,27 +1058,27 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		m_Processor.OnTreasury(Blob(m_Cfg.m_Treasury));
 	}
 
-    RefreshAccounts();
+	RefreshAccounts();
 
 	ZeroObject(m_SyncStatus);
-    RefreshCongestions();
+	RefreshCongestions();
 
-    if (m_Cfg.m_Listen.port())
-    {
-        m_Server.Listen(m_Cfg.m_Listen);
-        if (m_Cfg.m_BeaconPeriod_ms)
-            m_Beacon.Start();
-    }
+	if (m_Cfg.m_Listen.port())
+	{
+		m_Server.Listen(m_Cfg.m_Listen);
+		if (m_Cfg.m_BeaconPeriod_ms)
+			m_Beacon.Start();
+	}
 
-    m_PeerMan.Initialize();
-    m_Miner.Initialize(externalPOW);
-    m_Validator.OnNewState();
+	m_PeerMan.Initialize();
+	m_Miner.Initialize(externalPOW);
+	m_Validator.OnNewState();
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
-    m_Bbs.Cleanup();
+	m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
-    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == r.m_Consensus))
-        m_PostStartSynced = true;
+	if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == r.m_Consensus))
+		m_PostStartSynced = true;
 }
 
 uint32_t Node::get_AcessiblePeerCount() const
@@ -1088,7 +1088,7 @@ uint32_t Node::get_AcessiblePeerCount() const
 
 const PeerManager::AddrSet& Node::get_AcessiblePeerAddrs() const
 {
-    return m_PeerMan.get_Addrs();
+	return m_PeerMan.get_Addrs();
 }
 
 void Node::InitKeys()
@@ -1106,281 +1106,281 @@ void Node::InitKeys()
 		}
 	}
 	else
-        m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
+		m_Keys.m_pMiner = nullptr; // can't mine without owner view key, because it's used for Tagging
 
-    if (!m_Keys.m_pGeneric)
-    {
-        if (m_Keys.m_pMiner)
-            m_Keys.m_pGeneric = m_Keys.m_pMiner;
-        else
-        {
-            // use arbitrary, inited from system random. Needed for misc things, such as secure channel, decoys and etc.
-            ECC::NoLeak<ECC::uintBig> seed;
-            ECC::GenRandom(seed.V);
-            ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
-        }
-    }
+	if (!m_Keys.m_pGeneric)
+	{
+		if (m_Keys.m_pMiner)
+			m_Keys.m_pGeneric = m_Keys.m_pMiner;
+		else
+		{
+			// use arbitrary, inited from system random. Needed for misc things, such as secure channel, decoys and etc.
+			ECC::NoLeak<ECC::uintBig> seed;
+			ECC::GenRandom(seed.V);
+			ECC::HKdf::Create(m_Keys.m_pGeneric, seed.V);
+		}
+	}
 }
 
 void Node::InitIDs()
 {
-    ECC::GenRandom(m_NonceLast.V);
+	ECC::GenRandom(m_NonceLast.V);
 
-    ECC::NoLeak<ECC::Scalar> s;
-    Blob blob(s.V.m_Value);
-    bool bNewID =
+	ECC::NoLeak<ECC::Scalar> s;
+	Blob blob(s.V.m_Value);
+	bool bNewID =
 		m_Cfg.m_ProcessorParams.m_ResetSelfID ||
 		!m_Processor.get_DB().ParamGet(NodeDB::ParamID::MyID, NULL, &blob);
 
-    if (bNewID)
-    {
-        NextNonce(m_MyPrivateID);
-        s.V = m_MyPrivateID;
-        m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
-    }
-    else
-        m_MyPrivateID = s.V;
+	if (bNewID)
+	{
+		NextNonce(m_MyPrivateID);
+		s.V = m_MyPrivateID;
+		m_Processor.get_DB().ParamSet(NodeDB::ParamID::MyID, NULL, &blob);
+	}
+	else
+		m_MyPrivateID = s.V;
 
-    m_MyPublicID.FromSk(m_MyPrivateID);
+	m_MyPublicID.FromSk(m_MyPrivateID);
 }
 
 struct Node::AccountRefreshCtx
 {
-    AccountRefreshCtx(Node& n) :m_This(n) {}
+	AccountRefreshCtx(Node& n) :m_This(n) {}
 
-    Node& m_This;
-    std::map<Merkle::Hash, size_t> m_Map;
+	Node& m_This;
+	std::map<Merkle::Hash, size_t> m_Map;
 
-    BlobEncoder m_Coder;
+	BlobEncoder m_Coder;
 
-    void AddAccount(const Key::IPKdf::Ptr&, Key::IPKdf*);
-    void InsertAccount(const NodeProcessor::Account&);
+	void AddAccount(const Key::IPKdf::Ptr&, Key::IPKdf*);
+	void InsertAccount(const NodeProcessor::Account&);
 
-    void get_AccountOwnerID(Merkle::Hash&, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
+	void get_AccountOwnerID(Merkle::Hash&, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner);
 };
 
 void Node::AccountRefreshCtx::get_AccountOwnerID(Merkle::Hash& hv, const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
-    ECC::Hash::Processor hp;
-    hp << uint32_t(4); // change this whenever we change the format of the saved events
+	ECC::Hash::Processor hp;
+	hp << uint32_t(4); // change this whenever we change the format of the saved events
 
-    ECC::Hash::Value hv1(Zero);
+	ECC::Hash::Value hv1(Zero);
 
-    ECC::Scalar::Native sk;
-    pOwner->DerivePKey(sk, hv1);
-    hp << sk;
+	ECC::Scalar::Native sk;
+	pOwner->DerivePKey(sk, hv1);
+	hp << sk;
 
-    if (pMiner)
-    {
-        // rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
-        pMiner->DerivePKey(sk, hv1);
-        hp
-            << m_This.m_Keys.m_nMinerSubIndex
-            << sk;
-    }
+	if (pMiner)
+	{
+		// rescan also when miner subkey changes, to recover possible decoys that were rejected earlier
+		pMiner->DerivePKey(sk, hv1);
+		hp
+			<< m_This.m_Keys.m_nMinerSubIndex
+			<< sk;
+	}
 
-    hp >> hv;
+	hp >> hv;
 }
 
 
 void Node::AccountRefreshCtx::AddAccount(const Key::IPKdf::Ptr& pOwner, Key::IPKdf* pMiner)
 {
-    auto& accs = m_This.m_Processor.m_vAccounts; // alias
+	auto& accs = m_This.m_Processor.m_vAccounts; // alias
 
-    // check if this account already exists
-    if (!m_Map.empty())
-    {
-        Merkle::Hash hv;
-        get_AccountOwnerID(hv, pOwner, pMiner);
+	// check if this account already exists
+	if (!m_Map.empty())
+	{
+		Merkle::Hash hv;
+		get_AccountOwnerID(hv, pOwner, pMiner);
 
-        auto it = m_Map.find(hv);
-        if (m_Map.end() != it)
-        {
-            // found!
-            auto& acc = accs[it->second];
-            m_Map.erase(it);
+		auto it = m_Map.find(hv);
+		if (m_Map.end() != it)
+		{
+			// found!
+			auto& acc = accs[it->second];
+			m_Map.erase(it);
 
-            acc.m_pOwner = pOwner;
+			acc.m_pOwner = pOwner;
 
-            // save the owner key in DB
-            m_This.m_Processor.get_DB().DeleteAccountOnly(acc.m_iAccount);
-            InsertAccount(acc);
+			// save the owner key in DB
+			m_This.m_Processor.get_DB().DeleteAccountOnly(acc.m_iAccount);
+			InsertAccount(acc);
 
-            return;
-        }
-    }
+			return;
+		}
+	}
 
-    NodeDB::AccountIndex iAccount = 1;
+	NodeDB::AccountIndex iAccount = 1;
 
-    for (auto& d : accs)
-    {
-        if (d.m_pOwner && d.m_pOwner->IsSame(*pOwner))
-        {
-            d.m_pOwner = pOwner; // prefer this instance
-            return;
-        }
+	for (auto& d : accs)
+	{
+		if (d.m_pOwner && d.m_pOwner->IsSame(*pOwner))
+		{
+			d.m_pOwner = pOwner; // prefer this instance
+			return;
+		}
 
-        if (iAccount == d.m_iAccount)
-            iAccount = d.m_iAccount + 1;
-    }
+		if (iAccount == d.m_iAccount)
+			iAccount = d.m_iAccount + 1;
+	}
 
-    // new account
-    auto& acc = accs.emplace_back();
+	// new account
+	auto& acc = accs.emplace_back();
 
-    acc.m_iAccount = iAccount;
-    acc.m_hTxoHi = m_This.m_Processor.m_Extra.m_TxoHi;
-    acc.m_Serif = m_This.NextNonce();
+	acc.m_iAccount = iAccount;
+	acc.m_hTxoHi = m_This.m_Processor.m_Extra.m_TxoHi;
+	acc.m_Serif = m_This.NextNonce();
 
-    acc.m_pOwner = pOwner;
-    InsertAccount(acc);
+	acc.m_pOwner = pOwner;
+	InsertAccount(acc);
 }
 
 void Node::AccountRefreshCtx::InsertAccount(const NodeProcessor::Account& acc)
 {
-    assert(acc.m_pOwner);
-    ByteBuffer buf;
-    buf.resize(acc.m_pOwner->ExportP(nullptr));
+	assert(acc.m_pOwner);
+	ByteBuffer buf;
+	buf.resize(acc.m_pOwner->ExportP(nullptr));
 
-    if (!buf.empty())
-    {
-        acc.m_pOwner->ExportP(&buf.front());
-        m_Coder.Encrypt(buf);
-    }
+	if (!buf.empty())
+	{
+		acc.m_pOwner->ExportP(&buf.front());
+		m_Coder.Encrypt(buf);
+	}
 
 
-    NodeDB::WalkerAccount::DataPlus d;
-    Cast::Down<NodeDB::WalkerAccount::Data>(d) = acc;
-    d.m_Owner = buf;
+	NodeDB::WalkerAccount::DataPlus d;
+	Cast::Down<NodeDB::WalkerAccount::Data>(d) = acc;
+	d.m_Owner = buf;
 
-    m_This.m_Processor.get_DB().InsertAccount(d);
+	m_This.m_Processor.get_DB().InsertAccount(d);
 }
 
 void Node::RefreshAccounts()
 {
-    auto& accs = m_Processor.m_vAccounts;
-    assert(accs.empty());
+	auto& accs = m_Processor.m_vAccounts;
+	assert(accs.empty());
 
-    AccountRefreshCtx arc(*this);
-    Cast::Reinterpret<ECC::Scalar>(arc.m_Coder.m_hvSecret.V) = m_MyPrivateID;
+	AccountRefreshCtx arc(*this);
+	Cast::Reinterpret<ECC::Scalar>(arc.m_Coder.m_hvSecret.V) = m_MyPrivateID;
 
-    // Current accounts
-    {
-        NodeDB::WalkerAccount wlk;
-        for (m_Processor.get_DB().EnumAccounts(wlk); wlk.MoveNext(); )
-        {
-            auto& acc = accs.emplace_back();
-            Cast::Down<NodeDB::WalkerAccount::Data>(acc) = wlk.m_Data;
+	// Current accounts
+	{
+		NodeDB::WalkerAccount wlk;
+		for (m_Processor.get_DB().EnumAccounts(wlk); wlk.MoveNext(); )
+		{
+			auto& acc = accs.emplace_back();
+			Cast::Down<NodeDB::WalkerAccount::Data>(acc) = wlk.m_Data;
 
-            static_assert(sizeof(Merkle::Hash) < sizeof(ECC::HKdfPub::Packed), "");
+			static_assert(sizeof(Merkle::Hash) < sizeof(ECC::HKdfPub::Packed), "");
 
-            auto& key = wlk.m_Data.m_Owner; // alias
+			auto& key = wlk.m_Data.m_Owner; // alias
 
-            if (sizeof(Merkle::Hash) == key.n)
-            {
-                // older-format account. Would be upgraded on 1st run
-                const auto& hv = *reinterpret_cast<const Merkle::Hash*>(key.p);
-                arc.m_Map[hv] = accs.size() - 1;
-            }
-            else
-            {
-                if (arc.m_Coder.Decrypt(key) && (sizeof(ECC::HKdfPub::Packed) == key.n))
-                {
-                    const auto& p = *reinterpret_cast<const ECC::HKdfPub::Packed*>(key.p);
+			if (sizeof(Merkle::Hash) == key.n)
+			{
+				// older-format account. Would be upgraded on 1st run
+				const auto& hv = *reinterpret_cast<const Merkle::Hash*>(key.p);
+				arc.m_Map[hv] = accs.size() - 1;
+			}
+			else
+			{
+				if (arc.m_Coder.Decrypt(key) && (sizeof(ECC::HKdfPub::Packed) == key.n))
+				{
+					const auto& p = *reinterpret_cast<const ECC::HKdfPub::Packed*>(key.p);
 
-                    auto pPKdf = std::make_shared<ECC::HKdfPub>();
-                    if (pPKdf->Import(p))
-                        acc.m_pOwner = std::move(pPKdf); // loaded ok
+					auto pPKdf = std::make_shared<ECC::HKdfPub>();
+					if (pPKdf->Import(p))
+						acc.m_pOwner = std::move(pPKdf); // loaded ok
 
-                    ECC::SecureErase(Cast::NotConst(key.p), key.n);
-                }
-            }
-        }
-    }
+					ECC::SecureErase(Cast::NotConst(key.p), key.n);
+				}
+			}
+		}
+	}
 
-    uint32_t nAdd = static_cast<uint32_t>(accs.size());
+	uint32_t nAdd = static_cast<uint32_t>(accs.size());
 
-    if (m_Keys.m_pOwner)
-        arc.AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
+	if (m_Keys.m_pOwner)
+		arc.AddAccount(m_Keys.m_pOwner, m_Keys.m_pMiner.get());
 
-    for (const auto& pExtra : m_Keys.m_Accounts.m_vAdd)
-        arc.AddAccount(pExtra, nullptr);
+	for (const auto& pExtra : m_Keys.m_Accounts.m_vAdd)
+		arc.AddAccount(pExtra, nullptr);
 
-    nAdd = static_cast<uint32_t>(accs.size()) - nAdd; // how many new added
+	nAdd = static_cast<uint32_t>(accs.size()) - nAdd; // how many new added
 
-    uint32_t nDel = 0;
-    for (auto& acc : accs)
-    {
-        // filter-out those to be deleted.
-        // Never delete the current owner account
-        if (acc.m_pOwner && acc.m_pOwner.get() != m_Keys.m_pOwner.get())
-        {
-            bool bDelete = m_Keys.m_Accounts.m_Del.m_All;
-            if (!bDelete && !m_Keys.m_Accounts.m_Del.m_Eps.empty())
-            {
-                auto it = m_Keys.m_Accounts.m_Del.m_Eps.find(acc.get_Endpoint());
-                if (m_Keys.m_Accounts.m_Del.m_Eps.end() != it)
-                {
-                    m_Keys.m_Accounts.m_Del.m_Eps.erase(it);
-                    bDelete = true;
-                }
-            }
+	uint32_t nDel = 0;
+	for (auto& acc : accs)
+	{
+		// filter-out those to be deleted.
+		// Never delete the current owner account
+		if (acc.m_pOwner && acc.m_pOwner.get() != m_Keys.m_pOwner.get())
+		{
+			bool bDelete = m_Keys.m_Accounts.m_Del.m_All;
+			if (!bDelete && !m_Keys.m_Accounts.m_Del.m_Eps.empty())
+			{
+				auto it = m_Keys.m_Accounts.m_Del.m_Eps.find(acc.get_Endpoint());
+				if (m_Keys.m_Accounts.m_Del.m_Eps.end() != it)
+				{
+					m_Keys.m_Accounts.m_Del.m_Eps.erase(it);
+					bDelete = true;
+				}
+			}
 
-            if (bDelete)
-                acc.m_pOwner.reset();
-        }
+			if (bDelete)
+				acc.m_pOwner.reset();
+		}
 
-        if (acc.m_pOwner)
-            acc.InitFromOwner();
-        else
-            nDel++;
-    }
-    // delete unused accounts
-    if (nDel)
-    {
-        assert(nDel <= accs.size());
-        BEAM_LOG_INFO() << "Owned accounts removed: " << nDel;
+		if (acc.m_pOwner)
+			acc.InitFromOwner();
+		else
+			nDel++;
+	}
+	// delete unused accounts
+	if (nDel)
+	{
+		assert(nDel <= accs.size());
+		BEAM_LOG_INFO() << "Owned accounts removed: " << nDel;
 
-        size_t iDst = 0;
-        for (size_t iSrc = 0; iSrc < accs.size(); iSrc++)
-        {
-            auto& acc = accs[iSrc];
-            if (acc.m_pOwner)
-            {
-                if (iDst != iSrc)
-                    accs[iDst] = std::move(acc);
-                iDst++;
-            }
-            else
-                m_Processor.get_DB().DeleteAccountWithEvents(acc.m_iAccount);
-        }
+		size_t iDst = 0;
+		for (size_t iSrc = 0; iSrc < accs.size(); iSrc++)
+		{
+			auto& acc = accs[iSrc];
+			if (acc.m_pOwner)
+			{
+				if (iDst != iSrc)
+					accs[iDst] = std::move(acc);
+				iDst++;
+			}
+			else
+				m_Processor.get_DB().DeleteAccountWithEvents(acc.m_iAccount);
+		}
 
-        assert(iDst + nDel == accs.size());
-        accs.resize(iDst);
-    }
+		assert(iDst + nDel == accs.size());
+		accs.resize(iDst);
+	}
 
-    if (nAdd)
-    {
-        assert(nAdd <= accs.size());
-        BEAM_LOG_INFO() << "Owned accounts added: " << nAdd;
+	if (nAdd)
+	{
+		assert(nAdd <= accs.size());
+		BEAM_LOG_INFO() << "Owned accounts added: " << nAdd;
 
-        try
-        {
-            m_Processor.RescanAccounts(nAdd);
-        }
-        catch (const std::runtime_error&)
-        {
-            m_Processor.RollbackDB();
-            throw;
-        }
-    }
+		try
+		{
+			m_Processor.RescanAccounts(nAdd);
+		}
+		catch (const std::runtime_error&)
+		{
+			m_Processor.RollbackDB();
+			throw;
+		}
+	}
 
-    std::ostringstream os;
-    os << "Owned accounts :" << std::endl;
+	std::ostringstream os;
+	os << "Owned accounts :" << std::endl;
 
-    for (const auto& acc : accs)
-        os << '\t' << acc.get_Endpoint() << std::endl;
+	for (const auto& acc : accs)
+		os << '\t' << acc.get_Endpoint() << std::endl;
 
-    BEAM_LOG_INFO() << os.str();
+	BEAM_LOG_INFO() << os.str();
 }
 
 bool Node::Bbs::IsInLimits() const
@@ -1425,40 +1425,40 @@ void Node::Bbs::MaybeCleanup()
 
 Node::~Node()
 {
-    BEAM_LOG_INFO() << "Node stopping...";
+	BEAM_LOG_INFO() << "Node stopping...";
 
-    m_Miner.HardAbortSafe();
+	m_Miner.HardAbortSafe();
 	if (m_Miner.m_External.m_pSolver)
 		m_Miner.m_External.m_pSolver->stop();
 
-    for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
-    {
-        PerThread& pt = m_Miner.m_vThreads[i];
-        if (pt.m_pReactor)
-            pt.m_pReactor->stop();
+	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
+	{
+		PerThread& pt = m_Miner.m_vThreads[i];
+		if (pt.m_pReactor)
+			pt.m_pReactor->stop();
 
-        if (pt.m_Thread.joinable())
-            pt.m_Thread.join();
-    }
-    m_Miner.m_vThreads.clear();
+		if (pt.m_Thread.joinable())
+			pt.m_Thread.join();
+	}
+	m_Miner.m_vThreads.clear();
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
-        it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
+		it->m_LoginFlags = 0; // prevent re-assigning of tasks in the next loop
 
-    while (!m_lstPeers.empty())
-        m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
+	while (!m_lstPeers.empty())
+		m_lstPeers.front().DeleteSelf(false, proto::NodeConnection::ByeReason::Stopping);
 
-    while (!m_lstTasksUnassigned.empty())
-        DeleteUnassignedTask(m_lstTasksUnassigned.front());
+	while (!m_lstTasksUnassigned.empty())
+		DeleteUnassignedTask(m_lstTasksUnassigned.front());
 
-    assert(m_setTasks.empty());
+	assert(m_setTasks.empty());
 
 	m_Processor.Stop();
 
 	if (!std::uncaught_exceptions() && m_Processor.get_DB().IsOpen())
 		m_PeerMan.OnFlush();
 
-    BEAM_LOG_INFO() << "Node stopped";
+	BEAM_LOG_INFO() << "Node stopped";
 }
 
 void Node::Peer::OnRequestTimeout()
@@ -1471,20 +1471,20 @@ void Node::Peer::OnRequestTimeout()
 	if (m_pInfo)
 		ModifyRatingWrtData(0); // task (request) wasn't handled in time.
 
-    DeleteSelf(false, ByeReason::Timeout);
+	DeleteSelf(false, ByeReason::Timeout);
 }
 
 void Node::Peer::OnResendPeers()
 {
-    PeerMan& pm = m_This.m_PeerMan;
-    const PeerMan::RawRatingSet& rs = pm.get_Ratings();
-    uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
+	PeerMan& pm = m_This.m_PeerMan;
+	const PeerMan::RawRatingSet& rs = pm.get_Ratings();
+	uint32_t nRemaining = pm.m_Cfg.m_DesiredHighest;
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); ++it)
-    {
-        const PeerMan::PeerInfo& pi = it->get_ParentObj();
-        if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
-            continue; // skip
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); nRemaining && (rs.end() != it); ++it)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
+		if ((Flags::PiRcvd & m_Flags) && (&pi == m_pInfo))
+			continue; // skip
 
 		if (!pi.m_RawRating.m_Value)
 			continue; // banned
@@ -1495,53 +1495,53 @@ void Node::Peer::OnResendPeers()
 		if (pi.m_Addr.m_Value.empty())
 			continue; // address unknown, can't recommend
 
-        proto::PeerInfo msg;
-        msg.m_ID = pi.m_ID.m_Key;
-        msg.m_LastAddr = pi.m_Addr.m_Value;
-        Send(msg);
+		proto::PeerInfo msg;
+		msg.m_ID = pi.m_ID.m_Key;
+		msg.m_LastAddr = pi.m_Addr.m_Value;
+		Send(msg);
 
 		nRemaining--;
-    }
+	}
 }
 
 void Node::Peer::GenerateSChannelNonce(ECC::Scalar::Native& nonce)
 {
-    m_This.NextNonce(nonce);
+	m_This.NextNonce(nonce);
 }
 
 void Node::Peer::OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut)
 {
-    if (m_This.m_Cfg.m_LogTraficUsage)
-        std::cout << "** " << (bOut ? "<-" : "->") << " " << m_RemoteAddr << " Size=" << msgSize << ", Msg=" << static_cast<uint32_t>(msgCode) << '\n';
+	if (m_This.m_Cfg.m_LogTraficUsage)
+		std::cout << "** " << (bOut ? "<-" : "->") << " " << m_RemoteAddr << " Size=" << msgSize << ", Msg=" << static_cast<uint32_t>(msgCode) << '\n';
 }
 
 void Node::Peer::OnConnectedSecure()
 {
-    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
+	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
 
-    m_Flags |= Flags::Connected;
+	m_Flags |= Flags::Connected;
 
-    if (!(Flags::Accepted & m_Flags) && m_This.m_Cfg.m_Listen.port())
-    {
-        // we've connected to the peer, let it now know our port
-        proto::PeerInfoSelf msgPi;
-        msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
-        Send(msgPi);
-    }
+	if (!(Flags::Accepted & m_Flags) && m_This.m_Cfg.m_Listen.port())
+	{
+		// we've connected to the peer, let it now know our port
+		proto::PeerInfoSelf msgPi;
+		msgPi.m_Port = m_This.m_Cfg.m_Listen.port();
+		Send(msgPi);
+	}
 
-    if (Flags::Probe & m_Flags)
-        return; // just wait for peer to send its ID
+	if (Flags::Probe & m_Flags)
+		return; // just wait for peer to send its ID
 
-    ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
+	ProveID(m_This.m_MyPrivateID, proto::IDType::Node);
 
 	SendLogin();
 
-    if (m_This.m_Processor.IsTreasuryHandled() && !m_This.m_Processor.IsFastSync())
-    {
-        proto::NewTip msg;
-        msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
-        Send(msg);
-    }
+	if (m_This.m_Processor.IsTreasuryHandled() && !m_This.m_Processor.IsFastSync())
+	{
+		proto::NewTip msg;
+		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
+		Send(msg);
+	}
 }
 
 void Node::Peer::SetupLogin(proto::Login& msg)
@@ -1562,301 +1562,301 @@ Height Node::Peer::get_MinPeerFork()
 
 void Node::Peer::OnMsg(proto::Authentication&& msg)
 {
-    proto::NodeConnection::OnMsg(std::move(msg));
-    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+	proto::NodeConnection::OnMsg(std::move(msg));
+	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
 
-    if (proto::IDType::Owner == msg.m_IDType)
-    {
-        bool b = ShouldFinalizeMining();
+	if (proto::IDType::Owner == msg.m_IDType)
+	{
+		bool b = ShouldFinalizeMining();
 
-        for (const auto& acc : m_This.m_Processor.m_vAccounts)
-        {
-            if (IsKdfObscured(*acc.m_pOwner, msg.m_ID))
-            {
-                m_Flags |= Flags::Owner | Flags::Viewer;
-                m_pAccount = &acc;
-                ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
-                break;
-            }
-        }
+		for (const auto& acc : m_This.m_Processor.m_vAccounts)
+		{
+			if (IsKdfObscured(*acc.m_pOwner, msg.m_ID))
+			{
+				m_Flags |= Flags::Owner | Flags::Viewer;
+				m_pAccount = &acc;
+				ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
+				break;
+			}
+		}
 
-        if (!b && ShouldFinalizeMining())
-            m_This.m_Miner.OnFinalizerChanged(this);
-    }
+		if (!b && ShouldFinalizeMining())
+			m_This.m_Miner.OnFinalizerChanged(this);
+	}
 
 	if (proto::IDType::Viewer == msg.m_IDType)
 	{
-        for (const auto& acc : m_This.m_Processor.m_vAccounts)
-        {
-            if (IsPKdfObscured(*acc.m_pOwner, msg.m_ID))
-            {
-                m_Flags |= Flags::Viewer;
-                m_pAccount = &acc;
-                ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
-            }
-        }
+		for (const auto& acc : m_This.m_Processor.m_vAccounts)
+		{
+			if (IsPKdfObscured(*acc.m_pOwner, msg.m_ID))
+			{
+				m_Flags |= Flags::Viewer;
+				m_pAccount = &acc;
+				ProvePKdfObscured(*acc.m_pOwner, proto::IDType::Viewer);
+			}
+		}
 	}
 
-    MaybeSendSerif();
+	MaybeSendSerif();
 
-    if (proto::IDType::Node != msg.m_IDType)
-        return;
+	if (proto::IDType::Node != msg.m_IDType)
+		return;
 
-    if ((Flags::PiRcvd & m_Flags) || (msg.m_ID == Zero))
-        ThrowUnexpected();
+	if ((Flags::PiRcvd & m_Flags) || (msg.m_ID == Zero))
+		ThrowUnexpected();
 
-    m_Flags |= Flags::PiRcvd;
-    BEAM_LOG_VERBOSE() << m_RemoteAddr << " received PI";
+	m_Flags |= Flags::PiRcvd;
+	BEAM_LOG_VERBOSE() << m_RemoteAddr << " received PI";
 
-    PeerMan& pm = m_This.m_PeerMan; // alias
+	PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
 
-    Timestamp ts = getTimestamp();
+	Timestamp ts = getTimestamp();
 
-    if (m_pInfo)
-    {
-        // probably we connected by the address
-        if (m_pInfo->m_ID.m_Key == msg.m_ID)
-        {
-            assert(!(Flags::Accepted & m_Flags));
-            m_pInfo->m_LastSeen = ts;
+	if (m_pInfo)
+	{
+		// probably we connected by the address
+		if (m_pInfo->m_ID.m_Key == msg.m_ID)
+		{
+			assert(!(Flags::Accepted & m_Flags));
+			m_pInfo->m_LastSeen = ts;
 
-            TakeTasks();
-            return; // all settled (already)
-        }
+			TakeTasks();
+			return; // all settled (already)
+		}
 
-        // detach from it
+		// detach from it
 		PeerMan::PeerInfoPlus& pip = *m_pInfo;
 		m_pInfo->DetachStrict();
 
-        if (pip.m_ID.m_Key == Zero)
-        {
-            BEAM_LOG_INFO() << "deleted anonymous PI";
-            pm.Delete(pip); // it's anonymous.
-        }
-        else
-        {
-            BEAM_LOG_INFO() << "PeerID is different";
-            pm.OnActive(pip, false);
-            pm.RemoveAddr(pip); // turned-out to be wrong
-        }
-    }
+		if (pip.m_ID.m_Key == Zero)
+		{
+			BEAM_LOG_INFO() << "deleted anonymous PI";
+			pm.Delete(pip); // it's anonymous.
+		}
+		else
+		{
+			BEAM_LOG_INFO() << "PeerID is different";
+			pm.OnActive(pip, false);
+			pm.RemoveAddr(pip); // turned-out to be wrong
+		}
+	}
 
-    if (msg.m_ID == m_This.m_MyPublicID)
-    {
-        BEAM_LOG_WARNING() << "Loopback connection";
-        DeleteSelf(false, ByeReason::Loopback);
-        return;
-    }
+	if (msg.m_ID == m_This.m_MyPublicID)
+	{
+		BEAM_LOG_WARNING() << "Loopback connection";
+		DeleteSelf(false, ByeReason::Loopback);
+		return;
+	}
 
-    io::Address addr;
+	io::Address addr;
 
-    bool bAddrValid = (m_Port > 0);
-    if (bAddrValid)
-    {
-        addr = m_RemoteAddr;
-        addr.port(m_Port);
-    } else
-        BEAM_LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
+	bool bAddrValid = (m_Port > 0);
+	if (bAddrValid)
+	{
+		addr = m_RemoteAddr;
+		addr.port(m_Port);
+	} else
+		BEAM_LOG_INFO() << "No PI port"; // doesn't accept incoming connections?
 
 
-    PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
-    assert(pPi);
+	PeerMan::PeerInfoPlus* pPi = Cast::Up<PeerMan::PeerInfoPlus>(pm.OnPeer(msg.m_ID, addr, bAddrValid));
+	assert(pPi);
 
-    if (!(Flags::Accepted & m_Flags))
-        pPi->m_LastSeen = ts;
+	if (!(Flags::Accepted & m_Flags))
+		pPi->m_LastSeen = ts;
 
-    if (Flags::Probe & m_Flags)
-    {
-        BEAM_LOG_INFO() << *pPi << " probed ok";
-        DeleteSelf(false, ByeReason::Probed);
-        return;
-    }
+	if (Flags::Probe & m_Flags)
+	{
+		BEAM_LOG_INFO() << *pPi << " probed ok";
+		DeleteSelf(false, ByeReason::Probed);
+		return;
+	}
 
-    if (pPi->m_Live.m_p)
-    {
-        BEAM_LOG_INFO() << "Duplicate connection with the same PI.";
-        // Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
-        // We decide this based on our Node IDs.
-        // In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
+	if (pPi->m_Live.m_p)
+	{
+		BEAM_LOG_INFO() << "Duplicate connection with the same PI.";
+		// Duplicate connection. In this case we have to choose wether to terminate this connection, or the previous. The best is to do it asymmetrically.
+		// We decide this based on our Node IDs.
+		// In addition, if the older connection isn't completed yet (i.e. it's our connect attempt) - it's prefered for deletion, because such a connection may be impossible (firewalls and friends).
 		Peer* pDup = pPi->m_Live.m_p;
 
-        if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
-        {
+		if (!pDup->IsSecureOut() || (m_This.m_MyPublicID > msg.m_ID))
+		{
 			// detach from that peer
 			pPi->DetachStrict();
-            pDup->DeleteSelf(false, ByeReason::Duplicate);
-        }
-        else
-        {
-            DeleteSelf(false, ByeReason::Duplicate);
-            return;
-        }
-    }
+			pDup->DeleteSelf(false, ByeReason::Duplicate);
+		}
+		else
+		{
+			DeleteSelf(false, ByeReason::Duplicate);
+			return;
+		}
+	}
 
-    if (!pPi->m_RawRating.m_Value)
-    {
-        BEAM_LOG_INFO() << "Banned PI. Ignoring";
-        DeleteSelf(false, ByeReason::Ban);
-        return;
-    }
+	if (!pPi->m_RawRating.m_Value)
+	{
+		BEAM_LOG_INFO() << "Banned PI. Ignoring";
+		DeleteSelf(false, ByeReason::Ban);
+		return;
+	}
 
-    // attach to it
+	// attach to it
 	pPi->Attach(*this);
-    pm.OnActive(*pPi, true);
+	pm.OnActive(*pPi, true);
 
-    BEAM_LOG_VERBOSE() << *m_pInfo << " connected, info updated";
+	BEAM_LOG_VERBOSE() << *m_pInfo << " connected, info updated";
 
-    if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
-    {
-        uint32_t nPingThreshold_s = pm.m_Cfg.m_TimeoutRecommend_s / 3;
-        if ((ts - pPi->m_LastSeen > nPingThreshold_s) &&
-            (ts - pPi->m_LastConnectAttempt > nPingThreshold_s))
-        {
-            pPi->m_LastConnectAttempt = ts;
+	if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
+	{
+		uint32_t nPingThreshold_s = pm.m_Cfg.m_TimeoutRecommend_s / 3;
+		if ((ts - pPi->m_LastSeen > nPingThreshold_s) &&
+			(ts - pPi->m_LastConnectAttempt > nPingThreshold_s))
+		{
+			pPi->m_LastConnectAttempt = ts;
 
-            BEAM_LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
+			BEAM_LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
 
 
-            Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
-            p->m_Flags |= Flags::Probe;
-            p->Connect(pPi->m_Addr.m_Value);
-            p->m_Port = pPi->m_Addr.m_Value.port();
-        }
-    }
+			Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
+			p->m_Flags |= Flags::Probe;
+			p->Connect(pPi->m_Addr.m_Value);
+			p->m_Port = pPi->m_Addr.m_Value.port();
+		}
+	}
 
-    TakeTasks();
+	TakeTasks();
 }
 
 bool Node::Peer::ShouldAssignTasks()
 {
-    // Current design: don't ask anything from non-authenticated peers
-    if (!((Peer::Flags::PiRcvd & m_Flags) && m_pInfo))
-        return false;
+	// Current design: don't ask anything from non-authenticated peers
+	if (!((Peer::Flags::PiRcvd & m_Flags) && m_pInfo))
+		return false;
 
-    return true;
+	return true;
 }
 
 bool Node::Peer::ShouldFinalizeMining()
 {
-    return
-        (Flags::Owner & m_Flags) &&
-        (proto::LoginFlags::MiningFinalization & m_LoginFlags) &&
-        (m_pAccount->m_pOwner == m_This.m_Keys.m_pOwner) && // in multi-account node this is important
-        m_This.m_Cfg.m_PreferOnlineMining;
+	return
+		(Flags::Owner & m_Flags) &&
+		(proto::LoginFlags::MiningFinalization & m_LoginFlags) &&
+		(m_pAccount->m_pOwner == m_This.m_Keys.m_pOwner) && // in multi-account node this is important
+		m_This.m_Cfg.m_PreferOnlineMining;
 }
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
-    BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-    int nLogLevel = BEAM_LOG_LEVEL_VERBOSE;
+	int nLogLevel = BEAM_LOG_LEVEL_VERBOSE;
 
-    bool bIsErr = true;
-    uint8_t nByeReason = 0;
+	bool bIsErr = true;
+	uint8_t nByeReason = 0;
 
-    switch (dr.m_Type)
-    {
-    default: assert(false);
+	switch (dr.m_Type)
+	{
+	default: assert(false);
 
-    case DisconnectReason::Io:
+	case DisconnectReason::Io:
 	case DisconnectReason::Drown:
 		break;
 
-    case DisconnectReason::Bye:
-        bIsErr = false;
-        break;
+	case DisconnectReason::Bye:
+		bIsErr = false;
+		break;
 
-    case DisconnectReason::ProcessingExc:
-        switch (dr.m_ExceptionDetails.m_ExceptionType)
-        {
-        case proto::NodeProcessingException::Type::TimeOutOfSync:
-            if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
-                m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
-            break;
+	case DisconnectReason::ProcessingExc:
+		switch (dr.m_ExceptionDetails.m_ExceptionType)
+		{
+		case proto::NodeProcessingException::Type::TimeOutOfSync:
+			if (dr.m_ExceptionDetails.m_ExceptionType == proto::NodeProcessingException::Type::TimeOutOfSync && m_This.m_Cfg.m_Observer)
+				m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge);
+			break;
 
-        case proto::NodeProcessingException::Type::Incompatible:
-            break;
+		case proto::NodeProcessingException::Type::Incompatible:
+			break;
 
-        default:
-            nLogLevel = BEAM_LOG_LEVEL_WARNING;
-        }
+		default:
+			nLogLevel = BEAM_LOG_LEVEL_WARNING;
+		}
 
-        nByeReason = ByeReason::Ban;
-        break;
+		nByeReason = ByeReason::Ban;
+		break;
 
-    case DisconnectReason::Protocol:
-        nLogLevel = BEAM_LOG_LEVEL_WARNING;
-        nByeReason = ByeReason::Ban;
-        break;
-    }
+	case DisconnectReason::Protocol:
+		nLogLevel = BEAM_LOG_LEVEL_WARNING;
+		nByeReason = ByeReason::Ban;
+		break;
+	}
 
-    BEAM_LOG_MESSAGE(nLogLevel) << m_RemoteAddr << ": " << dr;
+	BEAM_LOG_MESSAGE(nLogLevel) << m_RemoteAddr << ": " << dr;
 
-    DeleteSelf(bIsErr, nByeReason);
+	DeleteSelf(bIsErr, nByeReason);
 }
 
 void Node::Peer::ReleaseTasks()
 {
-    while (!m_lstTasks.empty())
-        ReleaseTask(m_lstTasks.front());
+	while (!m_lstTasks.empty())
+		ReleaseTask(m_lstTasks.front());
 }
 
 void Node::Peer::ReleaseTask(Task& t)
 {
-    assert(this == t.m_pOwner);
-    t.m_pOwner = NULL;
+	assert(this == t.m_pOwner);
+	t.m_pOwner = NULL;
 
-    if (t.m_nCount)
-    {
-        uint32_t& nCounter = t.m_Key.second ? m_This.m_nTasksPackBody : m_This.m_nTasksPackHdr;
-        assert(nCounter >= t.m_nCount);
+	if (t.m_nCount)
+	{
+		uint32_t& nCounter = t.m_Key.second ? m_This.m_nTasksPackBody : m_This.m_nTasksPackHdr;
+		assert(nCounter >= t.m_nCount);
 
-        nCounter -= t.m_nCount;
+		nCounter -= t.m_nCount;
 		t.m_nCount = 0;
-    }
+	}
 
-    m_lstTasks.erase(TaskList::s_iterator_to(t));
-    m_This.m_lstTasksUnassigned.push_back(t);
+	m_lstTasks.erase(TaskList::s_iterator_to(t));
+	m_This.m_lstTasksUnassigned.push_back(t);
 
-    if (t.m_bNeeded)
-        m_This.TryAssignTask(t);
-    else
-        m_This.DeleteUnassignedTask(t);
+	if (t.m_bNeeded)
+		m_This.TryAssignTask(t);
+	else
+		m_This.DeleteUnassignedTask(t);
 }
 
 void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
-    BEAM_LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
+	BEAM_LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
 
-    if (nByeReason && (Flags::Connected & m_Flags))
-    {
-        proto::Bye msg;
-        msg.m_Reason = nByeReason;
-        Send(msg);
-    }
+	if (nByeReason && (Flags::Connected & m_Flags))
+	{
+		proto::Bye msg;
+		msg.m_Reason = nByeReason;
+		Send(msg);
+	}
 
-    if (this == m_This.m_Miner.m_pFinalizer)
-    {
-        m_Flags &= ~Flags::Owner;
-        m_LoginFlags &= proto::LoginFlags::MiningFinalization;
+	if (this == m_This.m_Miner.m_pFinalizer)
+	{
+		m_Flags &= ~Flags::Owner;
+		m_LoginFlags &= proto::LoginFlags::MiningFinalization;
 
-        assert(!ShouldFinalizeMining());
-        m_This.m_Miner.OnFinalizerChanged(NULL);
-    }
+		assert(!ShouldFinalizeMining());
+		m_This.m_Miner.OnFinalizerChanged(NULL);
+	}
 
-    m_Tip.m_Height = 0; // prevent reassigning the tasks
-    m_Flags &= ~Flags::HasTreasury;
+	m_Tip.m_Height = 0; // prevent reassigning the tasks
+	m_Flags &= ~Flags::HasTreasury;
 
-    ReleaseTasks();
-    Unsubscribe();
+	ReleaseTasks();
+	Unsubscribe();
 
-    if (m_pInfo)
-    {
+	if (m_pInfo)
+	{
 		PeerMan::PeerInfoPlus& pip = *m_pInfo;
 		m_pInfo->DetachStrict();
 
@@ -1899,30 +1899,30 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 	SetTxCursor(nullptr);
 
-    m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
-    delete this;
+	m_This.m_lstPeers.erase(PeerList::s_iterator_to(*this));
+	delete this;
 }
 
 void Node::Peer::Unsubscribe(Bbs::Subscription& s)
 {
-    m_This.m_Bbs.m_Subscribed.erase(Bbs::Subscription::BbsSet::s_iterator_to(s.m_Bbs));
-    m_Subscriptions.erase(Bbs::Subscription::PeerSet::s_iterator_to(s.m_Peer));
-    delete &s;
+	m_This.m_Bbs.m_Subscribed.erase(Bbs::Subscription::BbsSet::s_iterator_to(s.m_Bbs));
+	m_Subscriptions.erase(Bbs::Subscription::PeerSet::s_iterator_to(s.m_Peer));
+	delete &s;
 }
 
 void Node::Peer::Unsubscribe()
 {
-    while (!m_Subscriptions.empty())
-        Unsubscribe(m_Subscriptions.begin()->get_ParentObj());
+	while (!m_Subscriptions.empty())
+		Unsubscribe(m_Subscriptions.begin()->get_ParentObj());
 }
 
 void Node::Peer::TakeTasks()
 {
-    if (!ShouldAssignTasks())
-        return;
+	if (!ShouldAssignTasks())
+		return;
 
-    for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
-        m_This.TryAssignTask(*it++, *this);
+	for (TaskList::iterator it = m_This.m_lstTasksUnassigned.begin(); m_This.m_lstTasksUnassigned.end() != it; )
+		m_This.TryAssignTask(*it++, *this);
 }
 
 void Node::Peer::OnMsg(proto::Pong&&)
@@ -1942,43 +1942,43 @@ void Node::Peer::OnMsg(proto::Pong&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-    if (msg.m_Description.m_ChainWork < m_Tip.m_ChainWork)
-        ThrowUnexpected();
+	if (msg.m_Description.m_ChainWork < m_Tip.m_ChainWork)
+		ThrowUnexpected();
 
-    m_Tip = msg.m_Description;
-    m_setRejected.clear();
-    m_Flags |= Flags::HasTreasury;
+	m_Tip = msg.m_Description;
+	m_setRejected.clear();
+	m_Flags |= Flags::HasTreasury;
 
-    Block::SystemState::ID id;
-    m_Tip.get_ID(id);
+	Block::SystemState::ID id;
+	m_Tip.get_ID(id);
 
-    Processor& p = m_This.m_Processor;
-    bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
+	Processor& p = m_This.m_Processor;
+	bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
 
-    BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO: BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
+	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO: BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
 
-    if (!m_pInfo)
-        return;
+	if (!m_pInfo)
+		return;
 
-    if (bTipNeeded)
-    {
-        switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
-        {
-        case NodeProcessor::DataStatus::Invalid:
-            m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
-                m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
-                ThrowUnexpected();
-            // no break;
+	if (bTipNeeded)
+	{
+		switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
+		{
+		case NodeProcessor::DataStatus::Invalid:
+			m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
+				m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
+				ThrowUnexpected();
+			// no break;
 
-        case NodeProcessor::DataStatus::Accepted:
+		case NodeProcessor::DataStatus::Accepted:
 			// don't give explicit reward for this header. Instead - most likely we'll request this block from that peer, and it'll have a chance to boost its rating
-            m_This.RefreshCongestions();
-            break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
+			m_This.RefreshCongestions();
+			break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
 
-        default:
-            break; // suppress warning
-        }
-    }
+		default:
+			break; // suppress warning
+		}
+	}
 
 	TakeTasks();
 
@@ -1993,15 +1993,15 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 Node::Task& Node::Peer::get_FirstTask()
 {
-    if (m_lstTasks.empty())
-        ThrowUnexpected();
-    return m_lstTasks.front();
+	if (m_lstTasks.empty())
+		ThrowUnexpected();
+	return m_lstTasks.front();
 }
 
 void Node::Peer::OnFirstTaskDone()
 {
-    ReleaseTask(get_FirstTask());
-    SetTimerWrtFirstTask();
+	ReleaseTask(get_FirstTask());
+	SetTimerWrtFirstTask();
 
 	// Refrain from using TakeTasks(), it will only try to assign tasks to this peer
 	m_This.RefreshCongestions();
@@ -2037,86 +2037,86 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
-    Task& t = get_FirstTask();
-    m_setRejected.insert(t.m_Key);
+	Task& t = get_FirstTask();
+	m_setRejected.insert(t.m_Key);
 
-    OnFirstTaskDone();
+	OnFirstTaskDone();
 }
 
 void Node::Peer::OnMsg(proto::GetHdr&& msg)
 {
-    uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
-    if (rowid)
-    {
-        proto::Hdr msgHdr;
-        m_This.m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
-        Send(msgHdr);
-    } else
-        Send(proto::DataMissing());
+	uint64_t rowid = m_This.m_Processor.get_DB().StateFindSafe(msg.m_ID);
+	if (rowid)
+	{
+		proto::Hdr msgHdr;
+		m_This.m_Processor.get_DB().get_State(rowid, msgHdr.m_Description);
+		Send(msgHdr);
+	} else
+		Send(proto::DataMissing());
 }
 
 void Node::Peer::OnMsg(proto::GetHdrPack&& msg)
 {
-    NodeDB::StateID sid;
-    sid.m_Height = msg.m_Top.m_Height;
-    sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_Top);
-    SendHdrs(sid, msg.m_Count);
+	NodeDB::StateID sid;
+	sid.m_Height = msg.m_Top.m_Height;
+	sid.m_Row = m_This.m_Processor.get_DB().StateFindSafe(msg.m_Top);
+	SendHdrs(sid, msg.m_Count);
 }
 
 void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
 {
-    NodeDB::StateID sid;
-    uint32_t nCount;
+	NodeDB::StateID sid;
+	uint32_t nCount;
 
-    HeightRange hr(Rules::HeightGenesis, m_This.m_Processor.m_Cursor.m_Full.m_Height);
-    hr.Intersect(msg.m_Height);
-    if (!hr.IsEmpty())
-    {
-        Height dh = hr.m_Max - hr.m_Min + 1;
-        nCount = (dh > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dh);
+	HeightRange hr(Rules::HeightGenesis, m_This.m_Processor.m_Cursor.m_Full.m_Height);
+	hr.Intersect(msg.m_Height);
+	if (!hr.IsEmpty())
+	{
+		Height dh = hr.m_Max - hr.m_Min + 1;
+		nCount = (dh > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dh);
 
-        sid.m_Height = hr.m_Max;
-        sid.m_Row = m_This.m_Processor.FindActiveAtStrict(hr.m_Max);
-    }
-    else
-    {
-        nCount = 0;
-        sid.m_Row = 0;
-    }
+		sid.m_Height = hr.m_Max;
+		sid.m_Row = m_This.m_Processor.FindActiveAtStrict(hr.m_Max);
+	}
+	else
+	{
+		nCount = 0;
+		sid.m_Row = 0;
+	}
 
-    SendHdrs(sid, nCount);
+	SendHdrs(sid, nCount);
 }
 
 void Node::Peer::SendHdrs(NodeDB::StateID& sid, uint32_t nCount)
 {
-    if (nCount && sid.m_Row)
-    {
-        // don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
-        std::setmin(nCount, proto::g_HdrPackMaxSize);
+	if (nCount && sid.m_Row)
+	{
+		// don't throw unexpected if pack size is bigger than max. In case it'll be increased in future versions - just truncate it.
+		std::setmin(nCount, proto::g_HdrPackMaxSize);
 
-        proto::HdrPack msgOut;
-        msgOut.m_vElements.reserve(nCount);
+		proto::HdrPack msgOut;
+		msgOut.m_vElements.reserve(nCount);
 
-        NodeDB& db = m_This.m_Processor.get_DB();
+		NodeDB& db = m_This.m_Processor.get_DB();
 
-        NodeDB::WalkerSystemState wlk;
-        for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
-        {
-            msgOut.m_vElements.push_back(wlk.m_State);
+		NodeDB::WalkerSystemState wlk;
+		for (db.EnumSystemStatesBkwd(wlk, sid); wlk.MoveNext(); )
+		{
+			msgOut.m_vElements.push_back(wlk.m_State);
 
-            if (msgOut.m_vElements.size() == nCount)
-                break;
-        }
+			if (msgOut.m_vElements.size() == nCount)
+				break;
+		}
 
-        if (!msgOut.m_vElements.empty())
-        {
-            msgOut.m_Prefix = wlk.m_State;
-            Send(msgOut);
-            return;
-        }
-    }
+		if (!msgOut.m_vElements.empty())
+		{
+			msgOut.m_Prefix = wlk.m_State;
+			Send(msgOut);
+			return;
+		}
+	}
 
-    Send(proto::DataMissing());
+	Send(proto::DataMissing());
 }
 
 bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const proto::HdrPack& msg)
@@ -2124,20 +2124,20 @@ bool Node::DecodeAndCheckHdrs(std::vector<Block::SystemState::Full>& v, const pr
 	if (msg.m_vElements.empty() || (msg.m_vElements.size() > proto::g_HdrPackMaxSize))
 		return false;
 
-    // PoW verification is heavy for big packs. Do it in parallel
-    Executor::Scope scope(m_Processor.m_ExecutorMT);
+	// PoW verification is heavy for big packs. Do it in parallel
+	Executor::Scope scope(m_Processor.m_ExecutorMT);
 
-    proto::FlyClient::Data::DecodedHdrPack ex;
-    if (!ex.DecodeAndCheck(msg))
-        return false;
+	proto::FlyClient::Data::DecodedHdrPack ex;
+	if (!ex.DecodeAndCheck(msg))
+		return false;
 
-    v = std::move(ex.m_vStates);
-    return true;
+	v = std::move(ex.m_vStates);
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::HdrPack&& msg)
 {
-    Task& t = get_FirstTask();
+	Task& t = get_FirstTask();
 
 	if (t.m_Key.second || !t.m_nCount) {
 		// stupid compiler insists on parentheses here!
@@ -2146,7 +2146,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 
 	std::vector<Block::SystemState::Full> v;
 	if (!m_This.DecodeAndCheckHdrs(v, msg))
-        ThrowUnexpected();
+		ThrowUnexpected();
 
 	// just to be pedantic
 	Block::SystemState::ID idLast;
@@ -2154,23 +2154,23 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 	if (idLast != t.m_Key.first)
 		ThrowUnexpected();
 
-    for (size_t i = 0; i < v.size(); i++)
-    {
-        NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
-        switch (eStatus)
-        {
-        case NodeProcessor::DataStatus::Invalid:
+	for (size_t i = 0; i < v.size(); i++)
+	{
+		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
+		switch (eStatus)
+		{
+		case NodeProcessor::DataStatus::Invalid:
 			// though PoW was already tested, header can still be invalid. For instance, due to improper Timestamp
 			ThrowUnexpected();
 			break;
 
-        case NodeProcessor::DataStatus::Accepted:
+		case NodeProcessor::DataStatus::Accepted:
 			// no break;
 
-        default:
-            break; // suppress warning
-        }
-    }
+		default:
+			break; // suppress warning
+		}
+	}
 
 	BEAM_LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Height << "-" << idLast;
 
@@ -2191,8 +2191,8 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 {
 	Processor& p = m_This.m_Processor; // alias
 
-    if (msg.m_Top.m_Height)
-    {
+	if (msg.m_Top.m_Height)
+	{
 		NodeDB::StateID sid;
 		sid.m_Row = p.get_DB().StateFindSafe(msg.m_Top);
 		if (sid.m_Row)
@@ -2245,21 +2245,21 @@ void Node::Peer::OnMsg(proto::GetBodyPack&& msg)
 				}
 			}
 		}
-    }
-    else
-    {
-        if ((msg.m_Top.m_Hash == Zero) && p.IsTreasuryHandled())
-        {
-            proto::Body msgBody;
-            if (p.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Body.m_Eternal))
-            {
-                Send(msgBody);
-                return;
-            }
-        }
-    }
+	}
+	else
+	{
+		if ((msg.m_Top.m_Hash == Zero) && p.IsTreasuryHandled())
+		{
+			proto::Body msgBody;
+			if (p.get_DB().ParamGet(NodeDB::ParamID::Treasury, NULL, NULL, &msgBody.m_Body.m_Eternal))
+			{
+				Send(msgBody);
+				return;
+			}
+		}
+	}
 
-    Send(proto::DataMissing());
+	Send(proto::DataMissing());
 }
 
 bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, const proto::GetBodyPack& msg, bool bActive)
@@ -2302,15 +2302,15 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
-        Serializer ser;
-        ser & block.m_vInputs;
-        ser & block.m_vOutputs.size();
+		Serializer ser;
+		ser & block.m_vInputs;
+		ser & block.m_vOutputs.size();
 
-        for (size_t i = 0; i < block.m_vOutputs.size(); i++)
-        {
-            const auto& outp = *block.m_vOutputs[i];
-            yas::detail::saveRecovery(ser, outp, sid.m_Height);
-        }
+		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+		{
+			const auto& outp = *block.m_vOutputs[i];
+			yas::detail::saveRecovery(ser, outp, sid.m_Height);
+		}
 
 		ser & Cast::Down<Block::BodyBase>(block);
 		ser & Cast::Down<TxVectors::Perishable>(block);
@@ -2323,9 +2323,9 @@ bool Node::Peer::GetBlock(proto::BodyBuffers& out, const NodeDB::StateID& sid, c
 
 bool Node::Peer::ShouldAcceptBodyPack()
 {
-    Task& t = get_FirstTask();
-    const NodeProcessor::SyncData& d = m_This.m_Processor.m_SyncData; // alias
-    return (t.m_h0 == d.m_h0) && (t.m_hTxoLo == d.m_TxoLo);
+	Task& t = get_FirstTask();
+	const NodeProcessor::SyncData& d = m_This.m_Processor.m_SyncData; // alias
+	return (t.m_h0 == d.m_h0) && (t.m_hTxoLo == d.m_TxoLo);
 }
 
 void Node::Peer::OnMsg(proto::Body&& msg)
@@ -2343,9 +2343,9 @@ void Node::Peer::OnMsg(proto::Body&& msg)
 	Processor& p = m_This.m_Processor; // alias
 
 	NodeProcessor::DataStatus::Enum eStatus = h ?
-        ShouldAcceptBodyPack() ?
-		    p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
-            NodeProcessor::DataStatus::Rejected :
+		ShouldAcceptBodyPack() ?
+			p.OnBlock(id, msg.m_Body.m_Perishable, msg.m_Body.m_Eternal, m_pInfo->m_ID.m_Key) :
+			NodeProcessor::DataStatus::Rejected :
 		p.OnTreasury(msg.m_Body.m_Eternal);
 
 	p.TryGoUpAsync();
@@ -2411,201 +2411,201 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 
 void Node::Peer::OnFirstTaskDone(NodeProcessor::DataStatus::Enum eStatus)
 {
-    if (NodeProcessor::DataStatus::Invalid == eStatus)
-        ThrowUnexpected();
+	if (NodeProcessor::DataStatus::Invalid == eStatus)
+		ThrowUnexpected();
 
-    get_FirstTask().m_bNeeded = false;
-    OnFirstTaskDone();
+	get_FirstTask().m_bNeeded = false;
+	OnFirstTaskDone();
 }
 
 void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 {
-    if (!msg.m_Transaction)
-        ThrowUnexpected(); // our deserialization permits NULL Ptrs.
-    // However the transaction body must have already been checked for NULLs
+	if (!msg.m_Transaction)
+		ThrowUnexpected(); // our deserialization permits NULL Ptrs.
+	// However the transaction body must have already been checked for NULLs
 
-    // Change in protocol!
-    // Historically the node replied with proto::Status message for transactions in stem phase only, for fluff phase no reply was necessary.
-    // Now we reply regardless to phase, but ONLY to non-node client (means - FlyClient).
-    // For other cases the tx verification is deferred, until the node is idle.
-    bool bReply = !(Flags::PiRcvd & m_Flags);
+	// Change in protocol!
+	// Historically the node replied with proto::Status message for transactions in stem phase only, for fluff phase no reply was necessary.
+	// Now we reply regardless to phase, but ONLY to non-node client (means - FlyClient).
+	// For other cases the tx verification is deferred, until the node is idle.
+	bool bReply = !(Flags::PiRcvd & m_Flags);
 
-    const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
+	const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
 
-    if (bReply)
-    {
-        std::ostringstream errInfo;
+	if (bReply)
+	{
+		std::ostringstream errInfo;
 
-        proto::Status msgOut;
-        msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff, &errInfo);
+		proto::Status msgOut;
+		msgOut.m_Value = m_This.OnTransaction(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff, &errInfo);
 
-        msgOut.m_ExtraInfo = errInfo.str();
-        Send(msgOut);
-    }
-    else
-    {
-        m_This.OnTransactionDeferred(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff);
-    }
+		msgOut.m_ExtraInfo = errInfo.str();
+		Send(msgOut);
+	}
+	else
+	{
+		m_This.OnTransactionDeferred(std::move(msg.m_Transaction), std::move(msg.m_Context), pSender, msg.m_Fluff);
+	}
 }
 
 void Node::OnTransactionDeferred(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff)
 {
-    TxDeferred::Element txd;
-    txd.m_pTx = std::move(pTx);
-    txd.m_pCtx = std::move(pCtx);
-    txd.m_Fluff = bFluff;
+	TxDeferred::Element txd;
+	txd.m_pTx = std::move(pTx);
+	txd.m_pCtx = std::move(pCtx);
+	txd.m_Fluff = bFluff;
 
-    if (pSender)
-        txd.m_Sender = *pSender;
-    else
-        txd.m_Sender = Zero;
+	if (pSender)
+		txd.m_Sender = *pSender;
+	else
+		txd.m_Sender = Zero;
 
-    //if (m_Cfg.m_LogTxFluff)
-    //{
-    //    Transaction::KeyType key;
-    //    txd.m_pTx->get_Key(key);
+	//if (m_Cfg.m_LogTxFluff)
+	//{
+	//    Transaction::KeyType key;
+	//    txd.m_pTx->get_Key(key);
 
-    //    BEAM_LOG_INFO() << "Tx " << key << " deferred";
-    //}
+	//    BEAM_LOG_INFO() << "Tx " << key << " deferred";
+	//}
 
-    if (m_TxDeferred.m_lst.empty())
-        m_TxDeferred.start();
-    else
-    {
-        while (m_TxDeferred.m_lst.size() > m_Cfg.m_MaxDeferredTransactions)
-            m_TxDeferred.m_lst.pop_front();
-    }
+	if (m_TxDeferred.m_lst.empty())
+		m_TxDeferred.start();
+	else
+	{
+		while (m_TxDeferred.m_lst.size() > m_Cfg.m_MaxDeferredTransactions)
+			m_TxDeferred.m_lst.pop_front();
+	}
 
-    m_TxDeferred.m_lst.push_back(std::move(txd));
+	m_TxDeferred.m_lst.push_back(std::move(txd));
 }
 
 void Node::TxDeferred::OnSchedule()
 {
-    if (!m_lst.empty())
-    {
-        TxDeferred::Element& x = m_lst.front();
-        get_ParentObj().OnTransaction(std::move(x.m_pTx), std::move(x.m_pCtx), &x.m_Sender, x.m_Fluff, nullptr);
-        m_lst.pop_front();
-    }
+	if (!m_lst.empty())
+	{
+		TxDeferred::Element& x = m_lst.front();
+		get_ParentObj().OnTransaction(std::move(x.m_pTx), std::move(x.m_pCtx), &x.m_Sender, x.m_Fluff, nullptr);
+		m_lst.pop_front();
+	}
 
-    if (m_lst.empty())
-        cancel();
+	if (m_lst.empty())
+		cancel();
 
 }
 
 uint8_t Node::OnTransaction(Transaction::Ptr&& pTx, std::unique_ptr<Merkle::Hash>&& pCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
-    return 
-        pCtx ?
-            OnTransactionDependent(std::move(pTx), *pCtx, pSender, bFluff, pExtraInfo) :
-            bFluff ?
-                OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
-                OnTransactionStem(std::move(pTx), pExtraInfo);
+	return 
+		pCtx ?
+			OnTransactionDependent(std::move(pTx), *pCtx, pSender, bFluff, pExtraInfo) :
+			bFluff ?
+				OnTransactionFluff(std::move(pTx), pExtraInfo, pSender, nullptr) :
+				OnTransactionStem(std::move(pTx), pExtraInfo);
 }
 
 uint8_t Node::ValidateTx(TxPool::Stats& stats, const Transaction& tx, const Transaction::KeyType& keyTx, std::ostream* pExtraInfo, bool& bAlreadyRejected)
 {
-    auto it = m_TxReject.find(keyTx);
-    if (m_TxReject.end() != it)
-    {
-        bAlreadyRejected = true;
-        return it->second;
-    }
+	auto it = m_TxReject.find(keyTx);
+	if (m_TxReject.end() != it)
+	{
+		bAlreadyRejected = true;
+		return it->second;
+	}
 
-    Transaction::Context ctx;
-    uint32_t nBvmCharge = 0;
-    Amount feeReserve = 0;
+	Transaction::Context ctx;
+	uint32_t nBvmCharge = 0;
+	Amount feeReserve = 0;
 
-    uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo, nullptr);
-    if (proto::TxStatus::Ok == nRet)
-    {
-        if (AmountBig::get_Hi(ctx.m_Stats.m_Fee))
-            nRet = proto::TxStatus::LowFee; // actually it's ridiculously-high fee
-        else
-        {
-            auto nSizeCorrection = (uint32_t)(((uint64_t)nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
-            stats.From(tx, ctx, feeReserve, nSizeCorrection);
-        }
-    }
+	uint8_t nRet = ValidateTx2(ctx, tx, nBvmCharge, feeReserve, nullptr, pExtraInfo, nullptr);
+	if (proto::TxStatus::Ok == nRet)
+	{
+		if (AmountBig::get_Hi(ctx.m_Stats.m_Fee))
+			nRet = proto::TxStatus::LowFee; // actually it's ridiculously-high fee
+		else
+		{
+			auto nSizeCorrection = (uint32_t)(((uint64_t)nBvmCharge) * Rules::get().MaxBodySize / bvm2::Limits::BlockCharge);
+			stats.From(tx, ctx, feeReserve, nSizeCorrection);
+		}
+	}
 
-    if (proto::TxStatus::Ok != nRet)
-    {
-        m_TxReject[keyTx] = nRet;
-        m_Wtx.Delete(keyTx);
-    }
+	if (proto::TxStatus::Ok != nRet)
+	{
+		m_TxReject[keyTx] = nRet;
+		m_Wtx.Delete(keyTx);
+	}
 
-    return nRet;
+	return nRet;
 }
 
 uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint32_t& nBvmCharge, Amount& feeReserve, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pNewCtx)
 {
-    ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
+	ctx.m_Height.m_Min = m_Processor.m_Cursor.m_ID.m_Height + 1;
 
-    std::string sErr;
-    bool bValid = m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader(), sErr);
-    if (bValid)
-    {
-        try {
-            ctx.TestValidTransaction();
-        } catch (const std::exception& e) {
-            bValid = false;
-            sErr = e.what();
-        }
-    }
+	std::string sErr;
+	bool bValid = m_Processor.ValidateAndSummarize(ctx, tx, tx.get_Reader(), sErr);
+	if (bValid)
+	{
+		try {
+			ctx.TestValidTransaction();
+		} catch (const std::exception& e) {
+			bValid = false;
+			sErr = e.what();
+		}
+	}
 
-    if (!bValid)
-    {
-        if (pExtraInfo)
-            *pExtraInfo << "Context-free validation failed: " << sErr;
-        return proto::TxStatus::Invalid;
-    }
+	if (!bValid)
+	{
+		if (pExtraInfo)
+			*pExtraInfo << "Context-free validation failed: " << sErr;
+		return proto::TxStatus::Invalid;
+	}
 
-    uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo, pNewCtx);
-    if (proto::TxStatus::Ok != nCode)
-        return nCode;
+	uint8_t nCode = m_Processor.ValidateTxContextEx(tx, ctx.m_Height, false, nBvmCharge, pParent, pExtraInfo, pNewCtx);
+	if (proto::TxStatus::Ok != nCode)
+		return nCode;
 
 
-    if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
-    {
-        if (pExtraInfo)
-        {
-            *pExtraInfo << "Low fee. Min = " << feeReserve << ", provided = " << AmountBig::get_Lo(ctx.m_Stats.m_Fee);
-            if (nBvmCharge)
-                *pExtraInfo << ", Bvm charge = " << nBvmCharge;
-        }
-        return proto::TxStatus::LowFee;
-    }
+	if (!CalculateFeeReserve(ctx.m_Stats, ctx.m_Height, ctx.m_Stats.m_Fee, nBvmCharge, feeReserve))
+	{
+		if (pExtraInfo)
+		{
+			*pExtraInfo << "Low fee. Min = " << feeReserve << ", provided = " << AmountBig::get_Lo(ctx.m_Stats.m_Fee);
+			if (nBvmCharge)
+				*pExtraInfo << ", Bvm charge = " << nBvmCharge;
+		}
+		return proto::TxStatus::LowFee;
+	}
 
 	return proto::TxStatus::Ok;
 }
 
 bool Node::CalculateFeeReserve(const TxStats& s, const HeightRange& hr, const AmountBig::Number& fees, uint32_t nBvmCharge, Amount& feeReserve)
 {
-    feeReserve = static_cast<Amount>(-1);
+	feeReserve = static_cast<Amount>(-1);
 
-    if (Rules::get().IsPastFork_<1>(hr.m_Min))
-    {
-        auto& fs = Transaction::FeeSettings::get(hr.m_Min);
-        Amount feesMin = fs.Calculate(s);
+	if (Rules::get().IsPastFork_<1>(hr.m_Min))
+	{
+		auto& fs = Transaction::FeeSettings::get(hr.m_Min);
+		Amount feesMin = fs.Calculate(s);
 
-        if (nBvmCharge)
-            feesMin += fs.CalculateForBvm(s, nBvmCharge);
+		if (nBvmCharge)
+			feesMin += fs.CalculateForBvm(s, nBvmCharge);
 
-        AmountBig::Number val(feesMin);
+		AmountBig::Number val(feesMin);
 
-        if (fees < val)
-        {
-            feeReserve = feesMin;
-            return false;
-        }
+		if (fees < val)
+		{
+			feeReserve = feesMin;
+			return false;
+		}
 
-        val = fees - val;
+		val = fees - val;
 
-        if (!AmountBig::get_Hi(val))
-            feeReserve = AmountBig::get_Lo(val);
-    }
+		if (!AmountBig::get_Hi(val))
+			feeReserve = AmountBig::get_Lo(val);
+	}
 
-    return true;
+	return true;
 }
 
 void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyType& key)
@@ -2613,37 +2613,37 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
 	if (!m_Cfg.m_LogTxFluff)
 		return;
 
-    std::ostringstream os;
+	std::ostringstream os;
 
-    os << "Tx " << key;
+	os << "Tx " << key;
 
-    for (size_t i = 0; i < tx.m_vInputs.size(); i++)
-        os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
+	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+		os << "\n\tI: " << tx.m_vInputs[i]->m_Commitment;
 
-    for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
-    {
-        const Output& outp = *tx.m_vOutputs[i];
-        os << "\n\tO: " << outp.m_Commitment;
+	for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+	{
+		const Output& outp = *tx.m_vOutputs[i];
+		os << "\n\tO: " << outp.m_Commitment;
 
-        if (outp.m_Incubation)
-            os << ", Incubation +" << outp.m_Incubation;
+		if (outp.m_Incubation)
+			os << ", Incubation +" << outp.m_Incubation;
 
-        if (outp.m_pPublic)
-            os << ", Sum=" << outp.m_pPublic->m_Value;
-    }
+		if (outp.m_pPublic)
+			os << ", Sum=" << outp.m_pPublic->m_Value;
+	}
 
-    for (size_t i = 0; i < tx.m_vKernels.size(); i++)
-    {
-        const TxKernel& krn = *tx.m_vKernels[i];
+	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
+	{
+		const TxKernel& krn = *tx.m_vKernels[i];
 
 		char sz[Merkle::Hash::nTxtLen + 1];
 		krn.m_Internal.m_ID.Print(sz);
 
-        os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
-    }
+		os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
+	}
 
-    os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
-    BEAM_LOG_INFO() << os.str();
+	os << "\n\tStatus: " << static_cast<uint32_t>(nStatus);
+	BEAM_LOG_INFO() << os.str();
 }
 
 void Node::LogTxStem(const Transaction& tx, const char* szTxt)
@@ -2667,34 +2667,34 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 
 const ECC::uintBig& Node::NextNonce()
 {
-    ECC::Scalar::Native sk;
-    NextNonce(sk);
-    return m_NonceLast.V;
+	ECC::Scalar::Native sk;
+	NextNonce(sk);
+	return m_NonceLast.V;
 }
 
 void Node::NextNonce(ECC::Scalar::Native& sk)
 {
-    m_Keys.m_pGeneric->DeriveKey(sk, m_NonceLast.V);
-    ECC::Hash::Processor() << sk >> m_NonceLast.V;
+	m_Keys.m_pGeneric->DeriveKey(sk, m_NonceLast.V);
+	ECC::Hash::Processor() << sk >> m_NonceLast.V;
 }
 
 uint32_t Node::RandomUInt32(uint32_t threshold)
 {
-    if (threshold)
-    {
-        typedef uintBigFor<uint32_t>::Type Type;
+	if (threshold)
+	{
+		typedef uintBigFor<uint32_t>::Type Type;
 
-        Type thr(threshold), val;
-        Type::Threshold thrSel(thr);
+		Type thr(threshold), val;
+		Type::Threshold thrSel(thr);
 
-        do
-        {
-            val = NextNonce();
-        } while (!thrSel.Accept(val));
+		do
+		{
+			val = NextNonce();
+		} while (!thrSel.Accept(val));
 
-        val.Export(threshold);
-    }
-    return threshold;
+		val.Export(threshold);
+	}
+	return threshold;
 }
 
 uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo)
@@ -2706,199 +2706,199 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 		return proto::TxStatus::TooSmall;
 	}
 
-    if ((s.m_InputsShielded > Rules::get().Shielded.MaxIns) || (s.m_OutputsShielded > Rules::get().Shielded.MaxOuts)) {
-        return proto::TxStatus::LimitExceeded;
-    }
+	if ((s.m_InputsShielded > Rules::get().Shielded.MaxIns) || (s.m_OutputsShielded > Rules::get().Shielded.MaxOuts)) {
+		return proto::TxStatus::LimitExceeded;
+	}
 
-    Transaction::KeyType keyTx;
-    ptx->get_Key(keyTx);
+	Transaction::KeyType keyTx;
+	ptx->get_Key(keyTx);
 
-    auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
-    TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
+	auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
+	TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
 
-    TxPool::Stats stats;
-    bool bTested = false;
+	TxPool::Stats stats;
+	bool bTested = false;
 
-    if (pF)
-    {
-        if (TxPool::Fluff::State::Fluffed == pF->m_State)
-        {
-            LogTxStem(*ptx, "Already fluffed");
-            return proto::TxStatus::Ok;
-        }
+	if (pF)
+	{
+		if (TxPool::Fluff::State::Fluffed == pF->m_State)
+		{
+			LogTxStem(*ptx, "Already fluffed");
+			return proto::TxStatus::Ok;
+		}
 
-        if (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height)
-        {
-            stats = pF->m_Profit.m_Stats;
-            bTested = true;
-        }
+		if (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height)
+		{
+			stats = pF->m_Profit.m_Stats;
+			bTested = true;
+		}
 
-        ptx = pF->m_pValue; // prefer it, to avoid ambiguity
-    }
+		ptx = pF->m_pValue; // prefer it, to avoid ambiguity
+	}
 
-    LogTxStem(*ptx, pF ? "Already received" : "New");
+	LogTxStem(*ptx, pF ? "Already received" : "New");
 
-    if (!bTested)
-    {
-        bool bAlreadyRejected = false;
-        uint8_t nCode = ValidateTx(stats, *ptx, keyTx, pExtraInfo, bAlreadyRejected);
-        if (proto::TxStatus::Ok != nCode)
-        {
-            if (!bAlreadyRejected)
-                LogTxStem(*ptx, "invalid");
-            return nCode;
-        }
-    }
+	if (!bTested)
+	{
+		bool bAlreadyRejected = false;
+		uint8_t nCode = ValidateTx(stats, *ptx, keyTx, pExtraInfo, bAlreadyRejected);
+		if (proto::TxStatus::Ok != nCode)
+		{
+			if (!bAlreadyRejected)
+				LogTxStem(*ptx, "invalid");
+			return nCode;
+		}
+	}
 
-    bool bDontAggregate = true;
-    if (!pF)
-    {
-        bDontAggregate =
-            (ptx->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
-            s.m_KernelsNonStd || // contains non-std elements
-            !m_Keys.m_pMiner; // can't manage decoys
+	bool bDontAggregate = true;
+	if (!pF)
+	{
+		bDontAggregate =
+			(ptx->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
+			s.m_KernelsNonStd || // contains non-std elements
+			!m_Keys.m_pMiner; // can't manage decoys
 
-        // add it to wait-fluff list BEFORE we modify it
-        Transaction::Ptr pTxOrig;
-        if (bDontAggregate)
-            pTxOrig = ptx;
-        else
-        {
-            // clone the tx, since we may modify it in the fure
-            pTxOrig = std::make_shared<Transaction>();
-            TxVectors::Writer wtx(*pTxOrig, *pTxOrig);
+		// add it to wait-fluff list BEFORE we modify it
+		Transaction::Ptr pTxOrig;
+		if (bDontAggregate)
+			pTxOrig = ptx;
+		else
+		{
+			// clone the tx, since we may modify it in the fure
+			pTxOrig = std::make_shared<Transaction>();
+			TxVectors::Writer wtx(*pTxOrig, *pTxOrig);
 
-            wtx.Dump(ptx->get_Reader());
-            pTxOrig->m_Offset = ptx->m_Offset;
-        }
+			wtx.Dump(ptx->get_Reader());
+			pTxOrig->m_Offset = ptx->m_Offset;
+		}
 
-        pF = m_TxPool.AddValidTx(std::move(pTxOrig), stats, keyTx, TxPool::Fluff::State::PreFluffed, m_Processor.m_Cursor.m_Full.m_Height);
-        m_Wtx.Delete(keyTx);
-    }
+		pF = m_TxPool.AddValidTx(std::move(pTxOrig), stats, keyTx, TxPool::Fluff::State::PreFluffed, m_Processor.m_Cursor.m_Full.m_Height);
+		m_Wtx.Delete(keyTx);
+	}
 
-    if (bDontAggregate)
-        OnTransactionAggregated(std::move(ptx), stats);
-    else
-    {
-        AddDummyInputs(*ptx, stats);
+	if (bDontAggregate)
+		OnTransactionAggregated(std::move(ptx), stats);
+	else
+	{
+		AddDummyInputs(*ptx, stats);
 
-        auto pGuard = std::make_unique<TxPool::Stem::Element>();
-        pGuard->m_Time.m_Value = 0;
-        pGuard->m_Profit.m_Stats = stats;
-        pGuard->m_pValue.swap(ptx);
+		auto pGuard = std::make_unique<TxPool::Stem::Element>();
+		pGuard->m_Time.m_Value = 0;
+		pGuard->m_Profit.m_Stats = stats;
+		pGuard->m_pValue.swap(ptx);
 
-        m_Dandelion.InsertAggr(*pGuard);
-        auto* pElem = pGuard.release();
+		m_Dandelion.InsertAggr(*pGuard);
+		auto* pElem = pGuard.release();
 
-        PerformAggregation(*pElem);
-    }
+		PerformAggregation(*pElem);
+	}
 
-    return proto::TxStatus::Ok;
+	return proto::TxStatus::Ok;
 }
 
 Node::Peer* Node::SelectRandomPeer(Peer::ISelector& sel)
 {
-    // must have at least 1 peer to continue the stem phase
-    uint32_t nCount = 0;
+	// must have at least 1 peer to continue the stem phase
+	uint32_t nCount = 0;
 
-    for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
-        if (sel.IsValid(*it))
-            nCount++;
+	for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
+		if (sel.IsValid(*it))
+			nCount++;
 
-    if (nCount)
-    {
-        auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
+	if (nCount)
+	{
+		auto thr = uintBigFrom(m_Cfg.m_Dandelion.m_FluffProbability);
 
-        // Compare two bytes of threshold with random nonce 
-        if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
-        {
-            // Choose random peer index between 0 and nStemPeers - 1 
-            uint32_t nRandomPeerIdx = RandomUInt32(nCount);
+		// Compare two bytes of threshold with random nonce 
+		if (memcmp(thr.m_pData, NextNonce().m_pData, thr.nBytes) < 0)
+		{
+			// Choose random peer index between 0 and nStemPeers - 1 
+			uint32_t nRandomPeerIdx = RandomUInt32(nCount);
 
-            for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
-                if (sel.IsValid(*it) && !nRandomPeerIdx--)
-                    return & *it;
-        }
-    }
+			for (PeerList::iterator it = m_lstPeers.begin(); ; ++it)
+				if (sel.IsValid(*it) && !nRandomPeerIdx--)
+					return & *it;
+		}
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 void Node::OnTransactionAggregated(Transaction::Ptr&& pTx, const TxPool::Stats& stats)
 {
-    LogTxStem(*pTx, "Aggregation finished");
+	LogTxStem(*pTx, "Aggregation finished");
 
-    Peer::Selector_Stem sel;
-    Peer* pNext = SelectRandomPeer(sel);
-    if (pNext)
-    {
-        if (m_Cfg.m_LogTxStem)
-        {
-            BEAM_LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
-        }
+	Peer::Selector_Stem sel;
+	Peer* pNext = SelectRandomPeer(sel);
+	if (pNext)
+	{
+		if (m_Cfg.m_LogTxStem)
+		{
+			BEAM_LOG_INFO() << "Stem continues to " << pNext->m_RemoteAddr;
+		}
 
-        pNext->SendTx(pTx, false);
-    }
-    else
-    {
-        LogTxStem(*pTx, "Going to fluff");
-        OnTransactionFluff(std::move(pTx), nullptr, nullptr, &stats);
-    }
+		pNext->SendTx(pTx, false);
+	}
+	else
+	{
+		LogTxStem(*pTx, "Going to fluff");
+		OnTransactionFluff(std::move(pTx), nullptr, nullptr, &stats);
+	}
 }
 
 void Node::PerformAggregation(TxPool::Stem::Element& x)
 {
-    bool bModified = false;
-    // Aggregation policiy: first select those with worse profit, than those with better
-    TxPool::Stem::ProfitSet::iterator it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
-    ++it;
+	bool bModified = false;
+	// Aggregation policiy: first select those with worse profit, than those with better
+	TxPool::Stem::ProfitSet::iterator it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
+	++it;
 
-    while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
-    {
-        if (m_Dandelion.m_setProfit.end() == it)
-            break;
+	while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
+	{
+		if (m_Dandelion.m_setProfit.end() == it)
+			break;
 
-        TxPool::Stem::Element& src = it->get_ParentObj();
-        ++it;
+		TxPool::Stem::Element& src = it->get_ParentObj();
+		++it;
 
-        if (m_Dandelion.TryMerge(x, src))
-            bModified = true;
-    }
+		if (m_Dandelion.TryMerge(x, src))
+			bModified = true;
+	}
 
-    it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
-    if (m_Dandelion.m_setProfit.begin() != it)
-    {
-        --it;
-        while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
-        {
-            TxPool::Stem::Element& src = it->get_ParentObj();
+	it = TxPool::Stem::ProfitSet::s_iterator_to(x.m_Profit);
+	if (m_Dandelion.m_setProfit.begin() != it)
+	{
+		--it;
+		while (x.m_pValue->m_vOutputs.size() <= m_Cfg.m_Dandelion.m_OutputsMax)
+		{
+			TxPool::Stem::Element& src = it->get_ParentObj();
 
-            bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
-            if (!bEnd)
-                --it;
+			bool bEnd = (m_Dandelion.m_setProfit.begin() == it);
+			if (!bEnd)
+				--it;
 
-            if (m_Dandelion.TryMerge(x, src))
-                bModified = true;
+			if (m_Dandelion.TryMerge(x, src))
+				bModified = true;
 
-            if (bEnd)
-                break;
-        }
-    }
+			if (bEnd)
+				break;
+		}
+	}
 
-    if (bModified)
-    {
-        m_Dandelion.DeleteAggr(x);
-        m_Dandelion.InsertAggr(x);
-    }
+	if (bModified)
+	{
+		m_Dandelion.DeleteAggr(x);
+		m_Dandelion.InsertAggr(x);
+	}
 
 	LogTxStem(*x.m_pValue, "Aggregated so far");
 
-    if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
-    {
-        OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
-        m_Dandelion.Delete(x);
-    }
-    else
+	if (x.m_pValue->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMin)
+	{
+		OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
+		m_Dandelion.Delete(x);
+	}
+	else
 	{
 		LogTxStem(*x.m_pValue, "Aggregation pending");
 		m_Dandelion.SetTimer(m_Cfg.m_Dandelion.m_AggregationTime_ms, x);
@@ -2910,17 +2910,17 @@ void Node::AddDummyInputs(Transaction& tx, TxPool::Stats& stats)
 	if (!m_Keys.m_pMiner)
 		return;
 
-    bool bModified = false;
+	bool bModified = false;
 
-    while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
-    {
+	while (tx.m_vInputs.size() < m_Cfg.m_Dandelion.m_OutputsMax)
+	{
 		CoinID cid(Zero);
-        Height h = m_Processor.get_DB().GetLowestDummy(cid);
-        if (h > m_Processor.m_Cursor.m_ID.m_Height)
-            break;
+		Height h = m_Processor.get_DB().GetLowestDummy(cid);
+		if (h > m_Processor.m_Cursor.m_ID.m_Height)
+			break;
 
 		bModified = true;
-        cid.m_Value = 0;
+		cid.m_Value = 0;
 
 		if (AddDummyInputEx(tx, cid))
 		{
@@ -2932,14 +2932,14 @@ void Node::AddDummyInputs(Transaction& tx, TxPool::Stats& stats)
 			// spent
 			m_Processor.get_DB().DeleteDummy(cid);
 		}
-    }
+	}
 
-    if (bModified)
-    {
-        stats.SetSize(tx);
-        m_Processor.FlushDB(); // make sure they're not lost
-        tx.Normalize();
-    }
+	if (bModified)
+	{
+		stats.SetSize(tx);
+		m_Processor.FlushDB(); // make sure they're not lost
+		tx.Normalize();
+	}
 }
 
 bool Node::AddDummyInputEx(Transaction& tx, const CoinID& cid)
@@ -2997,22 +2997,22 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 
 void Node::AddDummyOutputs(Transaction& tx, TxPool::Stats& stats)
 {
-    if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi || !m_Keys.m_pMiner)
-        return;
+	if (!m_Cfg.m_Dandelion.m_DummyLifetimeHi || !m_Keys.m_pMiner)
+		return;
 
-    // add dummy outputs
-    bool bModified = false;
-    auto& fs = Transaction::FeeSettings::get(m_Processor.m_Cursor.m_Full.m_Height + 1);
-    NodeDB& db = m_Processor.get_DB();
+	// add dummy outputs
+	bool bModified = false;
+	auto& fs = Transaction::FeeSettings::get(m_Processor.m_Cursor.m_Full.m_Height + 1);
+	NodeDB& db = m_Processor.get_DB();
 
-    while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
-    {
-        if (stats.m_FeeReserve < fs.m_Output)
-            break;
+	while (tx.m_vOutputs.size() < m_Cfg.m_Dandelion.m_OutputsMin)
+	{
+		if (stats.m_FeeReserve < fs.m_Output)
+			break;
 
 		CoinID cid(Zero);
 		cid.m_Type = Key::Type::Decoy;
-        cid.set_Subkey(m_Keys.m_nMinerSubIndex);
+		cid.set_Subkey(m_Keys.m_nMinerSubIndex);
 
 		while (true)
 		{
@@ -3021,31 +3021,31 @@ void Node::AddDummyOutputs(Transaction& tx, TxPool::Stats& stats)
 				break;
 		}
 
-        bModified = true;
+		bModified = true;
 
-        Asset::Proof::Params::Override po(m_Processor.get_AidMax());
+		Asset::Proof::Params::Override po(m_Processor.get_AidMax());
 
-        auto pOutput = std::make_unique<Output>();
-        ECC::Scalar::Native sk;
-        pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
+		auto pOutput = std::make_unique<Output>();
+		ECC::Scalar::Native sk;
+		pOutput->Create(m_Processor.m_Cursor.m_ID.m_Height + 1, sk, *m_Keys.m_pMiner, cid, *m_Keys.m_pOwner);
 
 		Height h = SampleDummySpentHeight();
-        db.InsertDummy(h, cid);
+		db.InsertDummy(h, cid);
 
-        tx.m_vOutputs.push_back(std::move(pOutput));
+		tx.m_vOutputs.push_back(std::move(pOutput));
 
-        sk = -sk;
-        tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+		sk = -sk;
+		tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
 
-        stats.m_FeeReserve -= fs.m_Output;
-    }
+		stats.m_FeeReserve -= fs.m_Output;
+	}
 
-    if (bModified)
-    {
-        stats.SetSize(tx);
-        m_Processor.FlushDB();
-        tx.Normalize();
-    }
+	if (bModified)
+	{
+		stats.SetSize(tx);
+		m_Processor.FlushDB();
+		tx.Normalize();
+	}
 }
 
 Height Node::SampleDummySpentHeight()
@@ -3062,226 +3062,226 @@ Height Node::SampleDummySpentHeight()
 
 uint8_t Node::OnTransactionFluff(Transaction::Ptr&& ptxArg, std::ostream* pExtraInfo, const PeerID* pSender, const TxPool::Stats* pStats)
 {
-    Transaction::Ptr ptx;
-    ptx.swap(ptxArg);
+	Transaction::Ptr ptx;
+	ptx.swap(ptxArg);
 
-    Transaction::KeyType keyTx;
-    ptx->get_Key(keyTx);
+	Transaction::KeyType keyTx;
+	ptx->get_Key(keyTx);
 
-    auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
-    TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
+	auto itF = m_TxPool.m_setTxs.find(keyTx, TxPool::Fluff::Element::Tx::Comparator());
+	TxPool::Fluff::Element* pF = (m_TxPool.m_setTxs.end() == itF) ? nullptr : &itF->get_ParentObj();
 
-    if (pF && (TxPool::Fluff::State::Fluffed == pF->m_State))
-        return proto::TxStatus::Ok; // already fluffed
+	if (pF && (TxPool::Fluff::State::Fluffed == pF->m_State))
+		return proto::TxStatus::Ok; // already fluffed
 
-    TxPool::Stats stats;
-    if (!pStats)
-    {
-        bool bTested = pF && (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height);
-        if (!bTested)
-        {
-            const auto& pTxToTest = pF ? pF->m_pValue : ptx; // avoid ambiguity
+	TxPool::Stats stats;
+	if (!pStats)
+	{
+		bool bTested = pF && (pF->m_Hist.m_Height == m_Processor.m_Cursor.m_Full.m_Height);
+		if (!bTested)
+		{
+			const auto& pTxToTest = pF ? pF->m_pValue : ptx; // avoid ambiguity
 
-            bool bAlreadyRejected = false;
-            uint8_t nCode = ValidateTx(stats, *pTxToTest, keyTx, pExtraInfo, bAlreadyRejected);
+			bool bAlreadyRejected = false;
+			uint8_t nCode = ValidateTx(stats, *pTxToTest, keyTx, pExtraInfo, bAlreadyRejected);
 
-            if (!bAlreadyRejected)
-                LogTx(*pTxToTest, nCode, keyTx);
+			if (!bAlreadyRejected)
+				LogTx(*pTxToTest, nCode, keyTx);
 
-            if (proto::TxStatus::Ok != nCode)
-                return nCode;
-        }
-    }
+			if (proto::TxStatus::Ok != nCode)
+				return nCode;
+		}
+	}
 
-    if (!pF)
-    {
-        pF = m_TxPool.AddValidTx(std::move(ptx), (pStats ? *pStats : stats), keyTx, TxPool::Fluff::State::Fluffed);
-        m_Wtx.Delete(keyTx);
-    }
+	if (!pF)
+	{
+		pF = m_TxPool.AddValidTx(std::move(ptx), (pStats ? *pStats : stats), keyTx, TxPool::Fluff::State::Fluffed);
+		m_Wtx.Delete(keyTx);
+	}
 
-    while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
-    {
-        TxPool::Fluff::Element& txDel = m_TxPool.m_lstOutdated.empty() ?
-            m_TxPool.m_setProfit.rbegin()->get_ParentObj() :
-            m_TxPool.m_lstOutdated.front().get_ParentObj();
+	while (m_TxPool.m_setProfit.size() + m_TxPool.m_lstOutdated.size() > m_Cfg.m_MaxPoolTransactions)
+	{
+		TxPool::Fluff::Element& txDel = m_TxPool.m_lstOutdated.empty() ?
+			m_TxPool.m_setProfit.rbegin()->get_ParentObj() :
+			m_TxPool.m_lstOutdated.front().get_ParentObj();
 
-        if (&txDel == pF)
-            pF = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
+		if (&txDel == pF)
+			pF = nullptr; // Anti-spam protection: in case the maximum pool capacity is reached - ensure this tx is any better BEFORE broadcasting ti
 
-        m_TxPool.Delete(txDel);
-    }
+		m_TxPool.Delete(txDel);
+	}
 
-    if (pF)
-        OnTransactionFluff(*pF, pSender);
+	if (pF)
+		OnTransactionFluff(*pF, pSender);
 
-    return proto::TxStatus::Ok;
+	return proto::TxStatus::Ok;
 }
 
 void Node::OnTransactionFluff(TxPool::Fluff::Element& x, const PeerID* pSender)
 {
-    m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
+	m_TxPool.SetState(x, TxPool::Fluff::State::Fluffed);
 
-    proto::HaveTransaction msgOut;
-    msgOut.m_ID = x.m_Tx.m_Key;
+	proto::HaveTransaction msgOut;
+	msgOut.m_ID = x.m_Tx.m_Key;
 
-    for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
-    {
-        Peer& peer = *it2;
-        if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
-            continue;
-        if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions) || peer.IsChocking())
-            continue;
+	for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
+	{
+		Peer& peer = *it2;
+		if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
+			continue;
+		if (!(peer.m_LoginFlags & proto::LoginFlags::SpreadingTransactions) || peer.IsChocking())
+			continue;
 
-        peer.Send(msgOut);
-        peer.SetTxCursor(x.m_pSend);
-    }
+		peer.Send(msgOut);
+		peer.SetTxCursor(x.m_pSend);
+	}
 
-    m_Miner.SoftRestart();
+	m_Miner.SoftRestart();
 }
 
 uint8_t Node::OnTransactionDependent(Transaction::Ptr&& pTx, const Merkle::Hash& hvCtx, const PeerID* pSender, bool bFluff, std::ostream* pExtraInfo)
 {
-    Transaction::KeyType keyTx;
-    pTx->get_Key(keyTx);
+	Transaction::KeyType keyTx;
+	pTx->get_Key(keyTx);
 
-    TxPool::Dependent::Element* pElem;
-    auto itTx = m_TxDependent.m_setTxs.find(keyTx, TxPool::Dependent::Element::Tx::Comparator());
-    if (m_TxDependent.m_setTxs.end() != itTx)
-        pElem = &itTx->get_ParentObj();
-    else
-    {
-        TxPool::Dependent::Element* pParent;
-        if (m_Processor.m_Cursor.m_Full.m_Prev == hvCtx)
-            pParent = nullptr;
-        else
-        {
-            auto itCtx = m_TxDependent.m_setContexts.find(hvCtx, TxPool::Dependent::Element::Context::Comparator());
-            if (m_TxDependent.m_setContexts.end() == itCtx)
-                return proto::TxStatus::DependentNoParent;
+	TxPool::Dependent::Element* pElem;
+	auto itTx = m_TxDependent.m_setTxs.find(keyTx, TxPool::Dependent::Element::Tx::Comparator());
+	if (m_TxDependent.m_setTxs.end() != itTx)
+		pElem = &itTx->get_ParentObj();
+	else
+	{
+		TxPool::Dependent::Element* pParent;
+		if (m_Processor.m_Cursor.m_Full.m_Prev == hvCtx)
+			pParent = nullptr;
+		else
+		{
+			auto itCtx = m_TxDependent.m_setContexts.find(hvCtx, TxPool::Dependent::Element::Context::Comparator());
+			if (m_TxDependent.m_setContexts.end() == itCtx)
+				return proto::TxStatus::DependentNoParent;
 
-            pParent = &itCtx->get_ParentObj();
-        }
+			pParent = &itCtx->get_ParentObj();
+		}
 
-        Transaction::Context ctx;
-        uint32_t nBvmCharge = 0;
-        Amount feeReserve = 0;
-        Merkle::Hash hvCtxNew;
-        uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo, &hvCtxNew);
+		Transaction::Context ctx;
+		uint32_t nBvmCharge = 0;
+		Amount feeReserve = 0;
+		Merkle::Hash hvCtxNew;
+		uint8_t nRes = ValidateTx2(ctx, *pTx, nBvmCharge, feeReserve, pParent, pExtraInfo, &hvCtxNew);
 
-        if (proto::TxStatus::Ok != nRes)
-            return nRes;
+		if (proto::TxStatus::Ok != nRes)
+			return nRes;
 
-        if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
-            return proto::TxStatus::DependentNoNewCtx;
-        
-        pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
-        pElem->m_BvmCharge = nBvmCharge;
-        if (pParent)
-            pElem->m_BvmCharge += pParent->m_BvmCharge;
-    }
+		if (m_TxDependent.m_setContexts.find(hvCtxNew, TxPool::Dependent::Element::Context::Comparator()) != m_TxDependent.m_setContexts.end())
+			return proto::TxStatus::DependentNoNewCtx;
+		
+		pElem = m_TxDependent.AddValidTx(std::move(pTx), ctx, keyTx, hvCtxNew, pParent);
+		pElem->m_BvmCharge = nBvmCharge;
+		if (pParent)
+			pElem->m_BvmCharge += pParent->m_BvmCharge;
+	}
 
-    struct MySelector :public Peer::ISelector {
-        static bool IsValid_(Peer& p) {
-            return Peer::Selector_Stem::IsValid_(p) && (p.get_Ext() >= 9);
-        }
-        bool IsValid(Peer& p) override {
-            return IsValid_(p);
-        }
-    };
+	struct MySelector :public Peer::ISelector {
+		static bool IsValid_(Peer& p) {
+			return Peer::Selector_Stem::IsValid_(p) && (p.get_Ext() >= 9);
+		}
+		bool IsValid(Peer& p) override {
+			return IsValid_(p);
+		}
+	};
 
-    if (!bFluff)
-    {
-        MySelector sel;
+	if (!bFluff)
+	{
+		MySelector sel;
 
-        Peer* pNext = SelectRandomPeer(sel);
-        if (pNext)
-            pNext->SendTx(pElem->m_pValue, false, &hvCtx);
-        else
-            bFluff = true;
-    }
+		Peer* pNext = SelectRandomPeer(sel);
+		if (pNext)
+			pNext->SendTx(pElem->m_pValue, false, &hvCtx);
+		else
+			bFluff = true;
+	}
 
-    bool bNewBest = (m_TxDependent.m_pBest == pElem);
+	bool bNewBest = (m_TxDependent.m_pBest == pElem);
 
-    if (bFluff && !pElem->m_Fluff)
-    {
-        pElem->m_Fluff = true;
+	if (bFluff && !pElem->m_Fluff)
+	{
+		pElem->m_Fluff = true;
 
-        for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
-        {
-            Peer& peer = *it2;
-            if (bNewBest)
-                peer.MaybeSendDependent();
+		for (PeerList::iterator it2 = m_lstPeers.begin(); m_lstPeers.end() != it2; ++it2)
+		{
+			Peer& peer = *it2;
+			if (bNewBest)
+				peer.MaybeSendDependent();
 
-            if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
-                continue;
-            if (!MySelector::IsValid_(peer)/* || peer.IsChocking()*/)
-                continue;
+			if (pSender && peer.m_pInfo && (peer.m_pInfo->m_ID.m_Key == *pSender))
+				continue;
+			if (!MySelector::IsValid_(peer)/* || peer.IsChocking()*/)
+				continue;
 
-            // save time, send the full tx
-            peer.SendTx(pElem->m_pValue, true, &hvCtx);
-        }
+			// save time, send the full tx
+			peer.SendTx(pElem->m_pValue, true, &hvCtx);
+		}
 
-    }
+	}
 
-    if (bNewBest)
-        m_Miner.SoftRestart();
+	if (bNewBest)
+		m_Miner.SoftRestart();
 
-    return bNewBest ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
+	return bNewBest ? proto::TxStatus::Ok : proto::TxStatus::DependentNotBest;
 }
 
 void Node::Dandelion::OnTimedOut(Element& x)
 {
-    get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
-    get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
-    get_ParentObj().OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
+	get_ParentObj().AddDummyOutputs(*x.m_pValue, x.m_Profit.m_Stats);
+	get_ParentObj().LogTxStem(*x.m_pValue, "Aggregation timed-out, dummies added");
+	get_ParentObj().OnTransactionAggregated(std::move(x.m_pValue), x.m_Profit.m_Stats);
 
-    get_ParentObj().m_Dandelion.Delete(x);
+	get_ParentObj().m_Dandelion.Delete(x);
 }
 
 bool Node::Dandelion::ValidateTxContext(const Transaction& tx, const HeightRange& hr, const AmountBig::Number& fees, Amount& feeReserve)
 {
-    uint32_t nBvmCharge = 0;
-    if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr, nullptr))
-        return false;
+	uint32_t nBvmCharge = 0;
+	if (proto::TxStatus::Ok != get_ParentObj().m_Processor.ValidateTxContextEx(tx, hr, true, nBvmCharge, nullptr, nullptr, nullptr))
+		return false;
 
-    TxStats s;
-    tx.get_Reader().AddStats(s);
-    CalculateFeeReserve(s, hr, fees, nBvmCharge, feeReserve);
+	TxStats s;
+	tx.get_Reader().AddStats(s);
+	CalculateFeeReserve(s, hr, fees, nBvmCharge, feeReserve);
 
-    return true;
+	return true;
 }
 
 void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 {
-    if (Flags::Probe & m_Flags)
-    {
-        DeleteSelf(false, ByeReason::Probed);
-        return;
-    }
+	if (Flags::Probe & m_Flags)
+	{
+		DeleteSelf(false, ByeReason::Probed);
+		return;
+	}
 
-    if ((m_LoginFlags ^ nFlagsPrev) & proto::LoginFlags::SendPeers)
-    {
-        if (m_LoginFlags & proto::LoginFlags::SendPeers)
-        {
-            if (!m_pTimerPeers)
-                m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
+	if ((m_LoginFlags ^ nFlagsPrev) & proto::LoginFlags::SendPeers)
+	{
+		if (m_LoginFlags & proto::LoginFlags::SendPeers)
+		{
+			if (!m_pTimerPeers)
+				m_pTimerPeers = io::Timer::create(io::Reactor::get_Current());
 
-            m_pTimerPeers->start(m_This.m_Cfg.m_Timeout.m_TopPeersUpd_ms, true, [this]() { OnResendPeers(); });
+			m_pTimerPeers->start(m_This.m_Cfg.m_Timeout.m_TopPeersUpd_ms, true, [this]() { OnResendPeers(); });
 
-            OnResendPeers();
-        }
-        else
-        {
-            if (m_pTimerPeers)
-                m_pTimerPeers->cancel();
-        }
-    }
+			OnResendPeers();
+		}
+		else
+		{
+			if (m_pTimerPeers)
+				m_pTimerPeers->cancel();
+		}
+	}
 
-    bool b;
-    {
-        TemporarySwap ts(m_LoginFlags, nFlagsPrev);
-        b = ShouldFinalizeMining();
-    }
+	bool b;
+	{
+		TemporarySwap ts(m_LoginFlags, nFlagsPrev);
+		b = ShouldFinalizeMining();
+	}
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled() &&
 		!(proto::LoginFlags::Bbs & nFlagsPrev) &&
@@ -3292,16 +3292,16 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 		Send(msgOut);
 	}
 
-    MaybeSendSerif();
-    MaybeSendDependent();
+	MaybeSendSerif();
+	MaybeSendDependent();
 
 	if (b != ShouldFinalizeMining()) {
 		// stupid compiler insists on parentheses!
 		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
 	}
 
-    if (proto::LoginFlags::SpreadingTransactions & m_LoginFlags)
-        m_This.m_Validator.SendState(*this);
+	if (proto::LoginFlags::SpreadingTransactions & m_LoginFlags)
+		m_This.m_Validator.SendState(*this);
 
 	BroadcastTxs();
 	BroadcastBbs();
@@ -3346,7 +3346,7 @@ void Node::Peer::BroadcastTxs()
 	if (!(proto::LoginFlags::SpreadingTransactions & m_LoginFlags))
 		return;
 
-    // TODO: send dependent txs
+	// TODO: send dependent txs
 
 	if (IsChocking())
 		return;
@@ -3369,7 +3369,7 @@ void Node::Peer::BroadcastTxs()
 
 		if (!m_pCursorTx->m_pThis)
 			continue; // already deleted
-        auto& x = *m_pCursorTx->m_pThis;
+		auto& x = *m_pCursorTx->m_pThis;
 
 		proto::HaveTransaction msgOut;
 		msgOut.m_ID = x.m_Tx.m_Key;
@@ -3412,191 +3412,191 @@ void Node::Peer::BroadcastBbs()
 
 void Node::Peer::MaybeSendSerif()
 {
-    if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
-        return;
-    assert(m_pAccount);
+	if (!(Flags::Viewer & m_Flags) || (Flags::SerifSent & m_Flags))
+		return;
+	assert(m_pAccount);
 
-    proto::EventsSerif msg;
-    msg.m_Height = m_pAccount->m_hTxoHi;
-    msg.m_Value = m_pAccount->m_Serif;
+	proto::EventsSerif msg;
+	msg.m_Height = m_pAccount->m_hTxoHi;
+	msg.m_Value = m_pAccount->m_Serif;
 
-    Send(msg);
-    m_Flags |= Flags::SerifSent;
+	Send(msg);
+	m_Flags |= Flags::SerifSent;
 }
 
 void Node::Peer::MaybeSendDependent()
 {
-    auto& vec = m_Dependent.m_vSent; // alias
-    if (m_Dependent.m_hSent != m_This.m_Processor.m_Cursor.m_Full.m_Height)
-    {
-        m_Dependent.m_hSent = m_This.m_Processor.m_Cursor.m_Full.m_Height;
-        vec.clear();
-    }
+	auto& vec = m_Dependent.m_vSent; // alias
+	if (m_Dependent.m_hSent != m_This.m_Processor.m_Cursor.m_Full.m_Height)
+	{
+		m_Dependent.m_hSent = m_This.m_Processor.m_Cursor.m_Full.m_Height;
+		vec.clear();
+	}
 
-    if (!(proto::LoginFlags::WantDependentState & m_LoginFlags))
-        return;
+	if (!(proto::LoginFlags::WantDependentState & m_LoginFlags))
+		return;
 
-    auto* pTop = m_This.m_TxDependent.m_pBest;
-    if (!pTop)
-        return;
+	auto* pTop = m_This.m_TxDependent.m_pBest;
+	if (!pTop)
+		return;
 
-    proto::DependentContextChanged msg;
-    for (msg.m_PrefixDepth = std::min(pTop->m_Depth, (uint32_t) vec.size()); msg.m_PrefixDepth; msg.m_PrefixDepth--, pTop = pTop->m_pParent)
-        if (vec[msg.m_PrefixDepth - 1] == pTop->m_Context.m_Key)
-            break;
+	proto::DependentContextChanged msg;
+	for (msg.m_PrefixDepth = std::min(pTop->m_Depth, (uint32_t) vec.size()); msg.m_PrefixDepth; msg.m_PrefixDepth--, pTop = pTop->m_pParent)
+		if (vec[msg.m_PrefixDepth - 1] == pTop->m_Context.m_Key)
+			break;
 
-    vec.resize(msg.m_PrefixDepth);
+	vec.resize(msg.m_PrefixDepth);
 
-    pTop = m_This.m_TxDependent.m_pBest;
-    if (pTop->m_Depth == msg.m_PrefixDepth)
-        return; // no change
+	pTop = m_This.m_TxDependent.m_pBest;
+	if (pTop->m_Depth == msg.m_PrefixDepth)
+		return; // no change
 
-    assert(vec.size() < pTop->m_Depth);
-    vec.resize(pTop->m_Depth);
-    msg.m_vCtxs.resize(vec.size() - msg.m_PrefixDepth);
+	assert(vec.size() < pTop->m_Depth);
+	vec.resize(pTop->m_Depth);
+	msg.m_vCtxs.resize(vec.size() - msg.m_PrefixDepth);
 
-    for (uint32_t i = pTop->m_Depth; ; pTop = pTop->m_pParent)
-    {
-        const auto& hv = pTop->m_Context.m_Key;
-        vec[--i] = hv;
+	for (uint32_t i = pTop->m_Depth; ; pTop = pTop->m_pParent)
+	{
+		const auto& hv = pTop->m_Context.m_Key;
+		vec[--i] = hv;
 
-        uint32_t i2 = i - msg.m_PrefixDepth;
-        msg.m_vCtxs[i2] = hv;
+		uint32_t i2 = i - msg.m_PrefixDepth;
+		msg.m_vCtxs[i2] = hv;
 
-        if (!i2)
-            break;
-    }
+		if (!i2)
+			break;
+	}
 
-    Send(msg);
+	Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::HaveTransaction&& msg)
 {
-    TxPool::Fluff::Element::Tx key;
-    key.m_Key = msg.m_ID;
+	TxPool::Fluff::Element::Tx key;
+	key.m_Key = msg.m_ID;
 
-    TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
-    if (m_This.m_TxPool.m_setTxs.end() != it)
-    {
-        // already have it
-        TxPool::Fluff::Element& x = it->get_ParentObj();
-        if (TxPool::Fluff::State::Fluffed != x.m_State)
-        {
-            const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
-            m_This.OnTransactionFluff(x, pSender);
-        }
+	TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	if (m_This.m_TxPool.m_setTxs.end() != it)
+	{
+		// already have it
+		TxPool::Fluff::Element& x = it->get_ParentObj();
+		if (TxPool::Fluff::State::Fluffed != x.m_State)
+		{
+			const PeerID* pSender = m_pInfo ? &m_pInfo->m_ID.m_Key : nullptr;
+			m_This.OnTransactionFluff(x, pSender);
+		}
 
-        return;
-    }
+		return;
+	}
 
-    if (m_This.m_TxReject.end() != m_This.m_TxReject.find(msg.m_ID))
-        return;
+	if (m_This.m_TxReject.end() != m_This.m_TxReject.find(msg.m_ID))
+		return;
 
-    if (!m_This.m_Wtx.Add(key.m_Key))
-        return; // already waiting for it
+	if (!m_This.m_Wtx.Add(key.m_Key))
+		return; // already waiting for it
 
-    proto::GetTransaction msgOut;
-    msgOut.m_ID = msg.m_ID;
-    Send(msgOut);
+	proto::GetTransaction msgOut;
+	msgOut.m_ID = msg.m_ID;
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetTransaction&& msg)
 {
-    TxPool::Fluff::Element::Tx key;
-    key.m_Key = msg.m_ID;
+	TxPool::Fluff::Element::Tx key;
+	key.m_Key = msg.m_ID;
 
-    TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
-    if (m_This.m_TxPool.m_setTxs.end() == it)
-        return; // don't have it
+	TxPool::Fluff::TxSet::iterator it = m_This.m_TxPool.m_setTxs.find(key);
+	if (m_This.m_TxPool.m_setTxs.end() == it)
+		return; // don't have it
 
-    SendTx(it->get_ParentObj().m_pValue, true);
+	SendTx(it->get_ParentObj().m_pValue, true);
 }
 
 void Node::Peer::SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx /* = nullptr */)
 {
-    struct MyMsg :public proto::NewTransaction {
-        ~MyMsg() {
-            m_Context.release();
-        }
-    } msg;
-    msg.m_Fluff = bFluff;
-    msg.m_Context.reset(Cast::NotConst(pCtx)); // fictive
-    TemporarySwap scope(msg.m_Transaction, ptx);
+	struct MyMsg :public proto::NewTransaction {
+		~MyMsg() {
+			m_Context.release();
+		}
+	} msg;
+	msg.m_Fluff = bFluff;
+	msg.m_Context.reset(Cast::NotConst(pCtx)); // fictive
+	TemporarySwap scope(msg.m_Transaction, ptx);
 
-    Send(msg);
+	Send(msg);
 }
 
 void Node::Peer::OnMsg(proto::GetCommonState&& msg)
 {
-    proto::ProofCommonState msgOut;
+	proto::ProofCommonState msgOut;
 
-    Processor& p = m_This.m_Processor; // alias
+	Processor& p = m_This.m_Processor; // alias
 
-    for (size_t i = 0; i < msg.m_IDs.size(); i++)
-    {
-        const Block::SystemState::ID& id = msg.m_IDs[i];
-        if (id.m_Height < Rules::HeightGenesis)
-            ThrowUnexpected();
+	for (size_t i = 0; i < msg.m_IDs.size(); i++)
+	{
+		const Block::SystemState::ID& id = msg.m_IDs[i];
+		if (id.m_Height < Rules::HeightGenesis)
+			ThrowUnexpected();
 
-        if ((id.m_Height < p.m_Cursor.m_ID.m_Height) && !p.IsFastSync())
-        {
-            Merkle::Hash hv;
-            p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
+		if ((id.m_Height < p.m_Cursor.m_ID.m_Height) && !p.IsFastSync())
+		{
+			Merkle::Hash hv;
+			p.get_DB().get_StateHash(p.FindActiveAtStrict(id.m_Height), hv);
 
-            if ((hv == id.m_Hash) || (i + 1 == msg.m_IDs.size()))
-            {
-                msgOut.m_ID.m_Height = id.m_Height;
-                msgOut.m_ID.m_Hash = hv;
-                p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
-                break;
-            }
-        }
-    }
+			if ((hv == id.m_Hash) || (i + 1 == msg.m_IDs.size()))
+			{
+				msgOut.m_ID.m_Height = id.m_Height;
+				msgOut.m_ID.m_Hash = hv;
+				p.GenerateProofStateStrict(msgOut.m_Proof, id.m_Height);
+				break;
+			}
+		}
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofState&& msg)
 {
-    if (msg.m_Height < Rules::HeightGenesis)
-        ThrowUnexpected();
+	if (msg.m_Height < Rules::HeightGenesis)
+		ThrowUnexpected();
 
-    proto::ProofState msgOut;
+	proto::ProofState msgOut;
 
-    Processor& p = m_This.m_Processor;
-    const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
-    if ((msg.m_Height < sid.m_Height) && !p.IsFastSync())
-        p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
+	Processor& p = m_This.m_Processor;
+	const NodeDB::StateID& sid = p.m_Cursor.m_Sid;
+	if ((msg.m_Height < sid.m_Height) && !p.IsFastSync())
+		p.GenerateProofStateStrict(msgOut.m_Proof, msg.m_Height);
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Height h)
 {
-    assert(h < m_Cursor.m_Sid.m_Height);
+	assert(h < m_Cursor.m_Sid.m_Height);
 
-    Merkle::ProofBuilderHard bld;
+	Merkle::ProofBuilderHard bld;
 
-    m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
+	m_Mmr.m_States.get_Proof(bld, m_Mmr.m_States.H2I(h));
 
-    proof.swap(bld.m_Proof);
+	proof.swap(bld.m_Proof);
 
-    struct MyProofBuilder
-        :public ProofBuilderHard
-    {
-        using ProofBuilderHard::ProofBuilderHard;
-        virtual bool get_History(Merkle::Hash&) override { return false; }
-    };
+	struct MyProofBuilder
+		:public ProofBuilderHard
+	{
+		using ProofBuilderHard::ProofBuilderHard;
+		virtual bool get_History(Merkle::Hash&) override { return false; }
+	};
 
-    MyProofBuilder pb(*this, proof);
-    pb.GenerateProof();
+	MyProofBuilder pb(*this, proof);
+	pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 {
-    proto::ProofKernel msgOut;
+	proto::ProofKernel msgOut;
 
-    Processor& p = m_This.m_Processor;
+	Processor& p = m_This.m_Processor;
 	if (!p.IsFastSync())
 	{
 		Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
@@ -3609,56 +3609,56 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 				p.GenerateProofStateStrict(msgOut.m_Proof.m_Outer, h);
 		}
 	}
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
 {
-    proto::ProofKernel2 msgOut;
+	proto::ProofKernel2 msgOut;
 
 	Processor& p = m_This.m_Processor;
 	if (!p.IsFastSync())
 		msgOut.m_Height = p.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 {
-    struct Traveler :public UtxoTree::ITraveler
-    {
-        proto::ProofUtxo m_Msg;
-        NodeProcessor& m_Proc;
+	struct Traveler :public UtxoTree::ITraveler
+	{
+		proto::ProofUtxo m_Msg;
+		NodeProcessor& m_Proc;
 
-        virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
 
-            const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
-            UtxoTree::Key::Data d;
-            d = v.m_Key;
+			const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
+			UtxoTree::Key::Data d;
+			d = v.m_Key;
 
-            Input::Proof& ret = m_Msg.m_Proofs.emplace_back();
+			Input::Proof& ret = m_Msg.m_Proofs.emplace_back();
 
-            ret.m_State.m_Count = v.get_Count();
-            ret.m_State.m_Maturity = d.m_Maturity;
-            m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
+			ret.m_State.m_Count = v.get_Count();
+			ret.m_State.m_Maturity = d.m_Maturity;
+			m_Proc.get_Utxos().get_Proof(ret.m_Proof, *m_pCu);
 
-            struct MyProofBuilder
-                :public NodeProcessor::ProofBuilder
-            {
-                using ProofBuilder::ProofBuilder;
-                virtual bool get_Utxos(Merkle::Hash&) override { return false; }
-            };
+			struct MyProofBuilder
+				:public NodeProcessor::ProofBuilder
+			{
+				using ProofBuilder::ProofBuilder;
+				virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+			};
 
-            MyProofBuilder pb(m_Proc, ret.m_Proof);
-            pb.GenerateProof();
+			MyProofBuilder pb(m_Proc, ret.m_Proof);
+			pb.GenerateProof();
 
-            return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
-        }
+			return m_Msg.m_Proofs.size() < Input::Proof::s_EntriesMax;
+		}
 
-        Traveler(NodeProcessor& np) :m_Proc(np) {}
-    };
+		Traveler(NodeProcessor& np) :m_Proc(np) {}
+	};
 
 	Processor& p = m_This.m_Processor;
-    Traveler t(p);
+	Traveler t(p);
 
 	if (!p.IsFastSync())
 	{
@@ -3678,52 +3678,52 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-        p.get_Utxos().Traverse(t);
+		p.get_Utxos().Traverse(t);
 	}
 
-    Send(t.m_Msg);
+	Send(t.m_Msg);
 }
 
 void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<TxoID>::Type& mmrIdx)
 {
-    TxoID nIdx;
-    mmrIdx.Export(nIdx);
+	TxoID nIdx;
+	mmrIdx.Export(nIdx);
 
-    m_Mmr.m_Shielded.get_Proof(p, nIdx);
+	m_Mmr.m_Shielded.get_Proof(p, nIdx);
 
-    struct MyProofBuilder
-        :public NodeProcessor::ProofBuilder
-    {
-        using ProofBuilder::ProofBuilder;
-        virtual bool get_Shielded(Merkle::Hash&) override { return false; }
-    };
+	struct MyProofBuilder
+		:public NodeProcessor::ProofBuilder
+	{
+		using ProofBuilder::ProofBuilder;
+		virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+	};
 
-    MyProofBuilder pb(*this, p);
-    pb.GenerateProof();
+	MyProofBuilder pb(*this, p);
+	pb.GenerateProof();
 }
 
 void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
 {
-    if (msg.m_SerialPub.m_Y > 1)
-        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+	if (msg.m_SerialPub.m_Y > 1)
+		ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
 
-    proto::ProofShieldedOutp msgOut;
+	proto::ProofShieldedOutp msgOut;
 
 	Processor& p = m_This.m_Processor;
-    if (!p.IsFastSync())
+	if (!p.IsFastSync())
 	{
-        NodeDB::Recordset rs;
-        Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
-        if (p.get_DB().UniqueFind(blob, rs))
-        {
-            const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
+		NodeDB::Recordset rs;
+		Blob blob(&msg.m_SerialPub, sizeof(msg.m_SerialPub));
+		if (p.get_DB().UniqueFind(blob, rs))
+		{
+			const NodeProcessor::ShieldedOutpPacked& sop = rs.get_As<NodeProcessor::ShieldedOutpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-            sop.m_Height.Export(msgOut.m_Height);
-            sop.m_TxoID.Export(msgOut.m_ID);
-            msgOut.m_Commitment = sop.m_Commitment;
+			sop.m_Height.Export(msgOut.m_Height);
+			sop.m_TxoID.Export(msgOut.m_ID);
+			msgOut.m_Commitment = sop.m_Commitment;
 
-            p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
-        }
+			p.GenerateProofShielded(msgOut.m_Proof, sop.m_MmrIndex);
+		}
 	}
 
 	Send(msgOut);
@@ -3731,66 +3731,66 @@ void Node::Peer::OnMsg(proto::GetProofShieldedOutp&& msg)
 
 void Node::Peer::OnMsg(proto::GetProofShieldedInp&& msg)
 {
-    if (msg.m_SpendPk.m_Y > 1)
-        ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
+	if (msg.m_SpendPk.m_Y > 1)
+		ThrowUnexpected(); // would not be necessary if/when our serialization will take care of this
 
-    proto::ProofShieldedInp msgOut;
+	proto::ProofShieldedInp msgOut;
 
-    Processor& p = m_This.m_Processor;
-    if (!p.IsFastSync())
-    {
-        NodeDB::Recordset rs;
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		NodeDB::Recordset rs;
 
-        msg.m_SpendPk.m_Y |= 2;
-        Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
-        if (p.get_DB().UniqueFind(blob, rs))
-        {
-            const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
+		msg.m_SpendPk.m_Y |= 2;
+		Blob blob(&msg.m_SpendPk, sizeof(msg.m_SpendPk));
+		if (p.get_DB().UniqueFind(blob, rs))
+		{
+			const NodeProcessor::ShieldedInpPacked& sip = rs.get_As<NodeProcessor::ShieldedInpPacked>(0); // Note: will throw CorruptionException if of wrong size
 
-            sip.m_Height.Export(msgOut.m_Height);
+			sip.m_Height.Export(msgOut.m_Height);
 
-            p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
-        }
-    }
+			p.GenerateProofShielded(msgOut.m_Proof, sip.m_MmrIndex);
+		}
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
 {
-    proto::ProofAsset msgOut;
-    msgOut.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // for backward compatibility, if asset not found - older deserialization should work
+	proto::ProofAsset msgOut;
+	msgOut.m_Info.m_Deposit = Rules::get().CA.DepositForList2; // for backward compatibility, if asset not found - older deserialization should work
 
-    Processor& p = m_This.m_Processor;
-    if (!p.IsFastSync())
-    {
-        Asset::Full ai;
-        ai.m_ID = msg.m_AssetID ?
-            msg.m_AssetID :
-            p.get_DB().AssetFindByOwner(msg.m_Owner);
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		Asset::Full ai;
+		ai.m_ID = msg.m_AssetID ?
+			msg.m_AssetID :
+			p.get_DB().AssetFindByOwner(msg.m_Owner);
 
-        if  (ai.m_ID && p.get_DB().AssetGetSafe(ai))
-        {
-            msgOut.m_Info = std::move(ai);
+		if  (ai.m_ID && p.get_DB().AssetGetSafe(ai))
+		{
+			msgOut.m_Info = std::move(ai);
 
-            if (get_Ext() < 10)
-                msgOut.m_Info.SetCid(nullptr);
+			if (get_Ext() < 10)
+				msgOut.m_Info.SetCid(nullptr);
 
-            p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
+			p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
 
-            struct MyProofBuilder
-                :public NodeProcessor::ProofBuilder
-            {
-                using ProofBuilder::ProofBuilder;
-                virtual bool get_Assets(Merkle::Hash&) override { return false; }
-            };
+			struct MyProofBuilder
+				:public NodeProcessor::ProofBuilder
+			{
+				using ProofBuilder::ProofBuilder;
+				virtual bool get_Assets(Merkle::Hash&) override { return false; }
+			};
 
-            MyProofBuilder pb(p, msgOut.m_Proof);
-            pb.GenerateProof();
-        }
-    }
+			MyProofBuilder pb(p, msgOut.m_Proof);
+			pb.GenerateProof();
+		}
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
@@ -3800,7 +3800,7 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 	Processor& p = m_This.m_Processor;
 	if ((msg.m_Id0 < p.m_Extra.m_ShieldedOutputs) && msg.m_Count)
 	{
-        std::setmin(msg.m_Count, Rules::get().Shielded.m_ProofMax.get_N() * 2); // no reason to ask for more
+		std::setmin(msg.m_Count, Rules::get().Shielded.m_ProofMax.get_N() * 2); // no reason to ask for more
 
 		TxoID n = p.m_Extra.m_ShieldedOutputs - msg.m_Id0;
 
@@ -3809,81 +3809,81 @@ void Node::Peer::OnMsg(proto::GetShieldedList&& msg)
 
 		msgOut.m_Items.resize(msg.m_Count);
 		p.get_DB().ShieldedRead(msg.m_Id0, &msgOut.m_Items.front(), msg.m_Count);
-        p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
-    }
+		p.get_DB().ShieldedStateRead(msg.m_Id0 + msg.m_Count - 1, &msgOut.m_State1, 1);
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 bool Node::Processor::BuildCwp()
 {
-    if (!m_Cwp.IsEmpty())
-        return true; // already built
+	if (!m_Cwp.IsEmpty())
+		return true; // already built
 
-    if (m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
-        return false;
+	if (m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+		return false;
 
-    struct Source
-        :public Block::ChainWorkProof::ISource
-    {
-        Processor& m_Proc;
+	struct Source
+		:public Block::ChainWorkProof::ISource
+	{
+		Processor& m_Proc;
 
-        Source(Processor& proc)
-            :m_Proc(proc)
-        {}
+		Source(Processor& proc)
+			:m_Proc(proc)
+		{}
 
-        virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
-        {
-            uint64_t rowid = m_Proc.get_DB().FindStateWorkGreater(d);
-            m_Proc.get_DB().get_State(rowid, s);
-        }
+		virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+		{
+			uint64_t rowid = m_Proc.get_DB().FindStateWorkGreater(d);
+			m_Proc.get_DB().get_State(rowid, s);
+		}
 
-        virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
-        {
-            m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
-        }
-    };
+		virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
+		{
+			m_Proc.m_Mmr.m_States.get_Proof(bld, m_Proc.m_Mmr.m_States.H2I(h));
+		}
+	};
 
-    Source src(*this);
+	Source src(*this);
 
-    m_Cwp.Create(src, m_Cursor.m_Full);
+	m_Cwp.Create(src, m_Cursor.m_Full);
 
-    Evaluator ev(*this);
-    ev.get_Live(m_Cwp.m_hvRootLive);
+	Evaluator ev(*this);
+	ev.get_Live(m_Cwp.m_hvRootLive);
 
-    return true;
+	return true;
 }
 
 void Node::Peer::OnMsg(proto::GetProofChainWork&& msg)
 {
-    proto::ProofChainWork msgOut;
+	proto::ProofChainWork msgOut;
 
-    Processor& p = m_This.m_Processor;
-    if (!p.IsFastSync() && p.BuildCwp())
-    {
-        msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
-        BEAM_VERIFY(msgOut.m_Proof.Crop(p.m_Cwp));
-    }
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync() && p.BuildCwp())
+	{
+		msgOut.m_Proof.m_LowerBound = msg.m_LowerBound;
+		BEAM_VERIFY(msgOut.m_Proof.Crop(p.m_Cwp));
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::PeerInfoSelf&& msg)
 {
-    m_Port = msg.m_Port;
+	m_Port = msg.m_Port;
 }
 
 void Node::Peer::OnMsg(proto::PeerInfo&& msg)
 {
-    if (msg.m_ID != m_This.m_MyPublicID)
-        m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
+	if (msg.m_ID != m_This.m_MyPublicID)
+		m_This.m_PeerMan.OnPeer(msg.m_ID, msg.m_LastAddr, false);
 }
 
 void Node::Peer::OnMsg(proto::GetExternalAddr&& msg)
 {
-    proto::ExternalAddr msgOut;
-    msgOut.m_Value = m_RemoteAddr.ip();
-    Send(msgOut);
+	proto::ExternalAddr msgOut;
+	msgOut.m_Value = m_RemoteAddr.ip();
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsMsg&& msg)
@@ -3894,9 +3894,9 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 		ECC::Hash::Value hv;
 		proto::Bbs::get_Hash(hv, msg);
 
-        if (!proto::Bbs::IsHashValid(hv))
+		if (!proto::Bbs::IsHashValid(hv))
 			return; // drop
-    }
+	}
 
 	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
@@ -3906,81 +3906,81 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 
 	Timestamp t = getTimestamp();
 
-    if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
+	if (msg.m_TimePosted > t + Rules::get().DA.MaxAhead_s)
 		return; // too much ahead of time
 
-    if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s < t)
-        return; // too old
+	if (msg.m_TimePosted + m_This.m_Cfg.m_Bbs.m_MessageTimeout_s < t)
+		return; // too old
 
-    if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
-        return; // don't allow too much out-of-order messages
+	if (msg.m_TimePosted + Rules::get().DA.MaxAhead_s < m_This.m_Bbs.m_HighestPosted_s)
+		return; // don't allow too much out-of-order messages
 
-    NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk;
+	NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB::WalkerBbs wlk;
 
-    wlk.m_Data.m_Channel = msg.m_Channel;
-    wlk.m_Data.m_TimePosted = msg.m_TimePosted;
-    wlk.m_Data.m_Message = Blob(msg.m_Message);
+	wlk.m_Data.m_Channel = msg.m_Channel;
+	wlk.m_Data.m_TimePosted = msg.m_TimePosted;
+	wlk.m_Data.m_Message = Blob(msg.m_Message);
 	msg.m_Nonce.Export(wlk.m_Data.m_Nonce);
 
-    Bbs::CalcMsgKey(wlk.m_Data);
+	Bbs::CalcMsgKey(wlk.m_Data);
 
-    if (db.BbsFind(wlk.m_Data.m_Key))
-        return; // already have it
+	if (db.BbsFind(wlk.m_Data.m_Key))
+		return; // already have it
 
-    m_This.m_Bbs.MaybeCleanup();
+	m_This.m_Bbs.MaybeCleanup();
 
-    uint64_t id = db.BbsIns(wlk.m_Data);
-    m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
+	uint64_t id = db.BbsIns(wlk.m_Data);
+	m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
 	std::setmax(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
 	m_This.m_Bbs.m_Totals.m_Count++;
 	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
-    // 1. Send to other BBS-es
+	// 1. Send to other BBS-es
 
-    proto::BbsHaveMsg msgOut;
-    msgOut.m_Key = wlk.m_Data.m_Key;
+	proto::BbsHaveMsg msgOut;
+	msgOut.m_Key = wlk.m_Data.m_Key;
 
-    for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        if (this == &peer)
-            continue;
+	for (PeerList::iterator it = m_This.m_lstPeers.begin(); m_This.m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		if (this == &peer)
+			continue;
 
-        if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs) || peer.IsChocking())
-            continue;
+		if (!(peer.m_LoginFlags & proto::LoginFlags::Bbs) || peer.IsChocking())
+			continue;
 
-        peer.Send(msgOut);
-    }
+		peer.Send(msgOut);
+	}
 
-    // 2. Send to subscribed
-    typedef Bbs::Subscription::BbsSet::iterator It;
+	// 2. Send to subscribed
+	typedef Bbs::Subscription::BbsSet::iterator It;
 
-    Bbs::Subscription::InBbs key;
-    key.m_Channel = msg.m_Channel;
+	Bbs::Subscription::InBbs key;
+	key.m_Channel = msg.m_Channel;
 
-    for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; range.first++)
-    {
-        Bbs::Subscription& s = range.first->get_ParentObj();
+	for (std::pair<It, It> range = m_This.m_Bbs.m_Subscribed.equal_range(key); range.first != range.second; range.first++)
+	{
+		Bbs::Subscription& s = range.first->get_ParentObj();
 		assert(s.m_Cursor < id);
 
-        if (s.m_pPeer->IsChocking())
-            continue;
+		if (s.m_pPeer->IsChocking())
+			continue;
 
-        s.m_pPeer->SendBbsMsg(wlk.m_Data);
+		s.m_pPeer->SendBbsMsg(wlk.m_Data);
 		s.m_Cursor = id;
 
 		s.m_pPeer->IsChocking(); // in case it's chocking - for faster recovery recheck it ASAP
-    }
+	}
 }
 
 void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 {
-    if (!m_This.m_Cfg.m_Bbs.IsEnabled())
+	if (!m_This.m_Cfg.m_Bbs.IsEnabled())
 		ThrowUnexpected();
 
-    NodeDB& db = m_This.m_Processor.get_DB();
+	NodeDB& db = m_This.m_Processor.get_DB();
 	if (db.BbsFind(msg.m_Key)) {
 		// stupid compiler insists on parentheses here!
 		return; // already have it
@@ -3991,9 +3991,9 @@ void Node::Peer::OnMsg(proto::BbsHaveMsg&& msg)
 		return; // already waiting for it
 	}
 
-    proto::BbsGetMsg msgOut;
-    msgOut.m_Key = msg.m_Key;
-    Send(msgOut);
+	proto::BbsGetMsg msgOut;
+	msgOut.m_Key = msg.m_Key;
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
@@ -4002,13 +4002,13 @@ void Node::Peer::OnMsg(proto::BbsGetMsg&& msg)
 		ThrowUnexpected();
 
 	NodeDB& db = m_This.m_Processor.get_DB();
-    NodeDB::WalkerBbs wlk;
+	NodeDB::WalkerBbs wlk;
 
-    wlk.m_Data.m_Key = msg.m_Key;
-    if (!db.BbsFind(wlk))
-        return; // don't have it
+	wlk.m_Data.m_Key = msg.m_Key;
+	if (!db.BbsFind(wlk))
+		return; // don't have it
 
-    SendBbsMsg(wlk.m_Data);
+	SendBbsMsg(wlk.m_Data);
 }
 
 void Node::Peer::SendBbsMsg(const NodeDB::WalkerBbs::Data& d)
@@ -4027,28 +4027,28 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 		ThrowUnexpected();
 
 	Bbs::Subscription::InPeer key;
-    key.m_Channel = msg.m_Channel;
+	key.m_Channel = msg.m_Channel;
 
-    Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.find(key);
-    if ((m_Subscriptions.end() == it) != msg.m_On)
-        return;
+	Bbs::Subscription::PeerSet::iterator it = m_Subscriptions.find(key);
+	if ((m_Subscriptions.end() == it) != msg.m_On)
+		return;
 
-    if (msg.m_On)
-    {
-        Bbs::Subscription* pS = new Bbs::Subscription;
-        pS->m_pPeer = this;
+	if (msg.m_On)
+	{
+		Bbs::Subscription* pS = new Bbs::Subscription;
+		pS->m_pPeer = this;
 
-        pS->m_Bbs.m_Channel = msg.m_Channel;
-        pS->m_Peer.m_Channel = msg.m_Channel;
-        m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
-        m_Subscriptions.insert(pS->m_Peer);
+		pS->m_Bbs.m_Channel = msg.m_Channel;
+		pS->m_Peer.m_Channel = msg.m_Channel;
+		m_This.m_Bbs.m_Subscribed.insert(pS->m_Bbs);
+		m_Subscriptions.insert(pS->m_Peer);
 
 		pS->m_Cursor = m_This.m_Processor.get_DB().BbsFindCursor(msg.m_TimeFrom) - 1;
 
 		BroadcastBbs(*pS);
-    }
-    else
-        Unsubscribe(it->get_ParentObj());
+	}
+	else
+		Unsubscribe(it->get_ParentObj());
 }
 
 void Node::Peer::BroadcastBbs(Bbs::Subscription& s)
@@ -4083,566 +4083,566 @@ void Node::Peer::OnMsg(proto::BbsResetSync&& msg)
 
 void Node::Peer::OnMsg(proto::GetEvents&& msg)
 {
-    proto::Events msgOut;
+	proto::Events msgOut;
 
-    if (Flags::Viewer & m_Flags)
-    {
-        assert(m_pAccount);
+	if (Flags::Viewer & m_Flags)
+	{
+		assert(m_pAccount);
 		Processor& p = m_This.m_Processor;
 		NodeDB& db = p.get_DB();
-        NodeDB::WalkerEvent wlk;
+		NodeDB::WalkerEvent wlk;
 
-        Height hLast = 0;
-        uint32_t nCount = 0;
+		Height hLast = 0;
+		uint32_t nCount = 0;
 
-        Serializer ser, serCvt;
+		Serializer ser, serCvt;
 
-        for (db.EnumEvents(wlk, m_pAccount->m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Pos.m_Height)
-        {
-            if ((nCount >= proto::Event::s_Max) && (wlk.m_Pos.m_Height != hLast))
-                break;
+		for (db.EnumEvents(wlk, m_pAccount->m_iAccount, msg.m_HeightMin); wlk.MoveNext(); hLast = wlk.m_Pos.m_Height)
+		{
+			if ((nCount >= proto::Event::s_Max) && (wlk.m_Pos.m_Height != hLast))
+				break;
 
 			if (p.IsFastSync() && (wlk.m_Pos.m_Height > p.m_SyncData.m_h0))
 				break;
 
-            ser & wlk.m_Pos.m_Height;
-            ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
+			ser & wlk.m_Pos.m_Height;
+			ser.WriteRaw(wlk.m_Body.p, wlk.m_Body.n);
 
-            nCount++;   
+			nCount++;   
 		}
 
-        ser.swap_buf(msgOut.m_Events);
-    }
-    else
-        BEAM_LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
+		ser.swap_buf(msgOut.m_Events);
+	}
+	else
+		BEAM_LOG_WARNING() << "Peer " << m_RemoteAddr << " Unauthorized Utxo events request.";
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 {
-    if (!(Flags::Owner & m_Flags) ||
-        !(Flags::Finalizing & m_Flags))
-        ThrowUnexpected();
+	if (!(Flags::Owner & m_Flags) ||
+		!(Flags::Finalizing & m_Flags))
+		ThrowUnexpected();
 
-    m_Flags &= ~Flags::Finalizing;
+	m_Flags &= ~Flags::Finalizing;
 
-    if (!msg.m_Value)
-        ThrowUnexpected();
-    Transaction& tx = *msg.m_Value;
+	if (!msg.m_Value)
+		ThrowUnexpected();
+	Transaction& tx = *msg.m_Value;
 
-    if (this != m_This.m_Miner.m_pFinalizer)
-        return; // outdated
+	if (this != m_This.m_Miner.m_pFinalizer)
+		return; // outdated
 
-    if (!m_This.m_Miner.m_pTaskToFinalize)
-    {
-        m_This.m_Miner.Restart(); // time to restart
-        return;
-    }
+	if (!m_This.m_Miner.m_pTaskToFinalize)
+	{
+		m_This.m_Miner.Restart(); // time to restart
+		return;
+	}
 
-    Miner::Task::Ptr pTask;
-    pTask.swap(m_This.m_Miner.m_pTaskToFinalize);
-    NodeProcessor::GeneratedBlock& x = *pTask;
+	Miner::Task::Ptr pTask;
+	pTask.swap(m_This.m_Miner.m_pTaskToFinalize);
+	NodeProcessor::GeneratedBlock& x = *pTask;
 
-    {
-        ECC::Mode::Scope scope(ECC::Mode::Fast);
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
 
-        // verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
-        // and do the overall validation
+		// verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
+		// and do the overall validation
 		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_ID.m_Height + 1;
-        std::string sErr;
-        if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
-            ThrowUnexpected(sErr.c_str());
+		std::string sErr;
+		if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
+			ThrowUnexpected(sErr.c_str());
 
-        if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
-            ThrowUnexpected();
+		if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+			ThrowUnexpected();
 
-        ctx.m_Sigma = -ctx.m_Sigma;
-        ctx.m_Stats.m_Coinbase += AmountBig::Number(x.m_Fees);
-        AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
+		ctx.m_Sigma = -ctx.m_Sigma;
+		ctx.m_Stats.m_Coinbase += AmountBig::Number(x.m_Fees);
+		AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
 
-        if (!(ctx.m_Sigma == Zero))
-            ThrowUnexpected();
+		if (!(ctx.m_Sigma == Zero))
+			ThrowUnexpected();
 
-        if (!tx.m_vInputs.empty())
-            ThrowUnexpected();
+		if (!tx.m_vInputs.empty())
+			ThrowUnexpected();
 
-        for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
-        {
-            CoinID cid;
-            if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
-                ThrowUnexpected();
-        }
+		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		{
+			CoinID cid;
+			if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
+				ThrowUnexpected();
+		}
 
-        tx.MoveInto(x.m_Block);
+		tx.MoveInto(x.m_Block);
 
-        ECC::Scalar::Native offs = x.m_Block.m_Offset;
-        offs += ECC::Scalar::Native(tx.m_Offset);
-        x.m_Block.m_Offset = offs;
+		ECC::Scalar::Native offs = x.m_Block.m_Offset;
+		offs += ECC::Scalar::Native(tx.m_Offset);
+		x.m_Block.m_Offset = offs;
 
-    }
+	}
 
-    TxPool::Fluff txpEmpty;
+	TxPool::Fluff txpEmpty;
 
-    NodeProcessor::BlockContext bc(txpEmpty, 0, *m_This.m_Keys.m_pGeneric, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
-    bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
-    Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
+	NodeProcessor::BlockContext bc(txpEmpty, 0, *m_This.m_Keys.m_pGeneric, *m_This.m_Keys.m_pGeneric); // the key isn't used anyway
+	bc.m_Mode = NodeProcessor::BlockContext::Mode::Finalize;
+	Cast::Down<NodeProcessor::GeneratedBlock>(bc) = std::move(x);
 
-    bool bRes = m_This.m_Processor.GenerateNewBlock(bc);
+	bool bRes = m_This.m_Processor.GenerateNewBlock(bc);
 
-    if (!bRes)
-    {
-        BEAM_LOG_WARNING() << "Block finalization failed";
-        return;
-    }
+	if (!bRes)
+	{
+		BEAM_LOG_WARNING() << "Block finalization failed";
+		return;
+	}
 
-    Cast::Down<NodeProcessor::GeneratedBlock>(x) = std::move(bc);
+	Cast::Down<NodeProcessor::GeneratedBlock>(x) = std::move(bc);
 
-    BEAM_LOG_INFO() << "Block Finalized by owner";
+	BEAM_LOG_INFO() << "Block Finalized by owner";
 
-    m_This.m_Miner.StartMining(std::move(pTask));
+	m_This.m_Miner.StartMining(std::move(pTask));
 }
 
 void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
 {
-    Processor& p = m_This.m_Processor;
+	Processor& p = m_This.m_Processor;
 
-    proto::StateSummary msgOut;
-    msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
-    msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_ID.m_Height; // by convention after each block there's an artificial gap in Txo counting
-    msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
-    msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
-    msgOut.m_AssetsMax = p.get_AidMax();
-    msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
+	proto::StateSummary msgOut;
+	msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
+	msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_ID.m_Height; // by convention after each block there's an artificial gap in Txo counting
+	msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+	msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
+	msgOut.m_AssetsMax = p.get_AidMax();
+	msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetShieldedOutputsAt&& msg)
 {
-    Processor& p = m_This.m_Processor;
-    Height h = std::min(msg.m_Height, p.m_Cursor.m_Full.m_Height); // don't throw exc if the height is too high, theoretically height can go down due to reorg (of course the chainwork must be higher anyway)
+	Processor& p = m_This.m_Processor;
+	Height h = std::min(msg.m_Height, p.m_Cursor.m_Full.m_Height); // don't throw exc if the height is too high, theoretically height can go down due to reorg (of course the chainwork must be higher anyway)
 
-    proto::ShieldedOutputsAt msgOut;
-    msgOut.m_ShieldedOuts = p.get_DB().ShieldedOutpGet(h);
-    Send(msgOut);
+	proto::ShieldedOutputsAt msgOut;
+	msgOut.m_ShieldedOuts = p.get_DB().ShieldedOutpGet(h);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
 {
-    proto::AssetsListAt msgOut;
+	proto::AssetsListAt msgOut;
 
-    Asset::Full ai;
-    ai.m_ID = msg.m_Aid0 ? (msg.m_Aid0 - 1) : 0;
+	Asset::Full ai;
+	ai.m_ID = msg.m_Aid0 ? (msg.m_Aid0 - 1) : 0;
 
-    bool bCurrent = (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height);
-    bool bLegacy = (get_Ext() < 10);
+	bool bCurrent = (msg.m_Height >= m_This.m_Processor.m_Cursor.m_Full.m_Height);
+	bool bLegacy = (get_Ext() < 10);
 
-    while (ai.m_ID < Asset::s_MaxCount)
-    {
-        if (bCurrent)
-        {
-            if (!m_This.m_Processor.get_DB().AssetGetNext(ai))
-                break;
-        }
-        else
-        {
-            ++ai.m_ID;
-            int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
-            if (!ret)
-                break;
+	while (ai.m_ID < Asset::s_MaxCount)
+	{
+		if (bCurrent)
+		{
+			if (!m_This.m_Processor.get_DB().AssetGetNext(ai))
+				break;
+		}
+		else
+		{
+			++ai.m_ID;
+			int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
+			if (!ret)
+				break;
 
-            if (ret < 0)
-                continue;
-        }
+			if (ret < 0)
+				continue;
+		}
 
-        if (msgOut.m_Assets.size() >= 3000)
-        {
-            msgOut.m_bMore = true;
-            break;
-        }
-        
-        if (bLegacy)
-            ai.SetCid(nullptr);
+		if (msgOut.m_Assets.size() >= 3000)
+		{
+			msgOut.m_bMore = true;
+			break;
+		}
+		
+		if (bLegacy)
+			ai.SetCid(nullptr);
 
-        msgOut.m_Assets.push_back(std::move(ai));
-    }
+		msgOut.m_Assets.push_back(std::move(ai));
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
-    struct Wrk
-        :public NodeProcessor::IWorker
-    {
-        Peer& m_This;
-        proto::ContractVarsEnum& m_In;
-        proto::ContractVars m_Out;
+	struct Wrk
+		:public NodeProcessor::IWorker
+	{
+		Peer& m_This;
+		proto::ContractVarsEnum& m_In;
+		proto::ContractVars m_Out;
 
-        Wrk(Peer& x, proto::ContractVarsEnum& msgIn)
-            :m_This(x)
-            ,m_In(msgIn)
-        {}
+		Wrk(Peer& x, proto::ContractVarsEnum& msgIn)
+			:m_This(x)
+			,m_In(msgIn)
+		{}
 
-        void Do() override
-        {
-            NodeDB::WalkerContractData wlk;
-            m_This.m_This.m_Processor.get_DB().ContractDataEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax);
+		void Do() override
+		{
+			NodeDB::WalkerContractData wlk;
+			m_This.m_This.m_Processor.get_DB().ContractDataEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax);
 
-            Serializer ser;
+			Serializer ser;
 
-            while (true)
-            {
-                if (!wlk.MoveNext())
-                    break;
+			while (true)
+			{
+				if (!wlk.MoveNext())
+					break;
 
-                if (m_In.m_bSkipMin && (wlk.m_Key == m_In.m_KeyMin))
-                    continue; // skip
+				if (m_In.m_bSkipMin && (wlk.m_Key == m_In.m_KeyMin))
+					continue; // skip
 
-                ser
-                    & wlk.m_Key.n
-                    & wlk.m_Val.n;
+				ser
+					& wlk.m_Key.n
+					& wlk.m_Val.n;
 
-                ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
-                ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
+				ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
+				ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
 
-                if (m_This.IsChocking(ser.buffer().second))
-                {
-                    m_Out.m_bMore = true;
-                    break;
-                }
-            }
+				if (m_This.IsChocking(ser.buffer().second))
+				{
+					m_Out.m_bMore = true;
+					break;
+				}
+			}
 
-            ser.swap_buf(m_Out.m_Result);
-        }
-    };
+			ser.swap_buf(m_Out.m_Result);
+		}
+	};
 
-    Wrk wrk(*this, msg);
+	Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
+	m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
-    Send(wrk.m_Out);
+	Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 {
-    struct Wrk
-        :public NodeProcessor::IWorker
-    {
-        Peer& m_This;
-        proto::ContractLogsEnum& m_In;
-        proto::ContractLogs m_Out;
+	struct Wrk
+		:public NodeProcessor::IWorker
+	{
+		Peer& m_This;
+		proto::ContractLogsEnum& m_In;
+		proto::ContractLogs m_Out;
 
-        Wrk(Peer& x, proto::ContractLogsEnum& msgIn)
-            :m_This(x)
-            , m_In(msgIn)
-        {}
+		Wrk(Peer& x, proto::ContractLogsEnum& msgIn)
+			:m_This(x)
+			, m_In(msgIn)
+		{}
 
-        void Do() override
-        {
-            auto& db = m_This.m_This.m_Processor.get_DB();
+		void Do() override
+		{
+			auto& db = m_This.m_This.m_Processor.get_DB();
 
-            NodeDB::ContractLog::Walker wlk;
-            if (m_In.m_KeyMin.empty() && m_In.m_KeyMax.empty())
-                db.ContractLogEnum(wlk, m_In.m_PosMin, m_In.m_PosMax);
-            else
-                db.ContractLogEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax);
+			NodeDB::ContractLog::Walker wlk;
+			if (m_In.m_KeyMin.empty() && m_In.m_KeyMax.empty())
+				db.ContractLogEnum(wlk, m_In.m_PosMin, m_In.m_PosMax);
+			else
+				db.ContractLogEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax);
 
-            Serializer ser;
+			Serializer ser;
 
-            while (true)
-            {
-                if (!wlk.MoveNext())
-                    break;
+			while (true)
+			{
+				if (!wlk.MoveNext())
+					break;
 
-                HeightPos dp;
-                dp.m_Height = wlk.m_Entry.m_Pos.m_Height - m_In.m_PosMin.m_Height;
-                if (dp.m_Height)
-                {
-                    m_In.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
-                    m_In.m_PosMin.m_Pos = 0;
-                }
+				HeightPos dp;
+				dp.m_Height = wlk.m_Entry.m_Pos.m_Height - m_In.m_PosMin.m_Height;
+				if (dp.m_Height)
+				{
+					m_In.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
+					m_In.m_PosMin.m_Pos = 0;
+				}
 
-                dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - m_In.m_PosMin.m_Pos;
-                m_In.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
+				dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - m_In.m_PosMin.m_Pos;
+				m_In.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
 
-                ser
-                    & dp
-                    & wlk.m_Entry.m_Key.n
-                    & wlk.m_Entry.m_Val.n;
+				ser
+					& dp
+					& wlk.m_Entry.m_Key.n
+					& wlk.m_Entry.m_Val.n;
 
-                ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
-                ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
+				ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
+				ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
 
-                if (m_This.IsChocking(ser.buffer().second))
-                {
-                    m_Out.m_bMore = true;
-                    break;
-                }
-            }
+				if (m_This.IsChocking(ser.buffer().second))
+				{
+					m_Out.m_bMore = true;
+					break;
+				}
+			}
 
-            ser.swap_buf(m_Out.m_Result);
-        }
-    };
+			ser.swap_buf(m_Out.m_Result);
+		}
+	};
 
-    Wrk wrk(*this, msg);
+	Wrk wrk(*this, msg);
 
-    m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
+	m_This.m_Processor.ExecInDependentContext(wrk, m_Dependent.m_pQuery.get(), m_This.m_TxDependent);
 
-    Send(wrk.m_Out);
+	Send(wrk.m_Out);
 }
 
 void Node::Peer::OnMsg(proto::GetContractVar&& msg)
 {
-    proto::ContractVar msgOut;
+	proto::ContractVar msgOut;
 
-    Blob val;
-    NodeDB::Recordset rs;
+	Blob val;
+	NodeDB::Recordset rs;
 
-    NodeProcessor& p = m_This.m_Processor;
-    if (p.get_DB().ContractDataFind(msg.m_Key, val, rs))
-    {
-        val.Export(msgOut.m_Value);
+	NodeProcessor& p = m_This.m_Processor;
+	if (p.get_DB().ContractDataFind(msg.m_Key, val, rs))
+	{
+		val.Export(msgOut.m_Value);
 
-        if (p.IsContractVarStoredInMmr(msg.m_Key))
-        {
-            Merkle::Hash hv;
-            Block::get_HashContractVar(hv, msg.m_Key, val);
+		if (p.IsContractVarStoredInMmr(msg.m_Key))
+		{
+			Merkle::Hash hv;
+			Block::get_HashContractVar(hv, msg.m_Key, val);
 
-            RadixHashOnlyTree& t = p.get_Contracts();
-            RadixHashOnlyTree::Cursor cu;
-            bool bCreate = false;
-            if (!t.Find(cu, hv, bCreate))
-                NodeProcessor::OnCorrupted();
+			RadixHashOnlyTree& t = p.get_Contracts();
+			RadixHashOnlyTree::Cursor cu;
+			bool bCreate = false;
+			if (!t.Find(cu, hv, bCreate))
+				NodeProcessor::OnCorrupted();
 
-            t.get_Proof(msgOut.m_Proof, cu);
+			t.get_Proof(msgOut.m_Proof, cu);
 
-            struct MyProofBuilder
-                :public NodeProcessor::ProofBuilder
-            {
-                using ProofBuilder::ProofBuilder;
-                virtual bool get_Contracts(Merkle::Hash&) override { return false; }
-            };
+			struct MyProofBuilder
+				:public NodeProcessor::ProofBuilder
+			{
+				using ProofBuilder::ProofBuilder;
+				virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+			};
 
-            MyProofBuilder pb(p, msgOut.m_Proof);
-            pb.GenerateProof();
-        }
-    }
+			MyProofBuilder pb(p, msgOut.m_Proof);
+			pb.GenerateProof();
+		}
+	}
 
-    Send(msgOut);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::GetContractLogProof&& msg)
 {
-    proto::ContractLogProof msgOut;
-    m_This.m_Processor.get_ProofContractLog(msgOut.m_Proof, msg.m_Pos);
-    Send(msgOut);
+	proto::ContractLogProof msgOut;
+	m_This.m_Processor.get_ProofContractLog(msgOut.m_Proof, msg.m_Pos);
+	Send(msgOut);
 }
 
 void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
 {
-    m_Dependent.m_pQuery = std::move(msg.m_Context);
+	m_Dependent.m_pQuery = std::move(msg.m_Context);
 }
 
 void Node::Peer::OnMsg(proto::PbftProposal&& msg)
 {
-    m_This.m_Validator.OnMsg(std::move(msg), *this);
+	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
 void Node::Peer::OnMsg(proto::PbftVote&& msg)
 {
-    m_This.m_Validator.OnMsg(std::move(msg), *this);
+	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
-    if (newStream)
-    {
-        BEAM_LOG_DEBUG() << "New peer connected: " << newStream->address();
-        Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
-        p->Accept(std::move(newStream));
+	if (newStream)
+	{
+		BEAM_LOG_DEBUG() << "New peer connected: " << newStream->address();
+		Peer* p = get_ParentObj().AllocPeer(newStream->peer_address());
+		p->Accept(std::move(newStream));
 		p->m_Flags |= Peer::Flags::Accepted;
-        p->SecureConnect();
-    }
+		p->SecureConnect();
+	}
 }
 
 bool Node::Miner::IsEnabled() const 
 {
-    if (!get_ParentObj().m_Keys.m_pOwner)
-        return false;
+	if (!get_ParentObj().m_Keys.m_pOwner)
+		return false;
 
-    if (!m_External.m_pSolver && m_vThreads.empty())
-        return false;
+	if (!m_External.m_pSolver && m_vThreads.empty())
+		return false;
 
-    if (Rules::Consensus::PoW == Rules::get().m_Consensus)
-        return true;
+	if (Rules::Consensus::PoW == Rules::get().m_Consensus)
+		return true;
 
-    if (get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms > 0)
-        return true;
+	if (get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms > 0)
+		return true;
 
-    return m_FakeBlocksToGenerate > 0;
+	return m_FakeBlocksToGenerate > 0;
 }
 
 void Node::Miner::Initialize(IExternalPOW* externalPOW)
 {
-    const Config& cfg = get_ParentObj().m_Cfg;
-    if (!cfg.m_MiningThreads && !externalPOW)
-        return;
+	const Config& cfg = get_ParentObj().m_Cfg;
+	if (!cfg.m_MiningThreads && !externalPOW)
+		return;
 
-    if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-        return;
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+		return;
 
-    m_LastRestart_ms = 0;
-    m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
+	m_LastRestart_ms = 0;
+	m_pEvtMined = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
 
-    if (cfg.m_MiningThreads) {
-        m_vThreads.resize(cfg.m_MiningThreads);
-        for (uint32_t i = 0; i < cfg.m_MiningThreads; i++) {
-            PerThread &pt = m_vThreads[i];
-            pt.m_pReactor = io::Reactor::create();
-            pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
-            pt.m_Thread = std::thread(&Miner::RunMinerThread, this, pt.m_pReactor, Rules::get());
-        }
-    }
+	if (cfg.m_MiningThreads) {
+		m_vThreads.resize(cfg.m_MiningThreads);
+		for (uint32_t i = 0; i < cfg.m_MiningThreads; i++) {
+			PerThread &pt = m_vThreads[i];
+			pt.m_pReactor = io::Reactor::create();
+			pt.m_pEvt = io::AsyncEvent::create(*pt.m_pReactor, [this, i]() { OnRefresh(i); });
+			pt.m_Thread = std::thread(&Miner::RunMinerThread, this, pt.m_pReactor, Rules::get());
+		}
+	}
 
 	m_External.m_pSolver = externalPOW;
 
-    SetTimer(0, true); // async start mining
+	SetTimer(0, true); // async start mining
 }
 
 void Node::Miner::RunMinerThread(const io::Reactor::Ptr& pReactor, const Rules& r)
 {
-    Rules::Scope scopeRules(r);
-    pReactor->run();
+	Rules::Scope scopeRules(r);
+	pReactor->run();
 }
 
 void Node::Miner::OnFinalizerChanged(Peer* p)
 {
-    // always prefer newer (in case there are several ones)
-    m_pFinalizer = p;
-    if (!m_pFinalizer)
-    {
-        // try to find another one
-        for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
-            if (it->ShouldFinalizeMining())
-            {
-                m_pFinalizer = &(*it);
-                break;
-            }
-    }
+	// always prefer newer (in case there are several ones)
+	m_pFinalizer = p;
+	if (!m_pFinalizer)
+	{
+		// try to find another one
+		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
+			if (it->ShouldFinalizeMining())
+			{
+				m_pFinalizer = &(*it);
+				break;
+			}
+	}
 
-    Restart();
+	Restart();
 }
 
 void Node::Miner::OnRefresh(uint32_t iIdx)
 {
-    while (true)
-    {
-        Task::Ptr pTask;
-        Block::SystemState::Full s;
+	while (true)
+	{
+		Task::Ptr pTask;
+		Block::SystemState::Full s;
 
-        {
-            std::scoped_lock<std::mutex> scope(m_Mutex);
-            if (!m_pTask || *m_pTask->m_pStop)
-                break;
+		{
+			std::scoped_lock<std::mutex> scope(m_Mutex);
+			if (!m_pTask || *m_pTask->m_pStop)
+				break;
 
-            pTask = m_pTask;
-            s = pTask->m_Hdr; // local copy
-        }
+			pTask = m_pTask;
+			s = pTask->m_Hdr; // local copy
+		}
 
-        ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
-        ECC::Hash::Processor()
-            << pTask->m_hvNonceSeed
-            << iIdx
-            >> hv;
+		ECC::Hash::Value hv; // pick pseudo-random initial nonce for mining.
+		ECC::Hash::Processor()
+			<< pTask->m_hvNonceSeed
+			<< iIdx
+			>> hv;
 
-        static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
-        s.m_PoW.m_Nonce = hv;
+		static_assert(s.m_PoW.m_Nonce.nBytes <= hv.nBytes);
+		s.m_PoW.m_Nonce = hv;
 
-        Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
-        {
-            if (*pTask->m_pStop)
-                return true;
+		Block::PoW::Cancel fnCancel = [this, pTask](bool bRetrying)
+		{
+			if (*pTask->m_pStop)
+				return true;
 
-            if (bRetrying)
-            {
-                std::scoped_lock<std::mutex> scope(m_Mutex);
-                if (pTask != m_pTask)
-                    return true; // soft restart triggered
-            }
+			if (bRetrying)
+			{
+				std::scoped_lock<std::mutex> scope(m_Mutex);
+				if (pTask != m_pTask)
+					return true; // soft restart triggered
+			}
 
-            return false;
-        };
+			return false;
+		};
 
-        if (Rules::Consensus::FakePoW == Rules::get().m_Consensus)
-        {
-            uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
+		if (Rules::Consensus::FakePoW == Rules::get().m_Consensus)
+		{
+			uint32_t timeout_ms = get_ParentObj().m_Cfg.m_TestMode.m_FakePowSolveTime_ms;
 
-            bool bSolved = timeout_ms == 0;
+			bool bSolved = timeout_ms == 0;
 
-            for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
-            {
-                if (fnCancel(true))
-                    break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			for (uint32_t t0_ms = GetTime_ms(); !bSolved; )
+			{
+				if (fnCancel(true))
+					break;
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-                uint32_t dt_ms = GetTime_ms() - t0_ms;
+				uint32_t dt_ms = GetTime_ms() - t0_ms;
 
-                if (dt_ms >= timeout_ms)
-                {
-                    bSolved = true;
-                    break;
-                }
-            }
+				if (dt_ms >= timeout_ms)
+				{
+					bSolved = true;
+					break;
+				}
+			}
 
-            if (!bSolved)
-                continue;
+			if (!bSolved)
+				continue;
 
-            ZeroObject(s.m_PoW.m_Indices); // keep the difficulty intact
-        }
-        else
-        {
-            try
-            {
-                if (!s.GeneratePoW(fnCancel))
-                    continue;
-            }
-            catch (const std::exception& ex)
-            {
-                BEAM_LOG_DEBUG() << ex.what();
-                break;
-            }
-        }
+			ZeroObject(s.m_PoW.m_Indices); // keep the difficulty intact
+		}
+		else
+		{
+			try
+			{
+				if (!s.GeneratePoW(fnCancel))
+					continue;
+			}
+			catch (const std::exception& ex)
+			{
+				BEAM_LOG_DEBUG() << ex.what();
+				break;
+			}
+		}
 
-        std::scoped_lock<std::mutex> scope(m_Mutex);
+		std::scoped_lock<std::mutex> scope(m_Mutex);
 
-        if (*pTask->m_pStop)
-            continue; // either aborted, or other thread was faster
+		if (*pTask->m_pStop)
+			continue; // either aborted, or other thread was faster
 
-        pTask->m_Hdr = s; // save the result
-        *pTask->m_pStop = true;
-        m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
+		pTask->m_Hdr = s; // save the result
+		*pTask->m_pStop = true;
+		m_pTask = pTask; // In case there was a soft restart we restore the one that we mined.
 
-        m_pEvtMined->post();
-        break;
-    }
+		m_pEvtMined->post();
+		break;
+	}
 }
 
 void Node::Miner::HardAbortSafe()
 {
-    m_pTaskToFinalize.reset();
-    m_FeesTrg = 0;
+	m_pTaskToFinalize.reset();
+	m_FeesTrg = 0;
 
-    std::scoped_lock<std::mutex> scope(m_Mutex);
+	std::scoped_lock<std::mutex> scope(m_Mutex);
 
-    if (m_pTask)
-    {
-        *m_pTask->m_pStop = true;
-        m_pTask.reset();
-    }
+	if (m_pTask)
+	{
+		*m_pTask->m_pStop = true;
+		m_pTask.reset();
+	}
 
 	if (m_External.m_pSolver)
 	{
@@ -4660,163 +4660,163 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-		    m_External.m_pSolver->stop_current();
+			m_External.m_pSolver->stop_current();
 	}
 }
 
 void Node::Miner::SoftRestart()
 {
-    if (!IsEnabled() || m_pTaskToFinalize)
-        return;
+	if (!IsEnabled() || m_pTaskToFinalize)
+		return;
 
-    uint32_t nTimeout_ms = 0;
-    if (m_LastRestart_ms)
-    {
-        uint32_t nMin_ms = get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms;
-        uint32_t nElapsed_ms = GetTimeNnz_ms() - m_LastRestart_ms;
-        if (nElapsed_ms < nMin_ms)
-            nTimeout_ms = nMin_ms - nElapsed_ms;
-    }
+	uint32_t nTimeout_ms = 0;
+	if (m_LastRestart_ms)
+	{
+		uint32_t nMin_ms = get_ParentObj().m_Cfg.m_Timeout.m_MiningSoftRestart_ms;
+		uint32_t nElapsed_ms = GetTimeNnz_ms() - m_LastRestart_ms;
+		if (nElapsed_ms < nMin_ms)
+			nTimeout_ms = nMin_ms - nElapsed_ms;
+	}
 
-    SetTimer(nTimeout_ms, false);
+	SetTimer(nTimeout_ms, false);
 }
 
 void Node::Miner::SetTimer(uint32_t timeout_ms, bool bHard)
 {
-    if (!IsEnabled())
-        return;
+	if (!IsEnabled())
+		return;
 
-    if (!m_pTimer)
-        m_pTimer = io::Timer::create(io::Reactor::get_Current());
-    else
-        if (m_bTimerPending && !bHard)
-            return;
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	else
+		if (m_bTimerPending && !bHard)
+			return;
 
-    m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
-    m_bTimerPending = true;
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+	m_bTimerPending = true;
 }
 
 void Node::Miner::OnTimer()
 {
-    m_bTimerPending = false;
-    Restart();
+	m_bTimerPending = false;
+	Restart();
 }
 
 bool Node::Miner::Restart()
 {
-    m_LastRestart_ms = GetTimeNnz_ms();
+	m_LastRestart_ms = GetTimeNnz_ms();
 
-    if (!IsEnabled())
-        return false; //  n/a
+	if (!IsEnabled())
+		return false; //  n/a
 
-    if (!get_ParentObj().m_Processor.IsTreasuryHandled() || get_ParentObj().m_Processor.IsFastSync())
-        return false;
+	if (!get_ParentObj().m_Processor.IsTreasuryHandled() || get_ParentObj().m_Processor.IsFastSync())
+		return false;
 
-    m_pTaskToFinalize.reset();
+	m_pTaskToFinalize.reset();
 
-    const Keys& keys = get_ParentObj().m_Keys;
+	const Keys& keys = get_ParentObj().m_Keys;
 
-    if (m_pFinalizer)
-    {
-        if (Peer::Flags::Finalizing & m_pFinalizer->m_Flags)
-            return false; // wait until we receive that outdated finalization
-    }
-    else
-        if (!keys.m_pMiner)
-            return false; // offline mining is disabled
+	if (m_pFinalizer)
+	{
+		if (Peer::Flags::Finalizing & m_pFinalizer->m_Flags)
+			return false; // wait until we receive that outdated finalization
+	}
+	else
+		if (!keys.m_pMiner)
+			return false; // offline mining is disabled
 
-    NodeProcessor::BlockContext bc(
-        get_ParentObj().m_TxPool,
-        keys.m_nMinerSubIndex,
-        keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
-        keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
+	NodeProcessor::BlockContext bc(
+		get_ParentObj().m_TxPool,
+		keys.m_nMinerSubIndex,
+		keys.m_pMiner ? *keys.m_pMiner : *keys.m_pGeneric,
+		keys.m_pOwner ? *keys.m_pOwner : *keys.m_pGeneric);
 
-    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
-    if (m_pFinalizer)
-        bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
+	if (m_pFinalizer)
+		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
 
-    bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
+	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
-    if (!bRes)
-    {
-        BEAM_LOG_WARNING() << "Block generation failed, can't mine!";
-        return false;
-    }
+	if (!bRes)
+	{
+		BEAM_LOG_WARNING() << "Block generation failed, can't mine!";
+		return false;
+	}
 
-    if (!IsShouldMine(bc))
-        return false;
+	if (!IsShouldMine(bc))
+		return false;
 
-    Task::Ptr pTask(std::make_shared<Task>());
-    Cast::Down<NodeProcessor::GeneratedBlock>(*pTask) = std::move(bc);
+	Task::Ptr pTask(std::make_shared<Task>());
+	Cast::Down<NodeProcessor::GeneratedBlock>(*pTask) = std::move(bc);
 
-    if (m_pFinalizer)
-    {
-        const NodeProcessor::GeneratedBlock& x = *pTask;
-        BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
+	if (m_pFinalizer)
+	{
+		const NodeProcessor::GeneratedBlock& x = *pTask;
+		BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Waiting for owner response...";
 
-        proto::GetBlockFinalization msg;
-        msg.m_Height = pTask->m_Hdr.m_Height;
-        msg.m_Fees = pTask->m_Fees;
-        m_pFinalizer->Send(msg);
+		proto::GetBlockFinalization msg;
+		msg.m_Height = pTask->m_Hdr.m_Height;
+		msg.m_Fees = pTask->m_Fees;
+		m_pFinalizer->Send(msg);
 
-        assert(!(Peer::Flags::Finalizing & m_pFinalizer->m_Flags));
-        m_pFinalizer->m_Flags |= Peer::Flags::Finalizing;
+		assert(!(Peer::Flags::Finalizing & m_pFinalizer->m_Flags));
+		m_pFinalizer->m_Flags |= Peer::Flags::Finalizing;
 
-        m_pTaskToFinalize = std::move(pTask);
-    }
-    else
-        StartMining(std::move(pTask));
+		m_pTaskToFinalize = std::move(pTask);
+	}
+	else
+		StartMining(std::move(pTask));
 
-    return true;
+	return true;
 }
 
 bool Node::Miner::IsShouldMine(const NodeProcessor::GeneratedBlock& bc)
 {
-    if (bc.m_Fees >= m_FeesTrg)
-        return true;
+	if (bc.m_Fees >= m_FeesTrg)
+		return true;
 
-    BEAM_LOG_INFO() << "Block generation no change";
-    return false;
+	BEAM_LOG_INFO() << "Block generation no change";
+	return false;
 }
 
 void Node::Miner::StartMining(Task::Ptr&& pTask)
 {
-    assert(pTask && !m_pTaskToFinalize);
+	assert(pTask && !m_pTaskToFinalize);
 
-    const NodeProcessor::GeneratedBlock& x = *pTask;
-    if (!IsShouldMine(x))
-        return;
+	const NodeProcessor::GeneratedBlock& x = *pTask;
+	if (!IsShouldMine(x))
+		return;
 
-    BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_Body.m_Perishable.size() + x.m_Body.m_Eternal.size());
+	BEAM_LOG_INFO() << "Block generated: Height=" << x.m_Hdr.m_Height << ", Fee=" << x.m_Fees << ", Difficulty=" << x.m_Hdr.m_PoW.m_Difficulty << ", Size=" << (x.m_Body.m_Perishable.size() + x.m_Body.m_Eternal.size());
 
-    m_FeesTrg = x.m_Fees + 1;
+	m_FeesTrg = x.m_Fees + 1;
 
-    pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
+	pTask->m_hvNonceSeed = get_ParentObj().NextNonce();
 
-    // let's mine it.
-    {
-        std::scoped_lock<std::mutex> scope(m_Mutex);
+	// let's mine it.
+	{
+		std::scoped_lock<std::mutex> scope(m_Mutex);
 
-        if (m_pTask)
-        {
-            if (*m_pTask->m_pStop)
-                return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
-            pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
-        }
-        else
-        {
-            pTask->m_pStop.reset(new bool);
-            *pTask->m_pStop = false;
-        }
+		if (m_pTask)
+		{
+			if (*m_pTask->m_pStop)
+				return; // block already mined, probably notification to this thread on its way. Ignore the newly-constructed block
+			pTask->m_pStop = m_pTask->m_pStop; // use the same soft-restart indicator
+		}
+		else
+		{
+			pTask->m_pStop.reset(new bool);
+			*pTask->m_pStop = false;
+		}
 
-        m_pTask = std::move(pTask);
+		m_pTask = std::move(pTask);
 
-        for (size_t i = 0; i < m_vThreads.size(); i++)
-            m_vThreads[i].m_pEvt->post();
-    }
+		for (size_t i = 0; i < m_vThreads.size(); i++)
+			m_vThreads[i].m_pEvt->post();
+	}
 
-    OnRefreshExternal();
+	OnRefreshExternal();
 }
 
 Node::Miner::Task::Ptr& Node::Miner::External::get_At(uint64_t jobID)
@@ -4826,18 +4826,18 @@ Node::Miner::Task::Ptr& Node::Miner::External::get_At(uint64_t jobID)
 
 void Node::Miner::OnRefreshExternal()
 {
-    if (!m_External.m_pSolver)
+	if (!m_External.m_pSolver)
 		return;
 
-    // NOTE the mutex is locked here
-    BEAM_LOG_INFO() << "New job for external miner";
+	// NOTE the mutex is locked here
+	BEAM_LOG_INFO() << "New job for external miner";
 
 	uint64_t jobID = ++m_External.m_jobID;
 	m_External.get_At(jobID) = m_pTask;
 
-    auto fnCancel = []() { return false; };
+	auto fnCancel = []() { return false; };
 
-    Merkle::Hash hv;
+	Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
 	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
@@ -4861,359 +4861,359 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 
 	BEAM_LOG_INFO() << "Solution from external miner. jobID=" << jobID << ", Current.jobID=" << m_External.m_jobID << ", Accept=" << static_cast<uint32_t>(!bReject);
 
-    if (bReject)
-    {
-        BEAM_LOG_INFO() << "Solution is rejected due it is outdated.";
+	if (bReject)
+	{
+		BEAM_LOG_INFO() << "Solution is rejected due it is outdated.";
 		return IExternalPOW::solution_expired; // outdated
-    }
+	}
 
 	Task::Ptr& pTask = m_External.get_At(jobID);
 
-    if (!pTask || *pTask->m_pStop)
-    {
-        BEAM_LOG_INFO() << "Solution is rejected due block mining has been canceled.";
+	if (!pTask || *pTask->m_pStop)
+	{
+		BEAM_LOG_INFO() << "Solution is rejected due block mining has been canceled.";
 		return IExternalPOW::solution_rejected; // already cancelled
-    }
+	}
 
 	pTask->m_Hdr.m_PoW.m_Nonce = POW.m_Nonce;
 	pTask->m_Hdr.m_PoW.m_Indices = POW.m_Indices;
 
-    if (!pTask->m_Hdr.IsValidPoW())
-    {
-        BEAM_LOG_INFO() << "invalid solution from external miner";
-        return IExternalPOW::solution_rejected;
-    }
+	if (!pTask->m_Hdr.IsValidPoW())
+	{
+		BEAM_LOG_INFO() << "invalid solution from external miner";
+		return IExternalPOW::solution_rejected;
+	}
 
-    IExternalPOW::BlockFoundResult result(IExternalPOW::solution_accepted);
-    Merkle::Hash hv;
-    pTask->m_Hdr.get_Hash(hv);
-    result._blockhash = to_hex(hv.m_pData, hv.nBytes);
+	IExternalPOW::BlockFoundResult result(IExternalPOW::solution_accepted);
+	Merkle::Hash hv;
+	pTask->m_Hdr.get_Hash(hv);
+	result._blockhash = to_hex(hv.m_pData, hv.nBytes);
 
 	m_pTask = pTask;
-    *m_pTask->m_pStop = true;
-    m_pEvtMined->post();
+	*m_pTask->m_pStop = true;
+	m_pEvtMined->post();
 
-    return result;
+	return result;
 }
 
 void Node::Miner::OnMined()
 {
-    Task::Ptr pTask;
-    {
-        std::scoped_lock<std::mutex> scope(m_Mutex);
-        if (!(m_pTask && *m_pTask->m_pStop))
-            return; //?!
-        pTask.swap(m_pTask);
-    }
+	Task::Ptr pTask;
+	{
+		std::scoped_lock<std::mutex> scope(m_Mutex);
+		if (!(m_pTask && *m_pTask->m_pStop))
+			return; //?!
+		pTask.swap(m_pTask);
+	}
 
-    Block::SystemState::ID id;
-    pTask->m_Hdr.get_ID(id);
+	Block::SystemState::ID id;
+	pTask->m_Hdr.get_ID(id);
 
-    BEAM_LOG_INFO() << "New block mined: " << id;
+	BEAM_LOG_INFO() << "New block mined: " << id;
 
-    Processor& p = get_ParentObj().m_Processor; // alias
-    NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
-    switch (eStatus)
-    {
-    default:
-    case NodeProcessor::DataStatus::Invalid:
-        // Some bug?
-        BEAM_LOG_WARNING() << "Mined block rejected as invalid!";
-        return;
+	Processor& p = get_ParentObj().m_Processor; // alias
+	NodeProcessor::DataStatus::Enum eStatus = p.OnState(pTask->m_Hdr, get_ParentObj().m_MyPublicID);
+	switch (eStatus)
+	{
+	default:
+	case NodeProcessor::DataStatus::Invalid:
+		// Some bug?
+		BEAM_LOG_WARNING() << "Mined block rejected as invalid!";
+		return;
 
-    case NodeProcessor::DataStatus::Rejected:
-        // Someone else mined exactly the same block!
-        BEAM_LOG_WARNING() << "Mined block duplicated";
-        return;
+	case NodeProcessor::DataStatus::Rejected:
+		// Someone else mined exactly the same block!
+		BEAM_LOG_WARNING() << "Mined block duplicated";
+		return;
 
-    case NodeProcessor::DataStatus::Accepted:
-        break; // ok
-    }
-    assert(NodeProcessor::DataStatus::Accepted == eStatus);
+	case NodeProcessor::DataStatus::Accepted:
+		break; // ok
+	}
+	assert(NodeProcessor::DataStatus::Accepted == eStatus);
 
-    eStatus = p.OnBlock(id, pTask->m_Body.m_Perishable, pTask->m_Body.m_Eternal, get_ParentObj().m_MyPublicID);
-    assert(NodeProcessor::DataStatus::Accepted == eStatus);
-    if (m_FakeBlocksToGenerate)
-    {
-        assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
-        --m_FakeBlocksToGenerate;
-    }
-    p.FlushDB();
+	eStatus = p.OnBlock(id, pTask->m_Body.m_Perishable, pTask->m_Body.m_Eternal, get_ParentObj().m_MyPublicID);
+	assert(NodeProcessor::DataStatus::Accepted == eStatus);
+	if (m_FakeBlocksToGenerate)
+	{
+		assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
+		--m_FakeBlocksToGenerate;
+	}
+	p.FlushDB();
 	p.TryGoUpAsync(); // will likely trigger OnNewState(), and spread this block to the network
 }
 
 struct Node::Beacon::OutCtx
 {
-    int m_Refs;
-    OutCtx() :m_Refs(0) {}
+	int m_Refs;
+	OutCtx() :m_Refs(0) {}
 
-    struct UvRequest
-        :public uv_udp_send_t
-    {
-        IMPLEMENT_GET_PARENT_OBJ(OutCtx, m_Request)
-    } m_Request;
+	struct UvRequest
+		:public uv_udp_send_t
+	{
+		IMPLEMENT_GET_PARENT_OBJ(OutCtx, m_Request)
+	} m_Request;
 
-    uv_buf_t m_BufDescr;
+	uv_buf_t m_BufDescr;
 
 #pragma pack (push, 1)
-    struct Message
-    {
-        Merkle::Hash m_CfgChecksum;
-        PeerID m_NodeID;
-        uint16_t m_Port; // in network byte order
-    };
+	struct Message
+	{
+		Merkle::Hash m_CfgChecksum;
+		PeerID m_NodeID;
+		uint16_t m_Port; // in network byte order
+	};
 #pragma pack (pop)
 
-    Message m_Message; // the message broadcasted
+	Message m_Message; // the message broadcasted
 
-    void Release()
-    {
-        assert(m_Refs > 0);
-        if (!--m_Refs)
-            delete this;
-    }
+	void Release()
+	{
+		assert(m_Refs > 0);
+		if (!--m_Refs)
+			delete this;
+	}
 
-    static void OnDone(uv_udp_send_t* req, int status);
+	static void OnDone(uv_udp_send_t* req, int status);
 };
 
 Node::Beacon::Beacon()
-    :m_pUdp(NULL)
-    ,m_pOut(NULL)
+	:m_pUdp(NULL)
+	,m_pOut(NULL)
 {
 }
 
 Node::Beacon::~Beacon()
 {
-    if (m_pUdp)
-        uv_close((uv_handle_t*) m_pUdp, OnClosed);
+	if (m_pUdp)
+		uv_close((uv_handle_t*) m_pUdp, OnClosed);
 
-    if (m_pOut)
-        m_pOut->Release();
+	if (m_pOut)
+		m_pOut->Release();
 }
 
 uint16_t Node::Beacon::get_Port()
 {
-    uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
-    return nPort ? nPort : get_ParentObj().m_Cfg.m_Listen.port();
+	uint16_t nPort = get_ParentObj().m_Cfg.m_BeaconPort;
+	return nPort ? nPort : get_ParentObj().m_Cfg.m_Listen.port();
 }
 
 void Node::Beacon::Start()
 {
-    assert(!m_pUdp);
-    m_pUdp = new uv_udp_t;
+	assert(!m_pUdp);
+	m_pUdp = new uv_udp_t;
 
-    uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), m_pUdp);
-    m_pUdp->data = this;
+	uv_udp_init(&io::Reactor::get_Current().get_UvLoop(), m_pUdp);
+	m_pUdp->data = this;
 
-    m_BufRcv.resize(sizeof(OutCtx::Message));
+	m_BufRcv.resize(sizeof(OutCtx::Message));
 
-    io::Address addr;
-    addr.port(get_Port());
+	io::Address addr;
+	addr.port(get_Port());
 
-    sockaddr_in sa;
-    addr.fill_sockaddr_in(sa);
+	sockaddr_in sa;
+	addr.fill_sockaddr_in(sa);
 
-    if (uv_udp_bind(m_pUdp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
-        std::ThrowLastError();
+	if (uv_udp_bind(m_pUdp, (sockaddr*)&sa, UV_UDP_REUSEADDR)) // should allow multiple nodes on the same machine (for testing)
+		std::ThrowLastError();
 
-    if (uv_udp_recv_start(m_pUdp, AllocBuf, OnRcv))
-        std::ThrowLastError();
+	if (uv_udp_recv_start(m_pUdp, AllocBuf, OnRcv))
+		std::ThrowLastError();
 
-    if (uv_udp_set_broadcast(m_pUdp, 1))
-        std::ThrowLastError();
+	if (uv_udp_set_broadcast(m_pUdp, 1))
+		std::ThrowLastError();
 
-    m_pTimer = io::Timer::create(io::Reactor::get_Current());
-    m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer
-    OnTimer();
+	m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	m_pTimer->start(get_ParentObj().m_Cfg.m_BeaconPeriod_ms, true, [this]() { OnTimer(); }); // periodic timer
+	OnTimer();
 }
 
 void Node::Beacon::OnTimer()
 {
-    if (!m_pOut)
-    {
-        m_pOut = new OutCtx;
-        m_pOut->m_Refs = 1;
+	if (!m_pOut)
+	{
+		m_pOut = new OutCtx;
+		m_pOut->m_Refs = 1;
 
-        m_pOut->m_Message.m_CfgChecksum = Rules::get().get_LastFork().m_Hash;
-        m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
-        m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
+		m_pOut->m_Message.m_CfgChecksum = Rules::get().get_LastFork().m_Hash;
+		m_pOut->m_Message.m_NodeID = get_ParentObj().m_MyPublicID;
+		m_pOut->m_Message.m_Port = htons(get_ParentObj().m_Cfg.m_Listen.port());
 
-        m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
-        m_pOut->m_BufDescr.len = sizeof(m_pOut->m_Message);
-    }
-    else
-        if (m_pOut->m_Refs > 1)
-            return; // send still pending
+		m_pOut->m_BufDescr.base = (char*) &m_pOut->m_Message;
+		m_pOut->m_BufDescr.len = sizeof(m_pOut->m_Message);
+	}
+	else
+		if (m_pOut->m_Refs > 1)
+			return; // send still pending
 
-    io::Address addr;
-    addr.port(get_Port());
-    addr.ip(INADDR_BROADCAST);
+	io::Address addr;
+	addr.port(get_Port());
+	addr.ip(INADDR_BROADCAST);
 
-    sockaddr_in sa;
-    addr.fill_sockaddr_in(sa);
+	sockaddr_in sa;
+	addr.fill_sockaddr_in(sa);
 
-    m_pOut->m_Refs++;
+	m_pOut->m_Refs++;
 
-    int nErr = uv_udp_send(&m_pOut->m_Request, m_pUdp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
-    if (nErr)
-        m_pOut->Release();
+	int nErr = uv_udp_send(&m_pOut->m_Request, m_pUdp, &m_pOut->m_BufDescr, 1, (sockaddr*) &sa, OutCtx::OnDone);
+	if (nErr)
+		m_pOut->Release();
 }
 
 void Node::Beacon::OutCtx::OnDone(uv_udp_send_t* req, int /* status */)
 {
-    UvRequest* pVal = (UvRequest*)req;
-    assert(pVal);
+	UvRequest* pVal = (UvRequest*)req;
+	assert(pVal);
 
-    pVal->get_ParentObj().Release();
+	pVal->get_ParentObj().Release();
 }
 
 void Node::Beacon::OnRcv(uv_udp_t* handle, ssize_t nread, const uv_buf_t* buf, const struct sockaddr* pSa, unsigned flags)
 {
-    OutCtx::Message msg;
-    if (sizeof(msg) != nread)
-        return;
+	OutCtx::Message msg;
+	if (sizeof(msg) != nread)
+		return;
 
-    memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
+	memcpy(&msg, buf->base, sizeof(msg)); // copy it to prevent (potential) datatype misallignment and etc.
 
-    if (msg.m_CfgChecksum != Rules::get().get_LastFork().m_Hash)
-        return;
+	if (msg.m_CfgChecksum != Rules::get().get_LastFork().m_Hash)
+		return;
 
-    Beacon* pThis = (Beacon*)handle->data;
+	Beacon* pThis = (Beacon*)handle->data;
 
-    if (pThis->get_ParentObj().m_MyPublicID == msg.m_NodeID)
-        return;
+	if (pThis->get_ParentObj().m_MyPublicID == msg.m_NodeID)
+		return;
 
-    io::Address addr(*(sockaddr_in*)pSa);
-    addr.port(ntohs(msg.m_Port));
+	io::Address addr(*(sockaddr_in*)pSa);
+	addr.port(ntohs(msg.m_Port));
 
-    pThis->get_ParentObj().m_PeerMan.OnPeer(msg.m_NodeID, addr, true);
+	pThis->get_ParentObj().m_PeerMan.OnPeer(msg.m_NodeID, addr, true);
 }
 
 void Node::Beacon::AllocBuf(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
-    Beacon* pThis = (Beacon*)handle->data;
-    assert(pThis);
+	Beacon* pThis = (Beacon*)handle->data;
+	assert(pThis);
 
-    buf->base = (char*) &pThis->m_BufRcv.at(0);
-    buf->len = sizeof(OutCtx::Message);
+	buf->base = (char*) &pThis->m_BufRcv.at(0);
+	buf->len = sizeof(OutCtx::Message);
 }
 
 void Node::Beacon::OnClosed(uv_handle_t* p)
 {
-    assert(p);
-    delete (uv_udp_t*) p;
+	assert(p);
+	delete (uv_udp_t*) p;
 }
 
 void Node::PeerMan::Initialize()
 {
-    const Config& cfg = get_ParentObj().m_Cfg;
+	const Config& cfg = get_ParentObj().m_Cfg;
 
-    for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
-    {
-        PeerID id0(Zero);
-        OnPeer(id0, cfg.m_Connect[i], true);
-    }
+	for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
+	{
+		PeerID id0(Zero);
+		OnPeer(id0, cfg.m_Connect[i], true);
+	}
 
-    // peers
-    m_pTimerUpd = io::Timer::create(io::Reactor::get_Current());
-    m_pTimerUpd->start(cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { Update(); });
+	// peers
+	m_pTimerUpd = io::Timer::create(io::Reactor::get_Current());
+	m_pTimerUpd->start(cfg.m_Timeout.m_PeersUpdate_ms, true, [this]() { Update(); });
 
-    m_pTimerFlush = io::Timer::create(io::Reactor::get_Current());
-    m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
+	m_pTimerFlush = io::Timer::create(io::Reactor::get_Current());
+	m_pTimerFlush->start(cfg.m_Timeout.m_PeersDbFlush_ms, true, [this]() { OnFlush(); });
 
-    {
-        NodeDB::WalkerPeer wlk;
-        for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
-        {
-            if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
-                continue; // could be left from previous run?
+	{
+		NodeDB::WalkerPeer wlk;
+		for (get_ParentObj().m_Processor.get_DB().EnumPeers(wlk); wlk.MoveNext(); )
+		{
+			if (wlk.m_Data.m_ID == get_ParentObj().m_MyPublicID)
+				continue; // could be left from previous run?
 
-            PeerMan::PeerInfo* pPi = OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
-            if (!pPi)
-                continue;
+			PeerMan::PeerInfo* pPi = OnPeer(wlk.m_Data.m_ID, io::Address::from_u64(wlk.m_Data.m_Address), false);
+			if (!pPi)
+				continue;
 
-            // set rating
-            uint32_t r = wlk.m_Data.m_Rating;
-            if (!r)
-                Ban(*pPi);
-            else
-                SetRating(*pPi, r);
+			// set rating
+			uint32_t r = wlk.m_Data.m_Rating;
+			if (!r)
+				Ban(*pPi);
+			else
+				SetRating(*pPi, r);
 
-            pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
-            pPi->m_LastConnectAttempt = pPi->m_LastSeen;
-        }
-    }
+			pPi->m_LastSeen = wlk.m_Data.m_LastSeen;
+			pPi->m_LastConnectAttempt = pPi->m_LastSeen;
+		}
+	}
 }
 
 void Node::PeerMan::OnFlush()
 {
-    NodeDB& db = get_ParentObj().m_Processor.get_DB();
+	NodeDB& db = get_ParentObj().m_Processor.get_DB();
 
-    db.PeersDel();
+	db.PeersDel();
 
-    const PeerMan::RawRatingSet& rs = get_Ratings();
+	const PeerMan::RawRatingSet& rs = get_Ratings();
 
-    for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; ++it)
-    {
-        const PeerMan::PeerInfo& pi = it->get_ParentObj();
+	for (PeerMan::RawRatingSet::const_iterator it = rs.begin(); rs.end() != it; ++it)
+	{
+		const PeerMan::PeerInfo& pi = it->get_ParentObj();
 
-        NodeDB::WalkerPeer::Data d;
-        d.m_ID = pi.m_ID.m_Key;
-        d.m_Rating = pi.m_RawRating.m_Value;
-        d.m_Address = pi.m_Addr.m_Value.u64();
-        d.m_LastSeen = pi.m_LastSeen;
+		NodeDB::WalkerPeer::Data d;
+		d.m_ID = pi.m_ID.m_Key;
+		d.m_Rating = pi.m_RawRating.m_Value;
+		d.m_Address = pi.m_Addr.m_Value.u64();
+		d.m_LastSeen = pi.m_LastSeen;
 
-        db.PeerIns(d);
-    }
+		db.PeerIns(d);
+	}
 }
 
 void Node::PeerMan::ActivateMorePeers(uint32_t nTime_ms)
 {
-    const Config& cfg = get_ParentObj().m_Cfg; // alias
-    if (!cfg.m_PeersPersistent)
-        return;
+	const Config& cfg = get_ParentObj().m_Cfg; // alias
+	if (!cfg.m_PeersPersistent)
+		return;
 
-    for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
-    {
-        PeerID id0(Zero);
-        PeerInfo* pPi = OnPeer(id0, cfg.m_Connect[i], true);
-        if (pPi)
-            ActivatePeerSafe(*pPi, nTime_ms);
-    }
+	for (uint32_t i = 0; i < cfg.m_Connect.size(); i++)
+	{
+		PeerID id0(Zero);
+		PeerInfo* pPi = OnPeer(id0, cfg.m_Connect[i], true);
+		if (pPi)
+			ActivatePeerSafe(*pPi, nTime_ms);
+	}
 }
 
 void Node::PeerMan::ActivatePeer(PeerInfo& pi)
 {
-    PeerInfoPlus& pip = Cast::Up<PeerInfoPlus>(pi);
-    if (pip.m_Live.m_p)
-        return; //?
+	PeerInfoPlus& pip = Cast::Up<PeerInfoPlus>(pi);
+	if (pip.m_Live.m_p)
+		return; //?
 
-    Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
+	Peer* p = get_ParentObj().AllocPeer(pip.m_Addr.m_Value);
 	pip.Attach(*p);
 
-    p->Connect(pip.m_Addr.m_Value);
-    p->m_Port = pip.m_Addr.m_Value.port();
+	p->Connect(pip.m_Addr.m_Value);
+	p->m_Port = pip.m_Addr.m_Value.port();
 }
 
 void Node::PeerMan::DeactivatePeer(PeerInfo& pi)
 {
-    PeerInfoPlus& pip = (PeerInfoPlus&)pi;
-    if (!pip.m_Live.m_p)
-        return; //?
+	PeerInfoPlus& pip = (PeerInfoPlus&)pi;
+	if (!pip.m_Live.m_p)
+		return; //?
 
-    pip.m_Live.m_p->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
+	pip.m_Live.m_p->DeleteSelf(false, proto::NodeConnection::ByeReason::Other);
 }
 
 PeerManager::PeerInfo* Node::PeerMan::AllocPeer()
 {
-    PeerInfoPlus* p = new PeerInfoPlus;
-    p->m_Live.m_p = nullptr;
-    return p;
+	PeerInfoPlus* p = new PeerInfoPlus;
+	p->m_Live.m_p = nullptr;
+	return p;
 }
 
 void Node::PeerMan::DeletePeer(PeerInfo& pi)
 {
-    delete &Cast::Up<PeerInfoPlus>(pi);
+	delete &Cast::Up<PeerInfoPlus>(pi);
 }
 
 void Node::PeerMan::PeerInfoPlus::Attach(Peer& p)
@@ -5241,7 +5241,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 	if (!m_Processor.BuildCwp())
 		return false; // no info yet
 
-    typedef yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> MySerializer;
+	typedef yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> MySerializer;
 
 	struct MyTraveler
 		:public RadixTree::ITraveler
@@ -5274,23 +5274,23 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 			Deserializer der;
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
-            Output outp;
+			Output outp;
 			der & outp;
 
-            assert(outp.m_Commitment == d.m_Commitment);
+			assert(outp.m_Commitment == d.m_Commitment);
 
 			// 2 ways to discover the UTXO create height: either directly by looking its TxoID in States table, or reverse-engineer it from Maturity
 			// Since currently maturity delta is independent of current height (not a function of height, not changed in current forks) - we prefer the 2nd method, which is faster.
 
-            //m_Processor.FindHeightByTxoID(val.m_CreateHeight, id);
+			//m_Processor.FindHeightByTxoID(val.m_CreateHeight, id);
 			//assert(val.m_Output.get_MinMaturity(val.m_CreateHeight) == d.m_Maturity);
 
 			Height hCreateHeight = d.m_Maturity - outp.get_MinMaturity(0);
 
-            MySerializer ser(m_Writer.m_Stream);
-            ser & hCreateHeight;
+			MySerializer ser(m_Writer.m_Stream);
+			ser & hCreateHeight;
 
-            yas::detail::saveRecovery(ser, outp, hCreateHeight);
+			yas::detail::saveRecovery(ser, outp, hCreateHeight);
 		}
 	};
 
@@ -5302,86 +5302,86 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 		ctx.m_Writer.Open(szPath, m_Processor.m_Cwp);
 		m_Processor.get_Utxos().Traverse(ctx);
 
-        const Rules& r = Rules::get();
+		const Rules& r = Rules::get();
 
-        if (r.IsPastFork_<2>(m_Processor.m_Cursor.m_ID.m_Height))
-        {
-            MySerializer ser(ctx.m_Writer.m_Stream);
-            ser & MaxHeight; // terminator
+		if (r.IsPastFork_<2>(m_Processor.m_Cursor.m_ID.m_Height))
+		{
+			MySerializer ser(ctx.m_Writer.m_Stream);
+			ser & MaxHeight; // terminator
 
-            // shielded in/outs
-            struct MyKrnWalker
-                :public NodeProcessor::KrnWalkerShielded
-            {
-                MySerializer& m_Ser;
-                MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
+			// shielded in/outs
+			struct MyKrnWalker
+				:public NodeProcessor::KrnWalkerShielded
+			{
+				MySerializer& m_Ser;
+				MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
 
-                virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
-                {
-                    uint8_t nFlags = 0;
+				virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
+				{
+					uint8_t nFlags = 0;
 
-                    m_Ser & m_Height;
-                    m_Ser & nFlags;
-                    m_Ser & krn.m_SpendProof.m_SpendPk;
-                    return true;
-                }
+					m_Ser & m_Height;
+					m_Ser & nFlags;
+					m_Ser & krn.m_SpendProof.m_SpendPk;
+					return true;
+				}
 
-                virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
-                {
-                    Asset::Proof::Ptr pAsset;
+				virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
+				{
+					Asset::Proof::Ptr pAsset;
 
-                    uint8_t nFlags = RecoveryInfo::Flags::Output;
-                    if (krn.m_Txo.m_pAsset)
-                    {
-                        pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
-                        nFlags |= RecoveryInfo::Flags::HadAsset;
-                    }
+					uint8_t nFlags = RecoveryInfo::Flags::Output;
+					if (krn.m_Txo.m_pAsset)
+					{
+						pAsset.swap(Cast::NotConst(krn).m_Txo.m_pAsset);
+						nFlags |= RecoveryInfo::Flags::HadAsset;
+					}
 
-                    m_Ser & m_Height;
-                    m_Ser & nFlags;
-                    m_Ser & krn.m_Txo;
-                    m_Ser & krn.m_Msg;
+					m_Ser & m_Height;
+					m_Ser & nFlags;
+					m_Ser & krn.m_Txo;
+					m_Ser & krn.m_Msg;
 
-                    if (pAsset && Rules::get().IsPastFork_<3>(m_Height))
-                        m_Ser & pAsset->m_hGen;
+					if (pAsset && Rules::get().IsPastFork_<3>(m_Height))
+						m_Ser & pAsset->m_hGen;
 
-                    return true;
-                }
+					return true;
+				}
 
-            } wlk(ser);
+			} wlk(ser);
 
-            m_Processor.EnumKernels(wlk, HeightRange(r.pForks[2].m_Height, m_Processor.m_Cursor.m_ID.m_Height));
+			m_Processor.EnumKernels(wlk, HeightRange(r.pForks[2].m_Height, m_Processor.m_Cursor.m_ID.m_Height));
 
-            ser & MaxHeight; // terminator
+			ser & MaxHeight; // terminator
 
-            // assets
-            Asset::Full ai;
-            ai.m_ID = 0;
+			// assets
+			Asset::Full ai;
+			ai.m_ID = 0;
 
-            while (m_Processor.get_DB().AssetGetNext(ai))
-            {
-                if (!r.IsPastFork_<6>(m_Processor.m_Cursor.m_ID.m_Height))
-                    ai.SetCid(nullptr);
+			while (m_Processor.get_DB().AssetGetNext(ai))
+			{
+				if (!r.IsPastFork_<6>(m_Processor.m_Cursor.m_ID.m_Height))
+					ai.SetCid(nullptr);
 
-                ser & ai;
-            }
+				ser & ai;
+			}
 
-            ser & (Asset::s_MaxCount + 1); // terminator
+			ser & (Asset::s_MaxCount + 1); // terminator
 
-            if (r.IsPastFork_<3>(m_Processor.m_Cursor.m_ID.m_Height))
-            {
-                m_Processor.EnsureCursorKernels();
+			if (r.IsPastFork_<3>(m_Processor.m_Cursor.m_ID.m_Height))
+			{
+				m_Processor.EnsureCursorKernels();
 
-                Merkle::Hash hv;
-                NodeProcessor::Evaluator ev(m_Processor);
+				Merkle::Hash hv;
+				NodeProcessor::Evaluator ev(m_Processor);
 
-                BEAM_VERIFY(ev.get_Contracts(hv));
-                ser & hv;
+				BEAM_VERIFY(ev.get_Contracts(hv));
+				ser & hv;
 
-                BEAM_VERIFY(ev.get_KL(hv));
-                ser & hv;
-            }
-        }
+				BEAM_VERIFY(ev.get_KL(hv));
+				ser & hv;
+			}
+		}
 
 	}
 	catch (const std::exception& ex)
@@ -5395,698 +5395,698 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 
 void Node::PrintTxos()
 {
-    for (const auto& acc : m_Processor.m_vAccounts)
-    {
-        struct PerAsset {
-            Amount m_Avail = 0;
-            Amount m_Locked = 0;
-        };
-        typedef std::map<Asset::ID, PerAsset> AssetMap;
+	for (const auto& acc : m_Processor.m_vAccounts)
+	{
+		struct PerAsset {
+			Amount m_Avail = 0;
+			Amount m_Locked = 0;
+		};
+		typedef std::map<Asset::ID, PerAsset> AssetMap;
 
-        std::ostringstream os;
-        os << "Printing Events for Endpoint=" << acc.get_Endpoint() << std::endl;
+		std::ostringstream os;
+		os << "Printing Events for Endpoint=" << acc.get_Endpoint() << std::endl;
 
-        if (m_Processor.IsFastSync())
-            os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
+		if (m_Processor.IsFastSync())
+			os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
 
-        if (acc.m_hTxoHi >= Rules::HeightGenesis)
-            os << "Note: Cut-through up to Height=" << acc.m_hTxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
+		if (acc.m_hTxoHi >= Rules::HeightGenesis)
+			os << "Note: Cut-through up to Height=" << acc.m_hTxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
-        struct MyParser :public proto::Event::IParser
-        {
-            std::ostringstream& m_os;
-            AssetMap m_Map;
-            Height m_Height = 0;
+		struct MyParser :public proto::Event::IParser
+		{
+			std::ostringstream& m_os;
+			AssetMap m_Map;
+			Height m_Height = 0;
 
-            MyParser(std::ostringstream& os) :m_os(os) {}
+			MyParser(std::ostringstream& os) :m_os(os) {}
 
-            virtual void OnEventBase(proto::Event::Base& x) override
-            {
-                x.Dump(m_os);
-            }
+			virtual void OnEventBase(proto::Event::Base& x) override
+			{
+				x.Dump(m_os);
+			}
 
-            void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
-            {
-                PerAsset& pa = m_Map[aid];
+			void OnValue(Amount v, Asset::ID aid, uint8_t nFlags, bool bMature)
+			{
+				PerAsset& pa = m_Map[aid];
 
-                if (proto::Event::Flags::Add & nFlags)
-                    (bMature ? pa.m_Avail : pa.m_Locked) += v;
-                else
-                    pa.m_Avail -= v;
-            }
+				if (proto::Event::Flags::Add & nFlags)
+					(bMature ? pa.m_Avail : pa.m_Locked) += v;
+				else
+					pa.m_Avail -= v;
+			}
 
-            virtual void OnEventType(proto::Event::Utxo& x) override
-            {
-                OnEventBase(x);
-                OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
-            }
+			virtual void OnEventType(proto::Event::Utxo& x) override
+			{
+				OnEventBase(x);
+				OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
+			}
 
-            virtual void OnEventType(proto::Event::Shielded& x) override
-            {
-                OnEventBase(x);
-                OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
-            }
+			virtual void OnEventType(proto::Event::Shielded& x) override
+			{
+				OnEventBase(x);
+				OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);
+			}
 
-        } p(os);
-        p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
+		} p(os);
+		p.m_Height = m_Processor.m_Cursor.m_Full.m_Height;
 
-        NodeDB::WalkerEvent wlk;
-        for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
-        {
-            os << "\tHeight=" << wlk.m_Pos.m_Height << ", ";
-            p.ProceedOnce(wlk.m_Body);
-            os << std::endl;
-        }
+		NodeDB::WalkerEvent wlk;
+		for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+		{
+			os << "\tHeight=" << wlk.m_Pos.m_Height << ", ";
+			p.ProceedOnce(wlk.m_Body);
+			os << std::endl;
+		}
 
-        os << "Totals:" << std::endl;
+		os << "Totals:" << std::endl;
 
-        for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
-        {
-            const PerAsset& pa = it->second;
-            if (pa.m_Avail || pa.m_Locked)
-            {
-                os << "\tAssetID=" << it->first << ", Avail=" << AmountBig::Printable(pa.m_Avail) << ", Locked=" << AmountBig::Printable(pa.m_Locked) << std::endl;
-            }
-        }
+		for (AssetMap::iterator it = p.m_Map.begin(); p.m_Map.end() != it; ++it)
+		{
+			const PerAsset& pa = it->second;
+			if (pa.m_Avail || pa.m_Locked)
+			{
+				os << "\tAssetID=" << it->first << ", Avail=" << AmountBig::Printable(pa.m_Avail) << ", Locked=" << AmountBig::Printable(pa.m_Locked) << std::endl;
+			}
+		}
 
-        BEAM_LOG_INFO() << os.str();
-    }
+		BEAM_LOG_INFO() << os.str();
+	}
 }
 
 void Node::PrintRollbackStats()
 {
-    std::ostringstream os;
-    os << "Printing recent rollback stats" << std::endl;
+	std::ostringstream os;
+	os << "Printing recent rollback stats" << std::endl;
 
-    NodeDB& db = m_Processor.get_DB(); // alias
+	NodeDB& db = m_Processor.get_DB(); // alias
 
-    ByteBuffer bufP, bufE;
-    std::vector<NodeDB::StateInput> vIns;
+	ByteBuffer bufP, bufE;
+	std::vector<NodeDB::StateInput> vIns;
 
-    NodeDB::WalkerState wlk;
-    for (db.EnumFunctionalTips(wlk); wlk.MoveNext(); )
-    {
-        Block::SystemState::Full sTip1;
-        db.get_State(wlk.m_Sid.m_Row, sTip1);
-        assert(sTip1.m_Height == wlk.m_Sid.m_Height);
+	NodeDB::WalkerState wlk;
+	for (db.EnumFunctionalTips(wlk); wlk.MoveNext(); )
+	{
+		Block::SystemState::Full sTip1;
+		db.get_State(wlk.m_Sid.m_Row, sTip1);
+		assert(sTip1.m_Height == wlk.m_Sid.m_Height);
 
-        typedef std::map<ECC::Point, Height> InputMap;
-        InputMap inpMap;
+		typedef std::map<ECC::Point, Height> InputMap;
+		InputMap inpMap;
 
-        typedef std::map<ECC::Hash::Value, Height> KrnMap;
-        KrnMap krnMap;
+		typedef std::map<ECC::Hash::Value, Height> KrnMap;
+		KrnMap krnMap;
 
-        NodeDB::StateID sidSplit = wlk.m_Sid;
+		NodeDB::StateID sidSplit = wlk.m_Sid;
 
-        for (; sidSplit.m_Row; db.get_Prev(sidSplit))
-        {
-            if (NodeDB::StateFlags::Active & db.GetStateFlags(sidSplit.m_Row))
-                break;
+		for (; sidSplit.m_Row; db.get_Prev(sidSplit))
+		{
+			if (NodeDB::StateFlags::Active & db.GetStateFlags(sidSplit.m_Row))
+				break;
 
-            bufP.clear();
-            bufE.clear();
-            db.GetStateBlock(sidSplit.m_Row, &bufP, &bufE, nullptr);
+			bufP.clear();
+			bufE.clear();
+			db.GetStateBlock(sidSplit.m_Row, &bufP, &bufE, nullptr);
 
-            Block::Body block;
+			Block::Body block;
 
-            Deserializer der;
-            der.reset(bufP);
-            der & Cast::Down<Block::BodyBase>(block);
-            der & Cast::Down<TxVectors::Perishable>(block);
+			Deserializer der;
+			der.reset(bufP);
+			der & Cast::Down<Block::BodyBase>(block);
+			der & Cast::Down<TxVectors::Perishable>(block);
 
-            der.reset(bufE);
-            der & Cast::Down<TxVectors::Eternal>(block);
+			der.reset(bufE);
+			der & Cast::Down<TxVectors::Eternal>(block);
 
-            for (size_t i = 0; i < block.m_vInputs.size(); i++)
-                inpMap[block.m_vInputs[i]->m_Commitment] = sidSplit.m_Height;
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+				inpMap[block.m_vInputs[i]->m_Commitment] = sidSplit.m_Height;
 
-            for (size_t i = 0; i < block.m_vKernels.size(); i++)
-                krnMap[block.m_vKernels[i]->m_Internal.m_ID] = sidSplit.m_Height;
-        }
+			for (size_t i = 0; i < block.m_vKernels.size(); i++)
+				krnMap[block.m_vKernels[i]->m_Internal.m_ID] = sidSplit.m_Height;
+		}
 
-        if (inpMap.empty())
-            continue;
+		if (inpMap.empty())
+			continue;
 
-        os << "Rollback " << sTip1.m_Height << " -> " << sidSplit.m_Height << std::endl;
+		os << "Rollback " << sTip1.m_Height << " -> " << sidSplit.m_Height << std::endl;
 
-        Height h = sidSplit.m_Height;
-        while (h < m_Processor.m_Cursor.m_Full.m_Height)
-        {
-            uint64_t row = db.FindActiveStateStrict(++h);
-            Block::SystemState::Full s2;
-            db.get_State(row, s2);
+		Height h = sidSplit.m_Height;
+		while (h < m_Processor.m_Cursor.m_Full.m_Height)
+		{
+			uint64_t row = db.FindActiveStateStrict(++h);
+			Block::SystemState::Full s2;
+			db.get_State(row, s2);
 
-            if (s2.m_TimeStamp > sTip1.m_TimeStamp)
-            {
-                os << "	H=" << h << ", Stopping" << std::endl;
-                break;
-            }
+			if (s2.m_TimeStamp > sTip1.m_TimeStamp)
+			{
+				os << "	H=" << h << ", Stopping" << std::endl;
+				break;
+			}
 
-            vIns.clear();
-            db.get_StateInputs(row, vIns);
+			vIns.clear();
+			db.get_StateInputs(row, vIns);
 
-            if (vIns.empty())
-                continue;
+			if (vIns.empty())
+				continue;
 
-            os << "	H=" << h << ", Inputs=" << vIns.size() << std::endl;
+			os << "	H=" << h << ", Inputs=" << vIns.size() << std::endl;
 
-            bufE.clear();
-            db.GetStateBlock(row, nullptr, &bufE, nullptr);
+			bufE.clear();
+			db.GetStateBlock(row, nullptr, &bufE, nullptr);
 
-            TxVectors::Eternal krns;
+			TxVectors::Eternal krns;
 
-            Deserializer der;
-            der.reset(bufE);
-            der & krns;
+			Deserializer der;
+			der.reset(bufE);
+			der & krns;
 
-            typedef std::map<Height, uint32_t> DoubleSpendMap;
-            DoubleSpendMap dsm;
+			typedef std::map<Height, uint32_t> DoubleSpendMap;
+			DoubleSpendMap dsm;
 
-            for (size_t i = 0; i < vIns.size(); i++)
-            {
-                ECC::Point comm;
-                vIns[i].Get(comm);
+			for (size_t i = 0; i < vIns.size(); i++)
+			{
+				ECC::Point comm;
+				vIns[i].Get(comm);
 
-                InputMap::iterator it = inpMap.find(comm);
-                if (inpMap.end() != it)
-                {
-                    Height hOld = it->second;
-                    inpMap.erase(it);
+				InputMap::iterator it = inpMap.find(comm);
+				if (inpMap.end() != it)
+				{
+					Height hOld = it->second;
+					inpMap.erase(it);
 
-                    DoubleSpendMap::iterator it2 = dsm.find(hOld);
-                    if (dsm.end() == it2)
-                    {
-                        // check if there're corresponding kernels
-                        uint32_t nCommonKrns = 0;
-                        for (size_t j = 0; j < krns.m_vKernels.size(); j++)
-                        {
-                            if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->m_Internal.m_ID))
-                                nCommonKrns++;
-                        }
+					DoubleSpendMap::iterator it2 = dsm.find(hOld);
+					if (dsm.end() == it2)
+					{
+						// check if there're corresponding kernels
+						uint32_t nCommonKrns = 0;
+						for (size_t j = 0; j < krns.m_vKernels.size(); j++)
+						{
+							if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->m_Internal.m_ID))
+								nCommonKrns++;
+						}
 
-                        it2 = dsm.insert(DoubleSpendMap::value_type(hOld, nCommonKrns ? uint32_t(-1) : 0)).first;
-                    }
+						it2 = dsm.insert(DoubleSpendMap::value_type(hOld, nCommonKrns ? uint32_t(-1) : 0)).first;
+					}
 
-                    if (it2->second != uint32_t(-1))
-                        it2->second++;
-                }
-            }
+					if (it2->second != uint32_t(-1))
+						it2->second++;
+				}
+			}
 
-            for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; ++it)
-            {
-                uint32_t n = it->second;
-                if (uint32_t(-1) == n)
-                    continue;
+			for (DoubleSpendMap::iterator it = dsm.begin(); dsm.end() != it; ++it)
+			{
+				uint32_t n = it->second;
+				if (uint32_t(-1) == n)
+					continue;
 
-                os << "		Double-spend. Old Height=" << it->first << ", Count=" << n << std::endl;
-            }
+				os << "		Double-spend. Old Height=" << it->first << ", Count=" << n << std::endl;
+			}
 
-        }
+		}
 
-    }
+	}
 
-    BEAM_LOG_INFO() << os.str();
+	BEAM_LOG_INFO() << os.str();
 }
 
 void Node::GenerateFakeBlocks(uint32_t n)
 {
-    assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
-    m_Miner.m_FakeBlocksToGenerate = n;
-    m_Miner.SetTimer(0, true);
+	assert(Rules::Consensus::FakePoW == Rules::get().m_Consensus);
+	m_Miner.m_FakeBlocksToGenerate = n;
+	m_Miner.SetTimer(0, true);
 }
 
 ///////////////////
 // Pbft
 bool Node::Validator::IsProposalRelevant(const Block::SystemState::Full& s) const
 {
-    auto& c = get_ParentObj().m_Processor.m_Cursor;
-    return (s.m_Height == c.m_ID.m_Height + 1) && (s.m_Prev == c.m_ID.m_Hash);
+	auto& c = get_ParentObj().m_Processor.m_Cursor;
+	return (s.m_Height == c.m_ID.m_Height + 1) && (s.m_Prev == c.m_ID.m_Hash);
 }
 
 void Node::Validator::OnNewState()
 {
-    if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
-        return;
+	if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
+		return;
 
-    // Theoretically this method can be called WITHOUT new state (such as trying to interpret blocks, failing, and rolling back)
-    // it's important to preserve our commitment, if we already committed to a specific round
-    if (!m_mapRounds.empty())
-    {
-        auto& rd = *m_mapRounds.begin();
-        if (IsProposalRelevant(rd.m_Proposal.m_Hdr))
-            return;
-    }
+	// Theoretically this method can be called WITHOUT new state (such as trying to interpret blocks, failing, and rolling back)
+	// it's important to preserve our commitment, if we already committed to a specific round
+	if (!m_mapRounds.empty())
+	{
+		auto& rd = *m_mapRounds.begin();
+		if (IsProposalRelevant(rd.m_Proposal.m_Hdr))
+			return;
+	}
 
-    m_mapRounds.Clear();
-    m_pCommitted = nullptr;
-    m_QuorumReached = false;
+	m_mapRounds.Clear();
+	m_pCommitted = nullptr;
+	m_QuorumReached = false;
 
-    KillTimer();
+	KillTimer();
 
-    m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
-    OnNewRound();
+	m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
+	OnNewRound();
 }
 
 uint64_t Node::Validator::T2S(Timestamp t_s)
 {
-    const auto& r = Rules::get();
-    auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
+	const auto& r = Rules::get();
+	auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
 
-    uint64_t t_ms = static_cast<uint64_t>(t_s) * 1000;
+	uint64_t t_ms = static_cast<uint64_t>(t_s) * 1000;
 
-    return (t_ms + 999) / trg_ms; // wokrs unless slot time is less than 1sec
+	return (t_ms + 999) / trg_ms; // wokrs unless slot time is less than 1sec
 }
 
 Timestamp Node::Validator::S2T(uint64_t iSlot)
 {
-    const auto& r = Rules::get();
-    auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
+	const auto& r = Rules::get();
+	auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
 
-    uint64_t t_ms = iSlot * trg_ms;
+	uint64_t t_ms = iSlot * trg_ms;
 
-    return static_cast<Timestamp>(t_ms / 1000);
+	return static_cast<Timestamp>(t_ms / 1000);
 }
 
 uint32_t Node::Validator::CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast)
 {
-    assert(iSlotNow > iSlotLast);
-    return 0x7fffffff & (iSlotNow - iSlotLast - 1); // make sure iRound is less than max_uint32, this is a special value for committed round num
+	assert(iSlotNow > iSlotLast);
+	return 0x7fffffff & (iSlotNow - iSlotLast - 1); // make sure iRound is less than max_uint32, this is a special value for committed round num
 }
 
 
 void Node::Validator::OnNewRound()
 {
-    assert(!m_bTimerPending);
+	assert(!m_bTimerPending);
 
-    auto iSlotLast = T2S(get_ParentObj().m_Processor.m_Cursor.m_Full.m_TimeStamp);
+	auto iSlotLast = T2S(get_ParentObj().m_Processor.m_Cursor.m_Full.m_TimeStamp);
 
-    auto tNow_ms = get_RefTime_ms();
-    uint64_t iSlotNow = T2S(tNow_ms / 1000);
+	auto tNow_ms = get_RefTime_ms();
+	uint64_t iSlotNow = T2S(tNow_ms / 1000);
 
-    if (iSlotNow <= iSlotLast)
-    {
-        // set timer till the next round start
-        SetTimerEx(tNow_ms, iSlotLast + 1);
-        return;
-    }
-    uint32_t iRound = CalculateRound(iSlotNow, iSlotLast);
-    BEAM_LOG_INFO() << "pbft " << iRound << " round start";
+	if (iSlotNow <= iSlotLast)
+	{
+		// set timer till the next round start
+		SetTimerEx(tNow_ms, iSlotLast + 1);
+		return;
+	}
+	uint32_t iRound = CalculateRound(iSlotNow, iSlotLast);
+	BEAM_LOG_INFO() << "pbft " << iRound << " round start";
 
-    SetTimerEx(tNow_ms, iSlotNow + 1);
+	SetTimerEx(tNow_ms, iSlotNow + 1);
 
-    // check if I'm the leader, and make the proposal accordingly
-    if (m_pCommitted)
-        return;
+	// check if I'm the leader, and make the proposal accordingly
+	if (m_pCommitted)
+		return;
 
-    auto& p = get_ParentObj().m_Processor; // alias
-    if (!p.IsTreasuryHandled() || p.IsFastSync())
-        return;
+	auto& p = get_ParentObj().m_Processor; // alias
+	if (!p.IsTreasuryHandled() || p.IsFastSync())
+		return;
 
-    auto it = m_mapRounds.find(iRound, RoundData::Comparator());
-    if (m_mapRounds.end() != it)
-        return;
+	auto it = m_mapRounds.find(iRound, RoundData::Comparator());
+	if (m_mapRounds.end() != it)
+		return;
 
-    auto* pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
-    if (!pLeader || (pLeader != m_Me.m_p))
-        return;
+	auto* pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
+	if (!pLeader || (pLeader != m_Me.m_p))
+		return;
 
-    auto* pRd = m_mapRounds.Create(iRound);
-    pRd->m_pLeader = pLeader;
+	auto* pRd = m_mapRounds.Create(iRound);
+	pRd->m_pLeader = pLeader;
 
-    if (CreateProposal(*pRd, iSlotNow))
-    {
-        pRd->SetProposalHashes();
-        pRd->m_Proposal.m_Signature.Sign(pRd->m_spPreVoted.m_hv, m_Me.m_sk);
+	if (CreateProposal(*pRd, iSlotNow))
+	{
+		pRd->SetProposalHashes();
+		pRd->m_Proposal.m_Signature.Sign(pRd->m_spPreVoted.m_hv, m_Me.m_sk);
 
-        OnProposalAccepted(*pRd, nullptr);
-    }
-    else
-    {
-        BEAM_LOG_WARNING() << "Block generation failed, can't make a proposal!";
-    }
+		OnProposalAccepted(*pRd, nullptr);
+	}
+	else
+	{
+		BEAM_LOG_WARNING() << "Block generation failed, can't make a proposal!";
+	}
 }
 
 template <typename TMsg>
 void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc)
 {
-    auto& n = get_ParentObj();
-    for (PeerList::iterator it = n.m_lstPeers.begin(); n.m_lstPeers.end() != it; ++it)
-    {
-        Peer& peer = *it;
-        if ((&peer != pSrc) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
-            peer.Send(msg);
-    }
+	auto& n = get_ParentObj();
+	for (PeerList::iterator it = n.m_lstPeers.begin(); n.m_lstPeers.end() != it; ++it)
+	{
+		Peer& peer = *it;
+		if ((&peer != pSrc) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
+			peer.Send(msg);
+	}
 }
 
 void Node::Validator::SendState(Peer& peer) const
 {
-    if (m_pCommitted)
-    {
-        peer.Send(m_pCommitted->m_Proposal);
-        m_pCommitted->SendVotes(peer, true);
-    }
-    else
-    {
-        for (auto& rd : m_mapRounds)
-        {
-            peer.Send(rd.m_Proposal);
-            rd.SendVotes(peer, false);
-            rd.SendVotes(peer, true);
-        }
-    }
+	if (m_pCommitted)
+	{
+		peer.Send(m_pCommitted->m_Proposal);
+		m_pCommitted->SendVotes(peer, true);
+	}
+	else
+	{
+		for (auto& rd : m_mapRounds)
+		{
+			peer.Send(rd.m_Proposal);
+			rd.SendVotes(peer, false);
+			rd.SendVotes(peer, true);
+		}
+	}
 }
 
 void Node::Validator::RoundData::SendVotes(Peer& peer, bool bCommit) const
 {
-    proto::PbftVote msg;
-    msg.m_iRound = m_Key;
-    msg.m_Commit = bCommit;
+	proto::PbftVote msg;
+	msg.m_iRound = m_Key;
+	msg.m_Commit = bCommit;
 
-    for (const auto& kv : (bCommit ? m_spCommitted : m_spPreVoted).m_Sigs)
-    {
-        msg.m_Address = kv.first;
-        msg.m_Signature = kv.second;
-        peer.Send(msg);
-    }
+	for (const auto& kv : (bCommit ? m_spCommitted : m_spPreVoted).m_Sigs)
+	{
+		msg.m_Address = kv.first;
+		msg.m_Signature = kv.second;
+		peer.Send(msg);
+	}
 }
 
 void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const ECC::Signature& sig)
 {
-    m_Sigs[v.m_Addr.m_Key] = sig;
-    m_wVoted += v.m_Weight;
+	m_Sigs[v.m_Addr.m_Key] = sig;
+	m_wVoted += v.m_Weight;
 }
 
 void Node::Validator::Vote(RoundData& rd, bool bCommit)
 {
-    if (!m_Me.m_p)
-        return; // I'm not a validator
+	if (!m_Me.m_p)
+		return; // I'm not a validator
 
-    if ((m_Me.m_p == rd.m_pLeader) && !bCommit)
-        return; // leader pre-vote is included in the proposal
+	if ((m_Me.m_p == rd.m_pLeader) && !bCommit)
+		return; // leader pre-vote is included in the proposal
 
-    auto& sp = bCommit ? rd.m_spCommitted : rd.m_spPreVoted;
-    auto it = sp.m_Sigs.find(m_Me.m_Addr);
-    if (sp.m_Sigs.end() != it)
-        return; // already voted
+	auto& sp = bCommit ? rd.m_spCommitted : rd.m_spPreVoted;
+	auto it = sp.m_Sigs.find(m_Me.m_Addr);
+	if (sp.m_Sigs.end() != it)
+		return; // already voted
 
-    BEAM_LOG_INFO() << "pbft " << rd.m_Key << (bCommit ? " committed" : " pre-voted");
+	BEAM_LOG_INFO() << "pbft " << rd.m_Key << (bCommit ? " committed" : " pre-voted");
 
-    proto::PbftVote msg;
-    msg.m_iRound = rd.m_Key;
-    msg.m_Commit = bCommit;
-    msg.m_Address = m_Me.m_Addr;
-    msg.m_Signature.Sign(sp.m_hv, m_Me.m_sk);
+	proto::PbftVote msg;
+	msg.m_iRound = rd.m_Key;
+	msg.m_Commit = bCommit;
+	msg.m_Address = m_Me.m_Addr;
+	msg.m_Signature.Sign(sp.m_hv, m_Me.m_sk);
 
-    sp.Add(*m_Me.m_p, msg.m_Signature);
+	sp.Add(*m_Me.m_p, msg.m_Signature);
 
-    Broadcast(msg, nullptr);
+	Broadcast(msg, nullptr);
 }
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
-    if (m_pCommitted)
-        return; // ignore new proposals
+	if (m_pCommitted)
+		return; // ignore new proposals
 
-    if (!IsProposalRelevant(msg.m_Hdr))
-        return; // irrelevant
+	if (!IsProposalRelevant(msg.m_Hdr))
+		return; // irrelevant
 
-    auto& p = get_ParentObj().m_Processor; // alias
-    if (!p.IsTreasuryHandled() || p.IsFastSync())
-        return;
+	auto& p = get_ParentObj().m_Processor; // alias
+	if (!p.IsTreasuryHandled() || p.IsFastSync())
+		return;
 
-    const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
+	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
 
-    uint32_t iRound;
-    d.m_dRound.Export(iRound);
+	uint32_t iRound;
+	d.m_dRound.Export(iRound);
 
-    auto it = m_mapRounds.find(iRound, RoundData::Comparator());
-    if (m_mapRounds.end() != it)
-    {
-        // already received. TODO: check if the leader sends different proposals (misbehaves)
-        return;
-    }
+	auto it = m_mapRounds.find(iRound, RoundData::Comparator());
+	if (m_mapRounds.end() != it)
+	{
+		// already received. TODO: check if the leader sends different proposals (misbehaves)
+		return;
+	}
 
-    // Check that proposal timestamp and dRound are consistent
-    auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
-    auto iSlot1 = T2S(msg.m_Hdr.m_TimeStamp);
-    if (iSlot1 <= iSlot0)
-        src.ThrowUnexpected("invalid proposal slot");
+	// Check that proposal timestamp and dRound are consistent
+	auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
+	auto iSlot1 = T2S(msg.m_Hdr.m_TimeStamp);
+	if (iSlot1 <= iSlot0)
+		src.ThrowUnexpected("invalid proposal slot");
 
-    if (iRound != CalculateRound(iSlot1, iSlot0))
-        src.ThrowUnexpected("invalid proposal dRound");
+	if (iRound != CalculateRound(iSlot1, iSlot0))
+		src.ThrowUnexpected("invalid proposal dRound");
 
-    // Check if the proposal was sent ahead of time. Due to time inaccuracy we can receive a proposal BEFORE our new round OnTimer
-    auto tNow_ms = get_RefTime_ms();
-    const uint32_t tAheadTolerance_ms = 2000;
+	// Check if the proposal was sent ahead of time. Due to time inaccuracy we can receive a proposal BEFORE our new round OnTimer
+	auto tNow_ms = get_RefTime_ms();
+	const uint32_t tAheadTolerance_ms = 2000;
 
-    if (S2T(iSlot1) * 1000 > tNow_ms + tAheadTolerance_ms)
-        return; // too early. Ignore it
+	if (S2T(iSlot1) * 1000 > tNow_ms + tAheadTolerance_ms)
+		return; // too early. Ignore it
 
-    // looks sane
-    auto* pRd = m_mapRounds.Create(iRound);
-    pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
-    pRd->m_Proposal = std::move(msg);
-    pRd->SetProposalHashes();
+	// looks sane
+	auto* pRd = m_mapRounds.Create(iRound);
+	pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
+	pRd->m_Proposal = std::move(msg);
+	pRd->SetProposalHashes();
 
-    if (!pRd->m_pLeader->m_Addr.m_Key.CheckSignature(pRd->m_spPreVoted.m_hv, pRd->m_Proposal.m_Signature))
-    {
-        m_mapRounds.Delete(*pRd);
-        src.ThrowUnexpected("invalid proposal sig");
-    }
+	if (!pRd->m_pLeader->m_Addr.m_Key.CheckSignature(pRd->m_spPreVoted.m_hv, pRd->m_Proposal.m_Signature))
+	{
+		m_mapRounds.Delete(*pRd);
+		src.ThrowUnexpected("invalid proposal sig");
+	}
 
-    Block::SystemState::ID id;
-    id.m_Height = pRd->m_Proposal.m_Hdr.m_Height;
-    id.m_Hash = pRd->m_spCommitted.m_hv;
-    if (!p.TestBlock(id, pRd->m_Proposal.m_Hdr, pRd->m_Proposal.m_Body))
-    {
-        // TODO: don't disconnect this peer. Save and broadcast this info, punish leader for invalid proposal
-        m_mapRounds.Delete(*pRd);
-        src.ThrowUnexpected("invalid proposal");
-    }
+	Block::SystemState::ID id;
+	id.m_Height = pRd->m_Proposal.m_Hdr.m_Height;
+	id.m_Hash = pRd->m_spCommitted.m_hv;
+	if (!p.TestBlock(id, pRd->m_Proposal.m_Hdr, pRd->m_Proposal.m_Body))
+	{
+		// TODO: don't disconnect this peer. Save and broadcast this info, punish leader for invalid proposal
+		m_mapRounds.Delete(*pRd);
+		src.ThrowUnexpected("invalid proposal");
+	}
 
-    OnProposalAccepted(*pRd, &src);
+	OnProposalAccepted(*pRd, &src);
 }
 
 void Node::Validator::RoundData::SetProposalHashes()
 {
-    m_Proposal.m_Hdr.get_Hash(m_spCommitted.m_hv);
-    ECC::Hash::Processor()
-        << "pbft.vote.1"
-        << m_spCommitted.m_hv
-        >> m_spPreVoted.m_hv;
+	m_Proposal.m_Hdr.get_Hash(m_spCommitted.m_hv);
+	ECC::Hash::Processor()
+		<< "pbft.vote.1"
+		<< m_spCommitted.m_hv
+		>> m_spPreVoted.m_hv;
 }
 
 void Node::Validator::OnProposalAccepted(RoundData& rd, const Peer* pSrc)
 {
-    rd.m_spCommitted.m_wVoted = 0;
-    rd.m_spPreVoted.m_wVoted = rd.m_pLeader->m_Weight;
+	rd.m_spCommitted.m_wVoted = 0;
+	rd.m_spPreVoted.m_wVoted = rd.m_pLeader->m_Weight;
 
-    BEAM_LOG_INFO() << "pbft " << rd.m_Key << " proposal accepted";
+	BEAM_LOG_INFO() << "pbft " << rd.m_Key << " proposal accepted";
 
-    Broadcast(rd.m_Proposal, pSrc);
-    Vote(rd, false);
-    CheckState(rd);
+	Broadcast(rd.m_Proposal, pSrc);
+	Vote(rd, false);
+	CheckState(rd);
 }
 
 void Node::Validator::OnMsg(const proto::PbftVote& msg, const Peer& src)
 {
-    if (m_QuorumReached)
-        return;
+	if (m_QuorumReached)
+		return;
 
-    if (m_pCommitted && !msg.m_Commit)
-        return;
+	if (m_pCommitted && !msg.m_Commit)
+		return;
 
-    auto& p = get_ParentObj().m_Processor; // alias
-    if (src.m_Tip != p.m_Cursor.m_Full)
-        return;
+	auto& p = get_ParentObj().m_Processor; // alias
+	if (src.m_Tip != p.m_Cursor.m_Full)
+		return;
 
-    // Note: theoretically the sig could come from the previous block
+	// Note: theoretically the sig could come from the previous block
 
-    auto itR = m_mapRounds.find(msg.m_iRound, RoundData::Comparator());
-    if (m_mapRounds.end() == itR)
-        return; // no such proposal yet
+	auto itR = m_mapRounds.find(msg.m_iRound, RoundData::Comparator());
+	if (m_mapRounds.end() == itR)
+		return; // no such proposal yet
 
-    auto& rd = *itR;
-    if (!msg.m_Commit && (msg.m_Address == rd.m_pLeader->m_Addr.m_Key))
-        src.ThrowUnexpected("leader explicit pre-vote");
+	auto& rd = *itR;
+	if (!msg.m_Commit && (msg.m_Address == rd.m_pLeader->m_Addr.m_Key))
+		src.ThrowUnexpected("leader explicit pre-vote");
 
-    auto& sp = msg.m_Commit ? rd.m_spCommitted : rd.m_spPreVoted;
-    auto itS = sp.m_Sigs.find(msg.m_Address);
-    if (sp.m_Sigs.end() != itS)
-        return; // already accounted
+	auto& sp = msg.m_Commit ? rd.m_spCommitted : rd.m_spPreVoted;
+	auto itS = sp.m_Sigs.find(msg.m_Address);
+	if (sp.m_Sigs.end() != itS)
+		return; // already accounted
 
 
-    auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
-    if (p.m_PbftState.m_mapVs.end() == itV)
-        src.ThrowUnexpected("not a validator sig");
+	auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
+	if (p.m_PbftState.m_mapVs.end() == itV)
+		src.ThrowUnexpected("not a validator sig");
 
-    if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
-        src.ThrowUnexpected("invalid validator sig");
+	if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
+		src.ThrowUnexpected("invalid validator sig");
 
-    // ok
-    sp.Add(itV->get_ParentObj(), msg.m_Signature);
+	// ok
+	sp.Add(itV->get_ParentObj(), msg.m_Signature);
 
-    Broadcast(msg, &src);
-    CheckState(rd);
+	Broadcast(msg, &src);
+	CheckState(rd);
 }
 
 void Node::Validator::CheckState(RoundData& rd)
 {
-    if (m_QuorumReached)
-        return;
+	if (m_QuorumReached)
+		return;
 
-    // did we commit already?
-    if (!m_pCommitted)
-    {
-        if (!Block::Pbft::State::IsMajorityReached(rd.m_spPreVoted.m_wVoted, m_wTotal))
-            return;
+	// did we commit already?
+	if (!m_pCommitted)
+	{
+		if (!Block::Pbft::State::IsMajorityReached(rd.m_spPreVoted.m_wVoted, m_wTotal))
+			return;
 
-        // commit to this proposal
-        m_pCommitted = &rd;
-        Vote(rd, true);
-    }
+		// commit to this proposal
+		m_pCommitted = &rd;
+		Vote(rd, true);
+	}
 
 
-    if (Block::Pbft::State::IsMajorityReached(rd.m_spCommitted.m_wVoted, m_wTotal))
-        // We have the quorum
-        OnQuorumReached();
+	if (Block::Pbft::State::IsMajorityReached(rd.m_spCommitted.m_wVoted, m_wTotal))
+		// We have the quorum
+		OnQuorumReached();
 }
 
 void Node::Validator::OnQuorumReached()
 {
-    assert(m_pCommitted);
-    auto& rd = *m_pCommitted; // alias
-    m_QuorumReached = true;
+	assert(m_pCommitted);
+	auto& rd = *m_pCommitted; // alias
+	m_QuorumReached = true;
 
-    BEAM_LOG_INFO() << "pbft " << rd.m_Key << " quorum reached";
+	BEAM_LOG_INFO() << "pbft " << rd.m_Key << " quorum reached";
 
-    // We have the quorum
-    Block::Pbft::Quorum qc;
-    auto& p = get_ParentObj().m_Processor;
+	// We have the quorum
+	Block::Pbft::Quorum qc;
+	auto& p = get_ParentObj().m_Processor;
 
-    uint32_t iIdx = 0;
-    for (const auto& v : p.m_PbftState.m_lstVs)
-    {
-        auto itSig = rd.m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
-        if (rd.m_spCommitted.m_Sigs.end() != itSig)
-        {
-            qc.m_vSigs.push_back(itSig->second);
+	uint32_t iIdx = 0;
+	for (const auto& v : p.m_PbftState.m_lstVs)
+	{
+		auto itSig = rd.m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
+		if (rd.m_spCommitted.m_Sigs.end() != itSig)
+		{
+			qc.m_vSigs.push_back(itSig->second);
 
-            uint32_t iByte = iIdx >> 3;
-            if (qc.m_vValidatorsMsk.size() <= iByte)
-                qc.m_vValidatorsMsk.resize(iByte + 1);
-            qc.m_vValidatorsMsk[iByte] |= (1 << (7 & iIdx));
-        }
+			uint32_t iByte = iIdx >> 3;
+			if (qc.m_vValidatorsMsk.size() <= iByte)
+				qc.m_vValidatorsMsk.resize(iByte + 1);
+			qc.m_vValidatorsMsk[iByte] |= (1 << (7 & iIdx));
+		}
 
-        iIdx++;
-    }
+		iIdx++;
+	}
 
-    auto eVal = p.OnState(rd.m_Proposal.m_Hdr, Zero);
+	auto eVal = p.OnState(rd.m_Proposal.m_Hdr, Zero);
 
-    switch (eVal)
-    {
-    case NodeProcessor::DataStatus::Accepted:
-    case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
-        break; // ok
+	switch (eVal)
+	{
+	case NodeProcessor::DataStatus::Accepted:
+	case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
+		break; // ok
 
-    default:
-        return; // invalid or unreachable header?!
-    }
+	default:
+		return; // invalid or unreachable header?!
+	}
 
-    // append QC to block body
-    size_t n0 = rd.m_Proposal.m_Body.m_Eternal.size();
+	// append QC to block body
+	size_t n0 = rd.m_Proposal.m_Body.m_Eternal.size();
 
-    Serializer ser;
-    ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
-    ser & qc;
-    ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
+	Serializer ser;
+	ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
+	ser & qc;
+	ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
 
-    Block::SystemState::ID id;
-    id.m_Height = rd.m_Proposal.m_Hdr.m_Height;
-    id.m_Hash = rd.m_spCommitted.m_hv;
+	Block::SystemState::ID id;
+	id.m_Height = rd.m_Proposal.m_Hdr.m_Height;
+	id.m_Hash = rd.m_spCommitted.m_hv;
 
-    eVal = p.OnBlock(id, rd.m_Proposal.m_Body.m_Perishable, rd.m_Proposal.m_Body.m_Eternal, Zero);
+	eVal = p.OnBlock(id, rd.m_Proposal.m_Body.m_Perishable, rd.m_Proposal.m_Body.m_Eternal, Zero);
 
-    rd.m_Proposal.m_Body.m_Eternal.resize(n0); // restore it
+	rd.m_Proposal.m_Body.m_Eternal.resize(n0); // restore it
 
-    switch (eVal)
-    {
-    case NodeProcessor::DataStatus::Accepted:
-    case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
-        break; // ok
+	switch (eVal)
+	{
+	case NodeProcessor::DataStatus::Accepted:
+	case NodeProcessor::DataStatus::Rejected: // unlikely, but nevermind
+		break; // ok
 
-    default:
-        return; // block with no header, or etc?!
-    }
+	default:
+		return; // block with no header, or etc?!
+	}
 
-    get_ParentObj().m_Processor.TryGoUpAsync();
+	get_ParentObj().m_Processor.TryGoUpAsync();
 }
 
 bool Node::Validator::CreateProposal(RoundData& rd, uint64_t iSlot)
 {
-    // In PBFT mode miner/owner keys are not used, since the block contains neither subsidy nor UTXO collecting fees
-    auto& kdfDummy = *get_ParentObj().m_Keys.m_pGeneric;
+	// In PBFT mode miner/owner keys are not used, since the block contains neither subsidy nor UTXO collecting fees
+	auto& kdfDummy = *get_ParentObj().m_Keys.m_pGeneric;
 
-    NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
-    bc.m_Hdr.m_TimeStamp = S2T(iSlot);
-    bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
+	bc.m_Hdr.m_TimeStamp = S2T(iSlot);
+	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
-    auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-    d.m_dRound = rd.m_Key;
+	auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+	d.m_dRound = rd.m_Key;
 
-    bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
+	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
-    if (bRes)
-    {
-        rd.m_Proposal.m_Hdr = std::move(bc.m_Hdr);
-        rd.m_Proposal.m_Body = std::move(bc.m_Body);
-    }
-    else
-    {
-        BEAM_LOG_WARNING() << "Block generation failed, can't make a proposal!";
-    }
+	if (bRes)
+	{
+		rd.m_Proposal.m_Hdr = std::move(bc.m_Hdr);
+		rd.m_Proposal.m_Body = std::move(bc.m_Body);
+	}
+	else
+	{
+		BEAM_LOG_WARNING() << "Block generation failed, can't make a proposal!";
+	}
 
-    return bRes;
+	return bRes;
 }
 
 uint64_t Node::Validator::get_RefTime_ms()
 {
-    using namespace std::chrono;
-    auto tNow = system_clock::now().time_since_epoch();
-    return duration_cast<milliseconds>(tNow).count();
+	using namespace std::chrono;
+	auto tNow = system_clock::now().time_since_epoch();
+	return duration_cast<milliseconds>(tNow).count();
 }
 
 void Node::Validator::OnTimer()
 {
-    m_bTimerPending = false;
-    OnNewRound();
+	m_bTimerPending = false;
+	OnNewRound();
 }
 
 void Node::Validator::KillTimer()
 {
-    if (m_bTimerPending)
-    {
-        m_bTimerPending = false;
-        m_pTimer->cancel();
-    }
+	if (m_bTimerPending)
+	{
+		m_bTimerPending = false;
+		m_pTimer->cancel();
+	}
 }
 
 void Node::Validator::SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg)
 {
-    uint64_t tEnd_s = S2T(iSlotTrg);
-    uint64_t tEnd_ms = tEnd_s * 1000;
+	uint64_t tEnd_s = S2T(iSlotTrg);
+	uint64_t tEnd_ms = tEnd_s * 1000;
 
-    auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms - tNow_ms) : 0;
-    SetTimer(dt_ms);
+	auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms - tNow_ms) : 0;
+	SetTimer(dt_ms);
 }
 
 void Node::Validator::SetTimer(uint32_t timeout_ms)
 {
-    if (!m_pTimer)
-        m_pTimer = io::Timer::create(io::Reactor::get_Current());
+	if (!m_pTimer)
+		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
-    m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
-    m_bTimerPending = true;
+	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+	m_bTimerPending = true;
 }
 
 } // namespace beam
