@@ -99,14 +99,16 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 		m_DB.CheckIntegrity();
 	}
 
+	const auto& r = Rules::get();
+
 	Merkle::Hash hv;
 	Blob blob(hv);
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
-		const HeightHash* pFork = Rules::get().FindFork(hv);
-		if (&Rules::get().get_LastFork() != pFork)
+		const HeightHash* pFork = r.FindFork(hv);
+		if (&r.get_LastFork() != pFork)
 		{
 			if (!pFork)
 			{
@@ -133,7 +135,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	{
 		BEAM_LOG_INFO() << "Settings configuration";
 
-		blob = Blob(Rules::get().get_LastFork().m_Hash);
+		blob = Blob(r.get_LastFork().m_Hash);
 		m_DB.ParamSet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	}
 
@@ -154,7 +156,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	LogSyncData();
 
-	if (Rules::get().TreasuryChecksum == Zero)
+	if (r.TreasuryChecksum == Zero)
 		m_Extra.m_TxosTreasury = 1; // artificial gap
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
@@ -166,6 +168,23 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	InitializeMapped(szPath);
 	m_Extra.m_Txos = get_TxosBefore(m_Cursor.m_ID.m_Height + 1);
+
+	if (Rules::Consensus::Pbft == r.m_Consensus)
+	{
+		if (m_Cursor.m_Full.m_Height >= Rules::HeightGenesis)
+		{
+			ByteBuffer buf;
+			m_DB.ParamGet(NodeDB::ParamID::PbftState, nullptr, nullptr, &buf);
+
+			Deserializer der;
+			der.reset(buf);
+			der & Cast::Down<Block::Pbft::State>(m_PbftState);
+		}
+		else
+			m_PbftState.SetInitial();
+
+		m_PbftState.m_Hash.m_Valid = false;
+	}
 
 	bool bRebuildNonStd = false;
 	if ((StartParams::RichInfo::Off | StartParams::RichInfo::On) & sp.m_RichInfoFlags)
@@ -3184,6 +3203,20 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 		if (!v.empty())
 			m_DB.set_StateInputs(row, &v.front(), v.size());
 
+		Serializer ser;
+
+		if (Rules::Consensus::Pbft == r.m_Consensus)
+		{
+			bic.m_Rollback.clear();
+
+			ser.swap_buf(bic.m_Rollback); // optimization
+			ser & m_PbftState;
+			ser.swap_buf(bic.m_Rollback);
+
+			Blob blob(bic.m_Rollback);
+			m_DB.ParamSet(NodeDB::ParamID::PbftState, nullptr, &blob);
+		}
+
 		// recognize all
 		MyRecognizer rec(*this);
 
@@ -3194,7 +3227,6 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			rec.m_Recognizer.RecognizeBlock(block, bic.m_ShieldedOuts);
 		}
 
-		Serializer ser;
 		bic.m_Rollback.clear();
 		ser.swap_buf(bic.m_Rollback); // optimization
 

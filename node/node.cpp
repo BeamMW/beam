@@ -1008,6 +1008,18 @@ void Node::Initialize(IExternalPOW* externalPOW)
         // use all the cores, don't subtract 'mining threads'. Verification has higher priority
         m_Cfg.m_VerificationThreads = m_Processor.m_ExecutorMT.get_Threads();
 
+    const auto& r = Rules::get();
+    if (Rules::Consensus::Pbft == r.m_Consensus)
+    {
+        if (m_Keys.m_pMiner)
+        {
+            m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
+            m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
+        }
+        else
+            m_Validator.m_Me.m_Addr = Zero;
+    }
+
     m_Processor.m_ExecutorMT.set_Threads(std::max<uint32_t>(m_Cfg.m_VerificationThreads, 1U));
 
     m_Processor.m_Horizon = m_Cfg.m_Horizon;
@@ -1052,7 +1064,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
     m_Bbs.Cleanup();
 	m_Bbs.m_HighestPosted_s = m_Processor.get_DB().get_BbsMaxTime();
 
-    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == Rules::get().m_Consensus))
+    if (m_Cfg.m_TestMode.m_FakePowSolveTime_ms && (Rules::Consensus::FakePoW == r.m_Consensus))
     {
         m_PostStartSynced = true;
         m_Validator.OnNewState();
@@ -5585,7 +5597,7 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 void Node::Validator::OnNewState()
 {
-    if (Rules::Consensus::Pbft != Rules().m_Consensus)
+    if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
         return;
 
     m_pLeader = nullptr;
@@ -6011,9 +6023,9 @@ void Node::Validator::KillTimer()
 void Node::Validator::SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg)
 {
     uint64_t tEnd_s = S2T(iSlotTrg);
-    uint64_t tEnd_ms = tEnd_s - tNow_ms;
+    uint64_t tEnd_ms = tEnd_s * 1000;
 
-    auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms > tNow_ms) : 0;
+    auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms - tNow_ms) : 0;
     SetTimer(dt_ms);
 }
 
