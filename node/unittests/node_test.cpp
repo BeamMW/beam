@@ -1812,7 +1812,7 @@ namespace beam
 
 			Rules::get().m_Pbft.m_p0 = pE;
 			Rules::get().m_Pbft.m_Count = _countof(pE);
-			Rules::get().DA.Target_ms = 1100;
+			Rules::get().DA.Target_ms = 576;
 			Rules::get().UpdateChecksum();
 		}
 

@@ -825,6 +825,7 @@ private:
 
 		RoundData::Map m_mapRounds;
 		RoundData* m_pCommitted = nullptr;
+		uint64_t m_iSlot0;
 		uint64_t m_wTotal;
 		bool m_QuorumReached;
 
@@ -835,10 +836,7 @@ private:
 		void OnQuorumReached();
 		void Vote(RoundData&, bool bCommit);
 		bool CreateProposal(RoundData&, uint64_t iSlot);
-		static uint32_t CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast);
-
-		static uint64_t T2S(Timestamp);
-		static Timestamp S2T(uint64_t);
+		uint32_t CalculateRound(uint64_t iSlot) const;
 
 		template <typename TMsg>
 		void Broadcast(const TMsg&, const Peer* pSrc);

@@ -2999,12 +2999,15 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 
 			if (bFirstTime)
 			{
+				if (r.m_Pbft.T2S_strict(s.get_Timestamp_ms()) <= r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms()))
+					Exc::Fail("invalid slot");
+
 				if (bTestOnly)
 				{
 					// during block test the QC isn't ready yet
 					// make sure nothing is appended instead of QC
 					if (nBytes1)
-						Exc::Fail(); // junk where the QC is supposed to be appended
+						Exc::Fail("trailing junk"); // junk where the QC is supposed to be appended
 				}
 				else
 				{
@@ -3045,7 +3048,7 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			return false;
 		}
 
-		if (s.m_TimeStamp <= get_MovingMedian())
+		if ((Rules::Consensus::Pbft != r.m_Consensus) && (s.m_TimeStamp <= get_MovingMedian()))
 		{
 			BEAM_LOG_WARNING() << id << " Timestamp inconsistent wrt median";
 			return false;
@@ -7199,7 +7202,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		m_PbftState.m_Hash.Update();
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
 
-		// Assume d.m_dRound and the hdr timestamp are already assigned by the caller
+		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller
 		
 	}
 	else
