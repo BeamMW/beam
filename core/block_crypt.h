@@ -482,6 +482,11 @@ namespace beam
 			const Entry* m_p0 = nullptr;
 			uint32_t m_Count = 0;
 
+			uint64_t T2S(uint64_t t_ms) const;
+			uint64_t T2S_strict(uint64_t t_ms) const; // returns 0 iff time is not a multiple of Target_ms
+			uint64_t S2T(uint64_t iSlot) const;
+
+			IMPLEMENT_GET_PARENT_OBJ(Rules, m_Pbft)
 		} m_Pbft;
 
 		uint32_t MaxRollback;
@@ -1640,8 +1645,8 @@ namespace beam
 				ECC::Hash::Value m_hvVsNext;
 				ECC::Hash::Value m_hvMetadata;
 				uintBigFor<uint32_t>::Type m_nSizeMetadata;
-				uintBigFor<uint32_t>::Type m_dRound;
-				uint8_t m_pPad0[8];
+				uintBigFor<uint16_t>::Type m_Time_ms;
+				uint8_t m_pPad0[10];
 				Difficulty m_Difficulty;
 			};
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");
@@ -1791,6 +1796,8 @@ namespace beam
 					return IsSane() && IsValidPoW(); 
 				}
                 bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
+
+				uint64_t get_Timestamp_ms() const; // PBFT only
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;

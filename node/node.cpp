@@ -5637,59 +5637,39 @@ void Node::Validator::OnNewState()
 			return;
 	}
 
+	auto& p = get_ParentObj().m_Processor; // alias
+
 	m_mapRounds.Clear();
 	m_pCommitted = nullptr;
 	m_QuorumReached = false;
+	m_iSlot0 = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
 
 	KillTimer();
 
-	m_Me.m_p = get_ParentObj().m_Processor.m_PbftState.Find(m_Me.m_Addr, false);
+	m_Me.m_p = p.m_PbftState.Find(m_Me.m_Addr, false);
 	OnNewRound();
 }
 
-uint64_t Node::Validator::T2S(Timestamp t_s)
+uint32_t Node::Validator::CalculateRound(uint64_t iSlot) const
 {
-	const auto& r = Rules::get();
-	auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
-
-	uint64_t t_ms = static_cast<uint64_t>(t_s) * 1000;
-
-	return (t_ms + 999) / trg_ms; // wokrs unless slot time is less than 1sec
+	assert(iSlot > m_iSlot0);
+	return static_cast<uint32_t>(iSlot - m_iSlot0 - 1);
 }
-
-Timestamp Node::Validator::S2T(uint64_t iSlot)
-{
-	const auto& r = Rules::get();
-	auto trg_ms = r.DA.Target_ms ? r.DA.Target_ms : 1;
-
-	uint64_t t_ms = iSlot * trg_ms;
-
-	return static_cast<Timestamp>(t_ms / 1000);
-}
-
-uint32_t Node::Validator::CalculateRound(uint64_t iSlotNow, uint64_t iSlotLast)
-{
-	assert(iSlotNow > iSlotLast);
-	return 0x7fffffff & (iSlotNow - iSlotLast - 1); // make sure iRound is less than max_uint32, this is a special value for committed round num
-}
-
 
 void Node::Validator::OnNewRound()
 {
 	assert(!m_bTimerPending);
 
-	auto iSlotLast = T2S(get_ParentObj().m_Processor.m_Cursor.m_Full.m_TimeStamp);
-
 	auto tNow_ms = get_RefTime_ms();
-	uint64_t iSlotNow = T2S(tNow_ms / 1000);
+	uint64_t iSlotNow = Rules::get().m_Pbft.T2S(tNow_ms);
 
-	if (iSlotNow <= iSlotLast)
+	if (iSlotNow <= m_iSlot0)
 	{
 		// set timer till the next round start
-		SetTimerEx(tNow_ms, iSlotLast + 1);
+		SetTimerEx(tNow_ms, m_iSlot0 + 1);
 		return;
 	}
-	uint32_t iRound = CalculateRound(iSlotNow, iSlotLast);
+	uint32_t iRound = CalculateRound(iSlotNow);
 	BEAM_LOG_INFO() << "pbft " << iRound << " round start";
 
 	SetTimerEx(tNow_ms, iSlotNow + 1);
@@ -5814,10 +5794,12 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	if (!p.IsTreasuryHandled() || p.IsFastSync())
 		return;
 
-	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(msg.m_Hdr.m_PoW);
+	auto t_ms = msg.m_Hdr.get_Timestamp_ms();
+	auto iSlot = Rules::get().m_Pbft.T2S_strict(t_ms);
+	if (iSlot <= m_iSlot0)
+		src.ThrowUnexpected("invalid proposal slot");
 
-	uint32_t iRound;
-	d.m_dRound.Export(iRound);
+	auto iRound = CalculateRound(iSlot);
 
 	auto it = m_mapRounds.find(iRound, RoundData::Comparator());
 	if (m_mapRounds.end() != it)
@@ -5826,20 +5808,11 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 		return;
 	}
 
-	// Check that proposal timestamp and dRound are consistent
-	auto iSlot0 = T2S(p.m_Cursor.m_Full.m_TimeStamp);
-	auto iSlot1 = T2S(msg.m_Hdr.m_TimeStamp);
-	if (iSlot1 <= iSlot0)
-		src.ThrowUnexpected("invalid proposal slot");
-
-	if (iRound != CalculateRound(iSlot1, iSlot0))
-		src.ThrowUnexpected("invalid proposal dRound");
-
 	// Check if the proposal was sent ahead of time. Due to time inaccuracy we can receive a proposal BEFORE our new round OnTimer
 	auto tNow_ms = get_RefTime_ms();
 	const uint32_t tAheadTolerance_ms = 2000;
 
-	if (S2T(iSlot1) * 1000 > tNow_ms + tAheadTolerance_ms)
+	if (t_ms > tNow_ms + tAheadTolerance_ms)
 		return; // too early. Ignore it
 
 	// looks sane
@@ -6028,11 +6001,13 @@ bool Node::Validator::CreateProposal(RoundData& rd, uint64_t iSlot)
 	auto& kdfDummy = *get_ParentObj().m_Keys.m_pGeneric;
 
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
-	bc.m_Hdr.m_TimeStamp = S2T(iSlot);
 	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
+	auto t_ms = Rules::get().m_Pbft.S2T(iSlot);
+	bc.m_Hdr.m_TimeStamp = static_cast<Timestamp>(t_ms / 1000);
+
 	auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-	d.m_dRound = rd.m_Key;
+	d.m_Time_ms = static_cast<uint16_t>(t_ms % 1000);
 
 	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
@@ -6073,8 +6048,7 @@ void Node::Validator::KillTimer()
 
 void Node::Validator::SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg)
 {
-	uint64_t tEnd_s = S2T(iSlotTrg);
-	uint64_t tEnd_ms = tEnd_s * 1000;
+	uint64_t tEnd_ms = Rules::get().m_Pbft.S2T(iSlotTrg);
 
 	auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms - tNow_ms) : 0;
 	SetTimer(dt_ms);

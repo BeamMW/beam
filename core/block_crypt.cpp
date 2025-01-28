@@ -2398,6 +2398,31 @@ namespace beam
 		return true;
 	}
 
+	uint64_t Rules::Pbft::T2S(uint64_t t_ms) const
+	{
+		assert(Consensus::Pbft == get_ParentObj().m_Consensus);
+		auto tSlot_ms = get_ParentObj().DA.Target_ms;
+		if (!tSlot_ms)
+			return 0; // ?!
+
+		return t_ms / tSlot_ms;
+	}
+
+	uint64_t Rules::Pbft::T2S_strict(uint64_t t_ms) const
+	{
+		auto iSlot = T2S(t_ms);
+		if (iSlot * get_ParentObj().DA.Target_ms != t_ms)
+			return 0; // inaccurate timestamp
+
+		return iSlot;
+	}
+
+	uint64_t Rules::Pbft::S2T(uint64_t iSlot) const
+	{
+		assert(Consensus::Pbft == get_ParentObj().m_Consensus);
+		return iSlot * get_ParentObj().DA.Target_ms; // don't care about overflow
+	}
+
 	void Rules::UpdateChecksum()
 	{
 		Exc::CheckpointTxt cp("Rules");
@@ -2965,6 +2990,25 @@ namespace beam
 		get_HashForPoW(hv);
 
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
+	}
+
+	uint64_t Block::SystemState::Full::get_Timestamp_ms() const
+	{
+		const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_PoW);
+
+		uint16_t frac_ms;
+		d.m_Time_ms.Export(frac_ms);
+
+		if (frac_ms >= 1000)
+			return 0;
+
+		// max value for which converting to ms won't overflow.
+		// Realistic time is much much lower
+		const uint64_t nMaxTime_s = std::numeric_limits<uint64_t>::max() / 1000;
+		if (m_TimeStamp >= nMaxTime_s)
+			return 0;
+
+		return m_TimeStamp * 1000 + frac_ms; // guaranteed to not overflow
 	}
 
 	bool Block::SystemState::Evaluator::get_Definition(Merkle::Hash& hv)
