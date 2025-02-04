@@ -1185,21 +1185,29 @@ namespace beam
 		if (!m_Value || !m_AssetID)
 			Exc::Fail();
 
-		CoinID::Generator g(m_AssetID);
+		bool isPositive;
+		auto val = SplitAmountSigned(m_Value, isPositive);
 
-		// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
-		Amount val;
-		if (m_Value > 0)
+		if (Asset::s_Foreign == m_AssetID)
 		{
-			val = m_Value;
-			g.m_hGen = -g.m_hGen;
+			ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+			ECC::Point::Native pt = ECC::Context::get().H * val;
+			if (isPositive)
+				pt = -pt;
+
+			exc += pt;
 		}
 		else
 		{
-			val = -m_Value;
-		}
+			CoinID::Generator g(m_AssetID);
 
-		g.AddValue(exc, val);
+			// In case of block validation with multiple asset instructions it's better to calculate this via MultiMac than multiplying each point separately
+			if (isPositive)
+				g.m_hGen = -g.m_hGen;
+
+			g.AddValue(exc, val);
+		}
 	}
 
 	void TxKernelAssetEmit::Clone(TxKernel::Ptr& p) const
