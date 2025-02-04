@@ -774,6 +774,11 @@ public:
 		// followed by metadata
 	};
 
+	struct ForeignEmitPacked {
+		uintBigFor<Height>::Type m_Height;
+		uintBigFor<uint32_t>::Type m_nIdx;
+	};
+
 #pragma pack (pop)
 
 	struct Recognizer
@@ -937,6 +942,14 @@ public:
 
 		static_assert(sizeof(User) != sizeof(Contract), "");
 	};
+
+
+	struct IForeignBridge
+	{
+		virtual bool AllowEmission(Asset::ID, Amount, const Blob& key) = 0;
+	};
+
+	IForeignBridge* m_pForeignBridge = nullptr;
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);

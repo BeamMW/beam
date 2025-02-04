@@ -4164,7 +4164,74 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
+	if (krn.m_AssetID < Asset::s_Foreign)
+		return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
+
+	const auto& key = krn.m_Owner;
+	bool bAdd;
+	Amount valUns = SplitAmountSigned(krn.m_Value, bAdd);
+
+	if (bAdd && bic.m_Fwd && !bic.m_AlreadyValidated)
+	{
+		if (!m_pForeignBridge)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "no bridge";
+			return false;
+		}
+
+		if (!m_pForeignBridge->AllowEmission(krn.m_AssetID - Asset::s_Foreign, valUns, key))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "bridge not confirmed";
+			return false;
+		}
+	}
+
+	ForeignEmitPacked fep;
+	fep.m_Height = bic.m_Height;
+	fep.m_nIdx = bic.m_nKrnIdx;
+
+	Blob blobVal(&fep, sizeof(fep));
+
+	if (!ValidateUniqueNoDup(bic, key, &blobVal))
+	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << "double-emit";
+		return false;
+	}
+
+	if (bic.m_Fwd && !bic.m_Temporary)
+	{
+		// register the emission in evts
+		AssetDataPacked adp;
+		adp.m_LockHeight = Zero;
+		adp.m_Amount = valUns;
+
+		if (bAdd)
+			adp.m_Amount.Negate();
+
+		{
+			NodeDB::WalkerAssetEvt wlk;
+			m_DB.AssetEvtsEnumBwd(wlk, krn.m_AssetID, bic.m_Height);
+			if (wlk.MoveNext())
+			{
+				AssetDataPacked adp0;
+				adp0.set_Strict(wlk.m_Body);
+				adp.m_Amount += adp0.m_Amount;
+			}
+		}
+
+
+		NodeDB::AssetEvt evt;
+		evt.m_ID = krn.m_AssetID;
+		evt.m_Body.p = &adp;
+		evt.m_Body.n = sizeof(adp);
+
+		bic.AssetEvtInsert(m_DB, evt, 0);
+	}
+
+	return true;
 }
 
 bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
