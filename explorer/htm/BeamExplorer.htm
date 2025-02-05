@@ -48,8 +48,8 @@
 
   // Address of the remote explorer node
   //var urlPrefix = "http://localhost:8888/";
-  var urlPrefix = 'http://116.203.118.51:8100/';
-  //var urlPrefix = 'https://explorer-api.beamprivacy.community/';
+  //var urlPrefix = 'http://116.203.118.51:8100/';
+  var urlPrefix = 'https://explorer-api.beamprivacy.community/';
 </script>
 
 <!-- ************ SECTION 2 - CSS STYLES ************ -->
@@ -627,7 +627,7 @@
     text-align: center;
     width: 100%;
     white-space: nowrap; /* Never wrap text */
-    padding: 0px 10px 0px 10px;
+    padding: 0 10px 0 10px;
   }
   #BeamTitle {
     font-size: 2.4rem;
@@ -661,7 +661,7 @@
   }
   #SearchArea {
     display: block;
-    padding: 8px 2px 0px 2px;
+    padding: 8px 2px 0 2px;
   }
   #SearchForm {
     /* Nothing special */
@@ -758,7 +758,7 @@
     font-size: 1.4rem;
     color: var(--color_about_text);
     line-height: 1.9rem;
-    padding-bottom: 0px;
+    padding-bottom: 0;
   }
   .aboutText a {
     color: var(--color_about_link);
@@ -907,36 +907,47 @@
     border: none; /* No border for small collapsibles */
   }
 
-  /* OPTIONS FOR BLOCK HEADERS TABLE */
-  /* Collapsible for headers table options */
-  .collapsible.hdrsOptions {
+  /* SHARED STYLES FOR TABLE OPTIONS */
+  /* Collapsible for table options */
+  .collapsible.tableOptions {
     display: block;
     width: 100%;
     margin-bottom: 10px;
   }
-  .collapsible-label.hdrsOptions { /* remove default behavior of the other collapsibles */
+  .collapsible .collapsible.tableOptions { /* If collapsible is inside another collapsible */
+    margin-bottom: 5px;
+  }
+  .collapsible-label.tableOptions { /* Remove default behavior of the other collapsibles */
     min-width: unset;
     background-color: unset;
     color: var(--color_config_collapsible_title);
     font-size: 1.3rem;
     margin: 0;
-    padding: 2px 5px 0px 5px;
-    border-radius: 0; /* Slightly round corners */
+    padding: 5px 5px 0 5px;
+    font-weight: normal;
   }
-  .collapsible-label.hdrsOptions:hover { /* remove default behavior of the other collapsibles */
+  .collapsible .collapsible .collapsible-label.tableOptions { /* If collapsible is inside another collapsible */
+    color: var(--color_config_collapsible_text);
+  }
+  .collapsible-label.tableOptions:hover { /* Remove default behavior of the other collapsibles */
     background-color: unset;
   }
-  .collapsible-content.hdrsOptions {
+  .collapsible-content.tableOptions {
     color: var(--color_config_collapsible_text);
     padding: 2px 2px 5px 2px;
     margin: 5px 0 10px 0;
     border-radius: 0.4em; /* Slightly round corners */
+    border-style: none;
   }
-  #headersDisplayOptions { /* Form */
+  .collapsible .collapsible .collapsible-content.tableOptions { /* If collapsible is inside another collapsible */
+    padding: 2px 2px 2px 2px;
+    margin: 2px 0 0 0;
+  }
+  #tableOptionsForm { /* Form name */
     /* Nothing Special */
   }
   #selectionOptions { /* Row and Column selection options */
-    display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions */
+    display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions (when defined)) */
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -950,6 +961,13 @@
     flex-wrap: nowrap;
     font-size: 1.3rem;
     margin: 0 15px 0 0;
+  }
+  #columnSelectionOptions { /* Options for columns */
+    flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
+    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
+    align-items: center;
+    flex-wrap: nowrap;
+    font-size: 1.3rem;
   }
   #applySelection { /* Apply button */
     cursor: pointer;
@@ -968,18 +986,18 @@
     background-color: var(--color_config_collapsible_button_hover);
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_button_border));
   }
-  #selectRows, #selectStep { /* div */
+  .selectRows, .selectStep, .selectHeight { /* div */
     display: inline-block;
     padding: 0 5px 0 5px;
   }
-  #labelRows { /* label */
+  .labelStep, .labelHeight { /* label */
+    /* Nothing special */
+  }
+  .labelRows, .labelColumns { /* label */
     font-weight: bold;
     margin: 0 0 0 4px;
   }
-  #labelInterval { /* label */
-    /* Nothing special */
-  }
-  #nbrRows, #nbrStep { /* Input number */
+  .nbrRows, .nbrStep, .inputBlockHeight { /* Input fields */
     height: 1.5em;
     background: var(--color_collapsible_content_background);
     color: var(--color_config_collapsible_text);
@@ -987,31 +1005,23 @@
     border-width: 1px;
     border-color: var(--color_config_collapsible_description);
     border-radius: 0.2em; /* Slightly round corners */
-    width: 6rem;
     -moz-appearance: textfield; /* Hide arrows on Firefox */
   }
-  #nbrRows::-webkit-outer-spin-button, #nbrRows::-webkit-inner-spin-button,
-  #nbrStep::-webkit-outer-spin-button, #nbrStep::-webkit-inner-spin-button {
+  .nbrRows, .nbrStep { /* Input numbers */
+    width: 6rem;
+  }
+  .inputBlockHeight { /* Input blockheight */
+    width: 8rem;
+  }
+  .nbrRows::-webkit-outer-spin-button, .nbrRows::-webkit-inner-spin-button,
+  .nbrStep::-webkit-outer-spin-button, .nbrStep::-webkit-inner-spin-button,
+  .inputBlockHeight::-webkit-outer-spin-button, .inputBlockHeight::-webkit-inner-spin-button {
     -webkit-appearance: none; /* Hide arrows on Chrome */
     margin: 0; /* This is also said to be needed... */
   }
-  #nbrRows:focus, #nbrStep:focus {
+  .nbrRows:focus, .nbrStep:focus, .inputBlockHeight:focus {
     outline: none; /* Avoid the browser default focus outline */
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_text));
-  }
-  #columnSelectionOptions { /* Options for columns */
-    flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
-    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
-    align-items: center;
-    flex-wrap: nowrap;
-    font-size: 1.3rem;
-  }
-  #labelColumns {
-    font-weight: bold;
-    margin: 0 0 0 4px;
-  }
-  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #reorderAllColumns { /* Columns selection links */
-    /* Nothing special */
   }
   .selectionOption { /* Selection links */
     cursor: pointer;
@@ -1035,6 +1045,12 @@
     padding: 0 5px 0 5px;
     color: var(--color_config_collapsible_description);
     font-style: italic;
+  }
+
+  /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
+  /* (the Block Headers table has hidden description and drag and drop items) */
+  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #reorderAllColumns { /* Columns selection links */
+    /* Nothing special */
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
     flex-grow: 1; /* So that it takes all the available width and the symbol can be right aligned */
@@ -2009,7 +2025,13 @@
 
     let text = "<h2 class='title'>Contract " + AddClass(g_id, 'cidTitle') + '</h2>\n';
 
-    text += MakeCollapsibleBegin('Call history') + "\
+    text += MakeCollapsibleBegin('Call history')
+    
+    // Display table options
+    text += DisplayContractOptions();
+
+    // Display table
+    text += "\
       <table class='tableCallHistory'>\n\
         <thead><tr>\n\
           <th>Height</th>\n\
@@ -2404,8 +2426,13 @@
   let g_cols = URLparams.get('cols'); // Used for type=hdrs
   let g_dh = URLparams.get('dh'); // Used for type=hdrs
 
-  // If no parameter was given in the URL, then we look in localStorage
-  // If nothing is there either, then we set the default values
+  // If no parameter was given in the URL, then we look in localStorage.
+  // If nothing is there either, then we set the default values.
+  // Remark: All these global variables will thus be defined (even if only with '')
+  if (!g_hMin) { g_hMin = localStorage.getItem('g_hMin') }
+  if (!g_hMin) { g_hMin = '' }
+  if (!g_hMax) { g_hMax = localStorage.getItem('g_hMax') }
+  if (!g_hMax) { g_hMax = '' }
   //if (!g_n) { g_n = localStorage.getItem('g_n') }
   //if (!g_n) { g_n = 1 }
   if (!g_nMax) { g_nMax = localStorage.getItem('g_nMax') }
@@ -2705,19 +2732,19 @@
     icon.setAttribute('title', 'Expand everything');
   }
 
-  // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
-  function DisplayHdrsOptions() {
+  // SELECTION OPTIONS FOR THE TABLE OF CONTRACT CALLS
+  function DisplayContractOptions() {
     // Display table options
-    let text = MakeCollapsibleBegin('Options', 'hdrsOptions', 'close');
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
     // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
-    text += "<form id='headersDisplayOptions' name='headersDisplayOptions' action='javascript:applySelection();'>";
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyContractSelection();'>";
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
     text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
-               // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
-    text += "  <div id='selectRows'><label title='Number of rows to display (2000 max)'>\
-                 <span id='labelRows'>Rows: </span>\
-                 <input type='number' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of contract calls to display (2000 max)'>\
+                 <span class='labelRows'>Max rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxTxs + "'>\
                  <datalist id='nbrOfRows'>\
                    <option value='100'>100 (default)</option>\
                    <option value='200'>200</option>\
@@ -2726,10 +2753,68 @@
                    <option value='2000'>2000 (max)</option>\
                  </datalist>\
                </label></div>";
-               // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
-    text += "  <div id='selectStep'><label title='Blockheight interval between two rows'>\
-                 <span id='labelInterval'>Interval: </span>\
-                 <input type='number' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
+    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
+                 <span class='labelHeight'>Min block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyContractSelection() {
+    // Get number of rows
+    let nMaxTxs = document.getElementById("nbrRows").value;
+    if (nMaxTxs) { g_nMaxTxs = nMaxTxs; };
+    // Get min block height (including when empty)
+    g_hMin = document.getElementById("minHeight").value;
+    // Get max block height (including when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+    // Save results in localStorage
+    localStorage.setItem('g_nMaxTxs', g_nMaxTxs);
+    localStorage.setItem('g_hMin', g_hMin);
+    localStorage.setItem('g_hMax', g_hMax);
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('nMaxTxs', g_nMaxTxs);
+    args.set('hMin', g_hMin);
+    args.set('hMax', g_hMax);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
+  // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
+  function DisplayHdrsOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyHdrsSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of rows to display (2000 max)'>\
+                 <span class='labelRows'>Rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
+                 <datalist id='nbrOfRows'>\
+                   <option value='100'>100 (default)</option>\
+                   <option value='200'>200</option>\
+                   <option value='500'>500</option>\
+                   <option value='1000'>1000</option>\
+                   <option value='2000'>2000 (max)</option>\
+                 </datalist>\
+               </label></div>";
+    // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
+    text += "  <div class='selectStep'><label title='Blockheight interval between two rows'>\
+                 <span class='labelStep'>Interval: </span>\
+                 <input type='number' class='nbrStep' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
                  <datalist id='nbrOfSteps'>\
                    <option value='1'>1 (default)</option>\
                    <option value='60'>60 (~hour)</option>\
@@ -2740,7 +2825,7 @@
                </label></div>";
     text += "</div>";
     text += `<div id='columnSelectionOptions'>\
-               <span id='labelColumns'>Columns: </span>\
+               <span class='labelColumns'>Columns: </span>\
                <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
                <span class='itemSeparator'> | </span>\
                <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
@@ -2862,7 +2947,7 @@
     }
   }
 
-  function applySelection() {
+  function applyHdrsSelection() {
     // Get number of rows
     let nMax = document.getElementById("nbrRows").value;
     if (nMax) { g_nMax = nMax; };
