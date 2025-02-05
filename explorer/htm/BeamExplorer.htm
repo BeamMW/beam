@@ -911,7 +911,6 @@
   /* Collapsible for table options */
   .collapsible.tableOptions {
     display: block;
-    width: 100%;
     margin-bottom: 10px;
   }
   .collapsible .collapsible.tableOptions { /* If collapsible is inside another collapsible */
@@ -966,8 +965,8 @@
     flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
     display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
     align-items: center;
-    flex-wrap: nowrap;
     font-size: 1.3rem;
+    flex-wrap: wrap;
   }
   #applySelection { /* Apply button */
     cursor: pointer;
@@ -1023,6 +1022,9 @@
     outline: none; /* Avoid the browser default focus outline */
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_text));
   }
+  .selectionOptionsGroup { /* Block of selection links */
+    text-wrap: nowrap;
+  }
   .selectionOption { /* Selection links */
     cursor: pointer;
     display: inline-block;
@@ -1045,6 +1047,7 @@
     padding: 0 5px 0 5px;
     color: var(--color_config_collapsible_description);
     font-style: italic;
+    text-wrap: nowrap;
   }
 
   /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
@@ -1058,6 +1061,7 @@
   }
   #toggleDescriptionsLink {
     outline: none; /* Avoid the browser default focus outline */
+    margin: 0 0 0 50px;
   }
   #toggleDescriptionsLink svg { /* 'Show details' icon */
     cursor: pointer;
@@ -1644,6 +1648,10 @@
 
     text += MakeCollapsibleBegin('Asset History');
 
+    // Display table options
+    text += DisplayAssetOptions();
+
+    // Display table
     text += "\
       <table class='tableAssetHistory'>\n\
         <thead><tr>\n\
@@ -1792,8 +1800,8 @@
     const jData = JSON.parse(this.responseText);
 
     // Display error message if no block was found
-    // Remark: The explorer node often returns the treasury when no block is found. Here we only display it if height was explicitely set to 0.
-    if (jData['found']==false || (!jData['info'] && (!g_height || g_height != 0))) { // Remark: Only the Treasury lacks the 'info' field
+    // Remark: The explorer node often returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
+    if (jData['found']===false || (jData['info']===undefined && g_height!='0')) { // Remark: Only the Treasury lacks the 'info' field
       text += "<h2 class='title errorMessage'>Block not found.</h2>";
       SetContent(text);
       return;
@@ -2168,6 +2176,10 @@
     }
     text += '</h2>\n';
 
+    // Display table options
+    text += DisplayAssetsOptions();
+
+    // Display table
     text += MakeTblAssets(jData);
 
     SetContent(text);
@@ -2265,7 +2277,7 @@
     {
       block_list: [0],
       title: 'Treasury',
-      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?type=block&id=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
+      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?type=block&height=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
@@ -2275,7 +2287,7 @@
     {
       block_list: [1],
       title: 'Genesis block',
-      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?type=block&id=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?type=block&height=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
       links: [
         ['Original MimbleWimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
         ['First Beam Medium post', 'https://medium.com/beam-mw/introducing-beam-f35096a923ec'],
@@ -2293,7 +2305,7 @@
     {
       block_range: [25709, 25820],
       title: 'Blockchain Stop Event',
-      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?type=hdrs&hMax=25710&nMax=5'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?type=hdrs&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?type=block&id=25820'>25820</a> and <a href='?type=block&id=25822'>25822</a> processed all the pending ones. No funds were lost.",
+      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?type=hdrs&hMax=25710&nMax=5'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?type=hdrs&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?type=block&height=25820'>25820</a> and <a href='?type=block&height=25822'>25822</a> processed all the pending ones. No funds were lost.",
       links: [['Postmortem analysis', 'https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813']]
     },
     {
@@ -2330,13 +2342,13 @@
     {
       block_list: [778857],
       title: 'First input UTXO from a Shielded Pool',
-      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?type=block&id=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?type=block&id=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='?type=block&id=2878666'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
+      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?type=block&height=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?type=block&height=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='?type=block&height=2878666'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
       links: null
     },
     {
       block_list: [780219],
       title: 'Creation of the first Confidential Asset',
-      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?type=block&id=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?type=block&id=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='?type=assets'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
+      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?type=block&height=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?type=block&height=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='?type=assets'>several confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
       links: [
         //["Tico website","https://www.ticotip.me"],
         ["Tico's first anniversary", 'https://ticotipme.substack.com/p/tico-turns-1'],
@@ -2357,7 +2369,7 @@
     {
       block_list: [1280003],
       title: 'Deployment of the first Smart Contract',
-      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?type=block&id=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
+      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?type=block&height=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
       links: [['Examples of smart contracts', 'https://github.com/BeamMW/beam/tree/master/bvm/Shaders']]
     },
     {
@@ -2391,7 +2403,7 @@
     {
       block_list: [1920000],
       title: 'Fifth Hard-Fork (and wallet v7.1)',
-      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='?type=assets&id=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='?type=assets&height=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
       links: [
         ['Announcement', 'https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178'],
         ['Forum post for BIP-1', 'https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116']
@@ -2400,13 +2412,13 @@
     {
       block_list: [2272779],
       title: 'Blockchain incident',
-      description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?type=hdrs&hMax=2272781&nMax=3' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?type=block&id=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+      description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?type=hdrs&hMax=2272781&nMax=3' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?type=block&height=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
       links: [['Incident analysis', 'https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097']]
     },
     {
       block_list: [2628000, 2628001],
       title: 'Second Halving & End of the 5-year treasury allocation',
-      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='?type=block&id=2628000'>2628000</a>) to 25 BEAM (block <a href='?type=block&id=2628001'>2628001</a>).<br>This halving also saw the <a href='?type=block&id=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='?type=block&height=2628000'>2628000</a>) to 25 BEAM (block <a href='?type=block&height=2628001'>2628001</a>).<br>This halving also saw the <a href='?type=block&height=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
       links: [['The 5-year recap', 'https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f']]
     },
   ];
@@ -2429,10 +2441,9 @@
   // If no parameter was given in the URL, then we look in localStorage.
   // If nothing is there either, then we set the default values.
   // Remark: All these global variables will thus be defined (even if only with '')
-  //if (!g_hMin) { g_hMin = localStorage.getItem('g_hMin') } // We don't store this one in localStorage. It's either in the URL or empty.
-  if (!g_hMin) { g_hMin = '' }
-  //if (!g_hMax) { g_hMax = localStorage.getItem('g_hMax') } // We don't store this one in localStorage. It's either in the URL or empty.
-  if (!g_hMax) { g_hMax = '' }
+  if (!g_height) { g_height = '' } // We don't store this one in localStorage. It's either in the URL or empty.
+  if (!g_hMin) { g_hMin = '' } // We don't store this one in localStorage. It's either in the URL or empty.
+  if (!g_hMax) { g_hMax = '' } // We don't store this one in localStorage. It's either in the URL or empty.
   //if (!g_n) { g_n = localStorage.getItem('g_n') }
   //if (!g_n) { g_n = 1 }
   if (!g_nMax) { g_nMax = localStorage.getItem('g_nMax') }
@@ -2465,12 +2476,12 @@
       // In case Asset 0 is requested (which is not accepted by node explorer), reload the page with ALL assets instead
       if (g_id == 0) { window.location.href = UrlSelf('assets') }
       // Otherwise, process request
-      urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMaxOps;
+      urlSuffix += '&id=' + g_id + '&nMaxOps=' + g_nMaxOps;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayAssetHistory;
 
-    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explore node handle the case where both are requested)
+    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explorer node handle the case where both are requested)
       if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
       if (g_height) { urlSuffix += '&height=' + g_height; }
       xmlhttp.onload = DisplayBlock;
@@ -2736,7 +2747,6 @@
   function DisplayContractOptions() {
     // Display table options
     let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
-    // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
     text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyContractSelection();'>";
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
@@ -2790,11 +2800,98 @@
     window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
   }
 
+  // SELECTION OPTIONS FOR THE TABLE OF AN ASSET
+  function DisplayAssetOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of events to display (2000 max)'>\
+                 <span class='labelRows'>Max rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxOps + "'>\
+                 <datalist id='nbrOfRows'>\
+                   <option value='100'>100 (default)</option>\
+                   <option value='200'>200</option>\
+                   <option value='500'>500</option>\
+                   <option value='1000'>1000</option>\
+                   <option value='2000'>2000 (max)</option>\
+                 </datalist>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
+                 <span class='labelHeight'>Min block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyAssetSelection() {
+    // Get number of rows
+    let nMaxOps = document.getElementById("nbrRows").value;
+    if (nMaxOps) { g_nMaxOps = nMaxOps; };
+    // Get min block height (even when empty)
+    g_hMin = document.getElementById("minHeight").value;
+    // Get max block height (even when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+    // Save results in localStorage
+    localStorage.setItem('g_nMaxOps', g_nMaxOps);
+    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('nMaxOps', g_nMaxOps);
+    args.set('hMin', g_hMin);
+    args.set('hMax', g_hMax);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
+  // SELECTION OPTIONS FOR THE TABLE OF ALL ASSETS
+  function DisplayAssetsOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetsSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    text += "  <div class='selectHeight'><label title='Block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_height + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyAssetsSelection() {
+    // Get max block height (even when empty)
+    g_height = document.getElementById("maxHeight").value;
+    // Remark: We don't store this one in localStorage. It's either in the URL or empty.
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('height', g_height);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
   // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
   function DisplayHdrsOptions() {
     // Display table options
     let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
-    // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
     text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyHdrsSelection();'>";
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
@@ -2828,15 +2925,18 @@
                  <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
                </label></div>";
     text += "</div>";
+    // Remark: We use backticks (aka 'template strings') here because of the mix of single and double quotes inside them
     text += `<div id='columnSelectionOptions'>\
-               <span class='labelColumns'>Columns: </span>\
-               <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
+               <span class='selectionOptionsGroup'>\
+                <span class='labelColumns'>Columns: </span>\
+                <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
+               </span>\
                <span class='selectionText'>(or reorder with drag and drop)</span>\
                <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>`;
     text += "</div>";
