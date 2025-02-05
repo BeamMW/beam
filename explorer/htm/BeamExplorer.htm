@@ -2429,9 +2429,9 @@
   // If no parameter was given in the URL, then we look in localStorage.
   // If nothing is there either, then we set the default values.
   // Remark: All these global variables will thus be defined (even if only with '')
-  if (!g_hMin) { g_hMin = localStorage.getItem('g_hMin') }
+  //if (!g_hMin) { g_hMin = localStorage.getItem('g_hMin') } // We don't store this one in localStorage. It's either in the URL or empty.
   if (!g_hMin) { g_hMin = '' }
-  if (!g_hMax) { g_hMax = localStorage.getItem('g_hMax') }
+  //if (!g_hMax) { g_hMax = localStorage.getItem('g_hMax') } // We don't store this one in localStorage. It's either in the URL or empty.
   if (!g_hMax) { g_hMax = '' }
   //if (!g_n) { g_n = localStorage.getItem('g_n') }
   //if (!g_n) { g_n = 1 }
@@ -2773,14 +2773,14 @@
     // Get number of rows
     let nMaxTxs = document.getElementById("nbrRows").value;
     if (nMaxTxs) { g_nMaxTxs = nMaxTxs; };
-    // Get min block height (including when empty)
+    // Get min block height (even when empty)
     g_hMin = document.getElementById("minHeight").value;
-    // Get max block height (including when empty)
+    // Get max block height (even when empty)
     g_hMax = document.getElementById("maxHeight").value;
     // Save results in localStorage
     localStorage.setItem('g_nMaxTxs', g_nMaxTxs);
-    localStorage.setItem('g_hMin', g_hMin);
-    localStorage.setItem('g_hMax', g_hMax);
+    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('nMaxTxs', g_nMaxTxs);
@@ -2822,6 +2822,10 @@
                    <option value='10080'>10,080 (~week)</option>\
                    <option value='43200'>43,200 (~month)</option>\
                  </datalist>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
                </label></div>";
     text += "</div>";
     text += `<div id='columnSelectionOptions'>\
@@ -2954,6 +2958,9 @@
     // Get row interval
     let dh = document.getElementById("nbrStep").value;
     if (dh) { g_dh = dh; };
+    // Get max block height (even when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+
     // Get codes for selected checkboxes (they are automatically listed in their current order)
     let params = '', series = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
@@ -2966,11 +2973,13 @@
     localStorage.setItem('g_cols', g_cols);
     localStorage.setItem('g_nMax', g_nMax);
     localStorage.setItem('g_dh', g_dh);
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('cols', g_cols);
     args.set('nMax', g_nMax);
     args.set('dh', g_dh);
+    args.set('hMax', g_hMax);
     // Update the query part of the URL and reload page
     window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
   }
