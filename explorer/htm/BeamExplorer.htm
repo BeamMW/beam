@@ -320,7 +320,7 @@
     font-size: 1.9rem;
     text-align: left;
     color: var(--color_h3);
-    margin: 10px 0 15px 0;
+    margin: 15px 0 10px 0;
   }
   h3.sub { /* For the h3 within collapsibles */
     color: var(--color_h3_sub);
@@ -1841,19 +1841,19 @@
 
     j = jData['inputs'];
     if (j) {
-      text += "<h3 class='sub'>Inputs</h3>\n";
+      text += "<h3 class='sub'>Inputs (" + j.length + ")</h3>\n";
       text += MakeTableTxos(j, true);
     }
 
     j = jData['outputs'];
     if (j) {
-      text += "<h3 class='sub'>Outputs</h3>\n";
+      text += "<h3 class='sub'>Outputs (" + j.length + ")</h3>\n";
       text += MakeTableTxos(j, false);
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += "<h3 class='sub'>Kernels</h3>\n";
+      text += "<h3 class='sub'>Kernels (" + jTbl.length + ")</h3>\n";
       text += "\
         <table class='tableKernels'>\n\
           <thead><tr>\n\
