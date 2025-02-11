@@ -4214,7 +4214,7 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
 	msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
 	msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
 	msgOut.m_AssetsMax = p.get_AidMax();
-	msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
+	msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsActive));
 
 	Send(msgOut);
 }
