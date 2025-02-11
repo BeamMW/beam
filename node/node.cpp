@@ -4249,7 +4249,7 @@ void Node::Peer::OnMsg(proto::GetAssetsListAt&& msg)
 		else
 		{
 			++ai.m_ID;
-			int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height);
+			int ret = m_This.m_Processor.get_AssetAt(ai, msg.m_Height, true);
 			if (!ret)
 				break;
 

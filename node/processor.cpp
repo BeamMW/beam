@@ -7955,14 +7955,19 @@ void NodeProcessor::RebuildNonStd()
 	EnumKernels(wlk, HeightRange(Rules::get().pForks[2].m_Height, m_Cursor.m_ID.m_Height));
 }
 
-int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h)
+int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h, bool bFindAid)
 {
 	assert(h <= m_Cursor.m_ID.m_Height);
 
+	// search for create/destroy
 	NodeDB::WalkerAssetEvt wlk;
-	m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h); // search for create/destroy
+	if (bFindAid)
+		m_DB.AssetEvtsEnumBwd2(wlk, ai.m_ID + Asset::s_MaxCount, h);
+	else
+		m_DB.AssetEvtsEnumBwd(wlk, ai.m_ID + Asset::s_MaxCount, h);
+
 	if (!wlk.MoveNext())
-		return 0;
+		return 0; // never existed
 
 	if (!wlk.m_Body.n) // last was destroy
 		return -1;
