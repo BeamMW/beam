@@ -257,8 +257,6 @@ namespace beam
 		static constexpr ID s_BeamID    = 0;
 		static const PeerID s_InvalidOwnerID;
 
-		static constexpr ID s_Foreign = s_MaxCount >> 1; // half billion. Reserved for bridged assets on L2
-
 		struct Base
 		{
 			ID m_ID;
