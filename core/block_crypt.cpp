@@ -2537,18 +2537,27 @@ namespace beam
 				<< Shielded.MaxOuts;
 		}
 
+		uint8_t flagCA =
+			(CA.Enabled ? 1 : 0) |
+			(CA.ForeignEnd ? 2 : 0);
+
 		oracle
 			<< Shielded.m_ProofMax.n
 			<< Shielded.m_ProofMax.M
 			<< Shielded.m_ProofMin.n
 			<< Shielded.m_ProofMin.M
 			<< Shielded.MaxWindowBacklog
-			<< CA.Enabled
+			<< flagCA
 			<< CA.DepositForList2
 			<< CA.LockPeriod
 			<< CA.m_ProofCfg.n
 			<< CA.m_ProofCfg.M
-			<< Asset::ID(Asset::s_MaxCount)
+			<< Asset::ID(Asset::s_MaxCount);
+
+		if (CA.ForeignEnd)
+			oracle << CA.ForeignEnd;
+
+		oracle
 			// out
 			>> pForks[2].m_Hash;
 

@@ -4141,8 +4141,10 @@ void TestAll()
     beam::Rules::get().Evm.Groth2Wei = 10'000'000'000ull;
 
 	if (bTestPbft)
+	{
 		beam::Rules::get().m_Consensus = beam::Rules::Consensus::Pbft;
-	else
+		beam::Rules::get().CA.ForeignEnd = 1'000'000;
+	} else
 		beam::Rules::get().UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
@@ -4198,6 +4200,7 @@ void TestAll()
 	fflush(stdout);
 
 	beam::Rules::get().m_Consensus = beam::Rules::Consensus::FakePoW;
+	beam::Rules::get().CA.ForeignEnd = 0;
 	beam::Rules::get().UpdateChecksum();
 
 	beam::TestFlyClient();

@@ -2879,11 +2879,13 @@ Asset::ID NodeDB::AssetFindMinFree(Asset::ID nMin)
 	return ret;
 }
 
-void NodeDB::AssetAdd(Asset::Full& ai)
+bool NodeDB::AssetAdd(Asset::Full& ai)
 {
 	Asset::ID aidMin = ai.m_ID;
-	assert(aidMin < s_AssetEmpty0);
-	// find free index
+	if (aidMin >= s_AssetEmpty0)
+		return false;
+
+	// find freed index to reuse
 	ai.m_ID = AssetFindMinFree(ai.m_ID + s_AssetEmpty0);
 	if (ai.m_ID)
 	{
@@ -2895,7 +2897,10 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 	}
 	else
 	{
+		// extend the used range
 		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AidMax) + 1);
+		if (ai.m_ID >= s_AssetEmpty0)
+			return false; // overflow
 
 		for ( ; ai.m_ID < aidMin; ai.m_ID++)
 			AssetInsertRaw(ai.m_ID + s_AssetEmpty0, nullptr);
@@ -2906,6 +2911,7 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 	AssetInsertRaw(ai.m_ID, &ai);
 
 	ParamIntSet(ParamID::AssetsActive, ParamIntGetDef(ParamID::AssetsActive) + 1);
+	return true;
 }
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
@@ -2913,36 +2919,36 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 	assert(id < s_AssetEmpty0);
 	AssetDeleteRaw(id);
 
-	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AidMax));
-	if (nCount == id)
+	Asset::ID aidMax = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AidMax));
+	if (aidMax == id)
 	{
 		// last erased.
-		while (--nCount)
+		while (--aidMax)
 		{
-			id = nCount + s_AssetEmpty0;
+			id = aidMax + s_AssetEmpty0;
 			if (!AssetFindMinFree(id))
 				break;
 
 			AssetDeleteRaw(id);
 		}
 
-		ParamIntSet(ParamID::AidMax, nCount);
+		ParamIntSet(ParamID::AidMax, aidMax);
 	}
 	else
 		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
 
 	ParamIntSet(ParamID::AssetsActive, ParamIntGetDef(ParamID::AssetsActive) - 1);
 
-	return nCount;
+	return aidMax;
 }
 
-void NodeDB::AssetsDelAll()
+void NodeDB::AssetsDelAll(Asset::ID aid0)
 {
 	Recordset rs(*this, Query::AssetsDelAll, "DELETE FROM " TblAssets);
 	rs.Step();
 
 	ParamDelSafe(ParamID::AssetsActive);
-	ParamDelSafe(ParamID::AidMax);
+	ParamIntSet(ParamID::AidMax, aid0);
 }
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)

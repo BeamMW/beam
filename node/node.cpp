@@ -3776,7 +3776,7 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
 			if (get_Ext() < 10)
 				msgOut.m_Info.SetCid(nullptr);
 
-			p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - 1);
+			p.m_Mmr.m_Assets.get_Proof(msgOut.m_Proof, msgOut.m_Info.m_ID - (Rules::get().CA.ForeignEnd + 1));
 
 			struct MyProofBuilder
 				:public NodeProcessor::ProofBuilder

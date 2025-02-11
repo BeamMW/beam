@@ -644,6 +644,7 @@ namespace beam
 
 	bool RecoveryInfo::IParser::Context::ProceedAssets()
 	{
+		Asset::ID aid0 = Rules::get().CA.ForeignEnd;
 		while (true)
 		{
 			Asset::Full ai;
@@ -651,11 +652,15 @@ namespace beam
 
 			if (ai.m_ID > Asset::s_MaxCount)
 				break;
-
-			if (ai.m_ID <= m_Assets.m_Count)
+			if (ai.m_ID <= aid0)
 				ThrowBadData();
 
-			while (ai.m_ID > m_Assets.m_Count + 1)
+			uint32_t nCount = ai.m_ID - aid0;
+
+			if (nCount <= m_Assets.m_Count)
+				ThrowBadData();
+
+			while (nCount > m_Assets.m_Count + 1)
 				m_Assets.Append(Zero);
 
 			m_Der & Cast::Down<Asset::Info>(ai);

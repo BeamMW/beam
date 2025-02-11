@@ -171,7 +171,7 @@ class NodeProcessor
 
 	struct DependentContextSwitch;
 
-	void InternalAssetAdd(Asset::Full&, bool bMmr);
+	bool InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
 
 	bool HandleAssetCreate(const PeerID&, const ContractID*, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
@@ -847,9 +847,7 @@ public:
 
 	} m_Mmr;
 
-	Asset::ID get_AidMax() const {
-		return (Asset::ID) m_Mmr.m_Assets.m_Count;
-	}
+	Asset::ID get_AidMax() const;
 
 	TxoID get_ShieldedInputs() const {
 		return m_Mmr.m_Shielded.m_Count - m_Extra.m_ShieldedOutputs;
