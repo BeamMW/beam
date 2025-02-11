@@ -2895,17 +2895,17 @@ void NodeDB::AssetAdd(Asset::Full& ai)
 	}
 	else
 	{
-		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount) + 1);
+		ai.m_ID = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AidMax) + 1);
 
 		for ( ; ai.m_ID < aidMin; ai.m_ID++)
 			AssetInsertRaw(ai.m_ID + s_AssetEmpty0, nullptr);
 
-		ParamIntSet(ParamID::AssetsCount, ai.m_ID);
+		ParamIntSet(ParamID::AidMax, ai.m_ID);
 	}
 
 	AssetInsertRaw(ai.m_ID, &ai);
 
-	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) + 1);
+	ParamIntSet(ParamID::AssetsActive, ParamIntGetDef(ParamID::AssetsActive) + 1);
 }
 
 Asset::ID NodeDB::AssetDelete(Asset::ID id)
@@ -2913,7 +2913,7 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 	assert(id < s_AssetEmpty0);
 	AssetDeleteRaw(id);
 
-	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AssetsCount));
+	Asset::ID nCount = static_cast<Asset::ID>(ParamIntGetDef(ParamID::AidMax));
 	if (nCount == id)
 	{
 		// last erased.
@@ -2926,12 +2926,12 @@ Asset::ID NodeDB::AssetDelete(Asset::ID id)
 			AssetDeleteRaw(id);
 		}
 
-		ParamIntSet(ParamID::AssetsCount, nCount);
+		ParamIntSet(ParamID::AidMax, nCount);
 	}
 	else
 		AssetInsertRaw(id + s_AssetEmpty0, nullptr);
 
-	ParamIntSet(ParamID::AssetsCountUsed, ParamIntGetDef(ParamID::AssetsCountUsed) - 1);
+	ParamIntSet(ParamID::AssetsActive, ParamIntGetDef(ParamID::AssetsActive) - 1);
 
 	return nCount;
 }
@@ -2941,8 +2941,8 @@ void NodeDB::AssetsDelAll()
 	Recordset rs(*this, Query::AssetsDelAll, "DELETE FROM " TblAssets);
 	rs.Step();
 
-	ParamDelSafe(ParamID::AssetsCountUsed);
-	ParamDelSafe(ParamID::AssetsCount);
+	ParamDelSafe(ParamID::AssetsActive);
+	ParamDelSafe(ParamID::AidMax);
 }
 
 bool NodeDB::AssetGetSafe(Asset::Full& ai)

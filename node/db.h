@@ -57,8 +57,8 @@ public:
 			MappingStamp,
 			Deprecated_3, // ShieldedOutputs
 			ShieldedInputs,
-			AssetsCount, // Including unused. The last element is guaranteed to be used.
-			AssetsCountUsed, // num of 'live' assets
+			AidMax, // Highest Asset::ID of the currently-existing CAs
+			AssetsActive, // num of 'live' (currently-existing) assets
 			Deprecated_EventsSerif, // pseudo-random, reset each time the events are rescanned.
 			ForbiddenState,
 			Flags1, // used for 2-stage migration, where the 2nd stage is performed by the Processor

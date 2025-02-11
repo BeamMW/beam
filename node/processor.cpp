@@ -161,7 +161,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AssetsCount);
+	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AidMax);
 	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
@@ -2512,7 +2512,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
-	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
+	Asset::ID m_AidMax = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	uint32_t m_ContractLogs = 0;
 	std::vector<Merkle::Hash> m_vLogs;
@@ -2663,18 +2663,18 @@ struct NodeProcessor::BlockInterpretCtx
 	{
 	}
 
-	void SetAssetHi(const NodeProcessor& np)
+	void SetAidMax(const NodeProcessor& np)
 	{
-		m_AssetHi = np.get_AidMax();
+		m_AidMax = np.get_AidMax();
 	}
 
 	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
 	{
-		if (!p || (p->m_Begin <= m_AssetHi))
+		if (!p || (p->m_Begin <= m_AidMax))
 			return true;
 
 		if (m_pTxErrorInfo)
-			*m_pTxErrorInfo << "asset range oob " << p->m_Begin << ", limit=" << m_AssetHi;
+			*m_pTxErrorInfo << "asset range oob " << p->m_Begin << ", limit=" << m_AidMax;
 
 		return false;
 
@@ -2771,7 +2771,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 
 	BlockInterpretCtx bic(0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
-	bic.SetAssetHi(*this);
+	bic.SetAidMax(*this);
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
 		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
@@ -3059,7 +3059,7 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 		bic.m_Temporary = true;
 
 	BlockInterpretCtx::ChangesFlush cf(*this);
-	bic.SetAssetHi(*this);
+	bic.SetAidMax(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
@@ -4627,7 +4627,7 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 				return false;
 
 			BlockInterpretCtx bic(m_Cursor.m_ID.m_Height + 1, true);
-			bic.SetAssetHi(*this);
+			bic.SetAidMax(*this);
 			bic.m_Temporary = true;
 			bic.m_TxValidation = true;
 			bic.m_SkipDefinition = true;
@@ -6763,7 +6763,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	}
 
 	BlockInterpretCtx bic(h, true);
-	bic.SetAssetHi(*this);
+	bic.SetAidMax(*this);
 
 	bic.m_Temporary = true;
 	bic.m_TxValidation = true;
@@ -7156,7 +7156,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	BlockInterpretCtx bic(m_Cursor.m_Sid.m_Height + 1, true);
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
-	bic.SetAssetHi(*this);
+	bic.SetAidMax(*this);
 
 	size_t nSizeEstimated = 1;
 
