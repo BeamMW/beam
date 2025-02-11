@@ -1188,8 +1188,9 @@ namespace beam
 		bool isPositive;
 		auto val = SplitAmountSigned(m_Value, isPositive);
 
-		if (Asset::s_Foreign == m_AssetID)
+		if (!m_AssetID)
 		{
+			// this is allowed for bridged networks
 			ECC::Mode::Scope scope(ECC::Mode::Fast);
 
 			ECC::Point::Native pt = ECC::Context::get().H * val;

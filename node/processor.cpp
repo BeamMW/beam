@@ -4154,7 +4154,7 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	if (krn.m_AssetID < Asset::s_Foreign)
+	if (krn.m_AssetID > Rules::get().CA.ForeignEnd)
 		return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
 
 	const auto& key = krn.m_Owner;
@@ -4170,7 +4170,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 			return false;
 		}
 
-		if (!m_pForeignBridge->AllowEmission(krn.m_AssetID - Asset::s_Foreign, valUns, key))
+		if (!m_pForeignBridge->AllowEmission(krn.m_AssetID, valUns, key))
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "bridge not confirmed";
@@ -7932,7 +7932,7 @@ void NodeProcessor::RebuildNonStd()
 
 			m_pBic->m_pvC = m_pvC;
 			bic.m_AlreadyValidated = true;
-			bic.SetAssetHi(m_This);
+			bic.SetAidMax(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
 			bic.m_DontUpdatePbft = true;
 
