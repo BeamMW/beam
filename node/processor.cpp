@@ -2512,7 +2512,6 @@ struct NodeProcessor::BlockInterpretCtx
 
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
-	Asset::ID m_AssetsUsed = Asset::s_MaxCount + 1;
 	Asset::ID m_AssetHi = static_cast<Asset::ID>(-1); // last valid Asset ID
 
 	uint32_t m_ContractLogs = 0;
@@ -2680,8 +2679,6 @@ struct NodeProcessor::BlockInterpretCtx
 		return false;
 
 	}
-
-	void EnsureAssetsUsed(NodeDB&);
 
 	void AddKrnInfo(Serializer&, NodeDB& db);
 
@@ -3951,38 +3948,15 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterp
 
 bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* pCid, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
 {
-	if (!bic.m_AlreadyValidated)
-	{
-		bic.EnsureAssetsUsed(m_DB);
-
-		if (bic.m_Fwd)
-		{
-			if (m_DB.AssetFindByOwner(pidOwner))
-			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "duplicate asset owner: " << pidOwner;
-				return false;
-			}
-
-			if (bic.m_AssetsUsed >= Asset::s_MaxCount)
-			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "assets overflow";
-
-				return false;
-			}
-
-			bic.m_AssetsUsed++;
-		}
-		else
-		{
-			assert(bic.m_AssetsUsed);
-			bic.m_AssetsUsed--;
-		}
-	}
-
 	if (bic.m_Fwd)
 	{
+		if (!bic.m_AlreadyValidated && m_DB.AssetFindByOwner(pidOwner))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "duplicate asset owner: " << pidOwner;
+			return false;
+		}
+
 		Asset::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = pidOwner;
@@ -4054,9 +4028,6 @@ bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID*
 
 bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
-	if (!bic.m_AlreadyValidated)
-		bic.EnsureAssetsUsed(m_DB);
-
 	if (bic.m_Fwd)
 	{
 		Asset::Full ai;
@@ -4098,9 +4069,6 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 					*bic.m_pTxErrorInfo << "Deposit expected=" << ai.m_Deposit << ", actual=" << valDeposit;
 				return false;
 			}
-
-			assert(bic.m_AssetsUsed);
-			bic.m_AssetsUsed--;
 		}
 
 		// looks good
@@ -4151,12 +4119,6 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 
 		if (ai.m_ID != aid)
 			OnCorrupted();
-
-		if (!bic.m_AlreadyValidated)
-		{
-			bic.m_AssetsUsed++;
-			assert(bic.m_AssetsUsed <= Asset::s_MaxCount);
-		}
 	}
 
 	return true;
@@ -5047,12 +5009,6 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	}
 
 	return true;
-}
-
-void NodeProcessor::BlockInterpretCtx::EnsureAssetsUsed(NodeDB& db)
-{
-	if (m_AssetsUsed == Asset::s_MaxCount + 1)
-		m_AssetsUsed = static_cast<Asset::ID>(db.ParamIntGetDef(NodeDB::ParamID::AssetsCountUsed));
 }
 
 void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db)
@@ -7948,7 +7904,6 @@ void NodeProcessor::RebuildNonStd()
 
 			m_pBic->m_pvC = m_pvC;
 			bic.m_AlreadyValidated = true;
-			bic.EnsureAssetsUsed(m_This.get_DB());
 			bic.SetAssetHi(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
 			bic.m_DontUpdatePbft = true;
