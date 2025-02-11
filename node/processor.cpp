@@ -161,7 +161,14 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	else
 		m_DB.ParamGet(NodeDB::ParamID::Treasury, &m_Extra.m_TxosTreasury, nullptr, nullptr);
 
-	m_Mmr.m_Assets.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::AidMax);
+	auto aidMax = m_DB.ParamIntGetDef(NodeDB::ParamID::AidMax);
+	if (!aidMax && r.CA.ForeignEnd)
+	{
+		aidMax = r.CA.ForeignEnd;
+		m_DB.ParamIntSet(NodeDB::ParamID::AidMax, aidMax);
+	}
+
+	m_Mmr.m_Assets.m_Count = aidMax - r.CA.ForeignEnd;
 	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
@@ -420,6 +427,11 @@ void NodeProcessor::SaveSyncData()
 	}
 	else
 		m_DB.ParamSet(NodeDB::ParamID::SyncData, nullptr, nullptr);
+}
+
+Asset::ID NodeProcessor::get_AidMax() const
+{
+	return (Asset::ID) (Rules::get().CA.ForeignEnd + m_Mmr.m_Assets.m_Count);
 }
 
 NodeProcessor::Mmr::Mmr(NodeDB& db)
@@ -3905,36 +3917,45 @@ bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& 
 	return true;
 }
 
-void NodeProcessor::InternalAssetAdd(Asset::Full& ai, bool bMmr)
+bool NodeProcessor::InternalAssetAdd(Asset::Full& ai, bool bMmr)
 {
 	ai.m_Value = Zero;
-	m_DB.AssetAdd(ai);
-	assert(ai.m_ID); // it's 1-based
+	if (!m_DB.AssetAdd(ai))
+		return false;
+
+	assert(ai.m_ID);
 
 	if (bMmr)
 	{
-		if (m_Mmr.m_Assets.m_Count < ai.m_ID)
-			m_Mmr.m_Assets.ResizeTo(ai.m_ID);
+		uint32_t nCount = ai.m_ID - Rules::get().CA.ForeignEnd;
+
+		if (m_Mmr.m_Assets.m_Count < nCount)
+			m_Mmr.m_Assets.ResizeTo(nCount);
 
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
-		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+		m_Mmr.m_Assets.Replace(nCount - 1, hv);
 	}
+
+	return true;
 }
 
 void NodeProcessor::InternalAssetDel(Asset::ID nAssetID, bool bMmr)
 {
-	Asset::ID nCount = m_DB.AssetDelete(nAssetID);
+	Asset::ID aidMax = m_DB.AssetDelete(nAssetID);
 
 	if (bMmr)
 	{
+		Asset::ID aid0 = Rules::get().CA.ForeignEnd;
+		uint32_t nCount = aidMax - aid0;
 		assert(nCount <= m_Mmr.m_Assets.m_Count);
+
 		if (nCount < m_Mmr.m_Assets.m_Count)
 			m_Mmr.m_Assets.ResizeTo(nCount);
 		else
 		{
-			assert(nAssetID < nCount);
-			m_Mmr.m_Assets.Replace(nAssetID - 1, Zero);
+			assert(nAssetID < aidMax);
+			m_Mmr.m_Assets.Replace(nAssetID - (aid0 + 1), Zero);
 		}
 	}
 }
@@ -3967,7 +3988,13 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* 
 
 		{
 			TemporarySwap<ByteBuffer> ts(Cast::NotConst(md).m_Value, ai.m_Metadata.m_Value);
-			InternalAssetAdd(ai, !bic.m_SkipDefinition);
+
+			if (!InternalAssetAdd(ai, !bic.m_SkipDefinition))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "assets overflow";
+				return false;
+			}
 		}
 
 		BlockInterpretCtx::Ser ser(bic);
@@ -4115,7 +4142,8 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 		else
 			ai.m_Deposit = Rules::get().CA.DepositForList2;
 
-		InternalAssetAdd(ai, !bic.m_SkipDefinition);
+		if (!InternalAssetAdd(ai, !bic.m_SkipDefinition))
+			OnCorrupted();
 
 		if (ai.m_ID != aid)
 			OnCorrupted();
@@ -4288,7 +4316,7 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
 
-		m_Mmr.m_Assets.Replace(ai.m_ID - 1, hv);
+		m_Mmr.m_Assets.Replace(ai.m_ID - (Rules::get().CA.ForeignEnd + 1), hv);
 	}
 
 	if (bic.m_Fwd && !bic.m_Temporary)
@@ -7874,7 +7902,7 @@ void NodeProcessor::RebuildNonStd()
 	m_DB.ContractLogDel(HeightPos(0), HeightPos(MaxHeight));
 	m_DB.ShieldedOutpDelFrom(0);
 	m_DB.ParamDelSafe(NodeDB::ParamID::ShieldedInputs);
-	m_DB.AssetsDelAll();
+	m_DB.AssetsDelAll(Rules::get().CA.ForeignEnd);
 	m_DB.AssetEvtsDeleteFrom(0);
 	m_DB.UniqueDeleteAll();
 	m_DB.KrnInfoDel(HeightRange(0, m_Cursor.m_Full.m_Height));

@@ -472,6 +472,9 @@ namespace beam
 			Amount DepositForList5;
 			Height LockPeriod;
 			Sigma::Cfg m_ProofCfg;
+
+			Asset::ID ForeignEnd = 0;
+
 		} CA;
 
 		struct Pbft {

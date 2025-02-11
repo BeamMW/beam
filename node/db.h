@@ -710,13 +710,15 @@ public:
 
 	void get_CacheState(CacheState&);
 
-	void AssetAdd(Asset::Full&); // sets ID=0 to auto assign, otherwise - specified ID must be used
+	bool AssetAdd(Asset::Full&); // set ID to minimum value. On success it can be raised to find the free ID
+	// return false in case of overflow
+
 	Asset::ID AssetFindByOwner(const PeerID&);
-	Asset::ID AssetDelete(Asset::ID); // returns remaining assets count (including the unused)
+	Asset::ID AssetDelete(Asset::ID); // returns remaining aidMax
 	bool AssetGetSafe(Asset::Full&); // must set ID before invocation
 	void AssetSetValue(Asset::ID, const AmountBig::Type&, Height hLockHeight);
 	bool AssetGetNext(Asset::Full&); // for enum
-	void AssetsDelAll();
+	void AssetsDelAll(Asset::ID aid0);
 
 	struct AssetEvt
 	{
