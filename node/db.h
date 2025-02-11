@@ -192,6 +192,7 @@ public:
 
 			AssetEvtsInsert,
 			AssetEvtsEnumBwd,
+			AssetEvtsEnumBwd2,
 			AssetEvtsGet,
 			AssetEvtsDeleteFrom,
 
@@ -735,6 +736,7 @@ public:
 
 	void AssetEvtsInsert(const AssetEvt&);
 	void AssetEvtsEnumBwd(WalkerAssetEvt&, Asset::ID, Height);
+	void AssetEvtsEnumBwd2(WalkerAssetEvt&, Asset::ID, Height); // same as above, but also allows to get to next aid
 	void AssetEvtsGetStrict(WalkerAssetEvt&, Height, uint64_t);
 	void AssetEvtsDeleteFrom(Height);
 

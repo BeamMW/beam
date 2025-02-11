@@ -470,7 +470,8 @@ public:
 	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
 
-	int get_AssetAt(Asset::Full&, Height); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
+	int get_AssetAt(Asset::Full&, Height, bool bFindAid); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
+	// if never existed and bFindAid - try to find next that ever existed
 
 	void get_AssetCreateInfo(Asset::CreateInfo&, const NodeDB::WalkerAssetEvt&);
 

@@ -3112,6 +3112,13 @@ void NodeDB::AssetEvtsEnumBwd(WalkerAssetEvt& wlk, Asset::ID id, Height h)
 	wlk.m_Rs.put(1, h);
 }
 
+void NodeDB::AssetEvtsEnumBwd2(WalkerAssetEvt& wlk, Asset::ID id, Height h)
+{
+	wlk.m_Rs.Reset(*this, Query::AssetEvtsEnumBwd2, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_ID ">=? AND " TblAssetEvts_Height "<=? ORDER BY " TblAssetEvts_ID " ASC," TblAssetEvts_Height " DESC," TblAssetEvts_Index " DESC");
+	wlk.m_Rs.put(0, id);
+	wlk.m_Rs.put(1, h);
+}
+
 void NodeDB::AssetEvtsGetStrict(WalkerAssetEvt& wlk, Height h, uint64_t nIdx)
 {
 	wlk.m_Rs.Reset(*this, Query::AssetEvtsGet, "SELECT * FROM " TblAssetEvts " WHERE " TblAssetEvts_Height "=? AND " TblAssetEvts_Index "=?");

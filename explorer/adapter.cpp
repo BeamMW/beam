@@ -2216,7 +2216,7 @@ private:
             else
             {
                 ++ai.m_ID;
-                int ret = _nodeBackend.get_AssetAt(ai, h);
+                int ret = _nodeBackend.get_AssetAt(ai, h, true);
                 if (!ret)
                     break;
 
