@@ -802,6 +802,7 @@ private:
 		{
 			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
 			uint64_t m_wVoted;
+			uint32_t m_nWhite;
 			Merkle::Hash m_hv;
 
 			void Add(const Block::Pbft::Validator&, const ECC::Signature&);

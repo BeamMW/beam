@@ -480,10 +480,12 @@ namespace beam
 			struct Entry {
 				PeerID m_Addr;
 				Amount m_Stake;
+				bool m_White;
 			};
 
 			const Entry* m_p0 = nullptr;
 			uint32_t m_Count = 0;
+			uint32_t m_RequiredWhite = 0;
 
 			uint64_t T2S(uint64_t t_ms) const;
 			uint64_t T2S_strict(uint64_t t_ms) const; // returns 0 iff time is not a multiple of Target_ms
@@ -1670,6 +1672,7 @@ namespace beam
 				} m_Addr;
 
 				uint64_t m_Weight;
+				bool m_White;
 
 				template <typename Archive>
 				void serialize(Archive& ar)
@@ -1716,7 +1719,7 @@ namespace beam
 
 				void get_Hash(Merkle::Hash&) const;
 
-				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal);
+				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite);
 				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
 
 				void SetInitial();
