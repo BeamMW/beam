@@ -5754,6 +5754,8 @@ void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const E
 {
 	m_Sigs[v.m_Addr.m_Key] = sig;
 	m_wVoted += v.m_Weight;
+	if (v.m_White)
+		m_nWhite++;
 }
 
 void Node::Validator::Vote(RoundData& rd, bool bCommit)
@@ -5852,7 +5854,9 @@ void Node::Validator::RoundData::SetProposalHashes()
 void Node::Validator::OnProposalAccepted(RoundData& rd, const Peer* pSrc)
 {
 	rd.m_spCommitted.m_wVoted = 0;
+	rd.m_spCommitted.m_nWhite = 0;
 	rd.m_spPreVoted.m_wVoted = rd.m_pLeader->m_Weight;
+	rd.m_spPreVoted.m_nWhite = rd.m_pLeader->m_White ? 1 : 0;
 
 	BEAM_LOG_INFO() << "pbft " << rd.m_Key << " proposal accepted";
 
@@ -5911,7 +5915,7 @@ void Node::Validator::CheckState(RoundData& rd)
 	// did we commit already?
 	if (!m_pCommitted)
 	{
-		if (!Block::Pbft::State::IsMajorityReached(rd.m_spPreVoted.m_wVoted, m_wTotal))
+		if (!Block::Pbft::State::IsMajorityReached(rd.m_spPreVoted.m_wVoted, m_wTotal, rd.m_spPreVoted.m_nWhite))
 			return;
 
 		// commit to this proposal
@@ -5920,7 +5924,7 @@ void Node::Validator::CheckState(RoundData& rd)
 	}
 
 
-	if (Block::Pbft::State::IsMajorityReached(rd.m_spCommitted.m_wVoted, m_wTotal))
+	if (Block::Pbft::State::IsMajorityReached(rd.m_spCommitted.m_wVoted, m_wTotal, rd.m_spCommitted.m_nWhite))
 		// We have the quorum
 		OnQuorumReached();
 }

@@ -2492,20 +2492,26 @@ namespace beam
 				<< x.m_Count;
 
 			bool bHaveStake = false;
+			uint32_t nWhite = 0;
 
 			for (uint32_t i = 0; i < x.m_Count; i++)
 			{
 				const auto& e = x.m_p0[i];
 				oracle
 					<< e.m_Addr
-					<< e.m_Stake;
+					<< e.m_Stake
+					<< e.m_White;
 
 				if (e.m_Stake)
 					bHaveStake = true;
+				if (e.m_White)
+					nWhite++;
 			}
 
 			if (!bHaveStake)
 				Exc::Fail("no stake");
+			if (nWhite < x.m_RequiredWhite)
+				Exc::Fail("no white");
 		}
 
 		if (!Magic.IsTestnet)
@@ -2741,6 +2747,7 @@ namespace beam
 		m_mapVs.insert(pV->m_Addr);
 
 		pV->m_Weight = 0;
+		pV->m_White = false;
 		return pV;
 	}
 
@@ -2823,8 +2830,11 @@ namespace beam
 		hp >> hv;
 	}
 
-	bool Block::Pbft::State::IsMajorityReached(uint64_t wVoted, uint64_t wTotal)
+	bool Block::Pbft::State::IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite)
 	{
+		if (nWhite < Rules::get().m_Pbft.m_RequiredWhite)
+			return false;
+
 		assert(wVoted <= wTotal);
 		return (wVoted * 3 > wTotal * 2); // TODO: overflow test
 	}
@@ -2833,7 +2843,7 @@ namespace beam
 	{
 		// check all signatures, and that the quorum is reached
 		uint64_t wTotal = 0, wVoted = 0;
-		uint32_t iIdx = 0, iSig = 0;
+		uint32_t iIdx = 0, iSig = 0, nWhite = 0;
 		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++, iIdx++)
 		{
 			auto& v = *it;
@@ -2852,6 +2862,9 @@ namespace beam
 						return false;
 
 					wVoted += v.m_Weight;
+
+					if (v.m_White)
+						nWhite++;
 				}
 			}
 		}
@@ -2860,7 +2873,7 @@ namespace beam
 			return false; // not all sigs used
 
 		// is quorum reached?
-		return IsMajorityReached(wVoted, wTotal);
+		return IsMajorityReached(wVoted, wTotal, nWhite);
 	}
 
 	void Block::Pbft::State::SetInitial()
@@ -2877,6 +2890,9 @@ namespace beam
 
 			pV->m_Weight += v.m_Stake;
 			m_Totals.m_Amount += v.m_Stake;
+
+			if (v.m_White)
+				pV->m_White = true;
 		}
 	}
 

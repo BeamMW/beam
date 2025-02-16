@@ -1800,15 +1800,19 @@ namespace beam
 
 		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 		{
+			beam::Rules::get().m_Pbft.m_RequiredWhite = 1;
+
 			ECC::Scalar::Native sk;
 
 			node.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
 			pE[0].m_Addr.FromSk(sk);
 			pE[0].m_Stake = Rules::Coin * 700;
+			pE[0].m_White = false;
 
 			node2.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
 			pE[1].m_Addr.FromSk(sk);
 			pE[1].m_Stake = Rules::Coin * 700;
+			pE[1].m_White = true;
 
 			Rules::get().m_Pbft.m_p0 = pE;
 			Rules::get().m_Pbft.m_Count = _countof(pE);
