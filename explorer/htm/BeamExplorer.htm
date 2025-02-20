@@ -6,7 +6,7 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP address of the explorer node can be changed in var 'urlPrefix'.
-  - Current version of the file: v0.7
+  - Current version of the file: v0.7.5
 
   General rules for developement:
   - Let's keep everything in one single standalone file!
@@ -1407,7 +1407,7 @@
           </a>
         </span>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7.5</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1781,8 +1781,7 @@
     text += MakeCollapsibleBegin('Asset Distribution');
     const jTbl2Obj = jData['Asset distribution'];
     if (jTbl2Obj) {
-        const jTbl2 = jTbl2Obj['value'];
-        text += Obj2Html(jTbl2Obj);
+      text += Obj2Html(jTbl2Obj);
     }
     text += MakeCollapsibleEnd();
 
