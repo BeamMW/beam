@@ -111,6 +111,20 @@
     --color_config_collapsible_button_hover: #9ca2d2;
     --color_config_collapsible_button_text: black;
     --color_config_collapsible_button_border: #9ca2d2;
+    --color_popup_border: #17204e;
+    --color_popup_background: #d0daff;
+    --color_popup_text : black;
+    --color_popup_input_placeholder: #606060;
+    --color_popup_input_text: #525252;
+    --color_popup_input_text_invalid: #805353;
+    --color_popup_input_background: #afb3d8;
+    --color_popup_input_border: #9ca2d2;
+    --color_popup_input_background_filled: #b8bbd8;
+    --color_popup_input_border_filled: #17204e;
+    --color_popup_button_text: black;
+    --color_popup_button_background: #b8bbd8;
+    --color_popup_button_border: #9ca2d2;
+    --color_popup_button_background_hover: #9ca2d2;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -210,6 +224,20 @@
     --color_config_collapsible_button_hover: #1e4c71;
     --color_config_collapsible_button_text: #ddd;
     --color_config_collapsible_button_border: #1e4c71;
+    --color_popup_border: #ddd;
+    --color_popup_background: #042548;
+    --color_popup_text : #ddd;
+    --color_popup_input_placeholder: #aaa;
+    --color_popup_input_text: #eee;
+    --color_popup_input_text_invalid: #ff8686;
+    --color_popup_input_background: #1d3a5a;
+    --color_popup_input_border: #636785;
+    --color_popup_input_background_filled: #1d3a5a;
+    --color_popup_input_border_filled: #0bccf7;
+    --color_popup_button_text: #ddd;
+    --color_popup_button_background: #1d3a5a;
+    --color_popup_button_border: #1e4c71;
+    --color_popup_button_background_hover: #1e4c71;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -1052,8 +1080,78 @@
 
   /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
   /* (the Block Headers table has hidden description and drag and drop items) */
-  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #reorderAllColumns { /* Columns selection links */
-    /* Nothing special */
+  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #pasteColumns, #reorderAllColumns {} /* Columns selection links */
+  body:has(dialog:modal) { overflow: hidden; } /* Blocks scrolling when dialog is on (but doesn't work in Chrome 83) */
+  #pasteColumnsPopup { /* Dialog popup */
+    border: solid 5px var(--color_popup_border);
+    border-radius: 1rem;
+    box-shadow: 15px 15px 15px -10px #000;
+    background-color: var(--color_popup_background);
+    color: var(--color_popup_text);
+  }
+  ::backdrop { /* A fun effect, just for backdrops! */
+    background: rgba(0,0,0,30%);
+    backdrop-filter: blur(1px);
+  }
+  #pasteColumnsForm {} /* Form */
+  #pasteColumnsInput { /* Input text */
+    border: 1px solid var(--color_popup_input_border);
+    border-radius: 0.25em; /* Slightly round corners */
+    background-color: var(--color_popup_input_background);
+    font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+    font-size: 1.5rem;
+    max-width: 30ch;
+    min-width: 10ch;
+    color: var(--color_popup_input_text);
+    height: 3rem;
+    text-decoration: none;
+    vertical-align: middle;
+    margin: 2px 0 2px 2px;
+    padding: 1.5ch 1ch 1.2ch 1ch;
+  }
+  #pasteColumnsInput:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    border: 1px solid var(--color_popup_input_border_filled);
+  }
+  #pasteColumnsInput:not(:placeholder-shown) { /* Input field with content in it */
+    background-color: var(--color_popup_input_background_filled);
+  }
+  #pasteColumnsInput:invalid {
+    color: var(--color_popup_input_text_invalid);
+    text-decoration: line-through; /* Strikethrough if incorrect format */
+  }
+  #pasteColumnsInput:placeholder-shown { /* Needed in Chrome to remove the line-through */
+    text-decoration: none;
+    color: var(--color_popup_input_text);
+  }
+  #pasteColumnsInput::placeholder {
+    font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
+    font-size: 1.3rem;
+    font-style: italic;
+    color: var(--color_popup_input_placeholder);
+    text-decoration: none;
+  }
+  #pasteColumnsApply, #pasteColumnsCancel { /* Buttons */
+    cursor: pointer;
+    margin: 2px 2px 2px 2px;
+    padding: 5px 10px 5px 10px;
+    font-weight: bold;
+    color: var(--color_popup_button_text);
+    background-color: var(--color_popup_button_background);
+    border: solid 1px var(--color_popup_button_border);
+    border-radius: 0.35em; /* Slightly round corners */
+    vertical-align: middle;
+  }
+  #pasteColumnsApply:hover, #pasteColumnsCancel:hover,
+  #pasteColumnsApply:focus, #pasteColumnsCancel:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    background-color: var(--color_popup_button_background_hover);
+    filter: drop-shadow(0 0 1px var(--color_popup_button_border));
+  }
+  .pasteColumnsText { /* Popup text */
+    font-size: 1.5rem;
+    color: var(--color_popup_text);
+    margin: 0 0 10px 0;
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
     flex-grow: 1; /* So that it takes all the available width and the symbol can be right aligned */
@@ -2108,7 +2206,7 @@
     SetContent(text);
 
     // Initialize table options
-    selectColumns(); // Mark checkboxes as per current column selection
+    selectColumns('current'); // Mark checkboxes as per current column selection
     reorderColumns(); // Reorder checkboxes (from localStorage, or in default order)
     defineDraggableElements(); // Make checkboxes draggable
   }
@@ -2925,9 +3023,9 @@
                  <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
                </label></div>";
     text += "</div>";
-    // Remark: We use backticks (aka 'template strings') here because of the mix of single and double quotes inside them
+    // Remark: We use backticks (aka 'template strings') here because of the mix of single and double quotes inside them.
     text += `<div id='columnSelectionOptions'>\
-               <span class='selectionOptionsGroup'>\
+              <span class='selectionOptionsGroup'>\
                 <span class='labelColumns'>Columns: </span>\
                 <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
                 <span class='itemSeparator'> | </span>\
@@ -2935,11 +3033,13 @@
                 <span class='itemSeparator'> | </span>\
                 <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
                 <span class='itemSeparator'> | </span>\
+                <a href='javascript:openPasteColumns();' id='pasteColumns' class='selectionOption' title='Copy/Paste codes for columns'>paste</a>\
+                <span class='itemSeparator'> | </span>\
                 <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
-               </span>\
-               <span class='selectionText'>(or reorder with drag and drop)</span>\
-               <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>`;
-    text += "</div>";
+                <span class='selectionText'>(or reorder with drag and drop)</span>\
+              </span>\
+              <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>\
+            </div>`;
     text += "</div>";
     text += "<div id='columnOptions'>";
     // Make list of all checkboxes
@@ -2964,6 +3064,19 @@
     }
     text += "</div>";
     text += "</form>";
+
+    // Popup for pasting column codes
+    // Remark: We use 'dialog' because 'popover' does not work on Chrome 83.
+    // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
+    text += "<dialog id='pasteColumnsPopup'>\
+              <form id='pasteColumnsForm' name='pasteColumnsForm' method='dialog' onsubmit='applyPasteColumns();'>\
+                <div class='pasteColumnsText'>Copy/Paste codes for columns:</div>\
+                <input type='text' id='pasteColumnsInput' value='" + columnDefaultDisplay + "' autocomplete='off' size='30' pattern='^(?:([" + columnDefaultOrder + "])(?!.*\\1))*$' placeholder='Enter column codes here' title='Valid codes are " + columnDefaultOrder + " (without repetition)' autofocus>\
+                <button type='submit' id='pasteColumnsApply' title='Apply column codes'>Ok</button>\
+                <button type='button' id='pasteColumnsCancel' title='Cancel' onclick='closePasteColumns();'>Cancel</button>\
+              </form>\
+            </dialog>";
+
     text += MakeCollapsibleEnd();
 
     return text;
@@ -2991,64 +3104,106 @@
     }
   }
 
-  function selectColumns(param = "current") { // Mark checkboxes as per current column selection
-    let string, link;
+  function selectColumns(param = 'current') { // Mark checkboxes according to a given column selection
+    let string, link = document.getElementById('selectAllColumns');
     switch(param) {
       case 'current':
         // Check current checkboxes (as per global variable)
         string = g_cols;
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-          item.checked = (string.includes(item.id)) ? true : false; 
-        }
         break;
       case 'default':
         // Check default checkboxes (as per global variable)
         string = columnDefaultDisplay;
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-          item.checked = (string.includes(item.id)) ? true : false; 
-        }
         break;
       case 'all':
-        // Check all checkboxes
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = true; }
+        // Check all checkboxes (as per global variable)
+        string = columnDefaultOrder;
         // Switch action of the link
-        link = document.getElementById('selectAllColumns');
         link.setAttribute('href', 'javascript:selectColumns("none");');
         link.setAttribute('title', 'Deselect all columns');
         link.textContent = 'none';
         break;
       case 'none':
         // Uncheck all checkboxes
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = false; }
+        string = '';
         // Switch action of the link
-        link = document.getElementById('selectAllColumns');
         link.setAttribute('href', 'javascript:selectColumns("all");');
         link.setAttribute('title', 'Select all columns');
         link.textContent = 'all';
         break;
+      default:
+        // Check the checkboxes as per given column code
+        string = param;
+    }
+    // Check selected checkboxes
+    for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+      item.checked = (string.includes(item.id)) ? true : false; 
     }
   }
 
-  function reorderColumns(series = '') { // Reorder checkboxes (from localStorage, or in default order)
-    // If no order is given, check localStorage. It it's also empty, use the default order
+  function reorderColumns(series = '') { // Reorder checkboxes
+    let n = 0, series2 = "", fullSeries;
+    // 1) If no order is given, check localStorage. If it's also empty, then use the default order.
     if (series == '') {
       series = localStorage.getItem('g_colsAll');
       if (!series) { series = columnDefaultOrder; }
-      // Adjust checkboxes order to match the order of the displayed columns
-      // (we only reorder the displayed ones: If a letter is any of the displayed ones, we replace it with the next displayed one, in sequence)
-      let n = 0, series2 = "";
+      // Adjust checkboxes order to match the order of the currently displayed columns (global variable 'g_cols')
+      // Remark: We only reorder the needed ones (if a letter is any of the displayed ones, we replace it with the next displayed one, in sequence).
       for (let char of series) { series2 += (g_cols.includes(char)) ? g_cols[n++] : char }
-      series = series2;
+      fullSeries = series2;
+    }
+    // 2) If only a sub-group of letters is given, then simply adjust the current order
+    else if (series.length < columnDefaultOrder.length) {
+      // Get current order of checkboxes (they are automatically listed in order)
+      let currentSeries = '';
+      for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+        currentSeries += item.id; // String of codes for the current order of all checkboxes
+      }
+      // Adjust current checkboxes order to match the order of the sub-group
+      // Remark: We only reorder the needed ones (if a letter is any of the requested ones, we replace it with the next requested one, in sequence).
+      for (let char of currentSeries) { series2 += (series.includes(char)) ? series[n++] : char }
+      fullSeries = series2;
+    }
+    // 3) Otherwise, we assume a full sequence (with all letters) has been given
+    // Remark: We should probably add some verifications here about the content of 'series'...
+    else {
+      fullSeries = series;
     }
     // Reorder elements according to the series of letters
-    for (let letter of series) {
+    for (let letter of fullSeries) {
       // Get the corresponding checkbox element
       let item = document.getElementById('Option_' + letter);
       // If the item exists, move it at the end of siblings series
       if (item) { item.parentElement.appendChild(item) }
-      // Then, update the numbering of the reordered elements
-      renumberColumnOptions();
     }
+    // Then, update the numbering of the reordered elements
+    renumberColumnOptions();
+  }
+
+  function openPasteColumns() { // Open popup
+    let popup = document.getElementById('pasteColumnsPopup');
+    // Get codes for selected checkboxes (they will be automatically listed in their current order)
+    let params = '';
+    for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+      if (item.checked == true) { params += item.id }; // String of codes with the selected checkboxes (in the same order)
+    }
+    // Set form input value to those codes
+    document.getElementById('pasteColumnsInput').value = params;
+    // Display popup
+    popup.showModal();
+    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
+    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+  }
+
+  function closePasteColumns() { // Close popup
+    document.getElementById('pasteColumnsPopup').close();
+  }
+
+  function applyPasteColumns() { // Apply popup selection
+    let string = document.getElementById('pasteColumnsInput').value;
+    selectColumns(string); // Mark checkboxes as per given column codes
+    reorderColumns(string); // Reorder the needed checkboxes to match the selection
+    // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
   }
 
   function applyHdrsSelection() {
