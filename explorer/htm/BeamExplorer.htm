@@ -1106,8 +1106,8 @@
     height: 3rem;
     text-decoration: none;
     vertical-align: middle;
-    margin: 2px 0 2px 2px;
-    padding: 1.5ch 1ch 1.2ch 1ch;
+    margin: 2px 2px 2px 0;
+    padding: 0 1ch 0 1ch;
   }
   #pasteColumnsInput:focus {
     outline: none; /* Avoid the browser default focus outline */
@@ -1151,7 +1151,26 @@
   .pasteColumnsText { /* Popup text */
     font-size: 1.5rem;
     color: var(--color_popup_text);
-    margin: 0 0 10px 0;
+    padding: 5px 2px 10px 2px;
+  }
+  .pasteColumnsList { /* List of codes: Diplayed as auto-adjusting columns */
+    display: block;
+    column-width: 18rem; /* We set the width of the internal columns (and the number of columns will be automatic!) */
+    column-gap: 5px;
+    color: var(--color_popup_text);
+    font-size: 1.3rem;
+    padding: 10px 2px 5px 2px;
+  }
+  .pasteColumnsListItem {
+    cursor: help; /* Just to remind there are tooltips... */
+    padding: 3px 0 0 0;
+  }
+  .pasteColumnsListCode {
+    font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+    font-weight: bold;
+  }
+  .pasteColumnsListTitle {
+    white-space: nowrap;
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
     flex-grow: 1; /* So that it takes all the available width and the symbol can be right aligned */
@@ -1218,6 +1237,7 @@
   }
   .columnOptionLabel { /* Option label */
     font-weight: bold;
+    white-space: nowrap;
   }
   .columnOptionDescription { /* Option description */
     display: block;
@@ -3067,14 +3087,23 @@
     // Popup for pasting column codes
     // Remark: We use 'dialog' because 'popover' does not work on Chrome 83.
     // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
-    text += "<dialog id='pasteColumnsPopup'>\
-              <form id='pasteColumnsForm' name='pasteColumnsForm' method='dialog' onsubmit='applyPasteColumns();'>\
-                <div class='pasteColumnsText'>Copy/Paste codes for columns:</div>\
-                <input type='text' id='pasteColumnsInput' value='" + columnDefaultDisplay + "' autocomplete='off' size='30' pattern='^(?:([" + columnDefaultOrder + "])(?!.*\\1))*$' placeholder='Enter column codes here' title='Valid codes are " + columnDefaultOrder + " (without repetition)' autofocus>\
-                <button type='submit' id='pasteColumnsApply' title='Apply column codes'>Ok</button>\
-                <button type='button' id='pasteColumnsCancel' title='Cancel' onclick='closePasteColumns();'>Cancel</button>\
-              </form>\
-            </dialog>";
+    text += "<dialog id='pasteColumnsPopup'>";
+    text += "  <form id='pasteColumnsForm' name='pasteColumnsForm' method='dialog' onsubmit='applyPasteColumns();'>\
+                  <div class='pasteColumnsText'>Copy/Paste codes for columns:</div>\
+                  <input type='text' id='pasteColumnsInput' value='" + columnDefaultDisplay + "' autocomplete='off' size='30' pattern='^(?:([" + columnDefaultOrder + "])(?!.*\\1))*$' placeholder='Enter column codes here' title='Valid codes are " + columnDefaultOrder + " (without repetition)' autofocus>\
+                  <button type='submit' id='pasteColumnsApply' title='Apply column codes'>Ok</button>\
+                  <button type='button' id='pasteColumnsCancel' title='Cancel' onclick='closePasteColumns();'>Cancel</button>\
+               </form>";
+    // Display a list of all column codes
+    text += "<div class='pasteColumnsList'>";
+    for (let i = 1; i < columnHeaders.length; i++) {
+        text += "<div class='pasteColumnsListItem' title='" + columnHeaders[i].description + "'>";
+        text += "<span class='pasteColumnsListCode'>" + columnHeaders[i].code + " </span>";
+        text += "<span class='pasteColumnsListTitle'>" + columnHeaders[i].title + "</span>";
+        text += "</div>";
+    }
+    text += "</div>";
+    text += "</dialog>";
 
     text += MakeCollapsibleEnd();
 
