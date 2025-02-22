@@ -3163,6 +3163,12 @@
         // Check the checkboxes as per given column code
         string = param;
     }
+
+    // Until we adapt the UI for column repetition, we simply ignore them (although they do work when passed in the URL)...
+    let str = '';
+    for (let c of string) { str += (str.indexOf(c) === -1) ? c : '' }; // We only keep a letter if it has not been added yet
+    string = str;
+
     // Check selected checkboxes
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
       item.checked = (string.includes(item.id)) ? true : false; 
@@ -3175,9 +3181,14 @@
     if (series == '') {
       series = localStorage.getItem('g_colsAll');
       if (!series) { series = columnDefaultOrder; }
+
+      // Until we adapt the UI for column repetition, we simply ignore them (although they do work when passed in the URL)...
+      let str = '';
+      for (let c of g_cols) { str += (str.indexOf(c) === -1) ? c : '' }; // We only keep a letter if it has not been added yet
+
       // Adjust checkboxes order to match the order of the currently displayed columns (global variable 'g_cols')
       // Remark: We only reorder the needed ones (if a letter is any of the displayed ones, we replace it with the next displayed one, in sequence).
-      for (let char of series) { series2 += (g_cols.includes(char)) ? g_cols[n++] : char }
+      for (let char of series) { series2 += (str.includes(char)) ? str[n++] : char }
       fullSeries = series2;
     }
     // 2) If only a sub-group of letters is given, then simply adjust the current order
