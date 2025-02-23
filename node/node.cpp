@@ -653,15 +653,15 @@ void Node::Processor::OnNewState()
 		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
 
+	const Rules& r = Rules::get();
+
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
 
-	// normally we send our tip only if it's ahead of peer's.
-	// In Pbft mode, however, it's important to send it always
-	bool bSendTipToActiveNodes =
-		get_ParentObj().m_PostStartSynced &&
-		!IsFastSync() &&
-		(Rules::Consensus::Pbft == Rules::get().m_Consensus);
+	bool bSendStamp =
+		(Rules::Consensus::Pbft == r.m_Consensus) &&
+		r.m_Pbft.m_RequiredWhite &&
+		(m_Cursor.m_ID == get_ParentObj().m_Validator.m_Stamp.m_hh);
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
 	{
@@ -669,22 +669,43 @@ void Node::Processor::OnNewState()
 		if (!(Peer::Flags::Connected & peer.m_Flags))
 			continue;
 
-		bool bMustSendTip = (bSendTipToActiveNodes && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags));
-		if (!bMustSendTip)
+		if (msg.m_Description.m_Height >= Rules::HeightGenesis)
 		{
-			if (msg.m_Description.m_Height >= Rules::HeightGenesis)
+			if (IsFastSync())
+				continue;
+
+			if ((Rules::Consensus::Pbft == r.m_Consensus) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
 			{
-				if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+				// In pbft send our tip even if it's the same as peer's
+				if (msg.m_Description.m_Height < peer.m_Tip.m_Height)
 					continue;
 			}
 			else
 			{
-				if (Peer::Flags::HasTreasury & peer.m_Flags)
+				// send our tip if it's either ahead OR same chainwork but different from peer's
+				if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
 					continue;
 			}
 		}
+		else
+		{
+			if (Peer::Flags::HasTreasury & peer.m_Flags)
+				continue;
+		}
 
 		peer.Send(msg);
+
+		if (bSendStamp)
+		{
+			if (peer.m_Tip == msg.m_Description)
+				continue;
+
+			// TODO: don't send stamp iff this peer participated in the most recent round
+			
+			proto::PbftStamp msgStamp;
+			TemporarySwap ts(msgStamp.m_vSer, get_ParentObj().m_Validator.m_Stamp.m_vSer);
+			peer.Send(msgStamp);
+		}
 	}
 
 	get_ParentObj().RefreshCongestions();
@@ -1019,19 +1040,6 @@ void Node::Initialize(IExternalPOW* externalPOW)
 		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
 		m_Cfg.m_VerificationThreads = m_Processor.m_ExecutorMT.get_Threads();
 
-	const auto& r = Rules::get();
-	if (Rules::Consensus::Pbft == r.m_Consensus)
-	{
-		if (m_Keys.m_pMiner)
-		{
-			m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
-			m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
-			BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
-		}
-		else
-			m_Validator.m_Me.m_Addr = Zero;
-	}
-
 	m_Processor.m_ExecutorMT.set_Threads(std::max<uint32_t>(m_Cfg.m_VerificationThreads, 1U));
 
 	m_Processor.m_Horizon = m_Cfg.m_Horizon;
@@ -1044,6 +1052,41 @@ void Node::Initialize(IExternalPOW* externalPOW)
 
 		io::Reactor::get_Current().stop();
 		return;
+	}
+
+	const auto& r = Rules::get();
+	if (Rules::Consensus::Pbft == r.m_Consensus)
+	{
+		if (m_Keys.m_pMiner)
+		{
+			m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
+			m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
+			BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
+		}
+		else
+			m_Validator.m_Me.m_Addr = Zero;
+
+		ByteBuffer buf;
+		m_Processor.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
+		if (!buf.empty())
+		{
+			Block::Pbft::State state;
+			Block::Pbft::Quorum qc;
+
+			Deserializer der;
+			der.reset(buf);
+			der
+				& state
+				& qc;
+
+			auto n = der.bytes_left();
+			der & m_Validator.m_Stamp.m_hh;
+
+			buf.resize(buf.size() - n);
+			m_Validator.m_Stamp.m_vSer = std::move(buf);
+		}
+		else
+			ZeroObject(m_Validator.m_Stamp.m_hh);
 	}
 
 	InitKeys();
@@ -1955,30 +1998,10 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	Processor& p = m_This.m_Processor;
 	bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
 
-	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO: BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id; 
+	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id;
 
-	if (!m_pInfo)
-		return;
-
-	if (bTipNeeded)
-	{
-		switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
-		{
-		case NodeProcessor::DataStatus::Invalid:
-			m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
-				m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
-				ThrowUnexpected();
-			// no break;
-
-		case NodeProcessor::DataStatus::Accepted:
-			// don't give explicit reward for this header. Instead - most likely we'll request this block from that peer, and it'll have a chance to boost its rating
-			m_This.RefreshCongestions();
-			break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
-
-		default:
-			break; // suppress warning
-		}
-	}
+	if (bTipNeeded && (Rules::Consensus::Pbft != Rules::get().m_Consensus))
+		OnNewTip2();
 
 	TakeTasks();
 
@@ -1988,6 +2011,30 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 		ZeroObject(m_This.m_SyncStatus);
 		m_This.UpdateSyncStatus();
+	}
+}
+
+void Node::Peer::OnNewTip2()
+{
+	if (!m_pInfo)
+		return;
+
+	Processor& p = m_This.m_Processor;
+	switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
+	{
+	case NodeProcessor::DataStatus::Invalid:
+		m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
+			m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
+			ThrowUnexpected();
+		// no break;
+
+	case NodeProcessor::DataStatus::Accepted:
+		// don't give explicit reward for this header. Instead - most likely we'll request this block from that peer, and it'll have a chance to boost its rating
+		m_This.RefreshCongestions();
+		break; // since we made OnPeerInsane handling asynchronous - no need to return rapidly
+
+	default:
+		break; // suppress warning
 	}
 }
 
@@ -2148,7 +2195,7 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 	if (!m_This.DecodeAndCheckHdrs(v, msg))
 		ThrowUnexpected();
 
-	// just to be pedantic
+	// just to be pedantic, AND prevent non-stamped hdrs in pbft-w mode
 	Block::SystemState::ID idLast;
 	v.back().get_ID(idLast);
 	if (idLast != t.m_Key.first)
@@ -4456,6 +4503,61 @@ void Node::Peer::OnMsg(proto::PbftVote&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
+void Node::Peer::OnMsg(proto::PbftStamp&& msg)
+{
+	const Rules& r = Rules::get();
+
+	if ((Rules::Consensus::Pbft != r.m_Consensus) || !r.m_Pbft.m_RequiredWhite)
+		ThrowUnexpected();
+
+	auto& v = m_This.m_Validator;
+
+	if (m_Tip.m_Height <= v.m_Stamp.m_hh.m_Height)
+		return;
+
+	Block::Pbft::State state;
+	Block::Pbft::Quorum qc;
+
+	Deserializer der;
+	der.reset(msg.m_vSer);
+	der
+		& state
+		& qc;
+
+	for (uint32_t i = 0; i < r.m_Pbft.m_Count; i++)
+	{
+		auto& x = r.m_Pbft.m_p0[i];
+		if (x.m_White)
+		{
+			auto* pVal = state.Find(x.m_Addr, false);
+			if (pVal)
+				pVal->m_White = true;
+		}
+	}
+
+	Merkle::Hash hv;
+	state.get_Hash(hv);
+
+	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_Tip.m_PoW);
+	if (d.m_hvVsPrev != hv)
+		ThrowUnexpected();
+
+	m_Tip.get_Hash(hv);
+
+	if (!state.CheckQuorum(hv, qc))
+		ThrowUnexpected();
+
+	// all good
+
+	v.m_Stamp.m_hh.m_Height = m_Tip.m_Height;
+	v.m_Stamp.m_hh.m_Hash = hv;
+	v.m_Stamp.m_vSer = std::move(msg.m_vSer);
+
+	v.SaveStamp();
+
+	OnNewTip2();
+	TakeTasks();
+}
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
@@ -5929,6 +6031,23 @@ void Node::Validator::CheckState(RoundData& rd)
 		OnQuorumReached();
 }
 
+void Node::Validator::SaveStamp()
+{
+	auto n = m_Stamp.m_vSer.size();
+
+	{
+		Serializer ser;
+		ser.swap_buf(m_Stamp.m_vSer);
+		ser & m_Stamp.m_hh;
+		ser.swap_buf(m_Stamp.m_vSer);
+	}
+
+	Blob blob(m_Stamp.m_vSer);
+	get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftStamp, nullptr, &blob);
+
+	m_Stamp.m_vSer.resize(n);
+}
+
 void Node::Validator::OnQuorumReached()
 {
 	assert(m_pCommitted);
@@ -5940,6 +6059,7 @@ void Node::Validator::OnQuorumReached()
 	// We have the quorum
 	Block::Pbft::Quorum qc;
 	auto& p = get_ParentObj().m_Processor;
+	const Rules& r = Rules::get();
 
 	uint32_t iIdx = 0;
 	for (const auto& v : p.m_PbftState.m_lstVs)
@@ -5958,6 +6078,21 @@ void Node::Validator::OnQuorumReached()
 		iIdx++;
 	}
 
+	if (r.m_Pbft.m_RequiredWhite)
+	{
+		Serializer ser;
+		ser
+			& p.m_PbftState
+			& qc;
+
+		ser.swap_buf(m_Stamp.m_vSer);
+
+		m_Stamp.m_hh.m_Height = p.m_Cursor.m_Full.m_Height + 1;
+		m_Stamp.m_hh.m_Hash = rd.m_spCommitted.m_hv;
+
+		SaveStamp();
+	}
+
 	auto eVal = p.OnState(rd.m_Proposal.m_Hdr, Zero);
 
 	switch (eVal)
@@ -5970,13 +6105,16 @@ void Node::Validator::OnQuorumReached()
 		return; // invalid or unreachable header?!
 	}
 
-	// append QC to block body
 	size_t n0 = rd.m_Proposal.m_Body.m_Eternal.size();
 
-	Serializer ser;
-	ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
-	ser & qc;
-	ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
+	if (!r.m_Pbft.m_RequiredWhite)
+	{
+		// append QC to block body
+		Serializer ser;
+		ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
+		ser & qc;
+		ser.swap_buf(rd.m_Proposal.m_Body.m_Eternal);
+	}
 
 	Block::SystemState::ID id;
 	id.m_Height = rd.m_Proposal.m_Hdr.m_Height;
@@ -5984,7 +6122,7 @@ void Node::Validator::OnQuorumReached()
 
 	eVal = p.OnBlock(id, rd.m_Proposal.m_Body.m_Perishable, rd.m_Proposal.m_Body.m_Eternal, Zero);
 
-	rd.m_Proposal.m_Body.m_Eternal.resize(n0); // restore it
+	rd.m_Proposal.m_Body.m_Eternal.resize(n0); // restore it (if appended QC)
 
 	switch (eVal)
 	{

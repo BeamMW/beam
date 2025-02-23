@@ -587,6 +587,7 @@ private:
 		void ModifyRatingWrtData(size_t nSize);
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
 		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
+		void OnNewTip2();
 
 		struct ISelector {
 			virtual bool IsValid(Peer&)= 0;
@@ -657,6 +658,7 @@ private:
 		virtual void OnMsg(proto::GetAssetsListAt&&) override;
 		virtual void OnMsg(proto::PbftProposal&&) override;
 		virtual void OnMsg(proto::PbftVote&&) override;
+		virtual void OnMsg(proto::PbftStamp&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -795,6 +797,14 @@ private:
 		void SendState(Peer&) const;
 
 		static uint64_t get_RefTime_ms();
+
+		struct Stamp
+		{
+			HeightHash m_hh;
+			ByteBuffer  m_vSer;
+		} m_Stamp;
+
+		void SaveStamp();
 
 	private:
 
