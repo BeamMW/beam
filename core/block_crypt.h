@@ -1672,7 +1672,7 @@ namespace beam
 				} m_Addr;
 
 				uint64_t m_Weight;
-				bool m_White;
+				bool m_White; // not serialized!
 
 				template <typename Archive>
 				void serialize(Archive& ar)

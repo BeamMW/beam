@@ -65,6 +65,7 @@ public:
 			CacheState,
 			TreasuryTotals, // for use in explorer node
 			PbftState,
+			PbftStamp,
 		};
 	};
 

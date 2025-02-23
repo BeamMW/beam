@@ -309,6 +309,9 @@ namespace proto {
     macro(Block::Pbft::Address, Address) \
     macro(ECC::Signature, Signature)
 
+#define BeamNodeMsg_PbftStamp(macro) \
+    macro(ByteBuffer, vSer)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x01, Bye) \
@@ -395,6 +398,7 @@ namespace proto {
     /* pbft-related */ \
     macro(0x51, PbftProposal) \
     macro(0x52, PbftVote) \
+    macro(0x53, PbftStamp) \
 
 
     struct LoginFlags {

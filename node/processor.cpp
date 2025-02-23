@@ -3011,9 +3011,10 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 				if (r.m_Pbft.T2S_strict(s.get_Timestamp_ms()) <= r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms()))
 					Exc::Fail("invalid slot");
 
-				if (bTestOnly)
+				if (bTestOnly || r.m_Pbft.m_RequiredWhite)
 				{
 					// during block test the QC isn't ready yet
+					// In whitelist mode the QC isn't appended to the block anyway
 					// make sure nothing is appended instead of QC
 					if (nBytes1)
 						Exc::Fail("trailing junk"); // junk where the QC is supposed to be appended
