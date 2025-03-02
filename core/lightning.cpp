@@ -1058,7 +1058,7 @@ bool Channel::DataUpdate::get_KernelIDSafe(Merkle::Hash& hv, const Transaction& 
 		return false;
 	}
 
-	hv = tx.m_vKernels.front()->m_Internal.m_ID;
+	hv = tx.m_vKernels.front()->get_ID();
 	return true;
 }
 

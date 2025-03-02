@@ -266,7 +266,7 @@ namespace beam::wallet
         if (!hProof)
         {
             SetState(State::KernelConfirmation);
-            ConfirmKernel(_builder->m_pKrn->m_Internal.m_ID);
+            ConfirmKernel(_builder->m_pKrn->get_ID());
             return;
         }
 

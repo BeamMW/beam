@@ -1304,8 +1304,7 @@ void TestMultiSigOutput()
     pKernel->m_Height.m_Min = g_hFork;
     pKernel->m_Height.m_Max = g_hFork + 150;
     pKernel->m_Commitment = blindingExcessPublicA + blindingExcessPublicB;
-    pKernel->UpdateID();
-	const Hash::Value& message = pKernel->m_Internal.m_ID;
+	const Hash::Value& message = pKernel->get_ID();
 
 	pKernel->m_Signature.m_NoncePub = noncePublic;
 
@@ -1432,8 +1431,8 @@ struct TransactionMaker
 		krn.m_Commitment = kG;
 		krn.m_Signature.m_NoncePub = xG;
 
-		krn.UpdateID();
-		const Hash::Value& msg = krn.m_Internal.m_ID;
+		krn.CalculateID();
+		const Hash::Value& msg = krn.m_Lazy_ID.get();
 
 		// 2nd pass. Signing. Total excess is the signature public key.
 		Scalar::Native kSig = Zero;
@@ -1501,12 +1500,12 @@ struct TransactionMaker
 		CoSignKernel(*pKrn);
 
 		pKrn->m_pHashLock->m_IsImage = false;
-		pKrn->UpdateID();
+		pKrn->m_Lazy_ID.Invalidate();
 		verify_test(!pKrn->IsValid(g_hFork)); // should not pass validation unless correct hash preimage is specified
 
 		// finish HL: add hash preimage
 		pKrn->m_pHashLock->m_Value = hl.m_Value;
-		pKrn->UpdateID();
+		pKrn->m_Lazy_ID.Invalidate();
 		verify_test(pKrn->IsValid(g_hFork));
 
 		lstTrg.push_back(std::move(pKrn));

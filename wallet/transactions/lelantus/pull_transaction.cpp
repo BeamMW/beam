@@ -137,7 +137,7 @@ namespace beam::wallet::lelantus
         if (!hProof)
         {
             if (!CheckExpired())
-                ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
+                ConfirmKernel(builder.m_pKrn->get_ID());
             return;
         }
 

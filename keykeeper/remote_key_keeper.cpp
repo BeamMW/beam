@@ -427,7 +427,7 @@ namespace beam::wallet
 	    Ecc2BC(krn.m_Signature.m_NoncePub) = txOut.m_Comms.m_NoncePub;
 	    Ecc2BC(krn.m_Signature.m_k.m_Value) = txOut.m_TxSig.m_kSig;
 
-	    krn.UpdateID();
+        krn.m_Lazy_ID.Invalidate();
 
 	    // offset
 	    ECC::Scalar kOffs;
@@ -979,7 +979,6 @@ namespace beam::wallet
                     m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
                     // finished
-                    m_M.m_pKernel->MsgToID();
                     Fin();
                     return;
                 }
@@ -1055,8 +1054,8 @@ namespace beam::wallet
                 comm.Export(Cast::Reinterpret<ECC::Point>(msgOut2.m_NoncePub));
             }
 
-            krn.UpdateMsg();
-            m_Oracle << krn.m_Msg;
+            krn.CalculateMsg();
+            m_Oracle << krn.m_Lazy_Msg.get();
 
             if (Rules::get().IsPastFork_<3>(krn.m_Height.m_Min))
             {
@@ -1074,7 +1073,7 @@ namespace beam::wallet
             ECC::Hash::Processor()
                 << "seed.sigma.sh"
                 << m_hvSigmaSeed
-                << krn.m_Msg
+                << krn.m_Lazy_Msg.get()
                 << proof.m_Commitment
                 >> m_hvSigmaSeed;
 
@@ -1424,7 +1423,7 @@ namespace beam::wallet
                     Ecc2BC(krn.m_Commitment) = pMsg->m_Comms.m_Commitment;
                     Ecc2BC(krn.m_Signature.m_NoncePub) = pMsg->m_Comms.m_NoncePub;
 
-                    krn.UpdateID(); // not really required, the kernel isn't full yet
+                    krn.m_Lazy_ID.Invalidate();
                 }
                 else
                 {
@@ -1549,12 +1548,12 @@ namespace beam::wallet
                 krn1.m_CanEmbed = true;
                 krn1.m_Txo.m_Ticket = voucher.m_Ticket;
 
-                krn1.UpdateMsg();
+                krn1.CalculateMsg();
+
                 ECC::Oracle oracle;
-                oracle << krn1.m_Msg;
+                oracle << krn1.m_Lazy_Msg.get();
 
                 op.Generate(krn1.m_Txo, voucher.m_SharedSecret, m_M.m_pKernel->m_Height.m_Min, oracle);
-                krn1.MsgToID();
 
                 msg.m_HideAssetAlways = !!krn1.m_Txo.m_pAsset;
 

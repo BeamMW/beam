@@ -2684,7 +2684,7 @@ void Node::LogTx(const Transaction& tx, uint8_t nStatus, const Transaction::KeyT
 		const TxKernel& krn = *tx.m_vKernels[i];
 
 		char sz[Merkle::Hash::nTxtLen + 1];
-		krn.m_Internal.m_ID.Print(sz);
+		krn.get_ID().Print(sz);
 
 		os << "\n\tK: " << sz << " Fee=" << krn.m_Fee;
 	}
@@ -2704,7 +2704,7 @@ void Node::LogTxStem(const Transaction& tx, const char* szTxt)
 	for (size_t i = 0; i < tx.m_vKernels.size(); i++)
 	{
 		char sz[Merkle::Hash::nTxtLen + 1];
-		tx.m_vKernels[i]->m_Internal.m_ID.Print(sz);
+		tx.m_vKernels[i]->get_ID().Print(sz);
 
 		os << "\n\tK: " << sz;
 	}
@@ -5442,7 +5442,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 					m_Ser & m_Height;
 					m_Ser & nFlags;
 					m_Ser & krn.m_Txo;
-					m_Ser & krn.m_Msg;
+					m_Ser & krn.get_Msg();
 
 					if (pAsset && Rules::get().IsPastFork_<3>(m_Height))
 						m_Ser & pAsset->m_hGen;
@@ -5623,7 +5623,7 @@ void Node::PrintRollbackStats()
 				inpMap[block.m_vInputs[i]->m_Commitment] = sidSplit.m_Height;
 
 			for (size_t i = 0; i < block.m_vKernels.size(); i++)
-				krnMap[block.m_vKernels[i]->m_Internal.m_ID] = sidSplit.m_Height;
+				krnMap[block.m_vKernels[i]->get_ID()] = sidSplit.m_Height;
 		}
 
 		if (inpMap.empty())
@@ -5682,7 +5682,7 @@ void Node::PrintRollbackStats()
 						uint32_t nCommonKrns = 0;
 						for (size_t j = 0; j < krns.m_vKernels.size(); j++)
 						{
-							if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->m_Internal.m_ID))
+							if (krnMap.end() != krnMap.find(krns.m_vKernels[j]->get_ID()))
 								nCommonKrns++;
 						}
 

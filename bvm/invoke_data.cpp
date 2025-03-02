@@ -81,8 +81,6 @@ namespace beam::bvm2 {
 			krn.m_Commitment = pt;
 		}
 
-		krn.UpdateMsg();
-
 		ECC::Hash::Processor hp;
 		krn.Prepare(hp, &m_ParentCtx.m_Hash);
 
@@ -179,8 +177,6 @@ namespace beam::bvm2 {
 				krn.m_Commitment = pt;
 			}
 			krn.m_Signature = m_Adv.m_Sig; // signed already
-
-			krn.UpdateID();
 		}
 		else
 		{
@@ -193,10 +189,9 @@ namespace beam::bvm2 {
 			ECC::Scalar::Native& skKrn = vSk.back();
 
 			krn.m_Commitment = Zero;
-			krn.UpdateMsg();
 
 			ECC::Hash::Value hv;
-			get_SigPreimage(hv, krn.m_Msg);
+			get_SigPreimage(hv, krn.get_Msg());
 
 			kdf.DeriveKey(skKrn, hv);
 			sk = skKrn;

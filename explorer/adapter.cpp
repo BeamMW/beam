@@ -1438,7 +1438,7 @@ private:
             wlk.m_Height = h;
             wlk.m_Mode = m;
 
-            wlk.m_Wr.AddHex("id", krn.m_Internal.m_ID);
+            wlk.m_Wr.AddHex("id", krn.get_ID());
 
             auto hr = krn.get_EffectiveHeightRange();
 

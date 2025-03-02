@@ -826,7 +826,7 @@ namespace beam::wallet
     void BaseTxBuilder::SaveKernelID()
     {
         assert(m_pKrn);
-        SetParameter(TxParameterID::KernelID, m_pKrn->m_Internal.m_ID);
+        SetParameter(TxParameterID::KernelID, m_pKrn->get_ID());
     }
 
     void BaseTxBuilder::SetInOuts(IPrivateKeyKeeper2::Method::TxCommon& m)
@@ -1053,7 +1053,7 @@ namespace beam::wallet
     {
         GetParameterStrict(TxParameterID::PeerSignature, m_pKrn->CastTo_Std().m_Signature.m_k);
 
-        if (!m_pKrn->CastTo_Std().m_Signature.IsValidPartial(m_pKrn->m_Internal.m_ID, ptNonce, ptExc))
+        if (!m_pKrn->CastTo_Std().m_Signature.IsValidPartial(m_pKrn->get_ID(), ptNonce, ptExc))
             throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
 
     }
@@ -1221,7 +1221,7 @@ namespace beam::wallet
                 AssignExtractDiff(b, b.m_pKrn->CastTo_Std().m_Signature.m_NoncePub, m_Method.m_pKernel->m_Signature.m_NoncePub, TxParameterID::PublicNonce);
                 b.m_pKrn->CastTo_Std().m_Signature.m_k = m_Method.m_pKernel->m_Signature.m_k;
 
-                b.m_pKrn->UpdateID();
+                b.m_pKrn->CastTo_Std().m_Lazy_ID.Invalidate();
                 b.SaveKernel();
                 b.SaveKernelID();
                 b.SetStatus(Status::RcvFullHalfSig);
@@ -1329,7 +1329,7 @@ namespace beam::wallet
                 FinalyzeMaxHeight();
                 m_pKrn->m_Height.m_Max = m_Height.m_Max; // can be different from the original
 
-                m_pKrn->UpdateID(); // must be valid already
+                m_pKrn->CastTo_Std().m_Lazy_ID.Invalidate(); // must be valid already
                 SaveKernelID();
 
                 AddPeerSignature(ptNonce, ptExc);

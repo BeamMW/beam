@@ -754,17 +754,24 @@ namespace beam
 			if (bBreak)
 				break;
 
-			TxKernel& v = *(*it);
-			v.UpdateID();
-
-			hp << v.m_Internal.m_ID;
+			hp << (*it)->get_ID();
 		}
 	}
 
-	void TxKernelStd::UpdateID()
+	bool TxKernelStd::HasNonStd() const
 	{
-		m_Internal.m_HasNonStd = false;
+		for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
+		{
+			const TxKernel& v = *(*it);
+			if (v.HasNonStd())
+				return true;
+		}
 
+		return false;
+	}
+
+	void TxKernelStd::CalculateID() const
+	{
 		ECC::Hash::Processor hp;
 		HashBase(hp);
 
@@ -791,17 +798,8 @@ namespace beam
 		}
 
 		HashNested(hp);
-		hp >> m_Internal.m_ID;
-
-		for (auto it = m_vNested.begin(); m_vNested.end() != it; ++it)
-		{
-			const TxKernel& v = *(*it);
-			if (v.m_Internal.m_HasNonStd)
-			{
-				m_Internal.m_HasNonStd = true;
-				break;
-			}
-		}
+		hp >> m_Lazy_ID.m_Value;
+		m_Lazy_ID.m_Valid = true;
 	}
 
 	bool TxKernel::IsValid(Height hScheme, std::string* psErr /* = nullptr */) const
@@ -909,7 +907,7 @@ namespace beam
 
 		TestValidBase(hScheme, exc, pParent, &pt);
 
-		if (!m_Signature.IsValid(m_Internal.m_ID, pt))
+		if (!m_Signature.IsValid(get_ID(), pt))
 			TxBase::Fail_Signature();
 	}
 
@@ -924,9 +922,11 @@ namespace beam
 
 	int TxKernel::cmp(const TxKernel& v) const
 	{
-		CMP_MEMBER(m_Internal.m_HasNonStd)
+		bool b1 = HasNonStd();
+		bool b2 = v.HasNonStd();
+		CMP_SIMPLE(b1, b2)
 
-		if (m_Internal.m_HasNonStd)
+		if (b1)
 			return 0; // no sort for non-std kernels (always keep their order)
 
 		Subtype::Enum t0 = get_Subtype();
@@ -989,13 +989,14 @@ namespace beam
 	void TxKernelStd::Sign(const ECC::Scalar::Native& sk)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
-		UpdateID();
-		m_Signature.Sign(m_Internal.m_ID, sk);
+		CalculateID();
+
+		m_Signature.Sign(m_Lazy_ID.get(), sk);
 	}
 
 	void TxKernel::CopyFrom(const TxKernel& v)
 	{
-		m_Internal = v.m_Internal;
+		m_Lazy_ID = v.m_Lazy_ID;
 		m_Fee = v.m_Fee;
 		m_Height = v.m_Height;
 		m_CanEmbed = v.m_CanEmbed;
@@ -1038,13 +1039,22 @@ namespace beam
 		return bRet;
 	}
 
-	void TxKernelNonStd::UpdateID()
+	bool TxKernelNonStd::HasNonStd() const
 	{
-		UpdateMsg();
-		MsgToID();
+		return true;
 	}
 
-	void TxKernelNonStd::UpdateMsg()
+	void TxKernelNonStd::CalculateID() const
+	{
+		ECC::Hash::Processor hp;
+		hp << get_Msg();
+		HashSelfForID(hp);
+
+		hp >> m_Lazy_ID.m_Value;
+		m_Lazy_ID.m_Valid = true;
+	}
+
+	void TxKernelNonStd::CalculateMsg() const
 	{
 		ECC::Hash::Processor hp;
 
@@ -1061,23 +1071,16 @@ namespace beam
 		HashNested(hp);
 		HashSelfForMsg(hp);
 
-		hp >> m_Msg;
-	}
+		hp >> m_Lazy_Msg.m_Value;
+		m_Lazy_Msg.m_Valid = true;
 
-	void TxKernelNonStd::MsgToID()
-	{
-		m_Internal.m_HasNonStd = true; // I'm non-standard already
-
-		ECC::Hash::Processor hp;
-		hp << m_Msg;
-		HashSelfForID(hp);
-		hp >> m_Internal.m_ID;
+		m_Lazy_ID.Invalidate();
 	}
 
 	void TxKernelNonStd::CopyFrom(const TxKernelNonStd& v)
 	{
 		TxKernel::CopyFrom(v);
-		m_Msg = v.m_Msg;
+		m_Lazy_Msg = v.m_Lazy_Msg;
 	}
 
 	void TxKernelNonStd::AddStats(TxStats& s) const
@@ -1119,7 +1122,7 @@ namespace beam
 		assert(m_Owner != Zero); // the above ensures this
 
 		// prover must prove knowledge of excess AND m_AssetID sk
-		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pPt))
+		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, get_Msg(), m_Signature.m_pK, pPt))
 			TxBase::Fail_Signature();
 	}
 
@@ -1134,13 +1137,11 @@ namespace beam
 	void TxKernelAssetControl::Sign_(const ECC::Scalar::Native& sk, const ECC::Scalar::Native& skAsset)
 	{
 		m_Commitment = ECC::Context::get().G * sk;
-		UpdateMsg();
+		CalculateMsg();
 
 		ECC::Scalar::Native pSk[2] = { sk, skAsset };
 		ECC::Scalar::Native res;
-		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, m_Signature.m_pK, pSk, &res);
-
-		MsgToID();
+		m_Signature.Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Lazy_Msg.get(), m_Signature.m_pK, pSk, &res);
 	}
 
 	void TxKernelAssetControl::Sign(const ECC::Scalar::Native& sk, Key::IKdf& kdf, const Asset::Metadata& md)
@@ -1156,14 +1157,16 @@ namespace beam
 	void TxKernelAssetControl::get_Sk(ECC::Scalar::Native& sk, Key::IKdf& kdf)
 	{
 		m_Commitment = Zero;
-		UpdateMsg();
+		CalculateMsg();
+
+		Merkle::Hash hv;
 
 		ECC::Hash::Processor()
 			<< "ac.sk"
-			<< m_Msg
-			>> m_Msg;
+			<< m_Lazy_Msg.get()
+			>> hv;
 
-		kdf.DeriveKey(sk, m_Msg);
+		kdf.DeriveKey(sk, hv);
 	}
 
 	/////////////
@@ -1307,7 +1310,7 @@ namespace beam
 			r.TestEnabledCA();
 
 		ECC::Oracle oracle;
-		oracle << m_Msg;
+		oracle << get_Msg();
 
 		ECC::Point::Native comm, ser;
 		if (!m_Txo.IsValid(oracle, hScheme, comm, ser))
@@ -1402,7 +1405,7 @@ namespace beam
 	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid)
 	{
 		ECC::Oracle oracle;
-		oracle << m_Msg;
+		oracle << get_Msg();
 
 		if (Rules::get().IsPastFork_<3>(m_Height.m_Min))
 			oracle << m_NotSerialized.m_hvShieldedState;
@@ -1441,7 +1444,7 @@ namespace beam
 
 		p.Generate(hvSeed.V, oracle, &hGen);
 
-		MsgToID();
+		m_Lazy_ID.Invalidate();
 	}
 
 	/////////////
@@ -1483,7 +1486,7 @@ namespace beam
 
 	void TxKernelContractControl::Prepare(ECC::Hash::Processor& hp, const Merkle::Hash* pParentCtx) const
 	{
-		hp << m_Msg;
+		hp << get_Msg();
 		if (m_Dependent)
 		{
 			assert(pParentCtx);
@@ -1499,7 +1502,7 @@ namespace beam
 		pt += ptFunds;
 		m_Commitment = pt;
 
-		UpdateMsg();
+		CalculateMsg();
 
 		ECC::Hash::Processor hp;
 		Prepare(hp, pParentCtx);
@@ -1521,8 +1524,6 @@ namespace beam
 		ECC::Scalar::Native res;
 		ECC::SignatureBase& sig = m_Signature;
 		sig.Sign(cfg, hv, &m_Signature.m_k, pK, &res);
-
-		MsgToID();
 	}
 
 	void TxKernelContractControl::AddStats(TxStats& s) const
@@ -1635,7 +1636,7 @@ namespace beam
 		get_SubsidyCorrection(pt, true);
 
 		ECC::Point::Native ptPk;
-		if (!m_Signature.RecoverPubKey(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, &m_Signature.m_k, &pt, 0, ptPk))
+		if (!m_Signature.RecoverPubKey(ECC::Context::get().m_Sig.m_CfgG2, get_Msg(), &m_Signature.m_k, &pt, 0, ptPk))
 			TxBase::Fail_Signature();
 
 		Evm::Address addr;
@@ -1654,14 +1655,12 @@ namespace beam
 		get_SubsidyCorrection(pt, false);
 		m_Commitment = pt;
 
-		UpdateMsg();
+		CalculateMsg();
 
 		ECC::Scalar::Native pSk[] = { skFrom, skBlind };
 		ECC::Scalar::Native nnc;
 
-		Cast::Down<ECC::SignatureBase>(m_Signature).Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Msg, &m_Signature.m_k, pSk, &nnc);
-
-		MsgToID();
+		Cast::Down<ECC::SignatureBase>(m_Signature).Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Lazy_Msg.get(), &m_Signature.m_k, pSk, &nnc);
 	}
 
 	/////////////
@@ -1819,7 +1818,7 @@ namespace beam
 		for (size_t i = nStd; i--; )
 		{
 			auto& pKrn = m_vKernels[i];
-			if (pKrn->m_Internal.m_HasNonStd)
+			if (pKrn->HasNonStd())
 			{
 				nStd--;
 				if (i != nStd)
@@ -3327,7 +3326,7 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidProofKernel(const TxKernel& krn, const TxKernel::LongProof& proof) const
 	{
-		return IsValidProofKernel(krn.m_Internal.m_ID, proof);
+		return IsValidProofKernel(krn.get_ID(), proof);
 	}
 
 	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const TxKernel::LongProof& proof) const

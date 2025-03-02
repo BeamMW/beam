@@ -2016,9 +2016,8 @@ namespace beam
 						// skip the voucher signature
 					}
 
-					pKrn->UpdateMsg();
 					ECC::Oracle oracle;
-					oracle << pKrn->m_Msg;
+					oracle << pKrn->get_Msg();
 
 					// substitute the voucher
 					pKrn->m_Txo.m_Ticket = voucher.m_Ticket;
@@ -2029,8 +2028,6 @@ namespace beam
 					sdp.m_Output.m_User.m_pMessage[0] = 243U;
 					sdp.m_Output.m_User.m_pMessage[1] = 2435U;
 					sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
-
-					pKrn->MsgToID();
 
 					m_Shielded.m_SerialPub = pKrn->m_Txo.m_Ticket.m_SerialPub;
 
@@ -2103,8 +2100,6 @@ namespace beam
 				p.m_Witness.m_SpendSk = m_Shielded.m_skSpendKey;
 				p.m_Witness.m_V = m_Shielded.m_Params.m_Output.m_Value;
 
-				pKrn->UpdateMsg();
-
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
 				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
@@ -2128,7 +2123,7 @@ namespace beam
 				{
 					const TxKernel& krn = *msgTx.m_Transaction->m_vKernels[i];
 					if (krn.get_Subtype() == TxKernel::Subtype::Std)
-						m_Shielded.m_SpendKernelID = krn.m_Internal.m_ID;
+						m_Shielded.m_SpendKernelID = krn.get_ID();
 				}
 
 				msgTx.m_Fluff = true;
@@ -2368,14 +2363,14 @@ namespace beam
 					mk.Export(krn);
 
 					proto::GetProofKernel2 msgOut2;
-					msgOut2.m_ID = krn.m_Internal.m_ID;
+					msgOut2.m_ID = krn.get_ID();
 					msgOut2.m_Fetch = true;
 					Send(msgOut2);
 
 					m_queProofsKrnExpected.push_back(i);
 
 					proto::GetProofKernel msgOut3;
-					msgOut3.m_ID = krn.m_Internal.m_ID;
+					msgOut3.m_ID = krn.get_ID();
 					Send(msgOut3);
 
 					m_queProofsKrnExpected.push_back(i);
@@ -2919,7 +2914,7 @@ namespace beam
                 pKrn->Sign(m_Evm.m_skMyAddr, skKrn);
 
                 m_Evm.m_hDeployed = s.m_Height;
-                m_Evm.m_hvDeployID = pKrn->m_Internal.m_ID;
+                m_Evm.m_hvDeployID = pKrn->get_ID();
 
                 Evm::AddressForContract(m_Evm.m_addrMyContract, pKrn->m_From, pKrn->m_Nonce); // expected contract addr
 
@@ -3043,7 +3038,7 @@ namespace beam
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
 						verify_test(s.m_Height == msg.m_Height);
 
-						verify_test(s.IsValidProofKernel(msg.m_Kernel->m_Internal.m_ID, msg.m_Proof));
+						verify_test(s.IsValidProofKernel(msg.m_Kernel->get_ID(), msg.m_Proof));
 
                         if (m_Evm.m_KrnProofIdx == nKrnIdx)
                         {
@@ -3075,7 +3070,7 @@ namespace beam
 						mk.Export(krn);
 						verify_test(m_vStates.back().IsValidProofKernel(krn, msg.m_Proof));
 
-						if (!m_Shielded.m_SpendConfirmed && (krn.m_Internal.m_ID == m_Shielded.m_SpendKernelID))
+						if (!m_Shielded.m_SpendConfirmed && (krn.get_ID() == m_Shielded.m_SpendKernelID))
 						{
 							m_Shielded.m_SpendConfirmed = true;
 
@@ -3903,7 +3898,7 @@ namespace beam
 					cdata.Generate(*pTx, *m_pKdf, hTx, fee);
 
 					auto& krn = *pTx->m_vKernels.back();
-					m_vKrnIds.push_back(krn.m_Internal.m_ID);
+					m_vKrnIds.push_back(krn.get_ID());
 
 					fm += cdata.m_Spend;
 					fm[0] += fee;

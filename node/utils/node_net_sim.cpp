@@ -712,9 +712,8 @@ struct Context
         if (bShouldEmbed)
             pKrn->m_Fee += m_Cfg.m_pFees->m_Kernel;
 
-        pKrn->UpdateMsg();
         ECC::Oracle oracle;
-        oracle << pKrn->m_Msg;
+        oracle << pKrn->get_Msg();
 
         ShieldedTxo::Data::Params sdp;
         ZeroObject(sdp.m_Output.m_User);
@@ -731,7 +730,6 @@ struct Context
         sdp.m_Ticket.Generate(pKrn->m_Txo.m_Ticket, v, nonce);
 
         sdp.GenerateOutp(pKrn->m_Txo, hr.m_Min, oracle);
-        pKrn->MsgToID();
 
         //ECC::Point::Native pt;
         //if (!pKrn->IsValid(hr.m_Min, pt))
@@ -742,7 +740,7 @@ struct Context
         if (bShouldEmbed)
         {
             ECC::Scalar::Native kOuter;
-            m_pKdf->DeriveKey(kOuter, pKrn->m_Internal.m_ID);
+            m_pKdf->DeriveKey(kOuter, pKrn->get_ID());
 
             TxKernelStd::Ptr pKrnOuter = std::make_unique<TxKernelStd>();
             pKrnOuter->m_Height = hr;
@@ -881,7 +879,6 @@ struct Context
 
         m_pProc->get_DB().ShieldedStateRead(pKrn->m_WindowEnd - 1, &pKrn->m_NotSerialized.m_hvShieldedState, 1);
 
-        pKrn->UpdateMsg();
         txo.get_SkOut(p.m_Witness.m_R_Output, pKrn->m_Fee, *m_pKdf);
 
         {

@@ -759,7 +759,7 @@ void TestKrn()
 
 		ECC::Hash::Value msg;
 		hw::TxKernel_getID(&krn2U, &krn2C, &Ecc2BC(msg));
-		verify_test(msg == krn1.m_Internal.m_ID);
+		verify_test(msg == krn1.get_ID());
 
 		// tamper
 		krn2U.m_Fee++;
@@ -1026,7 +1026,7 @@ struct KeyKeeperWrap
 
 		default: // compare
 			verify_test(dst.m_kOffset == src.m_kOffset);
-			verify_test(dst.m_pKernel->m_Internal.m_ID == src.m_pKernel->m_Internal.m_ID);
+			verify_test(dst.m_pKernel->get_ID() == src.m_pKernel->get_ID());
 			verify_test(dst.m_pKernel->m_Signature == src.m_pKernel->m_Signature);
 		}
 	}
@@ -1053,7 +1053,7 @@ struct KeyKeeperWrap
 				get_Endpoint(pid, src.m_iEndpoint);
 
 				wallet::PaymentConfirmation pc;
-				pc.m_KernelID = src.m_pKernel->m_Internal.m_ID;
+				pc.m_KernelID = src.m_pKernel->get_ID();
 				pc.m_Sender = src.m_Peer;
 				GetPaymentConfirmationStats(pc, src, false);
 
@@ -1082,8 +1082,8 @@ struct KeyKeeperWrap
 		default: // compare
 			verify_test(dst.m_UserAgreement == src.m_UserAgreement);
 			// kernel is not necessarily updated (it's not finalized on the 1st invocation
-			dst.m_pKernel->UpdateID();
-			src.m_pKernel->UpdateID();
+			dst.m_pKernel->m_Lazy_ID.Invalidate();
+			src.m_pKernel->m_Lazy_ID.Invalidate();
 		}
 
 		UpdateMethod(Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(dst), Cast::Down<KeyKeeperHwEmu::Method::TxCommon>(src), nPhase);
@@ -1492,7 +1492,7 @@ void TestShielded()
 		memset0(&vKs.front(), sizeof(ECC::Scalar::Native) * vKs.size());
 
 		ECC::Oracle oracle;
-		oracle << krn.m_Msg;
+		oracle << krn.get_Msg();
 
 		if (Rules::get().IsPastFork_<3>(krn.m_Height.m_Min))
 		{

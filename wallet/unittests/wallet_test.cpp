@@ -4149,7 +4149,6 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
     WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == s.m_pKk->InvokeSync(mS));
 
     TxKernelStd::Ptr pKrn = std::move(mS.m_pKernel);
-    pKrn->UpdateID();
 
     Height hScheme = pKrn->m_Height.m_Min;
     WALLET_CHECK(pKrn->IsValid(hScheme));
