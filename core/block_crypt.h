@@ -1286,7 +1286,7 @@ namespace beam
 		}
 
 		virtual void CalculateID() const override;
-		virtual bool HasNonStd() const;
+		virtual bool HasNonStd() const override;
 
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;
