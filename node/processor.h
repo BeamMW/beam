@@ -131,6 +131,11 @@ class NodeProcessor
 
 	size_t m_nSizeUtxoComissionUpperLimit = 0;
 
+	struct InputAux {
+		TxoID m_ID = 0;
+		Height m_Maturity = 0;
+	};
+
 	struct MultiblockContext;
 	struct MultiSigmaContext;
 	struct MultiShieldedContext;
@@ -168,6 +173,7 @@ class NodeProcessor
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
+	void UndoInput(const Input&, const InputAux&);
 
 	struct DependentContextSwitch;
 
@@ -197,7 +203,7 @@ class NodeProcessor
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
 
-	void SetInputMaturity(Input&);
+	Height GetInputMaturity(TxoID);
 
 	TxoID get_TxosBefore(Height);
 	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
@@ -815,7 +821,7 @@ public:
 #undef THE_MACRO
 
 		template <typename TKey, typename TEvt>
-		bool FindEvent(const TKey&, TEvt&);
+		bool FindEvent(const TKey&, TEvt&, std::vector<TEvt>* pvDups = nullptr);
 
 		HeightPos m_Pos; // incremented when event is added
 

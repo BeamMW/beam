@@ -758,13 +758,6 @@ namespace beam
 	struct Input
 		:public TxElement
 	{
-		// used internally. Not serialized/transferred
-		struct Internal
-		{
-			Height m_Maturity = 0; // of the consumed (being-spent) UTXO
-			TxoID m_ID = 0;
-		} m_Internal;
-
 		typedef std::unique_ptr<Input> Ptr;
 		typedef uint32_t Count; // the type for count of duplicate UTXOs in the system
 
@@ -803,12 +796,10 @@ namespace beam
 		Input() = default;
 		Input(const Input& v)
 			:TxElement(v)
-			, m_Internal(v.m_Internal)
 		{
 		}
 		Input(Input&& v) noexcept
 			:TxElement(std::move(v))
-			,m_Internal(std::exchange(v.m_Internal, {}))
 		{
 		}
 
