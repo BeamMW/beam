@@ -1751,15 +1751,6 @@ namespace beam::wallet
         // In this method we emulate work performed by NodeProcessor::HandleValidatedBlock
         CacheCommitments();
 
-        for (auto& input : block.m_vInputs)
-        {
-            auto cit = m_Commitments.find(input->m_Commitment);
-            if (cit != m_Commitments.end())
-            {
-                input->m_Internal.m_Maturity = cit->second;
-            }
-        }
-
         // remove asset kernels, we don't support them
         auto& kernels = block.m_vKernels;
         kernels.erase(std::remove_if(kernels.begin(), kernels.end(), [](const auto& k)

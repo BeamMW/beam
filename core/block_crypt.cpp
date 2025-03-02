@@ -211,7 +211,6 @@ namespace beam
 	Input& Input::operator = (const Input& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
-		m_Internal = v.m_Internal;
 		return *this;
 	}
 
@@ -220,7 +219,6 @@ namespace beam
 		if (*this != v)
 		{
 			Cast::Down<TxElement>(*this) = std::move(v);
-			m_Internal = std::exchange(v.m_Internal, {});
 		}
 		return *this;
 	}

@@ -2522,6 +2522,8 @@ struct NodeProcessor::BlockInterpretCtx
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
+	std::vector<InputAux> m_vInpAux;
+
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
 	Asset::ID m_AidMax = static_cast<Asset::ID>(-1); // last valid Asset ID
@@ -3147,9 +3149,9 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			if (s.m_Height <= m_SyncData.m_TxoLo)
 			{
 				// make sure no spent txos above the requested h0
-				for (size_t i = 0; i < block.m_vInputs.size(); i++)
+				for (size_t i = 0; i < bic.m_vInpAux.size(); i++)
 				{
-					if (block.m_vInputs[i]->m_Internal.m_ID >= mbc.m_id0)
+					if (bic.m_vInpAux[i].m_ID >= mbc.m_id0)
 					{
 						BEAM_LOG_WARNING() << id << " Invalid input in sparse block";
 						bOk = false;
@@ -3213,11 +3215,14 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 		std::vector<NodeDB::StateInput> v;
 		v.reserve(block.m_vInputs.size());
 
+		assert(block.m_vInputs.size() == bic.m_vInpAux.size());
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			m_DB.TxoSetSpent(x.m_Internal.m_ID, s.m_Height);
-			v.emplace_back().Set(x.m_Internal.m_ID, x.m_Commitment);
+			auto txoID = bic.m_vInpAux[i].m_ID;
+
+			m_DB.TxoSetSpent(txoID, s.m_Height);
+			v.emplace_back().Set(txoID, x.m_Commitment);
 		}
 
 		if (!v.empty())
@@ -3295,12 +3300,15 @@ void NodeProcessor::AdjustOffset(ECC::Scalar& offs, const ECC::Scalar& offsPrev,
 }
 
 template <typename TKey, typename TEvt>
-bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt)
+bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt, std::vector<TEvt>* pvDups /* = nullptr */)
 {
 	struct MyHandler
 		:public Recognizer::IEventHandler
 	{
 		TEvt& m_Evt;
+		std::vector<TEvt>* m_pvDups;
+		bool m_Found = false;
+
 		MyHandler(TEvt& x) :m_Evt(x) {}
 
 		bool OnEvent(Height, const Blob& body) override
@@ -3314,13 +3322,26 @@ bool NodeProcessor::Recognizer::FindEvent(const TKey& key, TEvt& evt)
 			if (TEvt::s_Type != eType)
 				return false;
 
-			der & m_Evt;
-			return true;
+			if (m_Found)
+			{
+				assert(m_pvDups);
+				der & m_pvDups->emplace_back();
+			}
+			else
+			{
+				der & m_Evt;
+				m_Found = true;
+			}
+
+			return !m_pvDups; // stop if not interested in dups
 		}
 
 	} h(evt);
+	h.m_pvDups = pvDups;
 
-	return m_Handler.FindEvents(Blob(&key, sizeof(key)), h);
+	m_Handler.FindEvents(Blob(&key, sizeof(key)), h);
+
+	return h.m_Found;
 }
 
 template <typename TEvt>
@@ -3389,15 +3410,58 @@ void NodeProcessor::Recognizer::Recognize(const Input& x)
 	const EventKey::Utxo& key = x.m_Commitment;
 	proto::Event::Utxo evt;
 
-	if (!FindEvent(key, evt))
+	std::vector<proto::Event::Utxo> vDups;
+	if (!FindEvent(key, evt, &vDups))
 		return;
 
-	assert(x.m_Internal.m_Maturity); // must've already been validated
-	evt.m_Maturity = x.m_Internal.m_Maturity; // in case of duplicated utxo this is necessary
+	auto* pEvt = &evt;
 
-	evt.m_Flags &= ~proto::Event::Flags::Add;
+	if (!vDups.empty())
+	{
+		// there're dups.
+		assert(proto::Event::Flags::Add & evt.m_Flags); // the very 1st evt must be input
 
-	AddEvent(evt);
+		for (uint32_t iOutp = 0; iOutp < vDups.size(); iOutp++)
+		{
+			const auto& evtOutp = vDups[iOutp];
+			if (proto::Event::Flags::Add & evtOutp.m_Flags)
+				continue;
+
+			// this is output event. Pair it with the appropriate input event
+			if ((proto::Event::Flags::Add & evt.m_Flags) && (evt.m_Maturity == evtOutp.m_Maturity))
+				evt.m_Maturity = MaxHeight;
+			else
+			{
+				for (uint32_t iInp = 0; ; iInp++)
+				{
+					assert(iInp < iOutp);
+					auto& evtInp = vDups[iInp];
+
+					if ((proto::Event::Flags::Add & evtInp.m_Flags) && (evtInp.m_Maturity == evtOutp.m_Maturity))
+					{
+						evtInp.m_Maturity = MaxHeight;
+						break;
+					}
+				}
+			}
+		}
+
+		// make sure we select the remaining input with minimum maturity
+		for (uint32_t iInp = 0; iInp < vDups.size(); iInp++)
+		{
+			auto& evtInp = vDups[iInp];
+
+			if ((proto::Event::Flags::Add & evtInp.m_Flags) && (evtInp.m_Maturity < pEvt->m_Maturity))
+			{
+				pEvt = &evtInp;
+				break;
+			}
+		}
+
+	}
+
+	pEvt->m_Flags &= ~proto::Event::Flags::Add;
+	AddEvent(*pEvt);
 }
 
 void NodeProcessor::Recognizer::Recognize(const TxKernelStd&, uint32_t)
@@ -4544,6 +4608,8 @@ bool NodeProcessor::HandleValidatedTx(const TxVectors::Full& txv, BlockInterpret
 	bool bOk = true;
 	if (bic.m_Fwd)
 	{
+		bic.m_vInpAux.reserve(bic.m_vInpAux.size() + txv.m_vInputs.size());
+
 		ZeroObject(pN);
 		bOk =
 			HandleElementVecFwd(txv.m_vInputs, bic, pN[0]) &&
@@ -4680,11 +4746,6 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 	if (bic.m_SkipInOuts)
 		return true;
 
-	UtxoTree::Cursor cu;
-	UtxoTree::MyLeaf* p;
-	UtxoTree::Key::Data d;
-	d.m_Commitment = v.m_Commitment;
-
 	if (bic.m_Fwd)
 	{
 		struct Traveler :public UtxoTree::ITraveler {
@@ -4696,11 +4757,14 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 		UtxoTree::Key kMin, kMax;
 
+		UtxoTree::Key::Data d;
+		d.m_Commitment = v.m_Commitment;
 		d.m_Maturity = Rules::HeightGenesis - 1;
 		kMin = d;
 		d.m_Maturity = bic.m_Height - 1;
 		kMax = d;
 
+		UtxoTree::Cursor cu;
 		t.m_pCu = &cu;
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
@@ -4712,7 +4776,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 			return false;
 		}
 
-		p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
+		UtxoTree::MyLeaf* p = &Cast::Up<UtxoTree::MyLeaf>(cu.get_Leaf());
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
@@ -4729,32 +4793,46 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 			m_Mapped.m_Utxo.OnDirty();
 		}
 
-		Cast::NotConst(v).m_Internal.m_Maturity = d.m_Maturity;
-		Cast::NotConst(v).m_Internal.m_ID = nID;
+		auto& aux = bic.m_vInpAux.emplace_back();
+		aux.m_Maturity = d.m_Maturity;
+		aux.m_ID = nID;
 
 	} else
 	{
-		d.m_Maturity = v.m_Internal.m_Maturity;
+		assert(!bic.m_vInpAux.empty());
+		auto aux = std::move(bic.m_vInpAux.back());
+		bic.m_vInpAux.pop_back();
 
-		bool bCreate = true;
-		UtxoTree::Key key;
-		key = d;
-
-		m_Mapped.m_Utxo.EnsureReserve();
-
-		p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
-
-		if (bCreate)
-			p->m_ID = v.m_Internal.m_ID;
-		else
-		{
-			m_Mapped.m_Utxo.PushID(v.m_Internal.m_ID, *p);
-			cu.InvalidateElement();
-			m_Mapped.m_Utxo.OnDirty();
-		}
+		UndoInput(v, aux);
 	}
 
 	return true;
+}
+
+void NodeProcessor::UndoInput(const Input& v, const InputAux& aux)
+{
+	UtxoTree::Key::Data d;
+	d.m_Commitment = v.m_Commitment;
+	d.m_Maturity = aux.m_Maturity;
+
+	bool bCreate = true;
+	UtxoTree::Key key;
+	key = d;
+
+	m_Mapped.m_Utxo.EnsureReserve();
+
+	UtxoTree::Cursor cu;
+	UtxoTree::MyLeaf* p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
+
+	if (bCreate)
+		p->m_ID = aux.m_ID;
+	else
+	{
+		m_Mapped.m_Utxo.PushID(aux.m_ID, *p);
+		cu.InvalidateElement();
+		m_Mapped.m_Utxo.OnDirty();
+	}
+
 }
 
 bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
@@ -6260,14 +6338,14 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 	}
 }
 
-void NodeProcessor::SetInputMaturity(Input& inp)
+Height NodeProcessor::GetInputMaturity(TxoID id)
 {
 	// awkward, but this is not used frequently.
 	// NodeDB::StateInput doesn't contain the maturity of the spent UTXO. Hence we reconstruct it
 	// We find the original UTXO height, and then decode the UTXO body, and check its additional maturity factors (coinbase, incubation)
 
 	NodeDB::WalkerTxo wlk;
-	m_DB.TxoGetValue(wlk, inp.m_Internal.m_ID);
+	m_DB.TxoGetValue(wlk, id);
 
 	uint8_t pNaked[s_TxoNakedMax];
 	Blob val = wlk.m_Value;
@@ -6281,9 +6359,9 @@ void NodeProcessor::SetInputMaturity(Input& inp)
 	der & outp;
 
 	Height hCreate = 0;
-	FindHeightByTxoID(hCreate, inp.m_Internal.m_ID); // relatively heavy operation: search for the original txo height
+	FindHeightByTxoID(hCreate, id); // relatively heavy operation: search for the original txo height
 
-	inp.m_Internal.m_Maturity = outp.get_MinMaturity(hCreate);
+	return outp.get_MinMaturity(hCreate);
 }
 
 void NodeProcessor::RollbackTo(Height h)
@@ -6302,7 +6380,6 @@ void NodeProcessor::RollbackTo(Height h)
 		std::vector<NodeDB::StateInput> v;
 		m_DB.get_StateInputs(sid.m_Row, v);
 
-		BlockInterpretCtx bic(sid.m_Height, false);
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			const auto& src = v[i];
@@ -6312,11 +6389,12 @@ void NodeProcessor::RollbackTo(Height h)
 
 			Input inp;
 			src.Get(inp.m_Commitment);
-			inp.m_Internal.m_ID = id;
-			SetInputMaturity(inp);
 
-			if (!HandleBlockElement(inp, bic))
-				OnCorrupted();
+			InputAux inpAux;
+			inpAux.m_ID = id;
+			inpAux.m_Maturity = GetInputMaturity(id);
+
+			UndoInput(inp, inpAux);
 
 			m_DB.TxoSetSpent(id, MaxHeight);
 		}
@@ -7200,10 +7278,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 	assert(bic.m_Rollback.empty());
-
-	// reset input maturities
-	for (size_t i = 0; i < bc.m_Block.m_vInputs.size(); i++)
-		bc.m_Block.m_vInputs[i]->m_Internal.m_Maturity = 0;
+	assert(bic.m_vInpAux.empty());
 
 	if (!nSizeEstimated)
 		return false;
