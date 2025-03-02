@@ -871,7 +871,7 @@ struct TestBlockchain
             m_vBlockKernels.emplace_back();
 
         KrnPerBlock& kpb = m_vBlockKernels.back();
-        kpb.m_vKrnIDs.push_back(krn.m_Internal.m_ID);
+        kpb.m_vKrnIDs.push_back(krn.get_ID());
 
 		kpb.m_Kernels.emplace_back();
 		krn.Clone(kpb.m_Kernels.back());

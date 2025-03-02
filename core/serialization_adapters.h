@@ -1272,7 +1272,6 @@ namespace detail
 					ar & nType;
 
 				load1(ar, pPtr, nType, nRecursion);
-				pPtr->UpdateID();
 
 				return ar;
 			}
@@ -2213,10 +2212,7 @@ namespace detail
 			ar & nType;
 
 			if (nType)
-			{
 				ImplTxKernel::load1(ar, pPtr, nType, 0);
-				pPtr->UpdateID();
-			}
 			else
 				pPtr.reset();
 

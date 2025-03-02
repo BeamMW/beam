@@ -1099,6 +1099,24 @@ namespace beam
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
+	template <typename T>
+	struct Lazy
+	{
+		T m_Value;
+		bool m_Valid = false;
+
+		const T& get() const
+		{
+			assert(m_Valid);
+			return m_Value;
+		}
+
+		void Invalidate()
+		{
+			m_Valid = false;
+		}
+	};
+
 	struct TxKernel
 	{
 		typedef std::unique_ptr<TxKernel> Ptr;
@@ -1116,16 +1134,12 @@ namespace beam
 		HeightRange		m_Height;
 		bool			m_CanEmbed;
 
-		struct Internal
-		{
-			bool m_HasNonStd = false; // is it or does it contain non-std kernels with side effects and mutual dependencies. Those should not be sorted!
-			Merkle::Hash m_ID; // unique kernel identifier in the system.
-		} m_Internal;
-
 		TxKernel()
 			:m_Fee(0)
 			,m_CanEmbed(false)
 		{}
+
+		mutable Lazy<Merkle::Hash> m_Lazy_ID; // not serialized
 
 		std::vector<Ptr> m_vNested; // nested kernels, included in the signature.
 
@@ -1139,11 +1153,24 @@ namespace beam
 
 		virtual ~TxKernel() {}
 		virtual Subtype::Enum get_Subtype() const = 0;
-		virtual void UpdateID() = 0;
+		virtual void CalculateID() const = 0;
+		virtual bool HasNonStd() const = 0;
 		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const = 0;
 		virtual void AddStats(TxStats&) const; // including self and nested
 		virtual int cmp_Subtype(const TxKernel&) const;
 		virtual void Clone(Ptr&) const = 0;
+
+		void EnsureID() const
+		{
+			if (!m_Lazy_ID.m_Valid)
+				CalculateID();
+		}
+
+		const Merkle::Hash& get_ID() const
+		{
+			EnsureID();
+			return m_Lazy_ID.get();
+		}
 
 		bool IsValid(Height hScheme, std::string* psErr = nullptr) const;
 
@@ -1171,7 +1198,7 @@ namespace beam
 			Checkpoint(const TxKernel& krn) :m_Krn(krn) {}
 
 			void Dump(std::ostream& os) override {
-				os << "Kernel ID=" << m_Krn.m_Internal.m_ID << ", type=" << (uint32_t) m_Krn.get_Subtype();
+				os << "Kernel ID=" << m_Krn.get_ID() << ", type=" << (uint32_t) m_Krn.get_Subtype();
 			}
 		};
 
@@ -1230,7 +1257,8 @@ namespace beam
 
 		virtual ~TxKernelStd() {}
 		virtual Subtype::Enum get_Subtype() const override;
-		virtual void UpdateID() override;
+		virtual void CalculateID() const override;
+		virtual bool HasNonStd() const override;
 		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual int cmp_Subtype(const TxKernel&) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
@@ -1241,11 +1269,24 @@ namespace beam
 	struct TxKernelNonStd
 		:public TxKernel
 	{
-		Merkle::Hash m_Msg; // message to sign, diffetent from ID
+		mutable Lazy<Merkle::Hash> m_Lazy_Msg; // message to sign, diffetent from ID
 
-		virtual void UpdateID() override;
-		void UpdateMsg();
-		void MsgToID();
+		void CalculateMsg() const;
+
+		void EnsureMsg() const
+		{
+			if (!m_Lazy_Msg.m_Valid)
+				CalculateMsg();
+		}
+
+		const Merkle::Hash& get_Msg() const
+		{
+			EnsureMsg();
+			return m_Lazy_Msg.get();
+		}
+
+		virtual void CalculateID() const override;
+		virtual bool HasNonStd() const;
 
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;

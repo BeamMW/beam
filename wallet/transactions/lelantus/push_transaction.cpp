@@ -186,7 +186,7 @@ namespace beam::wallet::lelantus
                 UpdateAsync();
             }
             else
-                ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
+                ConfirmKernel(builder.m_pKrn->get_ID());
         }
     }
     

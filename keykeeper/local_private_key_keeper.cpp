@@ -310,7 +310,7 @@ namespace beam::wallet
         prover.m_Witness.m_R += sdp.m_Output.m_k;
         prover.m_Witness.m_V = sdp.m_Output.m_Value;
 
-        x.m_pKernel->UpdateMsg();
+        x.m_pKernel->m_Lazy_Msg.Invalidate();
         x.get_SkOut(prover.m_Witness.m_R_Output, x.m_pKernel->m_Fee, *m_pKdf);
 
         ExecutorMT_R exec;
@@ -430,11 +430,10 @@ namespace beam::wallet
         Scalar::Native kKrn, kNonce;
 
         // Hash *ALL* the parameters, make the context unique
-        krn.UpdateID();
-        Hash::Value& hv = krn.m_Internal.m_ID; // alias
+        Hash::Value& hv = krn.m_Lazy_ID.m_Value; // alias
 
         Hash::Processor()
-            << krn.m_Internal.m_ID
+            << krn.get_ID()
             << krn.m_Signature.m_NoncePub
             << x.m_NonConventional
             << x.m_Peer
@@ -465,15 +464,15 @@ namespace beam::wallet
         commitment += temp;
         krn.m_Signature.m_NoncePub = commitment;
 
-        krn.UpdateID();
+        krn.CalculateID(); // recalculate it
 
-        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
+        krn.m_Signature.SignPartial(krn.m_Lazy_ID.get(), kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         if (!x.m_NonConventional)
         {
             PaymentConfirmation pc;
-            pc.m_KernelID = hv;
+            pc.m_KernelID = krn.m_Lazy_ID.get();
             pc.m_Sender = x.m_Peer;
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
@@ -529,7 +528,7 @@ namespace beam::wallet
         get_Nonce(kNonce, x.m_Slot);
 
         // during negotiation kernel height and commitment are adjusted. We should only commit to the Fee
-        Hash::Value& hv = krn.m_Internal.m_ID; // alias. Just reuse this variable
+        Hash::Value& hv = krn.m_Lazy_ID.m_Value; // alias. Just reuse this variable
         Hash::Processor()
             << krn.m_Fee
             << x.m_Peer
@@ -578,12 +577,12 @@ namespace beam::wallet
         if (x.m_UserAgreement != hv)
             return Status::Unspecified; // incorrect user agreement token
 
-        krn.UpdateID();
+        krn.CalculateID();
 
         if ((x.m_Peer != Zero) && !x.m_NonConventional)
         {
             PaymentConfirmation pc;
-            pc.m_KernelID = krn.m_Internal.m_ID;
+            pc.m_KernelID = krn.m_Lazy_ID.get();
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
             pc.m_Sender = pidMe;
@@ -606,7 +605,7 @@ namespace beam::wallet
         Regenerate(x.m_Slot);
 
         Scalar::Native kSig = krn.m_Signature.m_k;
-        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
+        krn.m_Signature.SignPartial(krn.m_Lazy_ID.get(), kKrn, kNonce);
         kSig += krn.m_Signature.m_k;
         krn.m_Signature.m_k = kSig;
 
@@ -692,34 +691,33 @@ namespace beam::wallet
         krn1.m_CanEmbed = true;
         krn1.m_Txo.m_Ticket = pVoucher->m_Ticket;
 
-        krn1.UpdateMsg();
         ECC::Oracle oracle;
-        oracle << krn1.m_Msg;
+        oracle << krn1.get_Msg();
 
         pars.m_Output.Generate(krn1.m_Txo, pVoucher->m_SharedSecret, krn.m_Height.m_Min, oracle);
-        krn1.MsgToID();
 
         assert(krn.m_vNested.empty());
         krn.m_vNested.push_back(std::move(pOutp));
 
         // select blinding factor for the outer kernel.
         Hash::Processor()
-            << krn1.m_Internal.m_ID
+            << krn1.get_ID()
             << krn.m_Height.m_Min
             << krn.m_Height.m_Max
             << krn.m_Fee
             << aggr.m_sk
-            >> krn.m_Internal.m_ID;
+            >> krn.m_Lazy_ID.m_Value;
 
         NonceGenerator ng("hw-wlt-snd-sh");
         ng
-            << krn.m_Internal.m_ID
+            << krn.m_Lazy_ID.m_Value
             >> kKrn;
         ng >> kNonce;
 
         krn.m_Commitment = ECC::Context::get().G * kKrn;
         krn.m_Signature.m_NoncePub = ECC::Context::get().G * kNonce;
-        krn.UpdateID();
+
+        krn.CalculateID();
 
         if (IsTrustless())
         {
@@ -731,7 +729,7 @@ namespace beam::wallet
                 return res;
         }
 
-        krn.m_Signature.SignPartial(krn.m_Internal.m_ID, kKrn, kNonce);
+        krn.m_Signature.SignPartial(krn.m_Lazy_ID.get(), kKrn, kNonce);
 
         kKrn += pars.m_Output.m_k;
         UpdateOffset(x, aggr.m_sk, kKrn);
@@ -757,7 +755,7 @@ namespace beam::wallet
 
         Scalar::Native kKrn, kNonce;
 
-        Hash::Value& hv = krn.m_Internal.m_ID; // alias
+        Hash::Value& hv = krn.m_Lazy_ID.m_Value; // alias
 
         Hash::Processor()
             << krn.m_Height.m_Min
@@ -777,13 +775,13 @@ namespace beam::wallet
         commitment = Context::get().G * kNonce;
         krn.m_Signature.m_NoncePub = commitment;
 
-        krn.UpdateID();
+        krn.CalculateID();
 
         Status::Type res = ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true);
         if (Status::Success != res)
             return res;
 
-        krn.m_Signature.SignPartial(hv, kKrn, kNonce);
+        krn.m_Signature.SignPartial(krn.m_Lazy_ID.get(), kKrn, kNonce);
         UpdateOffset(x, aggr.m_sk, kKrn);
 
         return Status::Success;

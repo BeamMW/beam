@@ -133,7 +133,7 @@ namespace beam::wallet
                     break; // shouldn't happen actually
 
                 Scalar::Native e;
-                m_pKrn->CastTo_Std().m_Signature.get_Challenge(e, m_pKrn->m_Internal.m_ID);
+                m_pKrn->CastTo_Std().m_Signature.get_Challenge(e, m_pKrn->get_ID());
 
                 ptNonce += ptExc * e;
                 ptNonce += Context::get().G * k;

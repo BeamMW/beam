@@ -1142,7 +1142,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 		BEAM_VERIFY(hGen.Import(krn.m_pAsset->m_hGen)); // must already be tested in krn.IsValid();
 
 	ECC::Oracle oracle;
-	oracle << krn.m_Msg;
+	oracle << krn.get_Msg();
 
 	if (Rules::get().IsPastFork_<3>(hScheme))
 	{
@@ -1578,6 +1578,10 @@ struct NodeProcessor::MultiblockContext
 		pShared->m_Ctx.m_Params.m_bAllowUnsignedOutputs = !bFull;
 		pShared->m_Ctx.m_Params.m_pAbort = &m_bFail;
 		pShared->m_Ctx.m_Params.m_nVerifiers = ex.get_Threads();
+
+		// pre-Realize all the kernels, since they'll be tested asynchronously (in worker threads)
+		for (const auto& pKrn : pShared->m_Body.m_vKernels)
+			pKrn->EnsureID();
 
 		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
 
@@ -2226,7 +2230,7 @@ struct NodeProcessor::KrnFlyMmr
 
 	virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
 		assert(n < m_Count);
-		hv = m_Txve.m_vKernels[n]->m_Internal.m_ID;
+		hv = m_Txve.m_vKernels[n]->get_ID();
 	}
 };
 
@@ -2345,7 +2349,7 @@ uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Pt
 	for (size_t i = 0; i < vKrn.size(); i++)
 	{
 		TxKernel::Ptr& p = vKrn[i];
-		const Merkle::Hash& hv = p->m_Internal.m_ID;
+		const Merkle::Hash& hv = p->get_ID();
 		mmr.Append(hv);
 
 		if (hv == idKrn)
@@ -3545,7 +3549,7 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedOutput& v, uint3
 			continue;
 
 		ECC::Oracle oracle;
-		oracle << v.m_Msg;
+		oracle << v.get_Msg();
 
 		if (!pars.m_Output.Recover(txo, pars.m_Ticket.m_SharedSecret, m_Pos.m_Height, oracle))
 			continue;
@@ -4902,7 +4906,7 @@ void NodeProcessor::ManageKrnID(BlockInterpretCtx& bic, const TxKernel& krn)
 	if (bic.m_Height < Rules::HeightGenesis)
 		return; // for historical reasons treasury kernels are ignored
 
-	const auto& key = krn.m_Internal.m_ID;
+	const auto& key = krn.get_ID();
 
 	if (bic.m_Temporary)
 	{
@@ -4933,11 +4937,11 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	const Rules& r = Rules::get();
 	if (bic.m_Fwd && r.IsPastFork_<2>(bic.m_Height) && !bic.m_AlreadyValidated)
 	{
-		Height hPrev = FindVisibleKernel(v.m_Internal.m_ID, bic);
+		Height hPrev = FindVisibleKernel(v.get_ID(), bic);
 		if (hPrev >= Rules::HeightGenesis)
 		{
 			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Kernel ID=" << v.m_Internal.m_ID << " duplicated at " << hPrev;
+				*bic.m_pTxErrorInfo << "Kernel ID=" << v.get_ID() << " duplicated at " << hPrev;
 
 			return false; // duplicated
 		}
@@ -4949,7 +4953,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	if (!HandleKernel(v, bic))
 	{
 		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << " <- Kernel ID=" << v.m_Internal.m_ID;
+			*bic.m_pTxErrorInfo << " <- Kernel ID=" << v.get_ID();
 
 		if (!bic.m_Fwd)
 			OnCorrupted();
@@ -5071,7 +5075,7 @@ bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& 
 			ser & hvPrev;
 		}
 
-		DependentContext::get_Ancestor(bic.m_hvDependentCtx, hvPrev, krn.m_Internal.m_ID);
+		DependentContext::get_Ancestor(bic.m_hvDependentCtx, hvPrev, krn.get_ID());
 		bic.m_DependentCtxSet = true;
 	}
 
@@ -7475,6 +7479,9 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	pShared->m_pCtx = &ctx;
 	pShared->m_pTx = &txb;
 	pShared->m_pR = &r;
+
+	// No need to realize all the kernels, since this is invoked synchronously (we wait till everything finishes before exiting this func).
+	// hence no risk of race w.r.t. kernel realization
 
 	mbc.m_InProgress.m_Max++; // dummy, just to emulate ongoing progress
 	mbc.PushTasks(pShared, ctx.m_Params);

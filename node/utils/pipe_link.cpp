@@ -800,7 +800,7 @@ bool Manager::LocalContext::SendTx(TxKernel::Ptr&& pKrn, const char* sz, Amount 
         }
     }
 
-    m_hvCurrentTx = pKrn->m_Internal.m_ID;
+    m_hvCurrentTx = pKrn->get_ID();
     Height h1 = pKrn->m_Height.m_Max;
 
     Transaction::Ptr pTx = std::make_shared<Transaction>();

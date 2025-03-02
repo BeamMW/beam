@@ -448,7 +448,7 @@ bool MultiTx::ReadKrn(TxKernelStd& krn)
 			return false;
 	}
 
-	krn.UpdateID();
+	krn.m_Lazy_ID.Invalidate();
 	return true;
 }
 
@@ -508,7 +508,7 @@ uint32_t MultiTx::Update2()
 
 		ECC::Scalar::Native k = krn.m_Signature.m_k;
 
-		krn.m_Signature.SignPartial(krn.m_Internal.m_ID, skKrn, nonceKrn);
+		krn.m_Signature.SignPartial(krn.get_ID(), skKrn, nonceKrn);
 		k += krn.m_Signature.m_k;
 		krn.m_Signature.m_k = k;
 
@@ -520,7 +520,7 @@ uint32_t MultiTx::Update2()
 		krn.Clone(tx.m_vKernels.back());
 
 		if (RaiseTo(2))
-			Set(krn.m_Internal.m_ID, Codes::KernelID);
+			Set(krn.get_ID(), Codes::KernelID);
 
 	}
 	else
@@ -551,7 +551,7 @@ uint32_t MultiTx::Update2()
 			if (!ReadKrn(krn))
 				return 0;
 
-			krn.m_Signature.SignPartial(krn.m_Internal.m_ID, skKrn, nonceKrn);
+			krn.m_Signature.SignPartial(krn.get_ID(), skKrn, nonceKrn);
 
 			BEAM_VERIFY(RaiseTo(1));
 
@@ -559,7 +559,7 @@ uint32_t MultiTx::Update2()
 			Send(krn.m_Signature.m_NoncePub, Codes::KrnNonce);
 			Send(krn.m_Signature.m_k, Codes::KrnSig);
 
-			Set(krn.m_Internal.m_ID, Codes::KernelID);
+			Set(krn.get_ID(), Codes::KernelID);
 		}
 	}
 

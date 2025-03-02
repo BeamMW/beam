@@ -7181,10 +7181,9 @@ namespace beam::wallet
             auto nestedKernel = std::make_unique<TxKernelShieldedOutput>();
             nestedKernel->m_CanEmbed = true;
             nestedKernel->m_Txo.m_Ticket = m_TxoTicket;
-            nestedKernel->UpdateMsg();
 
             ECC::Oracle oracle;
-            oracle << nestedKernel->m_Msg;
+            oracle << nestedKernel->get_Msg();
             ShieldedTxo::Data::OutputParams outputParams;
             outputParams.m_Value = m_Amount;
             outputParams.m_AssetID = m_AssetID;
@@ -7200,11 +7199,9 @@ namespace beam::wallet
                 outputParams.Generate(nestedKernel->m_Txo, m_VoucherSharedSecret, m_Height.m_Min, oracle);
             }
 
-            nestedKernel->MsgToID();
             kernel.m_vNested.push_back(std::move(nestedKernel));
 
-            kernel.UpdateID();
-            m_KernelID = kernel.m_Internal.m_ID;
+            m_KernelID = kernel.get_ID();
         }
 
         namespace
@@ -7281,7 +7278,7 @@ namespace beam::wallet
                     pi.m_VoucherSignature = voucher.m_Signature;
                     {
                         ECC::Oracle oracle;
-                        oracle << nestedKernel.m_Msg;
+                        oracle << nestedKernel.get_Msg();
                         ShieldedTxo::Data::OutputParams outputParams;
                         outputParams.Recover(nestedKernel.m_Txo, voucher.m_SharedSecret, rootKernel->m_Height.m_Min, oracle);
                         pi.m_pMessage[0] = outputParams.m_User.m_pMessage[0];

@@ -334,7 +334,11 @@ namespace beam::wallet
                     Fail("incorrect multisig");
 
                 if (!m_vSigs.empty())
-                    krn.UpdateID(); // signature was modified due to the negotiation
+                {
+                    // signature was modified due to the negotiation
+                    krn.m_Lazy_ID.Invalidate();
+                    krn.m_Lazy_Msg.Invalidate();
+                }
             }
         }
 
@@ -969,7 +973,7 @@ namespace beam::wallet
         m_pAsyncCtx->m_Remaining++;
 
         const auto& tx = pV ? pV->m_Tx : *m_pTransaction;
-        m_Tx.GetGateway().confirm_kernel_ex(tx.m_vKernels.front()->m_Internal.m_ID, std::move(pCallback));
+        m_Tx.GetGateway().confirm_kernel_ex(tx.m_vKernels.front()->get_ID(), std::move(pCallback));
     }
 
     void ContractTransaction::MyBuilder::OnKernelConfirmed(HftVariant* pHf, const HeightHash& hh, const Height* pHeight)
@@ -1089,7 +1093,7 @@ namespace beam::wallet
         hv = m_pParentCtx->m_Hash;
 
         for (const auto& pKrn : m_pTransaction->m_vKernels)
-            DependentContext::get_Ancestor(hv, hv, pKrn->m_Internal.m_ID);
+            DependentContext::get_Ancestor(hv, hv, pKrn->get_ID());
 
         BEAM_LOG_INFO() << "TxoID=" << m_Tx.GetTxID() << " HFT variant: " << *m_pNewCtx;
     }
@@ -1216,7 +1220,7 @@ namespace beam::wallet
             UpdateOnNextTip();
         }
         else
-            ConfirmKernel(builder.m_pKrn->m_Internal.m_ID);
+            ConfirmKernel(builder.m_pKrn->get_ID());
 
         return 0;
     }

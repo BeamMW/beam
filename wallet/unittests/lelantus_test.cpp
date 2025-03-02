@@ -789,7 +789,7 @@ void TestDirectAnonymousPayment()
             success &= storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::Amount, amount);
             storage::getTxParameter(*sender.m_WalletDB, txID, TxParameterID::AssetID, assetID);
 
-            WALLET_CHECK(pi2.m_KernelID == k->m_Internal.m_ID);
+            WALLET_CHECK(pi2.m_KernelID == k->get_ID());
 
             WALLET_CHECK(success);
             {
@@ -801,7 +801,7 @@ void TestDirectAnonymousPayment()
                 WALLET_CHECK(voucher2.IsValid(peerEndpoint));
 
                 ECC::Oracle oracle;
-                oracle << kernel.m_Msg;
+                oracle << kernel.get_Msg();
                 ShieldedTxo::Data::OutputParams outputParams;
                 WALLET_CHECK(outputParams.Recover(kernel.m_Txo, voucher.m_SharedSecret, k->m_Height.m_Min, oracle));
                 WALLET_CHECK(outputParams.m_Value == amount);
