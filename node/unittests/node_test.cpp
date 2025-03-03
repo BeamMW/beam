@@ -1116,7 +1116,7 @@ namespace beam
 			np.TryGoUp();
 
 			np.m_Wallet.AddMyUtxo(CoinID(bc.m_Fees, h, Key::Type::Comission));
-			np.m_Wallet.AddMyUtxo(CoinID(Rules::get_Emission(h), h, Key::Type::Coinbase));
+			np.m_Wallet.AddMyUtxo(CoinID(Rules::get().get_Emission(h), h, Key::Type::Coinbase));
 
 			BlockPlus::Ptr pBlock(new BlockPlus);
 			pBlock->m_Hdr = std::move(bc.m_Hdr);
@@ -3674,7 +3674,7 @@ namespace beam
 		HeightRange hr;
 		for (hr.m_Min = Rules::HeightGenesis; ; hr.m_Min++)
 		{
-			Amount v = Rules::get_Emission(hr.m_Min);
+			Amount v = Rules::get().get_Emission(hr.m_Min);
 			if (!v)
 				break;
 
@@ -3684,10 +3684,10 @@ namespace beam
 			for (hr.m_Max = hr.m_Min; nZeroTest; )
 			{
 				AmountBig::Number sum1;
-				Rules::get_Emission(sum1, hr);
+				Rules::get().get_Emission(sum1, hr);
 				verify_test(sum0 == sum1);
 
-				v = Rules::get_Emission(++hr.m_Max);
+				v = Rules::get().get_Emission(++hr.m_Max);
 				if (v)
 					sum0 += MultiWord::From(v);
 				else

@@ -757,7 +757,7 @@ private:
         StateData sd;
         get_StateTotals(sd, _nodeBackend.m_Cursor.m_Sid);
 
-        jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
+        jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get().get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
 
         json jInfo = json::array();
         jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTotals(_nodeBackend.m_Cursor.m_Sid, _nodeBackend.m_Cursor.m_Full) });
@@ -2501,11 +2501,12 @@ private:
         jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz });
         jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
 
+        const Rules& r = Rules::get();
         AmountBig::Number valCurrent, valTotal;
-        Rules::get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
+        r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
         jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
-        Rules::get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
+        r.get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
         jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valTotal) });
 
         // size estimation
@@ -2633,6 +2634,8 @@ private:
                 kernels.push_back(std::move(j));
             }
 
+            const Rules& r = Rules::get();
+
             if (Mode::Legacy == m_Mode)
             {
                 auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
@@ -2646,7 +2649,7 @@ private:
                     {"prev",       hash_to_hex(buf, blockState.m_Prev)},
                     {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
                     {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                    {"subsidy",    Rules::get_Emission(blockState.m_Height)},
+                    {"subsidy",    r.get_Emission(blockState.m_Height)},
                     {"inputs",     inputs},
                     {"outputs",    outputs},
                     {"kernels",    kernels},
@@ -2662,7 +2665,7 @@ private:
                 jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
                 jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
                 jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(blockState.m_PoW.m_Difficulty).m_sz });
-                jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(Rules::get_Emission(blockState.m_Height)) });
+                jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(r.get_Emission(blockState.m_Height)) });
 
                 struct FeeCalculator :public TxKernel::IWalker {
                     AmountBig::Number m_Fees = Zero;

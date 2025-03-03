@@ -4202,7 +4202,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
 			ThrowUnexpected(sErr.c_str());
 
-		if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
+		if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get().get_Emission(m_This.m_Processor.m_Cursor.m_ID.m_Height + 1)))
 			ThrowUnexpected();
 
 		ctx.m_Sigma = -ctx.m_Sigma;
