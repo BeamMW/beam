@@ -2355,17 +2355,17 @@ namespace beam
 		return base >> n;
 	}
 
-	Amount Rules::get_Emission(Height h)
+	Amount Rules::get_Emission(Height h) const
 	{
-		return get().get_EmissionEx(h, h, get().Emission.Value0);
+		return get_EmissionEx(h, h, Emission.Value0);
 	}
 
-	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr)
+	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr) const
 	{
-		get_Emission(res, hr, get().Emission.Value0);
+		get_Emission(res, hr, Emission.Value0);
 	}
 
-	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr, Amount base)
+	void Rules::get_Emission(AmountBig::Number& res, const HeightRange& hr, Amount base) const
 	{
 		res = Zero;
 
@@ -2375,7 +2375,7 @@ namespace beam
 		for (Height hPos = hr.m_Min; ; )
 		{
 			Height hEnd;
-			Amount nCurrent = get().get_EmissionEx(hPos, hEnd, base);
+			Amount nCurrent = get_EmissionEx(hPos, hEnd, base);
 			if (!nCurrent)
 				break;
 
@@ -3515,7 +3515,7 @@ namespace beam
 	{
 		ECC::Scalar::Native sk;
 
-		Amount val = Rules::get_Emission(m_Height);
+		Amount val = Rules::get().get_Emission(m_Height);
 		if (val)
 		{
 			pOutp.reset(new Output);

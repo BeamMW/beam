@@ -372,11 +372,13 @@ namespace beam
 			m_Entries.erase(it);
 
 		Entry& e = m_Entries[pid];
-		Request& r = e.m_Request;
-		r.m_WalletID = pid;
+		Request& req = e.m_Request;
+		req.m_WalletID = pid;
 
 		HeightRange hr;
 		hr.m_Max = pars.m_Maturity0 + Rules::HeightGenesis - 1;
+
+		const Rules& r = Rules::get();
 
 		for (uint32_t iBurst = 0; iBurst < pars.m_Bursts; iBurst++)
 		{
@@ -384,14 +386,14 @@ namespace beam
 			hr.m_Max += pars.m_MaturityStep;
 
 			AmountBig::Number valBig;
-			Rules::get_Emission(valBig, hr, nPerBlockAvg);
+			r.get_Emission(valBig, hr, nPerBlockAvg);
 			if (AmountBig::get_Hi(valBig))
 				throw std::runtime_error("too large");
 
 			Amount val = AmountBig::get_Lo(valBig);
 
-			r.m_vGroups.emplace_back();
-			Request::Group::Coin& c = r.m_vGroups.back().m_vCoins.emplace_back();
+			req.m_vGroups.emplace_back();
+			Request::Group::Coin& c = req.m_vGroups.back().m_vCoins.emplace_back();
 			c.m_Incubation = hr.m_Max;
 			c.m_Value = val;
 		}

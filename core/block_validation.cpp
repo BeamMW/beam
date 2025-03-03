@@ -254,7 +254,7 @@ namespace beam
 			subsTotal = m_Stats.m_Fee; // the value subtracted from the circulation
 		else
 		{
-			Rules::get_Emission(subsTotal, m_Height);
+			r.get_Emission(subsTotal, m_Height);
 			m_Sigma = -m_Sigma;
 		}
 
@@ -283,7 +283,7 @@ namespace beam
 					HeightRange hr;
 					hr.m_Min = m_Height.m_Max - r.Maturity.Coinbase;
 					hr.m_Max = m_Height.m_Max;
-					Rules::get_Emission(subsTotal, hr);
+					r.get_Emission(subsTotal, hr);
 
 					bHasEnoughLocked = (m_Stats.m_Coinbase >= subsTotal);
 

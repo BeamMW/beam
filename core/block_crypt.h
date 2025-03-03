@@ -547,9 +547,9 @@ namespace beam
 		void SetNetworkParams();
 		void UpdateChecksum();
 
-		static Amount get_Emission(Height);
-		static void get_Emission(AmountBig::Number&, const HeightRange&);
-		static void get_Emission(AmountBig::Number&, const HeightRange&, Amount base);
+		Amount get_Emission(Height) const;
+		void get_Emission(AmountBig::Number&, const HeightRange&) const;
+		void get_Emission(AmountBig::Number&, const HeightRange&, Amount base) const;
 
 		HeightHash pForks[7];
 
