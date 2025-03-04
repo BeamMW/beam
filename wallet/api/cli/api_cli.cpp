@@ -638,10 +638,15 @@ namespace
     };
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[])
 {
     namespace po = boost::program_options;
     using namespace beam;
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     struct
     {
@@ -771,8 +776,8 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            getRulesOptions(vm);
-            Rules::get().UpdateChecksum();
+            getRulesOptions(vm, r);
+            r.UpdateChecksum();
             BEAM_LOG_INFO() << "Beam Wallet API " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
             BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             

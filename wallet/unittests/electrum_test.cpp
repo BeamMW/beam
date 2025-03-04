@@ -437,10 +437,15 @@ void testReconnectToInvalidAddresses()
     mainReactor->run();
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     int logLevel = BEAM_LOG_LEVEL_WARNING;
     auto logger = beam::Logger::create(logLevel, logLevel);
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     testAddress();
     //testConnection();

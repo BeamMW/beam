@@ -40,15 +40,22 @@ struct Options {
     bool m_LogTrafic = false;
 };
 
-static bool parse_cmdline(int argc, char* argv[], Options& o);
+static bool parse_cmdline(int argc, char* argv[], Options& o, Rules&);
 static void setup_node(Node& node, const Options& o);
+
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main(int argc, char* argv[]) {
 
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
+
     Options options;
-    if (!parse_cmdline(argc, argv, options)) {
+    if (!parse_cmdline(argc, argv, options, r)) {
         return 1;
     }
+
+    r.UpdateChecksum();
 
     const auto path = boost::filesystem::system_complete(LOG_FILES_DIR);
     auto logger = Logger::create(BEAM_LOG_LEVEL_INFO, options.logLevel, options.logLevel, FILES_PREFIX, path.string());
@@ -89,7 +96,7 @@ int main(int argc, char* argv[]) {
 
 const char g_szTraficLog[] = "log_trafic";
 
-bool parse_cmdline(int argc, char* argv[], Options& o) {
+bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
     
     po::options_description cliOptions("Node explorer options");
     cliOptions.add_options()
@@ -208,7 +215,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
             }
         }
 
-        getRulesOptions(vm);
+        getRulesOptions(vm, r);
 
         return true;
     }
@@ -226,7 +233,6 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
 }
 
 void setup_node(Node& node, const Options& o) {
-    Rules::get().UpdateChecksum();
     BEAM_LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
     BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 

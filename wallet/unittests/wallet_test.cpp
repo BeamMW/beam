@@ -993,25 +993,11 @@ namespace
 
     void TestMinimalFeeTransaction()
     {
-        struct ForkHolder
-        {
-            ForkHolder(Height h)
-                : m_PrevValue{ Rules::get().pForks[1].m_Height }
-            {
-                Rules::get().pForks[1].m_Height = h;
-                Rules::get().UpdateChecksum();
-            }
 
-            ~ForkHolder()
-            {
-                Rules::get().pForks[1].m_Height = m_PrevValue;
-                Rules::get().UpdateChecksum();
-            }
-
-            Height m_PrevValue;
-        };
-
-        ForkHolder holder(140); // set fork height
+        Rules r = Rules::get(); // copy from prev
+        Rules::Scope scopeRules(r);
+        r.pForks[1].m_Height = 140;
+        r.UpdateChecksum();
 
         cout << "\nTesting minimal Tx...\n";
 
@@ -1481,7 +1467,7 @@ namespace
         return seed;
     }
 
-    void TestBbsMessages()
+    void TestBbsMessages(Rules& r)
     {
         printf("Testing bbs ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
@@ -1613,9 +1599,9 @@ namespace
         auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db);
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {})->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {})->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers);
+            InitNodeToTest(node, r, treasury, nullptr, port, 10000, path, peers);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1623,9 +1609,9 @@ namespace
         };
 
         Node senderNode;
-        auto senderNodeAddress= nodeCreator(senderNode, treasury, 32125, "sender_node.db");
+        auto senderNodeAddress= nodeCreator(senderNode, r, treasury, 32125, "sender_node.db");
         Node receiverNode;
-        auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", {senderNodeAddress});
+        auto receiverNodeAddress = nodeCreator(receiverNode, r, treasury, 32126, "receiver_node.db", {senderNodeAddress});
 
         TestWalletRig receiver(createReceiverWalletDB(), [](auto) {});
 
@@ -1638,7 +1624,7 @@ namespace
         mainReactor->run();
     }
 
-    void TestBbsMessages2()
+    void TestBbsMessages2(Rules& r)
     {
         printf("Testing bbs with wallets2 ...\n");
         io::Reactor::Ptr mainReactor(io::Reactor::create());
@@ -1666,9 +1652,9 @@ namespace
         auto db = createSqliteWalletDB(SenderWalletDB, false, false);
         auto treasury = createTreasury(db, AmountList{Amount(5*Count)});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 10000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 10000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1677,9 +1663,9 @@ namespace
 
 
         Node senderNode;
-        auto senderNodeAddress = nodeCreator(senderNode, treasury, 32125, "sender_node.db");
+        auto senderNodeAddress = nodeCreator(senderNode, r, treasury, 32125, "sender_node.db");
         Node receiverNode;
-        auto receiverNodeAddress = nodeCreator(receiverNode, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
+        auto receiverNodeAddress = nodeCreator(receiverNode, r, treasury, 32126, "receiver_node.db", { senderNodeAddress }, false);
 
         TestWalletRig sender(db, f, TestWalletRig::Type::Regular, false, 0, senderNodeAddress);
         TestWalletRig receiver(createReceiverWalletDB(), f, TestWalletRig::Type::Regular, false, 0, receiverNodeAddress);
@@ -1851,7 +1837,7 @@ namespace
     };
 
 
-    void TestAppShader1()
+    void TestAppShader1(Rules& r)
     {
         printf("Testing multi-wallet app shader with comm...\n");
 
@@ -1879,9 +1865,9 @@ namespace
         auto dbReceiver = createReceiverWalletDB(false, true);
         auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -1890,7 +1876,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
         TestWalletRig receiver(dbReceiver, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
@@ -1987,7 +1973,7 @@ namespace
 
 
 
-    void TestAppShader2()
+    void TestAppShader2(Rules& r)
     {
         printf("Testing upgradable2...\n");
 
@@ -2022,9 +2008,9 @@ namespace
 
         auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -2033,7 +2019,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         std::unique_ptr<TestWalletRig> pRig[nPeers];
         std::unique_ptr<MyManager> pMan[nPeers];
@@ -2283,7 +2269,7 @@ namespace
     }
 
 
-    void TestAppShader3()
+    void TestAppShader3(Rules& r)
     {
         printf("Testing upgradable3...\n");
 
@@ -2318,9 +2304,9 @@ namespace
 
         auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -2329,7 +2315,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         std::unique_ptr<TestWalletRig> pRig[nPeers];
         std::unique_ptr<MyManager> pMan[nPeers];
@@ -2487,7 +2473,7 @@ namespace
     }
 
 
-    void TestAppShader4()
+    void TestAppShader4(Rules& r)
     {
         printf("Testing dao-vault...\n");
 
@@ -2522,9 +2508,9 @@ namespace
 
         auto treasury = createTreasury(pDb[iSender], AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -2533,7 +2519,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         std::unique_ptr<TestWalletRig> pRig[nPeers];
         std::unique_ptr<MyManager> pMan[nPeers];
@@ -2640,7 +2626,7 @@ namespace
     }
 
 
-    void TestAppShader5()
+    void TestAppShader5(Rules& r)
     {
         printf("Testing Hfts ...\n");
 
@@ -2667,9 +2653,9 @@ namespace
         auto dbSender = createSqliteWalletDB(SenderWalletDB, false, true);
         auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -2678,7 +2664,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
         MyManager manSender(*sender.m_Wallet);
@@ -2779,7 +2765,7 @@ namespace
         }
     }
 
-    void TestAppShader6()
+    void TestAppShader6(Rules& r)
     {
         printf("Testing vault_anon by code ...\n");
 
@@ -2806,9 +2792,9 @@ namespace
         auto dbSender = createSqliteWalletDB(SenderWalletDB, false, true);
         auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
 
-        auto nodeCreator = [](Node& node, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
+        auto nodeCreator = [](Node& node, Rules& r, const ByteBuffer& treasury, uint16_t port, const std::string& path, const std::vector<io::Address>& peers = {}, bool miningNode = true)->io::Address
         {
-            InitNodeToTest(node, treasury, nullptr, port, 3000, path, peers, miningNode);
+            InitNodeToTest(node, r, treasury, nullptr, port, 3000, path, peers, miningNode);
             io::Address address;
             address.resolve("127.0.0.1");
             address.port(port);
@@ -2817,7 +2803,7 @@ namespace
 
 
         Node node;
-        auto nodeAddress = nodeCreator(node, treasury, 32125, "node.db");
+        auto nodeAddress = nodeCreator(node, r, treasury, 32125, "node.db");
 
         TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, nodeAddress);
         MyManager manSender(*sender.m_Wallet);
@@ -4968,6 +4954,8 @@ void TestThreadPool()
     TestThread<std::thread>();
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     int logLevel = BEAM_LOG_LEVEL_WARNING; 
@@ -4980,11 +4968,13 @@ int main()
     ECC::PseudoRandomGenerator prg;
     prg.m_hv = 125U;
 
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
-    Rules::get().m_Consensus = Rules::Consensus::FakePoW;
-	Rules::get().pForks[1].m_Height = 100500; // needed for lightning network to work
-    Rules::get().DisableForksFrom(2);
-    Rules::get().UpdateChecksum();
+    r.m_Consensus = Rules::Consensus::FakePoW;
+	r.pForks[1].m_Height = 100500; // needed for lightning network to work
+    r.DisableForksFrom(2);
+    r.UpdateChecksum();
 
     wallet::g_AssetsEnabled = true;
 
@@ -5047,22 +5037,22 @@ int main()
     //TestBbsMessages();
     //TestBbsMessages2();
 
-    Rules::get().pForks[1].m_Height = 1;
-    Rules::get().pForks[2].m_Height = 1;
-    Rules::get().pForks[3].m_Height = 1;
-    Rules::get().pForks[4].m_Height = 1;
-    Rules::get().UpdateChecksum();
-    TestAppShader1();
-    TestAppShader2();
-    TestAppShader3();
-    TestAppShader4();
-    TestAppShader5();
-    TestAppShader6();
-    Rules::get().pForks[1].m_Height = 20;
-    Rules::get().pForks[2].m_Height = 20;
-    Rules::get().pForks[3].m_Height = 20;
-    Rules::get().pForks[4].m_Height = 20;
-    Rules::get().UpdateChecksum();
+    r.pForks[1].m_Height = 1;
+    r.pForks[2].m_Height = 1;
+    r.pForks[3].m_Height = 1;
+    r.pForks[4].m_Height = 1;
+    r.UpdateChecksum();
+    TestAppShader1(r);
+    TestAppShader2(r);
+    TestAppShader3(r);
+    TestAppShader4(r);
+    TestAppShader5(r);
+    TestAppShader6(r);
+    r.pForks[1].m_Height = 20;
+    r.pForks[2].m_Height = 20;
+    r.pForks[3].m_Height = 20;
+    r.pForks[4].m_Height = 20;
+    r.UpdateChecksum();
 
     TestSendingShielded();
     TestCalculateCoinsSelection();

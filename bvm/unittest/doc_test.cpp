@@ -25,6 +25,8 @@ public:
     }
 };
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     DocProcessor processor;

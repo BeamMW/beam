@@ -430,6 +430,8 @@ namespace
     }
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[])
 {
     using namespace beam;
@@ -437,6 +439,9 @@ int main(int argc, char* argv[])
 
     const auto path = boost::filesystem::system_complete("./logs");
     auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "broadcast_", path.string());
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     try
     {
@@ -492,7 +497,7 @@ int main(int argc, char* argv[])
         }
 
         vm.notify();
-        getRulesOptions(vm);
+        getRulesOptions(vm, r);
 
         reactor = io::Reactor::create();
         io::Reactor::Scope scope(*reactor);
@@ -500,9 +505,9 @@ int main(int argc, char* argv[])
 
         LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
 
-        Rules::get().UpdateChecksum();
+        r.UpdateChecksum();
         BEAM_LOG_INFO() << "Broadcasting utility " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
-        BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+        BEAM_LOG_INFO() << "Rules signature: " << r.get_SignatureStr();
 
         if (vm.count(cli::COMMAND) == 0)
         {

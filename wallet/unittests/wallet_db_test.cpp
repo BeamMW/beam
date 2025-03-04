@@ -1704,6 +1704,8 @@ void TestShieldedStatus2()
 
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main() 
 {
     int logLevel = BEAM_LOG_LEVEL_DEBUG;
@@ -1712,6 +1714,9 @@ int main()
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);

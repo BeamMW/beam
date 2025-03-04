@@ -2419,7 +2419,10 @@ namespace bvm2 {
 		{
 			bool bPostHF6 = !!i;
 
-			Rules::get().pForks[6].m_Height = bPostHF6 ? Rules::get().pForks[5].m_Height : MaxHeight;
+			beam::Rules r = Rules::get(); // copy from prev
+			beam::Rules::Scope scopeRules(r);
+
+			r.pForks[6].m_Height = bPostHF6 ? Rules::get().pForks[5].m_Height : MaxHeight;
 
 
 			Shaders::Dummy::TestFarCall args;
@@ -4469,8 +4472,13 @@ namespace
 	}
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
 	try
 	{
 		ECC::PseudoRandomGenerator prg;
@@ -4557,7 +4565,6 @@ int main()
 			*/
 		}
 
-		auto& r = Rules::get();
 		for (uint32_t i = 0; i <= 6; i++)
 			r.pForks[i].m_Height = 0;
 

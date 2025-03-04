@@ -214,10 +214,15 @@ namespace
     }
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[])
 {
     try
     {
+        beam::Rules r;
+        beam::Rules::Scope scopeRules(r);
+
         const auto path = boost::filesystem::system_complete("./logs");
         auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "", path.string());
         MyOptions options;

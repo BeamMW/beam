@@ -1650,12 +1650,17 @@ void TestKeyKeeperTxs()
 	verify_test(kkw.InvokeOnBoth(mS) != KeyKeeperHwEmu::Status::Success); // Sender Phase2 can be called only once, the slot must have been invalidated
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
-	Rules::get().CA.Enabled = true;
-	Rules::get().pForks[1].m_Height = g_hFork;
-	Rules::get().pForks[2].m_Height = g_hFork;
-	Rules::get().pForks[3].m_Height = g_hFork;
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
+	r.CA.Enabled = true;
+	r.pForks[1].m_Height = g_hFork;
+	r.pForks[2].m_Height = g_hFork;
+	r.pForks[3].m_Height = g_hFork;
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
