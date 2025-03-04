@@ -65,6 +65,9 @@ namespace
     static IWalletDB::Ptr walletDB;
     static Reactor::Ptr reactor;
 
+    static Rules g_Rules;
+    static Rules::Scope g_RulesScope(g_Rules);
+
     static ECC::NoLeak<ECC::uintBig> passwordHash;
     static beam::wallet::TxParameters _txParameters;
 
@@ -83,10 +86,10 @@ namespace
 
         static auto logger = Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG, "wallet_", (fs::path(appData) / fs::path("logs")).string());
 
-        Rules::get().UpdateChecksum();
+        g_Rules.UpdateChecksum();
         
         BEAM_LOG_INFO() << "Beam Mobile Wallet " << appVersion << " (" << BRANCH_NAME << ") library: " << PROJECT_VERSION;
-        BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+        BEAM_LOG_INFO() << "Rules signature: " << g_Rules.get_SignatureStr();
     }
 
     std::map<Notification::Type,bool> initNotifications(bool initialValue)
