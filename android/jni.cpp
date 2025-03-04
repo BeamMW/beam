@@ -53,6 +53,8 @@ using namespace std;
 
 namespace fs = boost::filesystem;
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 namespace
 {
     static const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
