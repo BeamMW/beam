@@ -1674,13 +1674,19 @@ void testCalcChange()
     }));
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     wallet::g_AssetsEnabled = true;
-    Rules::get().pForks[1].m_Height = 30;
-    Rules::get().pForks[2].m_Height = 60;
-    Rules::get().pForks[3].m_Height = 90;
-    Rules::get().UpdateChecksum();
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
+
+    r.pForks[1].m_Height = 30;
+    r.pForks[2].m_Height = 60;
+    r.pForks[3].m_Height = 90;
+    r.UpdateChecksum();
 
     auto logger = beam::Logger::create();
     testInvalidJsonRpc(NoFork, [](const json& msg)

@@ -104,8 +104,13 @@ int test_adapter(int seconds) {
 
 } //namespace
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[]) {
     using namespace beam;
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     int logLevel = BEAM_LOG_LEVEL_DEBUG;
 #if LOG_VERBOSE_ENABLED
@@ -120,8 +125,8 @@ int main(int argc, char* argv[]) {
         }
     );
     ECC::InitializeContext();
-    Rules::get().DA.Target_ms = 1000; // 1 second
-    Rules::get().DA.Difficulty0 = 1;
+    r.DA.Target_ms = 1000; // 1 second
+    r.DA.Difficulty0 = 1;
 
     int seconds = 0;
     if (argc > 1) {
@@ -129,7 +134,7 @@ int main(int argc, char* argv[]) {
     }
     if (seconds == 0) {
         seconds = 4;
-        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
+        r.m_Consensus = Rules::Consensus::FakePoW;
     }
 
     int ret = test_adapter(seconds);

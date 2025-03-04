@@ -24,6 +24,7 @@ namespace beam::wallet
     ByteBuffer createTreasury(IWalletDB::Ptr db, const AmountList& amounts = { 5, 2, 1, 9 });
 
     void InitNodeToTest(Node& node
+        , Rules&
         , const ByteBuffer& binaryTreasury
         , Node::IObserver* observer
         , uint16_t port = 32125

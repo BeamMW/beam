@@ -99,6 +99,8 @@ void run_without_node() {
     server.reset();
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 void run_with_node() {
     boost::filesystem::remove_all("xxxxx");
     boost::filesystem::remove_all("yyyyy");
@@ -112,9 +114,12 @@ void run_with_node() {
     find_certificates(options);
     server = IExternalPOW::create(options, *reactor, listenTo, 5);
 
-    Rules::get().DA.Difficulty0 = 0;
-    Rules::get().UpdateChecksum();
-    BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
+
+    r.DA.Difficulty0 = 0;
+    r.UpdateChecksum();
+    BEAM_LOG_INFO() << "Rules signature: " << r.get_SignatureStr();
 
     Node node;
     node.m_Cfg.m_sPathLocal = "xxxxx";

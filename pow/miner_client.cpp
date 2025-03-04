@@ -232,8 +232,13 @@ struct Options {
 
 static bool parse_cmdline(int argc, char* argv[], Options& o);
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[]) {
     using namespace beam;
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     Options options;
     if (!parse_cmdline(argc, argv, options)) {

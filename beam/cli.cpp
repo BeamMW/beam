@@ -274,9 +274,14 @@ std::shared_ptr<HKdfPub> ImportPKeyStrict(std::string& sKey, const Blob& pass)
 	return ImportKey_T<HKdfPub>(sKey, ks);
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[])
 {
 	beam::Crash::InstallHandler(NULL);
+
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
 
 	try
 	{
@@ -285,7 +290,7 @@ int main(int argc, char* argv[])
 		po::variables_map vm;
 		try
 		{
-			vm = getOptions(argc, argv, options);
+			vm = getOptions(argc, argv, options, r);
 		}
 		catch (const po::error& e)
 		{
@@ -330,7 +335,7 @@ int main(int argc, char* argv[])
 
 			clean_old_logfiles(LOG_FILES_DIR, LOG_FILES_PREFIX, logCleanupPeriod);
 
-			Rules::get().UpdateChecksum();
+			r.UpdateChecksum();
 			BEAM_LOG_INFO() << "Beam Node " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
 			BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
 

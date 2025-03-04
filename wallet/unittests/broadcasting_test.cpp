@@ -468,9 +468,13 @@ namespace
 
 } // namespace
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
 {
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
+
     cout << "Broadcasting tests:" << endl;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };

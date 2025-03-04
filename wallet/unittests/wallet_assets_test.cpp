@@ -26,14 +26,14 @@
 WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 
-void InitTestNode(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver* observer,
+void InitTestNode(Node& node, Rules& r, const ByteBuffer& binaryTreasury, Node::IObserver* observer,
                   Key::IPKdf::Ptr ownerKey, uint16_t port = 32125, uint32_t powSolveTime = 200,
                   const std::string& path = "mytest.db", const std::vector<io::Address>& peers = {},
                   bool miningNode = true)
 {
     node.m_Keys.m_pOwner = ownerKey;
     node.m_Cfg.m_Treasury = binaryTreasury;
-    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+    ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
 
     boost::filesystem::remove(path);
     node.m_Cfg.m_sPathLocal = path;
@@ -47,15 +47,15 @@ void InitTestNode(Node& node, const ByteBuffer& binaryTreasury, Node::IObserver*
     node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
     node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
     //Rules::get().Maturity.Coinbase = 1;
-    Rules::get().m_Consensus = Rules::Consensus::FakePoW;
+    r.m_Consensus = Rules::Consensus::FakePoW;
 
     node.m_Cfg.m_Observer = observer;
-    Rules::get().UpdateChecksum();
+    r.UpdateChecksum();
     node.Initialize();
     node.m_PostStartSynced = true;
 }
 
-void TestAssets() {
+void TestAssets(Rules& r) {
     //
     // Assets issue
     //
@@ -103,7 +103,7 @@ void TestAssets() {
         }
     });
 
-    InitTestNode(node, receiverTreasury, &observer, receiverDB->get_MasterKdf());
+    InitTestNode(node, r, receiverTreasury, &observer, receiverDB->get_MasterKdf());
     TestWalletRig receiver(receiverDB, stopReactor, TestWalletRig::RegularWithoutPoWBbs);
 
     auto ownerDB = createSqliteWalletDB("owner_wallet.db", false, true);
@@ -636,24 +636,28 @@ void TestAssets() {
     BEAM_LOG_INFO() << "Finished testing assets...";
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main () {
     const auto logLevel = BEAM_LOG_LEVEL_DEBUG;
     const auto logger = beam::Logger::create(logLevel, logLevel);
     BEAM_LOG_INFO() << "Assets test - starting";
 
-    auto& rules = beam::Rules::get();
-    WALLET_CHECK(rules.CA.LockPeriod == rules.MaxRollback);
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
-    rules.CA.Enabled          = true;
-    rules.CA.LockPeriod       = 20;
-    rules.CA.DepositForList2  = rules.Coin * 1000;
-    rules.MaxRollback         = 20;
-    rules.m_Consensus         = Rules::Consensus::FakePoW;
-    rules.pForks[1].m_Height  = 5;
-    rules.pForks[2].m_Height  = 10;
-    rules.UpdateChecksum();
+    WALLET_CHECK(r.CA.LockPeriod == r.MaxRollback);
 
-    TestAssets();
+    r.CA.Enabled          = true;
+    r.CA.LockPeriod       = 20;
+    r.CA.DepositForList2  = Rules::Coin * 1000;
+    r.MaxRollback         = 20;
+    r.m_Consensus         = Rules::Consensus::FakePoW;
+    r.pForks[1].m_Height  = 5;
+    r.pForks[2].m_Height  = 10;
+    r.UpdateChecksum();
+
+    TestAssets(r);
 
     BEAM_LOG_INFO() << "Assets test - completed, failures: " << g_failureCount;
     assert(g_failureCount == 0);

@@ -24,6 +24,8 @@
 
 namespace beam
 {
+    struct Rules;
+
     namespace po = boost::program_options;
     namespace cli
     {
@@ -331,9 +333,9 @@ namespace beam
     boost::optional<asio_ipfs::config> getIPFSConfig(const po::variables_map& vm, asio_ipfs::config defaults); // boost::none if IPFS is not enabled
     #endif
 
-    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions = false);
+    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, Rules&, bool walletOptions = false);
 
-    void getRulesOptions(po::variables_map& vm);
+    void getRulesOptions(po::variables_map& vm, Rules&);
 
     boost::optional<std::string> ReadCfgFromFile(po::variables_map&, const po::options_description&);
     boost::optional<std::string> ReadCfgFromFile(po::variables_map&, const po::options_description&, const char* szFile);

@@ -536,12 +536,12 @@ struct TestDirector
 		io::Reactor::get_Current().stop();
 	}
 
-	void MakeTreasury();
-	void Run();
+	void MakeTreasury(Rules&);
+	void Run(Rules&);
 
 };
 
-void TestDirector::MakeTreasury()
+void TestDirector::MakeTreasury(Rules& r)
 {
 	Treasury tres;
 	Treasury::Parameters pars;
@@ -588,12 +588,12 @@ void TestDirector::MakeTreasury()
 
 	ser.swap_buf(m_Node.m_Cfg.m_Treasury);
 
-	ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+	ECC::Hash::Processor() << Blob(m_Node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
 }
 
-void TestDirector::Run()
+void TestDirector::Run(Rules& r)
 {
-	MakeTreasury();
+	MakeTreasury(r);
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
@@ -632,17 +632,18 @@ void TestDirector::Run()
 	pReactor->run();
 }
 
-
-
 void Test()
 {
 	//	auto logger = Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 
-	Rules::get().pForks[1].m_Height = 1;
-	Rules::get().pForks[2].m_Height = 1;
-	Rules::get().m_Consensus = Rules::Consensus::FakePoW;
-	Rules::get().MaxRollback = 5;
-	Rules::get().UpdateChecksum();
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
+	r.pForks[1].m_Height = 1;
+	r.pForks[2].m_Height = 1;
+	r.m_Consensus = Rules::Consensus::FakePoW;
+	r.MaxRollback = 5;
+	r.UpdateChecksum();
 
 	{
 		struct Test1 :public TestDirector
@@ -691,7 +692,7 @@ void Test()
 			}
 		};
 
-		Test1().Run();
+		Test1().Run(r);
 	}
 
 
@@ -755,7 +756,7 @@ void Test()
 			}
 		};
 
-		Test2().Run();
+		Test2().Run(r);
 	}
 
 
@@ -797,7 +798,7 @@ void Test()
 			}
 		};
 
-		Test3().Run();
+		Test3().Run(r);
 	}
 
 	{
@@ -819,7 +820,7 @@ void Test()
 			}
 		};
 
-		Test4().Run();
+		Test4().Run(r);
 	}
 }
 
@@ -829,7 +830,7 @@ void Test()
 
 
 
-
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
 {

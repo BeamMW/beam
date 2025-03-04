@@ -923,10 +923,14 @@ uint16_t g_LocalNodePort = 16725;
 
 } // namespace beam
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main_Guarded(int argc, char* argv[])
 {
     using namespace beam;
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     io::Reactor::Ptr pReactor(io::Reactor::create());
     io::Reactor::Scope scope(*pReactor);
@@ -952,7 +956,7 @@ int main_Guarded(int argc, char* argv[])
         
         ;
 
-    po::variables_map vm = getOptions(argc, argv, options, true);
+    po::variables_map vm = getOptions(argc, argv, options, r, true);
 
     bool bLocalMode = vm[szLocalMode].as<bool>();
 
@@ -1026,14 +1030,14 @@ int main_Guarded(int argc, char* argv[])
 
         ser.swap_buf(node.m_Cfg.m_Treasury);
 
-        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
-        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
-        Rules::get().MaxRollback = 10;
-        Rules::get().Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
-        Rules::get().Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
-        Rules::get().Shielded.MaxWindowBacklog = 200;
-        Rules::get().pForks[1].m_Height = 1;
-        Rules::get().pForks[2].m_Height = 2;
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
+        r.m_Consensus = Rules::Consensus::FakePoW;
+        r.MaxRollback = 10;
+        r.Shielded.m_ProofMax = Sigma::Cfg(4, 3); // 64
+        r.Shielded.m_ProofMin = Sigma::Cfg(4, 2); // 16
+        r.Shielded.MaxWindowBacklog = 200;
+        r.pForks[1].m_Height = 1;
+        r.pForks[2].m_Height = 2;
 
         node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = 3000;
         node.m_Cfg.m_MiningThreads = 1;
@@ -1041,7 +1045,7 @@ int main_Guarded(int argc, char* argv[])
         beam::DeleteFile(node.m_Cfg.m_sPathLocal.c_str());
     }
 
-    Rules::get().UpdateChecksum();
+    r.UpdateChecksum();
 
     node.m_Cfg.m_Listen.port(g_LocalNodePort);
     node.m_Cfg.m_Listen.ip(INADDR_ANY);

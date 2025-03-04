@@ -1013,8 +1013,6 @@ namespace beam
 
 	void TestEvmTxKernel()
 	{
-		Rules::get().pForks[6].m_Height = Rules::get().pForks[5].m_Height + 10;
-
 		ECC::Scalar::Native skFrom, skBlind, skInp;
 		skFrom.GenRandomNnz();
 		skBlind.GenRandomNnz();
@@ -1055,12 +1053,20 @@ namespace beam
 
 } // namespace beam
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
 	try
 	{
 		ECC::PseudoRandomGenerator prg;
 		ECC::PseudoRandomGenerator::Scope scope(&prg);
+
+		beam::Rules r;
+		beam::Rules::Scope scopeRules(r);
+
+		r.pForks[6].m_Height = r.pForks[5].m_Height + 10;
+		r.UpdateChecksum();
 
 		using namespace beam;
 

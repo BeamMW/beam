@@ -396,8 +396,10 @@ namespace beam
 
 	struct Rules
 	{
+		thread_local static const Rules* s_pInstance;
+		static const Rules& get();
+
 		Rules();
-		static Rules& get();
 
 		struct Scope {
 			const Rules* m_pPrev;

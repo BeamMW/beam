@@ -163,7 +163,7 @@ namespace beam
 		nCumulative++;
 	}
 
-	void PrepareTreasury()
+	void PrepareTreasury(Rules& r)
 	{
 		ECC::SetRandom(g_pTreasuryKdf);
 
@@ -190,7 +190,7 @@ namespace beam
 
 		ser.swap_buf(g_Treasury);
 
-		ECC::Hash::Processor() << Blob(g_Treasury) >> Rules::get().TreasuryChecksum;
+		ECC::Hash::Processor() << Blob(g_Treasury) >> r.TreasuryChecksum;
 	}
 
 	uint32_t CountTips(NodeDB& db, bool bFunctional, NodeDB::StateID* pLast = NULL)
@@ -1745,7 +1745,7 @@ namespace beam
 
 
 
-	void TestNodeClientProto()
+	void TestNodeClientProto(Rules& r)
 	{
 		// Testing configuration: Node <-> Client. Node is a miner
 
@@ -1800,7 +1800,7 @@ namespace beam
 
 		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 		{
-			beam::Rules::get().m_Pbft.m_RequiredWhite = 1;
+			r.m_Pbft.m_RequiredWhite = 1;
 
 			ECC::Scalar::Native sk;
 
@@ -1814,10 +1814,10 @@ namespace beam
 			pE[1].m_Stake = Rules::Coin * 700;
 			pE[1].m_White = true;
 
-			Rules::get().m_Pbft.m_p0 = pE;
-			Rules::get().m_Pbft.m_Count = _countof(pE);
-			Rules::get().DA.Target_ms = 576;
-			Rules::get().UpdateChecksum();
+			r.m_Pbft.m_p0 = pE;
+			r.m_Pbft.m_Count = _countof(pE);
+			r.DA.Target_ms = 576;
+			r.UpdateChecksum();
 		}
 
 		struct MyClient
@@ -4049,6 +4049,9 @@ namespace beam
 
 void TestAll()
 {
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
@@ -4059,19 +4062,19 @@ void TestAll()
 	if (!bClientProtoOnly)
 		beam::PrintEmissionSchedule();
 
-	beam::Rules::get().AllowPublicUtxos = true;
-	beam::Rules::get().m_Consensus = beam::Rules::Consensus::FakePoW;
-	beam::Rules::get().MaxRollback = 10;
-	beam::Rules::get().DA.WindowWork = 35;
-	beam::Rules::get().Maturity.Coinbase = 35; // lowered to see more txs
-	beam::Rules::get().Emission.Drop0 = 5;
-	beam::Rules::get().Emission.Drop1 = 8;
-	beam::Rules::get().CA.Enabled = true;
-	beam::Rules::get().Maturity.Coinbase = 10;
-	beam::Rules::get().pForks[1].m_Height = 16;
-	beam::Rules::get().UpdateChecksum();
+	r.AllowPublicUtxos = true;
+	r.m_Consensus = beam::Rules::Consensus::FakePoW;
+	r.MaxRollback = 10;
+	r.DA.WindowWork = 35;
+	r.Maturity.Coinbase = 35; // lowered to see more txs
+	r.Emission.Drop0 = 5;
+	r.Emission.Drop1 = 8;
+	r.CA.Enabled = true;
+	r.Maturity.Coinbase = 10;
+	r.pForks[1].m_Height = 16;
+	r.UpdateChecksum();
 
-	beam::PrepareTreasury();
+	beam::PrepareTreasury(r);
 
 	if (!bClientProtoOnly)
 	{
@@ -4127,29 +4130,29 @@ void TestAll()
 		beam::DeleteFile(beam::g_sz2);
 	}
 
-	beam::Rules::get().MaxRollback = 100;
-	beam::Rules::get().pForks[2].m_Height = 17;
-	beam::Rules::get().pForks[3].m_Height = 17;
-	beam::Rules::get().pForks[4].m_Height = 17;
-    beam::Rules::get().pForks[5].m_Height = 17;
-    beam::Rules::get().pForks[6].m_Height = 17;
-	beam::Rules::get().CA.DepositForList2 = beam::Rules::Coin * 16;
-	beam::Rules::get().CA.LockPeriod = 2;
-	beam::Rules::get().Shielded.m_ProofMax = { 4, 6 }; // 4K
-	beam::Rules::get().Shielded.m_ProofMin = { 4, 5 }; // 1K
-    beam::Rules::get().Evm.Groth2Wei = 10'000'000'000ull;
+	r.MaxRollback = 100;
+	r.pForks[2].m_Height = 17;
+	r.pForks[3].m_Height = 17;
+	r.pForks[4].m_Height = 17;
+    r.pForks[5].m_Height = 17;
+    r.pForks[6].m_Height = 17;
+	r.CA.DepositForList2 = beam::Rules::Coin * 16;
+	r.CA.LockPeriod = 2;
+	r.Shielded.m_ProofMax = { 4, 6 }; // 4K
+	r.Shielded.m_ProofMin = { 4, 5 }; // 1K
+    r.Evm.Groth2Wei = 10'000'000'000ull;
 
 	if (bTestPbft)
 	{
-		beam::Rules::get().m_Consensus = beam::Rules::Consensus::Pbft;
-		beam::Rules::get().CA.ForeignEnd = 1'000'000;
+		r.m_Consensus = beam::Rules::Consensus::Pbft;
+		r.CA.ForeignEnd = 1'000'000;
 	} else
-		beam::Rules::get().UpdateChecksum();
+		r.UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
-	beam::TestNodeClientProto();
+	beam::TestNodeClientProto(r);
 
 	{
 		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
@@ -4198,9 +4201,9 @@ void TestAll()
 	printf("Node <---> FlyClient test...\n");
 	fflush(stdout);
 
-	beam::Rules::get().m_Consensus = beam::Rules::Consensus::FakePoW;
-	beam::Rules::get().CA.ForeignEnd = 0;
-	beam::Rules::get().UpdateChecksum();
+	r.m_Consensus = beam::Rules::Consensus::FakePoW;
+	r.CA.ForeignEnd = 0;
+	r.UpdateChecksum();
 
 	beam::TestFlyClient();
 	beam::DeleteFile(beam::g_sz);
@@ -4212,6 +4215,8 @@ void TestAll()
 	beam::DeleteFile(beam::g_sz);
 	beam::DeleteFile(beam::g_sz2);
 }
+
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
 {

@@ -297,6 +297,8 @@ void testConnectionRefused()
     WALLET_CHECK(counter == 1);
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     int logLevel = BEAM_LOG_LEVEL_WARNING;
@@ -304,6 +306,9 @@ int main()
     logLevel = BEAM_LOG_LEVEL_VERBOSE;
 #endif
     auto logger = beam::Logger::create(logLevel, logLevel);
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
 
     testSuccessResponse();
     testWrongCredentials();

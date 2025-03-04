@@ -885,18 +885,22 @@ namespace
 
 } // namespace
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     cout << "SwapOffersBoard tests:" << endl;
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
-    
-    auto& rules = beam::Rules::get();
-    rules.m_Consensus = Rules::Consensus::FakePoW;
-    rules.UpdateChecksum();
-    rules.pForks[1].m_Height = Fork1Height;
-    rules.pForks[2].m_Height = Fork2Height;
+
+    beam::Rules r;
+    beam::Rules::Scope scopeRules(r);
+
+    r.m_Consensus = Rules::Consensus::FakePoW;
+    r.UpdateChecksum();
+    r.pForks[1].m_Height = Fork1Height;
+    r.pForks[2].m_Height = Fork2Height;
 
     TestProtocolHandlerSignature();
     TestProtocolHandlerIntegration();

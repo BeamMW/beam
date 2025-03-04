@@ -784,7 +784,7 @@ namespace beam
         return ReadCfgFromFile(vm, desc, "beam-common.cfg");
     }
 
-    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, bool walletOptions)
+    po::variables_map getOptions(int argc, char* argv[], const po::options_description& options, Rules& r, bool walletOptions)
     {
         po::variables_map vm;
         po::positional_options_description positional;
@@ -801,15 +801,13 @@ namespace beam
         ReadCfgFromFileCommon(vm, options);
         ReadCfgFromFile(vm, options);
 
-        getRulesOptions(vm);
+        getRulesOptions(vm, r);
 
         return vm;
     }
 
-    void getRulesOptions(po::variables_map& vm)
+    void getRulesOptions(po::variables_map& vm, Rules& r)
     {
-        auto& r = Rules::get();
-
         const auto& vProf = vm[cli::NETWORK];
         if (!vProf.empty())
         {

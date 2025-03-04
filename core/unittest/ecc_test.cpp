@@ -2335,14 +2335,14 @@ void TestAssetProof2()
 	verify_test(proof.IsValid(g_hFork, genBlinded));
 }
 
-void TestAssetProof()
+void TestAssetProof(beam::Rules& r)
 {
 	// before HF6
-	beam::Rules::get().pForks[6].m_Height = beam::MaxHeight;
+	r.pForks[6].m_Height = beam::MaxHeight;
 	TestAssetProof2();
 
 	// after HF6
-	beam::Rules::get().pForks[6].m_Height = g_hFork;
+	r.pForks[6].m_Height = g_hFork;
 	TestAssetProof2();
 }
 
@@ -2413,7 +2413,7 @@ void TestAssetEmission()
 	verify_test(bIsValid);
 }
 
-void TestAll()
+void TestAll(beam::Rules& r)
 {
 	TestByteOrder();
 	TestUintBig();
@@ -2436,7 +2436,7 @@ void TestAll()
 	TestFourCC();
 	TestBase58();
 	TestTreasury();
-	TestAssetProof();
+	TestAssetProof(r);
 	TestAssetEmission();
 	TestLelantus(false, false);
 	TestLelantus(false, true);
@@ -3244,6 +3244,8 @@ void TestEthProof()
 	}
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
 	g_psecp256k1 = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
@@ -3251,13 +3253,16 @@ int main()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	beam::Rules::get().CA.Enabled = true;
-	for (uint32_t i = 0; i < _countof(beam::Rules::get().pForks); i++)
-		beam::Rules::get().pForks[i].m_Height = g_hFork;
+	beam::Rules r;
+	beam::Rules::Scope scopeRules(r);
+
+	r.CA.Enabled = true;
+	for (uint32_t i = 0; i < _countof(r.pForks); i++)
+		r.pForks[i].m_Height = g_hFork;
 
 	beam::Asset::Proof::Params::s_AidMax_Global = 160;
 
-	ECC::TestAll();
+	ECC::TestAll(r);
 	ECC::RunBenchmark();
 
 	TestEthProof();

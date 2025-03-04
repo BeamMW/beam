@@ -104,6 +104,7 @@ namespace beam::wallet
     }
 
     void InitNodeToTest(Node& node
+        , Rules& r
         , const ByteBuffer& binaryTreasury
         , Node::IObserver* observer
         , uint16_t port /*= 32125*/
@@ -113,7 +114,7 @@ namespace beam::wallet
         , bool miningNode /*= true*/)
     {
         node.m_Cfg.m_Treasury = binaryTreasury;
-        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> Rules::get().TreasuryChecksum;
+        ECC::Hash::Processor() << Blob(node.m_Cfg.m_Treasury) >> r.TreasuryChecksum;
 
         boost::filesystem::remove(path);
         node.m_Cfg.m_sPathLocal = path;
@@ -127,13 +128,13 @@ namespace beam::wallet
         node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
         node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
         //Rules::get().Maturity.Coinbase = 1;
-        Rules::get().m_Consensus = Rules::Consensus::FakePoW;
+        r.m_Consensus = Rules::Consensus::FakePoW;
 
         ECC::uintBig seed = 345U;
         node.m_Keys.InitSingleKey(seed);
 
         node.m_Cfg.m_Observer = observer;
-        Rules::get().UpdateChecksum();
+        r.UpdateChecksum();
         node.Initialize();
         node.m_PostStartSynced = true;
     }

@@ -918,6 +918,7 @@ bool Manager::LocalContext::FindPipeCid(bvm2::ContractID& cid)
 
 } // namespace beam
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main_Guarded(int argc, char* argv[])
 {
@@ -961,7 +962,7 @@ int main_Guarded(int argc, char* argv[])
             (cli::SEED_PHRASE, po::value<std::string>()->default_value(""), "seed phrase")
             ;
 
-        po::variables_map vm = getOptions(argc, argv, options);
+        po::variables_map vm = getOptions(argc, argv, options, c.m_Rules);
 
         if (Rules::Consensus::FakePoW == c.m_Rules.m_Consensus)
         {

@@ -31,6 +31,8 @@ void LoadCode(ByteBuffer& res, const char* sz)
     Processor::Compile(res, res, Processor::Kind::Contract);
 }
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main(int argc, char* argv[])
 {
     if (argc < 2)

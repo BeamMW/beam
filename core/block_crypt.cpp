@@ -2144,22 +2144,22 @@ namespace beam
 
 	/////////////
 	// Rules
-
-	Rules g_Rules; // refactor this to enable more flexible acess for current rules (via TLS or etc.)
-	thread_local const Rules* g_pRulesOverride = nullptr;
-
-	Rules& Rules::get()
+	const Rules& Rules::get()
 	{
-		return g_pRulesOverride ? Cast::NotConst(*g_pRulesOverride) : g_Rules;
+		assert(s_pInstance);
+		if (!s_pInstance)
+			Exc::Fail("no rules");
+
+		return *s_pInstance;
 	}
 
 	Rules::Scope::Scope(const Rules& r) {
-		m_pPrev = g_pRulesOverride;
-		g_pRulesOverride = &r;
+		m_pPrev = s_pInstance;
+		s_pInstance = &r;
 	}
 
 	Rules::Scope::~Scope() {
-		g_pRulesOverride = m_pPrev;
+		s_pInstance = m_pPrev;
 	}
 
 	const Height Rules::HeightGenesis	= 1;
