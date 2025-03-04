@@ -39,10 +39,15 @@ WaitHandle run_node(const NodeParams& params) {
     WaitHandle ret;
     io::Reactor::Ptr reactor = io::Reactor::create();
 
+    const Rules& r = Rules::get();
+
     ret.future = std::async(
         std::launch::async,
-        [&params, reactor]() {
+        [&params, reactor, r]()
+        {
             io::Reactor::Scope scope(*reactor);
+            Rules::Scope rulesScope(r);
+
             beam::Node node;
 
             node.m_Cfg.m_Listen.port(params.nodeAddress.port());
