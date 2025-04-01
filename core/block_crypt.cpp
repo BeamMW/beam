@@ -2166,9 +2166,6 @@ namespace beam
 
 	Rules::Rules()
 	{
-		// set common params (same for all networks)
-		ZeroObject(*this);
-
 		Prehistoric = {
 			// BTC Block #556833
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -2201,6 +2198,7 @@ namespace beam
 		CA.DepositForList5 = Coin * 10; // after HF5
 		CA.LockPeriod = 1440; // how long it's locked (can't be destroyed) after it was completely burned
 		CA.m_ProofCfg = { 4, 3 }; // 4^3 = 64
+		CA.ForeignEnd = 0;
 
 		// Shielded
 		Shielded.Enabled = true; // past Fork2
@@ -2223,6 +2221,9 @@ namespace beam
 		AllowPublicUtxos = false;
 		Magic.v2 = 2;
 
+		m_Pbft.m_RequiredWhite = 0;
+		m_Pbft.m_AidStake = 0;
+
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^8 groth
 		// for equivalency we define  1 groth == 10^0 wei
@@ -2232,8 +2233,7 @@ namespace beam
 		Evm.BaseGasPrice = 10ull * 1'000'000'000ull; // 10 gwei
 		Evm.MinTxGasUnits = 21000;
 
-		static_assert(static_cast<int>(Network::mainnet) == 0);
-		assert(Network::mainnet == m_Network);
+		m_Network = Network::mainnet;
 		SetNetworkParams();
 	}
 
@@ -2486,29 +2486,29 @@ namespace beam
 
 			oracle
 				<< DA.Target_ms
-				<< x.m_Count;
+				<< x.m_vE.size();
 
-			bool bHaveStake = false;
+			Amount stakeTotal = 0;
 			uint32_t nWhite = 0;
 
-			for (uint32_t i = 0; i < x.m_Count; i++)
+			for (const auto& e : x.m_vE)
 			{
-				const auto& e = x.m_p0[i];
 				oracle
 					<< e.m_Addr
 					<< e.m_Stake
 					<< e.m_White;
 
-				if (e.m_Stake)
-					bHaveStake = true;
+				stakeTotal += e.m_Stake;
+				if (stakeTotal < e.m_Stake)
+					Exc::Fail("stake overflow");
 				if (e.m_White)
 					nWhite++;
 			}
 
-			if (!bHaveStake)
+			if (!stakeTotal)
 				Exc::Fail("no stake");
 			if (nWhite < x.m_RequiredWhite)
-				Exc::Fail("no white");
+				Exc::Fail("not enough white");
 		}
 
 		if (!Magic.IsTestnet)
@@ -2721,7 +2721,7 @@ namespace beam
 		while (!m_lstVs.empty())
 			Delete(m_lstVs.front());
 
-		m_Totals.m_Amount = 0;
+		m_Totals.m_Revenue = 0;
 	}
 
 	void Block::Pbft::State::Delete(Validator& v)
@@ -2813,7 +2813,7 @@ namespace beam
 		ECC::Hash::Processor hp;
 		hp
 			<< "vs.state"
-			<< m_Totals.m_Amount
+			<< m_Totals.m_Revenue
 			<< m_lstVs.size();
 
 		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
@@ -2876,9 +2876,8 @@ namespace beam
 	void Block::Pbft::State::SetInitial()
 	{
 		const auto& pars = Rules::get().m_Pbft;
-		for (uint32_t i = 0; i < pars.m_Count; i++)
+		for (const auto& v : pars.m_vE)
 		{
-			const auto& v = pars.m_p0[i];
 			if (!v.m_Stake)
 				continue;
 
@@ -2886,10 +2885,22 @@ namespace beam
 			assert(pV);
 
 			pV->m_Weight += v.m_Stake;
-			m_Totals.m_Amount += v.m_Stake;
 
 			if (v.m_White)
 				pV->m_White = true;
+		}
+	}
+
+	void Block::Pbft::State::ResolveWhitelisted(const Rules& r)
+	{
+		for (const auto& x : r.m_Pbft.m_vE)
+		{
+			if (x.m_White)
+			{
+				auto* pVal = Find(x.m_Addr, false);
+				if (pVal)
+					pVal->m_White = true;
+			}
 		}
 	}
 

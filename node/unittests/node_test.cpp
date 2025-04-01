@@ -1796,26 +1796,23 @@ namespace beam
 
 		ECC::SetRandom(node2);
 
-		Rules::Pbft::Entry pE[2];
-
 		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 		{
 			r.m_Pbft.m_RequiredWhite = 1;
+			r.m_Pbft.m_vE.resize(2);
 
 			ECC::Scalar::Native sk;
 
 			node.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
-			pE[0].m_Addr.FromSk(sk);
-			pE[0].m_Stake = Rules::Coin * 700;
-			pE[0].m_White = false;
+			r.m_Pbft.m_vE[0].m_Addr.FromSk(sk);
+			r.m_Pbft.m_vE[0].m_Stake = Rules::Coin * 700;
+			r.m_Pbft.m_vE[0].m_White = false;
 
 			node2.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
-			pE[1].m_Addr.FromSk(sk);
-			pE[1].m_Stake = Rules::Coin * 700;
-			pE[1].m_White = true;
+			r.m_Pbft.m_vE[1].m_Addr.FromSk(sk);
+			r.m_Pbft.m_vE[1].m_Stake = Rules::Coin * 700;
+			r.m_Pbft.m_vE[1].m_White = true;
 
-			r.m_Pbft.m_p0 = pE;
-			r.m_Pbft.m_Count = _countof(pE);
 			r.DA.Target_ms = 576;
 			r.UpdateChecksum();
 		}

@@ -1901,7 +1901,7 @@ namespace detail
 		Archive& save(Archive& ar, const beam::Block::Pbft::State& state)
 		{
 			ar
-				& state.m_Totals.m_Amount
+				& state.m_Totals.m_Revenue
 				& state.m_lstVs.size();
 
 			for (auto it = state.m_lstVs.begin(); state.m_lstVs.end() != it; it++)
@@ -1915,7 +1915,7 @@ namespace detail
 		{
 			size_t n;
 			ar
-				& state.m_Totals.m_Amount
+				& state.m_Totals.m_Revenue
 				& n;
 
 			while (n--)

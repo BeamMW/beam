@@ -4524,16 +4524,7 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 		& state
 		& qc;
 
-	for (uint32_t i = 0; i < r.m_Pbft.m_Count; i++)
-	{
-		auto& x = r.m_Pbft.m_p0[i];
-		if (x.m_White)
-		{
-			auto* pVal = state.Find(x.m_Addr, false);
-			if (pVal)
-				pVal->m_White = true;
-		}
-	}
+	state.ResolveWhitelisted(r);
 
 	Merkle::Hash hv;
 	state.get_Hash(hv);
