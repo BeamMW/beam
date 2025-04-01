@@ -485,9 +485,9 @@ namespace beam
 				bool m_White;
 			};
 
-			const Entry* m_p0 = nullptr;
-			uint32_t m_Count = 0;
-			uint32_t m_RequiredWhite = 0;
+			std::vector<Entry> m_vE;
+			uint32_t m_RequiredWhite;
+			Asset::ID m_AidStake;
 
 			uint64_t T2S(uint64_t t_ms) const;
 			uint64_t T2S_strict(uint64_t t_ms) const; // returns 0 iff time is not a multiple of Target_ms
@@ -1738,7 +1738,7 @@ namespace beam
 				Validator::Addr::Map m_mapVs;
 
 				struct Totals {
-					Amount m_Amount = 0;
+					Amount m_Revenue = 0;
 				} m_Totals;
 
 				~State() { Clear(); }
@@ -1757,6 +1757,7 @@ namespace beam
 				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
 
 				void SetInitial();
+				void ResolveWhitelisted(const Rules&);
 
 			private:
 				// uniform random within [0, nBound)
