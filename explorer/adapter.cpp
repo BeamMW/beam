@@ -1629,6 +1629,16 @@ private:
         return m_LatestContractList.m_vec;
     }
 
+    static void add_any_height(json& j, Height h)
+    {
+        j["h"] = h;
+    }
+
+    void add_current_height(json& j)
+    {
+        add_any_height(j, _nodeBackend.m_Cursor.m_Full.m_Height);
+    }
+
     json get_contracts() override
     {
         json out = json::array();
@@ -1678,7 +1688,9 @@ private:
             out.push_back(std::move(jItem));
         }
 
-        return MakeTable(std::move(out));
+        json ret = MakeTable(std::move(out));
+        add_current_height(ret);
+        return ret;
     }
 
     static void OnKrnInfoCorrupted()
@@ -1695,7 +1707,7 @@ private:
         jTbl["more"] = std::move(jMore);
     }
 
-    void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs)
+    void get_ContractState(json& out, const bvm2::ContractID& cid, const HeightRange& hr, uint32_t nMaxTxs, bool bState, bool bOwnedAssets, bool bFundsLocked, bool bVerInfo)
     {
         bool bExists = false;
 
@@ -1709,12 +1721,12 @@ private:
                 bExists = true;
                 bvm2::ShaderID sid;
                 bvm2::get_ShaderID(sid, blob);
-                get_ContractDescr(wr, sid, cid, true);
+                get_ContractDescr(wr, sid, cid, bState);
             }
 
         }
 
-        if (bExists)
+        if (bExists && bFundsLocked)
         {
             json jArr = json::array();
             jArr.push_back(json::array({
@@ -1727,7 +1739,7 @@ private:
             wr.m_json["Locked Funds"] = MakeTable(std::move(jArr));
         }
 
-        if (bExists)
+        if (bExists && bOwnedAssets)
         {
             json jArr = json::array();
 
@@ -1742,6 +1754,7 @@ private:
             wr.m_json["Owned assets"] = MakeTable(std::move(jArr));
         }
 
+        if (bVerInfo)
         {
             json jArr = json::array();
             jArr.push_back(json::array({
@@ -1788,6 +1801,7 @@ private:
             wr.m_json["Version History"] = MakeTable(std::move(jArr));
         }
 
+        if (nMaxTxs)
         {
             ExtraInfo::Writer wrArr(json::array());
             wrArr.m_json.push_back(json::array({
@@ -1890,13 +1904,15 @@ private:
         return info;
     }
 
-    json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs) override
+    json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs, bool bState, bool bOwnedAssets, bool bFundsLocked, bool bVerInfo) override
     {
         if (id.n != bvm2::ContractID::nBytes)
             Exc::Fail("bad cid");
 
         json j;
-        get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p), HeightRange(hMin, hMax), nMaxTxs);
+        get_ContractState(j, *reinterpret_cast<const bvm2::ContractID*>(id.p), HeightRange(hMin, hMax), nMaxTxs, bState, bOwnedAssets, bFundsLocked, bVerInfo);
+
+        add_current_height(j);
         return j;
     }
 
@@ -2241,7 +2257,14 @@ private:
             jAssets.push_back(std::move(wr.m_json));
         }
 
-        return MakeTable(std::move(jAssets));
+        auto ret = MakeTable(std::move(jAssets));
+
+        if (bCurrent)
+            add_current_height(ret);
+        else
+            add_any_height(ret, h);
+
+        return ret;
     }
 
     struct ColFmt

@@ -818,8 +818,13 @@ OnRequest(contract)
     beam::Height hMin = _currentUrl.get_int_arg("hMin", 0);
     beam::Height hMax = _currentUrl.get_int_arg("hMax", -1);
     uint32_t nMaxTxs = (uint32_t) _currentUrl.get_int_arg("nMaxTxs", static_cast<uint32_t>(-1));
+    
 
-    return _backend.get_contract_details(id, hMin, hMax, nMaxTxs);
+    return _backend.get_contract_details(id, hMin, hMax, nMaxTxs,
+        !!_currentUrl.get_int_arg("state", 1),
+        !!_currentUrl.get_int_arg("assets_owned", 1),
+        !!_currentUrl.get_int_arg("funds_locked", 1),
+        !!_currentUrl.get_int_arg("ver_info", 1));
 }
 
 OnRequest(asset)
