@@ -30,9 +30,9 @@
 
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
+  <meta name="color-scheme" content="dark light">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#042548"> <!-- Is this useful?... -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
   <!-- Simplified Beam logo SVG favicon is URL-encoded (i.e. mainly replacing < > # and spaces) -->
   <!-- Remark: Such SVG favicon does not seem to be recognized by Safari -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
@@ -42,7 +42,7 @@
 <script>
   "use strict"; // Forces safer JavaScript code (e.g. forbids using undeclared variables, etc.).
 
-  // Check localStorage for dark mode status ("dark" or "")
+  // Check localStorage for light/dark mode status ("light" or "")
   let mode = localStorage.getItem('mode');
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
@@ -68,121 +68,7 @@
     scroll-behavior: smooth;
   }
   :root {
-    /* Color variables for light mode (default) */
-    color-scheme: light; /* For elements (if any) without an explicit style */
-    --color_background: #d0daff;
-    --color_background_gradient_top: #d0daff;
-    --color_background_gradient_main: #d0daff;
-    --color_text: black;
-    --color_h1: black;
-    --color_h2: black;
-    --color_h2_sub: black;
-    --color_h3: #17204e;
-    --color_h3_sub: #17204e;
-    --color_link: #0066CC;
-    --color_link_visited: #3e1a8b;
-    --color_blockheight_title_link: #0066CC;
-    --color_blockheight_title_link_visited: #3e1a8b;
-    --color_metadata: #505050;
-    --color_metadata_assetname: #505050;
-    --color_metadata_assetname_AMML: #808080;
-    --color_hash: #505050;
-    --color_hash_highlight: var(--color_hash);
-    --color_hash_highlight_background: #ffffa7;
-    --color_more: #17204e;
-    --color_more_in_collapsible: #17204e;
-    --color_icon: #777ebc;
-    --color_icon_hover: #555fb8;
-    --color_icon_off: lightgrey;
-    --color_eye_icons: #aaa;
-    --color_eye_icons_hover: grey;
-    --color_collapsible: #777ebc;
-    --color_collapsible_hover: #555fb8;
-    --color_collapsible_text: white;
-    --color_collapsible_content_text: black;
-    --color_collapsible_content_background: white;
-    --color_small_collapsible: #b8bbd8;
-    --color_small_collapsible_hover: #8c94e0;
-    --color_small_collapsible_text: black;
-    --color_config_collapsible_title: black;
-    --color_config_collapsible_text: black;
-    --color_config_collapsible_description: grey;
-    --color_config_collapsible_drag-over: #555fb8;
-    --color_config_collapsible_button: #b8bbd8;
-    --color_config_collapsible_button_hover: #9ca2d2;
-    --color_config_collapsible_button_text: black;
-    --color_config_collapsible_button_border: #9ca2d2;
-    --color_popup_border: #17204e;
-    --color_popup_background: #d0daff;
-    --color_popup_text : black;
-    --color_popup_input_placeholder: #606060;
-    --color_popup_input_text: #525252;
-    --color_popup_input_text_invalid: #805353;
-    --color_popup_input_background: #afb3d8;
-    --color_popup_input_border: #9ca2d2;
-    --color_popup_input_background_filled: #b8bbd8;
-    --color_popup_input_border_filled: #17204e;
-    --color_popup_button_text: black;
-    --color_popup_button_background: #b8bbd8;
-    --color_popup_button_border: #9ca2d2;
-    --color_popup_button_background_hover: #9ca2d2;
-    --color_yes: green;
-    --color_no: blue;
-    --color_amount: darkcyan;
-    --color_pos: green;
-    --color_neg: red;
-    --color_scroll_button: black;
-    --color_scroll_text: white;
-    --color_time: #650000;
-    --color_table_border: #ddd;
-    --color_table_header: #b8bbd8;
-    --color_table_header_text: black;
-    --color_table_header_hover: #9ca2d2;
-    --color_table_header_active: #9ca2d2;
-    --color_table_rows_wrapper: #555fb8;
-    --color_table_row_odd: #fff;
-    --color_table_row_even: #eee;
-    --color_table_row_hover: #e0e0f0;
-    --color_logo_shadow: rgba(0, 0, 0, 0.5);
-    --color_banner_background: #a7acd9;
-    --color_banner_title: #17204e;
-    --color_banner_version: #525252;
-    --color_banner_menu_text: #17204e;
-    --color_banner_menu_link: #2d3799;
-    --color_banner_menu_link_hover: #1f276f;
-    --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
-    --color_banner_search_border: #636785;
-    --color_banner_search_background: #afb3d8;
-    --color_banner_search_placeholder: #606060;
-    --color_banner_search_text: #525252;
-    --color_banner_search_border_filled: #ddd;
-    --color_banner_search_background_filled: #b8bbd8;
-    --color_banner_search_text_invalid: #805353;
-    --color_banner_search_button_border: #636785;
-    --color_banner_search_button_background: #636785;
-    --color_banner_search_button_text: #ddd;
-    --color_banner_search_button_background_hover: #525252;
-    --color_banner_search_button_text_hover: #ddd;
-    --color_banner_navigation_icon: #636785;
-    --color_banner_navigation_icon_hover: #505050;
-    --color_banner_navigation_icon_shadow: rgba(80, 80, 80, 0.3);
-    --color_footer_text: #17204e;
-    --color_footer_link: #17204e;
-    --color_about_text: black;
-    --color_about_link: #0066CC;
-    --color_historical_title: #17204e;
-    --color_historical_notes: grey;
-    --color_sorting_indicator: #666;
-    --color_sorting_indicator_hover: #e7e7e7;
-    --color_sorted_indicator: #e7e7e7;
-    --color_table_search_text: #525252;
-    --color_table_search_border: #555;
-    --color_table_search_background: #afb3d8;
-    --color_table_search_border_filled: #ddd;
-    --color_table_search_background_filled: #b8bbd8;
-  }
-  :root.dark {
-    /* Color variables for dark mode */
+    /* Color variables for dark mode (default) */
     color-scheme: dark; /* For elements (if any) without an explicit style */
     --color_background: #042548;
     --color_background_gradient_top: #035b8f;
@@ -294,6 +180,120 @@
     --color_table_search_background: #1d3a5a;
     --color_table_search_border_filled: #0bccf7;
     --color_table_search_background_filled: #1d3a5a;
+  }
+  :root.light {
+    /* Color variables for light mode */
+    color-scheme: light; /* For elements (if any) without an explicit style */
+    --color_background: #d0daff;
+    --color_background_gradient_top: #d0daff;
+    --color_background_gradient_main: #d0daff;
+    --color_text: black;
+    --color_h1: black;
+    --color_h2: black;
+    --color_h2_sub: black;
+    --color_h3: #17204e;
+    --color_h3_sub: #17204e;
+    --color_link: #0066CC;
+    --color_link_visited: #3e1a8b;
+    --color_blockheight_title_link: #0066CC;
+    --color_blockheight_title_link_visited: #3e1a8b;
+    --color_metadata: #505050;
+    --color_metadata_assetname: #505050;
+    --color_metadata_assetname_AMML: #808080;
+    --color_hash: #505050;
+    --color_hash_highlight: var(--color_hash);
+    --color_hash_highlight_background: #ffffa7;
+    --color_more: #17204e;
+    --color_more_in_collapsible: #17204e;
+    --color_icon: #777ebc;
+    --color_icon_hover: #555fb8;
+    --color_icon_off: lightgrey;
+    --color_eye_icons: #aaa;
+    --color_eye_icons_hover: grey;
+    --color_collapsible: #777ebc;
+    --color_collapsible_hover: #555fb8;
+    --color_collapsible_text: white;
+    --color_collapsible_content_text: black;
+    --color_collapsible_content_background: white;
+    --color_small_collapsible: #b8bbd8;
+    --color_small_collapsible_hover: #8c94e0;
+    --color_small_collapsible_text: black;
+    --color_config_collapsible_title: black;
+    --color_config_collapsible_text: black;
+    --color_config_collapsible_description: grey;
+    --color_config_collapsible_drag-over: #555fb8;
+    --color_config_collapsible_button: #b8bbd8;
+    --color_config_collapsible_button_hover: #9ca2d2;
+    --color_config_collapsible_button_text: black;
+    --color_config_collapsible_button_border: #9ca2d2;
+    --color_popup_border: #17204e;
+    --color_popup_background: #d0daff;
+    --color_popup_text : black;
+    --color_popup_input_placeholder: #606060;
+    --color_popup_input_text: #525252;
+    --color_popup_input_text_invalid: #805353;
+    --color_popup_input_background: #afb3d8;
+    --color_popup_input_border: #9ca2d2;
+    --color_popup_input_background_filled: #b8bbd8;
+    --color_popup_input_border_filled: #17204e;
+    --color_popup_button_text: black;
+    --color_popup_button_background: #b8bbd8;
+    --color_popup_button_border: #9ca2d2;
+    --color_popup_button_background_hover: #9ca2d2;
+    --color_yes: green;
+    --color_no: blue;
+    --color_amount: darkcyan;
+    --color_pos: green;
+    --color_neg: red;
+    --color_scroll_button: black;
+    --color_scroll_text: white;
+    --color_time: #650000;
+    --color_table_border: #ddd;
+    --color_table_header: #b8bbd8;
+    --color_table_header_text: black;
+    --color_table_header_hover: #9ca2d2;
+    --color_table_header_active: #9ca2d2;
+    --color_table_rows_wrapper: #555fb8;
+    --color_table_row_odd: #fff;
+    --color_table_row_even: #eee;
+    --color_table_row_hover: #e0e0f0;
+    --color_logo_shadow: rgba(0, 0, 0, 0.5);
+    --color_banner_background: #a7acd9;
+    --color_banner_title: #17204e;
+    --color_banner_version: #525252;
+    --color_banner_menu_text: #17204e;
+    --color_banner_menu_link: #2d3799;
+    --color_banner_menu_link_hover: #1f276f;
+    --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
+    --color_banner_search_border: #636785;
+    --color_banner_search_background: #afb3d8;
+    --color_banner_search_placeholder: #606060;
+    --color_banner_search_text: #525252;
+    --color_banner_search_border_filled: #ddd;
+    --color_banner_search_background_filled: #b8bbd8;
+    --color_banner_search_text_invalid: #805353;
+    --color_banner_search_button_border: #636785;
+    --color_banner_search_button_background: #636785;
+    --color_banner_search_button_text: #ddd;
+    --color_banner_search_button_background_hover: #525252;
+    --color_banner_search_button_text_hover: #ddd;
+    --color_banner_navigation_icon: #636785;
+    --color_banner_navigation_icon_hover: #505050;
+    --color_banner_navigation_icon_shadow: rgba(80, 80, 80, 0.3);
+    --color_footer_text: #17204e;
+    --color_footer_link: #17204e;
+    --color_about_text: black;
+    --color_about_link: #0066CC;
+    --color_historical_title: #17204e;
+    --color_historical_notes: grey;
+    --color_sorting_indicator: #666;
+    --color_sorting_indicator_hover: #e7e7e7;
+    --color_sorted_indicator: #e7e7e7;
+    --color_table_search_text: #525252;
+    --color_table_search_border: #555;
+    --color_table_search_background: #afb3d8;
+    --color_table_search_border_filled: #ddd;
+    --color_table_search_background_filled: #b8bbd8;
   }
   :root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
     background: var(--color_background); /* Shouldn't be needed */
@@ -1465,7 +1465,7 @@
           </div>
           <div class="NavRow">
             <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></a>
-            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
+            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle light/dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
           </div>
         </div>
       </div>
@@ -3633,10 +3633,10 @@
   // TOGGLE DARK MODE
   function toggleDarkMode() {
     let mode = '';
-    // For dark mode, we add a class to root
+    // For light mode, we add a class to root
     let rootclass = document.querySelector(':root').classList;
-    if (rootclass.contains('dark')) { rootclass.remove('dark') }
-    else { rootclass.add('dark'); mode = 'dark' }
+    if (rootclass.contains('light')) { rootclass.remove('light') }
+    else { rootclass.add('light'); mode = 'light' }
     // Store mode in localStorage (to allow retrieving it across pages)
     localStorage.setItem('mode', mode);
   }
