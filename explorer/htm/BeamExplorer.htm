@@ -6,7 +6,7 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP address of the explorer node can be changed in var 'urlPrefix'.
-  - Current version of the file: v0.7.5
+  - Current version of the file: v0.7.6
 
   General rules for developement:
   - Let's keep everything in one single standalone file!
@@ -47,9 +47,9 @@
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
   // Address of the remote explorer node
-  //var urlPrefix = "http://localhost:8888/";
-  //var urlPrefix = 'http://116.203.118.51:8100/';
-  var urlPrefix = 'https://explorer-api.beamprivacy.community/';
+  //const urlPrefix = "http://localhost:8888/";
+  //const urlPrefix = 'http://116.203.118.51:8100/';
+  const urlPrefix = 'https://explorer-api.beamprivacy.community/';
 </script>
 
 <!-- ************ SECTION 2 - CSS STYLES ************ -->
@@ -62,10 +62,10 @@
   html {
     font-family: Arial, Helvetica, sans-serif; /* Default fonts */
     font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
-    line-height: 1; /* From a CSS reset template... */
-    margin: 0; /* From a CSS reset template... */
-    height: 100%; /* Copied from the dao-core-app model... */
-    scroll-behavior: smooth; /* Copied from the dao-core-app model... */
+    line-height: 1; /* From a CSS reset template */
+    margin: 0; /* From a CSS reset template */
+    height: 100%; /* Copied from the DEX dApp */
+    scroll-behavior: smooth;
   }
   :root {
     /* Color variables for light mode (default) */
@@ -87,7 +87,8 @@
     --color_metadata_assetname: #505050;
     --color_metadata_assetname_AMML: #808080;
     --color_hash: #505050;
-    --color_hash_highlight: darkred;
+    --color_hash_highlight: var(--color_hash);
+    --color_hash_highlight_background: #ffffa7;
     --color_more: #17204e;
     --color_more_in_collapsible: #17204e;
     --color_icon: #777ebc;
@@ -200,7 +201,8 @@
     --color_metadata_assetname: #505050;
     --color_metadata_assetname_AMML: #707070;
     --color_hash: #505050;
-    --color_hash_highlight: darkred;
+    --color_hash_highlight: var(--color_hash);
+    --color_hash_highlight_background: #ffffc0;
     --color_more: #ddd;
     --color_more_in_collapsible: #17204e;
     --color_icon: rgba(255,255,255,0.5);
@@ -300,7 +302,7 @@
     background-attachment: fixed;
   }
   body {
-    margin: 0; /* Copied from the dao-core-app model... */
+    margin: 0; /* Copied from the dao-core-app model */
   }
   :link { color: var(--color_link); } /* Default link colors */
   :visited { color: var(--color_link_visited); }
@@ -483,8 +485,11 @@
     vertical-align: middle; /* Needed to align text and symbol */
   }
   .kernelId.highlight { /* Highlight queried kernel */
+    background: var(--color_hash_highlight_background);
     color: var(--color_hash_highlight);
     font-weight: bold;
+    padding: 5px 0 3px 2px;
+    border-radius: 3px;
   }
   .cid a {
     font-family: "Lucida Console", ui-monospace, monospace;
@@ -519,6 +524,9 @@
     cursor: pointer;
     fill: var(--color_eye_icons);
     padding: 0 0 0 3px;
+  }
+  .expand svg {
+    vertical-align: bottom; /* Needed to align text and symbol */
   }
   /* Display the expand symbols when hovering over the cell or the list item containing the text */
   *:hover > span > .expand {
@@ -627,17 +635,17 @@
   #Page-container {
     position: relative;
     min-height: 96vh; /* Always use the whole screen space, so that the footer stays at the bottom */
-    width: 98vw;
+    width: 96vw;
     padding: 8px;
   }
   #Content-wrap {
     padding-bottom: 1.8rem; /* Leave some space for the footer */
   }
   #Banner {
-    display: table;
+    display: table; /* Display as table to organize its content */
     width: 100%;
     background-color: var(--color_banner_background);
-    border-radius: 0.5em; /* Slightly round corners */
+    border-radius: 10px; /* Slightly round corners */
     padding: 8px 10px 7px 10px;
     text-align: center;
   }
@@ -1405,20 +1413,21 @@
 <body>
 <!-- ************ SECTION 3 - STATIC HTML ************ -->
 
+  <!-- SVG templates (= invisible 'symbols' that can be called elsewhere) -->
+  <!-- Remark: No fixed size or color defined here. They will adapt to the SVG calling them. -->
+  <!-- Remark: 'xmlns' is not needed in inline SVGs served as 'text/html'-->
+  <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
+  <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
+  <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
+  <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
+  <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+  <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 10 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+  <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
+
   <!-- Wrappers (added just to keep footer at the bottom) -->
   <div id="Page-container">
     <div id="Content-wrap">
 
-      <!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
-      <!-- Remark: We don't define any fixed size here, so that they will adapt to the SVG size calling them. -->
-      <!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
-      <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
-      <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
-      <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
-      <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
-      <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
-      <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 10 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-      <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
       <!-- Fixed banner on all pages -->
       <div id="Banner">
         <span id="BeamLogo">
@@ -1429,7 +1438,7 @@
           </a>
         </span>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7.5</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7.6</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1462,13 +1471,11 @@
       </div>
 
       <!-- Floating buttons to scroll up and down -->
-      <div>
-        <button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
-        <button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
-      </div>
+      <div><button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button></div>
+      <div><button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button></div>
 
       <!-- Main content area (will be replaced through Javascript) -->
-      <div id="my_content">
+      <div id="MainContent">
         <!-- Dots are isolated, for CSS animation... -->
         <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
         <p id="Querying">Querying explorer node at <script>document.write(urlPrefix);</script></p>
@@ -1679,7 +1686,7 @@
   }
 
   function SetContent(text) {
-    document.getElementById('my_content').innerHTML = text;
+    document.getElementById('MainContent').innerHTML = text;
     // Parse Metadata to add classes (Rem: we do this one first because its innerHTML destroys the even handlers!)
     addClassesToMetadata();
     // Add truncate/expand options to all text of type hash, cid, metadata, etc.
