@@ -6,7 +6,7 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP address of the explorer node can be changed in var 'urlPrefix'.
-  - Current version of the file: v0.7
+  - Current version of the file: v0.7.6
 
   General rules for developement:
   - Let's keep everything in one single standalone file!
@@ -16,11 +16,12 @@
   - That way, if we disable styling, the raw filtred data can directly be copy-pasted somewhere else.
 
   The file is organized in the following main sections:
-  - SECTION 1 : All the CSS styling.
-  - SECTION 2 : Base static HTML (banner, footer, etc.).
-  - SECTION 3 : Core JS functions to parse the data into HTML.
-  - SECTION 4 : Main JS code for global variables and to request the node explorer data.
-  - SECTION 5 : Extra JS functions for adjustments, filtering, sorting, etc.
+  - SECTION 1 : Main global variables.
+  - SECTION 2 : All the CSS styling.
+  - SECTION 3 : Base static HTML (banner, content, footer, etc.).
+  - SECTION 4 : Core JS functions to parse the data into HTML.
+  - SECTION 5 : Main JS code for additional global variables, and to request the node explorer data.
+  - SECTION 6 : Extra JS functions for adjustments, filtering, sorting, etc.
 
   Disclaimer:
   - This is an experimental work-in-progress.
@@ -29,15 +30,29 @@
 
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-  <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
+  <meta name="color-scheme" content="dark light">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#042548"> <!-- Is this useful?... -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d0daff"> <!-- Is this useful?... -->
   <!-- Simplified Beam logo SVG favicon is URL-encoded (i.e. mainly replacing < > # and spaces) -->
   <!-- Remark: Such SVG favicon does not seem to be recognized by Safari -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox='112%2085%20320%20320'%20xmlns='http://www.w3.org/2000/svg'%3E%3Ctitle%3EBeam%20favicon%3C/title%3E%3Cpath%20d='m424%20371h-304l152-260zm-229-44%2078-135%2078%20135z'%20fill='%230b76ff'%20fill-rule='evenodd'/%3E%3Cpolygon%20points='225%20314%20272%20226%20320%20314'%20fill='%2339fff2'/%3E%3Cpolygon%20points='120%20192%20272%20278%20272%20287%20120%20246'%20fill='%2324c1ff'/%3E%3Cpolygon%20points='424%20167%20272%20278%20272%20287%20424%20274'%20fill='%23fd76fd'/%3E%3C/svg%3E%0A">
   <title>Beam Smart Explorer</title>
 
-<!-- ************ SECTION 1 - CSS STYLES ************ -->
+  <!-- ************ SECTION 1 - MAIN GLOBAL VARIABLES ************ -->
+<script>
+  "use strict"; // Forces safer JavaScript code (e.g. forbids using undeclared variables, etc.).
+
+  // Check localStorage for light/dark mode status ("light" or "")
+  let mode = localStorage.getItem('mode');
+  if (mode) { document.querySelector(':root').classList.add(mode) }
+
+  // Address of the remote explorer node
+  //const urlPrefix = "http://localhost:8888/";
+  //const urlPrefix = 'http://116.203.118.51:8100/';
+  const urlPrefix = 'https://explorer-api.beamprivacy.community/';
+</script>
+
+<!-- ************ SECTION 2 - CSS STYLES ************ -->
 <style>
 
   /* GENERAL ELEMENTS */
@@ -47,109 +62,13 @@
   html {
     font-family: Arial, Helvetica, sans-serif; /* Default fonts */
     font-size: 62.5%; /* Since default browser font size is generally 16px, this sets an easy '1rem = 10px' */
-    line-height: 1; /* From a CSS reset template... */
-    margin: 0; /* From a CSS reset template... */
-    height: 100%; /* Copied from the dao-core-app model... */
-    scroll-behavior: smooth; /* Copied from the dao-core-app model... */
+    line-height: 1; /* From a CSS reset template */
+    margin: 0; /* From a CSS reset template */
+    height: 100%; /* Copied from the DEX dApp */
+    scroll-behavior: smooth;
   }
   :root {
-    /* Color variables for light mode (default) */
-    color-scheme: light; /* For elements (if any) without an explicit style */
-    --color_background: #d0daff;
-    --color_background_gradient_top: #d0daff;
-    --color_background_gradient_main: #d0daff;
-    --color_text: black;
-    --color_h1: black;
-    --color_h2: black;
-    --color_h3: #17204e;
-    --color_h3_sub: #17204e;
-    --color_link: #0066CC;
-    --color_link_visited: #3e1a8b;
-    --color_blockheight_title_link: #0066CC;
-    --color_blockheight_title_link_visited: #3e1a8b;
-    --color_metadata: #505050;
-    --color_hash: #505050;
-    --color_hash_highlight: darkred;
-    --color_more: #17204e;
-    --color_more_in_collapsible: #17204e;
-    --color_icon: #777ebc;
-    --color_icon_hover: #555fb8;
-    --color_icon_off: lightgrey;
-    --color_eye_icons: #aaa;
-    --color_eye_icons_hover: grey;
-    --color_collapsible: #777ebc;
-    --color_collapsible_hover: #555fb8;
-    --color_collapsible_text: white;
-    --color_collapsible_content_text: black;
-    --color_collapsible_content_background: white;
-    --color_small_collapsible: #b8bbd8;
-    --color_small_collapsible_hover: #8c94e0;
-    --color_small_collapsible_text: black;
-    --color_config_collapsible_title: black;
-    --color_config_collapsible_text: black;
-    --color_config_collapsible_description: grey;
-    --color_config_collapsible_drag-over: #555fb8;
-    --color_config_collapsible_button: #b8bbd8;
-    --color_config_collapsible_button_hover: #9ca2d2;
-    --color_config_collapsible_button_text: black;
-    --color_config_collapsible_button_border: #9ca2d2;
-    --color_yes: green;
-    --color_no: blue;
-    --color_amount: darkcyan;
-    --color_pos: green;
-    --color_neg: red;
-    --color_scroll_button: black;
-    --color_scroll_text: white;
-    --color_time: #650000;
-    --color_table_border: #ddd;
-    --color_table_header: #b8bbd8;
-    --color_table_header_text: black;
-    --color_table_header_hover: #9ca2d2;
-    --color_table_header_active: #9ca2d2;
-    --color_table_rows_wrapper: #555fb8;
-    --color_table_row_odd: #fff;
-    --color_table_row_even: #eee;
-    --color_table_row_hover: #e0e0f0;
-    --color_logo_shadow: rgba(0, 0, 0, 0.5);
-    --color_banner_background: #a7acd9;
-    --color_banner_title: #17204e;
-    --color_banner_version: #525252;
-    --color_banner_menu_text: #17204e;
-    --color_banner_menu_link: #2d3799;
-    --color_banner_menu_link_hover: #3e1a8b;
-    --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
-    --color_banner_search_border: #636785;
-    --color_banner_search_background: #afb3d8;
-    --color_banner_search_placeholder: #606060;
-    --color_banner_search_text: #525252;
-    --color_banner_search_border_filled: #ddd;
-    --color_banner_search_background_filled: #b8bbd8;
-    --color_banner_search_text_invalid: #805353;
-    --color_banner_search_button_border: #636785;
-    --color_banner_search_button_background: #636785;
-    --color_banner_search_button_text: #ddd;
-    --color_banner_search_button_background_hover: #525252;
-    --color_banner_search_button_text_hover: #ddd;
-    --color_banner_navigation_icon: #636785;
-    --color_banner_navigation_icon_hover: #505050;
-    --color_banner_navigation_icon_shadow: rgba(80, 80, 80, 0.3);
-    --color_footer_text: #17204e;
-    --color_footer_link: #17204e;
-    --color_about_text: black;
-    --color_about_link: #0066CC;
-    --color_historical_title: #17204e;
-    --color_historical_notes: grey;
-    --color_sorting_indicator: #666;
-    --color_sorting_indicator_hover: #e7e7e7;
-    --color_sorted_indicator: #e7e7e7;
-    --color_table_search_text: #525252;
-    --color_table_search_border: #555;
-    --color_table_search_background: #afb3d8;
-    --color_table_search_border_filled: #ddd;
-    --color_table_search_background_filled: #b8bbd8;
-  }
-  :root.dark {
-    /* Color variables for dark mode */
+    /* Color variables for dark mode (default) */
     color-scheme: dark; /* For elements (if any) without an explicit style */
     --color_background: #042548;
     --color_background_gradient_top: #035b8f;
@@ -157,6 +76,7 @@
     --color_text: black;
     --color_h1: #ddd;
     --color_h2: #ddd;
+    --color_h2_sub: #ddd;
     --color_h3: #ddd;
     --color_h3_sub: #17204e;
     --color_link: #0066CC;
@@ -164,8 +84,11 @@
     --color_blockheight_title_link: #65a4e3;
     --color_blockheight_title_link_visited: #a17eec;
     --color_metadata: #505050;
+    --color_metadata_assetname: #505050;
+    --color_metadata_assetname_AMML: #707070;
     --color_hash: #505050;
-    --color_hash_highlight: darkred;
+    --color_hash_highlight: var(--color_hash);
+    --color_hash_highlight_background: #ffffc0;
     --color_more: #ddd;
     --color_more_in_collapsible: #17204e;
     --color_icon: rgba(255,255,255,0.5);
@@ -189,6 +112,20 @@
     --color_config_collapsible_button_hover: #1e4c71;
     --color_config_collapsible_button_text: #ddd;
     --color_config_collapsible_button_border: #1e4c71;
+    --color_popup_border: #ddd;
+    --color_popup_background: #042548;
+    --color_popup_text : #ddd;
+    --color_popup_input_placeholder: #aaa;
+    --color_popup_input_text: #eee;
+    --color_popup_input_text_invalid: #ff8686;
+    --color_popup_input_background: #1d3a5a;
+    --color_popup_input_border: #636785;
+    --color_popup_input_background_filled: #1d3a5a;
+    --color_popup_input_border_filled: #0bccf7;
+    --color_popup_button_text: #ddd;
+    --color_popup_button_background: #1d3a5a;
+    --color_popup_button_border: #1e4c71;
+    --color_popup_button_background_hover: #1e4c71;
     --color_yes: green;
     --color_no: blue;
     --color_amount: darkcyan;
@@ -244,6 +181,120 @@
     --color_table_search_border_filled: #0bccf7;
     --color_table_search_background_filled: #1d3a5a;
   }
+  :root.light {
+    /* Color variables for light mode */
+    color-scheme: light; /* For elements (if any) without an explicit style */
+    --color_background: #d0daff;
+    --color_background_gradient_top: #d0daff;
+    --color_background_gradient_main: #d0daff;
+    --color_text: black;
+    --color_h1: black;
+    --color_h2: black;
+    --color_h2_sub: black;
+    --color_h3: #17204e;
+    --color_h3_sub: #17204e;
+    --color_link: #0066CC;
+    --color_link_visited: #3e1a8b;
+    --color_blockheight_title_link: #0066CC;
+    --color_blockheight_title_link_visited: #3e1a8b;
+    --color_metadata: #505050;
+    --color_metadata_assetname: #505050;
+    --color_metadata_assetname_AMML: #808080;
+    --color_hash: #505050;
+    --color_hash_highlight: var(--color_hash);
+    --color_hash_highlight_background: #ffffa7;
+    --color_more: #17204e;
+    --color_more_in_collapsible: #17204e;
+    --color_icon: #777ebc;
+    --color_icon_hover: #555fb8;
+    --color_icon_off: lightgrey;
+    --color_eye_icons: #aaa;
+    --color_eye_icons_hover: grey;
+    --color_collapsible: #777ebc;
+    --color_collapsible_hover: #555fb8;
+    --color_collapsible_text: white;
+    --color_collapsible_content_text: black;
+    --color_collapsible_content_background: white;
+    --color_small_collapsible: #b8bbd8;
+    --color_small_collapsible_hover: #8c94e0;
+    --color_small_collapsible_text: black;
+    --color_config_collapsible_title: black;
+    --color_config_collapsible_text: black;
+    --color_config_collapsible_description: grey;
+    --color_config_collapsible_drag-over: #555fb8;
+    --color_config_collapsible_button: #b8bbd8;
+    --color_config_collapsible_button_hover: #9ca2d2;
+    --color_config_collapsible_button_text: black;
+    --color_config_collapsible_button_border: #9ca2d2;
+    --color_popup_border: #17204e;
+    --color_popup_background: #d0daff;
+    --color_popup_text : black;
+    --color_popup_input_placeholder: #606060;
+    --color_popup_input_text: #525252;
+    --color_popup_input_text_invalid: #805353;
+    --color_popup_input_background: #afb3d8;
+    --color_popup_input_border: #9ca2d2;
+    --color_popup_input_background_filled: #b8bbd8;
+    --color_popup_input_border_filled: #17204e;
+    --color_popup_button_text: black;
+    --color_popup_button_background: #b8bbd8;
+    --color_popup_button_border: #9ca2d2;
+    --color_popup_button_background_hover: #9ca2d2;
+    --color_yes: green;
+    --color_no: blue;
+    --color_amount: darkcyan;
+    --color_pos: green;
+    --color_neg: red;
+    --color_scroll_button: black;
+    --color_scroll_text: white;
+    --color_time: #650000;
+    --color_table_border: #ddd;
+    --color_table_header: #b8bbd8;
+    --color_table_header_text: black;
+    --color_table_header_hover: #9ca2d2;
+    --color_table_header_active: #9ca2d2;
+    --color_table_rows_wrapper: #555fb8;
+    --color_table_row_odd: #fff;
+    --color_table_row_even: #eee;
+    --color_table_row_hover: #e0e0f0;
+    --color_logo_shadow: rgba(0, 0, 0, 0.5);
+    --color_banner_background: #a7acd9;
+    --color_banner_title: #17204e;
+    --color_banner_version: #525252;
+    --color_banner_menu_text: #17204e;
+    --color_banner_menu_link: #2d3799;
+    --color_banner_menu_link_hover: #1f276f;
+    --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
+    --color_banner_search_border: #636785;
+    --color_banner_search_background: #afb3d8;
+    --color_banner_search_placeholder: #606060;
+    --color_banner_search_text: #525252;
+    --color_banner_search_border_filled: #ddd;
+    --color_banner_search_background_filled: #b8bbd8;
+    --color_banner_search_text_invalid: #805353;
+    --color_banner_search_button_border: #636785;
+    --color_banner_search_button_background: #636785;
+    --color_banner_search_button_text: #ddd;
+    --color_banner_search_button_background_hover: #525252;
+    --color_banner_search_button_text_hover: #ddd;
+    --color_banner_navigation_icon: #636785;
+    --color_banner_navigation_icon_hover: #505050;
+    --color_banner_navigation_icon_shadow: rgba(80, 80, 80, 0.3);
+    --color_footer_text: #17204e;
+    --color_footer_link: #17204e;
+    --color_about_text: black;
+    --color_about_link: #0066CC;
+    --color_historical_title: #17204e;
+    --color_historical_notes: grey;
+    --color_sorting_indicator: #666;
+    --color_sorting_indicator_hover: #e7e7e7;
+    --color_sorted_indicator: #e7e7e7;
+    --color_table_search_text: #525252;
+    --color_table_search_border: #555;
+    --color_table_search_background: #afb3d8;
+    --color_table_search_border_filled: #ddd;
+    --color_table_search_background_filled: #b8bbd8;
+  }
   :root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
     background: var(--color_background); /* Shouldn't be needed */
     background-image: linear-gradient(to bottom, var(--color_background_gradient_top) -174px, var(--color_background_gradient_main) 116px, var(--color_background_gradient_main));
@@ -251,7 +302,7 @@
     background-attachment: fixed;
   }
   body {
-    margin: 0; /* Copied from the dao-core-app model... */
+    margin: 0; /* Copied from the dao-core-app model */
   }
   :link { color: var(--color_link); } /* Default link colors */
   :visited { color: var(--color_link_visited); }
@@ -299,7 +350,7 @@
     font-size: 1.9rem;
     text-align: left;
     color: var(--color_h3);
-    margin: 10px 0 15px 0;
+    margin: 15px 0 10px 0;
   }
   h3.sub { /* For the h3 within collapsibles */
     color: var(--color_h3_sub);
@@ -324,7 +375,7 @@
     cursor: pointer;
     fill: var(--color_icon);
     display: inline-block;
-    vertical-align: top; /* Needed to align text and symbol */
+    vertical-align: text-bottom; /* Needed to align text and symbol */
   }
   .listOfBlockHeaders a {
     fill: var(--color_icon);
@@ -381,6 +432,16 @@
     font-size: 1.2rem;
     vertical-align: middle; /* Needed to align text and symbol */
   }
+  .metadataAssetName {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--color_metadata_assetname);
+    white-space: nowrap; /* Don't wrap text */
+  }
+  .metadataAssetName.AMML {
+    color: var(--color_metadata_assetname_AMML);
+  }
   /* Display full metadata */
   .metadata .full {
     font-family: inherit;
@@ -424,15 +485,18 @@
     vertical-align: middle; /* Needed to align text and symbol */
   }
   .kernelId.highlight { /* Highlight queried kernel */
+    background: var(--color_hash_highlight_background);
     color: var(--color_hash_highlight);
     font-weight: bold;
+    padding: 5px 0 3px 2px;
+    border-radius: 3px;
   }
   .cid a {
     font-family: "Lucida Console", ui-monospace, monospace;
     font-size: 1.2rem;
     color: var(--color_hash);
     text-decoration-line: underline;
-    text-decoration-color: grey; /* Use a light underline color */
+    text-decoration-color: var(--color_hash); /* Use a light underline color */
   }
   .cidTitle {
     font-family: "Lucida Console", ui-monospace, monospace;
@@ -460,6 +524,9 @@
     cursor: pointer;
     fill: var(--color_eye_icons);
     padding: 0 0 0 3px;
+  }
+  .expand svg {
+    vertical-align: bottom; /* Needed to align text and symbol */
   }
   /* Display the expand symbols when hovering over the cell or the list item containing the text */
   *:hover > span > .expand {
@@ -500,8 +567,9 @@
   .more::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
   }
-  .noDataText { /* Text when no data is available */
+  .noDataText { /* Text displayed when no data is available */
     display: block;
+    font-size: 1.5rem;
     padding: 5px;
     font-style: italic;
   }
@@ -559,22 +627,25 @@
   .divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
     background-color: var(--color_table_row_hover);
   }
+  .emptyTable { /* Hide empty tables */
+    display: none;
+  }
 
   /* TITLE BANNER AND FOOTER */
   #Page-container {
     position: relative;
     min-height: 96vh; /* Always use the whole screen space, so that the footer stays at the bottom */
-    /*min-width: 97vh;*/
+    width: 96vw;
     padding: 8px;
   }
   #Content-wrap {
     padding-bottom: 1.8rem; /* Leave some space for the footer */
   }
   #Banner {
-    display: table;
+    display: table; /* Display as table to organize its content */
     width: 100%;
     background-color: var(--color_banner_background);
-    border-radius: 0.5em; /* Slightly round corners */
+    border-radius: 10px; /* Slightly round corners */
     padding: 8px 10px 7px 10px;
     text-align: center;
   }
@@ -592,7 +663,7 @@
     text-align: center;
     width: 100%;
     white-space: nowrap; /* Never wrap text */
-    padding: 0px 10px 0px 10px;
+    padding: 0 10px 0 10px;
   }
   #BeamTitle {
     font-size: 2.4rem;
@@ -626,7 +697,7 @@
   }
   #SearchArea {
     display: block;
-    padding: 8px 2px 0px 2px;
+    padding: 8px 2px 0 2px;
   }
   #SearchForm {
     /* Nothing special */
@@ -723,7 +794,7 @@
     font-size: 1.4rem;
     color: var(--color_about_text);
     line-height: 1.9rem;
-    padding-bottom: 0px;
+    padding-bottom: 0;
   }
   .aboutText a {
     color: var(--color_about_link);
@@ -795,6 +866,14 @@
     0%,40%,100% { transform: translateY(0) }
     20% { transform: translateY(-1rem) }
   }
+  #Querying {
+    font-family: "Lucida Console", ui-monospace, monospace;
+    font-weight: normal;
+    font-size: 1rem;
+    white-space: nowrap; /* Don't wrap text */
+    color: var(--color_h2_sub);
+    vertical-align: middle;
+  }
 
   /* GENERAL COLLAPSIBLE BLOCKS */
   .collapsible {
@@ -864,36 +943,46 @@
     border: none; /* No border for small collapsibles */
   }
 
-  /* OPTIONS FOR BLOCK HEADERS TABLE */
-  /* Collapsible for headers table options */
-  .collapsible.hdrsOptions {
+  /* SHARED STYLES FOR TABLE OPTIONS */
+  /* Collapsible for table options */
+  .collapsible.tableOptions {
     display: block;
-    width: 100%;
     margin-bottom: 10px;
   }
-  .collapsible-label.hdrsOptions { /* remove default behavior of the other collapsibles */
+  .collapsible .collapsible.tableOptions { /* If collapsible is inside another collapsible */
+    margin-bottom: 5px;
+  }
+  .collapsible-label.tableOptions { /* Remove default behavior of the other collapsibles */
     min-width: unset;
     background-color: unset;
     color: var(--color_config_collapsible_title);
     font-size: 1.3rem;
     margin: 0;
-    padding: 2px 5px 0px 5px;
-    border-radius: 0; /* Slightly round corners */
+    padding: 5px 5px 0 5px;
+    font-weight: normal;
   }
-  .collapsible-label.hdrsOptions:hover { /* remove default behavior of the other collapsibles */
+  .collapsible .collapsible .collapsible-label.tableOptions { /* If collapsible is inside another collapsible */
+    color: var(--color_config_collapsible_text);
+  }
+  .collapsible-label.tableOptions:hover { /* Remove default behavior of the other collapsibles */
     background-color: unset;
   }
-  .collapsible-content.hdrsOptions {
+  .collapsible-content.tableOptions {
     color: var(--color_config_collapsible_text);
     padding: 2px 2px 5px 2px;
     margin: 5px 0 10px 0;
     border-radius: 0.4em; /* Slightly round corners */
+    border-style: none;
   }
-  #headersDisplayOptions { /* Form */
+  .collapsible .collapsible .collapsible-content.tableOptions { /* If collapsible is inside another collapsible */
+    padding: 2px 2px 2px 2px;
+    margin: 2px 0 0 0;
+  }
+  #tableOptionsForm { /* Form name */
     /* Nothing Special */
   }
   #selectionOptions { /* Row and Column selection options */
-    display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions */
+    display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions (when defined)) */
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -907,6 +996,13 @@
     flex-wrap: nowrap;
     font-size: 1.3rem;
     margin: 0 15px 0 0;
+  }
+  #columnSelectionOptions { /* Options for columns */
+    flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
+    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
+    align-items: center;
+    font-size: 1.3rem;
+    flex-wrap: wrap;
   }
   #applySelection { /* Apply button */
     cursor: pointer;
@@ -925,18 +1021,18 @@
     background-color: var(--color_config_collapsible_button_hover);
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_button_border));
   }
-  #selectRows, #selectStep { /* div */
+  .selectRows, .selectStep, .selectHeight { /* div */
     display: inline-block;
     padding: 0 5px 0 5px;
   }
-  #labelRows { /* label */
+  .labelStep, .labelHeight { /* label */
+    /* Nothing special */
+  }
+  .labelRows, .labelColumns { /* label */
     font-weight: bold;
     margin: 0 0 0 4px;
   }
-  #labelInterval { /* label */
-    /* Nothing special */
-  }
-  #nbrRows, #nbrStep { /* Input number */
+  .nbrRows, .nbrStep, .inputBlockHeight { /* Input fields */
     height: 1.5em;
     background: var(--color_collapsible_content_background);
     color: var(--color_config_collapsible_text);
@@ -944,31 +1040,26 @@
     border-width: 1px;
     border-color: var(--color_config_collapsible_description);
     border-radius: 0.2em; /* Slightly round corners */
-    width: 6rem;
     -moz-appearance: textfield; /* Hide arrows on Firefox */
   }
-  #nbrRows::-webkit-outer-spin-button, #nbrRows::-webkit-inner-spin-button,
-  #nbrStep::-webkit-outer-spin-button, #nbrStep::-webkit-inner-spin-button {
+  .nbrRows, .nbrStep { /* Input numbers */
+    width: 6rem;
+  }
+  .inputBlockHeight { /* Input blockheight */
+    width: 8rem;
+  }
+  .nbrRows::-webkit-outer-spin-button, .nbrRows::-webkit-inner-spin-button,
+  .nbrStep::-webkit-outer-spin-button, .nbrStep::-webkit-inner-spin-button,
+  .inputBlockHeight::-webkit-outer-spin-button, .inputBlockHeight::-webkit-inner-spin-button {
     -webkit-appearance: none; /* Hide arrows on Chrome */
     margin: 0; /* This is also said to be needed... */
   }
-  #nbrRows:focus, #nbrStep:focus {
+  .nbrRows:focus, .nbrStep:focus, .inputBlockHeight:focus {
     outline: none; /* Avoid the browser default focus outline */
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_text));
   }
-  #columnSelectionOptions { /* Options for columns */
-    flex-grow: 1; /* Flex-item: Occupies max available horizontal space */
-    display: flex; /* Trick: We define it as flex itself to ensure a good vertical alignement of its content */
-    align-items: center;
-    flex-wrap: nowrap;
-    font-size: 1.3rem;
-  }
-  #labelColumns {
-    font-weight: bold;
-    margin: 0 0 0 4px;
-  }
-  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #reorderAllColumns { /* Columns selection links */
-    /* Nothing special */
+  .selectionOptionsGroup { /* Block of selection links */
+    text-wrap: nowrap;
   }
   .selectionOption { /* Selection links */
     cursor: pointer;
@@ -992,6 +1083,104 @@
     padding: 0 5px 0 5px;
     color: var(--color_config_collapsible_description);
     font-style: italic;
+    text-wrap: nowrap;
+  }
+
+  /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
+  /* (the Block Headers table has hidden description and drag and drop items) */
+  #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #pasteColumns, #reorderAllColumns {} /* Columns selection links */
+  body:has(dialog:modal) { overflow: hidden; } /* Blocks scrolling when dialog is on (but doesn't work in Chrome 83) */
+  #pasteColumnsPopup { /* Dialog popup */
+    border: solid 5px var(--color_popup_border);
+    border-radius: 1rem;
+    box-shadow: 15px 15px 15px -10px #000;
+    background-color: var(--color_popup_background);
+    color: var(--color_popup_text);
+  }
+  ::backdrop { /* A fun effect, just for backdrops! */
+    background: rgba(0,0,0,30%);
+    backdrop-filter: blur(1px);
+  }
+  #pasteColumnsForm {} /* Form */
+  #pasteColumnsInput { /* Input text */
+    border: 1px solid var(--color_popup_input_border);
+    border-radius: 0.25em; /* Slightly round corners */
+    background-color: var(--color_popup_input_background);
+    font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+    font-size: 1.5rem;
+    max-width: 30ch;
+    min-width: 10ch;
+    color: var(--color_popup_input_text);
+    height: 3rem;
+    text-decoration: none;
+    vertical-align: middle;
+    margin: 2px 2px 2px 0;
+    padding: 0 1ch 0 1ch;
+  }
+  #pasteColumnsInput:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    border: 1px solid var(--color_popup_input_border_filled);
+  }
+  #pasteColumnsInput:not(:placeholder-shown) { /* Input field with content in it */
+    background-color: var(--color_popup_input_background_filled);
+  }
+  #pasteColumnsInput:invalid {
+    color: var(--color_popup_input_text_invalid);
+    text-decoration: line-through; /* Strikethrough if incorrect format */
+  }
+  #pasteColumnsInput:placeholder-shown { /* Needed in Chrome to remove the line-through */
+    text-decoration: none;
+    color: var(--color_popup_input_text);
+  }
+  #pasteColumnsInput::placeholder {
+    font-family: Arial, Helvetica, sans-serif; /* Font for the placeholder text */
+    font-size: 1.3rem;
+    font-style: italic;
+    color: var(--color_popup_input_placeholder);
+    text-decoration: none;
+  }
+  #pasteColumnsApply, #pasteColumnsCancel { /* Buttons */
+    cursor: pointer;
+    margin: 2px 2px 2px 2px;
+    padding: 5px 10px 5px 10px;
+    font-weight: bold;
+    color: var(--color_popup_button_text);
+    background-color: var(--color_popup_button_background);
+    border: solid 1px var(--color_popup_button_border);
+    border-radius: 0.35em; /* Slightly round corners */
+    vertical-align: middle;
+  }
+  #pasteColumnsApply:hover, #pasteColumnsCancel:hover,
+  #pasteColumnsApply:focus, #pasteColumnsCancel:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    background-color: var(--color_popup_button_background_hover);
+    filter: drop-shadow(0 0 1px var(--color_popup_button_border));
+  }
+  .pasteColumnsText { /* Popup text */
+    font-size: 1.5rem;
+    color: var(--color_popup_text);
+    padding: 5px 2px 10px 2px;
+  }
+  .pasteColumnsList { /* List of codes: Diplayed as auto-adjusting columns */
+    display: block;
+    column-width: 18rem; /* We set the width of the internal columns (and the number of columns will be automatic!) */
+    column-gap: 5px;
+    color: var(--color_popup_text);
+    font-size: 1.3rem;
+    padding: 10px 2px 5px 2px;
+  }
+  .pasteColumnsListItem {
+    cursor: help; /* Just to remind there are tooltips... */
+    padding: 3px 0 0 0;
+  }
+  .pasteColumnsListCode {
+    font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
+    font-weight: bold;
+    font-size: 1.5rem;
+  }
+  .pasteColumnsListTitle {
+    white-space: nowrap;
+    vertical-align: bottom; /* To better align with the monospace code */
   }
   #toggleDescriptions { /* Container for the 'Show details' Icon */
     flex-grow: 1; /* So that it takes all the available width and the symbol can be right aligned */
@@ -999,6 +1188,7 @@
   }
   #toggleDescriptionsLink {
     outline: none; /* Avoid the browser default focus outline */
+    margin: 0 0 0 50px;
   }
   #toggleDescriptionsLink svg { /* 'Show details' icon */
     cursor: pointer;
@@ -1057,6 +1247,7 @@
   }
   .columnOptionLabel { /* Option label */
     font-weight: bold;
+    white-space: nowrap;
   }
   .columnOptionDescription { /* Option description */
     display: block;
@@ -1220,22 +1411,23 @@
 
 </head>
 <body>
-<!-- ************ SECTION 2 - STATIC HTML ************ -->
+<!-- ************ SECTION 3 - STATIC HTML ************ -->
+
+  <!-- SVG templates (= invisible 'symbols' that can be called elsewhere) -->
+  <!-- Remark: No fixed size or color defined here. They will adapt to the SVG calling them. -->
+  <!-- Remark: 'xmlns' is not needed in inline SVGs served as 'text/html'-->
+  <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
+  <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
+  <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
+  <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
+  <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
+  <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 10 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
+  <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
 
   <!-- Wrappers (added just to keep footer at the bottom) -->
   <div id="Page-container">
     <div id="Content-wrap">
 
-      <!-- Define SVG templates (= invisible 'symbols') that can easily be called when we need these icons. -->
-      <!-- Remark: We don't define any fixed size here, so that they will adapt to the SVG size calling them. -->
-      <!-- Remark: 'xmlns' is apparently not needed when the SVG is given inline. -->
-      <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
-      <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
-      <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
-      <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
-      <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
-      <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 14 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-      <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
       <!-- Fixed banner on all pages -->
       <div id="Banner">
         <span id="BeamLogo">
@@ -1246,7 +1438,7 @@
           </a>
         </span>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7.6</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1273,21 +1465,20 @@
           </div>
           <div class="NavRow">
             <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></a>
-            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
+            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle light/dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
           </div>
         </div>
       </div>
 
       <!-- Floating buttons to scroll up and down -->
-      <div>
-        <button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button>
-        <button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button>
-      </div>
+      <div><button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button></div>
+      <div><button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button></div>
 
       <!-- Main content area (will be replaced through Javascript) -->
-      <div id="my_content">
+      <div id="MainContent">
         <!-- Dots are isolated, for CSS animation... -->
         <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
+        <p id="Querying">Querying explorer node at <script>document.write(urlPrefix);</script></p>
       </div>
 
     </div>
@@ -1300,7 +1491,7 @@
 
   </div>
 
-<!-- ************ SECTION 3 - CORE JS FUNCTIONS ************ -->
+<!-- ************ SECTION 4 - CORE JS FUNCTIONS ************ -->
 <script>
 
   function MakeRef(link, text, target = '_self') {
@@ -1309,10 +1500,6 @@
 
   function UrlSelf(type, extra = '') {
     return window.location.pathname + '?type=' + type + extra;
-  }
-
-  function UrlSelfWithID(type, id, extra = '') {
-    return UrlSelf(type, '&id=' + id + extra);
   }
 
   function MakeCell(text, styles = '') {
@@ -1344,7 +1531,7 @@
   }
 
   function UrlBlock(h) {
-    return UrlSelfWithID('block', h);
+    return UrlSelf('block', '&height=' + h);
   }
 
   function MakeBlock(h) {
@@ -1357,11 +1544,11 @@
 
   function MakeAsset(aid) {
     if (aid == 0) return AddClass('Beam', 'assetName');
-    return AddClass(MakeRef(UrlSelfWithID('asset', aid), 'Asset-' + aid), 'assetName');
+    return AddClass(MakeRef(UrlSelf('asset', '&id=' + aid), 'Asset-' + aid), 'assetName');
   }
 
   function MakeCid(cid) {
-    return AddClass(MakeRef(UrlSelfWithID('contract', cid), cid), 'cid', "title='" + cid + "'");
+    return AddClass(MakeRef(UrlSelf('contract', '&id=' + cid), cid), 'cid', "title='" + cid + "'");
   }
 
   function MakeFundsTbl(jFunds) {
@@ -1398,6 +1585,7 @@
 
   function Obj2Html_TableRows(jTbl) {
     let text = '';
+
     for (let iRow = 0; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
 
@@ -1455,7 +1643,8 @@
   }
 
   function Obj2Html(obj) {
-    if (obj == null) { return '' }
+    // Display empty span if data is empty
+    if (obj == null) { return AddClass('', 'emptySpan'); }
 
     if (Array.isArray(obj)) {
       let txt = '<ul>';
@@ -1497,11 +1686,15 @@
   }
 
   function SetContent(text) {
-    document.getElementById('my_content').innerHTML = text;
+    document.getElementById('MainContent').innerHTML = text;
+    // Parse Metadata to add classes (Rem: we do this one first because its innerHTML destroys the even handlers!)
+    addClassesToMetadata();
     // Add truncate/expand options to all text of type hash, cid, metadata, etc.
     addExpandOptions();
     // Include options for adding filters to the first row of long tables
     addFilterOption();
+    // Replace empty tables with a text
+    hideEmptyTables();
   }
 
   function DisplayContracts() {
@@ -1582,6 +1775,10 @@
 
     text += MakeCollapsibleBegin('Asset History');
 
+    // Display table options
+    text += DisplayAssetOptions();
+
+    // Display table
     text += "\
       <table class='tableAssetHistory'>\n\
         <thead><tr>\n\
@@ -1593,7 +1790,7 @@
         </tr></thead>\n\
     ";
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
       text += '<tr>';
@@ -1613,9 +1810,7 @@
     text += MakeCollapsibleBegin('Asset Distribution');
     const jTbl2Obj = jData['Asset distribution'];
     if (jTbl2Obj) {
-        const jTbl2 = jTbl2Obj['value'];
-        // Display special text if the table is empty (or only has headers)
-        text += (jTbl2.length > 1) ? Obj2Html(jTbl2Obj) : AddClass('(none)', 'noDataText');
+      text += Obj2Html(jTbl2Obj);
     }
     text += MakeCollapsibleEnd();
 
@@ -1692,31 +1887,29 @@
 
   function MakeTblAssets(j) {
     let text = "\
-      <table class='tableAssets'>\n\
-        <thead><tr>\n\
-          <th>Id</th>\n\
-          <th>Owner</th>\n\
-          <th>Deposit</th>\n\
-          <th>Supply</th>\n\
-          <th>Lock-Height</th>\n\
-          <th>Metadata</th>\n\
-        </tr></thead>\n\
+    <table class='tableAssets'>\n\
+      <thead><tr>\n\
+        <th>Id</th>\n\
+        <th>Owner</th>\n\
+        <th>Deposit</th>\n\
+        <th>Supply</th>\n\
+        <th>Lock-Height</th>\n\
+        <th>Metadata</th>\n\
+      </tr></thead>\n\
     ";
 
-    let jTbl = j['value'];
+    const jTbl = j['value'];
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
       text += '<tr>';
-
       text += MakeCell(MakeAsset(jRow[0]['value']));
       text += MakeCell(Obj2Html(jRow[1]));
       text += MakeCellAmount(jRow[2]['value']);
       text += MakeCellAmount(jRow[3]['value']);
       text += MakeCellRA(MakeBlock(jRow[4]));
       text += MakeCell(AddClass(jRow[5], 'metadata'));
-
       text += '</tr>';
     }
 
@@ -1725,47 +1918,43 @@
   }
 
   function MakeCAs(h) {
-    return '<h3>' + MakeRef(UrlSelfWithID('assets', h), 'Confidential Assets at this block height') + '</h3>';
+    return '<h3>' + MakeRef(UrlSelf('assets', '&height=' + h), 'Confidential Assets at this block height') + '</h3>';
   }
 
   function DisplayBlock() {
     let text = '';
-
     const jData = JSON.parse(this.responseText);
 
-    let j = jData['info'];
-    if (!j) {
-      // Display error message if kernel or height was queried but no block was found
-      if (g_kernel || g_id > 0) {
-        if (g_kernel) {
-          text += "<h2 class='title errorMessage'>Kernel not found.</h2>";
-        } else {
-          text += "<h2 class='title errorMessage'>Block not found.</h2>";
-        }
-        SetContent(text);
-        return;
-      }
+    // Display error message if no block was found
+    // Remark: The explorer node often returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
+    if (jData['found']===false || (jData['info']===undefined && g_height!='0')) { // Remark: Only the Treasury lacks the 'info' field
+      text += "<h2 class='title errorMessage'>Block not found.</h2>";
+      SetContent(text);
+      return;
     }
 
-    // If the request was a kernel, get the resulting height
-    if (g_kernel) { g_id = j['value'][0][1]['value'] }
+    // Parse "info" section
+    let j = jData['info'];
+
+    // If the request included a kernel, get the resulting height
+    // (if the requested kernel did no exist, but a height was also given, then the same height will be obtained here)
+    if (j && g_kernel) { g_height = j['value'][0][1]['value'] }
 
     text += "<h2 class='title'>";
-    if (g_id > 0) {
-      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_id), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"), 'listOfBlockHeaders', "title='List of blocks up to this one'");
+    if (g_height > 0) {
+      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_height), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"), 'listOfBlockHeaders', "title='List of blocks up to this one'");
       text += '&nbsp;';
-      text += 'Block ' + AddClass(g_id, 'blockHeight');
+      text += 'Block ' + AddClass(g_height, 'blockHeight');
       text += '&nbsp;';
-      text += AddClass(MakeRef(UrlBlock(g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      text += AddClass(MakeRef(UrlBlock(g_height - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
     } else {
       text += 'Treasury';
       text += '&nbsp;';
       text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
     }
-    text += AddClass(MakeRef(UrlBlock(g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     text += '</h2>';
 
-    // Parse "info" section
     if (j) {
       text += MakeCollapsibleBegin('Block Summary');
       text += "<table class='tableSummary'>";
@@ -1778,19 +1967,19 @@
 
     j = jData['inputs'];
     if (j) {
-      text += "<h3 class='sub'>Inputs</h3>\n";
+      text += "<h3 class='sub'>Inputs (" + j.length + ")</h3>\n";
       text += MakeTableTxos(j, true);
     }
 
     j = jData['outputs'];
     if (j) {
-      text += "<h3 class='sub'>Outputs</h3>\n";
+      text += "<h3 class='sub'>Outputs (" + j.length + ")</h3>\n";
       text += MakeTableTxos(j, false);
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += "<h3 class='sub'>Kernels</h3>\n";
+      text += "<h3 class='sub'>Kernels (" + jTbl.length + ")</h3>\n";
       text += "\
         <table class='tableKernels'>\n\
           <thead><tr>\n\
@@ -1852,12 +2041,12 @@
       text += MakeCollapsibleEnd();
     }
 
-    j = jData['assets'];
+    j = jData['assets']; // Is this actually ever returned by the explorer node?...
     if (j) {
       text += MakeCollapsibleBegin('Assets state');
       text += MakeTblAssets(j);
       text += MakeCollapsibleEnd();
-    } else text += MakeCAs(g_id);
+    } else text += MakeCAs(g_height);
 
     SetContent(text);
   }
@@ -1970,7 +2159,13 @@
 
     let text = "<h2 class='title'>Contract " + AddClass(g_id, 'cidTitle') + '</h2>\n';
 
-    text += MakeCollapsibleBegin('Call history') + "\
+    text += MakeCollapsibleBegin('Call history')
+    
+    // Display table options
+    text += DisplayContractOptions();
+
+    // Display table
+    text += "\
       <table class='tableCallHistory'>\n\
         <thead><tr>\n\
           <th>Height</th>\n\
@@ -1984,7 +2179,7 @@
         </tr></thead>\n\
     ";
 
-    // Skip first row
+    // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       // Multiple contract calls are grouped in dedicated tbodies (HTML tables can have multiple tbodies!)
       text += "<tbody class='contractCall'>";
@@ -2039,9 +2234,40 @@
     SetContent(text);
 
     // Initialize table options
-    selectColumns(); // Mark checkboxes as per current column selection
+    selectColumns('current'); // Mark checkboxes as per current column selection
     reorderColumns(); // Reorder checkboxes (from localStorage, or in default order)
     defineDraggableElements(); // Make checkboxes draggable
+  }
+
+  // Display an 'ABOUT' block
+  function AboutSection() {
+    let text = "<div class='about'>\n";
+    text += "<h2 class='title'>About</h2>\n";
+    text += "<p class='aboutText'>";
+    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
+            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
+            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Although amounts are concealed and addresses are not stored onchain, \
+            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
+            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
+            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
+    text += "</p>\n";
+    text += "<p class='aboutText'>";
+    text += "This app is an interactive web display of the data queried to a Beam explorer node. \
+            The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
+            You can save the HTML file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
+    text += "</p>\n";
+    text += "<p class='aboutDisclaimer'>";
+    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
+    text += "</p>\n";
+    text += "</div>";
+
+    return text;
   }
 
   function DisplayStatus() {
@@ -2062,20 +2288,24 @@
     const jData = JSON.parse(this.responseText);
 
     let text = "<h2 class='title'>\n";
-    if (g_id) {
-      text += 'Confidential Assets at block height ' + MakeBlock(g_id);
+    if (g_height) {
+      text += 'Confidential Assets at block height ' + MakeBlock(g_height);
       text += '&nbsp;';
-      if (g_id > 1) {
-        text += AddClass(MakeRef(UrlSelfWithID('assets', g_id - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      if (g_height > 1) {
+        text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1)), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
       } else {
         text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
       }
-      text += AddClass(MakeRef(UrlSelfWithID('assets', g_id - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+      text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1 + 2)), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     } else {
       text += 'Current Confidential Assets';
     }
     text += '</h2>\n';
 
+    // Display table options
+    text += DisplayAssetsOptions();
+
+    // Display table
     text += MakeTblAssets(jData);
 
     SetContent(text);
@@ -2124,9 +2354,8 @@
   }
 </script>
 
-<!-- ************ SECTION 4 - MAIN JS CODE ************ -->
-<script>
-  // GLOBAL VARIABLES
+<!-- ************ SECTION 5 - MAIN JS CODE ************ -->
+<script> // ADDITIONAL GLOBAL VARIABLES
 
   // Array of codes, names and descriptions for the Block Header columns
   const columnDefaultOrder = "THgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
@@ -2174,7 +2403,7 @@
     {
       block_list: [0],
       title: 'Treasury',
-      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?type=block&id=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
+      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?type=block&height=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
@@ -2184,7 +2413,7 @@
     {
       block_list: [1],
       title: 'Genesis block',
-      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?type=block&id=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?type=block&height=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
       links: [
         ['Original MimbleWimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
         ['First Beam Medium post', 'https://medium.com/beam-mw/introducing-beam-f35096a923ec'],
@@ -2196,25 +2425,25 @@
     {
       block_list: [159, 160],
       title: 'The fastest blocks on Earth',
-      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='?type=hdrs&hMax=160&nMax=10'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occured again a few times after that (example with <a href='?type=hdrs&hMax=25709&nMax=10'>blocks 25708 and 25709</a>). Indeed, the event is theoretically possible, but very unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
+      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='?type=hdrs&cols=THkioyz&hMax=160&nMax=8'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occure again a few times after that (example with <a href='?type=hdrs&cols=THkioyz&hMax=25709&nMax=8'>blocks 25708 and 25709</a>). Indeed, the event is possible, but quite unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
       links: [['Poisson distribution', 'https://en.wikipedia.org/wiki/Poisson_distribution']]
     },
     {
       block_range: [25709, 25820],
       title: 'Blockchain Stop Event',
-      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at block 25709. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?type=hdrs&hMax=25710&nMax=5'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?type=hdrs&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?type=block&id=25820'>25820</a> and <a href='?type=block&id=25822'>25822</a> processed all the pending ones. No funds were lost.",
+      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at <a href='?type=hdrs&cols=THkioyz&hMax=25711&nMax=6'>block 25709</a>. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?type=hdrs&cols=THkioyz&hMax=25711&nMax=6'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?type=hdrs&cols=THkioyz&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?type=block&height=25820'>25820</a> and <a href='?type=block&height=25822'>25822</a> processed all the pending ones. No funds were lost.",
       links: [['Postmortem analysis', 'https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813']]
     },
     {
       block_list: [321321],
       title: 'First Hard-Fork',
-      description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in difficulty was observed as not all miners performed a timely upgrade. However, after <a href='?type=hdrs&hMax=322327&nMax=1010' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the hashrate had gone back to its pre-fork value.",
+      description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in block difficulty was observed as not all miners performed a timely upgrade. However, after <a href='?type=hdrs&cols=THdkioyz&hMax=322327&nMax=1010' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the block difficulty had gone back to its pre-fork value.",
       links: [['Medium post', 'https://medium.com/beam-mw/mimblewimble-hard-fork-first-completed-1171f9642e51']]
     },
     {
       block_list: [525600, 525601],
       title: 'First Halving',
-      description: "As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years.",
+      description: "As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years (i.e. every 2,102,400 blocks).",
       links: [['Substack post', 'https://beamprivacy.substack.com/p/beam-2020-week-1-happy-halving']]
     },
     {
@@ -2239,13 +2468,13 @@
     {
       block_list: [778857],
       title: 'First input UTXO from a Shielded Pool',
-      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?type=block&id=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?type=block&id=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. As can be seen in block <a href='?type=block&id=2878666'>2878666</a>, a few years later the Lelantus-MW <b>anonymity set has reached 18,989&nbsp;!</b>",
+      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?type=block&height=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?type=block&height=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. The current anonymity set is thus the total number of Shielded outputs produced up until now (as given in the <a href='?'>Blockchain Status</a>).",
       links: null
     },
     {
       block_list: [780219],
       title: 'Creation of the first Confidential Asset',
-      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?type=block&id=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?type=block&id=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and are actually even undistinguishable from Beam transactions themselves (the id of the transacted asset is shown to be in a [0-63] range, with id:0 being Beam itself)!<br>Since then, <a href='?type=assets'>numerous confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
+      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?type=block&height=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?type=block&height=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and the wallet submitting the transaction can even make them undistinguishable from Beam transactions themselves (the id of the transacted asset being shown as belonging to a [0-63] range, with id:0 being Beam itself)!<br>As of today, <a href='?type=assets'>several confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
       links: [
         //["Tico website","https://www.ticotip.me"],
         ["Tico's first anniversary", 'https://ticotipme.substack.com/p/tico-turns-1'],
@@ -2266,7 +2495,7 @@
     {
       block_list: [1280003],
       title: 'Deployment of the first Smart Contract',
-      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?type=block&id=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
+      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?type=block&height=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
       links: [['Examples of smart contracts', 'https://github.com/BeamMW/beam/tree/master/bvm/Shaders']]
     },
     {
@@ -2279,9 +2508,9 @@
       ]
     },
     {
-      block_list: [1466500],
+      block_list: [1466501],
       title: 'Start of the first BeamX staking campaign',
-      description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&nMax=200' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
+      description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&hMin=1464852&nMaxTxs=2000' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='?type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
       links: [
         ['First BeamX reward campaign', 'https://medium.com/@beam_privacy/heres-everything-you-need-to-know-to-prepare-for-beam-staking-108eef344f7d'],
         ['Details on the campaign', 'https://medium.com/beam-mw/beamers-hodlers-beam-staking-is-coming-513bd196af57']
@@ -2300,7 +2529,7 @@
     {
       block_list: [1920000],
       title: 'Fifth Hard-Fork (and wallet v7.1)',
-      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen in <a href='?type=assets&id=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen, starting with CA id:8, in <a href='?type=assets&height=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created, for the older ones) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
       links: [
         ['Announcement', 'https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178'],
         ['Forum post for BIP-1', 'https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116']
@@ -2309,53 +2538,62 @@
     {
       block_list: [2272779],
       title: 'Blockchain incident',
-      description: "On may 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?type=hdrs&hMax=2272781&nMax=3' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?type=block&id=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+      description: "On May 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?type=hdrs&hMax=2272781&nMax=4&cols=THkioyzp' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?type=block&height=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
       links: [['Incident analysis', 'https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097']]
     },
     {
       block_list: [2628000, 2628001],
       title: 'Second Halving & End of the 5-year treasury allocation',
-      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='?type=block&id=2628000'>2628000</a>) to 25 BEAM (block <a href='?type=block&id=2628001'>2628001</a>).<br>This halving also saw the <a href='?type=block&id=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2023. It reduced the block rewards from 50 BEAM (block <a href='?type=block&height=2628000'>2628000</a>) to 25 BEAM (block <a href='?type=block&height=2628001'>2628001</a>).<br>This halving also saw the <a href='?type=block&height=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
       links: [['The 5-year recap', 'https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f']]
     },
   ];
 
-  // Check localStorage for dark mode status ("dark" or "")
-  let mode = localStorage.getItem('mode');
-  if (mode) { document.querySelector(':root').classList.add(mode) }
-
   // URL and explorer node parameters
   const URLparams = new URL(document.location).searchParams;
-  let g_type = URLparams.get('type'); // Remark: We use two URL 'types' not used by the explorer node ("historical" and "treasury")
-  let g_id = URLparams.get('id'); // Serves for both 'id' (assets & contracts) and 'height' (blocks)
-  let g_kernel = URLparams.get('kernel'); // Takes precedence over 'height' (blocks)
-  let g_hMin = URLparams.get('hMin');
-  let g_hMax = URLparams.get('hMax');
-  let g_nMax = URLparams.get('nMax'); // Serves for nMax (hdrs), n (blocks), nMaxOps (asset) and nMaxTxs (contract)
-  let g_cols = URLparams.get('cols'); // Used only in hdrs
-  let g_dh = URLparams.get('dh'); // Used only in hdrs
+  let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ("historical" and "treasury")
+  let g_id = URLparams.get('id'); // Used for type=asset & contract
+  let g_height = URLparams.get('height'); // Used for type=block & blocks & assets
+  let g_kernel = URLparams.get('kernel'); // Used for type=block
+  let g_hMin = URLparams.get('hMin'); // Used for type=asset & contract
+  let g_hMax = URLparams.get('hMax'); // Used for type=asset & contract & hdrs
+  //let g_n = URLparams.get('n'); // Used for type=blocks
+  let g_nMax = URLparams.get('nMax'); // Used for type=hdrs
+  let g_nMaxOps = URLparams.get('nMaxOps'); // Used for type=asset
+  let g_nMaxTxs = URLparams.get('nMaxTxs'); // Used for type=contract
+  let g_cols = URLparams.get('cols'); // Used for type=hdrs
+  let g_dh = URLparams.get('dh'); // Used for type=hdrs
 
-  // If no parameter was given in the URL, then we look in localStorage
-  // If nothing is there either, then we set the default values
-  if (!g_cols) { g_cols = localStorage.getItem('columnsSelection') }
-  if (!g_cols) { g_cols = columnDefaultDisplay; }
-  if (!g_nMax) { g_nMax = localStorage.getItem('rowsSelection') }
+  // If no parameter was given in the URL, then we look in localStorage.
+  // If nothing is there either, then we set the default values.
+  // Remark: All these global variables will thus be defined (even if only with '')
+  if (!g_height) { g_height = '' } // We don't store this one in localStorage. It's either in the URL or empty.
+  if (!g_hMin) { g_hMin = '' } // We don't store this one in localStorage. It's either in the URL or empty.
+  if (!g_hMax) { g_hMax = '' } // We don't store this one in localStorage. It's either in the URL or empty.
+  //if (!g_n) { g_n = localStorage.getItem('g_n') }
+  //if (!g_n) { g_n = 1 }
+  if (!g_nMax) { g_nMax = localStorage.getItem('g_nMax') }
   if (!g_nMax) { g_nMax = 100 }
-  if (!g_dh) { g_dh = localStorage.getItem('intervalSelection'); }
+  if (!g_nMaxOps) { g_nMaxOps = localStorage.getItem('g_nMaxOps') }
+  if (!g_nMaxOps) { g_nMaxOps = 100 }
+  if (!g_nMaxTxs) { g_nMaxTxs = localStorage.getItem('g_nMaxTxs') }
+  if (!g_nMaxTxs) { g_nMaxTxs = 100 }
+  if (!g_cols) { g_cols = localStorage.getItem('g_cols') } // CHANGE NAME?
+  if (!g_cols) { g_cols = columnDefaultDisplay; }
+  if (!g_dh) { g_dh = localStorage.getItem('g_dh'); }
   if (!g_dh) { g_dh = 1 }
+</script>
 
-  // Address of the remote explorer node
-  //let urlPrefix = "http://localhost:17328/";
-  let urlPrefix = 'http://116.203.118.51:8100/';
+<script> // QUERY EXPLORER NODE
 
   // Request 'nice' formatting from the node (timestamps as YYYYY-MM-DD, amounts as XXX,XXX,XXX.YYYYYYYY, etc.)
   let urlSuffix = '?exp_am=1';
 
-  // Static page
+  // Case of static page
   if (g_type == 'historical') { // Arguments for 'historical': (none)
     window.onload = DisplayHistoricalBlocks;
   }
-  // Dynamic pages (explorer node requests)
+  // Case of dynamic pages (explorer node requests)
   else {
     const xmlhttp = new XMLHttpRequest();
 
@@ -2364,36 +2602,31 @@
       // In case Asset 0 is requested (which is not accepted by node explorer), reload the page with ALL assets instead
       if (g_id == 0) { window.location.href = UrlSelf('assets') }
       // Otherwise, process request
-      urlSuffix += '&id=' + g_id + '&nMaxOps' + g_nMax;
+      urlSuffix += '&id=' + g_id + '&nMaxOps=' + g_nMaxOps;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayAssetHistory;
 
-    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel
-      // We decide that 'kernel' argument takes precedence over 'height'
-      if (g_kernel) {
-        urlSuffix += '&kernel=' + g_kernel;
-      } else {
-        if (!g_id || g_id < 0) { g_id = 1 } // Display Genesis block for negative or no block height given
-        urlSuffix += '&height=' + g_id;
-      }
+    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explorer node handle the case where both are requested)
+      if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
+      if (g_height) { urlSuffix += '&height=' + g_height; }
       xmlhttp.onload = DisplayBlock;
 
     } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
       g_type = 'block';
-      g_id = 0;
-      urlSuffix += '&height=' + g_id;
+      g_height = 0;
+      urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayBlock;
     }
     // Option to query and display the details of multiple blocks (NOT USED HERE)
     // else if (g_type == "blocks") // Arguments for 'blocks': height, n
     // {
-    //   if (!g_nMax) { g_nMax = 5 }
-    //   urlSuffix += "&height=" + g_id + "&n=" + g_nMax;
+    //   if (!g_n) { g_n = 5 }
+    //   urlSuffix += "&height=" + g_height + "&n=" + g_n;
     //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
     // }
     else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
-      urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMax;
+      urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMaxTxs;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
       xmlhttp.onload = DisplayContractState;
@@ -2408,7 +2641,8 @@
       xmlhttp.onload = DisplayContracts;
 
     } else if (g_type == 'assets') { // Arguments for 'assets': height
-      urlSuffix += '&height=' + g_id;
+      if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = "" } // For inexistant blocks, display current assets 
+      urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayAssets;
 
     } else {
@@ -2422,47 +2656,55 @@
   }
 </script>
 
-<!-- ************ SECTION 5 - EXTRA JS FUNCTIONS ************ -->
+<!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
 <script>
-  // ADD 'ABOUT' SECTION
-  function AboutSection() {
-    let text = "<div class='about'>\n";
-    text += "<h2 class='title'>About</h2>\n";
-    text += "<p class='aboutText'>";
-    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
-            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
-            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Although amounts are concealed and addresses are not stored onchain, \
-            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
-            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
-            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "This app is an interactive web display of the data queried to a Beam explorer node. \
-            The whole interface is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
-            You can save the HTML file and simply open it locally in your browser! Source is also available on <a href='https://github.com/BeamMW/beam/tree/master/explorer/htm' target='_blank'>Github</a>.";
-    text += "</p>\n";
-    text += "<p class='aboutDisclaimer'>";
-    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
-    text += "</p>\n";
-    text += "</div>";
 
-    return text;
-  }
-
-  // PROCESS A BLOCK/KERNEL SEARCH REQUEST
+  // Process a Block/Kernel search request
   function submitSearch() {
     // Get search string
     let query = document.getElementById('SearchField').value;
     // Simplistic test to check if search string is rather block height or kernel id
-    let key = query.length < 10 ? '&id=' : '&kernel=';
+    let key = query.length < 10 ? '&height=' : '&kernel=';
     // Load the corresponding URL
     window.location.href = UrlSelf('block', key + query);
+  }
+
+  // Parse Metadata to add classes
+  function addClassesToMetadata() {
+    for (let str of document.querySelectorAll('.metadata')) {
+      // Add a class around the asset name (the name field is detected with a regexp)
+      str.innerHTML = str.innerHTML.replace(/(:|;)N=([^;]*)/,'$1N=<span class="metadataAssetName">$2</span>');
+   }
+    for (str of document.querySelectorAll('.metadataAssetName')) {
+      // Add another class to AMML asset names
+      // (Here we only check the name, but it would be better to verify the owner too...)
+      if (str.innerHTML.startsWith('Amm Liquidity Token')) { str.classList.add('AMML') }
+    }
+  }
+
+  // Replace empty tables with a text
+  function hideEmptyTables() {
+    for (let myTable of document.getElementsByTagName('table')) {
+      // Check if table has only one row
+      if (myTable.rows.length == 1) {
+        let myRow = myTable.rows[0];
+        // If all cells are <th> or have a span with a "th" class, then consider the row as header.
+        if (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length) {
+          // Mark the table as empty (CSS will hide it)
+          myTable.classList.add('emptyTable'); 
+          // Add a span with a simple text after the table
+          let mySpan = document.createElement("span");
+          mySpan.className = 'noDataText';
+          mySpan.innerHTML = '(none)'
+          myTable.parentNode.insertBefore(mySpan, myTable.nextSibling); // (This is the way to add a node AFTER another...)
+        }
+      }
+    }
+    // While at it, add the same text in empty spans...
+    for (let myEmptySpan of document.getElementsByClassName('emptySpan')) {
+      myEmptySpan.classList.add('noDataText'); 
+      myEmptySpan.innerHTML = '(none)';
+    }
   }
 
   // ADD EXPAND OPTIONS TO ALL TEXT OF TYPE HASH OR METADATA (CSS WILL DISPLAYED THEM TRUNCATED BY DEFAULT)
@@ -2627,19 +2869,18 @@
     icon.setAttribute('title', 'Expand everything');
   }
 
-  // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
-  function DisplayHdrsOptions() {
+  // SELECTION OPTIONS FOR THE TABLE OF CONTRACT CALLS
+  function DisplayContractOptions() {
     // Display table options
-    let text = MakeCollapsibleBegin('Options', 'hdrsOptions', 'close');
-    // Remark: We use backticks (aka 'template strings') for some strings here because of the mix of single and double quotes inside them
-    text += "<form id='headersDisplayOptions' name='headersDisplayOptions' action='javascript:applySelection();'>";
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyContractSelection();'>";
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
     text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
-               // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
-    text += "  <div id='selectRows'><label title='Number of rows to display (2000 max)'>\
-                 <span id='labelRows'>Rows: </span>\
-                 <input type='number' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of contract calls to display (2000 max)'>\
+                 <span class='labelRows'>Max rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxTxs + "'>\
                  <datalist id='nbrOfRows'>\
                    <option value='100'>100 (default)</option>\
                    <option value='200'>200</option>\
@@ -2648,10 +2889,155 @@
                    <option value='2000'>2000 (max)</option>\
                  </datalist>\
                </label></div>";
-               // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
-    text += "  <div id='selectStep'><label title='Blockheight interval between two rows'>\
-                 <span id='labelInterval'>Interval: </span>\
-                 <input type='number' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
+    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
+                 <span class='labelHeight'>Min block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyContractSelection() {
+    // Get number of rows
+    let nMaxTxs = document.getElementById("nbrRows").value;
+    if (nMaxTxs) { g_nMaxTxs = nMaxTxs; };
+    // Get min block height (even when empty)
+    g_hMin = document.getElementById("minHeight").value;
+    // Get max block height (even when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+    // Save results in localStorage
+    localStorage.setItem('g_nMaxTxs', g_nMaxTxs);
+    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('nMaxTxs', g_nMaxTxs);
+    args.set('hMin', g_hMin);
+    args.set('hMax', g_hMax);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
+  // SELECTION OPTIONS FOR THE TABLE OF AN ASSET
+  function DisplayAssetOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of events to display (2000 max)'>\
+                 <span class='labelRows'>Max rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxOps + "'>\
+                 <datalist id='nbrOfRows'>\
+                   <option value='100'>100 (default)</option>\
+                   <option value='200'>200</option>\
+                   <option value='500'>500</option>\
+                   <option value='1000'>1000</option>\
+                   <option value='2000'>2000 (max)</option>\
+                 </datalist>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
+                 <span class='labelHeight'>Min block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyAssetSelection() {
+    // Get number of rows
+    let nMaxOps = document.getElementById("nbrRows").value;
+    if (nMaxOps) { g_nMaxOps = nMaxOps; };
+    // Get min block height (even when empty)
+    g_hMin = document.getElementById("minHeight").value;
+    // Get max block height (even when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+    // Save results in localStorage
+    localStorage.setItem('g_nMaxOps', g_nMaxOps);
+    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('nMaxOps', g_nMaxOps);
+    args.set('hMin', g_hMin);
+    args.set('hMax', g_hMax);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
+  // SELECTION OPTIONS FOR THE TABLE OF ALL ASSETS
+  function DisplayAssetsOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetsSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    text += "  <div class='selectHeight'><label title='Block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_height + "' step='1' size='8' placeholder=''>\
+               </label></div>";
+    text += "</div>";
+    text += "</div>";
+    text += "</form>";
+    text += MakeCollapsibleEnd();
+
+    return text;
+  }
+
+  function applyAssetsSelection() {
+    // Get max block height (even when empty)
+    g_height = document.getElementById("maxHeight").value;
+    // Remark: We don't store this one in localStorage. It's either in the URL or empty.
+    // Create or replace these parameters in the URL search parameters
+    let args = new URL(document.location).searchParams;
+    args.set('height', g_height);
+    // Update the query part of the URL and reload page
+    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+  }
+
+  // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
+  function DisplayHdrsOptions() {
+    // Display table options
+    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyHdrsSelection();'>";
+    text += "<div id='selectionOptions'>";
+    text += "<div id='rowSelectionOptions'>";
+    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
+    text += "  <div class='selectRows'><label title='Number of rows to display (2000 max)'>\
+                 <span class='labelRows'>Rows: </span>\
+                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
+                 <datalist id='nbrOfRows'>\
+                   <option value='100'>100 (default)</option>\
+                   <option value='200'>200</option>\
+                   <option value='500'>500</option>\
+                   <option value='1000'>1000</option>\
+                   <option value='2000'>2000 (max)</option>\
+                 </datalist>\
+               </label></div>";
+    // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
+    text += "  <div class='selectStep'><label title='Blockheight interval between two rows'>\
+                 <span class='labelStep'>Interval: </span>\
+                 <input type='number' class='nbrStep' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
                  <datalist id='nbrOfSteps'>\
                    <option value='1'>1 (default)</option>\
                    <option value='60'>60 (~hour)</option>\
@@ -2660,19 +3046,28 @@
                    <option value='43200'>43,200 (~month)</option>\
                  </datalist>\
                </label></div>";
+    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
+                 <span class='labelHeight'>Max block height: </span>\
+                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
+               </label></div>";
     text += "</div>";
+    // Remark: We use backticks (aka 'template strings') here because of the mix of single and double quotes inside them.
     text += `<div id='columnSelectionOptions'>\
-               <span id='labelColumns'>Columns: </span>\
-               <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
-               <span class='itemSeparator'> | </span>\
-               <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
-               <span class='selectionText'>(or reorder with drag and drop)</span>\
-               <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>`;
-    text += "</div>";
+              <span class='selectionOptionsGroup'>\
+                <span class='labelColumns'>Columns: </span>\
+                <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:openPasteColumns();' id='pasteColumns' class='selectionOption' title='Copy/Paste codes for columns'>paste</a>\
+                <span class='itemSeparator'> | </span>\
+                <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
+                <span class='selectionText'>(or reorder with drag and drop)</span>\
+              </span>\
+              <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>\
+            </div>`;
     text += "</div>";
     text += "<div id='columnOptions'>";
     // Make list of all checkboxes
@@ -2697,6 +3092,28 @@
     }
     text += "</div>";
     text += "</form>";
+
+    // Popup for pasting column codes
+    // Remark: We use 'dialog' because 'popover' does not work on Chrome 83.
+    // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
+    text += "<dialog id='pasteColumnsPopup'>";
+    text += "  <form id='pasteColumnsForm' name='pasteColumnsForm' method='dialog' onsubmit='applyPasteColumns();'>\
+                  <div class='pasteColumnsText'>Copy/Paste codes for columns:</div>\
+                  <input type='text' id='pasteColumnsInput' value='" + columnDefaultDisplay + "' autocomplete='off' size='30' pattern='^(?:([" + columnDefaultOrder + "])(?!.*\\1))*$' placeholder='Enter column codes here' title='Valid codes are " + columnDefaultOrder + " (without repetition)' autofocus>\
+                  <button type='submit' id='pasteColumnsApply' title='Apply column codes'>Ok</button>\
+                  <button type='button' id='pasteColumnsCancel' title='Cancel' onclick='closePasteColumns();'>Cancel</button>\
+               </form>";
+    // Display a list of all column codes
+    text += "<div class='pasteColumnsList'>";
+    for (let i = 1; i < columnHeaders.length; i++) {
+        text += "<div class='pasteColumnsListItem' title='" + columnHeaders[i].description + "'>";
+        text += "<span class='pasteColumnsListCode'>" + columnHeaders[i].code + " </span>";
+        text += "<span class='pasteColumnsListTitle'>" + columnHeaders[i].title + "</span>";
+        text += "</div>";
+    }
+    text += "</div>";
+    text += "</dialog>";
+
     text += MakeCollapsibleEnd();
 
     return text;
@@ -2724,73 +3141,129 @@
     }
   }
 
-  function selectColumns(param = "current") { // Mark checkboxes as per current column selection
-    let string, link;
+  function selectColumns(param = 'current') { // Mark checkboxes according to a given column selection
+    let string, link = document.getElementById('selectAllColumns');
     switch(param) {
       case 'current':
         // Check current checkboxes (as per global variable)
         string = g_cols;
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-          item.checked = (string.includes(item.id)) ? true : false; 
-        }
         break;
       case 'default':
         // Check default checkboxes (as per global variable)
         string = columnDefaultDisplay;
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-          item.checked = (string.includes(item.id)) ? true : false; 
-        }
         break;
       case 'all':
-        // Check all checkboxes
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = true; }
+        // Check all checkboxes (as per global variable)
+        string = columnDefaultOrder;
         // Switch action of the link
-        link = document.getElementById('selectAllColumns');
         link.setAttribute('href', 'javascript:selectColumns("none");');
         link.setAttribute('title', 'Deselect all columns');
         link.textContent = 'none';
         break;
       case 'none':
         // Uncheck all checkboxes
-        for (let item of document.querySelectorAll('.columnOptionCheckbox')) { item.checked = false; }
+        string = '';
         // Switch action of the link
-        link = document.getElementById('selectAllColumns');
         link.setAttribute('href', 'javascript:selectColumns("all");');
         link.setAttribute('title', 'Select all columns');
         link.textContent = 'all';
         break;
+      default:
+        // Check the checkboxes as per given column code
+        string = param;
+    }
+
+    // Until we adapt the UI for column repetition, we simply ignore them (although they do work when passed in the URL)...
+    let str = '';
+    for (let c of string) { str += (str.indexOf(c) === -1) ? c : '' }; // We only keep a letter if it has not been added yet
+    string = str;
+
+    // Check selected checkboxes
+    for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+      item.checked = (string.includes(item.id)) ? true : false; 
     }
   }
 
-  function reorderColumns(series = '') { // Reorder checkboxes (from localStorage, or in default order)
-    // If no order is given, check localStorage. It it's also empty, use the default order
+  function reorderColumns(series = '') { // Reorder checkboxes
+    let n = 0, series2 = "", fullSeries;
+    // 1) If no order is given, check localStorage. If it's also empty, then use the default order.
     if (series == '') {
-      series = localStorage.getItem('columnsOrder');
+      series = localStorage.getItem('g_colsAll');
       if (!series) { series = columnDefaultOrder; }
-      // Adjust checkboxes order to match the order of the displayed columns
-      // (we only reorder the displayed ones: If a letter is any of the displayed ones, we replace it with the next displayed one, in sequence)
-      let n = 0, series2 = "";
-      for (let char of series) { series2 += (g_cols.includes(char)) ? g_cols[n++] : char }
-      series = series2;
+
+      // Until we adapt the UI for column repetition, we simply ignore them (although they do work when passed in the URL)...
+      let str = '';
+      for (let c of g_cols) { str += (str.indexOf(c) === -1) ? c : '' }; // We only keep a letter if it has not been added yet
+
+      // Adjust checkboxes order to match the order of the currently displayed columns (global variable 'g_cols')
+      // Remark: We only reorder the needed ones (if a letter is any of the displayed ones, we replace it with the next displayed one, in sequence).
+      for (let char of series) { series2 += (str.includes(char)) ? str[n++] : char }
+      fullSeries = series2;
+    }
+    // 2) If only a sub-group of letters is given, then simply adjust the current order
+    else if (series.length < columnDefaultOrder.length) {
+      // Get current order of checkboxes (they are automatically listed in order)
+      let currentSeries = '';
+      for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+        currentSeries += item.id; // String of codes for the current order of all checkboxes
+      }
+      // Adjust current checkboxes order to match the order of the sub-group
+      // Remark: We only reorder the needed ones (if a letter is any of the requested ones, we replace it with the next requested one, in sequence).
+      for (let char of currentSeries) { series2 += (series.includes(char)) ? series[n++] : char }
+      fullSeries = series2;
+    }
+    // 3) Otherwise, we assume a full sequence (with all letters) has been given
+    // Remark: We should probably add some verifications here about the content of 'series'...
+    else {
+      fullSeries = series;
     }
     // Reorder elements according to the series of letters
-    for (let letter of series) {
+    for (let letter of fullSeries) {
       // Get the corresponding checkbox element
       let item = document.getElementById('Option_' + letter);
       // If the item exists, move it at the end of siblings series
       if (item) { item.parentElement.appendChild(item) }
-      // Then, update the numbering of the reordered elements
-      renumberColumnOptions();
     }
+    // Then, update the numbering of the reordered elements
+    renumberColumnOptions();
   }
 
-  function applySelection() {
+  function openPasteColumns() { // Open popup
+    let popup = document.getElementById('pasteColumnsPopup');
+    // Get codes for selected checkboxes (they will be automatically listed in their current order)
+    let params = '';
+    for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
+      if (item.checked == true) { params += item.id }; // String of codes with the selected checkboxes (in the same order)
+    }
+    // Set form input value to those codes
+    document.getElementById('pasteColumnsInput').value = params;
+    // Display popup
+    popup.showModal();
+    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
+    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+  }
+
+  function closePasteColumns() { // Close popup
+    document.getElementById('pasteColumnsPopup').close();
+  }
+
+  function applyPasteColumns() { // Apply popup selection
+    let string = document.getElementById('pasteColumnsInput').value;
+    selectColumns(string); // Mark checkboxes as per given column codes
+    reorderColumns(string); // Reorder the needed checkboxes to match the selection
+    // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
+  }
+
+  function applyHdrsSelection() {
     // Get number of rows
     let nMax = document.getElementById("nbrRows").value;
     if (nMax) { g_nMax = nMax; };
     // Get row interval
     let dh = document.getElementById("nbrStep").value;
     if (dh) { g_dh = dh; };
+    // Get max block height (even when empty)
+    g_hMax = document.getElementById("maxHeight").value;
+
     // Get codes for selected checkboxes (they are automatically listed in their current order)
     let params = '', series = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
@@ -2799,15 +3272,17 @@
     }
     // Save results in localStorage
     g_cols = params;
-    localStorage.setItem('columnsOrder', series);
-    localStorage.setItem('columnsSelection', g_cols);
-    localStorage.setItem('rowsSelection', g_nMax);
-    localStorage.setItem('intervalSelection', g_dh);
+    localStorage.setItem('g_colsAll', series);
+    localStorage.setItem('g_cols', g_cols);
+    localStorage.setItem('g_nMax', g_nMax);
+    localStorage.setItem('g_dh', g_dh);
+    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('cols', g_cols);
     args.set('nMax', g_nMax);
     args.set('dh', g_dh);
+    args.set('hMax', g_hMax);
     // Update the query part of the URL and reload page
     window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
   }
@@ -3158,10 +3633,10 @@
   // TOGGLE DARK MODE
   function toggleDarkMode() {
     let mode = '';
-    // For dark mode, we add a class to root
+    // For light mode, we add a class to root
     let rootclass = document.querySelector(':root').classList;
-    if (rootclass.contains('dark')) { rootclass.remove('dark') }
-    else { rootclass.add('dark'); mode = 'dark' }
+    if (rootclass.contains('light')) { rootclass.remove('light') }
+    else { rootclass.add('light'); mode = 'light' }
     // Store mode in localStorage (to allow retrieving it across pages)
     localStorage.setItem('mode', mode);
   }
