@@ -84,6 +84,10 @@ namespace proto {
     macro(Merkle::Hash, ID) \
     macro(bool, Fetch)
 
+#define BeamNodeMsg_GetProofKernel3(macro) \
+    macro(HeightPos, Pos) \
+    macro(bool, WithProof)
+
 #define BeamNodeMsg_GetProofUtxo(macro) \
     macro(ECC::Point, Utxo) \
     macro(Height, MaturityMin) /* set to non-zero in case the result is too big, and should be retrieved within multiple queries */
@@ -349,6 +353,7 @@ namespace proto {
     macro(0x23, ProofCommonState) \
     macro(0x24, GetProofKernel2) \
     macro(0x25, ProofKernel2) \
+    macro(0x2b, GetProofKernel3) \
     macro(0x26, GetBodyPack) \
     macro(0x27, BodyPack) \
     macro(0x28, GetProofShieldedOutp) \
@@ -425,9 +430,10 @@ namespace proto {
             // 8 - Contract vars and logs, flexible hdr request, newer ShieldedList, Status
             // 9 - Dependent txs
             // 10- GetAssetsListAt
+            // 11- GetProofKernel3
 
             static const uint32_t Minimum = 8;
-            static const uint32_t Maximum = 10;
+            static const uint32_t Maximum = 11;
 
             static void set(uint32_t& nFlags, uint32_t nExt);
             static uint32_t get(uint32_t nFlags);

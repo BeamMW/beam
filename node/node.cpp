@@ -3646,7 +3646,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel&& msg)
 	Processor& p = m_This.m_Processor;
 	if (!p.IsFastSync())
 	{
-		Height h = p.get_ProofKernel(msgOut.m_Proof.m_Inner, NULL, msg.m_ID);
+		Height h = p.get_ProofKernel(&msgOut.m_Proof.m_Inner, nullptr, msg.m_ID, nullptr);
 		if (h)
 		{
 			uint64_t rowid = p.FindActiveAtStrict(h);
@@ -3665,7 +3665,20 @@ void Node::Peer::OnMsg(proto::GetProofKernel2&& msg)
 
 	Processor& p = m_This.m_Processor;
 	if (!p.IsFastSync())
-		msgOut.m_Height = p.get_ProofKernel(msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : NULL, msg.m_ID);
+		msgOut.m_Height = p.get_ProofKernel(&msgOut.m_Proof, msg.m_Fetch ? &msgOut.m_Kernel : nullptr, msg.m_ID, nullptr);
+	Send(msgOut);
+}
+
+void Node::Peer::OnMsg(proto::GetProofKernel3&& msg)
+{
+	proto::ProofKernel2 msgOut;
+
+	Processor& p = m_This.m_Processor;
+	if (!p.IsFastSync())
+	{
+		Merkle::Hash idKrn; // dummy
+		msgOut.m_Height = p.get_ProofKernel(msg.m_WithProof ? &msgOut.m_Proof : nullptr, &msgOut.m_Kernel, idKrn, &msg.m_Pos);
+	}
 	Send(msgOut);
 }
 

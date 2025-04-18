@@ -27,6 +27,7 @@ namespace proto {
 		macro(Utxo) \
 		macro(Kernel) \
 		macro(Kernel2) \
+		macro(Kernel3) \
 		macro(Events) \
 		macro(EnsureSync) \
 		macro(Transaction) \
@@ -51,7 +52,6 @@ namespace proto {
         macro(Utxo,              GetProofUtxo,         ProofUtxo) \
         macro(Kernel,            GetProofKernel,       ProofKernel) \
         macro(Asset,             GetProofAsset,        ProofAsset) \
-        macro(Kernel2,           GetProofKernel2,      ProofKernel2) \
         macro(Events,            GetEvents,            Events) \
         macro(Transaction,       NewTransaction,       Status) \
         macro(ShieldedList,      GetShieldedList,      ShieldedList) \
@@ -142,6 +142,14 @@ namespace proto {
 			struct AssetsListAt {
 				proto::GetAssetsListAt m_Msg;
 				std::vector<beam::Asset::Full> m_Res;
+			};
+			struct Kernel2 {
+				proto::GetProofKernel2 m_Msg;
+				proto::ProofKernel2 m_Res;
+			};
+			struct Kernel3 {
+				proto::GetProofKernel3 m_Msg;
+				proto::ProofKernel2 m_Res;
 			};
 		};
 
@@ -325,6 +333,7 @@ namespace proto {
 				void OnMsg(proto::ContractVars&& msg) override;
 				void OnMsg(proto::ContractLogs&& msg) override;
 				void OnMsg(proto::AssetsListAt&& msg) override;
+				void OnMsg(proto::ProofKernel2&& msg) override;
 
 				bool IsSupported(const Data::Std&) { return true; }
 				bool IsSupported(RequestEvents&);
@@ -333,7 +342,6 @@ namespace proto {
 				void OnRequestData(const Data::Std&) {}
 				void OnRequestData(RequestUtxo&);
 				void OnRequestData(RequestKernel&);
-				void OnRequestData(RequestKernel2&);
 				void OnRequestData(RequestAsset&);
 				void OnRequestData(RequestProofShieldedInp&);
 				void OnRequestData(RequestProofShieldedOutp&);

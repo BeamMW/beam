@@ -193,8 +193,6 @@ class NodeProcessor
 	BeamKernelsAll(THE_MACRO)
 #undef THE_MACRO
 
-	static uint64_t ProcessKrnMmr(Merkle::Mmr&, std::vector<TxKernel::Ptr>&, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes);
-
 	struct KrnFlyMmr;
 
 	static const uint32_t s_TxoNakedMin = sizeof(ECC::Point); // minimal output size - commitment
@@ -565,7 +563,7 @@ public:
 
 	struct ProofBuilder_PrevState;
 
-	Height get_ProofKernel(Merkle::Proof&, TxKernel::Ptr*, const Merkle::Hash& idKrn);
+	Height get_ProofKernel(Merkle::Proof*, TxKernel::Ptr*, const Merkle::Hash& idKrn, const HeightPos* pPos);
 	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();

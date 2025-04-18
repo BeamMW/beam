@@ -836,15 +836,6 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
             ThrowUnexpected();
 }
 
-void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel2& req)
-{
-    if (req.m_Res.m_Kernel)
-    {
-        if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
-            ThrowUnexpected();
-    }
-}
-
 bool FlyClient::NetworkStd::Connection::IsSupported(RequestEvents&)
 {
     return !!(Flags::Owned & m_Flags);
@@ -1013,6 +1004,53 @@ void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
     default:
         ThrowUnexpected();
     }
+}
+
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestKernel2& req)
+{
+    Send(req.m_Msg);
+    return true;
+}
+
+bool FlyClient::NetworkStd::Connection::SendRequest(RequestKernel3& req)
+{
+    if (get_Ext() < 11)
+        return false;
+
+    Send(req.m_Msg);
+    return true;
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(ProofKernel2&& msg)
+{
+    auto& n = get_FirstRequest();
+    switch (n.m_pRequest->get_Type())
+    {
+    case Request::Type::Kernel2:
+        {
+            auto& req = Cast::Up<RequestKernel2>(*n.m_pRequest);
+            req.m_Res = std::move(msg);
+
+            if (req.m_Res.m_Kernel && req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
+                ThrowUnexpected();
+        }
+        break;
+
+    case Request::Type::Kernel3:
+        {
+            auto& req = Cast::Up<RequestKernel3>(*n.m_pRequest);
+            req.m_Res = std::move(msg);
+
+            if (req.m_Res.m_Kernel && req.m_Msg.m_WithProof && !req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
+                ThrowUnexpected();
+        }
+        break;
+
+    default:
+        proto::NodeConnection::ThrowUnexpected();
+    }
+ 
+    OnDone(n);
 }
 
 bool FlyClient::NetworkStd::Connection::SendTrgCtx(const std::unique_ptr<Merkle::Hash>& pCtx)
