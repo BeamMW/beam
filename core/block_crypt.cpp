@@ -1121,7 +1121,7 @@ namespace beam
 
 		assert(m_Owner != Zero); // the above ensures this
 
-		// prover must prove knowledge of excess AND m_AssetID sk
+		// prover must prove knowledge of excess AND m_Owner sk
 		if (!m_Signature.IsValid(ECC::Context::get().m_Sig.m_CfgG2, get_Msg(), m_Signature.m_pK, pPt))
 			TxBase::Fail_Signature();
 	}
@@ -1183,7 +1183,7 @@ namespace beam
 	{
 		TestValidAssetCtl(hScheme, exc, pParent);
 
-		if (!m_Value || !m_AssetID)
+		if (!m_Value)
 			Exc::Fail();
 
 		bool isPositive;

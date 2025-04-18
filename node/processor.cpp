@@ -4228,11 +4228,18 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 	if (krn.m_AssetID > Rules::get().CA.ForeignEnd)
 		return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
 
-	const auto& key = krn.m_Owner;
+	ECC::Point key;
+	key.m_X = Cast::Down<ECC::uintBig>(krn.m_Owner);
+	key.m_Y = 4;
+
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(krn.m_Value, bAdd);
 
-	if (bAdd && bic.m_Fwd && !bic.m_AlreadyValidated)
+	if (!bAdd)
+		key.m_Y |= 8;
+	Blob blobKey(&key, sizeof(key));
+
+	if (bic.m_Fwd && !bic.m_AlreadyValidated)
 	{
 		if (!m_pForeignBridge)
 		{
@@ -4241,7 +4248,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 			return false;
 		}
 
-		if (!m_pForeignBridge->AllowEmission(krn.m_AssetID, valUns, key))
+		if (bAdd && !m_pForeignBridge->AllowEmission(krn.m_AssetID, valUns, krn.m_Owner))
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "bridge not confirmed";
@@ -4255,7 +4262,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 
 	Blob blobVal(&fep, sizeof(fep));
 
-	if (!ValidateUniqueNoDup(bic, key, &blobVal))
+	if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
 	{
 		if (bic.m_pTxErrorInfo)
 			*bic.m_pTxErrorInfo << "double-emit";
@@ -4283,13 +4290,12 @@ bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpre
 			}
 		}
 
-
 		NodeDB::AssetEvt evt;
 		evt.m_ID = krn.m_AssetID;
 		evt.m_Body.p = &adp;
 		evt.m_Body.n = sizeof(adp);
 
-		bic.AssetEvtInsert(m_DB, evt, 0);
+		bic.AssetEvtInsert(m_DB, evt, 0); // will include height+krnIdx
 	}
 
 	return true;
