@@ -2344,27 +2344,6 @@ void NodeProcessor::ProofBuilderHard::OnProof(Merkle::Hash& hv, bool bNewOnRight
 	m_Proof.back() = hv;
 }
 
-uint64_t NodeProcessor::ProcessKrnMmr(Merkle::Mmr& mmr, std::vector<TxKernel::Ptr>& vKrn, const Merkle::Hash& idKrn, TxKernel::Ptr* ppRes)
-{
-	uint64_t iRet = uint64_t (-1);
-
-	for (size_t i = 0; i < vKrn.size(); i++)
-	{
-		TxKernel::Ptr& p = vKrn[i];
-		const Merkle::Hash& hv = p->get_ID();
-		mmr.Append(hv);
-
-		if (hv == idKrn)
-		{
-			iRet = i; // found
-			if (ppRes)
-				ppRes->swap(p);
-		}
-	}
-
-	return iRet;
-}
-
 struct NodeProcessor::ProofBuilder_PrevState
 	:public ProofBuilder
 {
@@ -2402,45 +2381,80 @@ struct NodeProcessor::ProofBuilder_PrevState
 	}
 };
 
-Height NodeProcessor::get_ProofKernel(Merkle::Proof& proof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn)
+Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRes, const Merkle::Hash& idKrn, const HeightPos* pPos)
 {
 	NodeDB::StateID sid;
-	sid.m_Height = m_DB.FindKernel(idKrn);
+
+	if (pPos)
+	{
+		if (pPos->m_Height > m_Cursor.m_Full.m_Height)
+			return 0;
+		sid.m_Height = pPos->m_Height;
+	}
+	else
+		sid.m_Height = m_DB.FindKernel(idKrn);
+
 	if (sid.m_Height < Rules::HeightGenesis)
-		return sid.m_Height;
+		return 0;
 
 	sid.m_Row = FindActiveAtStrict(sid.m_Height);
 	TxVectors::Eternal txve;
 	ReadKrns(sid.m_Row, txve);
 
-	Merkle::FixedMmr mmr;
-	mmr.Resize(txve.m_vKernels.size());
-	auto iTrg = ProcessKrnMmr(mmr, txve.m_vKernels, idKrn, ppRes);
-
-	if (std::numeric_limits<uint64_t>::max() == iTrg)
-		OnCorrupted();
-
-	mmr.get_Proof(proof, iTrg);
-
-	if (Rules::get().IsPastFork_<3>(sid.m_Height))
+	// find the target kernel
+	auto iTrg = static_cast<uint32_t>(txve.m_vKernels.size());
+	if (pPos)
 	{
-		struct MyProofBuilder
-			:public ProofBuilder_PrevState
-		{
-			using ProofBuilder_PrevState::ProofBuilder_PrevState;
-
-			virtual bool get_Kernels(Merkle::Hash&) override { return false; }
-
-			virtual bool get_Logs(Merkle::Hash& hv) override
-			{
-				hv = m_StateExtra.m_hvLogs;
-				return true;
-			}
-		};
-
-		MyProofBuilder pb(*this, proof, sid);
-		pb.GenerateProof();
+		if (pPos->m_Pos >= iTrg)
+			return 0; // oob
+		iTrg = pPos->m_Pos;
 	}
+	else
+	{
+		while (true)
+		{
+			if (!iTrg)
+				OnCorrupted(); // not found
+
+			TxKernel::Ptr& p = txve.m_vKernels[--iTrg];
+			if (p->get_ID() == idKrn)
+				break;
+		}
+	}
+
+	if (pProof)
+	{
+		Merkle::FixedMmr mmr;
+		mmr.Resize(txve.m_vKernels.size());
+
+		for (const auto& p : txve.m_vKernels)
+			mmr.Append(p->get_ID());
+
+		mmr.get_Proof(*pProof, iTrg);
+
+		if (Rules::get().IsPastFork_<3>(sid.m_Height))
+		{
+			struct MyProofBuilder
+				:public ProofBuilder_PrevState
+			{
+				using ProofBuilder_PrevState::ProofBuilder_PrevState;
+
+				virtual bool get_Kernels(Merkle::Hash&) override { return false; }
+
+				virtual bool get_Logs(Merkle::Hash& hv) override
+				{
+					hv = m_StateExtra.m_hvLogs;
+					return true;
+				}
+			};
+
+			MyProofBuilder pb(*this, *pProof, sid);
+			pb.GenerateProof();
+		}
+	}
+
+	if (ppRes)
+		*ppRes = std::move(txve.m_vKernels[iTrg]);
 
 	return sid.m_Height;
 }
