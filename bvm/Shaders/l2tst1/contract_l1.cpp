@@ -1,10 +1,10 @@
 ////////////////////////
 #include "../common.h"
 #include "../Math.h" // Strict
-#include "contract.h"
+#include "contract_l1.h"
 #include "../upgradable3/contract_impl.h"
 
-namespace L2Tst1 {
+namespace L2Tst1_L1 {
 
 #pragma pack (push, 1)
     struct MyState_NoLoad :public State
@@ -67,11 +67,39 @@ BEAM_EXPORT void Method_3(const Method::UserStake& r)
     Env::FundsLock(s.m_Settings.m_aidStaking, r.m_Amount);
 }
 
-} // namespace L2Tst1
+void OnBirdgeOp(const Method::BridgeOp& r, uint8_t nTag)
+{
+    BridgeOp::Key k;
+    k.m_Tag = nTag;
+    _POD_(k.m_pk) = r.m_pk;
+
+    Height h = Env::get_Height();
+    Env::Halt_if(Env::SaveVar_T(k, h)); // fail if already existed
+
+    Env::EmitLog_T(nTag, r);
+}
+
+BEAM_EXPORT void Method_4(const Method::BridgeExport& r)
+{
+    OnBirdgeOp(r, Tags::s_BridgeExp);
+    Env::FundsLock(r.m_Aid, r.m_Amount);
+}
+
+BEAM_EXPORT void Method_5(const Method::BridgeImport& r)
+{
+    OnBirdgeOp(r, Tags::s_BridgeImp);
+    Env::FundsUnlock(r.m_Aid, r.m_Amount);
+
+    Env::AddSig(r.m_pk);
+    
+    // TODO: sigs of the whitelisted validators
+}
+
+} // namespace L2Tst1_L1
 
 namespace Upgradable3 {
 
-    const uint32_t g_CurrentVersion = _countof(L2Tst1::s_pSID) - 1;
+    const uint32_t g_CurrentVersion = _countof(L2Tst1_L1::s_pSID) - 1;
 
     uint32_t get_CurrentVersion()
     {

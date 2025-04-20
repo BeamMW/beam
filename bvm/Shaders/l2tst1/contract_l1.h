@@ -1,10 +1,11 @@
 #pragma once
 #include "../upgradable3/contract.h"
+#include "contract_l2.h"
 
-namespace L2Tst1
+namespace L2Tst1_L1
 {
     static const ShaderID s_pSID[] = {
-        { 0xc7,0xe0,0x02,0x18,0x91,0x04,0x54,0x5f,0x56,0xe6,0x0e,0x46,0x1b,0xbe,0xa6,0xb0,0x90,0xd6,0x6f,0x3e,0x69,0xfa,0x45,0x0a,0x25,0x5d,0xf7,0x13,0x9d,0xad, 0x3d,0x3c },
+        { 0xc7,0xe0,0x02,0x18,0x91,0x04,0x54,0x5f,0x56,0xe6,0x0e,0x46,0x1b,0xbe,0xa6,0xb0,0x90,0xd6,0x6f,0x3e,0x69,0xfa,0x45,0x0a,0x25,0x5d,0xf7,0x13,0x9d,0xad,0x3d,0x3c },
     };
 
 #pragma pack (push, 1)
@@ -13,6 +14,8 @@ namespace L2Tst1
     {
         static const uint8_t s_State = 0;
         static const uint8_t s_User = 1;
+        static const uint8_t s_BridgeExp = 2;
+        static const uint8_t s_BridgeImp = 3;
     };
 
     struct Settings
@@ -39,6 +42,16 @@ namespace L2Tst1
         Amount m_Stake;
     };
 
+    struct BridgeOp
+    {
+        struct Key {
+            uint8_t m_Tag;
+            PubKey m_pk;
+        };
+
+        Height m_Height;
+    };
+
     namespace Method
     {
         struct Create
@@ -56,8 +69,24 @@ namespace L2Tst1
             PubKey m_pkUser;
             Amount m_Amount;
         };
+
+        typedef L2Tst1_L2::Method::BridgeOp BridgeOp;
+
+        struct BridgeExport
+            :public BridgeOp
+        {
+            static const uint32_t s_iMethod = 4;
+        };
+
+        struct BridgeImport
+            :public BridgeOp
+        {
+            static const uint32_t s_iMethod = 5;
+
+            // TODO: sigs
+        };
     }
 
 #pragma pack (pop)
 
-} // namespace L2Tst1
+} // namespace L2Tst1_L1
