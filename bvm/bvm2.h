@@ -443,8 +443,7 @@ namespace bvm2 {
 		void get_AssetStrict(AssetVar&, Asset::ID);
 		void SetAssetKey(AssetVar&, Asset::ID);
 
-		std::vector<ECC::Point::Native> m_vPks;
-		ECC::Point::Native& AddSigInternal(const ECC::Point&);
+		void AddSigInternal(std::vector<ECC::Point::Native>&, const ECC::Point&);
 
 		void TestVarSize(uint32_t n)
 		{
@@ -462,15 +461,15 @@ namespace bvm2 {
 
 		void InitStackPlus(uint32_t nStackBytesExtra);
 
-		FundsChangeMap m_FundsIO;
-
+		FundsChangeMap* m_pFundsIO = nullptr;
 		ECC::Hash::Processor* m_pSigValidate = nullptr; // assign it to allow sig validation
+
 		void CheckSigs(const ECC::Point& comm, const ECC::Signature&);
 
 		void AddRemoveShader(const ContractID&, const Blob*, bool bFireEvent);
 		void AddRemoveShader(const ContractID&, const Blob*);
 
-		std::vector<ECC::Point>* m_pvSigs = nullptr;
+		std::vector<ECC::Point> m_vSigs;
 
 		bool IsDone() const { return m_FarCalls.m_Stack.empty(); }
 

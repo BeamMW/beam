@@ -2648,6 +2648,9 @@ struct NodeProcessor::BlockInterpretCtx
 		virtual void OnRet(Wasm::Word nRetAddr) override;
 
 		uint32_t m_iCurrentInvokeExtraInfo = 0;
+		uint32_t m_iSig0 = 0;
+
+		void CopyExtraInfoSigs();
 	};
 
 
@@ -5295,9 +5298,8 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 				Wasm::Reader::Mode::Restrict :
 				Wasm::Reader::Mode::Emulate_x86;
 
-		CallFar(cid, iMethod, m_Stack.get_AlasSp(), (uint32_t) krn.m_Args.size(), 0);
-
 		ECC::Hash::Processor hp;
+		FundsChangeMap fundsIO;
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
@@ -5305,7 +5307,13 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			krn.Prepare(hp, &hvCtx);
 
 			m_pSigValidate = &hp;
+			m_pFundsIO = &fundsIO;
 		}
+
+		if (m_Bic.m_pvC)
+			m_pFundsIO = &fundsIO;
+
+		CallFar(cid, iMethod, m_Stack.get_AlasSp(), (uint32_t)krn.m_Args.size(), 0);
 
 		while (!IsDone())
 		{
@@ -6291,6 +6299,23 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 	}
 }
 
+void NodeProcessor::BlockInterpretCtx::BvmProcessor::CopyExtraInfoSigs()
+{
+	assert(m_Bic.m_pvC);
+	auto& vec = *m_Bic.m_pvC; // alias
+
+	assert(m_iCurrentInvokeExtraInfo <= vec.size());
+	ContractInvokeExtraInfo& x = vec[m_iCurrentInvokeExtraInfo - 1];
+
+	assert(m_iSig0 <= m_vSigs.size());
+	if (m_iSig0 < m_vSigs.size())
+	{
+		x.m_vSigs.reserve(x.m_vSigs.size() + m_vSigs.size() - m_iSig0);
+		while (m_iSig0 < m_vSigs.size())
+			x.m_vSigs.push_back(m_vSigs[m_iSig0++]);
+	}
+}
+
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags)
 {
 	bvm2::ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, nFlags);
@@ -6298,14 +6323,18 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 	if (m_Bic.m_pvC)
 	{
 		auto& vec = *m_Bic.m_pvC; // alias
+
+		if (!vec.empty())
+			CopyExtraInfoSigs();
+
 		ContractInvokeExtraInfo& x = vec.emplace_back();
 
 		x.m_iParent = m_iCurrentInvokeExtraInfo;
 		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(vec.size());
 		x.m_NumNested = 0;
 
-		m_pvSigs = &x.m_vSigs;
-		m_FundsIO.m_Map.swap(x.m_FundsIO.m_Map);
+		assert(m_pFundsIO);
+		m_pFundsIO->m_Map.swap(x.m_FundsIO.m_Map);
 
 		x.m_Cid = m_FarCalls.m_Stack.back().m_Cid; // may be different from passed cid, if inheriting context
 
@@ -6352,6 +6381,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 	if (m_Bic.m_pvC && !nRetAddr)
 	{
 		auto& vec = *m_Bic.m_pvC; // alias
+		CopyExtraInfoSigs();
 
 		assert(m_iCurrentInvokeExtraInfo <= vec.size());
 		auto& x = vec[m_iCurrentInvokeExtraInfo - 1];
@@ -6362,17 +6392,15 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::OnRet(Wasm::Word nRetAddr)
 			pParent->m_NumNested += x.m_NumNested + 1;
 
 		if (x.m_FundsIO.m_Map.empty())
-			x.m_FundsIO = m_FundsIO; // save it
+			x.m_FundsIO = *m_pFundsIO; // save it
 		else
 		{
-			m_FundsIO.m_Map.swap(x.m_FundsIO.m_Map); // our + nested
+			m_pFundsIO->m_Map.swap(x.m_FundsIO.m_Map); // our + nested
 
 			// merge
 			for (auto it = x.m_FundsIO.m_Map.begin(); x.m_FundsIO.m_Map.end() != it; it++)
-				m_FundsIO.Add(it->second, it->first);
+				m_pFundsIO->Add(it->second, it->first);
 		}
-
-		m_pvSigs = pParent ? &pParent->m_vSigs : nullptr;
 	}
 }
 
