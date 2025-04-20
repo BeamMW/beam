@@ -7723,16 +7723,60 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const HeightRange& hr)
 
 bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const HeightRange& hr)
 {
-	if (hr.IsEmpty())
+	if (hr.IsEmpty() || !IsTreasuryHandled())
 		return true;
 	assert(hr.m_Max <= m_Cursor.m_ID.m_Height);
 
 	if (wlkKrn.m_pLa)
 		wlkKrn.m_pLa->SetTotal(hr.m_Max - hr.m_Min + 1);
 
+	wlkKrn.m_Height = hr.m_Min;
+
+	if (!wlkKrn.m_Height)
+	{
+		// treasury
+		if (Rules::get().TreasuryChecksum != Zero)
+		{
+			Treasury::Data td;
+			{
+				ByteBuffer buf;
+				m_DB.ParamGet(NodeDB::ParamID::Treasury, nullptr, nullptr, &buf);
+
+				Deserializer der;
+				der.reset(buf);
+				der & td;
+			}
+
+			// squash the treasury into a single tx
+			TxVectors::Full txv;
+
+			for (auto& g : td.m_vGroups)
+			{
+				if (txv.m_vKernels.empty())
+					txv.m_vKernels.swap(g.m_Data.m_vKernels);
+				else
+				{
+					g.m_Data.MoveInto(txv);
+					txv.m_vInputs.clear();
+					txv.m_vOutputs.clear();
+				}
+			}
+
+			txv.NormalizeE();
+
+			wlkKrn.m_nKrnIdx = 0;
+			if (!wlkKrn.ProcessHeight(0, txv.m_vKernels))
+				return false;
+
+		}
+
+
+		wlkKrn.m_Height = Rules::HeightGenesis;
+	}
+
 	TxVectors::Eternal txve;
 
-	for (wlkKrn.m_Height = hr.m_Min; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
+	for ( ; wlkKrn.m_Height <= hr.m_Max; wlkKrn.m_Height++)
 	{
 		uint64_t rowID = FindActiveAtStrict(wlkKrn.m_Height);
 
@@ -8086,8 +8130,11 @@ void NodeProcessor::RebuildNonStd()
 			bic.m_Rollback.swap(m_Rollback);
 			
 			if (m_Height > m_This.m_Extra.m_Fossil)
+			{
+				assert(rowID); // can't be treasury height, since it's above the fossil height
 				// replace rollback data
 				m_This.m_DB.set_StateRB(rowID, m_Rollback);
+			}
 
 			m_Rollback.clear();
 
