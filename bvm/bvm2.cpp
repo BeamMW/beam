@@ -1729,9 +1729,6 @@ namespace bvm2 {
 	{
 		DischargeUnits(Limits::Cost::AssetEmit);
 
-		AssetVar av;
-		get_AssetStrict(av, aid);
-
 		AmountSigned valS(amount);
 		Exc::Test(valS >= 0);
 
@@ -1740,6 +1737,22 @@ namespace bvm2 {
 			valS = -valS;
 			Exc::Test(valS <= 0);
 		}
+
+		AssetVar av;
+
+		const auto& r = Rules::get();
+		if (r.CA.IsForeign(aid))
+		{
+			// bridged asset
+			// av.m_Owner from the most recent AddSig
+			ECC::Point pt;
+			if (m_vSigs.empty())
+				return false;
+
+			Cast::Down<ECC::uintBig>(av.m_Owner) = m_vSigs.back().m_X;
+		}
+		else
+			get_AssetStrict(av, aid);
 
 		bool b = AssetEmit(aid, av.m_Owner, valS);
 		if (b)
