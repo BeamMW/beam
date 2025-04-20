@@ -1644,11 +1644,7 @@ namespace bvm2 {
 	}
 	BVM_METHOD_HOST(AddSig)
 	{
-		if (m_pSigValidate)
-			AddSigInternal(pubKey);
-
-		if (m_pvSigs)
-			m_pvSigs->push_back(pubKey);
+		m_vSigs.push_back(pubKey);
 	}
 
 	BVM_METHOD(FundsLock)
@@ -3787,8 +3783,8 @@ namespace bvm2 {
 
 	void ProcessorContract::HandleAmountOuter(Amount amount, Asset::ID aid, bool bLock)
 	{
-		if (m_pSigValidate || m_pvSigs)
-			m_FundsIO.Add(amount, aid, bLock);
+		if (m_pFundsIO)
+			m_pFundsIO->Add(amount, aid, bLock);
 	}
 
 	bool ProcessorContract::HandleRefRaw(const VarKey& vk, bool bAdd)
@@ -3849,18 +3845,18 @@ namespace bvm2 {
 
 	/////////////////////////////////////////////
 	// Signature
-	ECC::Point::Native& ProcessorContract::AddSigInternal(const ECC::Point& pk)
+	void ProcessorContract::AddSigInternal(std::vector<ECC::Point::Native>& vec, const ECC::Point& pk)
 	{
+		assert(m_pSigValidate);
 		(*m_pSigValidate) << pk;
 
-		auto& ret = m_vPks.emplace_back();
+		auto& ret = vec.emplace_back();
 		Exc::Test(ret.ImportNnz(pk));
-		return ret;
 	}
 
 	void ProcessorContract::CheckSigs(const ECC::Point& pt, const ECC::Signature& sig)
 	{
-		if (!m_pSigValidate)
+		if (!m_pSigValidate || !m_pFundsIO)
 			return;
 
 		struct MyCheckpoint :public Exc::Checkpoint
@@ -3870,12 +3866,20 @@ namespace bvm2 {
 
 			void Dump(std::ostream& os) override
 			{
-				os << "CheckSigs, Keys=" << m_This.m_vPks.size();
+				os << "CheckSigs";
 
-				if (!m_This.m_FundsIO.m_Map.empty())
+				if (!m_This.m_vSigs.empty())
+				{
+					os << ", Keys=[";
+					for (const auto& pk : m_This.m_vSigs)
+						os << pk << ", ";
+					os << "]";
+				}
+
+				if (!m_This.m_pFundsIO->m_Map.empty())
 				{
 					os << ", Funds=[";
-					for (auto it = m_This.m_FundsIO.m_Map.begin(); ; )
+					for (auto it = m_This.m_pFundsIO->m_Map.begin(); ; )
 					{
 						auto val = it->second;
 						bool bSpend = !!val.get_Msb();
@@ -3886,7 +3890,7 @@ namespace bvm2 {
 						os << it->first << ':';
 						AmountBig::Print(os, val);
 
-						if (m_This.m_FundsIO.m_Map.end() == ++it)
+						if (m_This.m_pFundsIO->m_Map.end() == ++it)
 							break;
 
 						os << ", ";
@@ -3901,19 +3905,26 @@ namespace bvm2 {
 
 		} cp(*this);
 
-		auto& comm = AddSigInternal(pt);
+		std::vector<ECC::Point::Native> vPts;
+		vPts.reserve(m_vSigs.size() + 1);
+
+		for (const auto& pk : m_vSigs)
+			AddSigInternal(vPts, pk);
+
+		AddSigInternal(vPts, pt);
+
 
 		ECC::Point::Native ptFunds;
-		m_FundsIO.ToCommitment(ptFunds);
-		comm += ptFunds;
+		m_pFundsIO->ToCommitment(ptFunds);
+		vPts.back() += ptFunds;
 
 		ECC::Hash::Value hv;
 		(*m_pSigValidate) >> hv;
 
 		ECC::SignatureBase::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
-		cfg.m_nKeys = static_cast<uint32_t>(m_vPks.size());
+		cfg.m_nKeys = static_cast<uint32_t>(vPts.size());
 
-		Exc::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &m_vPks.front()));
+		Exc::Test(Cast::Down<ECC::SignatureBase>(sig).IsValid(cfg, hv, &sig.m_k, &vPts.front()));
 	}
 
 	/////////////////////////////////////////////
