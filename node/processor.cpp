@@ -4239,85 +4239,16 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 
 bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
 {
-	if (krn.m_AssetID > Rules::get().CA.ForeignEnd)
-		return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
-
-	ECC::Point key;
-	key.m_X = Cast::Down<ECC::uintBig>(krn.m_Owner);
-	key.m_Y = 4;
-
-	bool bAdd;
-	Amount valUns = SplitAmountSigned(krn.m_Value, bAdd);
-
-	if (!bAdd)
-		key.m_Y |= 8;
-	Blob blobKey(&key, sizeof(key));
-
-	if (bic.m_Fwd && !bic.m_AlreadyValidated)
-	{
-		if (!m_pForeignBridge)
-		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "no bridge";
-			return false;
-		}
-
-		if (bAdd && !m_pForeignBridge->AllowEmission(krn.m_AssetID, valUns, krn.m_Owner))
-		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "bridge not confirmed";
-			return false;
-		}
-	}
-
-	ForeignEmitPacked fep;
-	fep.m_Height = bic.m_Height;
-	fep.m_nIdx = bic.m_nKrnIdx;
-
-	Blob blobVal(&fep, sizeof(fep));
-
-	if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
-	{
-		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << "double-emit";
-		return false;
-	}
-
-	if (bic.m_Fwd && !bic.m_Temporary)
-	{
-		// register the emission in evts
-		AssetDataPacked adp;
-		adp.m_LockHeight = Zero;
-		adp.m_Amount = valUns;
-
-		if (bAdd)
-			adp.m_Amount.Negate();
-
-		{
-			NodeDB::WalkerAssetEvt wlk;
-			m_DB.AssetEvtsEnumBwd(wlk, krn.m_AssetID, bic.m_Height);
-			if (wlk.MoveNext())
-			{
-				AssetDataPacked adp0;
-				adp0.set_Strict(wlk.m_Body);
-				adp.m_Amount += adp0.m_Amount;
-			}
-		}
-
-		NodeDB::AssetEvt evt;
-		evt.m_ID = krn.m_AssetID;
-		evt.m_Body.p = &adp;
-		evt.m_Body.n = sizeof(adp);
-
-		bic.AssetEvtInsert(m_DB, evt, 0); // will include height+krnIdx
-	}
-
-	return true;
+	return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
 }
 
 bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
-	if (HandleAssetEmit2(pidOwner, bic, aid, val, nSubIdx))
+	bool bRes = Rules::get().CA.IsForeign(aid) ?
+		HandleAssetEmitForeign(pidOwner, bic, aid, val, nSubIdx) :
+		HandleAssetEmitLocal(pidOwner, bic, aid, val, nSubIdx);
+
+	if (bRes)
 		return true;
 
 	if (bic.m_pTxErrorInfo)
@@ -4326,7 +4257,7 @@ bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& b
 	return false;
 }
 
-bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	Asset::Full ai;
 	ai.m_ID = aid;
@@ -4422,6 +4353,81 @@ bool NodeProcessor::HandleAssetEmit2(const PeerID& pidOwner, BlockInterpretCtx& 
 		evt.m_Body.n = sizeof(adp);
 
 		bic.AssetEvtInsert(m_DB, evt, nSubIdx);
+	}
+
+	return true;
+}
+
+bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+{
+	ECC::Point key;
+	key.m_X = Cast::Down<ECC::uintBig>(pidOwner);
+	key.m_Y = 4;
+
+	bool bAdd;
+	Amount valUns = SplitAmountSigned(val, bAdd);
+
+	if (!bAdd)
+		key.m_Y |= 8;
+	Blob blobKey(&key, sizeof(key));
+
+	if (bic.m_Fwd && !bic.m_AlreadyValidated)
+	{
+		if (!m_pForeignBridge)
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "no bridge";
+			return false;
+		}
+
+		if (bAdd && !m_pForeignBridge->AllowEmission(aid, valUns, pidOwner))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "bridge not confirmed";
+			return false;
+		}
+	}
+
+	ForeignEmitPacked fep;
+	fep.m_Height = bic.m_Height;
+	fep.m_nIdx = bic.m_nKrnIdx;
+
+	Blob blobVal(&fep, sizeof(fep));
+
+	if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << "double-emit";
+		return false;
+	}
+
+	if (bic.m_Fwd && !bic.m_Temporary)
+	{
+		// register the emission in evts
+		AssetDataPacked adp;
+		adp.m_LockHeight = Zero;
+		adp.m_Amount = valUns;
+
+		if (bAdd)
+			adp.m_Amount.Negate();
+
+		{
+			NodeDB::WalkerAssetEvt wlk;
+			m_DB.AssetEvtsEnumBwd(wlk, aid, bic.m_Height);
+			if (wlk.MoveNext())
+			{
+				AssetDataPacked adp0;
+				adp0.set_Strict(wlk.m_Body);
+				adp.m_Amount += adp0.m_Amount;
+			}
+		}
+
+		NodeDB::AssetEvt evt;
+		evt.m_ID = aid;
+		evt.m_Body.p = &adp;
+		evt.m_Body.n = sizeof(adp);
+
+		bic.AssetEvtInsert(m_DB, evt, 0); // will include height+krnIdx
 	}
 
 	return true;
@@ -6135,6 +6141,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 	ser & aid;
 	ser & val;
 
+	if (Rules::get().CA.IsForeign(aid))
+		ser & pidOwner;
+
 	m_AssetEvtSubIdx++;
 	return true;
 }
@@ -6194,6 +6203,9 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			AmountSigned val;
 			der & aid;
 			der & val;
+
+			if (Rules::get().CA.IsForeign(aid))
+				der & pidOwner;
 
 			if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val))
 				return OnCorrupted();

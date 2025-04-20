@@ -475,6 +475,10 @@ namespace beam
 
 			Asset::ID ForeignEnd = 0;
 
+			bool IsForeign(Asset::ID aid) const {
+				return aid < ForeignEnd;
+			}
+
 		} CA;
 
 		struct Pbft {
