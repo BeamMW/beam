@@ -1,5 +1,4 @@
 #pragma once
-#include "../upgradable3/contract.h"
 
 namespace L2Tst1_L2
 {
@@ -28,7 +27,7 @@ namespace L2Tst1_L2
         struct BridgeBurn
             :public BridgeOp
         {
-            static const uint32_t s_iMethod = 2;
+            static const uint32_t s_iMethod = 3;
         };
     }
 
