@@ -95,6 +95,8 @@ namespace beam
 	ByteBuffer g_Treasury;
 	Key::IKdf::Ptr g_pTreasuryKdf;
 
+	ContractID g_cidBridgeL2;
+
 	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
 		AmountBig::Number vbig;
@@ -163,10 +165,8 @@ namespace beam
 		nCumulative++;
 	}
 
-	void PrepareTreasury(Rules& r)
+	Treasury::Data BuildTreasuryData()
 	{
-		ECC::SetRandom(g_pTreasuryKdf);
-
 		PeerID pid;
 		ECC::Scalar::Native sk;
 		Treasury::get_ID(*g_pTreasuryKdf, pid, sk);
@@ -185,8 +185,13 @@ namespace beam
 		data.m_sCustomMsg = "test treasury";
 		tres.Build(data);
 
+		return data;
+	}
+
+	void FinalizeTreasuryData(Rules& r, const Treasury::Data& td)
+	{
 		beam::Serializer ser;
-		ser & data;
+		ser & td;
 
 		ser.swap_buf(g_Treasury);
 
@@ -1794,6 +1799,39 @@ namespace beam
 		node.m_PostStartSynced = true;
 		node2.m_PostStartSynced = true;
 
+		struct MyBridge
+			:public NodeProcessor::IForeignBridge
+		{
+			typedef std::map<ECC::uintBig, std::pair<Asset::ID, Amount> > Map;
+			Map m_Map;
+
+			bool m_Called = false;
+			bool m_Allowed = false;
+
+			bool AllowEmission(Asset::ID aid, Amount amount, const Blob& key) override
+			{
+				m_Called = true;
+
+				if (key.n != Map::key_type::nBytes)
+					return false;
+
+				const auto& pid = *reinterpret_cast<const ECC::uintBig*>(key.p);
+				auto it = m_Map.find(pid);
+				if (m_Map.end() == it)
+					return false;
+
+				const auto& val = it->second;
+				bool b =
+					(val.first == aid) &&
+					(val.second == amount);
+
+				if (b)
+					m_Allowed = true;
+
+				return b;
+			}
+		} bridge;
+
 		ECC::SetRandom(node2);
 
 		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
@@ -1825,6 +1863,7 @@ namespace beam
 			MiniWallet m_Wallet;
 			MiniWallet m_Wallet2;
 			NodeProcessor* m_pProc = nullptr;
+			MyBridge* m_pBridge;
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
@@ -2212,6 +2251,14 @@ namespace beam
                 Evm::Address m_addrMyContract;
             } m_Evm;
 
+			struct Bridge
+			{
+				Height m_hEmitted = 0;
+				Height m_hEmitConfirmed = 0;
+				Merkle::Hash m_hvEmitID;
+				const uint32_t m_KrnProofIdx = 0x20000001;
+			} m_Bridge;
+
 			struct AchievementTester
 			{
 				bool m_AllDone = true;
@@ -2248,7 +2295,14 @@ namespace beam
 				t.Test(m_Shielded.m_EvtSpend, "Shielded Spend event didn't arrive");
 				t.Test(m_Contract.m_VarProof, "Contract variable proof not received");
                 t.Test(m_Evm.m_DeployConfirmed, "EVM Contract wasn't deployed");
-				
+
+				if (Rules::get().CA.ForeignEnd)
+				{
+					t.Test(m_Bridge.m_hEmitConfirmed, "Bridge emission not confirmed");
+					t.Test(m_pBridge->m_Called, "Bridge was not checked");
+					t.Test(m_pBridge->m_Allowed, "Bridging was never allowed");
+				}
+
 				return t.m_AllDone;
 			}
 
@@ -2292,6 +2346,16 @@ namespace beam
 					proto::GetAssetsListAt msgOut2;
 					msgOut2.m_Height = MaxHeight;
 					Send(msgOut2);
+				}
+
+				if (m_Bridge.m_hEmitted && !m_Bridge.m_hEmitConfirmed)
+				{
+					proto::GetProofKernel2 msgOut2;
+					msgOut2.m_ID = m_Bridge.m_hvEmitID;
+					msgOut2.m_Fetch = true;
+					Send(msgOut2);
+
+					m_queProofsKrnExpected.push_back(m_Bridge.m_KrnProofIdx);
 				}
 
                 if (m_Evm.m_hDeployed && !m_Evm.m_DeployConfirmed)
@@ -2398,6 +2462,7 @@ namespace beam
 					{
 						MaybeCreateAsset(msgTx, val);
 						MaybeEmitAsset(msgTx, val);
+						MaybeEmitBridgedAsset(msgTx, val);
 						MaybeInvokeContract(msgTx, val);
                         MaybeDeployEvmContract(msgTx, val);
                         MaybeInvokeEvmContract(msgTx, val);
@@ -2504,6 +2569,88 @@ namespace beam
 
 				m_Assets.m_Emitted = true;
 				printf("Emitting asset...\n");
+
+				return true;
+			}
+
+			bool MaybeEmitBridgedAsset(proto::NewTransaction& msg, Amount& val)
+			{
+				if (!Rules::get().CA.ForeignEnd)
+					return false;
+
+				if (m_Bridge.m_hEmitted)
+					return false;
+
+				const Amount nFee = Rules::Coin / 10;
+				if (val < nFee)
+					return false;
+
+				const Block::SystemState::Full& s = m_vStates.back();
+				if (!Rules::get().IsPastFork_<3>(s.m_Height + 1))
+					return false;
+
+				val -= nFee;
+
+				CoinID cid(Zero);
+				cid.m_Value = Rules::Coin * 900;
+				cid.m_AssetID = 0; // emit def asset
+
+				ECC::Scalar::Native pSkKrn[2], skOut;
+				ECC::SetRandom(pSkKrn[0]);
+				ECC::SetRandom(pSkKrn[1]);
+
+#pragma pack (push, 1)
+				// copied from L2tsts1/contract_l2.h
+				struct BridgeOp
+				{
+					Asset::ID m_Aid;
+					Amount m_Amount;
+					uint64_t m_Cookie;
+					ECC::Point m_pk;
+				};
+#pragma pack (pop)
+
+				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
+				pKrn->m_Cid = g_cidBridgeL2;
+				pKrn->m_Fee = nFee;
+				pKrn->m_iMethod = 2;
+				pKrn->m_Height.m_Min = s.m_Height + 1;
+
+				pKrn->m_Args.resize(sizeof(BridgeOp));
+				{
+					auto& op = *reinterpret_cast<BridgeOp*>(&pKrn->m_Args.front());
+					op.m_Aid = cid.m_AssetID;
+					op.m_Amount = cid.m_Value;
+					op.m_Cookie = 14;
+
+					ECC::Point::Native pt = ECC::Context::get().G * pSkKrn[0];
+					op.m_pk = pt;
+
+					CoinID::Worker wrk(cid);
+					pt = Zero;
+					wrk.AddValue(pt);
+					pt = -pt;
+
+					pKrn->Sign(pSkKrn, 2, pt, nullptr);
+
+					auto& v = m_pBridge->m_Map[op.m_pk.m_X];
+					v.first = cid.m_AssetID;
+					v.second = cid.m_Value;
+
+					m_Bridge.m_hvEmitID = pKrn->get_ID();
+				}
+
+				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, pSkKrn[1], true);
+
+				Output::Ptr pOutp(new Output);
+				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
+
+				msg.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
+				m_Wallet.UpdateOffset(*msg.m_Transaction, skOut, true);
+
+				m_Bridge.m_hEmitted = s.m_Height + 1;
+				printf("Emitting bridged asset...\n");
 
 				return true;
 			}
@@ -3048,6 +3195,17 @@ namespace beam
                             }
 
                         }
+
+						if (msg.m_Kernel->get_ID() == m_Bridge.m_hvEmitID)
+						{
+							verify_test(msg.m_Kernel->get_Subtype() == TxKernel::Subtype::ContractInvoke);
+
+							if (!m_Bridge.m_hEmitConfirmed)
+							{
+								printf("Bridged emission confirmed confirmed\n");
+								m_Bridge.m_hEmitConfirmed = s.m_Height;
+							}
+						}
 					}
 				}
 				else
@@ -3233,6 +3391,10 @@ namespace beam
 
 		MyClient cl(node.m_Keys.m_pMiner);
 		cl.m_pProc = &node.get_Processor();
+		cl.m_pBridge = &bridge;
+
+		node.get_Processor().m_pForeignBridge = &bridge;
+		node2.get_Processor().m_pForeignBridge = &bridge;
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");
@@ -4054,6 +4216,7 @@ void TestAll()
 
 	bool bClientProtoOnly = false;
 	bool bTestPbft = true;
+	bool bTestBridge = false;
 
 	//auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 	if (!bClientProtoOnly)
@@ -4071,7 +4234,8 @@ void TestAll()
 	r.pForks[1].m_Height = 16;
 	r.UpdateChecksum();
 
-	beam::PrepareTreasury(r);
+	ECC::SetRandom(beam::g_pTreasuryKdf);
+	beam::FinalizeTreasuryData(r, beam::BuildTreasuryData());
 
 	if (!bClientProtoOnly)
 	{
@@ -4140,10 +4304,43 @@ void TestAll()
     r.Evm.Groth2Wei = 10'000'000'000ull;
 
 	if (bTestPbft)
-	{
 		r.m_Consensus = beam::Rules::Consensus::Pbft;
+
+	if (bTestBridge)
+	{
 		r.CA.ForeignEnd = 1'000'000;
-	} else
+
+		for (uint32_t i = 0; i < 7; i++)
+			r.pForks[i].m_Height = 0;
+
+		auto td = beam::BuildTreasuryData();
+
+		// add bridge L2 contract deployment
+		{
+			auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+			beam::bvm2::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
+
+			beam::bvm2::get_Cid(beam::g_cidBridgeL2, pKrn->m_Data, pKrn->m_Args);
+
+			ECC::Scalar::Native sk;
+			ECC::SetRandom(sk);
+			ECC::Point::Native ptFunds(beam::Zero);
+
+			pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+			auto& tx = td.m_vGroups.back().m_Data;
+			tx.m_vKernels.push_back(std::move(pKrn));
+
+			sk = -sk;
+			tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+		}
+
+
+		beam::FinalizeTreasuryData(r, td);
+
+	}
+
+	if (!bTestPbft) // in test-pbft mode we assign actual validators inside the test
 		r.UpdateChecksum();
 
 	printf("Node <---> Client test (with proofs)...\n");
