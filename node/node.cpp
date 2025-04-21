@@ -3676,7 +3676,7 @@ void Node::Peer::OnMsg(proto::GetProofKernel3&& msg)
 	Processor& p = m_This.m_Processor;
 	if (!p.IsFastSync())
 	{
-		Merkle::Hash idKrn; // dummy
+		Merkle::Hash idKrn(Zero); // dummy
 		msgOut.m_Height = p.get_ProofKernel(msg.m_WithProof ? &msgOut.m_Proof : nullptr, &msgOut.m_Kernel, idKrn, &msg.m_Pos);
 	}
 	Send(msgOut);
