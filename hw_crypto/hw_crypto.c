@@ -412,16 +412,6 @@ static void WNaf_Cursor_MoveNext(MultiMac_WNaf* p, const secp256k1_scalar* pK, u
 		p->m_iElement += nMaxElements;
 }
 
-__attribute__((noinline))
-void mem_cmov(unsigned int* pDst, const unsigned int* pSrc, int flag, unsigned int nWords)
-{
-	const unsigned int mask0 = flag + ~((unsigned int) 0);
-	const unsigned int mask1 = ~mask0;
-
-	for (unsigned int n = 0; n < nWords; n++)
-		pDst[n] = (pDst[n] & mask0) | (pSrc[n] & mask1);
-}
-
 static void MultiMac_Calculate_LoadFast(const MultiMac_Context* p, secp256k1_ge* pGe, unsigned int iGen, unsigned int iElem)
 {
 	unsigned int nPitch = c_MultiMac_OddCount(p->m_Fast.m_WndBits);
@@ -556,16 +546,7 @@ static void MultiMac_Calculate_Secure_Read(secp256k1_ge* pGe, const MultiMac_Sec
 	ZERO_OBJ(ges); // suppress warning: potential unanitialized var used
 
 	for (unsigned int j = 0; j < c_MultiMac_Secure_nCount; j++)
-	{
-		static_assert(sizeof(ges) == sizeof(pGen->m_pPt[j]), "");
-		static_assert(!(sizeof(ges) % sizeof(unsigned int)), "");
-
-		mem_cmov(
-			(unsigned int*) &ges,
-			(unsigned int*)(pGen->m_pPt + j),
-			iElement == j,
-			sizeof(ges) / sizeof(unsigned int));
-	}
+		secp256k1_ge_storage_cmov(&ges, pGen->m_pPt + j, iElement == j);
 
 	secp256k1_ge_from_storage(pGe, &ges); // inline is ok here
 	SECURE_ERASE_OBJ(ges);
