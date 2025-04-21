@@ -365,10 +365,25 @@ private:
     WasmAppApi::WeakPtr m_Api;
 };
 
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
+struct OwnRules
+{
+    Rules m_Rules;
+    Rules::Scope m_scopeRules;
+
+    OwnRules()
+        :m_scopeRules(m_Rules)
+    {
+    }
+};
+
 class WasmWalletClient
-    : public IWalletApiHandler
+    : public OwnRules
+    , public IWalletApiHandler
     , private WalletClient2::ICallbackHandler
 {
+
 public:
     WasmWalletClient(const std::string& node)
         : WasmWalletClient(node, Rules::Network::mainnet)
@@ -394,9 +409,10 @@ public:
         , m_Pass(pass)
         , m_Node(node)
     {
-        auto& r = Rules::get();
-        r.m_Network = network;
-        r.SetNetworkParams();
+        m_Rules.m_Network = network;
+        m_Rules.SetNetworkParams();
+        m_Rules.UpdateChecksum();
+
         wallet::g_AssetsEnabled = true;
     }
 
