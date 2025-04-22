@@ -199,13 +199,15 @@ void NodeDB::Close()
 }
 
 NodeDB::Recordset::Recordset()
-	:m_pStmt(nullptr)
+	:m_ppCache(nullptr)
+	,m_pStmt(nullptr)
 	,m_pDB(nullptr)
 {
 }
 
 NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
-	:m_pStmt(nullptr)
+	:m_ppCache(nullptr)
+	,m_pStmt(nullptr)
 {
 	InitInternal(db, val, sql);
 }
@@ -213,7 +215,13 @@ NodeDB::Recordset::Recordset(NodeDB& db, Query::Enum val, const char* sql)
 void NodeDB::Recordset::InitInternal(NodeDB& db, Query::Enum val, const char* sql)
 {
 	m_pDB = &db;
-	m_pStmt = db.get_Statement(val, sql);
+
+	auto& s = db.get_Statement(val, sql);
+	m_ppCache = &s.m_pStmt;
+
+	// take ownership
+	assert(!m_pStmt && s.m_pStmt);
+	std::swap(m_pStmt, s.m_pStmt);
 }
 
 NodeDB::Recordset::~Recordset()
@@ -225,8 +233,19 @@ void NodeDB::Recordset::Reset()
 {
 	if (m_pStmt)
 	{
-		sqlite3_reset(m_pStmt); // don't care about retval
-		sqlite3_clear_bindings(m_pStmt);
+		assert(m_ppCache);
+		if (*m_ppCache)
+			sqlite3_finalize(m_pStmt); // don't care about retval
+		else
+		{
+			// return to cache
+			*m_ppCache = m_pStmt;
+
+			sqlite3_reset(m_pStmt); // don't care about retval
+			sqlite3_clear_bindings(m_pStmt);
+		}
+
+		m_pStmt = nullptr;
 	}
 }
 
@@ -777,7 +796,7 @@ bool NodeDB::ExecStep(sqlite3_stmt* pStmt)
 
 bool NodeDB::ExecStep(Query::Enum val, const char* sql)
 {
-	return ExecStep(get_Statement(val, sql));
+	return ExecStep(get_Statement(val, sql).m_pStmt);
 
 }
 
@@ -791,14 +810,15 @@ void NodeDB::Prepare(Statement& s, const char* szSql)
 	assert(s.m_pStmt);
 }
 
-sqlite3_stmt* NodeDB::get_Statement(Query::Enum val, const char* sql)
+NodeDB::Statement& NodeDB::get_Statement(Query::Enum val, const char* sql)
 {
 	assert(val < _countof(m_pPrep));
 	Statement& s = m_pPrep[val];
 
 	if (!s.m_pStmt)
 		Prepare(s, sql);
-	return s.m_pStmt;
+
+	return s;
 }
 
 
