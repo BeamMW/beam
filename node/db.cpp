@@ -102,6 +102,11 @@ namespace beam {
 #define TblUnique_Key			"Key"
 #define TblUnique_Value			"Value"
 
+#define TblBridge				"Bridge"
+#define TblBridge_Pos			"Pos"
+#define TblBridge_Key			"Key"
+#define TblBridge_Value			"Value"
+
 #define TblAssets				"Assets"
 #define TblAssets_ID			"ID"
 #define TblAssets_Owner			"Owner"
@@ -394,7 +399,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 37;
+	const uint64_t nVersionTop = 38;
 
 
 	Transaction t(*this);
@@ -497,9 +502,13 @@ void NodeDB::Open(const char* szPath)
 			ExecQuick("DROP TABLE IF EXISTS " TblAccounts);
 
 			CreateTables36();
+			// no break;
+
+		case 37: // bridge
+			CreateTables37();
+			// no break;
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
-
 			// no break;
 
 		case nVersionTop:
@@ -619,6 +628,7 @@ void NodeDB::Create()
 	CreateTables30();
 	CreateTables31();
 	CreateTables36();
+	CreateTables37();
 }
 
 void NodeDB::CreateTables20()
@@ -721,6 +731,16 @@ void NodeDB::CreateTables36()
 		"[" TblAccounts_OwnerID	"] BLOB NOT NULL,"
 		"[" TblAccounts_Serif	"] BLOB NOT NULL,"
 		"[" TblAccounts_TxoHi	"] INTEGER NOT NULL)");
+}
+
+void NodeDB::CreateTables37()
+{
+	ExecQuick("CREATE TABLE [" TblBridge "] ("
+		"[" TblBridge_Pos		"] BLOB NOT NULL PRIMARY KEY,"
+		"[" TblBridge_Key		"] BLOB,"
+		"[" TblBridge_Value		"] BLOB) WITHOUT ROWID");
+
+	ExecQuick("CREATE INDEX [Idx" TblBridge "] ON [" TblBridge "] ([" TblBridge_Key "],[" TblBridge_Pos "]);");
 }
 
 void NodeDB::Vacuum()
@@ -2727,6 +2747,47 @@ void NodeDB::UniqueDeleteStrict(const Blob& key)
 void NodeDB::UniqueDeleteAll()
 {
 	Recordset rs(*this, Query::UniqueDelAll, "DELETE FROM " TblUnique);
+	rs.Step();
+}
+
+bool NodeDB::BridgeInsertSafe(const HeightPos& pos, const Blob& key, const Blob* pVal)
+{
+	Recordset rs(*this, Query::BridgeIns, "INSERT INTO " TblBridge " (" TblBridge_Pos "," TblBridge_Key "," TblBridge_Value ") VALUES(?,?,?)");
+
+	HeightPosPacked buf;
+	buf.put(rs, 0, pos);
+
+	rs.put(1, key);
+	if (pVal)
+		rs.put(2, *pVal);
+
+	return rs.StepModifySafe();
+}
+
+HeightPos NodeDB::BridgeFind(const Blob& key, Blob& val, Recordset& rs)
+{
+	rs.Reset(*this, Query::BridgeFind, "SELECT " TblBridge_Pos "," TblBridge_Value " FROM " TblBridge " WHERE " TblBridge_Key "=? ORDER BY " TblBridge_Pos " ASC LIMIT 1");
+	rs.put(0, key);
+
+	HeightPos pos;
+
+	if (rs.Step())
+	{
+		HeightPosPacked::get(rs, 0, pos);
+		rs.get(1, val);
+	}
+	else
+		ZeroObject(val);
+
+	return pos;
+}
+
+void NodeDB::BridgeDeleteFrom(const HeightPos& pos)
+{
+	Recordset rs(*this, Query::BridgeDelFrom, "DELETE FROM " TblBridge " WHERE " TblBridge_Pos ">=?");
+
+	HeightPosPacked buf;
+	buf.put(rs, 0, pos);
 	rs.Step();
 }
 

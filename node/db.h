@@ -221,6 +221,10 @@ public:
 			KrnInfoEnumCid,
 			KrnInfoDel,
 
+			BridgeIns,
+			BridgeFind,
+			BridgeDelFrom,
+
 			Dbg0,
 			Dbg1,
 			Dbg2,
@@ -697,6 +701,10 @@ public:
 	void UniqueDeleteStrict(const Blob& key);
 	void UniqueDeleteAll();
 
+	bool BridgeInsertSafe(const HeightPos&, const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
+	HeightPos BridgeFind(const Blob& key, Blob& val, Recordset&);
+	void BridgeDeleteFrom(const HeightPos&);
+
 	void CacheInsert(const Blob& key, const Blob& data);
 	bool CacheFind(const Blob& key, ByteBuffer&);
 	void CacheSetMaxSize(uint64_t);
@@ -850,6 +858,7 @@ private:
 	void CreateTables30();
 	void CreateTables31();
 	void CreateTables36();
+	void CreateTables37();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);
