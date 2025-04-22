@@ -659,6 +659,18 @@ namespace proto {
         static const uint8_t DependentNoNewCtx = 0x4a; // duplicated new context. Probably means tx kernel was not marked as dependent
     };
 
+    struct ContractLogsReader
+    {
+        // in/out
+        Blob m_Inp;
+        HeightPos m_Pos;
+
+        // out
+        Blob m_Key;
+        Blob m_Val;
+
+        void ReadOnceStrict();
+    };
 
 #define THE_MACRO6(type, name) InitArg<type>::Set(m_##name, arg##name);
 #define THE_MACRO5(type, name) typename InitArg<type>::TArg arg##name,

@@ -196,36 +196,19 @@ namespace bvm2 {
 					m_Buf = std::move(r.m_Res.m_Result);
 				}
 
-				auto* pBuf = &m_Buf.front();
+				proto::ContractLogsReader clr;
+				clr.m_Inp.p = &m_Buf.front() + m_Consumed;
+				clr.m_Inp.n = static_cast<uint32_t>(m_Buf.size() - m_Consumed);
+				clr.m_Pos = r.m_Msg.m_PosMin;
 
-				Deserializer der;
-				der.reset(pBuf + m_Consumed, m_Buf.size() - m_Consumed);
+				clr.ReadOnceStrict();
 
-				der
-					& m_LastPos
-					& m_LastKey.n
-					& m_LastVal.n;
+				r.m_Msg.m_PosMin = m_LastPos = clr.m_Pos;
 
-				if (m_LastPos.m_Height)
-				{
-					r.m_Msg.m_PosMin.m_Height += m_LastPos.m_Height;
-					r.m_Msg.m_PosMin.m_Pos = 0;
-				}
+				m_LastKey = clr.m_Key;
+				m_LastPos = clr.m_Pos;
 
-				r.m_Msg.m_PosMin.m_Pos += m_LastPos.m_Pos;
-				m_LastPos = r.m_Msg.m_PosMin;
-
-				m_Consumed = m_Buf.size() - der.bytes_left();
-
-				uint32_t nTotal = m_LastKey.n + m_LastVal.n;
-				Exc::Test(nTotal >= m_LastKey.n); // no overflow
-				Exc::Test(nTotal <= der.bytes_left());
-
-				m_LastKey.p = pBuf + m_Consumed;
-				m_Consumed += m_LastKey.n;
-
-				m_LastVal.p = pBuf + m_Consumed;
-				m_Consumed += m_LastVal.n;
+				m_Consumed = m_Buf.size() - clr.m_Inp.n;
 
 				if ((m_Consumed == m_Buf.size()) && r.m_Res.m_bMore)
 				{

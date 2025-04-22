@@ -2696,6 +2696,13 @@ namespace beam
 		return 0;
 	}
 
+	int HeightPos::cmp(const HeightPos& v) const
+	{
+		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Pos)
+		return 0;
+	}
+
 	void ExecutorMT_R::StartThread(MyThread& t, uint32_t iThread)
 	{
 		t = MyThread(&ExecutorMT_R::RunThreadInternal, this, iThread, Rules::get());

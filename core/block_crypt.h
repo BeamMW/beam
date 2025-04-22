@@ -247,7 +247,10 @@ namespace beam
                 & m_Height
                 & m_Pos;
         }
-    };
+
+		int cmp(const HeightPos&) const;
+		COMPARISON_VIA_CMP
+	};
 
 	struct Asset
 	{
