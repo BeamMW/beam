@@ -686,7 +686,7 @@ namespace beam
 		tr.Commit();
 
 		// Contract data
-		NodeDB::Recordset rs;
+		NodeDB::Recordset rs, rs2;
 		Blob blob1;
 		ECC::Hash::Value hvKey = 234U, hvVal = 1232U, hvKey2;
 		verify_test(!db.ContractDataFind(hvKey, blob1, rs));
@@ -702,6 +702,8 @@ namespace beam
 
 		verify_test(db.ContractDataFind(hvKey, blob1, rs));
 		verify_test(Blob(hvVal) == blob1);
+
+		verify_test(db.ContractDataFind(hvKey, blob1, rs2)); // test the same query simultaneously
 
 		blob1 = hvKey2;
 		hvKey2 = hvKey;

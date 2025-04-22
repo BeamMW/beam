@@ -264,6 +264,7 @@ public:
 
 	class Recordset
 	{
+		sqlite3_stmt** m_ppCache;
 		sqlite3_stmt* m_pStmt;
 		NodeDB* m_pDB;
 
@@ -855,7 +856,7 @@ private:
 	int ExecStepRaw(sqlite3_stmt*);
 	bool ExecStep(Query::Enum, const char*); // returns true while there's a row
 
-	sqlite3_stmt* get_Statement(Query::Enum, const char*);
+	Statement& get_Statement(Query::Enum, const char*);
 
 	uint64_t get_AutoincrementID(const char* szTable);
 	void TipAdd(uint64_t rowid, Height);
