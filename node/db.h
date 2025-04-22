@@ -224,6 +224,7 @@ public:
 			BridgeIns,
 			BridgeFind,
 			BridgeDelFrom,
+			BridgeMaxPos,
 
 			Dbg0,
 			Dbg1,
@@ -704,6 +705,7 @@ public:
 	bool BridgeInsertSafe(const HeightPos&, const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
 	HeightPos BridgeFind(const Blob& key, Blob& val, Recordset&);
 	void BridgeDeleteFrom(const HeightPos&);
+	HeightPos BridgeGetLastPos();
 
 	void CacheInsert(const Blob& key, const Blob& data);
 	bool CacheFind(const Blob& key, ByteBuffer&);
