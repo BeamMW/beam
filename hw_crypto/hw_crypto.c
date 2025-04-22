@@ -35,7 +35,7 @@
 #	define UNUSED(x) (x)
 #endif // UNUSED
 
-#if BeamCrypto_ScarceStack
+#ifdef BeamCrypto_ScarceStack
 #	define __stack_hungry__ __attribute__((noinline))
 #else // BeamCrypto_ScarceStack
 #	define __stack_hungry__
