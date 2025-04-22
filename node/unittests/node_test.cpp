@@ -1834,39 +1834,6 @@ namespace beam
 		node.m_PostStartSynced = true;
 		node2.m_PostStartSynced = true;
 
-		struct MyBridge
-			:public NodeProcessor::IForeignBridge
-		{
-			typedef std::map<ECC::uintBig, std::pair<Asset::ID, Amount> > Map;
-			Map m_Map;
-
-			bool m_Called = false;
-			bool m_Allowed = false;
-
-			bool AllowEmission(Asset::ID aid, Amount amount, const Blob& key) override
-			{
-				m_Called = true;
-
-				if (key.n != Map::key_type::nBytes)
-					return false;
-
-				const auto& pid = *reinterpret_cast<const ECC::uintBig*>(key.p);
-				auto it = m_Map.find(pid);
-				if (m_Map.end() == it)
-					return false;
-
-				const auto& val = it->second;
-				bool b =
-					(val.first == aid) &&
-					(val.second == amount);
-
-				if (b)
-					m_Allowed = true;
-
-				return b;
-			}
-		} bridge;
-
 		ECC::SetRandom(node2);
 
 		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
@@ -1897,8 +1864,10 @@ namespace beam
 
 			MiniWallet m_Wallet;
 			MiniWallet m_Wallet2;
-			NodeProcessor* m_pProc = nullptr;
-			MyBridge* m_pBridge;
+			NodeProcessor* m_pProc1 = nullptr;
+			NodeProcessor* m_pProc2 = nullptr;
+
+			std::vector<NodeProcessor*> m_vBridgeUpd;
 
 			std::vector<Block::SystemState::Full> m_vStates;
 
@@ -2332,11 +2301,7 @@ namespace beam
                 t.Test(m_Evm.m_DeployConfirmed, "EVM Contract wasn't deployed");
 
 				if (Rules::get().CA.ForeignEnd)
-				{
 					t.Test(m_Bridge.m_hEmitConfirmed, "Bridge emission not confirmed");
-					t.Test(m_pBridge->m_Called, "Bridge was not checked");
-					t.Test(m_pBridge->m_Allowed, "Bridging was never allowed");
-				}
 
 				return t.m_AllDone;
 			}
@@ -2667,12 +2632,10 @@ namespace beam
 					pt = -pt;
 
 					pKrn->Sign(pSkKrn, 2, pt, nullptr);
-
-					auto& v = m_pBridge->m_Map[op.m_pk.m_X];
-					v.first = cid.m_AssetID;
-					v.second = cid.m_Value;
-
 					m_Bridge.m_hvEmitID = pKrn->get_ID();
+
+					m_pProc1->BridgeAddInfo(op.m_pk.m_X, HeightPos(2), cid.m_AssetID, cid.m_Value);
+					m_pProc2->BridgeAddInfo(op.m_pk.m_X, HeightPos(2), cid.m_AssetID, cid.m_Value);
 				}
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
@@ -2950,7 +2913,7 @@ namespace beam
 					{
 						// proofs for logs
 						NodeDB::ContractLog::Walker wlk;
-						for (m_pProc->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						for (m_pProc1->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
 						{
 							proto::GetContractLogProof msgOut;
 							msgOut.m_Pos = wlk.m_Entry.m_Pos;
@@ -3425,11 +3388,8 @@ namespace beam
 		};
 
 		MyClient cl(node.m_Keys.m_pMiner);
-		cl.m_pProc = &node.get_Processor();
-		cl.m_pBridge = &bridge;
-
-		node.get_Processor().m_pForeignBridge = &bridge;
-		node2.get_Processor().m_pForeignBridge = &bridge;
+		cl.m_pProc1 = &node.get_Processor();
+		cl.m_pProc2 = &node2.get_Processor();
 
 		io::Address addr;
 		addr.resolve("127.0.0.1");

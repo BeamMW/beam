@@ -785,6 +785,11 @@ public:
 		uintBigFor<uint32_t>::Type m_nIdx;
 	};
 
+	struct ForeignDetailsPacked {
+		uintBigFor<Asset::ID>::Type m_Aid;
+		uintBigFor<Amount>::Type m_Amount;
+	};
+
 #pragma pack (pop)
 
 	struct Recognizer
@@ -947,13 +952,7 @@ public:
 		static_assert(sizeof(User) != sizeof(Contract), "");
 	};
 
-
-	struct IForeignBridge
-	{
-		virtual bool AllowEmission(Asset::ID, Amount, const Blob& key) = 0;
-	};
-
-	IForeignBridge* m_pForeignBridge = nullptr;
+	bool BridgeAddInfo(const PeerID&, const HeightPos&, Asset::ID, Amount);
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
