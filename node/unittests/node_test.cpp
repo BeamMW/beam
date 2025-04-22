@@ -827,6 +827,39 @@ namespace beam
 
 			verify_test(!wlk.MoveNext());
 		}
+
+		{
+			hvKey = 5u;
+			hvVal = 15u;
+			val = hvVal;
+
+			verify_test(db.BridgeInsertSafe(HeightPos(12, 0), hvKey, &val));
+			verify_test(!db.BridgeInsertSafe(HeightPos(12, 0), hvKey, &val)); // duplicate pos
+
+			hvVal = 16u;
+			verify_test(db.BridgeInsertSafe(HeightPos(13, 0), hvKey, &val)); // ok, duplicate key is allowed
+
+			hvKey = 6u;
+			auto pos = db.BridgeFind(hvKey, val, rs);
+			verify_test(!pos.m_Height);
+
+			hvKey = 5u;
+			pos = db.BridgeFind(hvKey, val, rs);
+			verify_test(pos.m_Height == 12); // earlier is selected
+
+			hvVal = 15u;
+			verify_test(val == Blob(hvVal));
+
+			db.BridgeDeleteFrom(HeightPos(13, 0));
+
+			pos = db.BridgeFind(hvKey, val, rs);
+			verify_test(pos.m_Height == 12);
+			verify_test(val == Blob(hvVal));
+
+			db.BridgeDeleteFrom(HeightPos(12, 0));
+			pos = db.BridgeFind(hvKey, val, rs);
+			verify_test(!pos.m_Height && !pos.m_Pos && !val.n);
+		}
 	}
 
 #ifdef WIN32
