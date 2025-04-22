@@ -293,6 +293,47 @@ bool NotCalled_VerifyNoDuplicatedIDs(uint32_t id)
 }
 
 /////////////////////////
+// ContractLogsReader
+void ContractLogsReader::ReadOnceStrict()
+{
+    Deserializer der;
+    der.reset(m_Inp.p, m_Inp.n);
+
+    uint32_t nKey, nVal;
+
+    HeightPos dp;
+    der
+        & dp
+        & nKey
+        & nVal;
+
+    if (dp.m_Height)
+    {
+        m_Pos.m_Height += dp.m_Height;
+        m_Pos.m_Pos = 0;
+    }
+
+    m_Pos.m_Pos += dp.m_Pos;
+
+    auto nLeft = (uint32_t)der.bytes_left();
+
+    uint32_t nKV = nKey + nVal;
+    Exc::Test(nKV >= nKey); // overflow test
+    Exc::Test(nKV <= nLeft);
+
+    m_Key.p = ((const uint8_t*) m_Inp.p) + m_Inp.n - nLeft;
+    m_Key.n = nKey;
+
+    m_Val.p = ((const uint8_t*) m_Key.p) + m_Key.n;
+    m_Val.n = nVal;
+
+    nLeft -= nKV;
+    ((const uint8_t*&) m_Inp.p) += m_Inp.n - nLeft;
+    m_Inp.n = nLeft;
+}
+
+
+/////////////////////////
 // NodeConnection
 NodeConnection::NodeConnection()
     :m_Protocol('B', 'm', 10, sizeof(HighestMsgCode), *this, 20000)

@@ -24,6 +24,7 @@
 #include "../../utility/test_helpers.h"
 #include "../../utility/serialize.h"
 #include "../../utility/blobmap.h"
+#include "../../utility/containers.h"
 #include "../../core/unittest/mini_blockchain.h"
 #include "../../bvm/bvm2.h"
 #include "../../bvm/ManagerStd.h"
@@ -1788,6 +1789,217 @@ namespace beam
 
 	}
 
+	struct EventsExtractor
+	{
+		struct Event
+			:public boost::intrusive::list_base_hook<>
+		{
+			HeightPos m_Pos;
+			ByteBuffer m_Event;
+		};
+
+		typedef intrusive::list_autoclear<Event> EventList;
+
+		EventList m_lstFetched;
+		HeightPos m_posLast;
+		Height m_dh = 0; // allowed gap between tip and last pos, before we ask for vents
+
+		ByteBuffer m_Key;
+
+	private:
+
+		struct RequestHandler
+			:public proto::FlyClient::Request::IHandler
+		{
+			proto::FlyClient::RequestContractLogs::Ptr m_pRequest;
+
+			~RequestHandler()
+			{
+				if (m_pRequest)
+					m_pRequest->m_pTrg = nullptr;
+			}
+
+			bool IsInProgress() const
+			{
+				if (!m_pRequest || !m_pRequest->m_pTrg)
+					return false;
+
+				assert(this == m_pRequest->m_pTrg);
+				return true;
+			}
+
+			void OnComplete(proto::FlyClient::Request& r) override
+			{
+				assert(this == r.m_pTrg);
+				assert(m_pRequest.get() == &r);
+				r.m_pTrg = nullptr;
+
+				get_ParentObj().OnData();
+			}
+
+			IMPLEMENT_GET_PARENT_OBJ(EventsExtractor, m_Handler)
+		} m_Handler;
+
+		void CheckState()
+		{
+			if (m_Handler.IsInProgress())
+				return;
+
+			Height h = m_FlyClient.get_Height();
+			if (m_posLast.m_Height + m_dh >= h)
+				return;
+
+			// start the request
+			if (!m_Handler.m_pRequest)
+			{
+				m_Handler.m_pRequest.reset(new proto::FlyClient::RequestContractLogs);
+				auto& r = *m_Handler.m_pRequest;
+				r.m_Msg.m_KeyMin = m_Key;
+				r.m_Msg.m_KeyMax = m_Key;
+				r.m_Msg.m_PosMax.m_Height = MaxHeight;
+			}
+
+			auto& r = *m_Handler.m_pRequest;
+			r.m_Msg.m_PosMin = m_posLast;
+
+			// inc
+			if (!++r.m_Msg.m_PosMin.m_Pos)
+				r.m_Msg.m_PosMin.m_Height++;
+
+			m_Network.PostRequest(r, m_Handler);
+			assert(m_Handler.IsInProgress());
+		}
+
+		void OnData()
+		{
+			assert(m_Handler.m_pRequest);
+			auto& r = *m_Handler.m_pRequest;
+
+			// parse
+			if (r.m_Res.m_Result.empty())
+				Exc::Test(!r.m_Res.m_bMore);
+			else
+			{
+				proto::ContractLogsReader clr;
+				clr.m_Inp = r.m_Res.m_Result;
+				clr.m_Pos = r.m_Msg.m_PosMin;
+
+				while (true)
+				{
+					clr.ReadOnceStrict();
+
+					Exc::Test(m_posLast < clr.m_Pos);
+
+					auto* pEvt = m_lstFetched.Create_back();
+					clr.m_Val.Export(pEvt->m_Event);
+
+					pEvt->m_Pos = clr.m_Pos;
+					m_posLast < clr.m_Pos;
+
+					if (!clr.m_Inp.n)
+						break;
+				}
+
+				r.m_Res.m_Result.clear(); // for more safety
+
+				OnEvents();
+			}
+
+
+			if (r.m_Res.m_bMore)
+				CheckState(); // maybe ask for more
+			else
+			{
+				m_posLast.m_Height = m_FlyClient.get_Height();
+				m_posLast.m_Pos = std::numeric_limits<uint32_t>::max();
+			}
+		}
+
+		void OnRollbackTo(Height h)
+		{
+			if (m_Handler.IsInProgress())
+			{
+				// cancel ongoing fetch
+				m_Handler.m_pRequest->m_pTrg = nullptr;
+				m_Handler.m_pRequest.reset();
+			}
+
+			if (m_posLast.m_Height <= h)
+				return;
+
+			m_posLast.m_Height = h;
+			m_posLast.m_Pos = 0;
+
+			if (m_lstFetched.empty())
+				OnEventsRolledBackTo(h);
+			else
+			{
+				while (!m_lstFetched.empty())
+				{
+					auto& x = m_lstFetched.back();
+					if (x.m_Pos.m_Height <= h)
+						break;
+
+					m_lstFetched.Delete(x);
+				}
+			}
+		}
+
+		struct MyFlyClient
+			:public proto::FlyClient
+		{
+			Block::SystemState::HistoryMap m_Hist;
+
+			Block::SystemState::IHistory& get_History() override
+			{
+				return m_Hist;
+			}
+
+			Height get_Height()
+			{
+				Block::SystemState::Full s;
+				return m_Hist.get_Tip(s) ? s.m_Height : 0;
+			}
+
+			void OnNewTip() override
+			{
+				get_ParentObj().CheckState();
+			}
+
+			void OnTipUnchanged() override 
+			{
+				get_ParentObj().CheckState();
+			}
+
+			void OnRolledBack() override
+			{
+				get_ParentObj().OnRollbackTo(get_Height());
+				// will be followed by new tip
+			}
+
+			IMPLEMENT_GET_PARENT_OBJ(EventsExtractor, m_FlyClient)
+		} m_FlyClient;
+
+		proto::FlyClient::NetworkStd m_Network;
+
+
+	public:
+
+		EventsExtractor()
+			:m_Network(m_FlyClient)
+		{
+		}
+
+		virtual void OnEvents() {}
+		virtual void OnEventsRolledBackTo(Height) {}
+
+		void Init(const io::Address& addr)
+		{
+			m_Network.m_Cfg.m_vNodes.push_back(addr);
+			m_Network.Connect();
+		}
+
+	};
 
 
 	void TestNodeClientProto(Rules& r)
@@ -3415,6 +3627,27 @@ namespace beam
 		node.Initialize();
 
 		cl.Connect(addr);
+
+		EventsExtractor evtExtr;
+		evtExtr.m_dh = 10;
+
+#pragma pack (push, 1)
+		{
+			struct ShaderChangeEvt {
+				bvm2::ContractID m_Cid;
+				uint8_t m_Tag;
+			} evt;
+
+			evt.m_Cid = { 0xd9,0xc5,0xd1,0x78,0x2b,0x2d,0x2b,0x6f,0x73,0x34,0x86,0xbe,0x48,0x0b,0xb0,0xd8,0xbc,0xf3,0x4d,0x5f,0xdc,0x63,0xbb,0xac,0x99,0x6e,0xd7,0x6a,0xf5,0x41,0xcc,0x14 }; // vault
+			evt.m_Tag = 4; // shader change
+
+			Blob(&evt, sizeof(evt)).Export(evtExtr.m_Key);
+		}
+
+#pragma pack (pop)
+
+
+		evtExtr.Init(addr);
 
 
 		struct MyClient2
