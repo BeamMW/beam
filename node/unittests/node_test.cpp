@@ -847,10 +847,13 @@ namespace beam
 			pos = db.BridgeFind(hvKey, val, rs);
 			verify_test(pos.m_Height == 12); // earlier is selected
 
+			verify_test(db.BridgeGetLastPos().m_Height == 13);
+
 			hvVal = 15u;
 			verify_test(val == Blob(hvVal));
 
 			db.BridgeDeleteFrom(HeightPos(13, 0));
+			verify_test(db.BridgeGetLastPos().m_Height == 12);
 
 			pos = db.BridgeFind(hvKey, val, rs);
 			verify_test(pos.m_Height == 12);
@@ -859,6 +862,8 @@ namespace beam
 			db.BridgeDeleteFrom(HeightPos(12, 0));
 			pos = db.BridgeFind(hvKey, val, rs);
 			verify_test(!pos.m_Height && !pos.m_Pos && !val.n);
+
+			verify_test(db.BridgeGetLastPos().m_Height == 0);
 		}
 	}
 

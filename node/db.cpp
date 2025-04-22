@@ -2285,11 +2285,11 @@ uint64_t NodeDB::BbsFindCursor(Timestamp t)
 Timestamp NodeDB::get_BbsMaxTime()
 {
 	Recordset rs(*this, Query::BbsMaxTime, "SELECT MAX(" TblBbs_Time ") FROM " TblBbs);
-	if (!rs.Step())
+	if (!rs.Step() || rs.IsNull(0))
 		return 0;
 
 	Timestamp ret;
-	rs.get(0, ret);
+	rs.get(0, ret); // to call, NULL is converted to numeric 0
 	return ret;
 }
 
@@ -2789,6 +2789,17 @@ void NodeDB::BridgeDeleteFrom(const HeightPos& pos)
 	HeightPosPacked buf;
 	buf.put(rs, 0, pos);
 	rs.Step();
+}
+
+HeightPos NodeDB::BridgeGetLastPos()
+{
+	HeightPos pos;
+
+	Recordset rs(*this, Query::BridgeMaxPos, "SELECT MAX(" TblBridge_Pos ") FROM " TblBridge);
+	if (rs.Step() && !rs.IsNull(0))
+		HeightPosPacked::get(rs, 0, pos);
+
+	return pos;
 }
 
 void NodeDB::get_CacheState(CacheState& cs)
