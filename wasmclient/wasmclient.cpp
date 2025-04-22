@@ -532,6 +532,8 @@ public:
                 );
             }
 
+            BEAM_LOG_INFO() << "Rules signature: " << m_Rules.get_SignatureStr();
+
             EnsureFSMounted();
             auto dbFunc = [path = m_DbPath, pass = m_Pass, dbPtr = std::make_shared<WalletDB::Ptr>()]()
             {
@@ -542,7 +544,7 @@ public:
                 return *dbPtr;
             };
 
-            m_Client = std::make_shared<WalletClient2>(Rules::get(), dbFunc, m_Node, m_Reactor);
+            m_Client = std::make_shared<WalletClient2>(m_Rules, dbFunc, m_Node, m_Reactor);
             m_Client->SetHandler(this);
 
             auto additionalTxCreators = std::make_shared<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>>();
@@ -955,8 +957,6 @@ public:
     {
         try
         {
-            Rules::get().UpdateChecksum();
-            BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
             return WalletDB::open(dbName, SecString(pass));
         }
         catch (const DatabaseException& ex)
