@@ -2461,6 +2461,9 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 
 bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& pos)
 {
+	if (pos.m_Height < Rules::HeightGenesis)
+		return false; // it's possible to include contracts in treasury, and have logs. But proof won't be available
+
 	Merkle::FixedMmr lmmr;
 	uint64_t iTrg = static_cast<uint64_t>(-1);
 
