@@ -1789,31 +1789,14 @@ namespace beam
 
 	}
 
-	struct EventsExtractor
+	class EventsExtractor
 	{
-		struct Event
-			:public boost::intrusive::list_base_hook<>
-		{
-			HeightPos m_Pos;
-			ByteBuffer m_Event;
-		};
-
-		typedef intrusive::list_autoclear<Event> EventList;
-
-		EventList m_lstFetched;
-		HeightPos m_posLast;
-		Height m_dh = 0; // allowed gap between tip and last pos, before we ask for vents
-
-		ByteBuffer m_Key;
-
-	private:
-
-		struct RequestHandler
+		struct Handler
 			:public proto::FlyClient::Request::IHandler
 		{
 			proto::FlyClient::RequestContractLogs::Ptr m_pRequest;
 
-			~RequestHandler()
+			~Handler()
 			{
 				if (m_pRequest)
 					m_pRequest->m_pTrg = nullptr;
@@ -1845,7 +1828,7 @@ namespace beam
 			if (m_Handler.IsInProgress())
 				return;
 
-			Height h = m_FlyClient.get_Height();
+			Height h = get_Height();
 			if (m_posLast.m_Height + m_dh >= h)
 				return;
 
@@ -1890,32 +1873,26 @@ namespace beam
 
 					Exc::Test(m_posLast < clr.m_Pos);
 
-					auto* pEvt = m_lstFetched.Create_back();
-					clr.m_Val.Export(pEvt->m_Event);
-
-					pEvt->m_Pos = clr.m_Pos;
-					m_posLast < clr.m_Pos;
+					m_posLast = clr.m_Pos;
+					OnEvent(clr.m_Val);
 
 					if (!clr.m_Inp.n)
 						break;
 				}
 
 				r.m_Res.m_Result.clear(); // for more safety
-
-				OnEvents();
 			}
-
 
 			if (r.m_Res.m_bMore)
 				CheckState(); // maybe ask for more
 			else
 			{
-				m_posLast.m_Height = m_FlyClient.get_Height();
+				m_posLast.m_Height = get_Height();
 				m_posLast.m_Pos = std::numeric_limits<uint32_t>::max();
 			}
 		}
 
-		void OnRollbackTo(Height h)
+		void OnRollbackInternal()
 		{
 			if (m_Handler.IsInProgress())
 			{
@@ -1924,24 +1901,16 @@ namespace beam
 				m_Handler.m_pRequest.reset();
 			}
 
+			Height h = get_Height();
 			if (m_posLast.m_Height <= h)
 				return;
 
-			m_posLast.m_Height = h;
-			m_posLast.m_Pos = 0;
+			OnRolledBack();
 
-			if (m_lstFetched.empty())
-				OnEventsRolledBackTo(h);
-			else
+			if (m_posLast.m_Height >= h)
 			{
-				while (!m_lstFetched.empty())
-				{
-					auto& x = m_lstFetched.back();
-					if (x.m_Pos.m_Height <= h)
-						break;
-
-					m_lstFetched.Delete(x);
-				}
+				m_posLast.m_Height = h;
+				m_posLast.m_Pos = 0;
 			}
 		}
 
@@ -1955,15 +1924,10 @@ namespace beam
 				return m_Hist;
 			}
 
-			Height get_Height()
-			{
-				Block::SystemState::Full s;
-				return m_Hist.get_Tip(s) ? s.m_Height : 0;
-			}
-
 			void OnNewTip() override
 			{
 				get_ParentObj().CheckState();
+				get_ParentObj().OnNewTip();
 			}
 
 			void OnTipUnchanged() override 
@@ -1973,25 +1937,38 @@ namespace beam
 
 			void OnRolledBack() override
 			{
-				get_ParentObj().OnRollbackTo(get_Height());
+				get_ParentObj().OnRollbackInternal();
 				// will be followed by new tip
 			}
 
 			IMPLEMENT_GET_PARENT_OBJ(EventsExtractor, m_FlyClient)
 		} m_FlyClient;
 
-		proto::FlyClient::NetworkStd m_Network;
+	protected:
 
+		proto::FlyClient::NetworkStd m_Network;
+		Block::SystemState::HistoryMap& get_Hist() { return m_FlyClient.m_Hist; }
 
 	public:
+
+		HeightPos m_posLast;
+		Height m_dh = 0; // allowed gap between tip and last pos, before we ask for vents
+		ByteBuffer m_Key;
 
 		EventsExtractor()
 			:m_Network(m_FlyClient)
 		{
 		}
 
-		virtual void OnEvents() {}
-		virtual void OnEventsRolledBackTo(Height) {}
+		Height get_Height()
+		{
+			Block::SystemState::Full s;
+			return m_FlyClient.m_Hist.get_Tip(s) ? s.m_Height : 0;
+		}
+
+		virtual void OnNewTip() {}
+		virtual void OnEvent(const Blob& val) {}
+		virtual void OnRolledBack() {}
 
 		void Init(const io::Address& addr)
 		{
@@ -1999,7 +1976,332 @@ namespace beam
 			m_Network.Connect();
 		}
 
+		struct Event
+			:public boost::intrusive::list_base_hook<>
+		{
+			HeightPos m_Pos;
+			ByteBuffer m_Event;
+		};
+
+		typedef intrusive::list_autoclear<Event> EventList;
+
 	};
+
+	class EventsExtractor2
+		:public EventsExtractor
+	{
+		struct Handler
+			:public proto::FlyClient::Request::IHandler
+		{
+			struct Request
+				:public proto::FlyClient::RequestContractLogProof
+				,public boost::intrusive::list_base_hook<>
+			{
+				ByteBuffer m_Event;
+				virtual ~Request() {} // automatic
+			};
+
+			typedef intrusive::list<Request> RequestList;
+			RequestList m_lstPending;
+
+			~Handler()
+			{
+				while (!m_lstPending.empty())
+					Delete(m_lstPending.front());
+			}
+
+			void Delete(Request& r)
+			{
+				m_lstPending.erase(RequestList::s_iterator_to(r));
+				r.m_pTrg = nullptr;
+				r.Release();
+			}
+
+			void OnComplete(proto::FlyClient::Request& r) override
+			{
+				assert(this == r.m_pTrg);
+
+				assert(r.get_Type() == proto::FlyClient::Request::Type::ContractLogProof);
+				auto& req = Cast::Up<Request>(r);
+
+				Merkle::Hash hv;
+				Block::get_HashContractLog(hv, get_ParentObj().m_Key, req.m_Event, req.m_Msg.m_Pos.m_Pos);
+
+				Block::SystemState::Full sTip;
+				get_ParentObj().get_Hist().get_Tip(sTip);
+				sTip.IsValidProofLog(hv, req.m_Res.m_Proof);
+
+				// confirmed
+				r.m_pTrg = nullptr;
+
+				while (!m_lstPending.empty())
+				{
+					auto& x = m_lstPending.front();
+					if (x.m_pTrg)
+						break;
+
+					get_ParentObj().OnEvent2(x.m_Msg.m_Pos, std::move(x.m_Event));
+					Delete(x);
+				}
+			}
+
+			IMPLEMENT_GET_PARENT_OBJ(EventsExtractor2, m_Handler)
+		} m_Handler;
+
+	protected:
+
+		void OnEvent(const Blob& val) override
+		{
+			int kind = get_EventKind(val);
+			if (kind < 0)
+				return;
+
+			if (m_Handler.m_lstPending.empty() && !kind)
+			{
+				ByteBuffer buf;
+				val.Export(buf);
+				OnEvent2(m_posLast, std::move(buf));
+			}
+			else
+			{
+				auto* pReq = new Handler::Request;
+				m_Handler.m_lstPending.push_back(*pReq);
+				pReq->AddRef();
+
+				val.Export(pReq->m_Event);
+				pReq->m_Msg.m_Pos = m_posLast;
+
+				if (kind)
+					m_Network.PostRequest(*pReq, m_Handler);
+			}
+		}
+
+		void OnRolledBack() override
+		{
+			Height h = get_Height();
+
+			while (!m_Handler.m_lstPending.empty())
+			{
+				auto& x = m_Handler.m_lstPending.back();
+				if (x.m_Msg.m_Pos.m_Height <= h)
+					break;
+				m_Handler.Delete(x);
+			}
+		}
+
+	public:
+
+		virtual int get_EventKind(const Blob& val)
+		{
+			// negative: drop, 0: accept, 1: ask for proof
+			return 1;
+		}
+
+		virtual void OnEvent2(const HeightPos&, ByteBuffer&&) {}
+	};
+
+	class L2BridgeClient
+	{
+		MyThread m_Thread;
+
+		io::Reactor::Ptr m_pReactor; // used in thread
+		io::AsyncEvent::Ptr m_pEvtStop;
+		io::AsyncEvent::Ptr m_pEvtData;
+
+		std::mutex m_Mutex;
+		EventsExtractor2::EventList m_lstReady;
+
+	public:
+
+		struct Params
+		{
+			Rules m_Rules;
+			ByteBuffer m_Key;
+			HeightPos m_Pos0;
+			Height m_hDelay;
+			io::Address m_Addr;
+		};
+
+	private:
+
+		void OnEvtStop()
+		{
+			m_pReactor->stop();
+		}
+
+		void RunThreadInternal(Params&& pars)
+		{
+			io::Reactor::Scope scopeReactor(*m_pReactor);
+			Rules::Scope scopeRules(pars.m_Rules);
+
+			struct Extractor
+				:public EventsExtractor2
+			{
+				L2BridgeClient& m_This;
+				Height m_hDelay;
+
+				EventsExtractor2::EventList m_lstMaturing;
+
+				Extractor(L2BridgeClient& x) :m_This(x) {}
+
+				void CheckMaturing()
+				{
+					if (m_lstMaturing.empty())
+						return;
+
+					Height h = get_Height();
+					if (m_lstMaturing.front().m_Pos.m_Height + m_hDelay > h)
+						return;
+
+					bool bNewData;
+					{
+						std::scoped_lock<std::mutex> scope(m_This.m_Mutex);
+						bNewData = m_This.m_lstReady.empty();
+
+						while (!m_lstMaturing.empty())
+						{
+							auto& x = m_lstMaturing.front();
+							if (x.m_Pos.m_Height + m_hDelay > h)
+								break;
+
+							m_lstMaturing.pop_front();
+							m_This.m_lstReady.push_back(x);
+						}
+					}
+
+					if (bNewData)
+						m_This.m_pEvtData->post();
+				}
+
+				void OnNewTip() override
+				{
+					CheckMaturing();
+				}
+
+				void OnEvent2(const HeightPos& pos, ByteBuffer&& val) override
+				{
+					auto* pEvt = m_lstMaturing.Create_back();
+					pEvt->m_Pos = pos;
+					pEvt->m_Event = std::move(val);
+
+					CheckMaturing();
+				}
+
+				void OnRolledBack() override
+				{
+					EventsExtractor2::OnRolledBack();
+
+					auto h = get_Height();
+
+					while (!m_lstMaturing.empty())
+					{
+						auto& x = m_lstMaturing.back();
+						if (x.m_Pos.m_Height >= h)
+							return; // no other action needed
+
+						m_lstMaturing.Delete(x);
+					}
+
+					{
+						std::scoped_lock<std::mutex> scope(m_This.m_Mutex);
+
+						while (!m_This.m_lstReady.empty())
+						{
+							auto& x = m_This.m_lstReady.back();
+							if (x.m_Pos.m_Height >= h)
+								return; // no other action needed
+
+							m_lstMaturing.Delete(x);
+						}
+
+						auto* pEvt = m_This.m_lstReady.Create_back();
+						pEvt->m_Pos.m_Height = h;
+						pEvt->m_Pos.m_Pos = std::numeric_limits<uint32_t>::max();
+					}
+
+					m_This.m_pEvtData->post();
+				}
+
+			} extr(*this);
+
+			extr.m_Key = std::move(pars.m_Key);
+			extr.m_posLast = pars.m_Pos0;
+			extr.m_hDelay = pars.m_hDelay;
+			extr.m_dh = pars.m_hDelay /2;
+
+			extr.Init(pars.m_Addr);
+
+
+			m_pReactor->run();
+
+		}
+
+		void OnDataInternal()
+		{
+			EventsExtractor2::EventList lst;
+
+			{
+				std::scoped_lock<std::mutex> scope(m_Mutex);
+				lst.swap(m_lstReady);
+			}
+
+			while (!lst.empty())
+			{
+				auto& x = lst.front();
+
+				if ((std::numeric_limits<uint32_t>::max() == x.m_Pos.m_Pos) && x.m_Event.empty())
+					OnRolledBack(x.m_Pos.m_Height);
+				else
+					OnEvent(x.m_Pos, std::move(x.m_Event));
+
+				lst.Delete(x);
+			}
+		}
+
+	public:
+
+		~L2BridgeClient() { Stop(); }
+
+		void Stop()
+		{
+			if (m_pReactor)
+			{
+				if (m_Thread.joinable())
+				{
+					assert(m_pEvtStop);
+					m_pEvtStop->post();
+
+					m_Thread.join();
+				}
+
+				m_pEvtData.reset();
+				m_pEvtStop.reset();
+				m_pReactor.reset();
+
+				m_lstReady.Clear();
+			}
+		}
+
+		void Start(Params&& pars)
+		{
+			Stop();
+
+			m_pReactor = io::Reactor::create();
+			m_pEvtStop = io::AsyncEvent::create(*m_pReactor, [this]() { OnEvtStop(); });
+			m_pEvtData = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnDataInternal(); });
+
+			m_Thread = MyThread(&L2BridgeClient::RunThreadInternal, this, std::move(pars));
+		}
+
+		virtual void OnEvent(const HeightPos& pos, ByteBuffer&&)
+		{
+		}
+
+		virtual void OnRolledBack(Height)
+		{
+		}
+	};
+
 
 
 	void TestNodeClientProto(Rules& r)
@@ -3128,9 +3430,9 @@ namespace beam
 					proc.m_Args["action"] = "view_logs";
 
 					{
-						// proofs for logs
+						// proofs for logs. Don't include height=0, we can't get proof for it
 						NodeDB::ContractLog::Walker wlk;
-						for (m_pProc1->get_DB().ContractLogEnum(wlk, HeightPos(0), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						for (m_pProc1->get_DB().ContractLogEnum(wlk, HeightPos(Rules::HeightGenesis), HeightPos(MaxHeight)); wlk.MoveNext(); )
 						{
 							proto::GetContractLogProof msgOut;
 							msgOut.m_Pos = wlk.m_Entry.m_Pos;
@@ -3628,11 +3930,26 @@ namespace beam
 
 		cl.Connect(addr);
 
-		EventsExtractor evtExtr;
-		evtExtr.m_dh = 10;
+		struct BridgeClient
+			:public L2BridgeClient
+		{
+			void OnEvent(const HeightPos&, ByteBuffer&&)
+			{
+			}
+
+			virtual void OnRolledBack(Height)
+			{
+			}
+
+		} bc;
+
+		{
+			L2BridgeClient::Params pars;
+			pars.m_Addr = addr;
+			pars.m_hDelay = 8;
+			pars.m_Rules = Rules::get(); // copy
 
 #pragma pack (push, 1)
-		{
 			struct ShaderChangeEvt {
 				bvm2::ContractID m_Cid;
 				uint8_t m_Tag;
@@ -3641,13 +3958,12 @@ namespace beam
 			evt.m_Cid = { 0xd9,0xc5,0xd1,0x78,0x2b,0x2d,0x2b,0x6f,0x73,0x34,0x86,0xbe,0x48,0x0b,0xb0,0xd8,0xbc,0xf3,0x4d,0x5f,0xdc,0x63,0xbb,0xac,0x99,0x6e,0xd7,0x6a,0xf5,0x41,0xcc,0x14 }; // vault
 			evt.m_Tag = 4; // shader change
 
-			Blob(&evt, sizeof(evt)).Export(evtExtr.m_Key);
-		}
-
+			Blob(&evt, sizeof(evt)).Export(pars.m_Key);
 #pragma pack (pop)
 
+			bc.Start(std::move(pars));
+		}
 
-		evtExtr.Init(addr);
 
 
 		struct MyClient2
@@ -3709,6 +4025,9 @@ namespace beam
 		pReactor->run();
 
 		cl.TestAllDone(true);
+
+		bc.Stop(); // stop it manually (rather than wait for stop in its d'tor)
+		// we'll test various things, including manual rollback with forbidden state. As a result, the connected FlyClient may observe a decrease in tip chainwork
 
 		struct TxoRecover
 			:public NodeProcessor::ITxoRecover
