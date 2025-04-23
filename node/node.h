@@ -831,7 +831,10 @@ private:
 			typedef intrusive::multiset_autoclear<RoundData> Map;
 
 			void SetProposalHashes();
-			void SendVotes(Peer&, bool bCommit) const;
+			void SendVotes(Peer&) const;
+
+		private:
+			void SendVotes2(Peer&, proto::PbftVote&, const SigsAndPower&) const;
 		};
 
 
