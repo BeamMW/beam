@@ -1031,8 +1031,33 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofKernel2&& msg)
             auto& req = Cast::Up<RequestKernel2>(*n.m_pRequest);
             req.m_Res = std::move(msg);
 
-            if (req.m_Res.m_Kernel && req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
-                ThrowUnexpected();
+            if (req.m_Res.m_Proof.empty())
+            {
+                if (req.m_Res.m_Kernel)
+                    ThrowUnexpected();
+            }
+            else
+            {
+                if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
+                    ThrowUnexpected();
+
+                if (req.m_Res.m_Kernel)
+                {
+                    if (!req.m_Msg.m_Fetch)
+                        ThrowUnexpected();
+
+                    if (req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
+                        ThrowUnexpected();
+
+                    if (req.m_Res.m_Kernel->get_ID() != req.m_Msg.m_ID)
+                        ThrowUnexpected();
+                }
+                else
+                {
+                    if (req.m_Msg.m_Fetch)
+                        ThrowUnexpected();
+                }
+            }
         }
         break;
 
@@ -1041,8 +1066,15 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofKernel2&& msg)
             auto& req = Cast::Up<RequestKernel3>(*n.m_pRequest);
             req.m_Res = std::move(msg);
 
-            if (req.m_Res.m_Kernel && req.m_Msg.m_WithProof && !req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
-                ThrowUnexpected();
+            if (req.m_Res.m_Kernel)
+            {
+                if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
+                    ThrowUnexpected();
+
+                if (req.m_Msg.m_WithProof && !m_Tip.IsValidProofKernel(req.m_Res.m_Kernel->get_ID(), req.m_Res.m_Proof))
+                    ThrowUnexpected();
+            }
+
         }
         break;
 
