@@ -5788,13 +5788,19 @@ void Node::Validator::OnNewRound()
 	if (!p.IsTreasuryHandled() || p.IsFastSync())
 		return;
 
-	auto it = m_mapRounds.find(iRound, RoundData::Comparator());
-	if (m_mapRounds.end() != it)
-		return;
-
 	auto* pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
 	if (!pLeader || (pLeader != m_Me.m_p))
 		return;
+
+	if (!m_mapRounds.empty())
+	{
+		auto& rd = *m_mapRounds.rbegin();
+		if (rd.m_Key >= iRound)
+		{
+			BEAM_LOG_INFO() << "pbft " << iRound << " not proposing, already pre-voted";
+			return;
+		}
+	}
 
 	auto* pRd = m_mapRounds.Create(iRound);
 	pRd->m_pLeader = pLeader;
@@ -5826,29 +5832,45 @@ void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc)
 
 void Node::Validator::SendState(Peer& peer) const
 {
+	if (m_mapRounds.empty())
+		return;
+
+	// send only the relevant proposal
 	if (m_pCommitted)
 	{
 		peer.Send(m_pCommitted->m_Proposal);
-		m_pCommitted->SendVotes(peer, true);
+		m_pCommitted->SendVotes(peer);
 	}
 	else
 	{
-		for (auto& rd : m_mapRounds)
+		// send only the most recent proposal, and all the votes, prefer decreasing order.
+		auto it = m_mapRounds.rbegin();
+		if (m_mapRounds.rend() != it)
 		{
-			peer.Send(rd.m_Proposal);
-			rd.SendVotes(peer, false);
-			rd.SendVotes(peer, true);
+			peer.Send(it->m_Proposal);
+
+			do
+			{
+				it->SendVotes(peer);
+			} while (m_mapRounds.rend() != ++it);
 		}
 	}
 }
 
-void Node::Validator::RoundData::SendVotes(Peer& peer, bool bCommit) const
+void Node::Validator::RoundData::SendVotes(Peer& peer) const
 {
 	proto::PbftVote msg;
 	msg.m_iRound = m_Key;
-	msg.m_Commit = bCommit;
 
-	for (const auto& kv : (bCommit ? m_spCommitted : m_spPreVoted).m_Sigs)
+	SendVotes2(peer, msg, m_spPreVoted);
+
+	msg.m_Commit = true;
+	SendVotes2(peer, msg, m_spCommitted);
+}
+
+void Node::Validator::RoundData::SendVotes2(Peer& peer, proto::PbftVote& msg, const SigsAndPower& sp) const
+{
+	for (const auto& kv : sp.m_Sigs)
 	{
 		msg.m_Address = kv.first;
 		msg.m_Signature = kv.second;
@@ -5869,8 +5891,7 @@ void Node::Validator::Vote(RoundData& rd, bool bCommit)
 	if (!m_Me.m_p)
 		return; // I'm not a validator
 
-	if ((m_Me.m_p == rd.m_pLeader) && !bCommit)
-		return; // leader pre-vote is included in the proposal
+	assert((m_Me.m_p != rd.m_pLeader) || bCommit); // leader doesn't pre-vote for its proposal
 
 	auto& sp = bCommit ? rd.m_spCommitted : rd.m_spPreVoted;
 	auto it = sp.m_Sigs.find(m_Me.m_Addr);
@@ -5909,11 +5930,11 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	auto iRound = CalculateRound(iSlot);
 
-	auto it = m_mapRounds.find(iRound, RoundData::Comparator());
-	if (m_mapRounds.end() != it)
+	if (!m_mapRounds.empty())
 	{
-		// already received. TODO: check if the leader sends different proposals (misbehaves)
-		return;
+		auto& rd = *m_mapRounds.rbegin();
+		if (rd.m_Key >= iRound)
+			return; // already pre-voted for this or higher round
 	}
 
 	// Check if the proposal was sent ahead of time. Due to time inaccuracy we can receive a proposal BEFORE our new round OnTimer
@@ -5967,7 +5988,12 @@ void Node::Validator::OnProposalAccepted(RoundData& rd, const Peer* pSrc)
 	BEAM_LOG_INFO() << "pbft " << rd.m_Key << " proposal accepted";
 
 	Broadcast(rd.m_Proposal, pSrc);
-	Vote(rd, false);
+
+	assert(&(*m_mapRounds.rbegin()) == &rd); // must be the most recent proposal
+
+	if (m_Me.m_p != rd.m_pLeader) // leader pre-vote is included in the proposal
+		Vote(rd, false);
+
 	CheckState(rd);
 }
 
