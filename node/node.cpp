@@ -1034,7 +1034,7 @@ void Node::Keys::SetSingleKey(const Key::IKdf::Ptr& pKdf)
 		m_pMiner = MasterKey::get_Child(*pKdf, m_nMinerSubIndex);
 }
 
-void Node::Initialize(IExternalPOW* externalPOW)
+void Node::Initialize()
 {
 	if (m_Cfg.m_VerificationThreads < 0)
 		// use all the cores, don't subtract 'mining threads'. Verification has higher priority
@@ -1114,7 +1114,7 @@ void Node::Initialize(IExternalPOW* externalPOW)
 	}
 
 	m_PeerMan.Initialize();
-	m_Miner.Initialize(externalPOW);
+	m_Miner.Initialize();
 	m_Validator.OnNewState();
 	m_Processor.get_DB().get_BbsTotals(m_Bbs.m_Totals);
 	m_Bbs.Cleanup();
@@ -1471,8 +1471,8 @@ Node::~Node()
 	BEAM_LOG_INFO() << "Node stopping...";
 
 	m_Miner.HardAbortSafe();
-	if (m_Miner.m_External.m_pSolver)
-		m_Miner.m_External.m_pSolver->stop();
+	if (m_Cfg.m_pExternalPOW)
+		m_Cfg.m_pExternalPOW->stop();
 
 	for (size_t i = 0; i < m_Miner.m_vThreads.size(); i++)
 	{
@@ -4580,7 +4580,7 @@ bool Node::Miner::IsEnabled() const
 	if (!get_ParentObj().m_Keys.m_pOwner)
 		return false;
 
-	if (!m_External.m_pSolver && m_vThreads.empty())
+	if (!get_ParentObj().m_Cfg.m_pExternalPOW && m_vThreads.empty())
 		return false;
 
 	if (Rules::Consensus::PoW == Rules::get().m_Consensus)
@@ -4592,10 +4592,10 @@ bool Node::Miner::IsEnabled() const
 	return m_FakeBlocksToGenerate > 0;
 }
 
-void Node::Miner::Initialize(IExternalPOW* externalPOW)
+void Node::Miner::Initialize()
 {
 	const Config& cfg = get_ParentObj().m_Cfg;
-	if (!cfg.m_MiningThreads && !externalPOW)
+	if (!cfg.m_MiningThreads && !cfg.m_pExternalPOW)
 		return;
 
 	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
@@ -4613,8 +4613,6 @@ void Node::Miner::Initialize(IExternalPOW* externalPOW)
 			pt.m_Thread = std::thread(&Miner::RunMinerThread, this, pt.m_pReactor, Rules::get());
 		}
 	}
-
-	m_External.m_pSolver = externalPOW;
 
 	SetTimer(0, true); // async start mining
 }
@@ -4750,7 +4748,7 @@ void Node::Miner::HardAbortSafe()
 		m_pTask.reset();
 	}
 
-	if (m_External.m_pSolver)
+	if (get_ParentObj().m_Cfg.m_pExternalPOW)
 	{
 		bool bHadTasks = false;
 
@@ -4766,7 +4764,7 @@ void Node::Miner::HardAbortSafe()
 		}
 
 		if (bHadTasks)
-			m_External.m_pSolver->stop_current();
+			get_ParentObj().m_Cfg.m_pExternalPOW->stop_current();
 	}
 }
 
@@ -4932,7 +4930,7 @@ Node::Miner::Task::Ptr& Node::Miner::External::get_At(uint64_t jobID)
 
 void Node::Miner::OnRefreshExternal()
 {
-	if (!m_External.m_pSolver)
+	if (!get_ParentObj().m_Cfg.m_pExternalPOW)
 		return;
 
 	// NOTE the mutex is locked here
@@ -4946,7 +4944,7 @@ void Node::Miner::OnRefreshExternal()
 	Merkle::Hash hv;
 	m_pTask->m_Hdr.get_HashForPoW(hv);
 
-	m_External.m_pSolver->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
+	get_ParentObj().m_Cfg.m_pExternalPOW->new_job(std::to_string(jobID), hv, m_pTask->m_Hdr.m_PoW, m_pTask->m_Hdr.m_Height , BIND_THIS_MEMFN(OnMinedExternal), fnCancel);
 }
 
 IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
@@ -4955,8 +4953,8 @@ IExternalPOW::BlockFoundResult Node::Miner::OnMinedExternal()
 	Block::PoW POW;
 	Height h;
 
-	assert(m_External.m_pSolver);
-	m_External.m_pSolver->get_last_found_block(jobID_, h, POW);
+	assert(get_ParentObj().m_Cfg.m_pExternalPOW);
+	get_ParentObj().m_Cfg.m_pExternalPOW->get_last_found_block(jobID_, h, POW);
 
 	char* szEnd = nullptr;
 	uint64_t jobID = strtoul(jobID_.c_str(), &szEnd, 10);

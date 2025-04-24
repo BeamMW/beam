@@ -160,6 +160,7 @@ struct Node
 		NodeProcessor::StartParams m_ProcessorParams;
 
 		IObserver* m_Observer = nullptr;
+		IExternalPOW* m_pExternalPOW = nullptr;
 
 	} m_Cfg; // must not be changed after initialization
 
@@ -191,7 +192,8 @@ struct Node
 	} m_Keys;
 
 	~Node();
-	void Initialize(IExternalPOW* externalPOW=nullptr);
+
+	void Initialize();
 
 	NodeProcessor& get_Processor() { return m_Processor; } // for tests only!
 
@@ -741,7 +743,7 @@ private:
 
 		bool IsEnabled() const;
 
-		void Initialize(IExternalPOW* externalPOW=nullptr);
+		void Initialize();
 
 		void SoftRestart();
 		void OnRefresh(uint32_t iIdx);
@@ -763,7 +765,6 @@ private:
 
 		struct External
 		{
-			IExternalPOW* m_pSolver = nullptr;
 			uint64_t m_jobID = 0;
 
 			Task::Ptr m_ppTask[64]; // backlog of potentially being-mined currently
