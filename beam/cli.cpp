@@ -580,7 +580,9 @@ int main(int argc, char* argv[])
 						node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= NodeProcessor::StartParams::RichInfo::UpdShader;
 					}
 
-					node.Initialize(stratumServer.get());
+					node.m_Cfg.m_pExternalPOW = stratumServer.get();
+
+					node.Initialize();
 
 					if (vm[cli::PRINT_TXO].as<bool>())
 						node.PrintTxos();
