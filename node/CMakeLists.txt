@@ -5,7 +5,7 @@ set(NODE_SRC
     db.cpp
     processor.cpp
     txpool.cpp
-    node_client.h
+    bridge.cpp
     node_client.cpp
 )
 
