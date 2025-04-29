@@ -81,15 +81,6 @@ namespace beam {
 		virtual void OnRolledBack() {}
 
 		void Init(const io::Address& addr);
-
-		struct Event
-			:public boost::intrusive::list_base_hook<>
-		{
-			HeightPos m_Pos;
-			ByteBuffer m_Event;
-		};
-
-		typedef intrusive::list_autoclear<Event> EventList;
 	};
 
 	class EventsExtractor2
@@ -144,12 +135,12 @@ namespace beam {
 	{
 		MyThread m_Thread;
 
-		io::Reactor::Ptr m_pReactor; // used in thread
 		io::AsyncEvent::Ptr m_pEvtStop;
+		io::AsyncEvent::Ptr m_pEvtBbs;
 		io::AsyncEvent::Ptr m_pEvtData;
 
-		std::mutex m_Mutex;
-		EventsExtractor::EventList m_lstReady;
+		std::mutex m_MutexRcv;
+		std::mutex m_MutexSnd;
 
 	public:
 
@@ -160,14 +151,18 @@ namespace beam {
 			HeightPos m_Pos0;
 			Height m_hDelay;
 			io::Address m_Addr;
+			std::unique_ptr<ECC::Scalar::Native> m_pSkBbs;
+			BbsChannel m_Channel = 0;
 		};
 
 	private:
 
 		struct Extractor;
+		Extractor* m_pCtx;
 
-		void OnEvtStop();
-		void RunThreadInternal(Params&& pars);
+		std::unique_ptr<ECC::Scalar::Native> m_pSkBbs;
+
+		void RunThreadInternal(Params&& pars, io::Reactor::Ptr&&);
 		void OnDataInternal();
 
 	public:
@@ -177,8 +172,71 @@ namespace beam {
 		void Stop();
 		void Start(Params&& pars);
 
-		virtual void OnEvent(const HeightPos& pos, ByteBuffer&&) {}
-		virtual void OnRolledBack(Height) {}
+		struct Event
+		{
+			enum struct Type {
+				Data,
+				Rollback,
+				BbsMsg,
+			};
+
+			struct Base
+				:public boost::intrusive::list_base_hook<>
+			{
+				virtual Type get_Type() = 0;
+				virtual ~Base() {}
+			};
+
+			typedef intrusive::list_autoclear<Base> List;
+
+			struct Data
+				:public Base
+			{
+				~Data() override {}
+				Type get_Type() override { return Type::Data; }
+
+				HeightPos m_Pos;
+				ByteBuffer m_Event;
+			};
+
+			struct Rollback
+				:public Base
+			{
+				~Rollback() override {}
+				Type get_Type() override { return Type::Rollback; }
+				Height m_Height;
+			};
+
+			struct BbsMsg
+				:public Base
+			{
+				~BbsMsg() override {}
+				Type get_Type() override { return Type::BbsMsg; }
+				ByteBuffer m_Msg;
+			};
+
+		};
+
+		void SendBbs(const Blob& msg, BbsChannel, const PeerID&);
+
+		virtual void OnEvent(Event::Base&&) {}
+		// called in another thread
+		virtual EventsExtractor2::Kind get_EventKind(const Blob& val) { return EventsExtractor2::Kind::ProofNeeded; }
+
+	protected:
+
+		Event::List m_lstReady;
+
+		struct BbsOut
+			:public boost::intrusive::list_base_hook<>
+		{
+			BbsChannel m_Channel;
+			ByteBuffer m_Msg;
+
+			typedef intrusive::list_autoclear<BbsOut> List;
+		};
+
+		BbsOut::List m_lstBbsOut;
 	};
 
 } // namespace beam

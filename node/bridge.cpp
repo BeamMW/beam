@@ -254,16 +254,75 @@ struct EventsExtractorForeign::Extractor
 	EventsExtractorForeign& m_This;
 	Height m_hDelay;
 
-	EventsExtractor2::EventList m_lstMaturing;
+	intrusive::list_autoclear<Event::Data> m_lstMaturing;
+
+	struct BbsReceiver
+		:public proto::FlyClient::IBbsReceiver
+	{
+		void OnMsg(proto::BbsMsg&&) override;
+		IMPLEMENT_GET_PARENT_OBJ(Extractor, m_BbsRcv)
+	} m_BbsRcv;
 
 	Extractor(EventsExtractorForeign& x) :m_This(x) {}
 
+	struct Scope
+	{
+		struct Trigger
+		{
+			EventsExtractorForeign& m_This;
+			Trigger(EventsExtractorForeign& x)
+				:m_This(x)
+			{
+			}
+
+			~Trigger()
+			{
+				if (m_Do)
+					m_This.m_pEvtData->post();
+			}
+
+			bool m_Do;
+		};
+
+		Trigger m_Trigger;
+		std::scoped_lock<std::mutex> m_Lock;
+
+		Scope(EventsExtractorForeign& x)
+			:m_Trigger(x)
+			,m_Lock(x.m_MutexRcv)
+		{
+			m_Trigger.m_Do = x.m_lstReady.empty();
+		}
+
+		~Scope()
+		{
+			m_Trigger.m_Do = m_Trigger.m_Do && !m_Trigger.m_This.m_lstReady.empty();
+		}
+	};
+
+	struct BbsOutRequest
+		:public proto::FlyClient::RequestBbsMsg
+	{
+		struct Handler
+			:public proto::FlyClient::Request::IHandler
+		{
+			void OnComplete(Request&) override
+			{
+				// ignore
+			}
+		} m_Handler;
+	};
+
 	void CheckMaturing();
+	void Subscribe(BbsChannel);
+	void OnSendBbs();
 
 	// EventsExtractor2
 	void OnNewTip() override;
 	void OnEvent2(const HeightPos& pos, ByteBuffer&& val) override;
 	void OnRolledBack() override;
+	Kind get_EventKind(const Blob& val) override;
+
 };
 
 void EventsExtractorForeign::Extractor::CheckMaturing()
@@ -275,24 +334,17 @@ void EventsExtractorForeign::Extractor::CheckMaturing()
 	if (m_lstMaturing.front().m_Pos.m_Height + m_hDelay > h)
 		return;
 
-	bool bNewData;
+	Scope scope(m_This);
+
+	while (!m_lstMaturing.empty())
 	{
-		std::scoped_lock<std::mutex> scope(m_This.m_Mutex);
-		bNewData = m_This.m_lstReady.empty();
+		auto& x = m_lstMaturing.front();
+		if (x.m_Pos.m_Height + m_hDelay > h)
+			break;
 
-		while (!m_lstMaturing.empty())
-		{
-			auto& x = m_lstMaturing.front();
-			if (x.m_Pos.m_Height + m_hDelay > h)
-				break;
-
-			m_lstMaturing.pop_front();
-			m_This.m_lstReady.push_back(x);
-		}
+		m_lstMaturing.pop_front();
+		m_This.m_lstReady.push_back(x);
 	}
-
-	if (bNewData)
-		m_This.m_pEvtData->post();
 }
 
 void EventsExtractorForeign::Extractor::OnNewTip()
@@ -325,37 +377,96 @@ void EventsExtractorForeign::Extractor::OnRolledBack()
 	}
 
 	{
-		std::scoped_lock<std::mutex> scope(m_This.m_Mutex);
+		auto pEvt = std::make_unique<Event::Rollback>();
+		pEvt->m_Height = h;
 
-		while (!m_This.m_lstReady.empty())
-		{
-			auto& x = m_This.m_lstReady.back();
-			if (x.m_Pos.m_Height >= h)
-				return; // no other action needed
-
-			m_lstMaturing.Delete(x);
-		}
-
-		auto* pEvt = m_This.m_lstReady.Create_back();
-		pEvt->m_Pos.m_Height = h;
-		pEvt->m_Pos.m_Pos = std::numeric_limits<uint32_t>::max();
+		Scope scope(m_This);
+		m_This.m_lstReady.push_back(*pEvt.release());
 	}
 
 	m_This.m_pEvtData->post();
 }
 
-void EventsExtractorForeign::OnEvtStop()
+EventsExtractor2::Kind EventsExtractorForeign::Extractor::get_EventKind(const Blob& evt)
 {
-	m_pReactor->stop();
+	return m_This.get_EventKind(evt);
 }
 
-void EventsExtractorForeign::RunThreadInternal(Params&& pars)
+void EventsExtractorForeign::Extractor::BbsReceiver::OnMsg(proto::BbsMsg&& msg)
 {
-	io::Reactor::Scope scopeReactor(*m_pReactor);
+	assert(get_ParentObj().m_This.m_pSkBbs);
+
+	Blob msgBody = msg.m_Message;
+	if (proto::Bbs::Decrypt((uint8_t*&) msgBody.p, msgBody.n, *get_ParentObj().m_This.m_pSkBbs))
+	{
+		auto pEvt = std::make_unique<Event::BbsMsg>();
+		msgBody.Export(pEvt->m_Msg);
+
+		Scope scope(get_ParentObj().m_This);
+		get_ParentObj().m_This.m_lstReady.push_back(*std::move(pEvt.release()));
+	}
+}
+
+void EventsExtractorForeign::Extractor::Subscribe(BbsChannel channel)
+{
+	if (m_This.m_pSkBbs)
+		m_Network.BbsSubscribe(channel, getTimestamp() - 600, &m_BbsRcv);
+}
+
+void EventsExtractorForeign::Extractor::OnSendBbs()
+{
+	BbsOut::List lst;
+	{
+		std::scoped_lock<std::mutex> scope(m_This.m_MutexSnd);
+		lst.swap(m_This.m_lstBbsOut);
+	}
+
+	while (!lst.empty())
+	{
+		auto& x = lst.front();
+
+		boost::intrusive_ptr<BbsOutRequest> pReq(new BbsOutRequest);
+		pReq->m_Msg.m_Message = std::move(x.m_Msg);
+		pReq->m_Msg.m_Channel = x.m_Channel;
+		pReq->m_Msg.m_TimePosted = getTimestamp();
+/*
+		if (Rules::Consensus::FakePoW != Rules::get().m_Consensus)
+		{
+			ECC::Hash::Processor hp0;
+			proto::Bbs::get_HashPartial(hp0, pReq->m_Msg);
+
+			// mine
+			while (true)
+			{
+				ECC::Hash::Value hv;
+
+				auto hp = hp0;
+				hp
+					<< pReq->m_Msg.m_TimePosted
+					<< pReq->m_Msg.m_Nonce
+					>> hv;
+
+				if (proto::Bbs::IsHashValid(hv))
+					break;
+
+				pReq->m_Msg.m_Nonce = hv;
+			}
+		}
+*/
+		lst.Delete(x);
+
+		m_Network.PostRequest(*pReq, pReq->m_Handler);
+
+	}
+}
+
+void EventsExtractorForeign::RunThreadInternal(Params&& pars, io::Reactor::Ptr&& pReactor)
+{
+	io::Reactor::Scope scopeReactor(*pReactor);
 	Rules::Scope scopeRules(pars.m_Rules);
 
 	Extractor extr(*this);
-
+	m_pCtx = &extr;
 
 	extr.m_Key = std::move(pars.m_Key);
 	extr.m_posLast = pars.m_Pos0;
@@ -363,37 +474,33 @@ void EventsExtractorForeign::RunThreadInternal(Params&& pars)
 	extr.m_dh = pars.m_hDelay / 2;
 
 	extr.Init(pars.m_Addr);
+	extr.Subscribe(pars.m_Channel);
 
-
-	m_pReactor->run();
+	pReactor->run();
 
 }
 
 void EventsExtractorForeign::OnDataInternal()
 {
-	EventsExtractor2::EventList lst;
+	Event::List lst;
 
 	{
-		std::scoped_lock<std::mutex> scope(m_Mutex);
+		std::scoped_lock<std::mutex> scope(m_MutexRcv);
 		lst.swap(m_lstReady);
 	}
 
 	while (!lst.empty())
 	{
-		auto& x = lst.front();
+		std::unique_ptr<Event::Base> pEvt(&lst.front());
+		lst.pop_front();
 
-		if ((std::numeric_limits<uint32_t>::max() == x.m_Pos.m_Pos) && x.m_Event.empty())
-			OnRolledBack(x.m_Pos.m_Height);
-		else
-			OnEvent(x.m_Pos, std::move(x.m_Event));
-
-		lst.Delete(x);
+		OnEvent(std::move(*pEvt));
 	}
 }
 
 void EventsExtractorForeign::Stop()
 {
-	if (m_pReactor)
+	if (m_pEvtStop)
 	{
 		if (m_Thread.joinable())
 		{
@@ -405,9 +512,10 @@ void EventsExtractorForeign::Stop()
 
 		m_pEvtData.reset();
 		m_pEvtStop.reset();
-		m_pReactor.reset();
 
 		m_lstReady.Clear();
+
+		m_lstBbsOut.Clear();
 	}
 }
 
@@ -415,11 +523,39 @@ void EventsExtractorForeign::Start(Params&& pars)
 {
 	Stop();
 
-	m_pReactor = io::Reactor::create();
-	m_pEvtStop = io::AsyncEvent::create(*m_pReactor, [this]() { OnEvtStop(); });
-	m_pEvtData = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnDataInternal(); });
+	m_pSkBbs = std::move(pars.m_pSkBbs);
 
-	m_Thread = MyThread(&EventsExtractorForeign::RunThreadInternal, this, std::move(pars));
+	auto pReactor = io::Reactor::create();
+	m_pEvtData = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnDataInternal(); });
+	m_pEvtStop = io::AsyncEvent::create(*pReactor, []() { io::Reactor::get_Current().stop(); });
+	m_pEvtBbs = io::AsyncEvent::create(*pReactor, [this]() { m_pCtx->OnSendBbs(); });
+
+	m_Thread = MyThread(&EventsExtractorForeign::RunThreadInternal, this, std::move(pars), std::move(pReactor));
+}
+
+void EventsExtractorForeign::SendBbs(const Blob& msg, BbsChannel channel, const PeerID& pid)
+{
+	if (m_pSkBbs)
+	{
+		ECC::Scalar::Native nonce;
+		nonce.GenRandomNnz();
+
+		ByteBuffer res;
+		if (proto::Bbs::Encrypt(res, pid, nonce, msg.p, msg.n))
+		{
+			auto pNode = std::make_unique<BbsOut>();
+			pNode->m_Channel = channel;
+			pNode->m_Msg = std::move(res);
+
+			{
+				std::scoped_lock<std::mutex> scope(m_MutexSnd);
+				m_lstBbsOut.push_back(*pNode.release());
+			}
+
+			m_pEvtBbs->post();
+
+		}
+	}
 }
 
 } // namespace beam
