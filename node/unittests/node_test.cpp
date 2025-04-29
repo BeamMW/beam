@@ -3418,11 +3418,7 @@ namespace beam
 		struct BridgeClient
 			:public EventsExtractorForeign
 		{
-			void OnEvent(const HeightPos&, ByteBuffer&&)
-			{
-			}
-
-			virtual void OnRolledBack(Height)
+			void OnEvent(Event::Base&&) override
 			{
 			}
 
