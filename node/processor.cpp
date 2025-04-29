@@ -4392,11 +4392,11 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 		NodeDB::Recordset rs;
 		Blob blobDetails;
 
-		auto pos = m_DB.BridgeFind(pidOwner, blobDetails, rs);
+		m_DB.BridgeFind(pidOwner, blobDetails, rs);
 		if (sizeof(ForeignDetailsPacked) != blobDetails.n)
 		{
 			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "bridge for key";
+				*bic.m_pTxErrorInfo << "bridge no key";
 			return false;
 		}
 
