@@ -270,8 +270,11 @@ struct EventsExtractorForeign::Extractor
 		struct Trigger
 		{
 			EventsExtractorForeign& m_This;
-			Trigger(EventsExtractorForeign& x)
+			bool m_Do;
+
+			Trigger(EventsExtractorForeign& x, bool bDo)
 				:m_This(x)
+				,m_Do(bDo)
 			{
 			}
 
@@ -280,18 +283,15 @@ struct EventsExtractorForeign::Extractor
 				if (m_Do)
 					m_This.m_pEvtData->post();
 			}
-
-			bool m_Do;
 		};
 
 		Trigger m_Trigger;
 		std::scoped_lock<std::mutex> m_Lock;
 
 		Scope(EventsExtractorForeign& x)
-			:m_Trigger(x)
+			:m_Trigger(x, x.m_lstReady.empty())
 			,m_Lock(x.m_MutexRcv)
 		{
-			m_Trigger.m_Do = x.m_lstReady.empty();
 		}
 
 		~Scope()
