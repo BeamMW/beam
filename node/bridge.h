@@ -151,7 +151,7 @@ namespace beam {
 			HeightPos m_Pos0;
 			Height m_hDelay;
 			io::Address m_Addr;
-			std::unique_ptr<ECC::Scalar::Native> m_pSkBbs;
+			const ECC::Scalar::Native* m_pSkBbs;
 			BbsChannel m_Channel = 0;
 		};
 
@@ -160,10 +160,11 @@ namespace beam {
 		struct Extractor;
 		Extractor* m_pCtx;
 
-		std::unique_ptr<ECC::Scalar::Native> m_pSkBbs;
-
 		void RunThreadInternal(Params&& pars, io::Reactor::Ptr&&);
 		void OnDataInternal();
+
+	protected:
+		const ECC::Scalar::Native* m_pSkBbs;
 
 	public:
 
@@ -237,6 +238,78 @@ namespace beam {
 		};
 
 		BbsOut::List m_lstBbsOut;
+	};
+
+	struct Node;
+
+	class L2Bridge
+	{
+		struct Extractor
+			:public EventsExtractorForeign
+		{
+			void OnEvent(Event::Base&&) override;
+			EventsExtractor2::Kind get_EventKind(const Blob&) override;
+
+			IMPLEMENT_GET_PARENT_OBJ(L2Bridge, m_Extractor)
+		} m_Extractor;
+
+		Node& m_Node;
+
+		void OnMsg(ByteBuffer&&);
+
+		struct Entry
+		{
+			struct Owner
+				:public intrusive::set_base_hook<ECC::Point>
+			{
+				typedef intrusive::multiset<Owner> Map;
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Owner)
+			} m_Owner;
+
+			struct Mru
+				:public boost::intrusive::list_base_hook<>
+			{
+				typedef boost::intrusive::list<Mru> List;
+				IMPLEMENT_GET_PARENT_OBJ(Entry, m_Mru)
+			} m_Mru;
+
+			Asset::ID m_Aid;
+			Amount m_Amount;
+
+			ECC::Scalar::Native m_skNonce;
+			ECC::Point m_pkBbs;
+		};
+
+		Entry::Owner::Map m_mapEntries;
+		Entry::Mru::List m_Mru;
+		ContractID m_cidBridgeL1;
+
+		void Delete(Entry&);
+		void ShrinkMru(uint32_t);
+		void SendOut(const PeerID&, const Blob&);
+
+		static BbsChannel ChannelFromPeerID(const PeerID&);
+
+		struct GetNonce;
+		struct GetSignature;
+
+		template <typename Msg>
+		void OnMsgEx(Msg&);
+
+	public:
+
+		L2Bridge(Node& n) :m_Node(n) {}
+		~L2Bridge();
+
+		struct Params
+		{
+			Rules m_Rules;
+			ContractID m_cidBridgeL1;
+			Height m_hDelay = 0;
+			io::Address m_Addr;
+		};
+
+		void Init(Params&&);
 	};
 
 } // namespace beam
