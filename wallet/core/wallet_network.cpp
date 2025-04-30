@@ -235,7 +235,7 @@ namespace beam::wallet {
         ByteBuffer encryptedMessage;
         if (proto::Bbs::Encrypt(encryptedMessage, peerID.m_Pk, nonce, msg.p, msg.n))
         {
-            SendRawMessage(peerID, encryptedMessage);
+            SendRawMessage(peerID, std::move(encryptedMessage));
         }
         else
         {
@@ -367,11 +367,11 @@ namespace beam::wallet {
         }
     }
 
-    void BbsProcessor::Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID)
+    void BbsProcessor::Send(const WalletID& peerID, ByteBuffer&& msg, uint64_t messageID)
     {
         WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
 
-        pReq->m_Msg.m_Message = msg;
+        pReq->m_Msg.m_Message = std::move(msg);
         pReq->m_Msg.m_Channel = peerID.get_Channel();
         pReq->m_MessageID = messageID;
 
@@ -464,11 +464,11 @@ namespace beam::wallet {
 		ProcessMessage(msg);
 	}
 
-    void WalletNetworkViaBbs::SendRawMessage(const WalletID& peerID, const ByteBuffer& msg)
+    void WalletNetworkViaBbs::SendRawMessage(const WalletID& peerID, ByteBuffer&& msg)
     {
         // first store message for accidental app close
         auto messageID = m_WalletDB->saveWalletMessage(peerID, msg);
-        BbsProcessor::Send(peerID, msg, messageID);
+        BbsProcessor::Send(peerID, std::move(msg), messageID);
     }
 
     void WalletNetworkViaBbs::OnChannelAdded(BbsChannel channel)

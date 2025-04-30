@@ -135,7 +135,7 @@ namespace
             ByteBuffer emptyBuf;
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, emptyBuf)
+                mockNetwork->SendRawMessage(dummyWid, std::move(emptyBuf))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -144,7 +144,7 @@ namespace
             ByteBuffer data(beam::MsgHeader::SIZE - 2, 't');
 
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -155,7 +155,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -165,7 +165,7 @@ namespace
             header.write(data.data());
                         
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -176,7 +176,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -187,7 +187,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -199,7 +199,7 @@ namespace
             header.write(data.data());
             
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, data)
+                mockNetwork->SendRawMessage(dummyWid, std::move(data))
             );
             WALLET_CHECK(correctMessagesCount == 0);
         }
@@ -208,7 +208,7 @@ namespace
 
             auto msg = testMsgCreate(toByteBuffer(testContent), testContentType);
             WALLET_CHECK_NO_THROW(
-                mockNetwork->SendRawMessage(dummyWid, msg)
+                mockNetwork->SendRawMessage(dummyWid, std::move(msg))
             );
             WALLET_CHECK(correctMessagesCount == 1);
         }
@@ -242,7 +242,7 @@ namespace
             WalletID dummyWid;
             dummyWid.m_Channel = proto::Bbs::s_SwapOffersChannel;
             auto msgA = testMsgCreate(toByteBuffer(testSample), BroadcastContentType::SwapOffers);
-            mockNetwork->SendRawMessage(dummyWid, msgA);
+            mockNetwork->SendRawMessage(dummyWid, std::move(msgA));
 
             WALLET_CHECK(executed == 1);
         }

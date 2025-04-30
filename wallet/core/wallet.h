@@ -110,7 +110,7 @@ namespace beam::wallet
     {
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
-        virtual void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) = 0;
+        virtual void SendRawMessage(const WalletID& peerID, ByteBuffer&&) = 0;
     };
 
     inline constexpr char FallbackPeers[] = "FallbackPeers";

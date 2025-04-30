@@ -133,7 +133,7 @@ namespace beam::wallet
     public:
         BbsProcessor(proto::FlyClient::INetwork::Ptr nodeEndpoint, ITimestampHolder::Ptr);
         virtual ~BbsProcessor();
-        void Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID);
+        void Send(const WalletID& peerID, ByteBuffer&& msg, uint64_t messageID);
 
         void SubscribeChannel(BbsChannel channel);
         void UnsubscribeChannel(BbsChannel channel);
@@ -179,7 +179,7 @@ namespace beam::wallet
         void OnMessageSent(uint64_t messageID) override;
         void OnMsg(const proto::BbsMsg&) override;
         // IWalletMessageEndpoint
-        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override;
+        void SendRawMessage(const WalletID& peerID, ByteBuffer&&) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
     };
 }
