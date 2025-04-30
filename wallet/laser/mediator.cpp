@@ -162,9 +162,9 @@ IRawCommGateway& Mediator::get_Gateway()
     return *m_pGateway;
 }
 
-void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, IRawCommGateway& gateway, bool mineOutgoing)
+void Mediator::SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, IRawCommGateway& gateway)
 {
-    m_pConnection = std::make_shared<Connection>(net, mineOutgoing);
+    m_pConnection = std::make_shared<Connection>(net);
     m_pGateway = &gateway;
 }
 

@@ -61,7 +61,7 @@ public:
     proto::FlyClient::INetwork& get_Net() final;
     IRawCommGateway& get_Gateway() final;
     
-    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, IRawCommGateway&, bool mineOutgoing = true);
+    void SetNetwork(const proto::FlyClient::NetworkStd::Ptr& net, IRawCommGateway&);
     void ListenClosedChannelsWithPossibleRollback();
 
     void WaitIncoming(Amount aMy, Amount aTrg, Amount fee);

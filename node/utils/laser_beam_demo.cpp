@@ -454,11 +454,7 @@ void Client::Send(Channel& c, Serializer& ser)
 	m_pKdf->DeriveKey(nonce, hvRandom.V);
 
 	if (proto::Bbs::Encrypt(pReq->m_Msg.m_Message, c.m_widTrg.m_Pk, nonce, ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)))
-	{
-		// skip mining!
-		pReq->m_Msg.m_TimePosted = getTimestamp();
 		m_Conn.PostRequest(*pReq, m_NodeEvts);
-	}
 }
 
 

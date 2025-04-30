@@ -362,6 +362,34 @@ namespace proto {
 			bool HasDependentSubscriptions() const { return m_DependentSubscriptions > 0; }
 			void OnDependentSubscriptionChanged();
 
+			class BbsMiner
+			{
+				std::vector<MyThread> m_vThreads;
+
+				std::mutex m_Mutex;
+				std::condition_variable m_NewTask;
+				io::AsyncEvent::Ptr m_pEvtMined;
+
+				RequestList m_lstToMine;
+				RequestList m_lstMined;
+
+				ECC::Hash::Processor m_hpPartial;
+				volatile uint64_t m_iCurrent;
+
+				void Thread(uint32_t);
+				void OnMined();
+
+			public:
+
+				BbsMiner() :m_hpPartial(Uninitialized) {}
+				~BbsMiner() { Stop(); }
+				void Stop();
+
+				void Post(RequestBbsMsg&);
+
+				IMPLEMENT_GET_PARENT_OBJ(NetworkStd, m_BbsMiner)
+			} m_BbsMiner;
+
 			// INetwork
 			virtual void Connect() override;
 			virtual void Disconnect() override;

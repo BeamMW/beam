@@ -17,7 +17,6 @@
 #include "utility/logger.h"
 #include "core/proto.h"
 #include "utility/io/timer.h"
-#include "bbs_miner.h"
 #include <boost/intrusive/set.hpp>
 #include <boost/intrusive/list.hpp>
 #include "wallet_request_bbs_msg.h"
@@ -133,7 +132,6 @@ namespace beam::wallet
     {
     public:
         BbsProcessor(proto::FlyClient::INetwork::Ptr nodeEndpoint, ITimestampHolder::Ptr);
-        bool m_MineOutgoing = true; // can be turned-off for testing
         virtual ~BbsProcessor();
         void Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID);
 
@@ -148,8 +146,6 @@ namespace beam::wallet
         void SaveBbsTimestamps();
         void OnMsgImpl(const proto::BbsMsg&);
         void DeleteReq(WalletRequestBbsMsg& r);
-        void OnMined();
-        void OnMined(BbsMiner::Task::Ptr);
     private:
         proto::FlyClient::INetwork::Ptr m_NodeEndpoint;
         BbsMsgList m_PendingBbsMsgs;
@@ -164,7 +160,6 @@ namespace beam::wallet
             IMPLEMENT_GET_PARENT_OBJ(BbsProcessor, m_BbsSentEvt)
         } m_BbsSentEvt;
 
-        BbsMiner m_Miner;
         ITimestampHolder::Ptr m_TimestampHolder;
     };
 

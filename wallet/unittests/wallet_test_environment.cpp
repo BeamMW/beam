@@ -468,15 +468,11 @@ struct TestWalletRig
                 if (oneTimeBbsEndpoint)
                 {
                     auto tmp = make_shared<OneTimeBbsEndpoint>(*m_Wallet, nodeEndpoint, m_WalletDB);
-
-                    tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 else
                 {
                     auto tmp = make_shared<WalletNetworkViaBbs>(*m_Wallet, nodeEndpoint, m_WalletDB);
-
-                    tmp->m_MineOutgoing = false;
                     m_messageEndpoint = tmp;
                 }
                 m_Wallet->SetNodeEndpoint(nodeEndpoint);
