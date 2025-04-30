@@ -2264,6 +2264,7 @@ namespace beam
 				Height m_hEmitted = 0;
 				Height m_hEmitConfirmed = 0;
 				Merkle::Hash m_hvEmitID;
+				PeerID m_pidOwner;
 				const uint32_t m_KrnProofIdx = 0x20000001;
 			} m_Bridge;
 
@@ -2638,8 +2639,10 @@ namespace beam
 					pKrn->Sign(pSkKrn, 2, pt, nullptr);
 					m_Bridge.m_hvEmitID = pKrn->get_ID();
 
-					m_pProc1->BridgeAddInfo(Cast::Up<PeerID>(op.m_pk.m_X), HeightPos(2), cid.m_AssetID, cid.m_Value);
-					m_pProc2->BridgeAddInfo(Cast::Up<PeerID>(op.m_pk.m_X), HeightPos(2), cid.m_AssetID, cid.m_Value);
+					m_Bridge.m_pidOwner = Cast::Up<PeerID>(op.m_pk.m_X);
+
+					m_pProc1->BridgeAddInfo(m_Bridge.m_pidOwner, HeightPos(2), cid.m_AssetID, cid.m_Value);
+					m_pProc2->BridgeAddInfo(m_Bridge.m_pidOwner, HeightPos(2), cid.m_AssetID, cid.m_Value);
 				}
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
@@ -3588,6 +3591,13 @@ namespace beam
 		node.PrintTxos();
 
 		NodeProcessor& proc = node.get_Processor();
+
+		if (Rules::get().CA.ForeignEnd)
+		{
+			NodeProcessor::ForeignDetailsPacked fdp;
+			verify_test(proc.FindExternalAssetEmit(cl.m_Bridge.m_pidOwner, true, fdp));
+		}
+
 		Height h0 = proc.m_Cursor.m_Full.m_Height;
 		proc.ManualRollbackTo(h0 - 5);
 		verify_test(proc.m_Cursor.m_ID.m_Height >= h0 - 5); // it can be adjusted up

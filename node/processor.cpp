@@ -4374,6 +4374,26 @@ bool NodeProcessor::BridgeAddInfo(const PeerID& pidOwner, const HeightPos& pos, 
 	return m_DB.BridgeInsertSafe(pos, pidOwner, &blobVal);
 }
 
+bool NodeProcessor::FindExternalAssetEmit(const PeerID& pidOwner, bool bEmit, ForeignDetailsPacked& fdp)
+{
+	ECC::Point key;
+	key.m_X = Cast::Down<ECC::uintBig>(pidOwner);
+	key.m_Y = 4;
+
+	if (!bEmit)
+		key.m_Y |= 8;
+
+	NodeDB::Recordset rs;
+	Blob blob(&key, sizeof(key));
+	if (!m_DB.UniqueFind(blob, rs))
+		return false;
+
+	const auto& fep = rs.get_As<ForeignEmitPacked>(0);
+	fdp = fep.m_Details;
+
+	return true;
+}
+
 bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	ECC::Point key;
@@ -4386,6 +4406,10 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 	if (!bAdd)
 		key.m_Y |= 8;
 	Blob blobKey(&key, sizeof(key));
+
+	ForeignEmitPacked fep;
+	fep.m_Details.m_Aid = aid;
+	fep.m_Details.m_Amount = valUns;
 
 	if (bic.m_Fwd && !bic.m_AlreadyValidated && bAdd)
 	{
@@ -4401,7 +4425,7 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 		}
 
 		const auto& fdp = *reinterpret_cast<const ForeignDetailsPacked*>(blobDetails.p);
-		if ((fdp.m_Aid != uintBigFrom(aid)) || (fdp.m_Amount != uintBigFrom(valUns)))
+		if ((fdp.m_Aid != fep.m_Details.m_Aid) || (fdp.m_Amount != fep.m_Details.m_Amount))
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "bridge details mismatch";
@@ -4409,7 +4433,6 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 		}
 	}
 
-	ForeignEmitPacked fep;
 	fep.m_Height = bic.m_Height;
 	fep.m_nIdx = bic.m_nKrnIdx;
 

@@ -189,6 +189,12 @@ struct Node
 		void InitSingleKey(const ECC::uintBig& seed);
 		void SetSingleKey(const Key::IKdf::Ptr&);
 
+		struct Validator
+		{
+			ECC::Scalar::Native m_sk;
+			Block::Pbft::Address m_Addr;
+		} m_Validator;
+
 	} m_Keys;
 
 	~Node();
@@ -784,13 +790,7 @@ private:
 
 	struct Validator
 	{
-		struct Me
-		{
-			ECC::Scalar::Native m_sk; // deduced from miner key
-			Block::Pbft::Address m_Addr;
-
-			const Block::Pbft::Validator* m_p; // refreshed after each block
-		} m_Me;
+		const Block::Pbft::Validator* m_pMe; // refreshed after each block
 
 		void OnNewState();
 
