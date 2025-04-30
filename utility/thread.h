@@ -249,11 +249,11 @@ namespace beam
 
 	private:
 
-		template<typename Params, size_t... I>
-		static void MyInvoke(const Params& p, std::index_sequence<I...>)
+		template<typename Tuple, size_t... I>
+		static void MyInvoke(Tuple&& p, std::index_sequence<I...>)
 		{
 			std::invoke(
-				std::forward<std::tuple_element_t<I, std::remove_reference_t<Params>>>(std::get<I>(std::forward<Params>(p)))...
+				std::forward<decltype(std::get<I>(std::forward<Tuple>(p)))>(std::get<I>(std::forward<Tuple>(p)))...
 			);
 		}
 
