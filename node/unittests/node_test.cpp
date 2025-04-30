@@ -3783,7 +3783,6 @@ namespace beam
 
 					RequestBbsMsg::Ptr pBbs(new RequestBbsMsg);
 					pBbs->m_Msg.m_Channel = m_LastBbsChannel;
-					pBbs->m_Msg.m_TimePosted = getTimestamp();
 					net.PostRequest(*pBbs, *this);
 					m_nProofsExpected++;
 				}

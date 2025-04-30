@@ -16,7 +16,6 @@
 
 #include <memory>
 #include "core/fly_client.h"
-#include "wallet/core/bbs_miner.h"
 
 namespace beam::wallet::laser
 {
@@ -24,8 +23,7 @@ using proto::FlyClient;
 class Connection final : public FlyClient::INetwork
 {
 public:
-    explicit Connection(const FlyClient::NetworkStd::Ptr& net, bool mineOutgoing = true);
-    ~Connection();
+    explicit Connection(const FlyClient::NetworkStd::Ptr& net);
 
     virtual void Connect() override;
     virtual void Disconnect() override;
@@ -35,15 +33,6 @@ public:
             Timestamp timestamp,
             FlyClient::IBbsReceiver* receiver) override;
 private:
-    void OnMined();
-    void MineBbsRequest(FlyClient::RequestBbsMsg& r);
-
     FlyClient::NetworkStd::Ptr m_pNet;
-
-    BbsMiner m_Miner;
-    bool m_MineOutgoing;
-    std::unordered_map<
-        BbsMiner::Task::Ptr,
-        proto::FlyClient::Request::IHandler*> m_handlers;
 };
 }  // namespace beam::wallet::laser

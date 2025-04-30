@@ -17,7 +17,6 @@ target_sources(wallet_core
         node_network.cpp
         wallet_db.cpp
         base58.cpp
-        bbs_miner.cpp
         version.cpp
         exchange_rate.cpp
         currency.cpp

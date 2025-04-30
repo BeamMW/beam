@@ -350,9 +350,12 @@ namespace beam::wallet {
     {
         try
         {
-            m_Miner.Stop();
             while (!m_PendingBbsMsgs.empty())
-                DeleteReq(m_PendingBbsMsgs.front());
+            {
+                auto& r = m_PendingBbsMsgs.front();
+                r.m_pTrg = nullptr;
+                DeleteReq(r);
+            }
         }
         catch (const std::exception & e)
         {
@@ -366,45 +369,18 @@ namespace beam::wallet {
 
     void BbsProcessor::Send(const WalletID& peerID, const ByteBuffer& msg, uint64_t messageID)
     {
-        BbsMiner::Task::Ptr pTask = std::make_shared<BbsMiner::Task>();
-        pTask->m_Msg.m_Message = msg;
+        WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
 
-        pTask->m_Done = false;
-        pTask->m_Msg.m_Channel = peerID.get_Channel();
+        pReq->m_Msg.m_Message = msg;
+        pReq->m_Msg.m_Channel = peerID.get_Channel();
+        pReq->m_MessageID = messageID;
 
-        pTask->m_StoredMessageID = messageID; // store id to be able to remove if send succeeded
+        m_PendingBbsMsgs.push_back(*pReq);
+        pReq->AddRef();
 
-        if (m_MineOutgoing && (Rules::get().m_Consensus != Rules::Consensus::FakePoW))
-        {
-            proto::Bbs::get_HashPartial(pTask->m_hpPartial, pTask->m_Msg);
+        m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
 
-            if (!m_Miner.m_pEvt)
-            {
-                m_Miner.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnMined(); });
-                m_Miner.m_Shutdown = false;
-#if defined(EMSCRIPTEN)
-                uint32_t nThreads = 3;
-#else
 
-                uint32_t nThreads = MyThread::hardware_concurrency();
-#endif
-                nThreads = (nThreads > 1) ? (nThreads - 1) : 1; // leave at least 1 vacant core for other things
-                m_Miner.m_vThreads.resize(nThreads);
-
-                for (uint32_t i = 0; i < nThreads; i++)
-                    m_Miner.m_vThreads[i] = MyThread(&BbsMiner::Thread, &m_Miner, i, Rules::get());
-            }
-
-            std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-
-            m_Miner.m_Pending.push_back(std::move(pTask));
-            m_Miner.m_NewTask.notify_all();
-        }
-        else
-        {
-            pTask->m_Msg.m_TimePosted = getTimestamp();
-            OnMined(pTask);
-        }
     }
 
     proto::FlyClient::IBbsReceiver* BbsProcessor::get_BbsReceiver()
@@ -425,15 +401,17 @@ namespace beam::wallet {
     void BbsProcessor::DeleteReq(WalletRequestBbsMsg& r)
     {
         m_PendingBbsMsgs.erase(BbsMsgList::s_iterator_to(r));
-        r.m_pTrg = NULL;
-        OnMessageSent(r.m_MessageID);
         r.Release();
     }
 
-    void BbsProcessor::BbsSentEvt::OnComplete(proto::FlyClient::Request& r)
+    void BbsProcessor::BbsSentEvt::OnComplete(proto::FlyClient::Request& r_)
     {
-        assert(r.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
-        get_ParentObj().DeleteReq(static_cast<WalletRequestBbsMsg&>(r));
+        assert(r_.get_Type() == proto::FlyClient::Request::Type::BbsMsg);
+        auto& r = Cast::Up<WalletRequestBbsMsg>(r_);
+
+        get_ParentObj().OnMessageSent(r.m_MessageID);
+
+        get_ParentObj().DeleteReq(r);
     }
 
     void BbsProcessor::BbsSentEvt::OnMsg(proto::BbsMsg&& msg)
@@ -449,41 +427,6 @@ namespace beam::wallet {
     void BbsProcessor::UnsubscribeChannel(BbsChannel channel)
     {
         m_NodeEndpoint->BbsSubscribe(channel, 0, nullptr);
-    }
-
-    void BbsProcessor::OnMined()
-    {
-        while (true)
-        {
-            BbsMiner::Task::Ptr pTask;
-            {
-                std::unique_lock<std::mutex> scope(m_Miner.m_Mutex);
-
-                if (!m_Miner.m_Done.empty())
-                {
-                    pTask = std::move(m_Miner.m_Done.front());
-                    m_Miner.m_Done.pop_front();
-                }
-            }
-
-            if (!pTask)
-                break;
-
-            OnMined(pTask);
-        }
-    }
-
-    void BbsProcessor::OnMined(BbsMiner::Task::Ptr task)
-    {
-        WalletRequestBbsMsg::Ptr pReq(new WalletRequestBbsMsg);
-
-        pReq->m_Msg = std::move(task->m_Msg);
-        pReq->m_MessageID = task->m_StoredMessageID;
-
-        m_PendingBbsMsgs.push_back(*pReq);
-        pReq->AddRef();
-
-        m_NodeEndpoint->PostRequest(*pReq, m_BbsSentEvt);
     }
 
     ///////////////////////////

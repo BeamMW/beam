@@ -428,35 +428,10 @@ void EventsExtractorForeign::Extractor::OnSendBbs()
 		boost::intrusive_ptr<BbsOutRequest> pReq(new BbsOutRequest);
 		pReq->m_Msg.m_Message = std::move(x.m_Msg);
 		pReq->m_Msg.m_Channel = x.m_Channel;
-		pReq->m_Msg.m_TimePosted = getTimestamp();
-/*
-		if (Rules::Consensus::FakePoW != Rules::get().m_Consensus)
-		{
-			ECC::Hash::Processor hp0;
-			proto::Bbs::get_HashPartial(hp0, pReq->m_Msg);
 
-			// mine
-			while (true)
-			{
-				ECC::Hash::Value hv;
-
-				auto hp = hp0;
-				hp
-					<< pReq->m_Msg.m_TimePosted
-					<< pReq->m_Msg.m_Nonce
-					>> hv;
-
-				if (proto::Bbs::IsHashValid(hv))
-					break;
-
-				pReq->m_Msg.m_Nonce = hv;
-			}
-		}
-*/
 		lst.Delete(x);
 
 		m_Network.PostRequest(*pReq, pReq->m_Handler);
-
 	}
 }
 
