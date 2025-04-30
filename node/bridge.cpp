@@ -13,6 +13,14 @@
 // limitations under the License.
 
 #include "bridge.h"
+#include "../bvm/bvm2.h"
+#include "node.h"
+
+namespace Shaders {
+#	define HOST_BUILD
+#	include "../bvm/Shaders/common.h"
+#	include "../bvm/Shaders/l2tst1/contract_l1.h"
+} // namespace Shaders
 
 namespace beam {
 
@@ -531,6 +539,274 @@ void EventsExtractorForeign::SendBbs(const Blob& msg, BbsChannel channel, const 
 
 		}
 	}
+}
+
+/////////////////////////////////
+// L2Bridge
+void L2Bridge::Init(Params&& pars)
+{
+	Extractor::Params p1;
+	p1.m_Rules = std::move(pars.m_Rules);
+	p1.m_hDelay = pars.m_hDelay;
+	p1.m_Addr = std::move(pars.m_Addr);
+	p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
+
+	p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
+
+	p1.m_Pos0 = m_Node.get_Processor().get_DB().BridgeGetLastPos();
+	p1.m_Pos0.m_Height++;
+	p1.m_Pos0.m_Pos = 0;
+
+	{
+		Shaders::Env::Key_T<uint8_t> key;
+		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_BridgeExp;
+		key.m_Prefix.m_Cid = pars.m_cidBridgeL1;
+		key.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
+
+		Blob(&key, sizeof(key)).Export(p1.m_Key);
+	}
+
+	m_Extractor.Start(std::move(p1));
+
+	m_cidBridgeL1 = pars.m_cidBridgeL1;
+}
+
+L2Bridge::~L2Bridge()
+{
+	m_Extractor.Stop();
+	ShrinkMru(0);
+}
+
+BbsChannel L2Bridge::ChannelFromPeerID(const PeerID& pid)
+{
+	// derive the channel from the address
+	BbsChannel ch;
+	pid.ExportWord<0>(ch);
+	ch %= proto::Bbs::s_MaxWalletChannels;
+	return ch;
+}
+
+void L2Bridge::ShrinkMru(uint32_t n)
+{
+	while (m_Mru.size() > n)
+		Delete(m_Mru.front().get_ParentObj());
+}
+
+void L2Bridge::Delete(Entry& e)
+{
+	m_mapEntries.erase(Entry::Owner::Map::s_iterator_to(e.m_Owner));
+	m_Mru.erase(Entry::Mru::List::s_iterator_to(e.m_Mru));
+	delete &e;
+}
+
+EventsExtractor2::Kind L2Bridge::Extractor::get_EventKind(const Blob& b)
+{
+	return (sizeof(Shaders::L2Tst1_L1::Method::BridgeOp) == b.n) ?
+		EventsExtractor2::Kind::ProofNeeded :
+		EventsExtractor2::Kind::Drop;
+}
+
+void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
+{
+	using namespace Shaders::L2Tst1_L1;
+
+	switch (evt.get_Type())
+	{
+	case Event::Type::Data:
+		{
+			auto& d = Cast::Up<Event::Data>(evt);
+			assert(sizeof(Method::BridgeOp) == d.m_Event.size());
+
+			const auto& x = *(const Method::BridgeOp*) &d.m_Event.front();
+
+			get_ParentObj().m_Node.get_Processor().BridgeAddInfo(Cast::Up<PeerID>(x.m_pk.m_X), d.m_Pos, x.m_Aid, x.m_Amount);
+		}
+		break;
+
+	case Event::Type::Rollback:
+		{
+			auto& d = Cast::Up<Event::Rollback>(evt);
+			get_ParentObj().m_Node.get_Processor().get_DB().BridgeDeleteFrom(HeightPos(d.m_Height + 1));
+		}
+		break;
+
+	case Event::Type::BbsMsg:
+		{
+			auto& d = Cast::Up<Event::BbsMsg>(evt);
+			get_ParentObj().OnMsg(std::move(d.m_Msg));
+		}
+		break;
+	}
+}
+
+template <>
+void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
+{
+	if (msg.m_ProtoVer != Shaders::L2Tst1_L1::Msg::s_ProtoVer)
+		return;
+
+	Entry* pE = nullptr;
+	auto it = m_mapEntries.find(msg.m_pkOwner, Entry::Owner::Comparator());
+
+	if (m_mapEntries.end() == it)
+	{
+		// check if the bridge burn event exists
+		NodeProcessor::ForeignDetailsPacked fdp;
+		if (!m_Node.get_Processor().FindExternalAssetEmit(Cast::Up<PeerID>(msg.m_pkOwner.m_X), false, fdp))
+			return; // not approved
+
+		ShrinkMru(19);
+
+		pE = new Entry;
+		pE->m_Owner.m_Key = msg.m_pkOwner;
+		m_mapEntries.insert(pE->m_Owner);
+
+		fdp.m_Aid.Export(pE->m_Aid);
+		fdp.m_Amount.Export(pE->m_Amount);
+	}
+	else
+	{
+		// reuse this entry
+		pE = &it->get_ParentObj();
+		m_Mru.erase(Entry::Mru::List::s_iterator_to(pE->m_Mru));
+	}
+
+	m_Mru.push_back(pE->m_Mru);
+
+	pE->m_pkBbs = msg.m_pkBbs;
+	pE->m_skNonce.GenRandomNnz();
+
+	Shaders::L2Tst1_L1::Msg::Nonce msgOut;
+
+	msgOut.m_m_Nonce = ECC::Context::get().G * pE->m_skNonce;
+	ECC::Point::Native pt = ECC::Context::get().G * pE->m_skNonce;
+	pt.Export(msgOut.m_m_Nonce);
+
+	SendOut(Cast::Up<PeerID>(msg.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
+}
+
+template <>
+void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
+{
+	auto it = m_mapEntries.find(msg.m_pkOwner, Entry::Owner::Comparator());
+	if (m_mapEntries.end() == it)
+		return;
+	auto& x = it->get_ParentObj();
+
+	// re-create the kernel
+	TxKernelContractInvoke krn;
+	krn.m_Cid = m_cidBridgeL1;
+
+	typedef Shaders::L2Tst1_L1::Method::BridgeImport Method;
+	krn.m_iMethod = Method::s_iMethod;
+
+	krn.m_Args.resize(sizeof(Method));
+	auto& m = *(Method*) &krn.m_Args.front();
+
+	auto msk = msg.m_nApproveMask;
+
+	m.m_Aid = x.m_Aid;
+	m.m_Amount = x.m_Amount;
+	m.m_Cookie = msg.m_Cookie;
+	m.m_pk = msg.m_pkOwner;
+	m.m_ApproveMask = msg.m_nApproveMask;
+
+	krn.m_Height.m_Min = msg.m_hMin;
+	krn.m_Height.m_Max = msg.m_hMin + Shaders::L2Tst1_L1::Msg::s_dh;
+
+	TxStats s;
+	krn.AddStats(s);
+
+	krn.m_Fee = Transaction::FeeSettings::get(msg.m_hMin).CalculateForBvm(s, msg.m_nCharge);
+
+	krn.m_Commitment = msg.m_Commitment;
+	krn.m_Signature.m_NoncePub = msg.m_TotalNonce;
+
+	// calculate our partial signature
+	krn.CalculateMsg();
+
+	ECC::Hash::Processor hp;
+	krn.Prepare(hp, nullptr);
+
+	uint32_t iMyKey = std::numeric_limits<uint32_t>::max();
+	uint32_t nKeys = 0;
+
+	const Rules& r = Rules::get(); // our (L2) rules
+	for (const auto& v : r.m_Pbft.m_vE)
+	{
+		if (!v.m_White)
+			continue;
+
+		if (1u & msk)
+		{
+			ECC::Point pk;
+			pk.m_X = Cast::Down<ECC::uintBig>(v.m_Addr);
+			pk.m_Y = 0;
+			hp << pk;
+
+			if (v.m_Addr == m_Node.m_Keys.m_Validator.m_Addr)
+				iMyKey = nKeys;
+
+			nKeys++;
+		}
+
+		msk >>= 1;
+	}
+
+	if (iMyKey < nKeys)
+	{
+		ECC::Hash::Value hv;
+		hp
+			<< krn.m_Commitment
+			>> hv;
+
+		ECC::Oracle oracle;
+		krn.m_Signature.Expose(oracle, hv);
+
+		ECC::Scalar::Native e;
+		while (iMyKey--)
+			oracle >> e;
+
+		e = e * m_Node.m_Keys.m_Validator.m_sk;
+		x.m_skNonce += e;
+	}
+
+
+	Shaders::L2Tst1_L1::Msg::Signature msgOut;
+	msgOut.m_k = x.m_skNonce;
+	SendOut(Cast::Up<PeerID>(x.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
+
+	Delete(x);
+}
+
+void L2Bridge::OnMsg(ByteBuffer&& buf)
+{
+	using namespace Shaders::L2Tst1_L1;
+
+	if (buf.size() < sizeof(Msg::Base))
+		return;
+
+	auto& base = *(Msg::Base*) &buf.front();
+	switch (base.m_OpCode)
+	{
+#define THE_MACRO(id, name) \
+	case id: \
+		if (buf.size() >= sizeof(Msg::name)) \
+		{ \
+			auto& msg = Cast::Up<Msg::name>(base); \
+			OnMsgEx(msg); \
+		} \
+		break;
+
+	L2Tst1_Msgs_ToValidator(THE_MACRO)
+
+#undef THE_MACRO
+	}
+}
+
+void L2Bridge::SendOut(const PeerID& pid, const Blob& msg)
+{
+	m_Extractor.SendBbs(msg, ChannelFromPeerID(pid), pid);
 }
 
 } // namespace beam
