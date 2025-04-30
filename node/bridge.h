@@ -162,7 +162,7 @@ namespace beam {
 
 		std::unique_ptr<ECC::Scalar::Native> m_pSkBbs;
 
-		void RunThreadInternal(Params&& pars, io::Reactor::Ptr&&);
+		void RunThreadInternal(Params pars, io::Reactor::Ptr);
 		void OnDataInternal();
 
 	public:
