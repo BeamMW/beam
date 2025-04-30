@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #pragma once
-#include <tuple>
-#include <utility>
 #include <functional>
 #include <queue>
 #include <mutex>
@@ -254,7 +252,9 @@ namespace beam
 		template<typename Params, size_t... I>
 		static void MyInvoke(const Params& p, std::index_sequence<I...>)
 		{
-			std::invoke(std::forward<std::tuple_element_t<I, std::remove_reference_t<Tuple>>>(std::get<I>(std::forward<Tuple>(p)))...);
+			std::invoke(
+				std::forward<std::tuple_element_t<I, std::remove_reference_t<Params>>>(std::get<I>(std::forward<Params>(p)))...
+			);
 		}
 
 		static size_t GetCoresNum()
