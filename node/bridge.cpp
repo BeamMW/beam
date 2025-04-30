@@ -435,7 +435,7 @@ void EventsExtractorForeign::Extractor::OnSendBbs()
 	}
 }
 
-void EventsExtractorForeign::RunThreadInternal(Params pars, io::Reactor::Ptr pReactor)
+void EventsExtractorForeign::RunThreadInternal(Params&& pars, io::Reactor::Ptr&& pReactor)
 {
 	io::Reactor::Scope scopeReactor(*pReactor);
 	Rules::Scope scopeRules(pars.m_Rules);
