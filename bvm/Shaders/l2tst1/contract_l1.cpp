@@ -37,7 +37,47 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
     _POD_(s).SetZero();
     _POD_(s.m_Settings) = r.m_Settings;
     s.Save();
+
+    Env::Halt_if(!r.m_Validators || (r.m_Validators > Validator::s_Max));
+
+    const Validator* pV = (const Validator*) (&r + 1);
+
+    auto key = Tags::s_Validators;
+    Env::SaveVar(&key, sizeof(key), pV, sizeof(Validator) * r.m_Validators, KeyTag::Internal);
+    
 }
+
+struct Validators
+{
+    uint32_t m_Number;
+    Validator m_pV[Validator::s_Max];
+
+    void Load()
+    {
+        auto key = Tags::s_Validators;
+        auto res = Env::LoadVar(&key, sizeof(key), m_pV, sizeof(m_pV), KeyTag::Internal);
+
+        assert(res && !(res % sizeof(Validator)) && (res < sizeof(m_pV)));
+        m_Number = res / sizeof(Validator);
+        assert(m_Number);
+    }
+
+    void Test(const State& s, uint32_t nApproveMask) const
+    {
+        uint32_t nCount = 0;
+
+        for (uint32_t i = 0; i < _countof(m_pV); i++)
+        {
+            if (1u & (nApproveMask >> i))
+            {
+                Env::AddSig(m_pV[i].m_pk);
+                nCount++;
+            }
+        }
+
+        Env::Halt_if(nCount < s.m_Settings.m_BridgeValidatorsMin);
+    }
+};
 
 BEAM_EXPORT void Dtor(void*)
 {
@@ -69,12 +109,13 @@ BEAM_EXPORT void Method_3(const Method::UserStake& r)
 
 void OnBirdgeOp(const Method::BridgeOp& r, uint8_t nTag)
 {
-    BridgeOp::Key k;
+    BridgeOpSave::Key k;
     k.m_Tag = nTag;
     _POD_(k.m_pk) = r.m_pk;
 
-    Height h = Env::get_Height();
-    Env::Halt_if(Env::SaveVar_T(k, h)); // fail if already existed
+    BridgeOpSave val;
+    val.m_Height = Env::get_Height();
+    Env::Halt_if(Env::SaveVar_T(k, val)); // fail if already existed
 
     Env::EmitLog_T(nTag, r);
 }
@@ -91,8 +132,12 @@ BEAM_EXPORT void Method_5(const Method::BridgeImport& r)
     Env::FundsUnlock(r.m_Aid, r.m_Amount);
 
     Env::AddSig(r.m_pk);
-    
-    // TODO: sigs of the whitelisted validators
+
+    Validators vals;
+    vals.Load();
+
+    MyState s;
+    vals.Test(s, r.m_ApproveMask);
 }
 
 } // namespace L2Tst1_L1
