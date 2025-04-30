@@ -368,6 +368,15 @@ namespace ECC {
 		m_bInitialized = true;
 	}
 
+	void Hash::Processor::Reset(beam::Uninitialized_)
+	{
+		if (m_bInitialized)
+		{
+			SecureErase(*this);
+			m_bInitialized = false;
+		}
+	}
+
 	void Hash::Processor::Write(const void* p, uint32_t n)
 	{
 		assert(m_bInitialized);

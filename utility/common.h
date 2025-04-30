@@ -158,6 +158,9 @@ namespace beam
 	template <uint32_t nBits_>
 	struct uintBig_t;
 
+	enum Unused_ { Unused };
+	enum Uninitialized_ { Uninitialized };
+
 #ifdef WIN32
 	std::wstring Utf8toUtf16(const char*);
 	std::wstring Utf8toUtf16(const std::string&);
