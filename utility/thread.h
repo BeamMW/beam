@@ -252,7 +252,7 @@ namespace beam
 		template<typename Params, size_t... I>
 		static void MyInvoke(const Params& p, std::index_sequence<I...>)
 		{
-			std::invoke(std::get<I>(p)...);
+			std::invoke(std::forward<std::tuple_element_t<I, std::remove_reference_t<Tuple>>>(std::get<I>(std::forward<Tuple>(p)))...);
 		}
 
 		static size_t GetCoresNum()
