@@ -60,7 +60,7 @@ namespace beam
 
         static constexpr std::array<uint8_t, 3> m_ver_2 = { 0, 0, 2 };  // verison after 2nd fork: will has common deserialization and signatures type for all BBS-based broadcasting.
     protected:
-        void sendRawMessage(BroadcastContentType type, const ByteBuffer&) override;
+        void sendRawMessage(BroadcastContentType type, ByteBuffer&&) override;
     private:
         static constexpr size_t m_maxMessageTypes = 6;
         static constexpr size_t m_defaultMessageSize = 200;         // set experimentally

@@ -50,7 +50,7 @@ public:
     /**
      *  Redirects BBS messages to subscribers
      */
-    void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+    void SendRawMessage(const WalletID& peerID, ByteBuffer&& msg) override
     {
         beam::BbsChannel channel;
         peerID.m_Channel.Export(channel);
@@ -59,7 +59,7 @@ public:
         {
             BbsMsg bbsMsg;
             bbsMsg.m_Channel = channel;
-            bbsMsg.m_Message = msg;
+            bbsMsg.m_Message = std::move(msg);
             bbsMsg.m_TimePosted = getTimestamp();
             for (const auto& pair : m_subscriptions[channel])
             {

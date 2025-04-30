@@ -2705,7 +2705,7 @@ namespace beam::wallet
         {
             for (auto& endpoint : m_MessageEndpoints)
             {
-                endpoint->SendRawMessage(message.m_PeerID, message.m_Message);
+                endpoint->SendRawMessage(message.m_PeerID, std::move(message.m_Message));
             }
             m_WalletDB->deleteWalletMessage(message.m_ID);
         }

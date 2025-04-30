@@ -72,7 +72,7 @@ namespace beam
         
         virtual void registerListener(BroadcastContentType, IBroadcastListener*) = 0;
         virtual void unregisterListener(BroadcastContentType) = 0;
-        virtual void sendRawMessage(BroadcastContentType type, const ByteBuffer&) = 0;
+        virtual void sendRawMessage(BroadcastContentType type, ByteBuffer&&) = 0;
         virtual void sendMessage(BroadcastContentType type, const BroadcastMsg&) = 0;
     };
 }

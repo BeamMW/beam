@@ -138,12 +138,12 @@ void BroadcastRouter::unregisterListener(BroadcastContentType type)
 /**
  *  Deprecated method. Send without packing into common data object before serialization. Used in SwapOffersBoard.
  */
-void BroadcastRouter::sendRawMessage(BroadcastContentType type, const ByteBuffer& msg)
+void BroadcastRouter::sendRawMessage(BroadcastContentType type, ByteBuffer&& msg)
 {
     // Route to BBS channel
     wallet::WalletID dummyWId;
     dummyWId.m_Channel = getBbsChannel(type);
-    m_bbsMessageEndpoint.SendRawMessage(dummyWId, msg);
+    m_bbsMessageEndpoint.SendRawMessage(dummyWId, std::move(msg));
 }
 
 /**
@@ -169,7 +169,7 @@ void BroadcastRouter::sendMessage(BroadcastContentType type, const BroadcastMsg&
               std::end(content),
               std::begin(packet) + MsgHeader::SIZE);
 
-    sendRawMessage(type, packet);
+    sendRawMessage(type, std::move(packet));
 }
 
 /**

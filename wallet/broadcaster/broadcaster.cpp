@@ -242,9 +242,9 @@ namespace
         
         }
         
-        void SendRawMessage(const WalletID& peerID, const ByteBuffer& msg) override
+        void SendRawMessage(const WalletID& peerID, ByteBuffer&& msg) override
         {
-            BbsProcessor::Send(peerID, msg, 0);
+            BbsProcessor::Send(peerID, std::move(msg), 0);
         }
 
         void OnMessageSent(uint64_t id) override
