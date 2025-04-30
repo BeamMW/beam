@@ -2638,8 +2638,8 @@ namespace beam
 					pKrn->Sign(pSkKrn, 2, pt, nullptr);
 					m_Bridge.m_hvEmitID = pKrn->get_ID();
 
-					m_pProc1->BridgeAddInfo(op.m_pk.m_X, HeightPos(2), cid.m_AssetID, cid.m_Value);
-					m_pProc2->BridgeAddInfo(op.m_pk.m_X, HeightPos(2), cid.m_AssetID, cid.m_Value);
+					m_pProc1->BridgeAddInfo(Cast::Up<PeerID>(op.m_pk.m_X), HeightPos(2), cid.m_AssetID, cid.m_Value);
+					m_pProc2->BridgeAddInfo(Cast::Up<PeerID>(op.m_pk.m_X), HeightPos(2), cid.m_AssetID, cid.m_Value);
 				}
 
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
