@@ -1059,12 +1059,12 @@ void Node::Initialize()
 	{
 		if (m_Keys.m_pMiner)
 		{
-			m_Keys.m_pMiner->DeriveKey(m_Validator.m_Me.m_sk, Key::ID(0, Key::Type::Coinbase));
-			m_Validator.m_Me.m_Addr.FromSk(m_Validator.m_Me.m_sk);
-			BEAM_LOG_INFO() << "Validator ID=" << m_Validator.m_Me.m_Addr;
+			m_Keys.m_pMiner->DeriveKey(m_Keys.m_Validator.m_sk, Key::ID(0, Key::Type::Coinbase));
+			m_Keys.m_Validator.m_Addr.FromSk(m_Keys.m_Validator.m_sk);
+			BEAM_LOG_INFO() << "Validator ID=" << m_Keys.m_Validator.m_Addr;
 		}
 		else
-			m_Validator.m_Me.m_Addr = Zero;
+			m_Keys.m_Validator.m_Addr = Zero;
 
 		ByteBuffer buf;
 		m_Processor.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
@@ -5750,7 +5750,7 @@ void Node::Validator::OnNewState()
 
 	KillTimer();
 
-	m_Me.m_p = p.m_PbftState.Find(m_Me.m_Addr, false);
+	m_pMe = p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false);
 	OnNewRound();
 }
 
@@ -5787,7 +5787,7 @@ void Node::Validator::OnNewRound()
 		return;
 
 	auto* pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, iRound, m_wTotal);
-	if (!pLeader || (pLeader != m_Me.m_p))
+	if (!pLeader || (pLeader != m_pMe))
 		return;
 
 	if (!m_mapRounds.empty())
@@ -5806,7 +5806,7 @@ void Node::Validator::OnNewRound()
 	if (CreateProposal(*pRd, iSlotNow))
 	{
 		pRd->SetProposalHashes();
-		pRd->m_Proposal.m_Signature.Sign(pRd->m_spPreVoted.m_hv, m_Me.m_sk);
+		pRd->m_Proposal.m_Signature.Sign(pRd->m_spPreVoted.m_hv, get_ParentObj().m_Keys.m_Validator.m_sk);
 
 		OnProposalAccepted(*pRd, nullptr);
 	}
@@ -5886,13 +5886,14 @@ void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const E
 
 void Node::Validator::Vote(RoundData& rd, bool bCommit)
 {
-	if (!m_Me.m_p)
+	if (!m_pMe)
 		return; // I'm not a validator
 
-	assert((m_Me.m_p != rd.m_pLeader) || bCommit); // leader doesn't pre-vote for its proposal
+	assert((m_pMe != rd.m_pLeader) || bCommit); // leader doesn't pre-vote for its proposal
+	auto& v = get_ParentObj().m_Keys.m_Validator; // alias
 
 	auto& sp = bCommit ? rd.m_spCommitted : rd.m_spPreVoted;
-	auto it = sp.m_Sigs.find(m_Me.m_Addr);
+	auto it = sp.m_Sigs.find(v.m_Addr);
 	if (sp.m_Sigs.end() != it)
 		return; // already voted
 
@@ -5901,10 +5902,10 @@ void Node::Validator::Vote(RoundData& rd, bool bCommit)
 	proto::PbftVote msg;
 	msg.m_iRound = rd.m_Key;
 	msg.m_Commit = bCommit;
-	msg.m_Address = m_Me.m_Addr;
-	msg.m_Signature.Sign(sp.m_hv, m_Me.m_sk);
+	msg.m_Address = v.m_Addr;
+	msg.m_Signature.Sign(sp.m_hv, v.m_sk);
 
-	sp.Add(*m_Me.m_p, msg.m_Signature);
+	sp.Add(*m_pMe, msg.m_Signature);
 
 	Broadcast(msg, nullptr);
 }
@@ -5989,7 +5990,7 @@ void Node::Validator::OnProposalAccepted(RoundData& rd, const Peer* pSrc)
 
 	assert(&(*m_mapRounds.rbegin()) == &rd); // must be the most recent proposal
 
-	if (m_Me.m_p != rd.m_pLeader) // leader pre-vote is included in the proposal
+	if (m_pMe != rd.m_pLeader) // leader pre-vote is included in the proposal
 		Vote(rd, false);
 
 	CheckState(rd);

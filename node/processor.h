@@ -780,14 +780,15 @@ public:
 		// followed by metadata
 	};
 
-	struct ForeignEmitPacked {
-		uintBigFor<Height>::Type m_Height;
-		uintBigFor<uint32_t>::Type m_nIdx;
-	};
-
 	struct ForeignDetailsPacked {
 		uintBigFor<Asset::ID>::Type m_Aid;
 		uintBigFor<Amount>::Type m_Amount;
+	};
+
+	struct ForeignEmitPacked {
+		uintBigFor<Height>::Type m_Height;
+		uintBigFor<uint32_t>::Type m_nIdx;
+		ForeignDetailsPacked m_Details;
 	};
 
 #pragma pack (pop)
@@ -953,6 +954,7 @@ public:
 	};
 
 	bool BridgeAddInfo(const PeerID&, const HeightPos&, Asset::ID, Amount);
+	bool FindExternalAssetEmit(const PeerID&, bool bEmit, ForeignDetailsPacked&);
 
 private:
 	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
