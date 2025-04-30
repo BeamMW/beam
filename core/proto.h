@@ -574,9 +574,6 @@ namespace proto {
 
 	};
 
-    enum Unused_ { Unused };
-    enum Uninitialized_ { Uninitialized };
-
     template <typename T>
     inline void ZeroInit(T& x) { x = 0; }
     template <typename T>

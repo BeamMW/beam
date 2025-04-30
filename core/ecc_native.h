@@ -627,7 +627,12 @@ namespace ECC
 		Processor();
 		~Processor();
 
+		Processor(beam::Uninitialized_) :m_bInitialized(false) {}
+
+		bool IsInitialized() const { return m_bInitialized; }
+
 		void Reset();
+		void Reset(beam::Uninitialized_);
 
 		template <typename T>
 		Processor& operator << (const T& t) { Write(t); return *this; }
