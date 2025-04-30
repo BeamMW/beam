@@ -190,7 +190,7 @@ namespace beam
 			s_threadPool.Push([sp = m_ID, params]()
 			{
 				sp->StoreID(std::this_thread::get_id());
-				MyInvoke(*params, Indecies{});
+				MyInvoke(std::move(*params), Indecies{});
 				sp->Complete();
 			});
 		}
