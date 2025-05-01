@@ -52,6 +52,11 @@ struct Validators
     uint32_t m_Number;
     Validator m_pV[Validator::s_Max];
 
+    bool IsQuorumReached(uint32_t n) const
+    {
+        return n * 3 > m_Number * 2;
+    }
+
     void Load()
     {
         auto key = Tags::s_Validators;
@@ -62,11 +67,11 @@ struct Validators
         assert(m_Number);
     }
 
-    void Test(const State& s, uint32_t nApproveMask) const
+    void Test(uint32_t nApproveMask) const
     {
         uint32_t nCount = 0;
 
-        for (uint32_t i = 0; i < _countof(m_pV); i++)
+        for (uint32_t i = 0; i < m_Number; i++)
         {
             if (1u & (nApproveMask >> i))
             {
@@ -75,7 +80,7 @@ struct Validators
             }
         }
 
-        Env::Halt_if(nCount < s.m_Settings.m_BridgeValidatorsMin);
+        Env::Halt_if(!IsQuorumReached(nCount));
     }
 };
 
@@ -135,9 +140,7 @@ BEAM_EXPORT void Method_5(const Method::BridgeImport& r)
 
     Validators vals;
     vals.Load();
-
-    MyState s;
-    vals.Test(s, r.m_ApproveMask);
+    vals.Test(r.m_ApproveMask);
 }
 
 } // namespace L2Tst1_L1
