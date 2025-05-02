@@ -8,6 +8,8 @@
 #define L2Tst1_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
 #define L2Tst1_explicit_upgrade(macro) macro(ContractID, cid)
 
+#define L2Tst1_my_admin_key(macro)
+
 #define L2Tst1_deploy(macro) \
     Upgradable3_deploy(macro) \
     macro(Height, hPrePhaseEnd) \
@@ -49,6 +51,7 @@
 #define L2Tst1_bridge_import_l2(macro) L2Tst1_bridge_op_base(macro)
 
 #define L2Tst1Actions_All(macro) \
+    macro(my_admin_key) \
     macro(view_deployed) \
     macro(view_params) \
     macro(deploy) \
@@ -109,6 +112,14 @@ struct AdminKeyID :public Env::KeyID {
 };
 
 const Upgradable3::Manager::VerInfo g_VerInfo = { s_pSID, _countof(s_pSID) };
+
+ON_METHOD(my_admin_key)
+{
+    PubKey pk;
+    AdminKeyID kid;
+    kid.get_Pk(pk);
+    Env::DocAddBlob_T("admin_key", pk);
+}
 
 ON_METHOD(view_deployed)
 {
@@ -236,7 +247,7 @@ struct Validators
         m_Count = nVal / sizeof(Validator);
         assert(m_Count && (m_Count <= Validator::s_Max));
 
-        return false;
+        return true;
     }
 
     bool IsQuorumReached(uint32_t n)
@@ -442,9 +453,7 @@ struct BridgeOpL1Context
         {
             OnError("op duplicated");
             Env::DocAddNum("hPrev", val.m_Height);
-
-            // return false;
-            // don't return try the tx to ensure it fails
+            return false;
         }
 
         m_fc.m_Aid = aid;
@@ -469,10 +478,9 @@ ON_METHOD(bridge_export)
         Env::Cost::SaveVar_For(sizeof(BridgeOpSave)) +
         Env::Cost::Log_For(sizeof(Method::BridgeOp)) +
         Env::Cost::FundsLock +
-        Env::Cost::AddSig +
         Env::Cost::Cycle * 100;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, &ctx.m_kid, 1, "bridge export", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, nullptr, 0, "bridge export", nCharge);
 }
 
 ON_METHOD(bridge_import)
@@ -538,12 +546,16 @@ ON_METHOD(bridge_import)
 
         if (!pt1.Import(msgIn.m_m_Nonce))
             continue;
+
         if (pt1.IsZero())
             continue;
 
         pt0 += pt1;
         arg.m_ApproveMask |= msk;
         nCountApproved++;
+
+        if (nCountApproved == vals.m_Count)
+            break; // max validators responded
     }
 
     pt1.FromSlot(iSlotKeyNonce);
