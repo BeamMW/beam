@@ -29,6 +29,7 @@
 #include "core/unittest/mini_blockchain.h"
 #include "core/negotiator.h"
 #include "node/node.h"
+#include "node/bridge.h"
 #include "wallet/core/private_key_keeper.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "utility/hex.h"
@@ -2880,6 +2881,465 @@ namespace
         WALLET_CHECK(dbSender->getTx(txR)->m_status == wallet::TxStatus::Completed);
     }
 
+    struct L2Params
+    {
+        io::Reactor::Ptr m_pReactor;
+        const Rules& m_RulesL1;
+
+        L2Params() :m_RulesL1(Rules::get()) {}
+
+        ContractID m_cidBridgeL1;
+        ECC::NoLeak<ECC::Hash::Value> m_hvWalletSeed;
+
+        ECC::Hash::Value m_hvRandomSeed;
+
+        io::AsyncEvent::Ptr m_pEvtStop;
+        io::AsyncEvent::Ptr m_pEvtOnExported;
+        bool m_WaitingForExport = false;
+
+        std::thread m_Thread;
+
+        io::Address m_nodeAddressL1;
+
+        struct Xfer {
+            uintBig_t<8> m_Cookie;
+            Asset::ID m_Aid;
+            Amount m_Amount;
+        };
+
+        std::vector<Xfer> m_xfToL2;
+        std::vector<Xfer> m_xfFromL2;
+
+        void RunInThread();
+
+        void Start()
+        {
+            assert(!m_pReactor);
+            m_pReactor = io::Reactor::create();
+            m_pEvtStop = io::AsyncEvent::create(*m_pReactor, []() { io::Reactor::get_Current().stop(); });
+
+            m_pEvtOnExported = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() {
+                if (m_WaitingForExport) {
+                    m_WaitingForExport = false;
+                    io::Reactor::get_Current().stop();
+                }
+            });
+
+            ECC::GenRandom(m_hvRandomSeed);
+
+            m_Thread = std::thread(&L2Params::RunInThread, this);
+        }
+
+        ~L2Params()
+        {
+            if (m_Thread.joinable())
+            {
+                assert(m_pEvtStop);
+                m_pEvtStop->post();
+
+                m_Thread.join();
+            }
+        }
+
+        Rules m_RulesL2;
+
+        static const uint32_t s_Validators = 4;
+        Key::IKdf::Ptr m_ppValidators[s_Validators];
+    };
+
+    void L2Params::RunInThread()
+    {
+        Rules::Scope scopeRules(m_RulesL2);
+
+        io::Reactor::Ptr mainReactor = m_pReactor;
+        io::Reactor::Scope scopeReactor(*mainReactor);
+
+        ECC::PseudoRandomGenerator prg;
+        prg.m_hv = m_hvRandomSeed;
+
+        // build treasury
+        ByteBuffer treasury;
+
+        // add bridge L2 contract deployment
+        {
+            Treasury::Data td;
+            auto& tg = td.m_vGroups.emplace_back();
+            tg.m_Value = Zero;
+
+            auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+            MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+
+            ECC::Scalar::Native sk;
+            sk.GenRandomNnz();
+            ECC::Point::Native ptFunds(beam::Zero);
+
+            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+            tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+            sk = -sk;
+            tg.m_Data.m_Offset = sk;
+
+            beam::Serializer ser;
+            ser & td;
+
+            ser.swap_buf(treasury);
+
+            ECC::Hash::Processor() << Blob(treasury) >> m_RulesL2.TreasuryChecksum;
+        }
+
+        m_RulesL2.DA.Target_ms = 940;
+        m_RulesL2.UpdateChecksum();
+
+        // setup validator nodes
+        struct BridgedNodeL2
+        {
+            Node m_Node;
+            L2Bridge m_Bridge;
+
+            BridgedNodeL2() :m_Bridge(m_Node) {}
+        };
+
+        BridgedNodeL2 pNodeCtx[s_Validators];
+
+        for (uint16_t i = 0; i < s_Validators; i++)
+        {
+            auto& x = pNodeCtx[i];
+
+            // init node
+            string nodePath = "node_l2" + std::to_string(i) + ".db";
+            if (boost::filesystem::exists(nodePath))
+                boost::filesystem::remove(nodePath);
+
+            x.m_Node.m_Cfg.m_Treasury = treasury;
+
+            x.m_Node.m_Cfg.m_sPathLocal = std::move(nodePath);
+            x.m_Node.m_Cfg.m_Listen.port(32140 + i);
+            x.m_Node.m_Cfg.m_Listen.ip(INADDR_ANY);
+            x.m_Node.m_Cfg.m_VerificationThreads = 1;
+
+            x.m_Node.m_Cfg.m_Dandelion.m_AggregationTime_ms = 0;
+            x.m_Node.m_Cfg.m_Dandelion.m_OutputsMin = 0;
+
+            x.m_Node.m_Cfg.m_PeersPersistent = true;
+            x.m_Node.m_Cfg.m_Connect.resize(s_Validators - 1);
+
+            for (uint16_t j = 0; j < s_Validators; j++)
+            {
+                if (i == j)
+                    continue;
+
+                auto& addr = x.m_Node.m_Cfg.m_Connect.emplace_back();
+                addr.resolve("127.0.0.1");
+                addr.port(32140 + j);
+            }
+
+            x.m_Node.m_Keys.SetSingleKey(m_ppValidators[i]);
+
+            x.m_Node.Initialize();
+
+            WALLET_CHECK(x.m_Node.m_Keys.m_Validator.m_Addr == m_RulesL2.m_Pbft.m_vE[i].m_Addr);
+
+            x.m_Node.m_PostStartSynced = true;
+
+            // init bridge
+            L2Bridge::Params bp;
+            bp.m_Addr = m_nodeAddressL1;
+            bp.m_Rules = m_RulesL1; // clone
+            bp.m_cidBridgeL1 = m_cidBridgeL1;
+            x.m_Bridge.Init(std::move(bp));
+        }
+
+
+        int completedCount = 0;
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+            }
+        };
+
+        string walletPath = "wallet_l2.db";
+        if (boost::filesystem::exists(walletPath))
+            boost::filesystem::remove(walletPath);
+
+        auto dbSender = WalletDB::init(walletPath, DBPassword, m_hvWalletSeed);
+
+        io::Address addrNode;
+        addrNode.resolve("127.0.0.1");
+        addrNode.port(pNodeCtx[0].m_Node.m_Cfg.m_Listen.port());
+
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, addrNode);
+        MyManager manSender(*sender.m_Wallet);
+
+        manSender.set_Privilege(2);
+        MyManager::Compile(manSender.m_BodyManager, "l2tst1/app.wasm", MyManager::Kind::Manager);
+
+        printf("Querying bridge L2...\n");
+
+        uint32_t iXfer = 0, nFailures = 0;
+        Amount amountImported = 0;
+
+        manSender.m_Args["action"] = "bridge_import_l2";
+        while (iXfer < m_xfToL2.size())
+        {
+            auto& xf = m_xfToL2[iXfer];
+            manSender.m_Args["amount"] = std::to_string(xf.m_Amount);
+            manSender.m_Args["aid"] = std::to_string(xf.m_Aid);
+            manSender.m_Args["cookie"] = xf.m_Cookie.str();
+
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+            if (manSender.DoTx(completedCount))
+            {
+                amountImported += xf.m_Amount;
+                iXfer++;
+            }
+            else
+            {
+                // assume this can happen on start, before bridge pulled the events from L1
+                if (++nFailures >= 5)
+                    break;
+            }
+        }
+
+        manSender.m_Args["action"] = "bridge_view_l2";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        Amount valReserve = Rules::Coin / 10; // assume it's for fees
+        if (amountImported > valReserve)
+        {
+            auto& x = m_xfFromL2.emplace_back();
+            x.m_Amount = amountImported - valReserve;
+            x.m_Aid = 0;
+            ECC::GenRandom(x.m_Cookie);
+
+            manSender.m_Args["action"] = "bridge_export_l2";
+            manSender.m_Args["amount"] = std::to_string(x.m_Amount);
+            manSender.m_Args["aid"] = std::to_string(x.m_Aid);
+            manSender.m_Args["cookie"] = x.m_Cookie.str();
+
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+            WALLET_CHECK(manSender.DoTx(completedCount));
+        }
+
+        manSender.m_Args["action"] = "bridge_view_l2";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        m_pEvtOnExported->post();
+
+        mainReactor->run();
+
+    }
+
+
+    void TestBridgeL2(Rules& r)
+    {
+        printf("Testing L2 bridge ...\n");
+
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        string nodePath = "node.db";
+        if (boost::filesystem::exists(nodePath))
+            boost::filesystem::remove(nodePath);
+
+        L2Params pars;
+
+        pars.m_RulesL2.CA.ForeignEnd = 1'000'000;
+        for (uint32_t i = 0; i < 7; i++)
+            pars.m_RulesL2.pForks[i].m_Height = 0;
+
+        pars.m_RulesL2.m_Consensus = Rules::Consensus::Pbft;
+        pars.m_RulesL2.m_Pbft.m_AidStake = 7;
+        pars.m_RulesL2.m_Pbft.m_RequiredWhite = 1;
+        pars.m_RulesL2.m_Pbft.m_vE.resize(pars.s_Validators);
+
+        for (uint32_t i = 0; i < L2Params::s_Validators; i++)
+        {
+            ECC::Hash::Value seed;
+            ECC::GenRandom(seed);
+            ECC::HKdf::Create(pars.m_ppValidators[i], seed);
+
+            // derive miner key, and then validator key (according to current scheme
+            auto pMiner = pars.m_ppValidators[i];
+
+            Key::Index idxMiner = 0;
+            if (CoinID(Zero).get_ChildKdfIndex(idxMiner))
+                pMiner = MasterKey::get_Child(*pMiner, idxMiner);
+
+            ECC::Scalar::Native sk;
+            pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
+
+            auto& v = pars.m_RulesL2.m_Pbft.m_vE[i];
+            v.m_Addr.FromSk(sk);
+            v.m_Stake = Rules::Coin * 5000;
+            v.m_White = true;
+        }
+
+        int completedCount = 0;
+
+        auto f = [&completedCount, mainReactor](auto txID)
+        {
+            --completedCount;
+            if (completedCount == 0)
+            {
+                mainReactor->stop();
+            }
+        };
+
+        string walletPath = "wallet_l1.db";
+        if (boost::filesystem::exists(walletPath))
+            boost::filesystem::remove(walletPath);
+
+        ECC::GenRandom(pars.m_hvWalletSeed.V);
+
+        auto dbSender = WalletDB::init(walletPath, DBPassword, pars.m_hvWalletSeed);
+        auto treasury = createTreasury(dbSender, AmountList{Rules::Coin * 300000});
+
+        Node node;
+        InitNodeToTest(node, r, treasury, nullptr, 32125, 3000, "node.db");
+        pars.m_nodeAddressL1.resolve("127.0.0.1");
+        pars.m_nodeAddressL1.port(node.m_Cfg.m_Listen.port());
+
+
+        TestWalletRig sender(dbSender, f, TestWalletRig::Type::Regular, false, 0, pars.m_nodeAddressL1);
+        MyManager manSender(*sender.m_Wallet);
+
+        manSender.set_Privilege(2);
+        MyManager::Compile(manSender.m_BodyManager, "l2tst1/app.wasm", MyManager::Kind::Manager);
+        MyManager::Compile(manSender.m_BodyContract, "l2tst1/contract_l1.wasm", MyManager::Kind::Contract);
+
+        printf("Deploying bridge L1...\n");
+
+
+        std::string sAdminKey;
+        manSender.m_Args["action"] = "my_admin_key";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+        WALLET_CHECK(manSender.get_OutpStr("\"admin_key\": \"", sAdminKey, sizeof(ECC::Point) * 2));
+
+        manSender.m_Args["action"] = "deploy";
+
+        for (uint32_t i = 0; i < L2Params::s_Validators; i++)
+            manSender.m_Args["validator_" + std::to_string(i)] = pars.m_RulesL2.m_Pbft.m_vE[i].m_Addr.str() + "00";
+
+        manSender.m_Args["hUpgradeDelay"] = "1";
+        manSender.m_Args["nMinApprovers"] = "1";
+        manSender.m_Args["admin_0"] = sAdminKey;
+
+        manSender.m_Args["hPrePhaseEnd"] = "40000";
+        manSender.m_Args["aidStaking"] = "7";
+        manSender.m_Args["aidLiquidity"] = "447";
+
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        printf("reading bridge L1 cid...\n");
+
+        manSender.m_Args["action"] = "view_deployed";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        std::string sCid;
+        WALLET_CHECK(manSender.get_OutpStr("\"cid\": \"", sCid, bvm2::ContractID::nTxtLen));
+
+        WALLET_CHECK(pars.m_cidBridgeL1.Scan(sCid.c_str()) == pars.m_cidBridgeL1.nTxtLen);
+
+        manSender.m_Args["cid"] = sCid;
+        manSender.m_Args["action"] = "view_params";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        uintBig_t<8> cookie1;
+        ECC::GenRandom(cookie1);
+
+        printf("depositing...\n");
+
+        manSender.m_Args["action"] = "bridge_export";
+        manSender.m_Args["amount"] = std::to_string(Rules::Coin * 5000);
+        manSender.m_Args["cookie"] = cookie1.str();
+
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        {
+            auto& xf = pars.m_xfToL2.emplace_back();
+            xf.m_Cookie = cookie1;
+            xf.m_Aid = 0;
+            xf.m_Amount = Rules::Coin * 5000;
+        }
+
+        // test dup won't pass
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        auto cookie2 = cookie1;
+        cookie2.Inv();
+        manSender.m_Args["cookie"] = cookie2.str();
+        manSender.m_Args["amount"] = std::to_string(Rules::Coin * 6000);
+
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+        WALLET_CHECK(manSender.DoTx(completedCount));
+
+        {
+            auto& xf = pars.m_xfToL2.emplace_back();
+            xf.m_Cookie = cookie2;
+            xf.m_Aid = 0;
+            xf.m_Amount = Rules::Coin * 6000;
+        }
+
+        // view ops
+        manSender.m_Args["action"] = "bridge_view";
+
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        // wait for L2 to process import and export
+        pars.m_WaitingForExport = true;
+        pars.Start();
+
+        mainReactor->run();
+
+        pars.m_WaitingForExport = false;
+
+        WALLET_CHECK(!pars.m_xfFromL2.empty());
+
+        for (uint32_t i = 0; i < pars.m_xfFromL2.size(); i++)
+        {
+            auto& xf = pars.m_xfFromL2[i];
+
+            manSender.m_Args["action"] = "bridge_import";
+            manSender.m_Args["amount"] = std::to_string(xf.m_Amount);
+            manSender.m_Args["aid"] = std::to_string(xf.m_Aid);
+            manSender.m_Args["cookie"] = xf.m_Cookie.str();
+
+            manSender.RunSync(1);
+            WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+            WALLET_CHECK(manSender.DoTx(completedCount));
+        }
+
+        manSender.m_Args["action"] = "bridge_view";
+        manSender.RunSync(1);
+        WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+    }
+
+
+
+
+
+
+
     struct MyZeroInit {
         static void Do(std::string&) {}
 
@@ -5048,6 +5508,7 @@ int main()
     TestAppShader4(r);
     TestAppShader5(r);
     TestAppShader6(r);
+    TestBridgeL2(r);
     r.pForks[1].m_Height = 20;
     r.pForks[2].m_Height = 20;
     r.pForks[3].m_Height = 20;
