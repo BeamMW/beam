@@ -736,7 +736,11 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	TxStats s;
 	krn.AddStats(s);
 
-	krn.m_Fee = Transaction::FeeSettings::get(msg.m_hMin).CalculateForBvm(s, msg.m_nCharge);
+	const auto& fs = Transaction::FeeSettings::get(msg.m_hMin);
+
+	krn.m_Fee = fs.Calculate(s); // accounts for contract kernel size, but not charge
+	std::setmax(krn.m_Fee, fs.get_DefaultStd()); // round up to std fee
+	krn.m_Fee += fs.CalculateForBvm(s, msg.m_nCharge); // accounts for charge, adds at least min contract exec fee
 
 	krn.m_Commitment = msg.m_Commitment;
 	krn.m_Signature.m_NoncePub = msg.m_TotalNonce;
@@ -746,6 +750,8 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 	ECC::Hash::Processor hp;
 	krn.Prepare(hp, nullptr);
+
+	hp << x.m_Owner.m_Key; // 1st sig requested by L1 contract
 
 	const Rules& r = Rules::get(); // our (L2) rules
 	for (const auto& v : r.m_Pbft.m_vE)
@@ -774,8 +780,9 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 		ECC::Oracle oracle;
 		krn.m_Signature.Expose(oracle, hv);
 
+		// get our challenge. The 1st challenge is for pkOwner, then all the validators
 		ECC::Scalar::Native e;
-		for (uint32_t i = 0; i <= m_iWhiteValidator; i++)
+		for (uint32_t i = 0; i <= m_iWhiteValidator + 1; i++)
 			oracle >> e;
 
 		e = e * m_Node.m_Keys.m_Validator.m_sk;
