@@ -549,13 +549,13 @@ void L2Bridge::Init(Params&& pars)
 	p1.m_Rules = std::move(pars.m_Rules);
 	p1.m_hDelay = pars.m_hDelay;
 	p1.m_Addr = std::move(pars.m_Addr);
-	p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
-
-	p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
 
 	p1.m_Pos0 = m_Node.get_Processor().get_DB().BridgeGetLastPos();
 	p1.m_Pos0.m_Height++;
 	p1.m_Pos0.m_Pos = 0;
+
+	p1.m_pSkBbs = nullptr;
+	p1.m_Channel = 0;
 
 	{
 		Shaders::Env::Key_T<uint8_t> key;
@@ -566,9 +566,30 @@ void L2Bridge::Init(Params&& pars)
 		Blob(&key, sizeof(key)).Export(p1.m_Key);
 	}
 
+	m_cidBridgeL1 = pars.m_cidBridgeL1;
+
+	const Rules& r = Rules::get(); // our (L2) rules
+	m_iWhiteValidator = std::numeric_limits<uint32_t>::max();
+	uint32_t nWhite = 0;
+	for (const auto& v : r.m_Pbft.m_vE)
+	{
+		if (!v.m_White)
+			continue;
+
+		if (v.m_Addr == m_Node.m_Keys.m_Validator.m_Addr)
+		{
+			m_iWhiteValidator = nWhite;
+
+			p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
+			p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
+
+			break;
+		}
+
+		nWhite++;
+	}
 	m_Extractor.Start(std::move(p1));
 
-	m_cidBridgeL1 = pars.m_cidBridgeL1;
 }
 
 L2Bridge::~L2Bridge()
@@ -677,10 +698,8 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
 	pE->m_skNonce.GenRandomNnz();
 
 	Shaders::L2Tst1_L1::Msg::Nonce msgOut;
-
+	msgOut.m_iValidator = m_iWhiteValidator;
 	msgOut.m_m_Nonce = ECC::Context::get().G * pE->m_skNonce;
-	ECC::Point::Native pt = ECC::Context::get().G * pE->m_skNonce;
-	pt.Export(msgOut.m_m_Nonce);
 
 	SendOut(Cast::Up<PeerID>(msg.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
 }
@@ -728,9 +747,6 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	ECC::Hash::Processor hp;
 	krn.Prepare(hp, nullptr);
 
-	uint32_t iMyKey = std::numeric_limits<uint32_t>::max();
-	uint32_t nKeys = 0;
-
 	const Rules& r = Rules::get(); // our (L2) rules
 	for (const auto& v : r.m_Pbft.m_vE)
 	{
@@ -743,17 +759,12 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 			pk.m_X = Cast::Down<ECC::uintBig>(v.m_Addr);
 			pk.m_Y = 0;
 			hp << pk;
-
-			if (v.m_Addr == m_Node.m_Keys.m_Validator.m_Addr)
-				iMyKey = nKeys;
-
-			nKeys++;
 		}
 
 		msk >>= 1;
 	}
 
-	if (iMyKey < nKeys)
+	if (std::numeric_limits<uint32_t>::max() != m_iWhiteValidator)
 	{
 		ECC::Hash::Value hv;
 		hp
@@ -764,7 +775,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 		krn.m_Signature.Expose(oracle, hv);
 
 		ECC::Scalar::Native e;
-		while (iMyKey--)
+		for (uint32_t i = 0; i <= m_iWhiteValidator; i++)
 			oracle >> e;
 
 		e = e * m_Node.m_Keys.m_Validator.m_sk;
@@ -773,6 +784,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 
 	Shaders::L2Tst1_L1::Msg::Signature msgOut;
+	msgOut.m_iValidator = m_iWhiteValidator;
 	msgOut.m_k = x.m_skNonce;
 	SendOut(Cast::Up<PeerID>(x.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
 

@@ -238,6 +238,11 @@ struct Validators
 
         return false;
     }
+
+    bool IsQuorumReached(uint32_t n)
+    {
+        return Validator::IsQuorumReached(n, m_Count);
+    }
 };
 
 ON_METHOD(view_params)
@@ -407,37 +412,57 @@ ON_METHOD(bridge_view_l2)
     ScanBridge(L2Tst1_L2::s_CID, h0, owned_only, 0, 1);
 }
 
-ON_METHOD(bridge_export)
+struct BridgeOpL1Context
 {
-    if (!amount)
-        return OnError("amount not specified");
+    Env::KeyID m_kid;
+    FundsChange m_fc;
 
-    Method::BridgeExport arg;
-    arg.m_Cookie = cookie;
-    arg.m_Aid = aid;
-    arg.m_Amount = amount;
-
-    Env::KeyID kid(Cast::Down<BridgeOpBase>(arg));
-    kid.get_Pk(arg.m_pk);
-
+    bool Init(L2Tst1_bridge_op_l1(THE_FIELD) Method::BridgeOp& arg, uint8_t tag)
     {
+        if (!amount)
+        {
+            OnError("amount not specified");
+            return false;
+        }
+
+        arg.m_Cookie = cookie;
+        arg.m_Aid = aid;
+        arg.m_Amount = amount;
+
+        m_kid = Env::KeyID(Cast::Down<BridgeOpBase>(arg));
+        m_kid.get_Pk(arg.m_pk);
+
         Env::Key_T<BridgeOpSave::Key> k0;
         _POD_(k0.m_Prefix.m_Cid) = cid;
         _POD_(k0.m_KeyInContract.m_pk) = arg.m_pk;
-        k0.m_KeyInContract.m_Tag = Tags::s_BridgeExp;
+        k0.m_KeyInContract.m_Tag = tag;
 
         BridgeOpSave val;
         if (Env::VarReader::Read_T(k0, val))
         {
-            OnError("op duplicated"); // don't return try the tx to ensure it fails
+            OnError("op duplicated");
             Env::DocAddNum("hPrev", val.m_Height);
+
+            // return false;
+            // don't return try the tx to ensure it fails
         }
+
+        m_fc.m_Aid = aid;
+        m_fc.m_Amount = amount;
+
+        return true;
     }
 
-    FundsChange fc;
-    fc.m_Aid = aid;
-    fc.m_Amount = amount;
-    fc.m_Consume = 1;
+};
+
+
+ON_METHOD(bridge_export)
+{
+    BridgeOpL1Context ctx;
+    Method::BridgeExport arg;
+    if (!ctx.Init(cid, amount, aid, cookie, arg, Tags::s_BridgeExp))
+        return;
+    ctx.m_fc.m_Consume = 1;
 
     const uint32_t nCharge =
         Env::Cost::CallFar +
@@ -447,11 +472,167 @@ ON_METHOD(bridge_export)
         Env::Cost::AddSig +
         Env::Cost::Cycle * 100;
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "bridge export", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, &ctx.m_kid, 1, "bridge export", nCharge);
 }
 
 ON_METHOD(bridge_import)
 {
+    BridgeOpL1Context ctx;
+    Method::BridgeImport arg;
+    if (!ctx.Init(cid, amount, aid, cookie, arg, Tags::s_BridgeExp))
+        return;
+    ctx.m_fc.m_Consume = 0;
+
+    Validators vals;
+    if (!vals.Read(cid))
+        return;
+
+    // create random address for comm
+    HashValue hvBbs;
+    Env::GenerateRandom(hvBbs.m_p, sizeof(hvBbs.m_p));
+    Env::Comm_Listen(hvBbs.m_p, sizeof(hvBbs.m_p), 0);
+
+    Msg::GetNonce msg1;
+    msg1.m_ProtoVer = Msg::s_ProtoVer;
+    _POD_(msg1.m_pkOwner) = arg.m_pk;
+    Env::DerivePk(msg1.m_pkBbs, hvBbs.m_p, sizeof(hvBbs.m_p));
+
+    for (uint32_t i = 0; i < vals.m_Count; i++)
+        Env::Comm_Send(vals.m_pV[i].m_pk, &msg1, sizeof(msg1));
+
+    static const uint32_t iSlotKrnBlind = 0;
+    static const uint32_t iSlotKrnNonce = 1;
+    static const uint32_t iSlotKeyNonce = 2;
+
+    Secp::Point pt0, pt1;
+    pt0.FromSlot(iSlotKrnNonce);
+
+    uint32_t nCountApproved = 0;
+    arg.m_ApproveMask = 0;
+
+    Env::WriteStr("waiting for validator nonces...", Stream::Out);
+
+    while (true)
+    {
+        Env::Comm_WaitMsg(5000);
+
+        Msg::Nonce msgIn;
+        uint32_t nRet = Env::Comm_Read(&msgIn, sizeof(msgIn), nullptr, 0);
+        if (nRet < sizeof(msgIn))
+        {
+            if (!nRet && vals.IsQuorumReached(nCountApproved))
+                break; // enough
+
+            continue;
+        }
+
+        if (msgIn.s_OpCode != msgIn.m_OpCode)
+            continue;
+
+        if (msgIn.m_iValidator >= vals.m_Count)
+            continue;
+
+        uint32_t msk = 1u << msgIn.m_iValidator;
+        if (arg.m_ApproveMask & msk)
+            continue;
+
+        if (!pt1.Import(msgIn.m_m_Nonce))
+            continue;
+        if (pt1.IsZero())
+            continue;
+
+        pt0 += pt1;
+        arg.m_ApproveMask |= msk;
+        nCountApproved++;
+    }
+
+    pt1.FromSlot(iSlotKeyNonce);
+    pt0 += pt1;
+
+    uint32_t nCharge =
+        Env::Cost::CallFar +
+        Env::Cost::SaveVar_For(sizeof(BridgeOpSave)) +
+        Env::Cost::Log_For(sizeof(Method::BridgeOp)) +
+        Env::Cost::FundsLock +
+        Env::Cost::AddSig * (1 + nCountApproved) +
+        Env::Cost::Cycle * 100;
+
+    Msg::GetSignature msg2;
+    _POD_(msg2.m_pkOwner) = msg1.m_pkOwner;
+    _POD_(msg2.m_Cookie) = arg.m_Cookie;
+    msg2.m_nApproveMask = arg.m_ApproveMask;
+    pt0.Export(msg2.m_TotalNonce);
+    msg2.m_hMin = Env::get_Height();
+    msg2.m_nCharge = nCharge;
+
+    pt0.FromSlot(iSlotKrnBlind);
+    PubKey pkBlind;
+    pt0.Export(pkBlind);
+
+    Secp::Scalar s0, s1;
+    Env::Secp_Scalar_set(s1, amount);
+    Env::Secp_Point_mul_H(pt1, s1, aid);
+    Env::Secp_Point_neg(pt1, pt1);
+
+    pt1 += pt0;
+    pt1.Export(msg2.m_Commitment);
+
+    PubKey pSigs[Validator::s_Max + 1];
+    _POD_(pSigs[0]) = arg.m_pk;
+    uint32_t nSigs = 1;
+
+    for (uint32_t i = 0; i < vals.m_Count; i++)
+    {
+        if ((1u << i) & arg.m_ApproveMask)
+        {
+            auto& addr = vals.m_pV[i].m_pk;
+            _POD_(pSigs[nSigs++]) = addr;
+
+            Env::Comm_Send(addr, &msg2, sizeof(msg2));
+        }
+    }
+
+    // get challenges
+    Secp_scalar_data pE[Validator::s_Max + 1];
+    Env::GenerateKernelAdvanced(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, pSigs, nSigs, "bridge import", nCharge, msg2.m_hMin, msg2.m_hMin + Msg::s_dh, pkBlind, msg2.m_TotalNonce, pE[0], iSlotKrnBlind, iSlotKrnNonce, pE);
+
+    s1.Import(pE[0]); // challenge for our key
+    ctx.m_kid.get_Blind(s0, s1, iSlotKeyNonce);
+
+    Env::WriteStr("waiting for validator signatures...", Stream::Out);
+
+    for (uint32_t nMskRemaining = arg.m_ApproveMask; ; )
+    {
+        Env::Comm_WaitMsg(0);
+
+        Msg::Signature msgIn;
+        uint32_t nRet = Env::Comm_Read(&msgIn, sizeof(msgIn), nullptr, 0);
+        if (nRet < sizeof(msgIn))
+            continue;
+
+        if (msgIn.s_OpCode != msgIn.m_OpCode)
+            continue;
+
+        if (msgIn.m_iValidator >= vals.m_Count)
+            continue;
+
+        uint32_t msk = 1u << msgIn.m_iValidator;
+        if (!(nMskRemaining & msk))
+            continue;
+
+        if (!s1.Import(msgIn.m_k))
+            continue;
+
+        s0 += s1;
+
+        nMskRemaining &= ~msk;
+        if (!nMskRemaining)
+            break;
+    }
+
+    // final call
+    s0.Export(pE[0]);
+    Env::GenerateKernelAdvanced(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, pSigs, nSigs, "bridge import", nCharge, msg2.m_hMin, msg2.m_hMin + Msg::s_dh, pkBlind, msg2.m_TotalNonce, pE[0], iSlotKrnBlind, iSlotKrnNonce, nullptr);
 }
 
 void OnBridgeL2(L2Tst1_bridge_op_base(THE_FIELD) uint32_t iMethod, uint8_t consume, const char* szComment)

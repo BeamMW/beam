@@ -54,7 +54,7 @@ struct Validators
 
     bool IsQuorumReached(uint32_t n) const
     {
-        return n * 3 > m_Number * 2;
+        return Validator::IsQuorumReached(n, m_Number);
     }
 
     void Load()

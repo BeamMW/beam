@@ -283,6 +283,7 @@ namespace beam {
 		Entry::Owner::Map m_mapEntries;
 		Entry::Mru::List m_Mru;
 		ContractID m_cidBridgeL1;
+		uint32_t m_iWhiteValidator;
 
 		void Delete(Entry&);
 		void ShrinkMru(uint32_t);

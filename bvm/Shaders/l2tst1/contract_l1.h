@@ -32,6 +32,11 @@ namespace L2Tst1_L1
 
         PubKey m_pk;
         //Amount m_Stake;
+
+        static bool IsQuorumReached(uint32_t nCount, uint32_t nTotal)
+        {
+            return nCount * 3 > nTotal * 2;
+        }
     };
 
     struct State
@@ -118,6 +123,7 @@ namespace L2Tst1_L1
             macro(PubKey, pkBbs)
 
 #define L2Tst1_Msg_Nonce(macro) \
+            macro(uint32_t, iValidator) \
             macro(Secp_point_data, m_Nonce)
 
 #define L2Tst1_Msg_GetSignature(macro) \
@@ -130,6 +136,7 @@ namespace L2Tst1_L1
             macro(uint32_t, nCharge)
 
 #define L2Tst1_Msg_Signature(macro) \
+            macro(uint32_t, iValidator) \
             macro(Secp_scalar_data, k)
 
 #define L2Tst1_Msgs_ToValidator(macro) \
@@ -146,6 +153,7 @@ namespace L2Tst1_L1
             :public Base \
         { \
             static const uint8_t s_OpCode = opcode; \
+            name() { m_OpCode = s_OpCode; } \
             L2Tst1_Msg_##name(MACRO_PARDECL) \
         };
 
