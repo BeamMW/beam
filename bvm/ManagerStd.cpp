@@ -206,6 +206,7 @@ namespace bvm2 {
 				r.m_Msg.m_PosMin = m_LastPos = clr.m_Pos;
 
 				m_LastKey = clr.m_Key;
+				m_LastVal = clr.m_Val;
 				m_LastPos = clr.m_Pos;
 
 				m_Consumed = m_Buf.size() - clr.m_Inp.n;
