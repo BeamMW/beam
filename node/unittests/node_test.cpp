@@ -1845,17 +1845,15 @@ namespace beam
 			r.m_Pbft.m_RequiredWhite = 1;
 			r.m_Pbft.m_vE.resize(2);
 
-			ECC::Scalar::Native sk;
-
-			node.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
-			r.m_Pbft.m_vE[0].m_Addr.FromSk(sk);
 			r.m_Pbft.m_vE[0].m_Stake = Rules::Coin * 700;
 			r.m_Pbft.m_vE[0].m_White = false;
-
-			node2.m_Keys.m_pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
-			r.m_Pbft.m_vE[1].m_Addr.FromSk(sk);
 			r.m_Pbft.m_vE[1].m_Stake = Rules::Coin * 700;
 			r.m_Pbft.m_vE[1].m_White = true;
+
+			ECC::Scalar::Native sk;
+
+			Block::Pbft::DeriveValidatorAddress(*node.m_Keys.m_pMiner, r.m_Pbft.m_vE[0].m_Addr, sk);
+			Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, r.m_Pbft.m_vE[1].m_Addr, sk);
 
 			r.DA.Target_ms = 576;
 			r.UpdateChecksum();
