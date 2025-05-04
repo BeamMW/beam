@@ -3174,13 +3174,12 @@ namespace
             if (CoinID(Zero).get_ChildKdfIndex(idxMiner))
                 pMiner = MasterKey::get_Child(*pMiner, idxMiner);
 
-            ECC::Scalar::Native sk;
-            pMiner->DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
-
             auto& v = pars.m_RulesL2.m_Pbft.m_vE[i];
-            v.m_Addr.FromSk(sk);
             v.m_Stake = Rules::Coin * 5000;
             v.m_White = true;
+
+            ECC::Scalar::Native sk;
+            Block::Pbft::DeriveValidatorAddress(*pMiner, v.m_Addr, sk);
         }
 
         int completedCount = 0;

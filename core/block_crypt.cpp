@@ -2911,6 +2911,12 @@ namespace beam
 		}
 	}
 
+	void Block::Pbft::DeriveValidatorAddress(Key::IKdf& kdf, Block::Pbft::Address& addr, ECC::Scalar::Native& sk)
+	{
+		kdf.DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
+		addr.FromSk(sk);
+	}
+
 	/////////////
 	// Block
 

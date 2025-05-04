@@ -1699,6 +1699,8 @@ namespace beam
 
 			typedef PeerID Address;
 
+			static void DeriveValidatorAddress(Key::IKdf&, Address&, ECC::Scalar::Native& sk);
+
 			struct Validator
 				:public boost::intrusive::list_base_hook<>
 			{

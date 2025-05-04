@@ -1902,6 +1902,15 @@ namespace
         ks.ExportS(*pKey);
         cout << boost::format(kSubKeyInfo) % subKey % ks.m_sRes << std::endl;
 
+        if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+        {
+            ECC::Scalar::Native sk;
+            PeerID addr;
+            Block::Pbft::DeriveValidatorAddress(*pKey, addr, sk);
+
+            std::cout << "Validator address: " << addr.str() << std::endl;
+        }
+
         return 0;
     }
 

@@ -1059,8 +1059,7 @@ void Node::Initialize()
 	{
 		if (m_Keys.m_pMiner)
 		{
-			m_Keys.m_pMiner->DeriveKey(m_Keys.m_Validator.m_sk, Key::ID(0, Key::Type::Coinbase));
-			m_Keys.m_Validator.m_Addr.FromSk(m_Keys.m_Validator.m_sk);
+			Block::Pbft::DeriveValidatorAddress(*m_Keys.m_pMiner, m_Keys.m_Validator.m_Addr, m_Keys.m_Validator.m_sk);
 			BEAM_LOG_INFO() << "Validator ID=" << m_Keys.m_Validator.m_Addr;
 		}
 		else
