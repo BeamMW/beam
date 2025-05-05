@@ -96,7 +96,7 @@ namespace {
         SSLContext::Ptr clientCtx = SSLContext::create_client_context((clientCertName.empty() ? nullptr : clientCert.certFileName.c_str())
                                                                     , (clientCertName.empty() ? nullptr : clientCert.certKeyFileName.c_str()), rejectUnauthorized);
 
-        const char* CAfile = PROJECT_SOURCE_DIR "/utility/unittest/beam_CA.pem";
+        const char* CAfile = PROJECT_SOURCE_DIR "/utility/unittest/beam_CA.crt";
         setup_test_CA(serverCtx->get(), CAfile);
         setup_test_CA(clientCtx->get(), CAfile);
 
