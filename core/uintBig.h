@@ -355,6 +355,26 @@ namespace beam
 			_Print(x.m_pData, x.nBytes, s);
 			return s;
 		}
+
+		// print fully, without truncation
+		void PrintFull(std::ostream& s) const
+		{
+			_PrintFull(m_pData, nBytes, s);
+		}
+
+		struct Full
+		{
+			const uintBig_t& m_Me;
+			Full(const uintBig_t& x) :m_Me(x) {}
+
+			friend std::ostream& operator << (std::ostream& s, const Full& x)
+			{
+				x.m_Me.PrintFull(s);
+				return s;
+			}
+		};
+
+		Full full() const { return Full(*this); }
 	};
 
 	template <>
