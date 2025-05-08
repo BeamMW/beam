@@ -107,6 +107,9 @@ namespace beam::wallet::imp
                         case Rules::Network::masternet:
                             config.bootstrap.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                             BEAM_LOG_INFO() << "Default MASTERNET IPFS bootstrap is used";
+
+                        default:
+                            break; // suppress warning
                         }
 
                     }
@@ -140,6 +143,9 @@ namespace beam::wallet::imp
                             config.peering.emplace_back("/ip4/3.19.32.148/tcp/38041/p2p/12D3KooWFrigFK9gVvCr7YDNNAAxDxmeyLDtR1tYvHcaXxuCcKpt");
                             BEAM_LOG_INFO() << "Default MASTERNET IPFS peering is used";
                             break;
+
+                        default:
+                            break; // suppress warning
                         }
                     }
                     else
@@ -167,6 +173,9 @@ namespace beam::wallet::imp
                             config.swarm_key = "/key/swarm/psk/1.0.0/\n/base16/\n18502580a0f94a74eeb1bdd651e4235d0d9139b7baf3555716bc919619bb8ac4";
                             BEAM_LOG_INFO() << "Default IPFS MASTERNET swarm key would be used";
                             break;
+
+                        default:
+                            break; // suppress warning
                         }
                     }
                     else

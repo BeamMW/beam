@@ -2289,6 +2289,8 @@ namespace beam::wallet
             case Rules::Network::mainnet: return "https://apps.beam.mw/appslist.json";
             case Rules::Network::dappnet: return "https://apps-dappnet.beam.mw/app/appslist.json";
             case Rules::Network::masternet: return "http://3.19.32.148/app/appslist.json"; // none of the above
+            default:
+                break; // suppress warning
             }
             return "";
         }
