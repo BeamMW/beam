@@ -2328,7 +2328,7 @@ namespace beam
 		case Network::dappnet2:
 
 			for (uint32_t i = 1; i < 7; i++)
-				pForks[i].m_Height = 0;
+				pForks[i].m_Height = 1;
 
 			m_Consensus = Consensus::Pbft;
 			DA.Target_ms = 15'000;
