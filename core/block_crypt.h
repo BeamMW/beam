@@ -417,7 +417,9 @@ namespace beam
 		macro(mainnet) \
 		macro(masternet) \
 		macro(testnet) \
-		macro(dappnet)
+		macro(dappnet) \
+		macro(dappnet2) \
+		macro(l2_test1) \
 
 		enum struct Network
 		{
