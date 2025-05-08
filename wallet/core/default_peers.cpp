@@ -72,6 +72,10 @@ namespace beam
                 Arr2Vec(result, psz, _countof(psz));
             }
             break;
+
+        default:
+            break; // suppress warning
+
         }
 
         return result;
