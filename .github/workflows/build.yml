@@ -18,7 +18,6 @@ jobs:
 
     steps:  
       - name: Checkout 
-        if: matrix.os != 'ubuntu-18.04'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0      
@@ -40,7 +39,7 @@ jobs:
 
       - name: Create Build Environment [ununtu all]
         shell: bash
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install libssl-dev curl libxi-dev libcups2-dev -y
@@ -59,7 +58,7 @@ jobs:
         shell: bash
         run: |
           rm -rf ${{runner.workspace}}/boost_prebuild
-          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
+          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 
@@ -72,7 +71,7 @@ jobs:
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
       - name: Configure CMake [ununtu all]
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
@@ -98,7 +97,7 @@ jobs:
 
       - name: Build [ununtu all]
         shell: bash
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: make -j$(nproc)
 
       - name: Build [windows]
@@ -115,7 +114,7 @@ jobs:
         run: ctest -C $BUILD_TYPE --verbose
 
       - name: Test [ununtu all]
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         continue-on-error: false
         shell: bash
         run: ctest --verbose
@@ -148,7 +147,7 @@ jobs:
           codesign --deep --force -v -s "${{secrets.MACOS_SIGN_IDENTITY}}" -o runtime --timestamp bvm/ethash_service/ethash-service
 
       - name: Checksum [ubuntu]
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: |
           sha256sum beam/beam-node > beam/beam-node-checksum.txt
           sha256sum wallet/cli/beam-wallet > wallet/cli/beam-wallet-checksum.txt
@@ -227,7 +226,7 @@ jobs:
 
       - name: OS name [ununtu all]
         shell: bash
-        if: matrix.os == 'ubuntu-20.04' || matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: echo "PLATFORM_NAME=linux" >> $GITHUB_ENV
         
       - name: OS name [windows]
@@ -536,7 +535,7 @@ jobs:
       - name: Download boost
         shell: bash
         run: |
-          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
+          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_${{matrix.os}}.git ${{runner.workspace}}/boost_prebuild
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 

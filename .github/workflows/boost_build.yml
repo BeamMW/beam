@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        os: [ubuntu-24.04, ubuntu-22.04]
 
     steps:
       - name: Create Build Environment
@@ -50,16 +50,6 @@ jobs:
         run: |
           mkdir ${{runner.workspace}}/boost_prebuild
           sudo apt-get update
-
-      - name: Create Build Environment [ubuntu 16.04]
-        shell: bash
-        if: matrix.os == 'ubuntu-16.04'
-        run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install g++-7
-          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
-          sudo update-alternatives --set gcc "/usr/bin/gcc-7"
 
       - name: Download
         shell: bash
