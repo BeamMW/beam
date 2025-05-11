@@ -5749,7 +5749,7 @@ void Node::Validator::OnNewState()
 	auto& p = get_ParentObj().m_Processor; // alias
 	if (!p.IsTreasuryHandled() || p.IsFastSync())
 	{
-		m_iRound = std::numeric_limits<uint32_t>::max();
+		m_iRound = std::numeric_limits<uint64_t>::max();
 		return;
 	}
 
@@ -5770,17 +5770,17 @@ void Node::Validator::OnNewState()
 	KillTimer();
 
 	m_pMe = p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false);
-	m_iRound = std::numeric_limits<uint32_t>::max();
+	m_iRound = std::numeric_limits<uint64_t>::max();
 
 	PBFT_LOG(TRACE, "tip=" << m_Anchor << " iSlot0=" << m_iSlot0);
 
 	OnNewRound();
 }
 
-uint32_t Node::Validator::CalculateRound(uint64_t iSlot) const
+uint64_t Node::Validator::CalculateRound(uint64_t iSlot) const
 {
 	assert(iSlot > m_iSlot0);
-	return static_cast<uint32_t>(iSlot - m_iSlot0 - 1);
+	return iSlot - m_iSlot0 - 1;
 }
 
 void Node::Validator::OnNewRound()
@@ -5792,17 +5792,15 @@ void Node::Validator::OnNewRound()
 	auto tNow_ms = get_RefTime_ms();
 	uint64_t iSlotNow = Rules::get().m_Pbft.T2S(tNow_ms);
 
-	uint32_t iExpectedRound = static_cast<uint32_t>(m_iRound + 1); // must wrap-around
+	uint64_t iExpectedRound = m_iRound + 1;
+	uint64_t iExpectedSlot = m_iSlot0 + iExpectedRound + 1;
 
-	// compare iSlotNow vs expected time slot modulus 32 bits. Would likely overflow for the very 1st block, take care of this
-	uint32_t dSlot_mod32 = static_cast<uint32_t>(m_iSlot0 + iExpectedRound - iSlotNow);
-	if (dSlot_mod32 < (1u << 31))
+	if (iSlotNow < iExpectedSlot)
 	{
 		// set timer till the next relevant round start
-		SetTimerEx(tNow_ms, iSlotNow + dSlot_mod32 + 1);
+		SetTimerEx(tNow_ms, iExpectedSlot);
 		return;
 	}
-
 
 	m_iRound = CalculateRound(iSlotNow);
 
@@ -5829,7 +5827,7 @@ void Node::Validator::OnNewRound()
 	m_Next.Reset();
 
 	if (!m_Current.m_pLeader)
-		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, m_iRound, m_wTotal);
+		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
 
 	if (m_iRound && (State::None == m_State))
 		Vote(VoteKind::NonCommitted);
@@ -5863,7 +5861,7 @@ void Node::Validator::RoundData::Reset()
 	m_pLeader = nullptr;
 }
 
-void Node::Validator::SetRoundNotCommittedMsg(SigsAndPower& sp, uint32_t iRound)
+void Node::Validator::SetRoundNotCommittedMsg(SigsAndPower& sp, uint64_t iRound)
 {
 	// assume msg already set if there're sigs
 	if (sp.m_Sigs.empty())
@@ -5910,7 +5908,7 @@ void Node::Validator::SignProposal()
 	m_Current.m_Proposal.m_State = Proposal::State::Received;
 
 	// sign the proposal
-	m_Current.m_Proposal.m_Msg.m_iRound = m_iRound;
+	m_Current.m_Proposal.m_Msg.m_iRound = static_cast<uint32_t>(m_iRound);
 
 	Merkle::Hash hv;
 	m_Current.get_LeaderMsg(hv);
@@ -5972,7 +5970,7 @@ void Node::Validator::SendState(Peer& peer) const
 	proto::PbftVote msg;
 	msg.m_iKind = VoteKind::NonCommitted;
 
-	msg.m_iRound = m_iRound;
+	msg.m_iRound = static_cast<uint32_t>(m_iRound);
 	SendSigs(&peer, msg, m_Current.m_spNotCommitted);
 
 	msg.m_iRound++;
@@ -5991,7 +5989,7 @@ void Node::Validator::SendVotes(Peer* pPeer) const
 
 	// votes
 	proto::PbftVote msg;
-	msg.m_iRound = m_iRound;
+	msg.m_iRound = static_cast<uint32_t>(m_iRound);
 
 	msg.m_iKind = VoteKind::PreVote;
 	SendSigs(pPeer, msg, m_Current.m_spPreVoted);
@@ -6060,7 +6058,7 @@ void Node::Validator::Vote(uint8_t iKind)
 		SetRoundNotCommittedMsg(sp, m_iRound);
 
 	proto::PbftVote msg;
-	msg.m_iRound = m_iRound;
+	msg.m_iRound = static_cast<uint32_t>(m_iRound);
 	msg.m_iKind = iKind;
 	msg.m_Address = v.m_Addr;
 	Sign(msg.m_Signature, sp.m_hv);
@@ -6076,8 +6074,8 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (src.m_Tip != p.m_Cursor.m_Full)
 		return;
 
-	bool bCurrent = (msg.m_iRound == m_iRound);
-	if (!bCurrent && (msg.m_iRound != m_iRound + 1))
+	bool bCurrent = (msg.m_iRound == static_cast<uint32_t>(m_iRound));
+	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
 		return; // irrelevant
 
 	PBFT_LOG(TRACE, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " current=" << bCurrent);
@@ -6087,10 +6085,11 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 
 	if (VoteKind::NonCommitted == msg.m_iKind)
 	{
-		if (!msg.m_iRound)
-			return; // non-commit for round 0 is implicit
+		uint64_t iRound = m_iRound + !bCurrent; // use non-truncated var (64 bit)
+		if (!iRound)
+			return; // non-commit for round 0 is implicit. Check non-truncated (64bit) var, not the msg field
 
-		SetRoundNotCommittedMsg(sp, msg.m_iRound);
+		SetRoundNotCommittedMsg(sp, iRound); // use non-truncated var
 	}
 	else
 	{
@@ -6139,11 +6138,14 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 		src.ThrowUnexpected("invalid proposal slot");
 
 	auto iRound_by_ts = CalculateRound(iSlot);
-	if (msg.m_iRound < iRound_by_ts) // msg round number can only be bigger, iff retransmitting older proposal
+
+	// msg round number can only be bigger, iff retransmitting older proposal
+	// check round number by msg not decreased, compared to proposal Hdr
+	if (static_cast<int32_t>(msg.m_iRound - static_cast<uint32_t>(iRound_by_ts)) < 0)
 		src.ThrowUnexpected("invalid round");
 
-	bool bCurrent = (msg.m_iRound == m_iRound);
-	if (!bCurrent && (msg.m_iRound != m_iRound + 1))
+	bool bCurrent = (msg.m_iRound == static_cast<uint32_t>(m_iRound));
+	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
 	{
 		PBFT_LOG(TRACE, "proposal wrong round " << msg.m_iRound);
 		return; // irrelevant
@@ -6211,7 +6213,6 @@ void Node::Validator::CheckProposalCommit()
 
 void Node::Validator::RoundDataBase::get_LeaderMsg(Merkle::Hash& hv) const
 {
-
 	ECC::Hash::Processor()
 		<< "pbft.leader.1"
 		<< m_spCommitted.m_hv
