@@ -791,11 +791,13 @@ private:
 	struct Validator
 	{
 		const Block::Pbft::Validator* m_pMe; // refreshed after each block
+		
+		Validator();
 
 		void OnNewState();
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
-		void OnMsg(const proto::PbftVote&, const Peer&);
+		void OnMsg(proto::PbftVote&&, const Peer&);
 		void SendState(Peer&) const;
 
 		static uint64_t get_RefTime_ms();
@@ -810,52 +812,111 @@ private:
 
 	private:
 
+		HeightHash m_Anchor;
+
+		struct VoteKind {
+			static const uint8_t PreVote = 0;
+			static const uint8_t Commit = 1;
+			static const uint8_t NonCommitted = 2;
+		};
+
+		struct Power
+		{
+			uint64_t m_wVoted = 0;
+			uint32_t m_nWhite = 0;
+
+			void Add(const Block::Pbft::Validator&);
+			bool IsMajorityReached(uint64_t wTotal) const;
+
+			void Reset() { *this = Power(); }
+		};
+
 		struct SigsAndPower
 		{
 			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
-			uint64_t m_wVoted;
-			uint32_t m_nWhite;
+			Power m_Power;
 			Merkle::Hash m_hv;
 
 			void Add(const Block::Pbft::Validator&, const ECC::Signature&);
+
+			void Reset()
+			{
+				m_Power.Reset();
+				m_Sigs.clear();
+			}
 		};
 
-		struct RoundData
-			:public intrusive::set_base_hook<uint32_t>
-		{
-			const Block::Pbft::Validator* m_pLeader;
+		uint32_t m_iRound;
 
-			proto::PbftProposal m_Proposal;
+		struct Proposal
+		{
+			proto::PbftProposal m_Msg;
+
+			enum struct State {
+				None,
+				Received,
+				Accepted
+			} m_State;
+		};
+
+		struct RoundDataBase
+		{
+			Proposal m_Proposal;
 			SigsAndPower m_spPreVoted;
 			SigsAndPower m_spCommitted;
 
-			typedef intrusive::multiset_autoclear<RoundData> Map;
-
-			void SetProposalHashes();
-			void SendVotes(Peer&) const;
-
-		private:
-			void SendVotes2(Peer&, proto::PbftVote&, const SigsAndPower&) const;
+			void Reset();
+			void SetHashes();
+			void get_LeaderMsg(Merkle::Hash&) const;
 		};
 
+		struct RoundData
+			:public RoundDataBase
+		{
+			const Block::Pbft::Validator* m_pLeader;
+			SigsAndPower m_spNotCommitted; // at the round start
+			void Reset();
 
-		RoundData::Map m_mapRounds;
-		RoundData* m_pCommitted = nullptr;
+			SigsAndPower& get_ForKind(uint8_t iKind);
+		};
+		
+		RoundData m_Current;
+		RoundData m_Next; // some peers may send data a little too early, we'll accumulate them before processing
+
+		RoundDataBase m_FutureCandidate;
+
+		Merkle::Hash m_hvCommitted;
+
 		uint64_t m_iSlot0;
 		uint64_t m_wTotal;
-		bool m_QuorumReached;
+
+		enum struct State {
+			None,
+			Committed,
+			QuorumReached,
+		} m_State;
 
 		void OnNewRound();
-		void OnProposalAccepted(RoundData&, const Peer*);
-		void CheckState(RoundData&);
+		void GenerateProposal();
+		void SignProposal();
+		uint32_t CalculateRound(uint64_t iSlot) const;
+		void OnProposalReceived(const Peer*);
+		void CheckProposalCommit();
+		void SendVotes(Peer*) const;
+		void CheckState();
+		bool ShouldAcceptProposal() const;
 		bool IsProposalRelevant(const Block::SystemState::Full&) const;
 		void OnQuorumReached();
-		void Vote(RoundData&, bool bCommit);
-		bool CreateProposal(RoundData&, uint64_t iSlot);
-		uint32_t CalculateRound(uint64_t iSlot) const;
+		void Vote(uint8_t iKind);
+		bool CreateProposal();
+		void SetRoundNotCommittedMsg(SigsAndPower&, uint32_t iRound);
+		void Sign(ECC::Signature&, const Merkle::Hash&);
 
 		template <typename TMsg>
-		void Broadcast(const TMsg&, const Peer* pSrc);
+		void SendSigs(Peer*, TMsg&, const SigsAndPower&) const;
+
+		template <typename TMsg>
+		void Broadcast(const TMsg&, const Peer* pSrc) const;
 
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;

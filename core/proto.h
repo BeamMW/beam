@@ -303,15 +303,16 @@ namespace proto {
     macro(Merkle::Proof, Proof)
 
 #define BeamNodeMsg_PbftProposal(macro) \
+    macro(uint32_t, iRound) \
+    macro(ECC::Signature, Signature) \
     macro(Block::SystemState::Full, Hdr) \
-    macro(BodyBuffers, Body) \
-    macro(ECC::Signature, Signature)
+    macro(BodyBuffers, Body)
 
 #define BeamNodeMsg_PbftVote(macro) \
     macro(uint32_t, iRound) \
-    macro(bool, Commit) \
-    macro(Block::Pbft::Address, Address) \
-    macro(ECC::Signature, Signature)
+    macro(ECC::Signature, Signature) \
+    macro(uint8_t, iKind) \
+    macro(Block::Pbft::Address, Address)
 
 #define BeamNodeMsg_PbftStamp(macro) \
     macro(ByteBuffer, vSer)
