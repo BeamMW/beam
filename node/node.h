@@ -130,6 +130,7 @@ struct Node
 		struct TestMode {
 			// for testing only!
 			uint32_t m_FakePowSolveTime_ms = 0;
+			uint32_t m_TimeDrift_ms = 0;
 
 		} m_TestMode;
 
@@ -800,7 +801,7 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void SendState(Peer&) const;
 
-		static uint64_t get_RefTime_ms();
+		uint64_t get_RefTime_ms() const;
 
 		struct Stamp
 		{
