@@ -846,8 +846,6 @@ private:
 			}
 		};
 
-		uint32_t m_iRound;
-
 		struct Proposal
 		{
 			proto::PbftProposal m_Msg;
@@ -888,6 +886,7 @@ private:
 		Merkle::Hash m_hvCommitted;
 
 		uint64_t m_iSlot0;
+		uint64_t m_iRound;
 		uint64_t m_wTotal;
 
 		enum struct State {
@@ -899,7 +898,7 @@ private:
 		void OnNewRound();
 		void GenerateProposal();
 		void SignProposal();
-		uint32_t CalculateRound(uint64_t iSlot) const;
+		uint64_t CalculateRound(uint64_t iSlot) const;
 		void OnProposalReceived(const Peer*);
 		void CheckProposalCommit();
 		void SendVotes(Peer*) const;
@@ -909,7 +908,7 @@ private:
 		void OnQuorumReached();
 		void Vote(uint8_t iKind);
 		bool CreateProposal();
-		void SetRoundNotCommittedMsg(SigsAndPower&, uint32_t iRound);
+		void SetRoundNotCommittedMsg(SigsAndPower&, uint64_t iRound);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 
 		template <typename TMsg>
