@@ -1708,10 +1708,7 @@ thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main() 
 {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#endif
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     auto logger = beam::Logger::create(logLevel, logLevel);
     ECC::InitializeContext();
 

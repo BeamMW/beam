@@ -242,10 +242,7 @@ int test_two_nodes() {
 int main(int argc, char* argv[]) {
     using namespace beam;
 
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#endif
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     auto logger = Logger::create(logLevel, logLevel);
     logger->set_header_formatter(
         [](char* buf, size_t maxSize, const char* timestampFormatted, const LogMessageHeader& header) -> size_t {
