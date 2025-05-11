@@ -1649,6 +1649,12 @@ namespace beam
 		ECC::SetRandom(node);
 		ECC::SetRandom(node2);
 
+		// theoretically Beacon shold allow node discovery. For some reason it doesn't work for macos test.
+		// To fix the build we're adding a direct connection parameters. Beacon is not widely used anyway
+		node2.m_Cfg.m_Connect.resize(1);
+		node2.m_Cfg.m_Connect[0].resolve("127.0.0.1");
+		node2.m_Cfg.m_Connect[0].port(g_Port);
+
 		node.Initialize();
 		node2.Initialize();
 
