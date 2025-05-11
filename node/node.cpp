@@ -6392,11 +6392,11 @@ bool Node::Validator::CreateProposal()
 	return bRes;
 }
 
-uint64_t Node::Validator::get_RefTime_ms()
+uint64_t Node::Validator::get_RefTime_ms() const
 {
 	using namespace std::chrono;
 	auto tNow = system_clock::now().time_since_epoch();
-	return duration_cast<milliseconds>(tNow).count();
+	return duration_cast<milliseconds>(tNow).count() + get_ParentObj().m_Cfg.m_TestMode.m_TimeDrift_ms;
 }
 
 void Node::Validator::OnTimer()
