@@ -5721,16 +5721,6 @@ void Node::GenerateFakeBlocks(uint32_t n)
 ///////////////////
 // Pbft
 
-//#define PBFT_LOG(level, expr) \
-//do { \
-//	std::cout << "*** pbft me="; \
-//	if (m_pMe) \
-//		std::cout << m_pMe->m_Addr.m_Key; \
-//	else \
-//		std::cout << uintBigFrom((size_t) this); \
-//	std::cout  << " iRound " << m_iRound << " " expr << std::endl; \
-//} while (false)
-
 #define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
 
 Node::Validator::Validator()
