@@ -6159,7 +6159,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	if (!rd.m_pLeader)
 	{
-		rd.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, rd.m_Proposal.m_Msg.m_iRound, m_wTotal);
+		rd.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, msg.m_iRound, m_wTotal);
 		if (!rd.m_pLeader)
 			return;
 	}
