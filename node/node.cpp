@@ -5731,7 +5731,7 @@ void Node::GenerateFakeBlocks(uint32_t n)
 //	std::cout  << " iRound " << m_iRound << " " expr << std::endl; \
 //} while (false)
 
-#define PBFT_LOG(level, expr) BEAM_LOG_##level() << expr
+#define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
 
 Node::Validator::Validator()
 {
