@@ -1704,7 +1704,7 @@ namespace beam
 					++m_iNode %= _countof(m_ppNode);
 				}
 				else
-					if (m_WaitingCycles++ > 100)
+					if (m_WaitingCycles++ > 60)
 					{
 						fail_test("Blockchain height didn't reach target");
 						io::Reactor::get_Current().stop();
