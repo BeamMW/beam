@@ -544,14 +544,8 @@ void testAtomicSwap(const boost::program_options::variables_map& vm)
 }
 
 int main(int argc, char* argv[]) try {
-    int logLevel{};
-
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#else
-    logLevel = BEAM_LOG_LEVEL_DEBUG;
-#endif
-
+    
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     auto logger = Logger::create(logLevel, logLevel);
     /*
      -create senderAddress receiverAddress secretStr amount locktime

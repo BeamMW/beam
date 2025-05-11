@@ -32,14 +32,7 @@ const uint16_t PORT = 18443;
 }
 
 int main() try {
-    int logLevel{};
-
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#else
-    logLevel = BEAM_LOG_LEVEL_DEBUG;
-#endif
-
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     auto logger = Logger::create(logLevel, logLevel);
     io::Reactor::Ptr reactor = io::Reactor::create();
     HttpClient client(*reactor);

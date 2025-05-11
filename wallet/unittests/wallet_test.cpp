@@ -5417,10 +5417,7 @@ thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
 {
-    int logLevel = BEAM_LOG_LEVEL_WARNING; 
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#endif
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = beam::Logger::create(logLevel, logLevel, logLevel, "wallet_test", path.string());
 

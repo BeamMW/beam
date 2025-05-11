@@ -263,10 +263,7 @@ int http_server_test(bool ssl) {
 } //namespace
 
 int main() {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#endif
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     auto logger = Logger::create(logLevel, logLevel);
     int r = http_server_test(true);
 

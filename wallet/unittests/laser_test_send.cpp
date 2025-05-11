@@ -38,10 +38,7 @@ const Amount kTransferFirst = 2000000;
 
 int main()
 {
-    int logLevel = BEAM_LOG_LEVEL_DEBUG;
-#if LOG_VERBOSE_ENABLED
-    logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#endif
+    const int logLevel = BEAM_LOG_LEVEL_VERBOSE;
     const auto path = boost::filesystem::system_complete("logs");
     auto logger = Logger::create(logLevel, logLevel, logLevel, "laser_test", path.string());
 
