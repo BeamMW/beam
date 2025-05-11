@@ -5777,16 +5777,8 @@ void Node::Validator::OnNewState()
 	OnNewRound();
 }
 
-uint64_t Node::Validator::CalculateRound(uint64_t iSlot) const
-{
-	assert(iSlot > m_iSlot0);
-	return iSlot - m_iSlot0 - 1;
-}
-
 void Node::Validator::OnNewRound()
 {
-	auto& p = get_ParentObj().m_Processor; // alias
-
 	assert(!m_bTimerPending);
 
 	auto tNow_ms = get_RefTime_ms();
@@ -5802,7 +5794,7 @@ void Node::Validator::OnNewRound()
 		return;
 	}
 
-	m_iRound = CalculateRound(iSlotNow);
+	m_iRound = iSlotNow - m_iSlot0 - 1;
 
 	SetTimerEx(tNow_ms, iSlotNow + 1);
 
@@ -5827,7 +5819,10 @@ void Node::Validator::OnNewRound()
 	m_Next.Reset();
 
 	if (!m_Current.m_pLeader)
+	{
+		auto& p = get_ParentObj().m_Processor; // alias
 		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
+	}
 
 	if (m_iRound && (State::None == m_State))
 		Vote(VoteKind::NonCommitted);
@@ -6137,7 +6132,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	if (iSlot <= m_iSlot0)
 		src.ThrowUnexpected("invalid proposal slot");
 
-	auto iRound_by_ts = CalculateRound(iSlot);
+	auto iRound_by_ts = iSlot - m_iSlot0 - 1;
 
 	// msg round number can only be bigger, iff retransmitting older proposal
 	// check round number by msg not decreased, compared to proposal Hdr

@@ -898,7 +898,6 @@ private:
 		void OnNewRound();
 		void GenerateProposal();
 		void SignProposal();
-		uint64_t CalculateRound(uint64_t iSlot) const;
 		void OnProposalReceived(const Peer*);
 		void CheckProposalCommit();
 		void SendVotes(Peer*) const;
