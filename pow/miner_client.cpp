@@ -286,13 +286,9 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     ;
 
 #ifdef NDEBUG
-    o.logLevel = BEAM_LOG_LEVEL_DEBUG;
+    o.logLevel = BEAM_LOG_LEVEL_INFO;
 #else
-#if LOG_VERBOSE_ENABLED
     o.logLevel = BEAM_LOG_LEVEL_VERBOSE;
-#else
-    o.logLevel = BEAM_LOG_LEVEL_DEBUG;
-#endif
 #endif
 
     po::variables_map vm;
