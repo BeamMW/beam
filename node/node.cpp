@@ -5720,15 +5720,18 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 ///////////////////
 // Pbft
-#define PBFT_LOG(level, expr) \
-do { \
-	std::cout << "*** pbft me="; \
-	if (m_pMe) \
-		std::cout << m_pMe->m_Addr.m_Key; \
-	else \
-		std::cout << uintBigFrom((size_t) this); \
-	std::cout  << " iRound " << m_iRound << " " expr << std::endl; \
-} while (false)
+
+//#define PBFT_LOG(level, expr) \
+//do { \
+//	std::cout << "*** pbft me="; \
+//	if (m_pMe) \
+//		std::cout << m_pMe->m_Addr.m_Key; \
+//	else \
+//		std::cout << uintBigFrom((size_t) this); \
+//	std::cout  << " iRound " << m_iRound << " " expr << std::endl; \
+//} while (false)
+
+#define PBFT_LOG(level, expr) BEAM_LOG_##level() << expr
 
 Node::Validator::Validator()
 {
@@ -5772,7 +5775,7 @@ void Node::Validator::OnNewState()
 	m_pMe = p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false);
 	m_iRound = std::numeric_limits<uint64_t>::max();
 
-	PBFT_LOG(TRACE, "tip=" << m_Anchor << " iSlot0=" << m_iSlot0);
+	//PBFT_LOG(TRACE, "tip=" << m_Anchor << " iSlot0=" << m_iSlot0);
 
 	OnNewRound();
 }
@@ -5829,7 +5832,7 @@ void Node::Validator::OnNewRound()
 
 	if ((Proposal::State::None == m_Current.m_Proposal.m_State) && (Proposal::State::None != m_FutureCandidate.m_Proposal.m_State) && (m_Current.m_pLeader == m_pMe))
 	{
-		PBFT_LOG(TRACE, "reusing past proposal");
+		//PBFT_LOG(TRACE, "reusing past proposal");
 
 		Cast::Down<RoundDataBase>(m_Current) = std::move(m_FutureCandidate);
 		m_FutureCandidate.Reset();
@@ -5883,7 +5886,7 @@ void Node::Validator::GenerateProposal()
 	// theoretically can generate it before receiving enough NotCommitted msgs, but no reason to do it
 	if (!ShouldAcceptProposal())
 	{
-		PBFT_LOG(TRACE, "not ready to propose");
+		//PBFT_LOG(TRACE, "not ready to propose");
 		return;
 	}
 
@@ -5908,6 +5911,8 @@ void Node::Validator::SignProposal()
 	Merkle::Hash hv;
 	m_Current.get_LeaderMsg(hv);
 	Sign(m_Current.m_Proposal.m_Msg.m_Signature, hv);
+
+	//PBFT_LOG(TRACE, "signed proposal " << m_Current.m_spCommitted.m_hv << ", msg " << hv);
 }
 
 bool Node::Validator::ShouldAcceptProposal() const
@@ -6047,7 +6052,7 @@ void Node::Validator::Vote(uint8_t iKind)
 	if (sp.m_Sigs.end() != it)
 		return; // already voted
 
-	PBFT_LOG(TRACE, "voted " << static_cast<uint32_t>(iKind));
+	//PBFT_LOG(TRACE, "voted " << static_cast<uint32_t>(iKind));
 
 	if (VoteKind::NonCommitted == iKind)
 		SetRoundNotCommittedMsg(sp, m_iRound);
@@ -6073,7 +6078,7 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
 		return; // irrelevant
 
-	PBFT_LOG(TRACE, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " current=" << bCurrent);
+	//PBFT_LOG(TRACE, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " current=" << bCurrent);
 
 	auto& rd = bCurrent ? m_Current : m_Next;
 	auto& sp = rd.get_ForKind(msg.m_iKind);
@@ -6107,7 +6112,7 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 
 	// ok
 	sp.Add(itV->get_ParentObj(), msg.m_Signature);
-	PBFT_LOG(TRACE, "vote accepted");
+	//PBFT_LOG(TRACE, "vote accepted");
 
 	Broadcast(msg, &src);
 
@@ -6142,11 +6147,11 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	bool bCurrent = (msg.m_iRound == static_cast<uint32_t>(m_iRound));
 	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
 	{
-		PBFT_LOG(TRACE, "proposal wrong round " << msg.m_iRound);
+		//PBFT_LOG(TRACE, "proposal wrong round " << msg.m_iRound);
 		return; // irrelevant
 	}
 
-	PBFT_LOG(TRACE, "proposal current=" << bCurrent);
+	//PBFT_LOG(TRACE, "proposal current=" << bCurrent);
 
 	auto& rd = bCurrent ? m_Current : m_Next;
 	if (Proposal::State::None != rd.m_Proposal.m_State)
@@ -6189,7 +6194,7 @@ void Node::Validator::OnProposalReceived(const Peer* pSrc)
 {
 	assert(Proposal::State::Received == m_Current.m_Proposal.m_State);
 
-	PBFT_LOG(INFO, "proposal received " << m_Current.m_spCommitted.m_hv);
+	//PBFT_LOG(INFO, "proposal received " << m_Current.m_spCommitted.m_hv);
 
 	Broadcast(m_Current.m_Proposal.m_Msg, pSrc);
 	SendVotes(nullptr);
@@ -6242,7 +6247,7 @@ void Node::Validator::CheckState()
 
 		m_Current.m_Proposal.m_State = Proposal::State::Accepted;
 
-		PBFT_LOG(INFO, "proposal accepted");
+		//PBFT_LOG(INFO, "proposal accepted");
 
 		if (State::None == m_State)
 			Vote(VoteKind::PreVote);
@@ -6252,7 +6257,7 @@ void Node::Validator::CheckState()
 	{
 		Vote(VoteKind::Commit);
 
-		PBFT_LOG(TRACE, "committed");
+		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
 		m_hvCommitted = m_Current.m_spCommitted.m_hv;
 	}
