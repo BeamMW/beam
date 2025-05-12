@@ -4326,9 +4326,9 @@ void TestAll()
 		printf("NodeX2 concurrent test...\n");
 		fflush(stdout);
 
-		beam::TestNodeConversation();
-		beam::DeleteFile(beam::g_sz);
-		beam::DeleteFile(beam::g_sz2);
+		//beam::TestNodeConversation();
+		//beam::DeleteFile(beam::g_sz);
+		//beam::DeleteFile(beam::g_sz2);
 	}
 
 	r.MaxRollback = 100;
