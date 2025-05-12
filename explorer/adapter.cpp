@@ -714,6 +714,7 @@ private:
     json get_status() override {
 
         const auto& c = _nodeBackend.m_Cursor;
+        const Rules& r = Rules::get();
 
         if (Mode::Legacy == m_Mode)
         {
@@ -724,7 +725,7 @@ private:
             {
                 NodeDB& db = _nodeBackend.get_DB();
                 auto shieldedByLast24h = db.ShieldedOutpGet(c.m_Full.m_Height >= 1440 ? c.m_Full.m_Height - 1440 : 1);
-                auto averageWindowBacklog = Rules::get().Shielded.MaxWindowBacklog / 2;
+                auto averageWindowBacklog = r.Shielded.MaxWindowBacklog / 2;
 
                 if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
                 {
@@ -739,12 +740,14 @@ private:
                     { "height", c.m_Full.m_Height },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, c.m_ID.m_Hash) },
-                    { "chainwork",  NiceDecimal::MakeDifficulty(c.m_Full.m_ChainWork).m_sz },
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
                     { "shielded_possible_ready_in_hours", shieldedPer24h ? std::to_string(possibleShieldedReadyHours) : "-" }
             };
+
+            if (Rules::Consensus::Pbft != r.m_Consensus)
+                j["chainwork"] = NiceDecimal::MakeDifficulty(c.m_Full.m_ChainWork).m_sz;
             return j;
         }
 
@@ -752,12 +755,14 @@ private:
 
         jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height)  });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
-        jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
+        if (Rules::Consensus::Pbft != r.m_Consensus)
+            jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
         StateData sd;
         get_StateTotals(sd, _nodeBackend.m_Cursor.m_Sid);
 
-        jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(Rules::get().get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
+        if (Rules::Consensus::Pbft != r.m_Consensus)
+            jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(r.get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
 
         json jInfo = json::array();
         jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTotals(_nodeBackend.m_Cursor.m_Sid, _nodeBackend.m_Cursor.m_Full) });
@@ -2508,6 +2513,8 @@ private:
 
     json MakeTotals(const NodeDB::StateID& sid, const Block::SystemState::Full& s)
     {
+        const Rules& r = Rules::get();
+
         ColFmt::Data sd;
         get_StateTotals(sd, sid);
         sd.m_Hdr.m_Height = s.m_Height; // other fields aren't needed for chain size 
@@ -2521,16 +2528,26 @@ private:
         jInfo.push_back({ MakeTableHdr("Contracts Invoked"), MakeDecimal(sd.m_Totals.m_Contract.get_Sum()).m_sz });
         jInfo.push_back({ MakeTableHdr("Contracts Active"), MakeDecimal(sd.m_Totals.m_Contract.m_Created - sd.m_Totals.m_Contract.m_Destroyed).m_sz });
 
-        jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz });
+        if (Rules::Consensus::Pbft != r.m_Consensus)
+            jInfo.push_back({ MakeTableHdr("Chainwork"), NiceDecimal::MakeDifficulty(s.m_ChainWork).m_sz });
+
         jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(sd.m_Totals.m_Fee) });
 
-        const Rules& r = Rules::get();
         AmountBig::Number valCurrent, valTotal;
-        r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
-        jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
-        r.get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
-        jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valTotal) });
+        if (Rules::Consensus::Pbft != r.m_Consensus)
+        {
+            r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
+            jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
+
+            r.get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
+            jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valTotal) });
+        }
+        else
+        {
+            valTotal = Zero;
+            valCurrent = Zero;
+        }
 
         // size estimation
         jInfo.push_back({ MakeTableHdr("Size Compressed"), MakeDecimal(sd.get_ChainSize(false)).m_sz });
@@ -2670,15 +2687,19 @@ private:
                     {"height",     blockState.m_Height},
                     {"hash",       hash_to_hex(buf, id.m_Hash)},
                     {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                    {"difficulty", blockState.m_PoW.m_Difficulty.ToFloat()},
-                    {"chainwork",  uint256_to_hex(buf, blockState.m_ChainWork)},
-                    {"subsidy",    r.get_Emission(blockState.m_Height)},
                     {"inputs",     inputs},
                     {"outputs",    outputs},
                     {"kernels",    kernels},
                     {"rate_btc",   btcRate},
                     {"rate_usd",   usdRate}
                 };
+
+                if (Rules::Consensus::Pbft != r.m_Consensus)
+                {
+                    out["subsidy"] = r.get_Emission(blockState.m_Height);
+                    out["difficulty"] = blockState.m_PoW.m_Difficulty.ToFloat();
+                    out["chainwork"] = uint256_to_hex(buf, blockState.m_ChainWork);
+                }
             }
             else
             {
@@ -2687,8 +2708,11 @@ private:
                 jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(id.m_Height) });
                 jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
                 jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
-                jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(blockState.m_PoW.m_Difficulty).m_sz });
-                jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(r.get_Emission(blockState.m_Height)) });
+                if (Rules::Consensus::Pbft != r.m_Consensus)
+                {
+                    jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(blockState.m_PoW.m_Difficulty).m_sz });
+                    jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(r.get_Emission(blockState.m_Height)) });
+                }
 
                 struct FeeCalculator :public TxKernel::IWalker {
                     AmountBig::Number m_Fees = Zero;
