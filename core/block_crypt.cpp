@@ -2123,18 +2123,18 @@ namespace beam
 
 	uint32_t Group3Base::Expand(char* szDst, const char* szSrc, uint32_t nSrc)
 	{
-		if (!nSrc)
-			return 0;
-
 		char* szPos = szDst;
-		while (true)
+		if (nSrc)
 		{
-			*szPos++ = *szSrc++;
+			while (true)
+			{
+				*szPos++ = *szSrc++;
 
-			if (!--nSrc)
-				break;
-			if (!(nSrc % 3))
-				*szPos++ = ',';
+				if (!--nSrc)
+					break;
+				if (!(nSrc % 3))
+					*szPos++ = ',';
+			}
 		}
 
 		*szPos = 0;
