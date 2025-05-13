@@ -335,11 +335,19 @@ void Node::TryAssignTask(Task& t)
 
 bool Node::TryAssignTask(Task& t, Peer& p)
 {
+	BEAM_LOG_DEBUG() << "Peer " << p.m_RemoteAddr << " trying to assign task " << t.m_Key.first;
+
 	if (!p.ShouldAssignTasks())
+	{
+		BEAM_LOG_DEBUG() << "not auth";
 		return false;
+	}
 
 	if (p.m_Tip.m_Height < t.m_Key.first.m_Height)
+	{
+		BEAM_LOG_DEBUG() << "behind";
 		return false;
+	}
 
 	if (p.m_Tip.m_Height == t.m_Key.first.m_Height)
 	{
@@ -349,7 +357,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 			p.m_Tip.get_Hash(hv);
 
 			if (hv != t.m_Key.first.m_Hash)
+			{
+				BEAM_LOG_DEBUG() << "diverged";
 				return false;
+			}
 		}
 		else
 		{
@@ -360,7 +371,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	}
 
 	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
+	{
+		BEAM_LOG_DEBUG() << "task already rejected";
 		return false;
+	}
 
 	// check if the peer currently transfers a block
 	uint32_t nBlocks = 0;
@@ -374,7 +388,10 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	if (t.m_Key.second)
 	{
 		if (m_nTasksPackBody >= m_Cfg.m_MaxConcurrentBlocksRequest)
+		{
+			BEAM_LOG_DEBUG() << "too many blocks requested";
 			return false; // too many blocks requested
+		}
 
 		Height hCountExtra = t.m_sidTrg.m_Height - t.m_Key.first.m_Height;
 
@@ -414,10 +431,16 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	{
 		const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
 		if (m_nTasksPackHdr >= nMaxHdrRequests)
+		{
+			BEAM_LOG_DEBUG() << "too many hdrs requested";
 			return false; // too many hdrs requested
+		}
 
 		if (nBlocks)
+		{
+			BEAM_LOG_DEBUG() << "peer busy";
 			return false; // don't requests headers from the peer that transfers a block
+		}
 
 		uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
 
@@ -457,6 +480,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	if (bEmpty)
 		p.SetTimerWrtFirstTask();
 
+	BEAM_LOG_DEBUG() << "task assigned";
 	return true;
 }
 
@@ -1013,7 +1037,7 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
-	BEAM_LOG_VERBOSE() << "+Peer " << addr;
+	BEAM_LOG_DEBUG() << "+Peer " << addr;
 
 	return pPeer;
 }
@@ -1561,7 +1585,7 @@ void Node::Peer::OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut)
 
 void Node::Peer::OnConnectedSecure()
 {
-	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Connected";
+	BEAM_LOG_DEBUG() << "Peer " << m_RemoteAddr << " Connected";
 
 	m_Flags |= Flags::Connected;
 
@@ -1607,7 +1631,7 @@ Height Node::Peer::get_MinPeerFork()
 void Node::Peer::OnMsg(proto::Authentication&& msg)
 {
 	proto::NodeConnection::OnMsg(std::move(msg));
-	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
+	BEAM_LOG_DEBUG() << "Peer " << m_RemoteAddr << " Auth. Type=" << msg.m_IDType << ", ID=" << msg.m_ID;
 
 	if (proto::IDType::Owner == msg.m_IDType)
 	{
@@ -1650,7 +1674,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		ThrowUnexpected();
 
 	m_Flags |= Flags::PiRcvd;
-	BEAM_LOG_VERBOSE() << m_RemoteAddr << " received PI";
+	BEAM_LOG_DEBUG() << m_RemoteAddr << " received PI";
 
 	PeerMan& pm = m_This.m_PeerMan; // alias
 	PeerManager::TimePoint tp;
@@ -1749,7 +1773,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 	pPi->Attach(*this);
 	pm.OnActive(*pPi, true);
 
-	BEAM_LOG_VERBOSE() << *m_pInfo << " connected, info updated";
+	BEAM_LOG_DEBUG() << *m_pInfo << " connected, info updated";
 
 	if ((Flags::Accepted & m_Flags) && !pPi->m_Addr.m_Value.empty())
 	{
@@ -1759,7 +1783,7 @@ void Node::Peer::OnMsg(proto::Authentication&& msg)
 		{
 			pPi->m_LastConnectAttempt = ts;
 
-			BEAM_LOG_VERBOSE() << *m_pInfo << " probing connection in opposite direction";
+			BEAM_LOG_DEBUG() << *m_pInfo << " probing connection in opposite direction";
 
 
 			Peer* p = m_This.AllocPeer(pPi->m_Addr.m_Value);
@@ -1792,13 +1816,13 @@ bool Node::Peer::ShouldFinalizeMining()
 
 void Node::Peer::OnMsg(proto::Bye&& msg)
 {
-	BEAM_LOG_VERBOSE() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
+	BEAM_LOG_DEBUG() << "Peer " << m_RemoteAddr << " Received Bye." << msg.m_Reason;
 	NodeConnection::OnMsg(std::move(msg));
 }
 
 void Node::Peer::OnDisconnect(const DisconnectReason& dr)
 {
-	int nLogLevel = BEAM_LOG_LEVEL_VERBOSE;
+	int nLogLevel = BEAM_LOG_LEVEL_DEBUG;
 
 	bool bIsErr = true;
 	uint8_t nByeReason = 0;
@@ -1875,7 +1899,7 @@ void Node::Peer::ReleaseTask(Task& t)
 
 void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 {
-	BEAM_LOG_VERBOSE() << "-Peer " << m_RemoteAddr;
+	BEAM_LOG_DEBUG() << "-Peer " << m_RemoteAddr;
 
 	if (nByeReason && (Flags::Connected & m_Flags))
 	{
@@ -1935,7 +1959,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 
 			if (bDelete)
 			{
-				BEAM_LOG_VERBOSE() << pip << " Deleted";
+				BEAM_LOG_DEBUG() << pip << " Deleted";
 				pm.Delete(pip);
 			}
 		}
@@ -1999,7 +2023,7 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 	Processor& p = m_This.m_Processor;
 	bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
 
-	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_VERBOSE) << "Peer " << m_RemoteAddr << " Tip: " << id;
+	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_DEBUG) << "Peer " << m_RemoteAddr << " Tip: " << id;
 
 	if (bTipNeeded && (Rules::Consensus::Pbft != Rules::get().m_Consensus))
 		OnNewTip2();
