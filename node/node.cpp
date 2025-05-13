@@ -831,6 +831,8 @@ void Node::Processor::OnRolledBack()
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
 		pObserver->OnRolledBack(m_Cursor.m_ID);
+
+	get_ParentObj().m_Validator.OnRolledBack();
 }
 
 void Node::Processor::MyExecutorMT::RunThread(uint32_t iThread)
@@ -5725,13 +5727,14 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 Node::Validator::Validator()
 {
-	m_Anchor.m_Height = MaxHeight;
+	m_hAnchor = MaxHeight;
 }
 
-bool Node::Validator::IsProposalRelevant(const Block::SystemState::Full& s) const
+void Node::Validator::OnRolledBack()
 {
-	const auto& c = get_ParentObj().m_Processor.m_Cursor;
-	return (s.m_Height == c.m_ID.m_Height + 1) && (s.m_Prev == c.m_ID.m_Hash);
+	m_hAnchor = MaxHeight;
+	KillTimer();
+	// wait till the next state
 }
 
 void Node::Validator::OnNewState()
@@ -5742,16 +5745,16 @@ void Node::Validator::OnNewState()
 	auto& p = get_ParentObj().m_Processor; // alias
 	if (!p.IsTreasuryHandled() || p.IsFastSync())
 	{
-		m_iRound = std::numeric_limits<uint64_t>::max();
+		OnRolledBack(); // i.e. reset self
 		return;
 	}
 
 	// Theoretically this method can be called WITHOUT new state (such as trying to interpret blocks, failing, and rolling back)
 	// it's important to preserve our commitment, if we already committed to a specific round
-	if (m_Anchor == p.m_Cursor.m_ID)
+	if (m_hAnchor == p.m_Cursor.m_Full.m_Height)
 		return;
 
-	m_Anchor = p.m_Cursor.m_ID;
+	m_hAnchor = p.m_Cursor.m_Full.m_Height;
 
 	m_Current.Reset();
 	m_Next.Reset();
@@ -5765,7 +5768,7 @@ void Node::Validator::OnNewState()
 	m_pMe = p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false);
 	m_iRound = std::numeric_limits<uint64_t>::max();
 
-	//PBFT_LOG(TRACE, "tip=" << m_Anchor << " iSlot0=" << m_iSlot0);
+	//PBFT_LOG(TRACE, "tip=" << m_hAnchor << " iSlot0=" << m_iSlot0);
 
 	OnNewRound();
 }
@@ -5804,10 +5807,10 @@ void Node::Validator::OnNewRound()
 	if (bSelectLast)
 		m_FutureCandidate = std::move(m_Current);
 
-	m_Current.Reset();
-
 	if (m_iRound == iExpectedRound)
 		m_Current = std::move(m_Next);
+	else
+		m_Current.Reset();
 
 	m_Next.Reset();
 
@@ -5817,8 +5820,17 @@ void Node::Validator::OnNewRound()
 		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
 	}
 
-	if (m_iRound && (State::None == m_State))
-		Vote(VoteKind::NonCommitted);
+	if (m_iRound)
+	{
+		ECC::Hash::Processor()
+			<< "pbft.roundstart.not-committed"
+			<< get_ParentObj().m_Processor.m_Cursor.m_ID.m_Hash
+			<< m_iRound
+			>> m_Current.m_spNotCommitted.m_hv;
+
+		if (State::None == m_State)
+			Vote_NotCommitted();
+	}
 
 	if ((Proposal::State::None == m_Current.m_Proposal.m_State) && (Proposal::State::None != m_FutureCandidate.m_Proposal.m_State) && (m_Current.m_pLeader == m_pMe))
 	{
@@ -5849,19 +5861,6 @@ void Node::Validator::RoundData::Reset()
 	m_pLeader = nullptr;
 }
 
-void Node::Validator::SetRoundNotCommittedMsg(SigsAndPower& sp, uint64_t iRound)
-{
-	// assume msg already set if there're sigs
-	if (sp.m_Sigs.empty())
-	{
-		ECC::Hash::Processor()
-			<< "pbft.roundstart.not-committed"
-			<< get_ParentObj().m_Processor.m_Cursor.m_ID.m_Hash
-			<< iRound
-			>> sp.m_hv;
-	}
-}
-
 void Node::Validator::GenerateProposal()
 {
 	assert(Proposal::State::None == m_Current.m_Proposal.m_State);
@@ -5885,8 +5884,6 @@ void Node::Validator::GenerateProposal()
 		PBFT_LOG(WARNING, "Block generation failed, can't make a proposal!");
 		return;
 	}
-
-	m_Current.SetHashes();
 
 	SignProposal();
 }
@@ -5956,6 +5953,9 @@ void Node::Validator::SendSigs(Peer* pPeer, TMsg& msg, const SigsAndPower& sp) c
 
 void Node::Validator::SendState(Peer& peer) const
 {
+	if (get_ParentObj().m_Processor.m_Cursor.m_Full.m_Height != m_hAnchor)
+		return;
+
 	// broadcast pre-commit data (always)
 	proto::PbftVote msg;
 	msg.m_iKind = VoteKind::NonCommitted;
@@ -6006,28 +6006,7 @@ void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const E
 	m_Power.Add(v);
 }
 
-Node::Validator::SigsAndPower& Node::Validator::RoundData::get_ForKind(uint8_t iKind)
-{
-	switch (iKind)
-	{
-	case VoteKind::PreVote:
-		return m_spPreVoted;
-
-	case VoteKind::Commit:
-		return m_spCommitted;
-
-	default:
-		assert(false);
-		// no break;
-
-	case VoteKind::NonCommitted:
-		break;
-	}
-
-	return m_spNotCommitted;
-}
-
-void Node::Validator::Vote(uint8_t iKind)
+void Node::Validator::Vote(uint8_t iKind, SigsAndPower& sp)
 {
 	if (VoteKind::NonCommitted != iKind)
 		assert(Proposal::State::None != m_Current.m_Proposal.m_State);
@@ -6036,16 +6015,10 @@ void Node::Validator::Vote(uint8_t iKind)
 		return; // I'm not a validator
 
 	auto& v = get_ParentObj().m_Keys.m_Validator; // alias
-	auto& sp = m_Current.get_ForKind(iKind);
-
-	auto it = sp.m_Sigs.find(v.m_Addr);
-	if (sp.m_Sigs.end() != it)
+	if (sp.m_Sigs.end() != sp.m_Sigs.find(v.m_Addr))
 		return; // already voted
 
 	//PBFT_LOG(TRACE, "voted " << static_cast<uint32_t>(iKind));
-
-	if (VoteKind::NonCommitted == iKind)
-		SetRoundNotCommittedMsg(sp, m_iRound);
 
 	proto::PbftVote msg;
 	msg.m_iRound = static_cast<uint32_t>(m_iRound);
@@ -6058,20 +6031,40 @@ void Node::Validator::Vote(uint8_t iKind)
 	Broadcast(msg, nullptr);
 }
 
-void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
+Node::Validator::RoundData* Node::Validator::get_PeerRound(const Peer& src, uint32_t iRoundMsg, bool& bCurrent)
 {
 	auto& p = get_ParentObj().m_Processor; // alias
-	if (src.m_Tip != p.m_Cursor.m_Full)
-		return;
+	if (p.m_Cursor.m_Full.m_Height != m_hAnchor)
+		return nullptr; // I'm inactive
 
-	bool bCurrent = (msg.m_iRound == static_cast<uint32_t>(m_iRound));
-	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
-		return; // irrelevant
+	if (src.m_Tip != p.m_Cursor.m_Full)
+		return nullptr; // peer state is different
+
+	if (iRoundMsg == static_cast<uint32_t>(m_iRound))
+	{
+		bCurrent = true;
+		return &m_Current;
+	}
+
+	if (iRoundMsg == static_cast<uint32_t>(m_iRound + 1))
+	{
+		bCurrent = false;
+		return &m_Next;
+	}
+
+	return nullptr; // outdated round
+}
+
+void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
+{
+	bool bCurrent;
+	auto* pRd = get_PeerRound(src, msg.m_iRound, bCurrent);
+	if (!pRd)
+		return;
 
 	//PBFT_LOG(TRACE, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " current=" << bCurrent);
 
-	auto& rd = bCurrent ? m_Current : m_Next;
-	auto& sp = rd.get_ForKind(msg.m_iKind);
+	SigsAndPower* pSp = nullptr;
 
 	if (VoteKind::NonCommitted == msg.m_iKind)
 	{
@@ -6079,20 +6072,36 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 		if (!iRound)
 			return; // non-commit for round 0 is implicit. Check non-truncated (64bit) var, not the msg field
 
-		SetRoundNotCommittedMsg(sp, iRound); // use non-truncated var
+		pSp = &pRd->m_spNotCommitted;
 	}
 	else
 	{
-		// must be a proposal
-		if (Proposal::State::None == rd.m_Proposal.m_State)
+		// there must be a proposal
+		if (Proposal::State::None == pRd->m_Proposal.m_State)
 			return;
+
+		switch (msg.m_iKind)
+		{
+		case VoteKind::PreVote:
+			pSp = &pRd->m_spPreVoted;
+			break;
+
+		case VoteKind::Commit:
+			pSp = &pRd->m_spCommitted;
+			break;
+
+		default:
+			src.ThrowUnexpected("invalid vote kind");
+		}
 
 		// Note: we collect votes even BEFORE the proposal is accepted.
 	}
 
+	auto& sp = *pSp; // alias
 	if (sp.m_Sigs.end() != sp.m_Sigs.find(msg.m_Address))
 		return; // already accounted
 
+	auto& p = get_ParentObj().m_Processor; // alias
 	auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
 	if (p.m_PbftState.m_mapVs.end() == itV)
 		src.ThrowUnexpected("not a validator vote");
@@ -6112,14 +6121,9 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
-	auto& p = get_ParentObj().m_Processor; // alias
-	if (src.m_Tip != p.m_Cursor.m_Full)
-		return;
-
-	if (!IsProposalRelevant(msg.m_Hdr))
-		return; // irrelevant
-
-	if (!p.IsTreasuryHandled() || p.IsFastSync())
+	bool bCurrent;
+	auto* pRd = get_PeerRound(src, msg.m_iRound, bCurrent);
+	if (!pRd)
 		return;
 
 	auto t_ms = msg.m_Hdr.get_Timestamp_ms();
@@ -6134,43 +6138,41 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	if (static_cast<int32_t>(msg.m_iRound - static_cast<uint32_t>(iRound_by_ts)) < 0)
 		src.ThrowUnexpected("invalid round");
 
-	bool bCurrent = (msg.m_iRound == static_cast<uint32_t>(m_iRound));
-	if (!bCurrent && (msg.m_iRound != static_cast<uint32_t>(m_iRound + 1)))
-	{
-		//PBFT_LOG(TRACE, "proposal wrong round " << msg.m_iRound);
-		return; // irrelevant
-	}
-
 	//PBFT_LOG(TRACE, "proposal current=" << bCurrent);
 
-	auto& rd = bCurrent ? m_Current : m_Next;
-	if (Proposal::State::None != rd.m_Proposal.m_State)
+	if (Proposal::State::None != pRd->m_Proposal.m_State)
 		return; // already received
 
-	if (!rd.m_pLeader)
+	auto& p = get_ParentObj().m_Processor; // alias
+
+	if (!pRd->m_pLeader)
 	{
-		rd.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, msg.m_iRound, m_wTotal);
-		if (!rd.m_pLeader)
+		pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_ID.m_Hash, msg.m_iRound, m_wTotal);
+		if (!pRd->m_pLeader)
 			return;
 	}
 
-	rd.m_Proposal.m_Msg = std::move(msg);
-	rd.SetHashes();
+	pRd->m_Proposal.m_Msg = std::move(msg);
+
+	Block::SystemState::Full s;
+	MakeFullHdr(s, pRd->m_Proposal.m_Msg.m_Hdr);
+	pRd->SetHashes(s);
 
 	Merkle::Hash hv;
-	rd.get_LeaderMsg(hv);
-	if (!rd.m_pLeader->m_Addr.m_Key.CheckSignature(hv, rd.m_Proposal.m_Msg.m_Signature))
+	pRd->get_LeaderMsg(hv);
+	if (!pRd->m_pLeader->m_Addr.m_Key.CheckSignature(hv, pRd->m_Proposal.m_Msg.m_Signature))
 		src.ThrowUnexpected("invalid proposal sig");
 
 	Block::SystemState::ID id;
-	id.m_Height = rd.m_Proposal.m_Msg.m_Hdr.m_Height;
-	id.m_Hash = rd.m_spCommitted.m_hv;
-	if (!p.TestBlock(id, rd.m_Proposal.m_Msg.m_Hdr, rd.m_Proposal.m_Msg.m_Body))
+	id.m_Height = s.m_Height;
+	id.m_Hash = pRd->m_spCommitted.m_hv;
+
+	if (!p.TestBlock(id, s, pRd->m_Proposal.m_Msg.m_Body))
 		// TODO: don't disconnect this peer. Save and broadcast this info, punish leader for invalid proposal
 		src.ThrowUnexpected("invalid proposal");
 
 	// all good
-	rd.m_Proposal.m_State = Proposal::State::Received;
+	pRd->m_Proposal.m_State = Proposal::State::Received;
 
 	if (bCurrent)
 	{
@@ -6196,8 +6198,8 @@ void Node::Validator::CheckProposalCommit()
 
 	if ((State::Committed == m_State) && (m_hvCommitted == m_Current.m_spCommitted.m_hv))
 	{
-		Vote(VoteKind::PreVote);
-		Vote(VoteKind::Commit);
+		Vote_PreVote();
+		Vote_Commit();
 	}
 }
 
@@ -6210,9 +6212,21 @@ void Node::Validator::RoundDataBase::get_LeaderMsg(Merkle::Hash& hv) const
 		>> hv;
 }
 
-void Node::Validator::RoundDataBase::SetHashes()
+void Node::Validator::MakeFullHdr(Block::SystemState::Full& s, const Block::SystemState::Sequence::Element& el) const
 {
-	m_Proposal.m_Msg.m_Hdr.get_Hash(m_spCommitted.m_hv);
+	auto& p = get_ParentObj().m_Processor; // alias
+
+	s.m_Prev = p.m_Cursor.m_ID.m_Hash;
+	s.m_Height = p.m_Cursor.m_Full.m_Height + 1;
+	s.m_ChainWork = p.m_Cursor.m_Full.m_ChainWork + p.m_Cursor.m_DifficultyNext;
+
+	Cast::Down<Block::SystemState::Sequence::Element>(s) = el;
+}
+
+void Node::Validator::RoundDataBase::SetHashes(const Block::SystemState::Full& s)
+{
+	s.get_Hash(m_spCommitted.m_hv);
+
 	ECC::Hash::Processor()
 		<< "pbft.vote.1"
 		<< m_spCommitted.m_hv
@@ -6240,12 +6254,12 @@ void Node::Validator::CheckState()
 		//PBFT_LOG(INFO, "proposal accepted");
 
 		if (State::None == m_State)
-			Vote(VoteKind::PreVote);
+			Vote_PreVote();
 	}
 
 	if ((State::None == m_State) && m_Current.m_spPreVoted.m_Power.IsMajorityReached(m_wTotal))
 	{
-		Vote(VoteKind::Commit);
+		Vote_Commit();
 
 		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
@@ -6318,7 +6332,10 @@ void Node::Validator::OnQuorumReached()
 		SaveStamp();
 	}
 
-	auto eVal = p.OnState(m_Current.m_Proposal.m_Msg.m_Hdr, Zero);
+	Block::SystemState::Full s;
+	MakeFullHdr(s, m_Current.m_Proposal.m_Msg.m_Hdr);
+
+	auto eVal = p.OnState(s, Zero);
 
 	switch (eVal)
 	{
@@ -6342,7 +6359,7 @@ void Node::Validator::OnQuorumReached()
 	}
 
 	Block::SystemState::ID id;
-	id.m_Height = m_Current.m_Proposal.m_Msg.m_Hdr.m_Height;
+	id.m_Height = s.m_Height;
 	id.m_Hash = m_Current.m_spCommitted.m_hv;
 
 	eVal = p.OnBlock(id, m_Current.m_Proposal.m_Msg.m_Body.m_Perishable, m_Current.m_Proposal.m_Msg.m_Body.m_Eternal, Zero);
@@ -6380,6 +6397,7 @@ bool Node::Validator::CreateProposal()
 
 	if (bRes)
 	{
+		m_Current.SetHashes(bc.m_Hdr);
 		m_Current.m_Proposal.m_Msg.m_Hdr = std::move(bc.m_Hdr);
 		m_Current.m_Proposal.m_Msg.m_Body = std::move(bc.m_Body);
 	}

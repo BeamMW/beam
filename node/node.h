@@ -796,6 +796,7 @@ private:
 		Validator();
 
 		void OnNewState();
+		void OnRolledBack();
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
 		void OnMsg(proto::PbftVote&&, const Peer&);
@@ -812,8 +813,6 @@ private:
 		void SaveStamp();
 
 	private:
-
-		HeightHash m_Anchor;
 
 		struct VoteKind {
 			static const uint8_t PreVote = 0;
@@ -865,7 +864,7 @@ private:
 			SigsAndPower m_spCommitted;
 
 			void Reset();
-			void SetHashes();
+			void SetHashes(const Block::SystemState::Full&);
 			void get_LeaderMsg(Merkle::Hash&) const;
 		};
 
@@ -875,8 +874,6 @@ private:
 			const Block::Pbft::Validator* m_pLeader;
 			SigsAndPower m_spNotCommitted; // at the round start
 			void Reset();
-
-			SigsAndPower& get_ForKind(uint8_t iKind);
 		};
 		
 		RoundData m_Current;
@@ -886,6 +883,7 @@ private:
 
 		Merkle::Hash m_hvCommitted;
 
+		Height m_hAnchor;
 		uint64_t m_iSlot0;
 		uint64_t m_iRound;
 		uint64_t m_wTotal;
@@ -904,12 +902,17 @@ private:
 		void SendVotes(Peer*) const;
 		void CheckState();
 		bool ShouldAcceptProposal() const;
-		bool IsProposalRelevant(const Block::SystemState::Full&) const;
 		void OnQuorumReached();
-		void Vote(uint8_t iKind);
 		bool CreateProposal();
-		void SetRoundNotCommittedMsg(SigsAndPower&, uint64_t iRound);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
+		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
+
+		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
+
+		void Vote(uint8_t iKind, SigsAndPower&);
+		void Vote_NotCommitted() { Vote(VoteKind::NonCommitted, m_Current.m_spNotCommitted); }
+		void Vote_PreVote() { Vote(VoteKind::PreVote, m_Current.m_spPreVoted); }
+		void Vote_Commit() { Vote(VoteKind::Commit, m_Current.m_spCommitted); }
 
 		template <typename TMsg>
 		void SendSigs(Peer*, TMsg&, const SigsAndPower&) const;

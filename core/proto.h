@@ -305,7 +305,7 @@ namespace proto {
 #define BeamNodeMsg_PbftProposal(macro) \
     macro(uint32_t, iRound) \
     macro(ECC::Signature, Signature) \
-    macro(Block::SystemState::Full, Hdr) \
+    macro(Block::SystemState::Sequence::Element, Hdr) \
     macro(BodyBuffers, Body)
 
 #define BeamNodeMsg_PbftVote(macro) \
@@ -402,7 +402,7 @@ namespace proto {
     macro(0x4c, GetAssetsListAt) \
     macro(0x4d, AssetsListAt) \
     /* pbft-related */ \
-    macro(0x51, PbftProposal) \
+    macro(0x55, PbftProposal) \
     macro(0x52, PbftVote) \
     macro(0x53, PbftStamp) \
 
