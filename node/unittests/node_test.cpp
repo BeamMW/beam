@@ -1791,6 +1791,8 @@ namespace beam
 
 	void TestNodeClientProto(Rules& r)
 	{
+		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
+
 		// Testing configuration: Node <-> Client. Node is a miner
 
 		io::Reactor::Ptr pReactor(io::Reactor::create());
@@ -3585,7 +3587,6 @@ namespace beam
 
 		verify_test((p.m_SpendKeys.size() == 1) && p.m_Utxos && p.m_UtxosCA && p.m_Assets && p.m_ShieldedOuts && p.m_ShieldedIns);
 
-		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 		node.PrintTxos();
 
 		NodeProcessor& proc = node.get_Processor();
