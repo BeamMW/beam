@@ -38,6 +38,7 @@ struct Options {
     ByteBuffer m_RichParser;
     bool m_RichParserChanged = false;
     bool m_LogTrafic = false;
+    bool m_PeersPersistent;
 };
 
 static bool parse_cmdline(int argc, char* argv[], Options& o, Rules&);
@@ -110,6 +111,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
         (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
+        (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
+        (cli::NODE_PEERS_PERSISTENT, po::value<bool>()->default_value(false), "Keep persistent connection to the specified peers, regardless to ratings")
         (g_szTraficLog, po::value<bool>()->default_value(false), "Log trafic")
     ;
 
@@ -140,6 +143,10 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         ReadCfgFromFile(vm, cliOptions);
 
         vm.notify();
+
+
+        o.m_PeersPersistent = vm[cli::NODE_PEERS_PERSISTENT].as<bool>();
+        o.logLevel = getLogLevel(cli::LOG_LEVEL, vm, o.logLevel);
 
         o.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600;
         o.nodeDbFilename = FILES_PREFIX ".db";
@@ -242,6 +249,7 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_MiningThreads = 0;
     node.m_Cfg.m_VerificationThreads = -1;
     node.m_Cfg.m_LogTraficUsage = o.m_LogTrafic;
+    node.m_Cfg.m_PeersPersistent = o.m_PeersPersistent;
 
     node.m_Keys.m_pOwner = o.ownerKey;
 
