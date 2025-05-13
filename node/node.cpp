@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define LOG_DEBUG_ENABLED 1
 #include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
