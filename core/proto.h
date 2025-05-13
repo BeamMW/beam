@@ -592,6 +592,7 @@ namespace proto {
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
+    inline void ZeroInit(Block::SystemState::Sequence::Element& x) { ZeroObject(x); }
     inline void ZeroInit(Block::ChainWorkProof& x) {}
     inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }

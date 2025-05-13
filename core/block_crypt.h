@@ -1828,6 +1828,8 @@ namespace beam
 					Merkle::Hash	m_Definition;
 					Timestamp		m_TimeStamp;
 					PoW				m_PoW;
+
+					uint64_t get_Timestamp_ms() const; // PBFT only
 				};
 			};
 
@@ -1848,8 +1850,6 @@ namespace beam
 					return IsSane() && IsValidPoW(); 
 				}
                 bool GeneratePoW(const PoW::Cancel& = [](bool) { return false; });
-
-				uint64_t get_Timestamp_ms() const; // PBFT only
 
 				// the most robust proof verification - verifies the whole proof structure
 				bool IsValidProofState(const ID&, const Merkle::HardProof&) const;

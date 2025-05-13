@@ -3139,7 +3139,7 @@ namespace beam
 		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
 	}
 
-	uint64_t Block::SystemState::Full::get_Timestamp_ms() const
+	uint64_t Block::SystemState::Sequence::Element::get_Timestamp_ms() const
 	{
 		const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_PoW);
 
