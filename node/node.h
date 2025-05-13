@@ -597,6 +597,7 @@ private:
 		void SendHdrs(NodeDB::StateID&, uint32_t nCount);
 		void SendTx(Transaction::Ptr& ptx, bool bFluff, const Merkle::Hash* pCtx = nullptr);
 		void OnNewTip2();
+		void PbftSendStamp();
 
 		struct ISelector {
 			virtual bool IsValid(Peer&)= 0;
@@ -811,6 +812,7 @@ private:
 		} m_Stamp;
 
 		void SaveStamp();
+		bool ShouldSendStamp();
 
 	private:
 
@@ -906,6 +908,7 @@ private:
 		bool CreateProposal();
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
+		bool ShouldSendTo(const Peer&) const;
 
 		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
 

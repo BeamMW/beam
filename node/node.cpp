@@ -683,10 +683,7 @@ void Node::Processor::OnNewState()
 	proto::NewTip msg;
 	msg.m_Description = m_Cursor.m_Full;
 
-	bool bSendStamp =
-		(Rules::Consensus::Pbft == r.m_Consensus) &&
-		r.m_Pbft.m_RequiredWhite &&
-		(m_Cursor.m_ID == get_ParentObj().m_Validator.m_Stamp.m_hh);
+	bool bSendStamp = get_ParentObj().m_Validator.ShouldSendStamp();
 
 	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
 	{
@@ -722,14 +719,8 @@ void Node::Processor::OnNewState()
 
 		if (bSendStamp)
 		{
-			if (peer.m_Tip == msg.m_Description)
-				continue;
-
 			// TODO: don't send stamp iff this peer participated in the most recent round
-			
-			proto::PbftStamp msgStamp;
-			TemporarySwap ts(msgStamp.m_vSer, get_ParentObj().m_Validator.m_Stamp.m_vSer);
-			peer.Send(msgStamp);
+			peer.PbftSendStamp();
 		}
 	}
 
@@ -1610,6 +1601,9 @@ void Node::Peer::OnConnectedSecure()
 		proto::NewTip msg;
 		msg.m_Description = m_This.m_Processor.m_Cursor.m_Full;
 		Send(msg);
+
+		if (m_This.m_Validator.ShouldSendStamp())
+			PbftSendStamp();
 	}
 }
 
@@ -1622,6 +1616,16 @@ void Node::Peer::SetupLogin(proto::Login& msg)
 
 	if (m_This.m_Cfg.m_Bbs.IsEnabled())
 		msg.m_Flags |= proto::LoginFlags::Bbs; // indicate ability to receive and broadcast BBS messages
+}
+
+void Node::Peer::PbftSendStamp()
+{
+	if (m_Tip == m_This.m_Processor.m_Cursor.m_Full)
+		return;
+
+	proto::PbftStamp msgStamp;
+	TemporarySwap ts(msgStamp.m_vSer, m_This.m_Validator.m_Stamp.m_vSer);
+	Send(msgStamp);
 }
 
 Height Node::Peer::get_MinPeerFork()
@@ -2026,7 +2030,14 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_DEBUG) << "Peer " << m_RemoteAddr << " Tip: " << id;
 
-	if (bTipNeeded && (Rules::Consensus::Pbft != Rules::get().m_Consensus))
+	if (bTipNeeded)
+	{
+		const Rules& r = Rules::get();
+		if ((Rules::Consensus::Pbft == r.m_Consensus) && r.m_Pbft.m_RequiredWhite)
+			bTipNeeded = false; // delay it, till we receive the stamp. Make sure we store only confirmed headers, OR those that we explicitly requested
+	}
+
+	if (bTipNeeded)
 		OnNewTip2();
 
 	TakeTasks();
@@ -2038,6 +2049,8 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 		ZeroObject(m_This.m_SyncStatus);
 		m_This.UpdateSyncStatus();
 	}
+
+	m_This.m_Validator.SendState(*this);
 }
 
 void Node::Peer::OnNewTip2()
@@ -3373,8 +3386,7 @@ void Node::Peer::OnLogin(proto::Login&& msg, uint32_t nFlagsPrev)
 		m_This.m_Miner.OnFinalizerChanged(b ? NULL : this);
 	}
 
-	if (proto::LoginFlags::SpreadingTransactions & m_LoginFlags)
-		m_This.m_Validator.SendState(*this);
+	m_This.m_Validator.SendState(*this);
 
 	BroadcastTxs();
 	BroadcastBbs();
@@ -5948,7 +5960,6 @@ void Node::Validator::Sign(ECC::Signature& sig, const Merkle::Hash& hv)
 	sig.Sign(hv, get_ParentObj().m_Keys.m_Validator.m_sk);
 }
 
-
 template <typename TMsg>
 void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc) const
 {
@@ -5956,7 +5967,7 @@ void Node::Validator::Broadcast(const TMsg& msg, const Peer* pSrc) const
 	for (PeerList::iterator it = n.m_lstPeers.begin(); n.m_lstPeers.end() != it; ++it)
 	{
 		Peer& peer = *it;
-		if ((&peer != pSrc) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
+		if ((&peer != pSrc) && ShouldSendTo(peer))
 			peer.Send(msg);
 	}
 }
@@ -5970,15 +5981,32 @@ void Node::Validator::SendSigs(Peer* pPeer, TMsg& msg, const SigsAndPower& sp) c
 		msg.m_Signature = as.second;
 
 		if (pPeer)
+		{
+			assert(ShouldSendTo(*pPeer));
 			pPeer->Send(msg);
+		}
 		else
 			Broadcast(msg, nullptr);
 	}
 }
 
+bool Node::Validator::ShouldSendTo(const Peer& peer) const
+{
+	if (!(proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
+		return false;
+
+	if (get_ParentObj().m_Processor.m_Cursor.m_Full != peer.m_Tip)
+		return false; // optionally we can tolerate 1 block behind, for the broadcast to be more rapid
+
+	return true;
+}
+
 void Node::Validator::SendState(Peer& peer) const
 {
 	if (get_ParentObj().m_Processor.m_Cursor.m_Full.m_Height != m_hAnchor)
+		return;
+
+	if (!ShouldSendTo(peer))
 		return;
 
 	// broadcast pre-commit data (always)
@@ -6001,6 +6029,7 @@ void Node::Validator::SendState(Peer& peer) const
 void Node::Validator::SendVotes(Peer* pPeer) const
 {
 	assert(Proposal::State::None != m_Current.m_Proposal.m_State);
+	assert(!pPeer || ShouldSendTo(*pPeer));
 
 	// votes
 	proto::PbftVote msg;
@@ -6314,6 +6343,15 @@ void Node::Validator::SaveStamp()
 	get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftStamp, nullptr, &blob);
 
 	m_Stamp.m_vSer.resize(n);
+}
+
+bool Node::Validator::ShouldSendStamp()
+{
+	const Rules& r = Rules::get();
+	return
+		(Rules::Consensus::Pbft == r.m_Consensus) &&
+		r.m_Pbft.m_RequiredWhite &&
+		(get_ParentObj().m_Processor.m_Cursor.m_ID == m_Stamp.m_hh);
 }
 
 void Node::Validator::OnQuorumReached()
