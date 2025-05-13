@@ -162,12 +162,13 @@ namespace beam
         {
             try
             {
+                Rules::Scope scopeRules(m_rules);
+
                 if (m_beforeStartAction)
                 {
                     m_beforeStartAction();
                 }
                 removeNodeDataIfNeeded(m_observer->getLocalNodeStorage());
-                Rules::Scope scopeRules(m_rules);
                 auto reactor = io::Reactor::create();
                 m_reactor = reactor;// store weak ref
                 io::Reactor::Scope scope(*reactor);
