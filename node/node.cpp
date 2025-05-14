@@ -6171,6 +6171,8 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 
 	if (bCurrent)
 		CheckState();
+	else
+		CheckQuorum(*pRd);
 }
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
@@ -6320,12 +6322,7 @@ void Node::Validator::CheckState()
 		m_hvCommitted = m_Current.m_spCommitted.m_hv;
 	}
 
-	if (m_Current.m_spCommitted.m_Power.IsMajorityReached(m_wTotal))
-	{
-		// We have the quorum
-		m_State = State::QuorumReached;
-		OnQuorumReached();
-	}
+	CheckQuorum(m_Current);
 }
 
 void Node::Validator::SaveStamp()
@@ -6354,11 +6351,18 @@ bool Node::Validator::ShouldSendStamp()
 		(get_ParentObj().m_Processor.m_Cursor.m_ID == m_Stamp.m_hh);
 }
 
-void Node::Validator::OnQuorumReached()
+void Node::Validator::CheckQuorum(RoundData& rd)
 {
-	PBFT_LOG(INFO, "quorum reached");
+	if (State::QuorumReached == m_State)
+		return;
+
+	if (!rd.m_spCommitted.m_Power.IsMajorityReached(m_wTotal))
+		return;
 
 	// We have the quorum
+	m_State = State::QuorumReached;
+	PBFT_LOG(INFO, "quorum reached");
+
 	Block::Pbft::Quorum qc;
 	auto& p = get_ParentObj().m_Processor;
 	const Rules& r = Rules::get();
@@ -6366,8 +6370,8 @@ void Node::Validator::OnQuorumReached()
 	uint32_t iIdx = 0;
 	for (const auto& v : p.m_PbftState.m_lstVs)
 	{
-		auto itSig = m_Current.m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
-		if (m_Current.m_spCommitted.m_Sigs.end() != itSig)
+		auto itSig = rd.m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
+		if (rd.m_spCommitted.m_Sigs.end() != itSig)
 		{
 			qc.m_vSigs.push_back(itSig->second);
 
@@ -6390,13 +6394,13 @@ void Node::Validator::OnQuorumReached()
 		ser.swap_buf(m_Stamp.m_vSer);
 
 		m_Stamp.m_hh.m_Height = p.m_Cursor.m_Full.m_Height + 1;
-		m_Stamp.m_hh.m_Hash = m_Current.m_spCommitted.m_hv;
+		m_Stamp.m_hh.m_Hash = rd.m_spCommitted.m_hv;
 
 		SaveStamp();
 	}
 
 	Block::SystemState::Full s;
-	MakeFullHdr(s, m_Current.m_Proposal.m_Msg.m_Hdr);
+	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
 
 	auto eVal = p.OnState(s, Zero);
 
@@ -6410,24 +6414,24 @@ void Node::Validator::OnQuorumReached()
 		return; // invalid or unreachable header?!
 	}
 
-	size_t n0 = m_Current.m_Proposal.m_Msg.m_Body.m_Eternal.size();
+	size_t n0 = rd.m_Proposal.m_Msg.m_Body.m_Eternal.size();
 
 	if (!r.m_Pbft.m_RequiredWhite)
 	{
 		// append QC to block body
 		Serializer ser;
-		ser.swap_buf(m_Current.m_Proposal.m_Msg.m_Body.m_Eternal);
+		ser.swap_buf(rd.m_Proposal.m_Msg.m_Body.m_Eternal);
 		ser & qc;
-		ser.swap_buf(m_Current.m_Proposal.m_Msg.m_Body.m_Eternal);
+		ser.swap_buf(rd.m_Proposal.m_Msg.m_Body.m_Eternal);
 	}
 
 	Block::SystemState::ID id;
 	id.m_Height = s.m_Height;
-	id.m_Hash = m_Current.m_spCommitted.m_hv;
+	id.m_Hash = rd.m_spCommitted.m_hv;
 
-	eVal = p.OnBlock(id, m_Current.m_Proposal.m_Msg.m_Body.m_Perishable, m_Current.m_Proposal.m_Msg.m_Body.m_Eternal, Zero);
+	eVal = p.OnBlock(id, rd.m_Proposal.m_Msg.m_Body.m_Perishable, rd.m_Proposal.m_Msg.m_Body.m_Eternal, Zero);
 
-	m_Current.m_Proposal.m_Msg.m_Body.m_Eternal.resize(n0); // restore it (if appended QC)
+	rd.m_Proposal.m_Msg.m_Body.m_Eternal.resize(n0); // restore it (if appended QC)
 
 	switch (eVal)
 	{
