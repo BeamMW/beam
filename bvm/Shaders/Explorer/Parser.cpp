@@ -26,6 +26,7 @@ namespace Testnet {
 }
 #include "../minter/contract.h"
 #include "../blackhole/contract.h"
+#include "../l2tst1/contract_l1.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -231,6 +232,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(DaoCore2, DaoCore2::s_pSID) \
 	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
 	macro(DaoVote, DaoVote::s_pSID) \
+	macro(L2Tst1_L1, L2Tst1_L1::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -401,6 +403,9 @@ struct ParserContext
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 	static void WriteNephriteSettings(const Nephrite::Settings&);
 	void DumpNephriteDbgStatus();
+	static void WriteL2Tst1_L1_Settings(const L2Tst1_L1::Settings&);
+	static void WriteL2Tst1_L1_Validators(const L2Tst1_L1::Validator*, uint32_t);
+	void OnL2tsts1_BridgeOp(const L2Tst1_L1::Method::BridgeOp&);
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 	static void WriteBansSettings(const NameService::Settings&);
@@ -1716,6 +1721,140 @@ void ParserContext::DumpNephriteDbgStatus()
 	TestEqual(g.m_RedistPool.m_Active.m_pDim[0].m_Buy, g.m_Troves.m_Totals.Col - trovesTotalsOrg.Col, "errz-3");
 */
 }
+
+void ParserContext::WriteL2Tst1_L1_Settings(const L2Tst1_L1::Settings& stg)
+{
+	DocAddAid("Staking Token", stg.m_aidStaking);
+	DocAddAid("Liquidity Token", stg.m_aidLiquidity);
+	DocAddHeight("Per-phase End", stg.m_hPreEnd);
+}
+
+void ParserContext::WriteL2Tst1_L1_Validators(const L2Tst1_L1::Validator* pV, uint32_t nV)
+{
+	Env::DocGroup gr1("Validators");
+	DocSetType("table");
+	Env::DocArray gr2("value");
+
+	{
+		Env::DocArray gr3("");
+		DocAddTableHeader("Index");
+		DocAddTableHeader("Key");
+	}
+
+	for (uint32_t i = 0; i < nV; i++)
+	{
+		const auto& v = pV[i];
+
+		Env::DocArray gr3("");
+		Env::DocAddNum("", i);
+		DocAddPk("", v.m_pk);
+	}
+}
+
+void ParserContext::OnMethod_L2Tst1_L1(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case L2Tst1_L1::Method::Create::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L1::Method::Create>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				WriteL2Tst1_L1_Settings(pArg->m_Settings);
+				WriteUpgradeSettings(pArg->m_Upgradable);
+
+				if (m_nArg >= sizeof(*pArg) + sizeof(L2Tst1_L1::Validator) * pArg->m_Validators)
+					WriteL2Tst1_L1_Validators((const L2Tst1_L1::Validator*) (pArg + 1), pArg->m_Validators);
+			}
+		}
+		break;
+
+	case Upgradable3::Method::Control::s_iMethod:
+		OnUpgrade3Method();
+		break;
+
+	case L2Tst1_L1::Method::UserStake::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L1::Method::UserStake>();
+			if (pArg)
+			{
+				OnMethod("User stake");
+				GroupArgs gr;
+
+				DocAddAmount("Amount", pArg->m_Amount);
+				DocAddPk("Pk", pArg->m_pkUser);
+			}
+		}
+		break;
+		
+	case L2Tst1_L1::Method::BridgeExport::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L1::Method::BridgeExport>();
+			if (pArg)
+			{
+				OnMethod("Bridge Export");
+				GroupArgs gr;
+				OnL2tsts1_BridgeOp(*pArg);
+			}
+		}
+		break;
+
+	case L2Tst1_L1::Method::BridgeImport::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L1::Method::BridgeImport>();
+			if (pArg)
+			{
+				OnMethod("Bridge Import");
+				GroupArgs gr;
+				OnL2tsts1_BridgeOp(*pArg);
+				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
+			}
+		}
+		break;
+	}
+
+}
+
+void ParserContext::OnL2tsts1_BridgeOp(const L2Tst1_L1::Method::BridgeOp& op)
+{
+	DocAddAidAmount("Value", op.m_Aid, op.m_Amount);
+	DocAddMonoblob("cookie", op.m_Cookie);
+	DocAddPk("pk", op.m_pk);
+}
+
+void ParserContext::OnState_L2Tst1_L1(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = L2Tst1_L1::Tags::s_State;
+
+	L2Tst1_L1::State s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	{
+		Env::DocGroup gr2("Settings");
+		WriteL2Tst1_L1_Settings(s.m_Settings);
+	}
+
+
+	{
+		k.m_KeyInContract = L2Tst1_L1::Tags::s_Validators;
+		Env::VarReader r(k, k);
+
+		L2Tst1_L1::Validator pV[L2Tst1_L1::Validator::s_Max];
+		uint32_t nKey = 0, nVal = sizeof(pV);
+
+		if (r.MoveNext(nullptr, nKey, pV, nVal, 0) && (nVal >= sizeof(L2Tst1_L1::Validator)) && (nVal <= sizeof(pV)))
+			WriteL2Tst1_L1_Validators(pV, nVal / sizeof(L2Tst1_L1::Validator));
+
+	}
+}
+
 
 void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
 {
