@@ -904,7 +904,7 @@ private:
 		void SendVotes(Peer*) const;
 		void CheckState();
 		bool ShouldAcceptProposal() const;
-		void OnQuorumReached();
+		void CheckQuorum(RoundData&);
 		bool CreateProposal();
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
