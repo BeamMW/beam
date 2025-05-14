@@ -487,7 +487,7 @@ ON_METHOD(bridge_import)
 {
     BridgeOpL1Context ctx;
     Method::BridgeImport arg;
-    if (!ctx.Init(cid, amount, aid, cookie, arg, Tags::s_BridgeExp))
+    if (!ctx.Init(cid, amount, aid, cookie, arg, Tags::s_BridgeImp))
         return;
     ctx.m_fc.m_Consume = 0;
 
