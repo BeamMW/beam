@@ -121,7 +121,6 @@ public:
 			EnumTips,
 			EnumFunctionalTips,
 			EnumAtHeight,
-			EnumAncestors,
 			StateGetPrev,
 			Unactivate,
 			Activate,
@@ -169,7 +168,6 @@ public:
 			TxoEnumBySpentMigrate,
 			TxoSetValue,
 			TxoGetValue,
-			FindHeightBelow,
 			StreamIns,
 			StreamDel,
 			EnumSystemStatesBkwd,
@@ -416,9 +414,7 @@ public:
 	void EnumTips(WalkerState&); // height lowest to highest
 	void EnumFunctionalTips(WalkerState&); // chainwork highest to lowest
 
-	Height get_HeightBelow(Height);
 	void EnumStatesAt(WalkerState&, Height);
-	void EnumAncestors(WalkerState&, const StateID&);
 	bool get_Prev(StateID&);
 	bool get_Prev(uint64_t&);
 
