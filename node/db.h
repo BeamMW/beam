@@ -165,7 +165,6 @@ public:
 			TxoDelFrom,
 			TxoSetSpent,
 			TxoEnum,
-			TxoEnumBySpentMigrate,
 			TxoSetValue,
 			TxoGetValue,
 			StreamIns,
@@ -875,7 +874,6 @@ private:
 	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
 	void put_Cursor(const StateID& sid); // jump
 
-	void MigrateFrom18();
 	void MigrateFrom20();
 
 	static const uint32_t s_StreamBlob;

@@ -414,15 +414,6 @@ void NodeDB::Open(const char* szPath)
 		uint64_t nVer = ParamIntGetDef(ParamID::DbVer);
 		switch (nVer)
 		{
-		case 17: // before UTXO image
-			// no break;
-
-		case 18: // ridiculous rating values, no States.Inputs column, Txo.SpendHeight is still indexed
-
-			BEAM_LOG_INFO() << "DB migrate from " << 18;
-			MigrateFrom18();
-			// no break;
-
 		case 19: // before Shielded shards
 			// ignore
 			// no break;
@@ -3070,74 +3061,6 @@ void NodeDB::AssetSetValue(Asset::ID id, const AmountBig::Type& val, Height hLoc
 	rs.put(2, id);
 	rs.Step();
 	TestChanged1Row();
-}
-
-void NodeDB::MigrateFrom18()
-{
-	{
-		BEAM_LOG_INFO() << "Resetting peer ratings...";
-
-		std::vector<WalkerPeer::Data> v;
-
-		{
-			WalkerPeer wlk;
-			for (EnumPeers(wlk); wlk.MoveNext(); )
-				v.push_back(wlk.m_Data);
-		}
-
-		PeersDel();
-
-		for (size_t i = 0; i < v.size(); i++)
-		{
-			WalkerPeer::Data& d = v[i];
-			d.m_Rating = PeerManager::Rating::Initial;
-			PeerIns(d);
-		}
-	}
-
-	LongAction la("Migrating inputs...", ParamIntGetDef(ParamID::CursorHeight));
-
-	ExecQuick("ALTER TABLE " TblStates " ADD COLUMN "  "[" TblStates_Inputs	"] BLOB");
-
-	std::vector<StateInput> vInps;
-	Height h = 0;
-
-	WalkerTxo wlk;
-	wlk.m_Rs.Reset(*this, Query::TxoEnumBySpentMigrate, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_SpendHeight " IS NOT NULL ORDER BY " TblTxo_SpendHeight "," TblTxo_ID);
-	while (true)
-	{
-		bool bNext = wlk.MoveNext();
-
-		bool bFlush = !vInps.empty() && (!bNext || (wlk.m_SpendHeight != h));
-		if (bFlush)
-		{
-			std::sort(vInps.begin(), vInps.end(), StateInput::IsLess);
-
-			uint64_t rowid = FindActiveStateStrict(h);
-			set_StateInputs(rowid, &vInps.front(), vInps.size());
-			vInps.clear();
-		}
-
-		if (!bNext)
-			break;
-
-		h = wlk.m_SpendHeight;
-		la.OnProgress(h);
-
-		// extract input from output (which may be naked already)
-		if (wlk.m_Value.n < sizeof(ECC::Point))
-			ThrowInconsistent();
-		const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(wlk.m_Value.p);
-
-		StateInput& x = vInps.emplace_back();
-
-		x.m_Txo_AndY = wlk.m_ID;
-		memcpy(x.m_CommX.m_pData, pSrc + 1, x.m_CommX.nBytes);
-		if (1 & pSrc[0])
-			x.m_Txo_AndY |= StateInput::s_Y;
-	}
-
-	ExecQuick("DROP INDEX [Idx" TblTxo "SH]");
 }
 
 void NodeDB::MigrateFrom20()
