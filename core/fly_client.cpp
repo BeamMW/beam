@@ -929,19 +929,10 @@ bool FlyClient::Data::DecodedHdrPack::DecodeAndCheck(const HdrPack& msg)
     std::vector<Block::SystemState::Full> v;
     v.resize(msg.m_vElements.size());
 
-    Cast::Down<Block::SystemState::Sequence::Prefix>(v.front()) = msg.m_Prefix;
-    Cast::Down<Block::SystemState::Sequence::Element>(v.front()) = msg.m_vElements.back();
+    v.front().SetFirst(msg.m_Prefix, msg.m_vElements.back());
 
     for (size_t i = 1; i < msg.m_vElements.size(); i++)
-    {
-        Block::SystemState::Full& s0 = v[i - 1];
-        Block::SystemState::Full& s1 = v[i];
-
-        s0.get_Hash(s1.m_Prev);
-        s1.m_Height = s0.m_Height + 1;
-        Cast::Down<Block::SystemState::Sequence::Element>(s1) = msg.m_vElements[msg.m_vElements.size() - i - 1];
-        s1.m_ChainWork = s0.m_ChainWork + s1.m_PoW.m_Difficulty;
-    }
+        v[i].SetNext(v[i - 1], msg.m_vElements[msg.m_vElements.size() - i - 1]);
 
     struct MyTask
         :public Executor::TaskSync

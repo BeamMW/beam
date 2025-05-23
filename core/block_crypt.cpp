@@ -3042,15 +3042,27 @@ namespace beam
 		if (m_Number.v + 1 != sNext.m_Number.v)
 			return false;
 
+		if (m_ChainWork + sNext.m_PoW.m_Difficulty != sNext.m_ChainWork) // for PoS this is equivalent to verifying height+span relation
+			return false;
+
 		Merkle::Hash hv;
 		get_Hash(hv);
 		return sNext.m_Prev == hv;
 	}
 
-	void Block::SystemState::Full::NextPrefix()
+	void Block::SystemState::Full::SetFirst(const Sequence::Prefix& prfx, const Element& x)
 	{
-		get_Hash(m_Prev);
-		m_Height++;
+		Cast::Down<Sequence::Prefix>(*this) = prfx;
+		Cast::Down<Sequence::Element>(*this) = x;
+	}
+
+	void Block::SystemState::Full::SetNext(const Full& s, const Element& x)
+	{
+		s.get_Hash(m_Prev);
+		m_Number.v = s.m_Number.v + 1;
+		m_ChainWork = s.m_ChainWork + x.m_PoW.m_Difficulty;
+
+		Cast::Down<Sequence::Element>(*this) = x;
 	}
 
 	void Block::SystemState::Full::get_HashInternal(Merkle::Hash& out, bool bTotal) const
