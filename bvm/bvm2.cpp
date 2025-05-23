@@ -1798,8 +1798,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(get_HdrInfo)
 	{
 		Block::SystemState::Full s;
-		s.m_Height = hdr.m_Height;
-		Exc::Test(get_HdrAt(s));
+		Exc::Test(get_HdrAt(s, hdr.m_Height));
 
 		CvtHdr(hdr, s);
 		s.get_Hash(hdr.m_Hash);
@@ -1816,8 +1815,7 @@ namespace bvm2 {
 	BVM_METHOD_HOST(get_HdrFull)
 	{
 		Block::SystemState::Full s;
-		s.m_Height = hdr.m_Height;
-		Exc::Test(get_HdrAt(s));
+		Exc::Test(get_HdrAt(s, hdr.m_Height));
 
 		CvtHdr(hdr, s);
 		hdr.m_Prev = s.m_Prev;

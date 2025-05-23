@@ -363,7 +363,7 @@ namespace bvm2 {
 			Block::SystemState::Full s;
 			m_pHist->get_Tip(s); // zero-inits if no tip
 
-			m_Context.m_Height = s.m_Height;
+			m_Context.m_Height = s.get_Height();
 
 			if (r.m_IsDependent)
 			{
@@ -375,13 +375,12 @@ namespace bvm2 {
 		}
 	}
 
-	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s)
+	bool ManagerStd::get_HdrAt(Block::SystemState::Full& s, Height h)
 	{
 		if (!m_Pending.m_pSingleRequest)
 		{
 			Exc::Test(m_pHist);
 
-			Height h = s.m_Height;
 			if (m_pHist->get_At(s, h))
 				return true;
 

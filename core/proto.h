@@ -60,10 +60,10 @@ namespace proto {
     macro(Block::SystemState::ID, Top) \
     macro(uint8_t, FlagP) \
     macro(uint8_t, FlagE) \
-    macro(Height, CountExtra) \
-    macro(Height, Height0) \
-    macro(Height, HorizonLo1) \
-    macro(Height, HorizonHi1)
+    macro(Block::Number, CountExtra) \
+    macro(Block::Number, Block0) \
+    macro(Block::Number, HorizonLo1) \
+    macro(Block::Number, HorizonHi1)
 
 #define BeamNodeMsg_Body(macro) \
     macro(BodyBuffers, Body)
@@ -72,7 +72,7 @@ namespace proto {
     macro(std::vector<BodyBuffers>, Bodies)
 
 #define BeamNodeMsg_GetProofState(macro) \
-    macro(Height, Height)
+    macro(Block::Number, Number)
 
 #define BeamNodeMsg_GetCommonState(macro) \
     macro(std::vector<Block::SystemState::ID>, IDs)
@@ -247,7 +247,7 @@ namespace proto {
 #define BeamNodeMsg_GetStateSummary(macro)
 
 #define BeamNodeMsg_StateSummary(macro) \
-    macro(Height, TxoLo) /* if 0 - this is the archieve Node */ \
+    macro(Block::Number, TxoLo) /* if 0 - this is the archieve Node */ \
     macro(TxoID, Kernels) /* not supported atm */ \
     macro(TxoID, Txos) /* Total num of outputs interpreted by this Node. Would be total num of outputs if TxoLo == 0.  */ \
     macro(TxoID, Utxos) /* not supported atm */ \
@@ -590,6 +590,8 @@ namespace proto {
     inline void ZeroInit(ByteBuffer&) { }
     inline void ZeroInit(std::string&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
+    inline void ZeroInit(Block::Number& x) { x.v = 0; }
+    inline void ZeroInit(Block::NumberPos& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Element& x) { ZeroObject(x); }
