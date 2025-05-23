@@ -678,7 +678,7 @@ void Channel::OnRequestCompleteInSearch(KernelLocator& r)
 	assert(!m_State.m_Close.m_hPhase2);
 	assert(r.m_pIndex);
 
-	Height h = r.m_Res.m_Proof.m_State.m_Height;
+	Height h = r.m_Res.m_Proof.m_State.get_Height();
 	if (!h)
 	{
 		// continue search
@@ -869,7 +869,7 @@ void Channel::OnRequestComplete(KernelLocator& r)
 		return;
 	}
 
-	Height h = r.m_Res.m_Proof.m_State.m_Height;
+	Height h = r.m_Res.m_Proof.m_State.get_Height();
 	if (h)
 	{
 		m_State.m_hQueryLast = 0;

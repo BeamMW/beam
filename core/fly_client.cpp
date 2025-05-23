@@ -355,7 +355,7 @@ void FlyClient::NetworkStd::Connection::OnLogin(Login&& msg, uint32_t /* nFlagsP
 
 void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 {
-	if (msg.m_Description.m_Height < Rules::HeightGenesis)
+	if (!msg.m_Description.m_Number.v)
 		return; // ignore
 
     if (m_Tip == msg.m_Description)
@@ -369,7 +369,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 
     m_Dependent.m_vec.clear();
 
-    if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Height && !m_Tip.IsNext(msg.m_Description))
+    if (m_pSync && m_pSync->m_vConfirming.empty() && !m_pSync->m_TipBeforeGap.m_Number.v && !m_Tip.IsNext(msg.m_Description))
         m_pSync->m_TipBeforeGap = m_Tip;
 
     m_Tip = msg.m_Description;
@@ -407,8 +407,8 @@ void FlyClient::NetworkStd::Connection::StartSync()
     {
         // starting search
         m_pSync.reset(new SyncCtx);
-        m_pSync->m_LowHeight = m_Tip.m_Height;
-        SearchBelow(m_Tip.m_Height, 1);
+        m_pSync->m_LowHeight = m_Tip.get_Height();
+        SearchBelow(m_Tip.get_Height(), 1);
     }
 }
 
@@ -473,21 +473,21 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofCommonState&& msg)
         if (vStates.size() == iState)
         {
             // not found. Theoretically it's possible that the current tip is lower than the requested range (but highly unlikely)
-            if (m_Tip.m_Height > vStates.back().m_Height)
+            if (m_Tip.m_Number.v > vStates.back().m_Number.v)
                 ThrowUnexpected();
 
-            SearchBelow(m_Tip.m_Height, 1); // restart
+            SearchBelow(m_Tip.get_Height(), 1); // restart
             return;
 
         }
-        if (vStates[iState].m_Height == msg.m_ID.m_Height)
+        if (vStates[iState].m_Number.v == msg.m_ID.m_Number.v)
             break;
     }
 
     if (!m_Tip.IsValidProofState(msg.m_ID, msg.m_Proof))
         ThrowUnexpected();
 
-    if ((m_pSync->m_LowHeight < vStates.front().m_Height) && iState)
+    if ((m_pSync->m_LowHeight < vStates.front().get_Height()) && iState)
         SearchBelow(m_pSync->m_LowHeight + 1, 1); // restart the search from this height
     else
     {
@@ -499,7 +499,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofCommonState&& msg)
             if (iState != vStates.size() - 1)
                 ThrowUnexpected(); // the disproof should have been for the last requested state
 
-            SearchBelow(vStates.back().m_Height, static_cast<uint32_t>(vStates.size() * 2)); // all the range disproven. Search below
+            SearchBelow(vStates.back().get_Height(), static_cast<uint32_t>(vStates.size() * 2)); // all the range disproven. Search below
         }
         else
         {
@@ -519,11 +519,11 @@ struct FlyClient::NetworkStd::Connection::StateArray
 bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemState::Full& s) const
 {
     struct Cmp {
-        bool operator () (const Block::SystemState::Full& s, Height h) const { return s.m_Height < h; }
+        bool operator () (const Block::SystemState::Full& s, Block::Number num) const { return s.m_Number.v < num.v; }
     };
 
     // the array should be sorted (this is verified by chainworkproof verification)
-    std::vector<Block::SystemState::Full>::const_iterator it = std::lower_bound(m_vec.begin(), m_vec.end(), s.m_Height, Cmp());
+    std::vector<Block::SystemState::Full>::const_iterator it = std::lower_bound(m_vec.begin(), m_vec.end(), s.m_Number, Cmp());
     return (m_vec.end() != it) && (*it == s);
 }
 
@@ -536,7 +536,7 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
         // for trusted nodes this is not required. Go straight to finish
         SyncCtx::Ptr pSync = std::move(m_pSync);
         StateArray arr;
-        PostChainworkProof(arr, pSync->m_Confirmed.m_Height);
+        PostChainworkProof(arr, pSync->m_Confirmed.get_Height());
     }
     else
     {
@@ -544,8 +544,8 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
         msg.m_LowerBound = m_pSync->m_Confirmed.m_ChainWork;
         Send(msg);
 
-        m_pSync->m_TipBeforeGap.m_Height = 0;
-        m_pSync->m_LowHeight = m_pSync->m_Confirmed.m_Height;
+        m_pSync->m_TipBeforeGap.m_Number.v = 0;
+        m_pSync->m_LowHeight = m_pSync->m_Confirmed.get_Height();
     }
 }
 
@@ -573,7 +573,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
     StateArray arr;
 	msg.m_Proof.UnpackStates(arr.m_vec);
 
-    if (pSync->m_TipBeforeGap.m_Height && pSync->m_Confirmed.m_Height)
+    if (pSync->m_TipBeforeGap.m_Number.v && pSync->m_Confirmed.m_Number.v)
     {
         // Since there was a gap in the tips reported by the node (which is typical in case of reorgs) - there is a possibility that our m_Confirmed is no longer valid.
         // If either the m_Confirmed or the m_TipBeforeGap are mentioned in the chainworkproof - then there's no problem with reorg.
@@ -600,13 +600,13 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
 
         virtual bool OnState(const Block::SystemState::Full& s) override
         {
-            if (s.m_Height <= m_LowHeight)
+            if (s.get_Height() <= m_LowHeight)
                 return false;
 
             if (m_pArr->Find(s))
                 return false;
 
-            m_LowErase = s.m_Height;
+            m_LowErase = s.get_Height();
             return true;
         }
     } w;

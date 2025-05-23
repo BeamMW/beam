@@ -1931,6 +1931,26 @@ namespace detail
 		}
 
 		template<typename Archive>
+		Archive& save(Archive& ar, const beam::HeightHash& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Hash;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		Archive& load(Archive& ar, beam::HeightHash& v)
+		{
+			ar
+				& v.m_Height
+				& v.m_Hash;
+
+			return ar;
+		}
+
+		template<typename Archive>
         Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar
@@ -1954,7 +1974,7 @@ namespace detail
 		Archive& save(Archive& ar, const beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
-				& v.m_Height
+				& v.m_Number
 				& v.m_Prev
 				& v.m_ChainWork;
 
@@ -1965,7 +1985,7 @@ namespace detail
 		Archive& load(Archive& ar, beam::Block::SystemState::Sequence::Prefix& v)
 		{
 			ar
-				& v.m_Height
+				& v.m_Number
 				& v.m_Prev
 				& v.m_ChainWork;
 
