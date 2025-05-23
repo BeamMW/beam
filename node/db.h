@@ -42,16 +42,16 @@ public:
 		enum Enum {
 			DbVer,
 			CursorRow,
-			CursorHeight,
-			FossilHeight, // Height starting from which and below original blocks are erased
+			CursorNumber,
+			NumberFossil, // Number starting from which and below original blocks are erased
 			CfgChecksum,
 			MyID,
 			RichContractInfo,
 			RichContractParser,
 			Treasury,
 			Deprecated_EventsOwnerID, // hash of keys used to scan and record events
-			HeightTxoLo, // Height starting from which and below Txo info is totally erased.
-			HeightTxoHi, // Height starting from which and below Txo infi is compacted, only the commitment is left
+			NumberTxoLo, // Block Number starting from which and below Txo info is totally erased.
+			NumberTxoHi, // Block Number starting from which and below Txo infi is compacted, only the commitment is left
 			SyncData,
 			LastRecoveryHeight,
 			MappingStamp,
@@ -89,16 +89,19 @@ public:
 			StateDel,
 			StateGet,
 			StateGetHash,
-			StateGetHeightAndPrev,
+			StateGetNumberAndPrev,
 			StateFind,
+			//StateFindCW,
 			StateFind2,
 			StateFindWithFlag,
+			StateFindWithFlagCW,
+			StateFindWithFlagCWLB,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
 			StateGetNextOf,
 			StateSetNextCount,
 			StateSetNextCountF,
-			StateGetHeightAndAux,
+			StateGetNumberAndAux,
 			StateGetNextFunctional,
 			StateSetFlags,
 			StateGetFlags0,
@@ -120,7 +123,7 @@ public:
 			TipReachableDel,
 			EnumTips,
 			EnumFunctionalTips,
-			EnumAtHeight,
+			EnumAtNumber,
 			StateGetPrev,
 			Unactivate,
 			Activate,
@@ -214,7 +217,7 @@ public:
 			ShieldedStatisticDel,
 
 			KrnInfoInsert,
-			KrnInfoEnumH,
+			KrnInfoEnumN,
 			KrnInfoEnumCid,
 			KrnInfoDel,
 
@@ -341,12 +344,21 @@ public:
 	uint64_t ParamIntGetDef(uint32_t ID, uint64_t def = 0);
 	void ParamIntSet(uint32_t ID, uint64_t val);
 
+	struct StateID {
+		uint64_t m_Row;
+		Block::Number m_Number;
+		void SetNull();
+	};
+
 	uint64_t InsertState(const Block::SystemState::Full&, const PeerID&); // Fails if state already exists
 
-	uint64_t FindActiveStateStrict(Height);
+	uint64_t FindActiveStateStrict(Block::Number);
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 	void get_StateHash(uint64_t rowid, Merkle::Hash&);
+
+	void FindActiveStateStrict(StateID&, const Difficulty::Raw&);
+	void FindActiveStateStrictLowBound(StateID&, const Difficulty::Raw&);
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.
 
@@ -371,14 +383,6 @@ public:
 	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos, rollback
 	void DelStateBlockPPR(uint64_t rowid); // delete perishable, rollback, peer. Keep eternal, extra, txos
 	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos, rollback
-
-	struct StateID {
-		uint64_t m_Row;
-		Height m_Height;
-		void SetNull();
-	};
-
-	void get_StateID(const StateID&, Block::SystemState::ID&);
 
 	TxoID FindStateByTxoID(StateID&, TxoID); // returns the Txos at state end
 
@@ -410,10 +414,11 @@ public:
 	void set_StateInputs(uint64_t rowid, StateInput*, size_t);
 	bool get_StateInputs(uint64_t rowid, std::vector<StateInput>&);
 
-	void EnumTips(WalkerState&); // height lowest to highest
+	void EnumTips(WalkerState&); // Number lowest to highest
 	void EnumFunctionalTips(WalkerState&); // chainwork highest to lowest
 
-	void EnumStatesAt(WalkerState&, Height);
+	void EnumStatesAt(WalkerState&, Block::Number);
+
 	bool get_Prev(StateID&);
 	bool get_Prev(uint64_t&);
 
@@ -581,14 +586,14 @@ public:
 	void TxoAdd(TxoID, const Blob&);
 	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
-	void TxoSetSpent(TxoID, Height);
+	void TxoSetSpent(TxoID, Block::Number);
 
 	struct WalkerTxo
 	{
 		Recordset m_Rs;
 		TxoID m_ID;
 		Blob m_Value;
-		Height m_SpendHeight;
+		Block::Number m_SpendBlock;
 
 		bool MoveNext();
 	};
@@ -680,11 +685,11 @@ public:
 		:public StreamMmr
 	{
 	public:
-		static uint64_t H2I(Height h);
+		static uint64_t N2I(Block::Number);
 
 		StatesMmr(NodeDB&);
 
-		void LoadStateHash(Merkle::Hash& hv, Height) const;
+		void LoadStateHash(Merkle::Hash& hv, Block::Number) const;
 
 	protected:
 		// Mmr
@@ -800,7 +805,7 @@ public:
 
 		struct Entry
 		{
-			HeightPos m_Pos;
+			Block::NumberPos m_Pos;
 			Cid m_Cid;
 			Blob m_Val;
 		};
@@ -816,10 +821,10 @@ public:
 
 
 	void KrnInfoInsert(const KrnInfo::Entry&);
-	void KrnInfoDel(const HeightRange&);
-	void KrnInfoEnum(KrnInfo::Walker&, Height);
-	void KrnInfoEnum(KrnInfo::Walker&, const HeightPos&, const HeightPos&);
-	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Height hMax);
+	void KrnInfoDelFrom(Block::Number);
+	void KrnInfoEnum(KrnInfo::Walker&, Block::Number);
+	void KrnInfoEnum(KrnInfo::Walker&, const Block::NumberPos&, const Block::NumberPos&);
+	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Block::Number numMax);
 
 	void TestChanged1Row();
 
@@ -865,13 +870,13 @@ private:
 	Statement& get_Statement(Query::Enum, const char*);
 
 	uint64_t get_AutoincrementID(const char* szTable);
-	void TipAdd(uint64_t rowid, Height);
-	void TipDel(uint64_t rowid, Height);
+	void TipAdd(uint64_t rowid, Block::Number);
+	void TipDel(uint64_t rowid, Block::Number);
 	void TipReachableAdd(uint64_t rowid);
 	void TipReachableDel(uint64_t rowid);
 	void SetNextCount(uint64_t rowid, uint32_t);
 	void SetNextCountFunctional(uint64_t rowid, uint32_t);
-	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Height, bool);
+	void OnStateReachable(uint64_t rowid, uint64_t rowPrev, Block::Number, bool);
 	void put_Cursor(const StateID& sid); // jump
 
 	void MigrateFrom20();
