@@ -501,10 +501,10 @@ namespace beam::wallet
 
     bool Wallet::IsWalletInSync() const
     {
-        Block::SystemState::ID stateID;
+        HeightHash stateID;
         ZeroObject(stateID);
         m_WalletDB->getSystemStateID(stateID);
-        if (stateID.m_Height < Rules::HeightGenesis)
+        if (!stateID.m_Height)
             return false;
 
         Block::SystemState::Full state;
@@ -516,7 +516,7 @@ namespace beam::wallet
     {
         Block::SystemState::Full s;
         get_tip(s);
-        return s.m_Height;
+        return s.get_Height();
     }
 
     void Wallet::DoInSyncedWallet(OnSyncAction&& action)
@@ -689,7 +689,7 @@ namespace beam::wallet
             if (it->second->GetParameter(TxParameterID::KernelUnconfirmedHeight, lastUnconfirmedHeight, subTxID) && lastUnconfirmedHeight > 0)
             {
                 Block::SystemState::Full state;
-                if (!get_tip(state) || state.m_Height == lastUnconfirmedHeight)
+                if (!get_tip(state) || state.get_Height() == lastUnconfirmedHeight)
                 {
                     UpdateOnNextTip(it->second);
                     return;
@@ -1364,7 +1364,8 @@ namespace beam::wallet
 
         if (r.m_pCallback)
         {
-            r.m_pCallback->OnDone(r.m_Res.m_Proof.empty() ? nullptr : &r.m_Res.m_Proof.m_State.m_Height);
+            Height h = r.m_Res.m_Proof.m_State.get_Height();
+            r.m_pCallback->OnDone(r.m_Res.m_Proof.empty() ? nullptr : &h);
             return;
         }
 
@@ -1375,7 +1376,7 @@ namespace beam::wallet
         auto tx = it->second;
         if (!r.m_Res.m_Proof.empty())
         {
-            if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.m_Height, r.m_SubTxID))
+            if (tx->SetParameter(TxParameterID::KernelProofHeight, r.m_Res.m_Proof.m_State.get_Height(), r.m_SubTxID))
             {
                 UpdateTransaction(tx);
             }
@@ -1384,7 +1385,7 @@ namespace beam::wallet
         {
             Block::SystemState::Full sTip;
             get_tip(sTip);
-            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.get_Height(), r.m_SubTxID);
             UpdateTransaction(tx);
         }
     }
@@ -1412,7 +1413,7 @@ namespace beam::wallet
         if (!req.m_Res.m_Proof.empty())
         {
             const auto& info  = req.m_Res.m_Info;
-            const auto height = sTip.m_Height;
+            const auto height = sTip.get_Height();
             ProcessAssetInfo(info, height, msgPrefix);
 
             if (tx)
@@ -1449,14 +1450,14 @@ namespace beam::wallet
             {
                 tx->SetParameter(TxParameterID::AssetConfirmedHeight, Height(0), req.m_SubTxID);
                 tx->SetParameter(TxParameterID::AssetInfoFull, Asset::Full(), req.m_SubTxID);
-                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, req.m_SubTxID);
+                tx->SetParameter(TxParameterID::AssetUnconfirmedHeight, sTip.get_Height(), req.m_SubTxID);
                 UpdateTransaction(tx);
             }
             else
             {
                 storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetConfirmedHeight, Height(0), true);
                 storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetInfoFull, Asset::Full(), true);
-                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, sTip.m_Height, true);
+                storage::setTxParameter(*m_WalletDB, req.m_TxID, req.m_SubTxID, TxParameterID::AssetUnconfirmedHeight, sTip.get_Height(), true);
             }
         }
     }
@@ -1505,7 +1506,7 @@ namespace beam::wallet
         {
             Block::SystemState::Full sTip;
             get_tip(sTip);
-            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.m_Height, r.m_SubTxID);
+            tx->SetParameter(TxParameterID::KernelUnconfirmedHeight, sTip.get_Height(), r.m_SubTxID);
         }
     }
 
@@ -1893,8 +1894,8 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(sTip);
 
         Height h = GetEventsHeightNext();
-        assert(h <= sTip.m_Height + 1);
-        if (h > sTip.m_Height)
+        assert(h <= sTip.get_Height() + 1);
+        if (h > sTip.get_Height())
             return;
 
         if (!m_PendingEvents.empty())
@@ -1947,7 +1948,7 @@ namespace beam::wallet
             Block::SystemState::Full sTip;
             m_WalletDB->get_History().get_Tip(sTip);
 
-            SetEventsHeight(sTip.m_Height);
+            SetEventsHeight(sTip.get_Height());
             if (!m_IsTreasuryHandled)
                 SetTreasuryHandled(true); // to be able to switch to unsafe node
         }
@@ -2083,22 +2084,23 @@ namespace beam::wallet
         Block::SystemState::Full sTip;
         m_WalletDB->get_History().get_Tip(sTip);
 
-        Block::SystemState::ID id;
-        sTip.get_ID(id);
+        HeightHash id;
+        id.m_Height = sTip.get_Height();
+        sTip.get_Hash(id.m_Hash);
         BEAM_LOG_INFO() << "Rolled back to " << id;
 
         m_WalletDB->setSystemStateID(id);
-        m_WalletDB->get_History().DeleteFrom(sTip.m_Height + 1);
-        m_WalletDB->rollbackConfirmedUtxo(sTip.m_Height);
-        m_WalletDB->rollbackConfirmedShieldedUtxo(sTip.m_Height);
-        m_WalletDB->rollbackAssets(sTip.m_Height);
-        m_WalletDB->deleteEventsFrom(sTip.m_Height + 1);
+        m_WalletDB->get_History().DeleteFrom(id.m_Height + 1);
+        m_WalletDB->rollbackConfirmedUtxo(id.m_Height);
+        m_WalletDB->rollbackConfirmedShieldedUtxo(id.m_Height);
+        m_WalletDB->rollbackAssets(id.m_Height);
+        m_WalletDB->deleteEventsFrom(id.m_Height + 1);
 
         // Rollback active transaction
         for (auto it = m_ActiveTransactions.begin(); m_ActiveTransactions.end() != it; it++)
         {
             const auto& pTx = it->second;
-            if (pTx->Rollback(sTip.m_Height))
+            if (pTx->Rollback(id.m_Height))
             {
                 UpdateOnSynced(pTx);
             }
@@ -2113,7 +2115,7 @@ namespace beam::wallet
             {
                 // Reconstruct tx with reset parameters and add it to the active list
                 auto pTx = ConstructTransaction(tx.m_txId, tx.m_txType);
-                if (pTx && pTx->Rollback(sTip.m_Height))
+                if (pTx && pTx->Rollback(id.m_Height))
                 {
                     m_ActiveTransactions.emplace(tx.m_txId, pTx);
                     UpdateOnSynced(pTx);
@@ -2122,9 +2124,9 @@ namespace beam::wallet
         }
 
         Height h = GetEventsHeightNext();
-        if (h > sTip.m_Height + 1)
+        if (h > id.m_Height + 1)
         {
-            SetEventsHeight(sTip.m_Height);
+            SetEventsHeight(id.m_Height);
         }
     }
 
@@ -2235,11 +2237,12 @@ namespace beam::wallet
 
         Block::SystemState::Full sTip;
         get_tip(sTip);
-        if (!sTip.m_Height)
+        if (!sTip.m_Number.v)
             return; //?!
 
-        Block::SystemState::ID id;
-        sTip.get_ID(id);
+        HeightHash id;
+        id.m_Height = sTip.get_Height();
+        sTip.get_Hash(id.m_Hash);
         BEAM_LOG_INFO() << "Sync up to " << id;
 
         if (!SyncRemains())
