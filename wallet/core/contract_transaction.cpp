@@ -568,7 +568,7 @@ namespace beam::wallet
 
         uint32_t nCount = 0;
         const auto* pHv = m_Tx.GetGateway().get_DependentState(nCount);
-        Height h = sTip.m_Height + 1;
+        Height h = sTip.get_Height() + 1;
 
         EnsureNewCtx();
 
@@ -623,7 +623,7 @@ namespace beam::wallet
                 GetParameter(TxParameterID::KernelUnconfirmedHeight, hUnconfirmed);
 
                 auto it = builder.m_HftState.FindVariantFrom(hUnconfirmed + 1);
-                if ((builder.m_HftState.m_Variants.end() != it) && (it->m_Key.m_Height <= sTip.m_Height))
+                if ((builder.m_HftState.m_Variants.end() != it) && (it->m_Key.m_Height <= sTip.get_Height()))
                 {
                     builder.OnRebuildFailed();
                     BEAM_LOG_INFO() << "waiting prev unconfirm";
@@ -648,7 +648,7 @@ namespace beam::wallet
                 aex.set_Privilege(vData.m_AppInvoke.m_Privilege);
 
 
-                aex.SetExplicitContext(sTip.m_Height, hvCtx);
+                aex.SetExplicitContext(sTip.get_Height(), hvCtx);
 
                 aex.m_EnforceDependent = true;
 
@@ -700,8 +700,8 @@ namespace beam::wallet
                 builder.m_Height = builder.m_pParentCtx->m_Height;
             else
             {
-                builder.m_Height.m_Min = sTip.m_Height + 1;
-                builder.m_Height.m_Max = sTip.m_Height + 5; // 5 blocks - standard contract tx life time
+                builder.m_Height.m_Min = sTip.get_Height() + 1;
+                builder.m_Height.m_Max = sTip.get_Height() + 5; // 5 blocks - standard contract tx life time
             }
 
             if (vData.m_vec.empty())
@@ -1150,8 +1150,7 @@ namespace beam::wallet
         }
 
         Block::SystemState::Full sTip;
-        if (!GetTip(sTip))
-            sTip.m_Height = 0;
+        Height hTip = GetTip(sTip) ? sTip.get_Height() : 0;
 
         // check if all unconfirmed
         GetParameter(TxParameterID::KernelUnconfirmedHeight, h);
@@ -1169,10 +1168,10 @@ namespace beam::wallet
         }
 
         // check if can confirm anything
-        builder.ConfirmHfts(h, sTip.m_Height);
+        builder.ConfirmHfts(h, hTip);
 
         auto itUnconfirmed = builder.m_HftState.FindVariantFrom(h + 1);
-        if ((builder.m_HftState.m_Variants.end() != itUnconfirmed) && (itUnconfirmed->m_Key.m_Height <= sTip.m_Height))
+        if ((builder.m_HftState.m_Variants.end() != itUnconfirmed) && (itUnconfirmed->m_Key.m_Height <= hTip))
             return 0; // confirm or unconfirm prev txs before continuing with this one
 
         bool bWaitingNewTxRes = false;
@@ -1184,7 +1183,7 @@ namespace beam::wallet
             uint8_t nTxRegStatus = proto::TxStatus::Unspecified;
             if (!GetParameter(TxParameterID::TransactionRegistered, nTxRegStatus))
             {
-                if (!IsExpired(sTip.m_Height + 1))
+                if (!IsExpired(hTip + 1))
                 {
                     GetGateway().register_tx(GetTxID(), builder.m_pTransaction, builder.m_pParentCtx ? &builder.m_pParentCtx->m_Hash : nullptr);
                     bWaitingNewTxRes = true;
@@ -1281,7 +1280,7 @@ namespace beam::wallet
         if (!GetTip(sTip))
             return false; //?!
 
-        if (sTip.m_Height - h >= 5)
+        if (sTip.get_Height() >= h + 5)
             return false;
 
         builder.SaveToHftv();

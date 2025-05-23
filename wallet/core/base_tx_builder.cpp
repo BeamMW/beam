@@ -292,7 +292,7 @@ namespace beam::wallet
             // automatically set current height
             Block::SystemState::Full s;
             if (m_Tx.GetTip(s))
-                SaveAndStore(m_Height.m_Min, TxParameterID::MinHeight, s.m_Height);
+                SaveAndStore(m_Height.m_Min, TxParameterID::MinHeight, s.get_Height());
 
         }
 
@@ -1261,7 +1261,7 @@ namespace beam::wallet
             // we're allowed to adjust peer's sugggested max height
             Block::SystemState::Full s;
             if (m_Tx.GetTip(s))
-                m_Height.m_Max = s.m_Height + m_Lifetime;
+                m_Height.m_Max = s.get_Height() + m_Lifetime;
         }
 
         // sanity check

@@ -85,7 +85,7 @@ public:
     /**
      *  Watches for system state to remove stuck expired offers from board
      */
-    void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+    void onSystemStateChanged(const HeightHash& stateID) override;
     /**
      *  Addresses used to check whether offer own or foreign
      */

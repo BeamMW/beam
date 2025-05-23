@@ -230,7 +230,7 @@ namespace beam::wallet
                 Block::SystemState::Full s;
                 if (GetTip(s))
                 {
-                    builder.m_Height.m_Max = s.m_Height + builder.m_Lifetime;
+                    builder.m_Height.m_Max = s.get_Height() + builder.m_Lifetime;
                     SetParameter(TxParameterID::MaxHeight, builder.m_Height.m_Max, GetSubTxID());
                 }
             }

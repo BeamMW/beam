@@ -76,7 +76,7 @@ namespace beam::wallet {
         //
         // IWalletDbObserver
         //
-        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+        void onSystemStateChanged(const HeightHash& stateID) override;
 
         //
         // Serialization

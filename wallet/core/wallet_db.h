@@ -424,7 +424,7 @@ namespace beam::wallet
     {
         virtual void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) {};
         virtual void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) {};
-        virtual void onSystemStateChanged(const Block::SystemState::ID& stateID) {};
+        virtual void onSystemStateChanged(const HeightHash& stateID) {};
         virtual void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) {};
         virtual void onShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items) {};
         virtual void onAssetChanged(ChangeAction action, Asset::ID assetID) {}
@@ -580,8 +580,8 @@ namespace beam::wallet
 
         // 
         virtual Timestamp getLastUpdateTime() const = 0;
-        virtual void setSystemStateID(const Block::SystemState::ID& stateID) = 0;
-        virtual bool getSystemStateID(Block::SystemState::ID& stateID) const = 0;
+        virtual void setSystemStateID(const HeightHash& stateID) = 0;
+        virtual bool getSystemStateID(HeightHash& stateID) const = 0;
 
         virtual void Subscribe(IWalletDbObserver* observer) = 0;
         virtual void Unsubscribe(IWalletDbObserver* observer) = 0;
@@ -760,8 +760,8 @@ namespace beam::wallet
         std::vector<TLaserChannelEntity> loadLaserChannels(uint8_t state = 0) override;
 
         Timestamp getLastUpdateTime() const override;
-        void setSystemStateID(const Block::SystemState::ID& stateID) override;
-        bool getSystemStateID(Block::SystemState::ID& stateID) const override;
+        void setSystemStateID(const HeightHash& stateID) override;
+        bool getSystemStateID(HeightHash& stateID) const override;
 
         void Subscribe(IWalletDbObserver* observer) override;
         void Unsubscribe(IWalletDbObserver* observer) override;
@@ -844,7 +844,7 @@ namespace beam::wallet
         void removeCoinImpl(const Coin::ID& cid);
         void notifyCoinsChanged(ChangeAction action, const std::vector<Coin>& items);
         void notifyTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items);
-        void notifySystemStateChanged(const Block::SystemState::ID& stateID);
+        void notifySystemStateChanged(const HeightHash& stateID);
         void notifyAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items);
         void notifyShieldedCoinsChanged(ChangeAction action, const std::vector<ShieldedCoin>& items);
         void notifyAssetChanged(ChangeAction action, Asset::ID);
