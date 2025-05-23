@@ -161,18 +161,13 @@ namespace beam
 		{
 			bool bTip = !(--i);
 
-			if (!bFirst)
-				s.NextPrefix();
-
-			Cast::Down<SystemState::Sequence::Element>(s) = m_Heading.m_vElements[i];
-
 			if (bFirst)
 			{
+				s.SetFirst(m_Heading.m_Prefix, m_Heading.m_vElements[i]);
 				bFirst = false;
-				Cast::Down<SystemState::Sequence::Prefix>(s) = m_Heading.m_Prefix;
 			}
 			else
-				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				s.MoveNext(m_Heading.m_vElements[i]);
 
 			if (!wlk.OnState(s, bTip))
 				return false;
@@ -220,7 +215,7 @@ namespace beam
 
 			virtual void get_Proof(Merkle::IProofBuilder& bld, uint64_t i) override
 			{
-				m_Src.get_Proof(bld, Rules::HeightGenesis + i);
+				m_Src.get_Proof(bld, Number(i + 1));
 			}
 
 		} bld(*this, src);
@@ -237,13 +232,13 @@ namespace beam
 			if (!samp.SamplePoint(d))
 				break;
 
-			Height hPrev = s.m_Height;
+			Number numPrev = s.m_Number;
 			src.get_StateAt(s, d);
 
-			assert(s.m_Height < hPrev);
-			bool bJump = (s.m_Height + 1 != hPrev);
+			assert(s.m_Number.v < numPrev.v);
+			bool bJump = (s.m_Number.v + 1 != numPrev.v);
 			if (bJump)
-				bld.Add(s.m_Height - Rules::HeightGenesis);
+				bld.Add(s.m_Number.v - 1);
 
 			if (bJump || !m_vArbitraryStates.empty())
 				m_vArbitraryStates.push_back(s);
@@ -397,9 +392,9 @@ namespace beam
 			}
 		};
 
-		MyVerifier ver(*this, s.m_Height - Rules::HeightGenesis);
+		MyVerifier ver(*this, s.m_Number.v - 1);
 		ver.m_hvRootDefinition = s.m_Definition;
-		ver.m_Height = s.m_Height;
+		ver.m_Height = s.get_Height();
 
 		Sampler samp(s, lowerBound);
 		if (samp.m_Begin >= samp.m_End) // overflow attack?
@@ -423,7 +418,7 @@ namespace beam
 			if (bContiguousRange)
 			{
 				// still within contiguous range. Update only some params
-				s.m_Height--;
+				s.m_Number.v--;
 				s.m_ChainWork = dLoPrev;
 				s.m_PoW.m_Difficulty = m_Heading.m_vElements[iState].m_PoW.m_Difficulty;
 			}
@@ -447,7 +442,7 @@ namespace beam
 			{
 				s.get_Hash(ver.m_hvPos);
 
-				if (s.m_Height + 1 == s0.m_Height)
+				if (s.m_Number.v + 1 == s0.m_Number.v)
 				{
 					if (s0.m_Prev != ver.m_hvPos)
 						return false;
@@ -457,13 +452,13 @@ namespace beam
 				}
 				else
 				{
-					if (s.m_Height >= s0.m_Height)
+					if (s.m_Number.v >= s0.m_Number.v)
 						return false;
 
 					if (s.m_ChainWork >= dLoPrev)
 						return false;
 
-					ver.Process(s.m_Height - Rules::HeightGenesis);
+					ver.Process(s.m_Number.v - 1);
 					if (!ver.m_bVerify)
 						return false;
 				}

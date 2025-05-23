@@ -1890,7 +1890,9 @@ namespace beam
 				:public Sequence::Prefix
 				,public Sequence::Element
 			{
-				void NextPrefix();
+				void SetFirst(const Sequence::Prefix&, const Element&);
+				void SetNext(const Full&, const Element&);
+				void MoveNext(const Element& x) { SetNext(*this, x); }
 
 				void get_HashForPoW(Merkle::Hash&) const; // all except PoW
 				void get_Hash(Merkle::Hash&) const; // all
@@ -2116,7 +2118,7 @@ namespace beam
 		struct ISource
 		{
 			virtual void get_StateAt(SystemState::Full&, const Difficulty::Raw&) = 0;
-			virtual void get_Proof(Merkle::IProofBuilder&, Height) = 0;
+			virtual void get_Proof(Merkle::IProofBuilder&, Number) = 0;
 		};
 
 		ChainWorkProof()
