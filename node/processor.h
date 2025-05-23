@@ -141,11 +141,11 @@ class NodeProcessor
 	struct MultiShieldedContext;
 	struct MultiAssetContext;
 
-	void RollbackTo(Height);
-	Height PruneOld();
-	Height RaiseFossil(Height);
-	Height RaiseTxoLo(Height);
-	Height RaiseTxoHi(Height);
+	void RollbackTo(Block::Number);
+	uint64_t PruneOld();
+	uint64_t RaiseFossil(Block::Number);
+	uint64_t RaiseTxoLo(Block::Number);
+	uint64_t RaiseTxoHi(Block::Number);
 	void Vacuum();
 	void RebuildNonStd();
 	void InitializeUtxos();
@@ -159,7 +159,7 @@ class NodeProcessor
 	struct BlockInterpretCtx;
 	struct ProcessorInfoParser;
 
-	bool get_HdrAt(Block::SystemState::Full&);
+	bool get_HdrAt(Block::SystemState::Full&, Height);
 
 	template <typename T>
 	bool HandleElementVecFwd(const T& vec, BlockInterpretCtx&, size_t& n);
@@ -204,8 +204,9 @@ class NodeProcessor
 
 	Height GetInputMaturity(TxoID);
 
-	TxoID get_TxosBefore(Height);
-	TxoID FindHeightByTxoID(Height& h, TxoID id0); // returns the Txos at state end
+	TxoID get_TxosBefore(Block::Number);
+	TxoID FindBlockByTxoID(NodeDB::StateID&, TxoID id0); // returns the Txos at state end
+	TxoID FindHeightByTxoID(Height&, TxoID id0);
 
 	void ReadOffset(ECC::Scalar&, uint64_t rowid);
 	void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
@@ -216,17 +217,17 @@ class NodeProcessor
 	bool InitMapping(const char*, bool bForceReset);
 	void InitializeMapped(const char*);
 
-	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Height-Work. Time and Height are signed
+	typedef std::pair<int64_t, std::pair<int64_t, Difficulty::Raw> > THW; // Time-Num-Work. Time and Num are signed
 	Difficulty get_NextDifficulty();
 	Timestamp get_MovingMedian();
-	void get_MovingMedianEx(Height, uint32_t nWindow, THW&);
+	void get_MovingMedianEx(Block::Number, uint32_t nWindow, THW&);
 
 	struct CongestionCache
 	{
 		struct TipCongestion
 			:public boost::intrusive::list_base_hook<>
 		{
-			Height m_Height;
+			Block::Number m_Number;
 			bool m_bNeedHdrs;
 			std::dvector<uint64_t> m_Rows;
 
@@ -257,17 +258,17 @@ class NodeProcessor
 
 		Entry& get_FromTail(size_t) const;
 
-		const Entry* Get(Height) const;
-		void RollbackTo(Height);
+		const Entry* Get(Block::Number) const;
+		void RollbackTo(Block::Number);
 		void Push(uint64_t rowID, const Block::SystemState::Full&);
 
 	} m_RecentStates;
 
-	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Height hStop);
+	void DeleteBlocksInRange(const NodeDB::StateID& sidTop, Block::Number numStop);
 	void DeleteBlock(uint64_t);
 
-	void AdjustManualRollbackHeight(Height&);
-	void ManualRollbackInternal(Height);
+	void AdjustManualRollbackNumber(Block::Number&);
+	void ManualRollbackInternal(Block::Number);
 	ILongAction* m_pExternalHandler = nullptr;
 
 public:
@@ -298,7 +299,7 @@ public:
 	NodeProcessor();
 	virtual ~NodeProcessor();
 
-	void ManualRollbackTo(Height);
+	void ManualRollbackTo(Block::Number);
 	void ManualSelect(const Block::SystemState::ID&);
 
 	struct Horizon {
@@ -365,9 +366,9 @@ public:
 		TxoID m_TxosTreasury;
 		TxoID m_Txos; // total num of ever created TXOs, including treasury
 
-		Height m_Fossil; // from here and down - no original blocks
-		Height m_TxoLo;
-		Height m_TxoHi;
+		Block::Number m_Fossil; // from here and down - no original blocks
+		Block::Number m_TxoLo;
+		Block::Number m_TxoHi;
 
 		TxoID m_ShieldedOutputs;
 
@@ -391,8 +392,8 @@ public:
 	struct SyncData
 	{
 		NodeDB::StateID m_Target; // can move fwd during sync
-		Height m_h0;
-		Height m_TxoLo;
+		Block::Number m_n0;
+		Block::Number m_TxoLo;
 		ECC::Point m_Sigma;
 
 	} m_SyncData;
@@ -408,7 +409,7 @@ public:
 		void Reset();
 		void ResetAndSave();
 
-		bool IsAllowed(Height, const Merkle::Hash&) const;
+		bool IsAllowed(Block::Number, const Merkle::Hash&) const;
 		bool IsAllowed(const Merkle::Hash&) const;
 
 		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_ManualSelection)
@@ -467,8 +468,8 @@ public:
 	struct TxoInfo
 	{
 		Output m_Outp;
-		Height m_hCreate;
-		Height m_hSpent;
+		Block::Number m_nCreate;
+		Block::Number m_nSpent;
 	};
 
 	void ExtractBlockWithExtra(const NodeDB::StateID&, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
@@ -564,21 +565,21 @@ public:
 
 	struct ProofBuilder_PrevState;
 
-	Height get_ProofKernel(Merkle::Proof*, TxKernel::Ptr*, const Merkle::Hash& idKrn, const HeightPos* pPos);
+	Height get_ProofKernel(Merkle::Proof*, TxKernel::Ptr*, NodeDB::StateID&, const Merkle::Hash& idKrn, const HeightPos* pPos);
 	bool get_ProofContractLog(Merkle::Proof&, const HeightPos&);
 
 	void CommitDB();
 	void RollbackDB();
 
 	void EnumCongestions();
-	const uint64_t* get_CachedRows(const NodeDB::StateID&, Height nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
+	const uint64_t* get_CachedRows(const NodeDB::StateID&, uint64_t nCountExtra); // retval valid till next call to this func, or to EnumCongestions()
 	void TryGoUp();
 	void TryGoTo(NodeDB::StateID&);
 	void OnFastSyncOver(MultiblockContext&, bool& bContextFail);
 
-	// Lowest height to which it's possible to rollback.
-	Height get_LowestReturnHeight();
-	Height get_LowestManualReturnHeight();
+	// Lowest Number to which it's possible to rollback.
+	Block::Number get_LowestReturnNumber();
+	Block::Number get_LowestManualReturnNumber();
 
 	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
@@ -589,7 +590,7 @@ public:
 	virtual void OnModified() {}
 	virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {}
 	virtual void OnFastSyncSucceeded() {}
-	virtual Height get_MaxAutoRollback();
+	virtual uint32_t get_MaxAutoRollback();
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 
 	struct MyExecutor
@@ -630,7 +631,14 @@ public:
 
 	void RescanAccounts(uint32_t nRecent);
 
-	uint64_t FindActiveAtStrict(Height);
+	void FindActiveAtStrict(NodeDB::StateID&, Height);
+	uint64_t FindActiveAtStrict(Block::Number);
+
+	Height Num2Height(const NodeDB::StateID&);
+	Height Num2Height(Block::Number);
+	Block::Number FindAtivePastHeight(Height);
+	void FindAtivePastHeight(NodeDB::StateID&, Height);
+
 	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew); // assuming context-free validation is already performed, but 
@@ -673,7 +681,7 @@ public:
 
 	bool GenerateNewBlock(BlockContext&);
 
-	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Height h0, Height hLo1, Height hHi1, bool bActive);
+	bool GetBlock(const NodeDB::StateID&, ByteBuffer* pEthernal, ByteBuffer* pPerishable, Block::Number n0, Block::Number nLo1, Block::Number nHi1, bool bActive);
 
 	struct ITxoWalker
 	{
@@ -684,7 +692,7 @@ public:
 	};
 
 	bool EnumTxos(ITxoWalker&);
-	bool EnumTxos(ITxoWalker&, const HeightRange&);
+	bool EnumTxos(ITxoWalker&, const Block::NumberRange&);
 
 	struct ITxoWalker_Unspent
 		:public ITxoWalker
@@ -711,12 +719,12 @@ public:
 	struct IKrnWalker
 		:public TxKernel::IWalker
 	{
-		virtual bool ProcessHeight(uint64_t rowID, const std::vector<TxKernel::Ptr>& v) { return Process(v); }
+		virtual bool ProcessBlock(const NodeDB::StateID&, const std::vector<TxKernel::Ptr>& v) { return Process(v); }
 		Height m_Height;
 		LongAction* m_pLa = nullptr;
 	};
 
-	bool EnumKernels(IKrnWalker&, const HeightRange&);
+	bool EnumKernels(IKrnWalker&, const Block::NumberRange&);
 
 	struct KrnWalkerShielded
 		:public IKrnWalker
