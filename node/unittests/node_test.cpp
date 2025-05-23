@@ -268,7 +268,7 @@ namespace beam
 		for (uint32_t h = 0; h < hMax; h++)
 		{
 			Block::SystemState::Full& s = vStates[h];
-			s.m_Height = h + Rules::HeightGenesis;
+			s.m_Number.v = h + 1;
 
 			s.m_ChainWork = d0;
 			if (h)
@@ -357,14 +357,14 @@ namespace beam
 		cmmrFork.get_Hash(s.m_Definition);
 		Merkle::Interpret(s.m_Definition, hvZero, true);
 
-		s.m_Height++;
+		s.m_Number.v++;
 		s.m_ChainWork += d0;
 
 		uint64_t rowLast1 = db.InsertState(s, peer);
 
 		NodeDB::StateID sid;
 		verify_test(CountTips(db, false, &sid) == 2);
-		verify_test(sid.m_Height == hMax-1 + Rules::HeightGenesis);
+		verify_test(sid.m_Number.v == hMax);
 
 		db.SetStateFunctional(rowLast1);
 		db.assert_valid();
@@ -372,18 +372,18 @@ namespace beam
 		db.SetStateFunctional(pRows[0]); // this should trigger big update
 		db.assert_valid();
 		verify_test(CountTips(db, true, &sid) == 2);
-		verify_test(sid.m_Height == hFork0 + 1 + Rules::HeightGenesis);
+		verify_test(sid.m_Number.v == hFork0 + 1 + 1);
 
 		tr.Commit();
 		tr.Start(db);
 
 		NodeDB::StateID sid2;
 		verify_test(CountTips(db, false, &sid2) == 2);
-		verify_test(sid2.m_Height == hMax-1 + Rules::HeightGenesis);
+		verify_test(sid2.m_Number.v == hMax);
 
 		while (db.get_Prev(sid))
 			;
-		verify_test(sid.m_Height == Rules::HeightGenesis);
+		verify_test(sid.m_Number.v == 1);
 
 		db.SetStateNotFunctional(pRows[0]);
 		db.assert_valid();
@@ -397,18 +397,18 @@ namespace beam
 		NodeDB::StatesMmr smmr(db);
 		Merkle::Hash hvRoot(Zero);
 
-		for (sid.m_Height = Rules::HeightGenesis; sid.m_Height < hMax + Rules::HeightGenesis; sid.m_Height++)
+		for (sid.m_Number.v = 1; sid.m_Number.v < hMax + 1; sid.m_Number.v++)
 		{
-			sid.m_Row = pRows[sid.m_Height - Rules::HeightGenesis];
+			sid.m_Row = pRows[sid.m_Number.v - 1];
 			db.MoveFwd(sid);
 			
 			Merkle::Hash hv;
-			if (sid.m_Height < Rules::HeightGenesis + 50) // skip it for big heights, coz it's quadratic
+			if (sid.m_Number.v < 1 + 50) // skip it for big heights, coz it's quadratic
 			{
-				for (Height h = Rules::HeightGenesis; h < sid.m_Height; h++)
+				for (Height h = Rules::HeightGenesis; h < sid.m_Number.v; h++)
 				{
 					Merkle::ProofBuilderStd bld;
-					smmr.get_Proof(bld, smmr.H2I(h));
+					smmr.get_Proof(bld, smmr.N2I(Block::Number(h)));
 
 					vStates[h - Rules::HeightGenesis].get_Hash(hv);
 					Merkle::Interpret(hv, bld.m_Proof);
@@ -416,7 +416,7 @@ namespace beam
 				}
 			}
 
-			const Block::SystemState::Full& sTop = vStates[sid.m_Height - Rules::HeightGenesis];
+			const Block::SystemState::Full& sTop = vStates[sid.m_Number.v - 1];
 
 			hv = hvRoot;
 			Merkle::Interpret(hv, hvZero, true);
@@ -1129,16 +1129,16 @@ namespace beam
 			{
 				// Spend it in a transaction
 				Transaction::Ptr pTx;
-				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_ID.m_Height, hIncubation))
+				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_Full.get_Height(), hIncubation))
 					break;
 
-				HeightRange hr(np.m_Cursor.m_ID.m_Height + 1, MaxHeight);
+				HeightRange hr(np.m_Cursor.m_Full.get_Height() + 1, MaxHeight);
 
 				uint32_t nBvmCharge = 0;
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
 				Transaction::Context ctx;
-				ctx.m_Height = np.m_Cursor.m_Sid.m_Height + 1;
+				ctx.m_Height = np.m_Cursor.m_Full.get_Height() + 1;
 				verify_test(pTx->IsValid(ctx));
 
 				Transaction::KeyType key;
@@ -1170,11 +1170,11 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		for (Height h = 1; h <= np.m_Cursor.m_ID.m_Height; h++)
+		for (Block::Number num(1); num.v <= np.m_Cursor.m_Sid.m_Number.v; num.v++)
 		{
 			NodeDB::StateID sid;
-			sid.m_Height = h;
-			sid.m_Row = np.FindActiveAtStrict(h);
+			sid.m_Number = num;
+			sid.m_Row = np.FindActiveAtStrict(num);
 
 			TxVectors::Eternal txe;
 			std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
@@ -1183,14 +1183,14 @@ namespace beam
 
 			for (const auto& x : vIns)
 			{
-				verify_test(x.m_hCreate < h);
-				verify_test(x.m_hSpent == h);
+				verify_test(x.m_nCreate.v < num.v);
+				verify_test(x.m_nSpent.v == num.v);
 			}
 
 			for (const auto& x : vOuts)
 			{
-				verify_test(x.m_hCreate == h);
-				verify_test(x.m_hSpent > h);
+				verify_test(x.m_nCreate.v == num.v);
+				verify_test(x.m_nSpent.v > num.v);
 			}
 
 		}
@@ -1324,23 +1324,23 @@ namespace beam
 		}
 
 		npSrc.TryGoUp();
-		verify_test(npSrc.m_Cursor.m_ID.m_Height == blockChain.size());
+		verify_test(npSrc.m_Cursor.m_Full.m_Number.v == blockChain.size());
 
 		np.EnumCongestions();
 
 		verify_test(np.IsFastSync()); // should go into fast-sync mode
-		verify_test(np.m_SyncData.m_TxoLo); // should be used on the 1st attempt
+		verify_test(np.m_SyncData.m_TxoLo.v); // should be used on the 1st attempt
 
 		// 1st attempt - tamper with txlo. Remove arbitrary input
 		bool bTampered = false;
-		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_TxoLo; h++)
+		for (Block::Number num(1); num.v <= npSrc.m_Cursor.m_Sid.m_Number.v; num.v++)
 		{
 			NodeDB::StateID sid;
-			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Row = npSrc.FindActiveAtStrict(num);
+			sid.m_Number = num;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
 			if (!bTampered)
 			{
@@ -1368,26 +1368,26 @@ namespace beam
 			}
 
 			Block::SystemState::ID id;
-			blockChain[h-1]->m_Hdr.get_ID(id);
+			blockChain[num.v-1]->m_Hdr.get_ID(id);
 			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
 		}
 
 		np.TryGoUp();
-		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
-		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
+		verify_test(np.m_Cursor.m_Full.m_Number.v == 0); // should fall back to start
+		verify_test(!np.m_SyncData.m_TxoLo.v); // next attempt should be with TxLo disabled
 
 
 		// 1.1 attempt - tamper with txlo. Modify block offset
-		np.m_SyncData.m_TxoLo = np.m_SyncData.m_Target.m_Height / 2;
+		np.m_SyncData.m_TxoLo.v = np.m_SyncData.m_Target.m_Number.v / 2;
 		bTampered = false;
-		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_TxoLo; h++)
+		for (Block::Number h(1); h.v <= np.m_SyncData.m_TxoLo.v; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Number = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
 			if (!bTampered)
 			{
@@ -1410,25 +1410,25 @@ namespace beam
 			}
 
 			Block::SystemState::ID id;
-			blockChain[h - 1]->m_Hdr.get_ID(id);
+			blockChain[h.v - 1]->m_Hdr.get_ID(id);
 			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
 		}
 
 		np.TryGoUp();
-		verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1); // should fall back to start
-		verify_test(!np.m_SyncData.m_TxoLo); // next attempt should be with TxLo disabled
+		verify_test(np.m_Cursor.m_ID.m_Number.v == 0); // should fall back to start
+		verify_test(!np.m_SyncData.m_TxoLo.v); // next attempt should be with TxLo disabled
 
 		// 2nd attempt. Tamper with the non-naked output
-		np.m_SyncData.m_TxoLo = np.m_SyncData.m_Target.m_Height / 2;
+		np.m_SyncData.m_TxoLo.v = np.m_SyncData.m_Target.m_Number.v / 2;
 		bTampered = false;
-		for (Height h = Rules::HeightGenesis; h <= np.m_SyncData.m_Target.m_Height; h++)
+		for (Block::Number h(1); h.v <= np.m_SyncData.m_Target.m_Number.v; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Number = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
 			if (!bTampered)
 			{
@@ -1461,34 +1461,34 @@ namespace beam
 			}
 
 			Block::SystemState::ID id;
-			blockChain[h - 1]->m_Hdr.get_ID(id);
+			blockChain[h.v - 1]->m_Hdr.get_ID(id);
 			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
 
 			np.TryGoUp();
 
 			if (bTampered)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == h - 1);
+				verify_test(np.m_Cursor.m_ID.m_Number.v == h.v - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_ID.m_Number.v == h.v);
 		}
 
 		verify_test(bTampered);
-		verify_test(np.m_SyncData.m_TxoLo);
+		verify_test(np.m_SyncData.m_TxoLo.v);
 
 		// 3rd attempt. enforce "naked" output. The node won't notice a problem until all the blocks are fed
 		bTampered = false;
 
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		for (Block::Number h(np.m_Cursor.m_ID.m_Number.v + 1); ; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Number = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
 			if (!bTampered)
 			{
@@ -1522,37 +1522,37 @@ namespace beam
 			}
 
 			Block::SystemState::ID id;
-			blockChain[h - 1]->m_Hdr.get_ID(id);
+			blockChain[h.v - 1]->m_Hdr.get_ID(id);
 			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
 
-			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+			bool bLast = (h.v == np.m_SyncData.m_Target.m_Number.v);
 
 			np.TryGoUp();
 
 			if (bLast)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == Rules::HeightGenesis - 1);
+				verify_test(np.m_Cursor.m_ID.m_Number.v == 0);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_ID.m_Number.v == h.v);
 		}
 
-		verify_test(!np.m_SyncData.m_TxoLo);
+		verify_test(!np.m_SyncData.m_TxoLo.v);
 
 		// 3.1 Same as above, but now TxoLo is zero, Node should not erase all the blocks on error
-		Height hTampered = 0;
+		Block::Number hTampered(0);
 
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; ; h++)
+		for (Block::Number h(np.m_Cursor.m_ID.m_Number.v + 1); ; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Number = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
-			if (!hTampered)
+			if (!hTampered.v)
 			{
 				Deserializer der;
 				der.reset(bbP);
@@ -1574,7 +1574,7 @@ namespace beam
 					}
 				}
 
-				if (hTampered)
+				if (hTampered.v)
 				{
 					Serializer ser;
 					ser & bbb;
@@ -1584,40 +1584,40 @@ namespace beam
 			}
 
 			Block::SystemState::ID id;
-			blockChain[h - 1]->m_Hdr.get_ID(id);
+			blockChain[h.v - 1]->m_Hdr.get_ID(id);
 			verify_test(np.OnBlock(id, bbP, bbE, pid) == NodeProcessor::DataStatus::Accepted);
 
-			bool bLast = (h == np.m_SyncData.m_Target.m_Height);
+			bool bLast = (h.v == np.m_SyncData.m_Target.m_Number.v);
 
 			np.TryGoUp();
 
 			if (bLast)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Height == hTampered - 1);
+				verify_test(np.m_Cursor.m_Full.m_Number.v == hTampered.v - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Height == h);
+			verify_test(np.m_Cursor.m_Full.m_Number.v == h.v);
 		}
 
 		// 4th attempt. provide valid data
-		for (Height h = np.m_Cursor.m_ID.m_Height + 1; h <= blockChain.size(); h++)
+		for (Block::Number h(np.m_Cursor.m_Full.m_Number.v + 1); h.v <= blockChain.size(); h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
-			sid.m_Height = h;
+			sid.m_Number = h;
 
 			ByteBuffer bbE, bbP;
-			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, 0, np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Height, true));
+			verify_test(npSrc.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
 
 			Block::SystemState::ID id;
-			blockChain[h - 1]->m_Hdr.get_ID(id);
+			blockChain[h.v - 1]->m_Hdr.get_ID(id);
 			np.OnBlock(id, bbP, bbE, pid);
 		}
 
 		np.TryGoUp();
 		verify_test(!np.IsFastSync());
-		verify_test(np.m_Cursor.m_ID.m_Height == blockChain.size());
+		verify_test(np.m_Cursor.m_ID.m_Number.v == blockChain.size());
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
@@ -1697,9 +1697,9 @@ namespace beam
 					n.get_Processor().OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID());
 					n.get_Processor().TryGoUp();
 
-					std::setmax(m_HeightMax, bc.m_Hdr.m_Height);
+					std::setmax(m_HeightMax, bc.m_Hdr.get_Height());
 
-					printf("Mined block Height = %u, node = %u \n", (unsigned int) bc.m_Hdr.m_Height, (unsigned int)m_iNode);
+					printf("Mined block Height = %u, node = %u \n", (unsigned int) bc.m_Hdr.get_Height(), (unsigned int)m_iNode);
 
 					++m_iNode %= _countof(m_ppNode);
 				}
@@ -1715,9 +1715,8 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
-				verify_test(msg.m_Description.m_Height <= m_HeightMax);
-				if (msg.m_Description.m_Height == m_HeightTrg)
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.get_Height());
+				if (msg.m_Description.get_Height() >= m_HeightTrg)
 					io::Reactor::get_Current().stop();
 			}
 
@@ -1858,6 +1857,7 @@ namespace beam
 			Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, r.m_Pbft.m_vE[1].m_Addr, sk);
 
 			r.DA.Target_ms = 576;
+			r.DA.Difficulty0.m_Packed = 0;
 			r.UpdateChecksum();
 		}
 
@@ -1959,7 +1959,7 @@ namespace beam
 
 			bool IsHeightReached() const
 			{
-				return !m_vStates.empty() && (m_vStates.back().m_Height >= m_HeightTrg);
+				return !m_vStates.empty() && (m_vStates.back().get_Height() >= m_HeightTrg);
 			}
 
 			bool IsAllProofsReceived() const
@@ -2018,7 +2018,7 @@ namespace beam
 
 			bool SendShielded()
 			{
-				Height h = m_vStates.back().m_Height;
+				Height h = m_vStates.back().get_Height();
 				if ((h < 2) || !Rules::get().IsPastFork_<2>(h - 2))
 					return false;
 
@@ -2113,7 +2113,7 @@ namespace beam
 				msgTx.m_Transaction = std::make_shared<Transaction>();
 				msgTx.m_Transaction->m_Offset = Zero;
 
-				Height h = m_vStates.back().m_Height;
+				Height h = m_vStates.back().get_Height();
 
 				TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
 				pKrn->m_Height.m_Min = h + 1;
@@ -2313,11 +2313,11 @@ namespace beam
 
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
-				if (!msg.m_Description.m_Height)
+				if (!msg.m_Description.m_Number.v)
 					return; // skip the treasury-received notification
 
-				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.m_Height);
-				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Height);
+				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.get_Height());
+				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Number.v);
 
 				m_vStates.push_back(msg.m_Description);
 
@@ -2329,9 +2329,9 @@ namespace beam
 				}
 
 				if (!m_Shielded.m_Sent && SendShielded())
-					m_Shielded.m_Sent = msg.m_Description.m_Height;
+					m_Shielded.m_Sent = msg.m_Description.get_Height();
 
-				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.m_Height - m_Shielded.m_Sent >= 5))
+				if (!m_Shielded.m_Withdrew && m_Shielded.m_Sent && (msg.m_Description.get_Height() - m_Shielded.m_Sent >= 5))
 				{
 					proto::GetProofShieldedOutp msgOut;
 					msgOut.m_SerialPub = m_Shielded.m_SerialPub;
@@ -2342,7 +2342,7 @@ namespace beam
 					m_Shielded.m_Withdrew = true;
 				}
 
-				if (m_Assets.m_hCreated && (msg.m_Description.m_Height == m_Assets.m_hCreated + 3))
+				if (m_Assets.m_hCreated && (msg.m_Description.get_Height() == m_Assets.m_hCreated + 3))
 				{
 					proto::GetProofAsset msgOut;
 					msgOut.m_Owner = m_Assets.m_Owner;
@@ -2379,7 +2379,7 @@ namespace beam
 					msgBbs.m_Channel = 11;
 					msgBbs.m_TimePosted = getTimestamp();
 					msgBbs.m_Message.resize(1);
-					msgBbs.m_Message[0] = (uint8_t) msg.m_Description.m_Height;
+					msgBbs.m_Message[0] = (uint8_t) msg.m_Description.get_Height();
 					Send(msgBbs);
 
 					m_nBbsMsgsPending++;
@@ -2388,7 +2388,7 @@ namespace beam
 				for (size_t i = 0; i + 1 < m_vStates.size(); i++)
 				{
 					proto::GetProofState msgOut2;
-					msgOut2.m_Height = i + Rules::HeightGenesis;
+					msgOut2.m_Number.v = i + 1;
 					Send(msgOut2);
 
 					m_queProofsStateExpected.push_back((uint32_t) i);
@@ -2455,14 +2455,14 @@ namespace beam
 
 				for (int i = 0; i < 2; i++) // don't send too many txs, it's too heavy for the test
 				{
-					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.m_Height);
+					Amount val = m_Wallet.MakeTxInput(msgTx.m_Transaction, msg.m_Description.get_Height());
 					if (!val)
 						break;
 
 					assert(msgTx.m_Transaction);
 
-					if ((0xf & msg.m_Description.m_Height) == 0xf)
-						m_Wallet2.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 0, val);
+					if ((0xf & msg.m_Description.get_Height()) == 0xf)
+						m_Wallet2.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.get_Height(), 0, val);
 					else
 					{
 						MaybeCreateAsset(msgTx, val);
@@ -2471,11 +2471,11 @@ namespace beam
 						MaybeInvokeContract(msgTx, val);
                         MaybeDeployEvmContract(msgTx, val);
                         MaybeInvokeEvmContract(msgTx, val);
-						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.m_Height, 2, val);
+						m_Wallet.MakeTxOutput(*msgTx.m_Transaction, msg.m_Description.get_Height(), 2, val);
 					}
 
 					Transaction::Context ctx;
-					ctx.m_Height.m_Min = msg.m_Description.m_Height + 1;
+					ctx.m_Height.m_Min = msg.m_Description.get_Height() + 1;
 					verify_test(msgTx.m_Transaction->IsValid(ctx));
 
 					OnBeingSpent(msgTx);
@@ -2484,10 +2484,10 @@ namespace beam
 
 				MaybeAskEvents();
 
-				if (!(msg.m_Description.m_Height % 4))
+				if (!(msg.m_Description.get_Height() % 4))
 				{
 					// switch offline/online mining modes
-					m_MiningFinalization = ((msg.m_Description.m_Height % 8) != 0);
+					m_MiningFinalization = ((msg.m_Description.get_Height() % 8) != 0);
 					SendLogin();
 				}
 
@@ -2499,11 +2499,11 @@ namespace beam
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (!Rules::get().IsPastFork_<2>(s.m_Height + 1))
+				if (!Rules::get().IsPastFork_<2>(s.get_Height() + 1))
 					return false;
 
 				const Amount nFee = 330;
-				Amount nLock = Rules::get().get_DepositForCA(s.m_Height + 1);
+				Amount nLock = Rules::get().get_DepositForCA(s.get_Height() + 1);
 				if (val < nLock + nFee)
 					return false;
 
@@ -2519,7 +2519,7 @@ namespace beam
 
 				TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
 				pKrn->m_Fee = nFee;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Height.m_Min = s.get_Height() + 1;
 				pKrn->m_MetaData = m_Assets.m_Metadata;
 				pKrn->Sign(sk, *m_Wallet.m_pKdf);
 
@@ -2528,7 +2528,7 @@ namespace beam
 				msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, sk, true);
 
-				m_Assets.m_hCreated = s.m_Height;
+				m_Assets.m_hCreated = s.get_Height();
 				printf("Creating asset...\n");
 
 				return true;
@@ -2544,7 +2544,7 @@ namespace beam
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (!Rules::get().IsPastFork_<2>(s.m_Height + 1))
+				if (!Rules::get().IsPastFork_<2>(s.get_Height() + 1))
 					return false;
 
 				val -= nFee;
@@ -2560,11 +2560,11 @@ namespace beam
 				pKrn->m_AssetID = m_Assets.m_ID;
 				pKrn->m_Fee = nFee;
 				pKrn->m_Value = cid.m_Value;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Height.m_Min = s.get_Height() + 1;
 				pKrn->Sign(sk, *m_Wallet.m_pKdf, m_Assets.m_Metadata);
 
 				Output::Ptr pOutp(new Output);
-				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
+				pOutp->Create(s.get_Height() + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
 
 				msg.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, skOut, true);
@@ -2591,7 +2591,7 @@ namespace beam
 					return false;
 
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (!Rules::get().IsPastFork_<3>(s.m_Height + 1))
+				if (!Rules::get().IsPastFork_<3>(s.get_Height() + 1))
 					return false;
 
 				val -= nFee;
@@ -2619,7 +2619,7 @@ namespace beam
 				pKrn->m_Cid = g_cidBridgeL2;
 				pKrn->m_Fee = nFee;
 				pKrn->m_iMethod = 2;
-				pKrn->m_Height.m_Min = s.m_Height + 1;
+				pKrn->m_Height.m_Min = s.get_Height() + 1;
 
 				pKrn->m_Args.resize(sizeof(BridgeOp));
 				{
@@ -2649,12 +2649,12 @@ namespace beam
 				m_Wallet.UpdateOffset(*msg.m_Transaction, pSkKrn[1], true);
 
 				Output::Ptr pOutp(new Output);
-				pOutp->Create(s.m_Height + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
+				pOutp->Create(s.get_Height() + 1, skOut, *m_Wallet.m_pKdf, cid, *m_Wallet.m_pKdf);
 
 				msg.m_Transaction->m_vOutputs.push_back(std::move(pOutp));
 				m_Wallet.UpdateOffset(*msg.m_Transaction, skOut, true);
 
-				m_Bridge.m_hEmitted = s.m_Height + 1;
+				m_Bridge.m_hEmitted = s.get_Height() + 1;
 				printf("Emitting bridged asset...\n");
 
 				return true;
@@ -2728,7 +2728,7 @@ namespace beam
 
 				void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override
 				{
-					m_Context.m_Height = m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().m_Height;
+					m_Context.m_Height = m_This.m_vStates.empty() ? 0 : m_This.m_vStates.back().get_Height();
 				}
 
 			};
@@ -2812,7 +2812,7 @@ namespace beam
 			bool MaybeInvokeContract(proto::NewTransaction& msg, Amount& val)
 			{
 				const Block::SystemState::Full& s = m_vStates.back();
-				if (!Rules::get().IsPastFork_<3>(s.m_Height + 1))
+				if (!Rules::get().IsPastFork_<3>(s.get_Height() + 1))
 					return false;
 
 				if (m_pMan)
@@ -2826,7 +2826,7 @@ namespace beam
 						bvm2::FundsMap fm;
 
 						HeightRange hr;
-						hr.m_Min = s.m_Height + 1;
+						hr.m_Min = s.get_Height() + 1;
 
 						for (uint32_t i = 0; i < proc.m_InvokeData.m_vec.size(); i++)
 						{
@@ -2859,7 +2859,7 @@ namespace beam
 				if (m_Contract.m_Done == _countof(m_Contract.m_pStage))
 					return false;
 
-				if (m_Contract.m_Done && (s.m_Height - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4))
+				if (m_Contract.m_Done && (s.get_Height() - m_Contract.m_pStage[m_Contract.m_Done - 1] < 4))
 					return false;
 
 				m_pMan = std::make_unique<MyManager>(*this);
@@ -2940,7 +2940,7 @@ namespace beam
 
 				}
 
-				m_Contract.m_pStage[m_Contract.m_Done] = s.m_Height;
+				m_Contract.m_pStage[m_Contract.m_Done] = s.get_Height();
 
 				printf("manager shader, action=%s...\n", proc.m_Args["action"].c_str());
 				proc.m_DelayedStart.start();
@@ -2994,8 +2994,8 @@ namespace beam
 				if (m_bEvtsPending || m_vStates.empty())
 					return;
 
-				assert(m_hEvtsNext <= m_vStates.back().m_Height + 1);
-				if (m_hEvtsNext == m_vStates.back().m_Height + 1)
+				assert(m_hEvtsNext <= m_vStates.back().get_Height() + 1);
+				if (m_hEvtsNext == m_vStates.back().get_Height() + 1)
 					return;
 				
 				proto::GetEvents msg;
@@ -3020,7 +3020,7 @@ namespace beam
                     return false;
 
                 const Block::SystemState::Full& s = m_vStates.back();
-                if (!Rules::get().IsPastFork_<6>(s.m_Height + 1))
+                if (!Rules::get().IsPastFork_<6>(s.get_Height() + 1))
                     return false;
 
                 val -= (nFee + nSubsidy);
@@ -3045,7 +3045,7 @@ namespace beam
 
 
                 TxKernelEvmInvoke::Ptr pKrn(new TxKernelEvmInvoke);
-                pKrn->m_Height.m_Min = s.m_Height + 1;
+                pKrn->m_Height.m_Min = s.get_Height() + 1;
                 pKrn->m_Fee = nFee;
                 Cast::Down<Evm::Address::Base>(pKrn->m_To) = Zero; // contract deployment
                 pKrn->m_Nonce = 0;
@@ -3062,7 +3062,7 @@ namespace beam
 
                 pKrn->Sign(m_Evm.m_skMyAddr, skKrn);
 
-                m_Evm.m_hDeployed = s.m_Height;
+                m_Evm.m_hDeployed = s.get_Height();
                 m_Evm.m_hvDeployID = pKrn->get_ID();
 
                 Evm::AddressForContract(m_Evm.m_addrMyContract, pKrn->m_From, pKrn->m_Nonce); // expected contract addr
@@ -3089,7 +3089,7 @@ namespace beam
                 const Block::SystemState::Full& s = m_vStates.back();
 
                 TxKernelEvmInvoke::Ptr pKrn(new TxKernelEvmInvoke);
-                pKrn->m_Height.m_Min = s.m_Height + 1;
+                pKrn->m_Height.m_Min = s.get_Height() + 1;
                 pKrn->m_Fee = nFee;
                 pKrn->m_To = m_Evm.m_addrMyContract;
                 pKrn->m_Nonce = 1;
@@ -3114,7 +3114,7 @@ namespace beam
 
                 pKrn->Sign(m_Evm.m_skMyAddr, skKrn);
 
-                m_Evm.m_hInvoked = s.m_Height;
+                m_Evm.m_hInvoked = s.get_Height();
 
                 msg.m_Transaction->m_vKernels.push_back(std::move(pKrn));
                 m_Wallet.UpdateOffset(*msg.m_Transaction, skKrn, true);
@@ -3185,7 +3185,7 @@ namespace beam
 
 						verify_test(msg.m_Height <= m_vStates.size());
 						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
-						verify_test(s.m_Height == msg.m_Height);
+						verify_test(s.get_Height() == msg.m_Height);
 
 						verify_test(s.IsValidProofKernel(msg.m_Kernel->get_ID(), msg.m_Proof));
 
@@ -3208,7 +3208,7 @@ namespace beam
 							if (!m_Bridge.m_hEmitConfirmed)
 							{
 								printf("Bridged emission confirmed confirmed\n");
-								m_Bridge.m_hEmitConfirmed = s.m_Height;
+								m_Bridge.m_hEmitConfirmed = s.get_Height();
 							}
 						}
 					}
@@ -3250,7 +3250,7 @@ namespace beam
 			virtual void OnMsg(proto::ProofChainWork&& msg) override
 			{
 				verify_test(m_nChainWorkProofsPending);
-				verify_test(!m_vStates.empty() && (msg.m_Proof.m_Heading.m_Prefix.m_Height + msg.m_Proof.m_Heading.m_vElements.size() - 1 == m_vStates.back().m_Height));
+				verify_test(!m_vStates.empty() && (msg.m_Proof.m_Heading.m_Prefix.m_Number.v + msg.m_Proof.m_Heading.m_vElements.size() - 1 == m_vStates.back().m_Number.v));
 				verify_test(msg.m_Proof.IsValid());
 				m_nChainWorkProofsPending--;
 			}
@@ -3263,7 +3263,7 @@ namespace beam
 				verify_test(m_bEvtsPending);
 				m_bEvtsPending = false;
 
-				Height hTip = m_vStates.empty() ? 0 : m_vStates.back().m_Height;
+				Height hTip = m_vStates.empty() ? 0 : m_vStates.back().get_Height();
 
 				struct MyParser :public proto::Event::IGroupParser
 				{
@@ -3470,7 +3470,7 @@ namespace beam
 			}
 
 			virtual void OnMsg(proto::NewTip&& msg) override {
-				if (msg.m_Description.m_Height == 10)
+				if (msg.m_Description.get_Height() == 10)
 				{
 					proto::BbsSubscribe msgOut;
 					msgOut.m_Channel = 11;
@@ -3597,10 +3597,10 @@ namespace beam
 			verify_test(proc.FindExternalAssetEmit(cl.m_Bridge.m_pidOwner, true, fdp));
 		}
 
-		Height h0 = proc.m_Cursor.m_Full.m_Height;
-		proc.ManualRollbackTo(h0 - 5);
-		verify_test(proc.m_Cursor.m_ID.m_Height >= h0 - 5); // it can be adjusted up
-		verify_test(proc.m_Cursor.m_Full.m_Height < h0); // some rollback with forbidden state update must take place
+		Block::Number h0 = proc.m_Cursor.m_Full.m_Number;
+		proc.ManualRollbackTo(Block::Number(h0.v - 5));
+		verify_test(proc.m_Cursor.m_Full.m_Number.v >= h0.v - 5); // it can be adjusted up
+		verify_test(proc.m_Cursor.m_Full.m_Number.v < h0.v); // some rollback with forbidden state update must take place
 		verify_test(proc.m_ManualSelection.m_Forbidden);
 	}
 
@@ -3651,9 +3651,9 @@ namespace beam
 		}
 	}
 
-	void RaiseHeightTo(Node& node, Height h)
+	void RaiseNumberTo(Node& node, Block::Number h)
 	{
-		while (node.get_Processor().m_Cursor.m_ID.m_Height < h)
+		while (node.get_Processor().m_Cursor.m_Full.m_Number < h)
 		{
 			NodeProcessor::BlockContext bc(node.m_TxPool, 0, *node.m_Keys.m_pMiner, *node.m_Keys.m_pMiner);
 			bc.m_pParent = node.m_TxDependent.m_pBest;
@@ -3725,7 +3725,7 @@ namespace beam
 
 			virtual void OnRolledBack() override
 			{
-				m_hRolledTo = m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
+				m_hRolledTo = m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->second.get_Height();
 			}
 
 			void OnTimer() {
@@ -3821,8 +3821,8 @@ namespace beam
 			}
 		};
 
-		const Height hThrd1 = 250;
-		RaiseHeightTo(node, hThrd1);
+		const Block::Number hThrd1(250);
+		RaiseNumberTo(node, hThrd1);
 
 
 		MyFlyClient fc;
@@ -3831,7 +3831,7 @@ namespace beam
 
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd1);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Number.v == hThrd1.v);
 
 		{
 			// pop last
@@ -3842,31 +3842,31 @@ namespace beam
 		fc.SyncSync(); // should be trivial
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd1);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Number.v == hThrd1.v);
 
-		const Height hThrd2 = 270;
-		RaiseHeightTo(node, hThrd2);
+		const Block::Number hThrd2(270);
+		RaiseNumberTo(node, hThrd2);
 
 		// should only fill the gap to the tip, not from the beginning. Should involve
 		fc.SyncSync();
 		verify_test(fc.m_bTip);
 		verify_test(fc.m_hRolledTo == MaxHeight);
-		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd2);
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Number.v == hThrd2.v);
 
 		// simulate branching, make it rollback
-		Height hBranch = 203;
-		fc.m_Hist.DeleteFrom(hBranch + 1);
+		Block::Number hBranch(203);
+		fc.m_Hist.DeleteFrom(hBranch.v + 1);
 
 		Block::SystemState::Full s1;
 		ZeroObject(s1);
-		s1.m_Height = hBranch + 2;
-		fc.m_Hist.m_Map[s1.m_Height] = s1;
+		s1.m_Number.v = hBranch.v + 2;
+		fc.m_Hist.m_Map[s1.get_Height()] = s1;
 
 		fc.SyncSync();
 
 		verify_test(fc.m_bTip);
-		verify_test(fc.m_hRolledTo <= hBranch); // must rollback beyond the manually appended state
-		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Height == hThrd2);
+		verify_test(fc.m_hRolledTo <= hBranch.v); // must rollback beyond the manually appended state
+		verify_test(!fc.m_Hist.m_Map.empty() && fc.m_Hist.m_Map.rbegin()->second.m_Number.v == hThrd2.v);
 	}
 
 	void TestHalving()
@@ -4008,7 +4008,7 @@ namespace beam
 		node.Initialize();
 		node.m_PostStartSynced = true;
 
-		RaiseHeightTo(node, 20);
+		RaiseNumberTo(node, Block::Number(20));
 
 		Node node2;
 		node2.m_Cfg.m_sPathLocal = g_sz2;
@@ -4190,7 +4190,7 @@ namespace beam
 				}
 			} p;
 
-			p.m_hMaxMaturity = s.m_Height;
+			p.m_hMaxMaturity = s.get_Height();
 			p.m_pCoins = &man.m_lstCoins;
 			p.Proceed(pReq->m_Res.m_Events);
 
@@ -4231,7 +4231,7 @@ namespace beam
 		man.m_Args["amount"] = std::to_string(valDeposit);
 		man.BuildAndSend(*pNet);
 
-		RaiseHeightTo(node, 21);
+		RaiseNumberTo(node, Block::Number(21));
 
 		// make sure everything's included in the block
 		for (uint32_t i = 0; i < man.m_vKrnIds.size(); i++)
@@ -4414,19 +4414,19 @@ void TestAll()
 		auto& p = node.get_Processor();
 
 		beam::Block::SystemState::ID sid;
-		sid.m_Height = 15;
+		sid.m_Number.v = 15;
 		sid.m_Hash = beam::Zero;
 
 		p.ManualSelect(sid); // won't go down, can't rollback that deep
 
-		sid.m_Height = p.m_Cursor.m_Full.m_Height;
-		p.get_DB().get_StateHash(p.FindActiveAtStrict(sid.m_Height), sid.m_Hash);
+		sid.m_Number = p.m_Cursor.m_Full.m_Number;
+		p.get_DB().get_StateHash(p.FindActiveAtStrict(sid.m_Number), sid.m_Hash);
 		p.ManualSelect(sid); // already at correct branch, won't go down
-		verify_test(sid.m_Height == p.m_Cursor.m_Full.m_Height);
+		verify_test(sid.m_Number.v == p.m_Cursor.m_Full.m_Number.v);
 
 		sid.m_Hash.Inv();
 		p.ManualSelect(sid); // should go down
-		verify_test(sid.m_Height > p.m_Cursor.m_Full.m_Height);
+		verify_test(sid.m_Number.v > p.m_Cursor.m_Full.m_Number.v);
 	}
 
 	beam::DeleteFile(beam::g_sz);
