@@ -17,15 +17,40 @@
 
 namespace beam
 {
+	bool Difficulty::Pack(uint32_t raw)
+	{
+		if (!raw)
+		{
+			m_Packed = 0;
+			return false;
+		}
+
+		// assume the value is raw << s_MantissaBits
+
+		uint32_t nMantissaBits = MultiWord::nWordBits - NumericUtils::clz(raw) - 1;
+		bool bExact = (nMantissaBits <= s_MantissaBits);
+		if (bExact)
+			raw <<= (s_MantissaBits - nMantissaBits);
+		else
+			raw >>= (nMantissaBits - s_MantissaBits);
+
+		PackNonInf(nMantissaBits, raw);
+		return bExact;
+	}
+
+	void Difficulty::PackNonInf(uint32_t order, uint32_t mantissa)
+	{
+		assert(order <= s_MaxOrder);
+		assert((mantissa >> s_MantissaBits) == 1U);
+
+		mantissa &= (1U << s_MantissaBits) - 1;
+		m_Packed = mantissa | (order << s_MantissaBits);
+	}
+
 	void Difficulty::Pack(uint32_t order, uint32_t mantissa)
 	{
 		if (order <= s_MaxOrder)
-		{
-			assert((mantissa >> s_MantissaBits) == 1U);
-			mantissa &= (1U << s_MantissaBits) - 1;
-
-			m_Packed = mantissa | (order << s_MantissaBits);
-		}
+			PackNonInf(order, mantissa);
 		else
 			m_Packed = s_Inf;
 	}

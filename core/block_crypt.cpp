@@ -2343,6 +2343,7 @@ namespace beam
 
 			m_Consensus = Consensus::Pbft;
 			DA.Target_ms = 15'000;
+			DA.Difficulty0.m_Packed = 0;
 			m_Pbft.m_AidStake = 0;
 			m_Pbft.m_RequiredWhite = 1;
 			m_Pbft.m_vE.resize(1);
@@ -2369,6 +2370,7 @@ namespace beam
 
 			m_Consensus = Consensus::Pbft;
 			DA.Target_ms = 3'000;
+			DA.Difficulty0.m_Packed = 0;
 			CA.ForeignEnd = 1'000'000;
 
 			m_Pbft.m_AidStake = 0;
@@ -2547,6 +2549,12 @@ namespace beam
 
 		if (!n1 || (n1 > n2))
 			Exc::Fail("Bad Shielded/Sigma cfg");
+
+		if (!IsConstantSpan())
+		{
+			if (DA.Difficulty0.m_Packed)
+				Exc::Fail("Bad D0 for irregular height network");
+		}
 
 		// all parameters, including const (in case they'll be hardcoded to different values in later versions)
 		ECC::Oracle oracle;
@@ -2790,6 +2798,21 @@ namespace beam
 		std::ostringstream ss;
 		ss << "Fork required: " << iFork;
 		Exc::Fail(ss.str().c_str());
+	}
+
+	void Rules::Height2Difficulty(Difficulty::Raw& d, Height h) const
+	{
+		assert(!IsConstantSpan());
+		d = Zero;
+		d.AssignRange<Height, Difficulty::s_MantissaBits>(h);
+	}
+
+	Difficulty Rules::Span2Difficulty(uint32_t n) const
+	{
+		assert(!IsConstantSpan());
+		Difficulty d;
+		d.Pack(n);
+		return d;
 	}
 
 	int HeightHash::cmp(const HeightHash& v) const
@@ -3128,6 +3151,25 @@ namespace beam
 	{
 		out.m_Number = m_Number;
 		get_Hash(out.m_Hash);
+	}
+
+	Height Block::SystemState::Full::get_Height() const
+	{
+		const Rules& r = Rules::get();
+		if (r.IsConstantSpan())
+			return m_Number.v;
+
+		if (!m_Number.v)
+			return 0;
+
+		// extract height from chainwork
+		uintBigFor<Height>::Type val;
+		m_ChainWork.ShiftRight(Difficulty::s_MantissaBits, val);;
+
+		Height ret;
+		val.Export(ret);
+
+		return ret;
 	}
 
 	bool Block::SystemState::Full::IsValidPoW() const

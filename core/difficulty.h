@@ -44,6 +44,7 @@ namespace beam
 
 		void Unpack(uint32_t& order, uint32_t& mantissa) const;
 		void Pack(uint32_t order, uint32_t mantissa);
+		bool Pack(uint32_t raw); // will saturate if number is oob. retval is iff assigned exactly
 
 		void Calculate(const Raw& wrk, uint32_t dh, uint32_t dtTrg_s, uint32_t dtSrc_s);
 
@@ -57,6 +58,8 @@ namespace beam
 
 		struct BigFloat;
 
+	private:
+		void PackNonInf(uint32_t order, uint32_t mantissa);
 	};
 
 	std::ostream& operator << (std::ostream&, const Difficulty&);
