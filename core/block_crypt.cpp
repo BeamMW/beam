@@ -128,6 +128,17 @@ namespace beam
 		return dh <= (m_Max - m_Min);
 	}
 
+	void Block::NumberRange::Reset()
+	{
+		m_Min.v = 0;
+		m_Max.v = MaxHeight;
+	}
+
+	bool Block::NumberRange::IsEmpty() const
+	{
+		return m_Min.v > m_Max.v;
+	}
+
 #define CMP_SIMPLE(a, b) \
 		if (a < b) \
 			return -1; \
