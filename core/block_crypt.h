@@ -1653,6 +1653,43 @@ namespace beam
 		// Different parts of the block are split into different structs, so that they can be manipulated (transferred, processed, saved and etc.) independently
 		// For instance, there is no need to keep PoW (at least in SPV client) once it has been validated.
 
+		struct Number {
+			uint64_t v;
+			Number() {}
+			explicit Number(uint64_t val) :v(val) {}
+
+			template <typename Archive>
+			void serialize(Archive& ar) { ar & v; }
+
+			bool operator < (const Number& x) const { return v < x.v; }
+		};
+
+		struct NumberRange
+		{
+			Number m_Min;
+			Number m_Max;
+
+			NumberRange() { Reset(); }
+
+			void Reset();
+			bool IsEmpty() const;
+		};
+
+		struct NumberPos
+		{
+			Number m_Number;
+			uint32_t m_Pos;
+
+			template <typename Archive>
+			void serialize(Archive& ar)
+			{
+				ar
+					& m_Height
+					& m_Number;
+			}
+		};
+
+
 		struct PoW
 		{
 			// equihash parameters. 
