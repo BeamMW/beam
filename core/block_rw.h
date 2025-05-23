@@ -65,7 +65,7 @@ namespace beam
 		{
 			std::FStream m_Stream;
 
-			void Open(const char*, const Block::ChainWorkProof&);
+			void Open(const char*, const Block::ChainWorkProof&, Height hMax);
 		};
 
 		struct IParser

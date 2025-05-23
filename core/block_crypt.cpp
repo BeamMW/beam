@@ -3025,7 +3025,7 @@ namespace beam
 
 	int Block::SystemState::Full::cmp(const Full& v) const
 	{
-		CMP_MEMBER(m_Height)
+		CMP_MEMBER(m_Number.v)
 		CMP_MEMBER_EX(m_Kernels)
 		CMP_MEMBER_EX(m_Definition)
 		CMP_MEMBER_EX(m_Prev)
@@ -3039,7 +3039,7 @@ namespace beam
 
 	bool Block::SystemState::Full::IsNext(const Full& sNext) const
 	{
-		if (m_Height + 1 != sNext.m_Height)
+		if (m_Number.v + 1 != sNext.m_Number.v)
 			return false;
 
 		Merkle::Hash hv;
@@ -3058,7 +3058,7 @@ namespace beam
 		// Our formula:
 		ECC::Hash::Processor hp;
 		hp
-			<< m_Height
+			<< m_Number.v
 			<< m_Prev
 			<< m_ChainWork
 			<< m_Kernels
@@ -3068,7 +3068,7 @@ namespace beam
 
 		// Starting from Fork2: add Rules cfg. Make it harder to tamper using headers mined on different cfg
 		const Rules& r = Rules::get();
-		auto iFork = r.FindFork(m_Height);
+		auto iFork = r.FindFork(get_Height());
 		if (iFork >= 2)
 			hp << r.pForks[iFork].m_Hash;
 
@@ -3089,7 +3089,7 @@ namespace beam
 
 	void Block::SystemState::Full::get_Hash(Merkle::Hash& hv) const
 	{
-		if (m_Height >= Rules::HeightGenesis)
+		if (m_Number.v)
 			get_HashInternal(hv, true);
 		else
 			hv = Rules::get().Prehistoric;
@@ -3097,9 +3097,10 @@ namespace beam
 
 	bool Block::SystemState::Full::IsSane() const
 	{
-		if (m_Height < Rules::HeightGenesis)
+		if (!m_Number.v)
 			return false;
-		if (m_Height == Rules::HeightGenesis)
+
+		if (m_Number.v == 1u)
 		{
 			if (m_Prev != Rules::get().Prehistoric)
 				return false;
@@ -3113,7 +3114,7 @@ namespace beam
 
 	void Block::SystemState::Full::get_ID(ID& out) const
 	{
-		out.m_Height = m_Height;
+		out.m_Number = m_Number;
 		get_Hash(out.m_Hash);
 	}
 
@@ -3126,7 +3127,7 @@ namespace beam
 			{
 				Merkle::Hash hv;
 				get_HashForPoW(hv);
-				return m_PoW.IsValid(hv.m_pData, hv.nBytes, m_Height);
+				return m_PoW.IsValid(hv.m_pData, hv.nBytes, get_Height());
 			}
 
 		case Rules::Consensus::Pbft:
@@ -3147,7 +3148,7 @@ namespace beam
 		Merkle::Hash hv;
 		get_HashForPoW(hv);
 
-		return m_PoW.Solve(hv.m_pData, hv.nBytes, m_Height, fnCancel);
+		return m_PoW.Solve(hv.m_pData, hv.nBytes, get_Height(), fnCancel);
 	}
 
 	uint64_t Block::SystemState::Sequence::Element::get_Timestamp_ms() const
@@ -3283,7 +3284,7 @@ namespace beam
 			if (!InterpretMmr(iIdx, nCount))
 				return false;
 
-			m_Height = s.m_Height;
+			m_Height = s.get_Height();
 			m_Verifier = true;
 
 			GenerateProof();
@@ -3308,7 +3309,7 @@ namespace beam
 		bool VerifyKnownPartOrder(const Full& s, const Merkle::Proof& proof)
 		{
 			// deduce and verify the hashing direction of the last part
-			m_Height = s.m_Height;
+			m_Height = s.get_Height();
 			m_Verifier = true;
 
 			// Phase 1: count known elements
@@ -3377,7 +3378,7 @@ namespace beam
 		Merkle::Hash hv;
 		p.m_State.get_ID(hv, comm);
 
-		if (!Rules::get().IsPastFork_<3>(m_Height))
+		if (!Rules::get().IsPastFork_<3>(get_Height()))
 		{
 			struct MyVerifier
 				:public ProofVerifier
@@ -3466,8 +3467,6 @@ namespace beam
 
 		if (proof.m_State == *this)
 			return true;
-		if (proof.m_State.m_Height > m_Height)
-			return false;
 
 		ID id;
 		proof.m_State.get_ID(id);
@@ -3477,7 +3476,7 @@ namespace beam
 	bool Block::SystemState::Full::IsValidProofKernel(const Merkle::Hash& hvID, const Merkle::Proof& proof) const
 	{
 		Merkle::Hash hv = hvID;
-		if (!Rules::get().IsPastFork_<3>(m_Height))
+		if (!Rules::get().IsPastFork_<3>(get_Height()))
 		{
 			Merkle::Interpret(hv, proof);
 			return (hv == m_Kernels);
@@ -3510,8 +3509,7 @@ namespace beam
 
 	bool Block::SystemState::Full::IsValidProofState(const ID& id, const Merkle::HardProof& proof) const
 	{
-		// verify the whole proof structure
-		if ((id.m_Height < Rules::HeightGenesis) || (id.m_Height >= m_Height))
+		if (!id.m_Number.v || (id.m_Number.v >= m_Number.v))
 			return false;
 
 		struct MyVerifier
@@ -3527,7 +3525,7 @@ namespace beam
 
 		MyVerifier hver(proof);
 		hver.m_hv = id.m_Hash;
-		return hver.Verify(*this, id.m_Height - Rules::HeightGenesis, m_Height - Rules::HeightGenesis);
+		return hver.Verify(*this, id.m_Number.v - 1, m_Number.v - 1);
 	}
 
 	void Block::BodyBase::ZeroInit()
@@ -3588,7 +3586,7 @@ namespace beam
 		for (size_t i = 0; i < nCount; i++)
 		{
 			const Full& s = pS[i];
-			m_Map[s.m_Height] = s;
+			m_Map[s.get_Height()] = s;
 		}
 	}
 
@@ -3697,6 +3695,19 @@ namespace beam
 	{
 		s << id.m_Height << "-" << id.m_Hash;
 		return s;
+	}
+
+	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)
+	{
+		s << id.m_Number.v << "-" << id.m_Hash;
+		return s;
+	}
+
+	int Block::SystemState::ID::cmp(const Block::SystemState::ID& v) const
+	{
+		CMP_MEMBER(m_Number.v)
+		CMP_MEMBER_EX(m_Hash)
+		return 0;
 	}
 
 	/////////////

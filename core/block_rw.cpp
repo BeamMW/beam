@@ -353,23 +353,16 @@ namespace beam
 
 	/////////////
 	// RecoveryInfo
-	void RecoveryInfo::Writer::Open(const char* sz, const Block::ChainWorkProof& cwp)
+	void RecoveryInfo::Writer::Open(const char* sz, const Block::ChainWorkProof& cwp, Height hMax)
 	{
 		m_Stream.Open(sz, false, true);
 		yas::binary_oarchive<std::FStream, SERIALIZE_OPTIONS> ser(m_Stream);
 
-		Height hMax = cwp.m_Heading.m_Prefix.m_Height + cwp.m_Heading.m_vElements.size() - 1;
-
 		const Rules& r = Rules::get();
 
-		uint32_t nForks = 0;
-		for (; nForks < _countof(r.pForks); nForks++)
-		{
-			if (hMax < r.pForks[nForks].m_Height)
-				break;
-		}
-
+		uint32_t nForks = r.FindFork(hMax) + 1;
 		ser & nForks;
+
 		for (uint32_t iFork = 0; iFork < nForks; iFork++)
 			ser & r.pForks[iFork].m_Hash;
 
@@ -443,7 +436,7 @@ namespace beam
 		if (!m_Cwp.IsValid(&m_Tip))
 			ThrowBadData();
 
-		if ((nForks < _countof(r.pForks)) && (m_Tip.m_Height >= r.pForks[nForks].m_Height))
+		if ((nForks < _countof(r.pForks)) && (m_Tip.get_Height() >= r.pForks[nForks].m_Height))
 			ThrowRulesMismatch();
 	}
 
@@ -487,7 +480,7 @@ namespace beam
 		};
 
 		Verifier v(*this);
-		v.m_Height = m_Tip.m_Height;
+		v.m_Height = m_Tip.get_Height();
 
 		Merkle::Hash hv;
 		BEAM_VERIFY(v.get_Live(hv));
@@ -495,7 +488,7 @@ namespace beam
 		if (!(m_Cwp.m_hvRootLive == hv))
 			ThrowBadData();
 
-		if (Rules::get().IsPastFork_<3>(m_Tip.m_Height))
+		if (Rules::get().IsPastFork_<3>(m_Tip.get_Height()))
 		{
 			BEAM_VERIFY(v.get_Utxos(hv));
 			if (m_Tip.m_Kernels != hv)
@@ -521,7 +514,7 @@ namespace beam
 			return false;
 
 		const Rules& r = Rules::get();
-		if (r.IsPastFork_<2>(m_Tip.m_Height))
+		if (r.IsPastFork_<2>(m_Tip.get_Height()))
 		{
 			if (!ProceedShielded())
 				return false;
@@ -529,7 +522,7 @@ namespace beam
 			if (!ProceedAssets())
 				return false;
 
-			if (r.IsPastFork_<3>(m_Tip.m_Height))
+			if (r.IsPastFork_<3>(m_Tip.get_Height()))
 			{
 				m_Der
 					& m_hvContracts

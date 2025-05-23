@@ -1819,7 +1819,23 @@ namespace beam
 
 		struct SystemState
 		{
-			typedef HeightHash ID;
+			struct ID
+			{
+				Merkle::Hash m_Hash;
+				Number m_Number;
+
+				template <typename Archive>
+				void serialize(Archive& ar)
+				{
+					ar
+						& m_Number
+						& m_Hash;
+				}
+
+				int cmp(const ID&) const;
+				COMPARISON_VIA_CMP
+
+			};
 
 			struct Evaluator
 				:public Merkle::IEvaluator
@@ -1854,7 +1870,7 @@ namespace beam
 			struct Sequence
 			{
 				struct Prefix {
-					Height				m_Height;
+					Number				m_Number;
 					Merkle::Hash		m_Prev;			// explicit referebce to prev
 					Difficulty::Raw		m_ChainWork;
 				};
@@ -1880,6 +1896,8 @@ namespace beam
 				void get_Hash(Merkle::Hash&) const; // all
 
 				void get_ID(ID&) const;
+
+				Height get_Height() const; // PoW: equals to Number, PoS can be heigher
 
 				bool IsSane() const;
 				bool IsValidPoW() const;
@@ -1998,13 +2016,15 @@ namespace beam
 		};
 	};
 
+	std::ostream& operator << (std::ostream&, const Block::SystemState::ID&);
+
 	struct TxKernel::LongProof
 	{
 		Merkle::Proof m_Inner;
 		Block::SystemState::Full m_State;
 		Merkle::HardProof m_Outer;
 
-		bool empty() const { return !m_State.m_Height; }
+		bool empty() const { return !m_State.m_Number.v; }
 
 		template <typename Archive>
 		void serialize(Archive& ar)
