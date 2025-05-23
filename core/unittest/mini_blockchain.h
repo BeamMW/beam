@@ -49,14 +49,14 @@ namespace beam {
 				s = it0->m_Hdr;
 			}
 
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Height h) override
+			virtual void get_Proof(Merkle::IProofBuilder& bld, Block::Number num) override
 			{
-				assert(h >= Rules::HeightGenesis);
-				h -= Rules::HeightGenesis;
+				assert(num.v);
+				auto idx = num.v - 1;
 
-				assert(h < get_ParentObj().m_vStates.size());
+				assert(idx < get_ParentObj().m_vStates.size());
 
-				get_ParentObj().m_Mmr.get_Proof(bld, h);
+				get_ParentObj().m_Mmr.get_Proof(bld, idx);
 			}
 
 			IMPLEMENT_GET_PARENT_OBJ(MiniBlockChain, m_Source)
@@ -77,7 +77,10 @@ namespace beam {
 			{
 				State& s0 = m_vStates[i - 1];
 				s.m_Hdr = s0.m_Hdr;
-				s.m_Hdr.NextPrefix();
+
+				s0.m_Hdr.get_Hash(s.m_Hdr.m_Prev);
+				s.m_Hdr.m_Number.v = s0.m_Hdr.m_Number.v + 1;
+
                 s.m_Hdr.m_TimeStamp = getTimestamp();
 
 				m_Mmr.Resize(i);
@@ -86,7 +89,7 @@ namespace beam {
 			else
 			{
 				ZeroObject(s.m_Hdr);
-				s.m_Hdr.m_Height = Rules::HeightGenesis;
+				s.m_Hdr.m_Number.v = 1;
 				s.m_Hdr.m_Prev = Rules::get().Prehistoric;
 				s.m_Hdr.m_PoW.m_Difficulty = Rules::get().DA.Difficulty0;
                 s.m_Hdr.m_TimeStamp = getTimestamp();

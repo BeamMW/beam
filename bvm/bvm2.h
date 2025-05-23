@@ -185,7 +185,7 @@ namespace bvm2 {
 
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
-		virtual bool get_HdrAt(Block::SystemState::Full& s) { return false; }
+		virtual bool get_HdrAt(Block::SystemState::Full&, Height) { return false; }
 		virtual bool get_AssetInfo(Asset::Full&) { return false; }
 
 		template <typename T> const T& get_AddrAsR(uint32_t nOffset) {

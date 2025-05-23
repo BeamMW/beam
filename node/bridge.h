@@ -73,7 +73,7 @@ namespace beam {
 		Height get_Height()
 		{
 			Block::SystemState::Full s;
-			return m_FlyClient.m_Hist.get_Tip(s) ? s.m_Height : 0;
+			return m_FlyClient.m_Hist.get_Tip(s) ? s.get_Height() : 0;
 		}
 
 		virtual void OnNewTip() {}
