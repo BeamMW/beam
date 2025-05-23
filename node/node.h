@@ -90,7 +90,7 @@ struct Node
 
 		struct RollbackLimit
 		{
-			Height m_Max = 60; // artificial restriction on how much the node will rollback automatically
+			uint32_t m_Max = 60; // artificial restriction on how much the node will rollback automatically
 			uint32_t m_TimeoutSinceTip_s = 3600; // further rollback is possible after this timeout since the current tip
 			// in either case it's no more than Rules::MaxRollback
 
@@ -210,12 +210,12 @@ struct Node
 		static const uint32_t s_WeightBlock = 8;
 
 		// in units of Height, but different.
-		Height m_Done;
-		Height m_Total;
+		uint64_t m_Done;
+		uint64_t m_Total;
 
 		bool operator == (const SyncStatus&) const;
 
-		void ToRelative(Height hDone0);
+		void ToRelative(uint64_t hDone0);
 
 	} m_SyncStatus;
 
@@ -258,7 +258,7 @@ private:
 		void OnEvent(Height, const proto::Event::Base&) override;
 		void OnDummy(const CoinID&, Height) override;
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
-		Height get_MaxAutoRollback() override;
+		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
 		void Stop();
 
@@ -278,7 +278,7 @@ private:
 		Block::ChainWorkProof m_Cwp; // cached
 		bool BuildCwp();
 
-		void GenerateProofStateStrict(Merkle::HardProof&, Height);
+		void GenerateProofStateStrict(Merkle::HardProof&, Block::Number);
 		void GenerateProofShielded(Merkle::Proof&, const uintBigFor<TxoID>::Type& mmrIdx);
 
 		bool m_bFlushPending = false;
@@ -311,8 +311,8 @@ private:
 		uint32_t m_nCount;
 		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
-		Height m_h0; // those 2 are fast-sync params at the moment of task assignment
-		Height m_hTxoLo;
+		Block::Number m_n0; // those 2 are fast-sync params at the moment of task assignment
+		Block::Number m_nTxoLo;
 		Peer* m_pOwner;
 
 		bool operator < (const Task& t) const { return (m_Key < t.m_Key); }
@@ -549,7 +549,7 @@ private:
 		{
 			std::unique_ptr<Merkle::Hash> m_pQuery;
 			std::vector<Merkle::Hash> m_vSent;
-			Height m_hSent;
+			Block::Number m_nSent;
 		} m_Dependent;
 
 		uint64_t m_CursorBbs;
@@ -807,7 +807,7 @@ private:
 
 		struct Stamp
 		{
-			HeightHash m_hh;
+			Block::SystemState::ID m_ID;
 			ByteBuffer  m_vSer;
 		} m_Stamp;
 
@@ -885,7 +885,7 @@ private:
 
 		Merkle::Hash m_hvCommitted;
 
-		Height m_hAnchor;
+		Block::Number m_hAnchor;
 		uint64_t m_iSlot0;
 		uint64_t m_iRound;
 		uint64_t m_wTotal;
