@@ -613,6 +613,14 @@ namespace beam
 				Exc::Fail("Shielded disabled");
 		}
 
+		bool IsConstantSpan() const
+		{
+			return Consensus::Pbft != m_Consensus;
+		}
+
+		void Height2Difficulty(Difficulty::Raw&, Height) const;
+		Difficulty Span2Difficulty(uint32_t) const;
+
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 		bool IsForkHeightsConsistent() const;
@@ -1883,6 +1891,7 @@ namespace beam
 					PoW				m_PoW;
 
 					uint64_t get_Timestamp_ms() const; // PBFT only
+					uint32_t get_Span() const; // PoW: always 1, PoS can be larger
 				};
 			};
 
