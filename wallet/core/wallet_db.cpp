@@ -3028,7 +3028,7 @@ namespace beam::wallet
             set_ShieldedOuts(p.m_ShieldedOuts);
             Block::SystemState::Full sTip;
             get_History().get_Tip(sTip);
-            storage::setNextEventHeight(*this, sTip.m_Height + 1); // next
+            storage::setNextEventHeight(*this, sTip.get_Height() + 1); // next
             storage::setNeedToRequestBodies(*this, true); // temporarily enable body requests, to solve lag in blocks
             return true;
         }
@@ -3245,7 +3245,7 @@ namespace beam::wallet
     vector<Coin> WalletDB::selectCoinsEx(Amount amount, Asset::ID assetId, bool bCanReturnLess)
     {
         vector<Coin> coins, coinsSel;
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         getSystemStateID(stateID);
 
         {
@@ -3358,7 +3358,7 @@ namespace beam::wallet
                 Coin::ID m_ID;
         };
 
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         getSystemStateID(stateID);
 
         for (const auto& cid : ids)
@@ -3763,21 +3763,21 @@ namespace beam::wallet
         return 0;
     }
 
-    void WalletDB::setSystemStateID(const Block::SystemState::ID& stateID)
+    void WalletDB::setSystemStateID(const HeightHash& stateID)
     {
         storage::setVar(*this, SystemStateIDName, stateID);
         storage::setVar(*this, LastUpdateTimeName, getTimestamp());
         notifySystemStateChanged(stateID);
     }
 
-    bool WalletDB::getSystemStateID(Block::SystemState::ID& stateID) const
+    bool WalletDB::getSystemStateID(HeightHash& stateID) const
     {
         return storage::getVar(*this, SystemStateIDName, stateID);
     }
 
     Height WalletDB::getCurrentHeight() const
     {
-        Block::SystemState::ID id = {};
+        HeightHash id = {};
         if (getSystemStateID(id))
         {
             return id.m_Height;
@@ -5870,7 +5870,7 @@ namespace beam::wallet
         }
     }
 
-    void WalletDB::notifySystemStateChanged(const Block::SystemState::ID& stateID)
+    void WalletDB::notifySystemStateChanged(const HeightHash& stateID)
     {
         for (const auto sub : m_subscribers) sub->onSystemStateChanged(stateID);
     }
@@ -5914,11 +5914,11 @@ namespace beam::wallet
         {
             const Height hMaxBacklog = Rules::get().MaxRollback * 2; // can actually be more
 
-            if (s.m_Height > hMaxBacklog)
+            if (s.get_Height() > hMaxBacklog)
             {
                 const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height "<=?";
                 sqlite::Statement stm(this, req);
-                stm.bind(1, s.m_Height - hMaxBacklog);
+                stm.bind(1, s.get_Height() - hMaxBacklog);
                 stm.step();
 
             }
@@ -6083,7 +6083,7 @@ namespace beam::wallet
             if (i)
                 stm.Reset();
 
-            stm.bind(1, pS[i].m_Height);
+            stm.bind(1, pS[i].get_Height());
             stm.bind(2, pS[i]);
             stm.step();
         }
@@ -6626,14 +6626,15 @@ namespace beam::wallet
             Timestamp RestoreCreationTime(const Block::SystemState::Full& tip, Height confirmHeight)
             {
                 Timestamp ts = tip.m_TimeStamp;
-                if (tip.m_Height > confirmHeight)
+                auto hTip = tip.get_Height();
+                if (hTip > confirmHeight)
                 {
-                    auto delta = (tip.m_Height - confirmHeight);
+                    auto delta = (hTip - confirmHeight);
                     ts -= delta * Rules::get().DA.get_Target_s();
                 }
-                else if (tip.m_Height < confirmHeight)
+                else if (hTip < confirmHeight)
                 {
-                    auto delta = confirmHeight - tip.m_Height;
+                    auto delta = confirmHeight - hTip;
                     ts += delta * Rules::get().DA.get_Target_s();
                 }
                 return ts;
@@ -6645,7 +6646,7 @@ namespace beam::wallet
             // add virtual transaction for receiver
             beam::Block::SystemState::Full tip;
             db.get_History().get_Tip(tip);
-            storage::DeduceStatus(db, coin, tip.m_Height);
+            storage::DeduceStatus(db, coin, tip.get_Height());
 
             if (coin.m_Status != ShieldedCoin::Status::Available &&
                 coin.m_Status != ShieldedCoin::Status::Maturing &&

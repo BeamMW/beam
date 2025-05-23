@@ -1285,7 +1285,7 @@ namespace beam::wallet
         return m_lastBlockTime;
     }
 
-    beam::Block::SystemState::ID WalletClient::getCurrentStateID() const
+    beam::HeightHash WalletClient::getCurrentStateID() const
     {
         return m_status.stateID;
     }
@@ -1330,7 +1330,7 @@ namespace beam::wallet
         updateClientTxState();
     }
 
-    void WalletClient::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    void WalletClient::onSystemStateChanged(const HeightHash& stateID)
     {
         updateStatus();
     }
@@ -2588,7 +2588,7 @@ namespace beam::wallet
             auto oldest = walker.m_vStates[walker.m_vStates.size() - 1];
             Block::SystemState::Full curentState;
             m_walletDB->get_History().get_Tip(curentState);
-            auto distance = currentHeight - oldest.m_Height;
+            auto distance = currentHeight - oldest.get_Height();
             auto averageBlockTime = distance ? (curentState.m_TimeStamp - oldest.m_TimeStamp) / distance : 0; 
             auto lastBlockTime = curentState.m_TimeStamp;
 

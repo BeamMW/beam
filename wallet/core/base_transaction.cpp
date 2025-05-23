@@ -315,9 +315,9 @@ namespace beam::wallet
             || !GetParameter(TxParameterID::KernelID, kernelID))
         {
             Block::SystemState::Full state;
-            if (GetTip(state) && state.m_Height > maxHeight)
+            if (GetTip(state) && state.get_Height() > maxHeight)
             {
-                BEAM_LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << maxHeight;
+                BEAM_LOG_INFO() << m_Context << " Transaction expired. Current height: " << state.get_Height() << ", max kernel height: " << maxHeight;
                 OnFailed(TxFailureReason::TransactionExpired);
                 return true;
             }
@@ -625,7 +625,7 @@ namespace beam::wallet
                 if (shieldedCoin)
                 {
                     shieldedCoin->m_spentTxId = GetTxID();
-                    shieldedCoin->m_spentHeight = sTip.m_Height;
+                    shieldedCoin->m_spentHeight = sTip.get_Height();
                     shieldedCoin->m_Status = ShieldedCoin::Status::Spent;
                     walletDb->saveShieldedCoin(*shieldedCoin);
                 }

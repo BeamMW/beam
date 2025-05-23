@@ -88,7 +88,7 @@ namespace beam::wallet
             int total = 0;
         } update;
 
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
         mutable std::map<Asset::ID, AssetStatus> all;
         std::set<Asset::ID> nzAssets;
@@ -167,7 +167,7 @@ namespace beam::wallet
         beam::Timestamp getCurrentHeightTimestamp() const;
         beam::Timestamp getAverageBlockTime() const;
         beam::Timestamp getLastBlockTime() const;
-        beam::Block::SystemState::ID getCurrentStateID() const;
+        beam::HeightHash getCurrentStateID() const;
 
         /// INodeConnectionObserver implementation
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
@@ -251,7 +251,7 @@ namespace beam::wallet
         void onAssetChanged(ChangeAction action, Asset::ID assetID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
         void onTransactionChanged(ChangeAction action, const std::vector<TxDescription>& items) override;
-        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+        void onSystemStateChanged(const HeightHash& stateID) override;
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
         void onShieldedCoinsChanged(ChangeAction, const std::vector<ShieldedCoin>& coins) override;
         void onSyncProgress(int done, int total) override;
