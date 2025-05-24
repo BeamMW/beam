@@ -2118,7 +2118,7 @@ namespace
             pMan[i]->m_Args["action"] = "schedule_upgrade";
             pMan[i]->m_Args["cid"] = sCid;
             pMan[i]->m_Args["cidVersion"] = sV1Cid;
-            pMan[i]->m_Args["hTarget"] = std::to_string(node.get_Processor().m_Cursor.m_Full.get_Height() + 50);
+            pMan[i]->m_Args["hTarget"] = std::to_string(node.get_Processor().m_Cursor.m_Height + 50);
             pMan[i]->m_Args["iSender"] = std::to_string(iSender);
             pMan[i]->m_Args["approve_mask"] = std::to_string((1U << nPeers) - 1);
 
@@ -2174,7 +2174,7 @@ namespace
 
         printf("scheduling upgrade...\n");
 
-        Height hTarget = node.get_Processor().m_Cursor.m_Full.get_Height() + 20;
+        Height hTarget = node.get_Processor().m_Cursor.m_Height + 20;
 
         for (uint32_t i = 0; i < nPeers; i++)
         {
@@ -2214,7 +2214,7 @@ namespace
 
         printf("waiting for upgrade height...\n");
 
-        if (node.get_Processor().m_Cursor.m_Full.get_Height() < hTarget)
+        if (node.get_Processor().m_Cursor.m_Height < hTarget)
         {
             struct MyObserver :public Node::IObserver
             {
@@ -2234,7 +2234,7 @@ namespace
                 void OnSyncProgress() override {}
 
                 void OnStateChanged() override {
-                    if (m_Node.get_Processor().m_Cursor.m_Full.get_Height() >= m_hTarget)
+                    if (m_Node.get_Processor().m_Cursor.m_Height >= m_hTarget)
                         io::Reactor::get_Current().stop();
                 }
 
@@ -2380,7 +2380,7 @@ namespace
 
         MyManager::Compile(pMan[iSender]->m_BodyContract, "upgradable3/Test/test_v1.wasm", MyManager::Kind::Contract);
 
-        Height hTarget = node.get_Processor().m_Cursor.m_Full.get_Height() + 15;
+        Height hTarget = node.get_Processor().m_Cursor.m_Height + 15;
 
         for (uint32_t i = 0; i < nPeers; i++)
         {
@@ -2424,7 +2424,7 @@ namespace
 
         printf("waiting for upgrade height...\n");
 
-        if (node.get_Processor().m_Cursor.m_Full.get_Height() < hTarget)
+        if (node.get_Processor().m_Cursor.m_Height < hTarget)
         {
             struct MyObserver :public Node::IObserver
             {
@@ -2444,7 +2444,7 @@ namespace
                 void OnSyncProgress() override {}
 
                 void OnStateChanged() override {
-                    if (m_Node.get_Processor().m_Cursor.m_Full.get_Height() >= m_hTarget)
+                    if (m_Node.get_Processor().m_Cursor.m_Height >= m_hTarget)
                         io::Reactor::get_Current().stop();
                 }
 

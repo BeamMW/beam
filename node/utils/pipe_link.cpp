@@ -491,7 +491,7 @@ void Manager::OnEvent(uint32_t i)
 void Manager::LocalContext::SyncCoins()
 {
     auto& proc = m_Node.get_Processor();
-    if (m_hCoinsEvtNext > proc.m_Cursor.m_Full.get_Height())
+    if (m_hCoinsEvtNext > proc.m_Cursor.m_Height)
         return;
 
     struct MyParser
@@ -527,7 +527,7 @@ void Manager::LocalContext::SyncCoins()
         }
     }
 
-    m_hCoinsEvtNext = proc.m_Cursor.m_Full.get_Height() + 1;
+    m_hCoinsEvtNext = proc.m_Cursor.m_Height + 1;
 }
 
 void Manager::LocalContext::OnStateChanged()
@@ -761,7 +761,7 @@ void Manager::LocalContext::OnStateChanged()
 bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractControl>&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs)
 {
     pKrn->m_Fee = Rules::Coin / 50; // 2 cents
-    pKrn->m_Height.m_Min = m_Node.get_Processor().m_Cursor.m_Full.get_Height();
+    pKrn->m_Height.m_Min = m_Node.get_Processor().m_Cursor.m_Height;
     pKrn->m_Height.m_Max = pKrn->m_Height.m_Min + 10;
 
     auto& skKrn = pKs[nKs - 1];
