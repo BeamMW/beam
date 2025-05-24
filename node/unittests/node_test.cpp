@@ -1170,7 +1170,7 @@ namespace beam
 			blockChain.push_back(std::move(pBlock));
 		}
 
-		for (Block::Number num(1); num.v <= np.m_Cursor.m_Sid.m_Number.v; num.v++)
+		for (Block::Number num(1); num.v <= np.m_Cursor.m_Full.m_Number.v; num.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Number = num;
@@ -1334,7 +1334,7 @@ namespace beam
 
 		// 1st attempt - tamper with txlo. Remove arbitrary input
 		bool bTampered = false;
-		for (Block::Number num(1); num.v <= npSrc.m_Cursor.m_Sid.m_Number.v; num.v++)
+		for (Block::Number num(1); num.v <= npSrc.m_Cursor.m_Full.m_Number.v; num.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(num);
@@ -1416,7 +1416,7 @@ namespace beam
 		}
 
 		np.TryGoUp();
-		verify_test(np.m_Cursor.m_ID.m_Number.v == 0); // should fall back to start
+		verify_test(np.m_Cursor.m_Full.m_Number.v == 0); // should fall back to start
 		verify_test(!np.m_SyncData.m_TxoLo.v); // next attempt should be with TxLo disabled
 
 		// 2nd attempt. Tamper with the non-naked output
@@ -1469,11 +1469,11 @@ namespace beam
 
 			if (bTampered)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Number.v == h.v - 1);
+				verify_test(np.m_Cursor.m_Full.m_Number.v == h.v - 1);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Number.v == h.v);
+			verify_test(np.m_Cursor.m_Full.m_Number.v == h.v);
 		}
 
 		verify_test(bTampered);
@@ -1482,7 +1482,7 @@ namespace beam
 		// 3rd attempt. enforce "naked" output. The node won't notice a problem until all the blocks are fed
 		bTampered = false;
 
-		for (Block::Number h(np.m_Cursor.m_ID.m_Number.v + 1); ; h.v++)
+		for (Block::Number h(np.m_Cursor.m_Full.m_Number.v + 1); ; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
@@ -1532,11 +1532,11 @@ namespace beam
 
 			if (bLast)
 			{
-				verify_test(np.m_Cursor.m_ID.m_Number.v == 0);
+				verify_test(np.m_Cursor.m_Full.m_Number.v == 0);
 				break;
 			}
 
-			verify_test(np.m_Cursor.m_ID.m_Number.v == h.v);
+			verify_test(np.m_Cursor.m_Full.m_Number.v == h.v);
 		}
 
 		verify_test(!np.m_SyncData.m_TxoLo.v);
@@ -1544,7 +1544,7 @@ namespace beam
 		// 3.1 Same as above, but now TxoLo is zero, Node should not erase all the blocks on error
 		Block::Number hTampered(0);
 
-		for (Block::Number h(np.m_Cursor.m_ID.m_Number.v + 1); ; h.v++)
+		for (Block::Number h(np.m_Cursor.m_Full.m_Number.v + 1); ; h.v++)
 		{
 			NodeDB::StateID sid;
 			sid.m_Row = npSrc.FindActiveAtStrict(h);
@@ -1618,7 +1618,7 @@ namespace beam
 
 		np.TryGoUp();
 		verify_test(!np.IsFastSync());
-		verify_test(np.m_Cursor.m_ID.m_Number.v == blockChain.size());
+		verify_test(np.m_Cursor.m_Full.m_Number.v == blockChain.size());
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
