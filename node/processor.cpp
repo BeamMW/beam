@@ -7897,7 +7897,7 @@ bool NodeProcessor::EnumTxos(ITxoWalker& wlkTxo, const Block::NumberRange& nr)
 	return true;
 }
 
-bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const Block::NumberRange& nr)
+bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, Block::NumberRange nr)
 {
 	if (nr.IsEmpty() || !IsTreasuryHandled())
 		return true;
@@ -7949,6 +7949,7 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, const Block::NumberRange& nr
 		}
 
 		wlkKrn.m_Height = Rules::HeightGenesis;
+		nr.m_Min.v++;
 	}
 
 	TxVectors::Eternal txve;

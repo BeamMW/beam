@@ -724,7 +724,7 @@ public:
 		LongAction* m_pLa = nullptr;
 	};
 
-	bool EnumKernels(IKrnWalker&, const Block::NumberRange&);
+	bool EnumKernels(IKrnWalker&, Block::NumberRange);
 
 	struct KrnWalkerShielded
 		:public IKrnWalker
