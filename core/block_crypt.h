@@ -1683,21 +1683,6 @@ namespace beam
 			bool IsEmpty() const;
 		};
 
-		struct NumberPos
-		{
-			Number m_Number;
-			uint32_t m_Pos;
-
-			template <typename Archive>
-			void serialize(Archive& ar)
-			{
-				ar
-					& m_Height
-					& m_Number;
-			}
-		};
-
-
 		struct PoW
 		{
 			// equihash parameters. 

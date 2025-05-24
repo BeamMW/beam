@@ -586,14 +586,14 @@ public:
 	void TxoAdd(TxoID, const Blob&);
 	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
-	void TxoSetSpent(TxoID, Block::Number);
+	void TxoSetSpent(TxoID, Height);
 
 	struct WalkerTxo
 	{
 		Recordset m_Rs;
 		TxoID m_ID;
 		Blob m_Value;
-		Block::Number m_SpendBlock;
+		Height m_SpendHeight;
 
 		bool MoveNext();
 	};
@@ -805,7 +805,7 @@ public:
 
 		struct Entry
 		{
-			Block::NumberPos m_Pos;
+			HeightPos m_Pos;
 			Cid m_Cid;
 			Blob m_Val;
 		};
@@ -821,10 +821,10 @@ public:
 
 
 	void KrnInfoInsert(const KrnInfo::Entry&);
-	void KrnInfoDelFrom(Block::Number);
-	void KrnInfoEnum(KrnInfo::Walker&, Block::Number);
-	void KrnInfoEnum(KrnInfo::Walker&, const Block::NumberPos&, const Block::NumberPos&);
-	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Block::Number numMax);
+	void KrnInfoDelFrom(Height);
+	void KrnInfoEnum(KrnInfo::Walker&, Height);
+	void KrnInfoEnum(KrnInfo::Walker&, const HeightPos&, const HeightPos&);
+	void KrnInfoEnum(KrnInfo::Walker&, const KrnInfo::Cid&, Height numMax);
 
 	void TestChanged1Row();
 

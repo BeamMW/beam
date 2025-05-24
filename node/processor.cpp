@@ -1892,7 +1892,7 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 		NodeDB::WalkerTxo wlk;
 		for (m_DB.EnumTxos(wlk, mbc.m_id0); wlk.MoveNext(); )
 		{
-			if (wlk.m_SpendBlock.v != MaxHeight)
+			if (wlk.m_SpendHeight != MaxHeight)
 				continue;
 
 			if (TxoIsNaked(wlk.m_Value))
@@ -2727,7 +2727,7 @@ struct NodeProcessor::BlockInterpretCtx
 
 	}
 
-	void AddKrnInfo(Serializer&, NodeDB& db, Block::Number);
+	void AddKrnInfo(Serializer&, NodeDB& db);
 
 	static uint64_t get_AssetEvtIdx(uint32_t nKrnIdx, uint32_t nSubIdx) {
 		return (static_cast<uint64_t>(nKrnIdx) << 32) | nSubIdx;
@@ -3256,7 +3256,7 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 			const Input& x = *block.m_vInputs[i];
 			auto txoID = bic.m_vInpAux[i].m_ID;
 
-			m_DB.TxoSetSpent(txoID, id.m_Number);
+			m_DB.TxoSetSpent(txoID, h);
 			v.emplace_back().Set(txoID, x.m_Commitment);
 		}
 
@@ -3306,7 +3306,7 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 		cf.Do(*this, h);
 
 		if (bic.m_pvC)
-			bic.AddKrnInfo(ser, m_DB, id.m_Number);
+			bic.AddKrnInfo(ser, m_DB);
 	}
 	else
 	{
@@ -3889,14 +3889,12 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 			m_Total++;
 
-			if (MaxHeight == wlk.m_SpendBlock.v)
+			if (MaxHeight == wlk.m_SpendHeight)
 				m_Unspent++;
 			else
 			{
-				Height hSpend = m_Rec.m_Handler.m_Proc.Num2Height(wlk.m_SpendBlock);
-
 				evt.m_Flags = 0;
-				m_Rec.m_Recognizer.m_Pos.m_Height = hSpend;
+				m_Rec.m_Recognizer.m_Pos.m_Height = wlk.m_SpendHeight;
 				m_Rec.m_Recognizer.AddEvent(evt);
 			}
 
@@ -5209,7 +5207,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	return true;
 }
 
-void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db, Block::Number num)
+void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db)
 {
 	assert(m_pvC);
 	auto& vC = *m_pvC;
@@ -5219,7 +5217,7 @@ void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db, B
 		const auto& info = vC[i];
 
 		NodeDB::KrnInfo::Entry x;
-		x.m_Pos.m_Number = num;
+		x.m_Pos.m_Height = m_Height;
 		x.m_Pos.m_Pos = i + 1;
 		x.m_Cid = info.m_Cid;
 
@@ -6517,7 +6515,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 			UndoInput(inp, inpAux);
 
-			m_DB.TxoSetSpent(id, Block::Number(MaxHeight));
+			m_DB.TxoSetSpent(id, MaxHeight);
 		}
 
 		m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
@@ -6600,8 +6598,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 	m_DB.AssetEvtsDeleteFrom(h + 1);
 	m_DB.ShieldedOutpDelFrom(h + 1);
-
-	m_DB.KrnInfoDelFrom(Block::Number(num.v + 1));
+	m_DB.KrnInfoDelFrom(h + 1);
 
 	if (!TestDefinition())
 		OnCorrupted();
@@ -7713,8 +7710,11 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return false;
 }
 
-void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
+void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Block::SystemState::Full& s, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
 {
+	m_DB.get_State(sid.m_Row, s);
+	Height h = s.get_Height();
+
 	{
 		// kernels
 		ByteBuffer bbE;
@@ -7725,13 +7725,13 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vecto
 		der & txe;
 
 		NodeDB::KrnInfo::Walker wlk;
-		for (m_DB.KrnInfoEnum(wlk, sid.m_Number); wlk.MoveNext(); )
+		for (m_DB.KrnInfoEnum(wlk, h); wlk.MoveNext(); )
 		{
 			auto& info = vC.emplace_back();
 			info.m_Cid = wlk.m_Entry.m_Cid;
 
 			der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
-			der& info;
+			der & info;
 		}
 
 	}
@@ -7755,11 +7755,9 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vecto
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 			der & dst.m_Outp;
 
-			dst.m_nSpent = sid.m_Number;
+			dst.m_hSpent = h;
 
-			NodeDB::StateID sid2;
-			FindBlockByTxoID(sid2, txoID);
-			dst.m_nCreate = sid2.m_Number;
+			FindHeightByTxoID(dst.m_hCreate, txoID);
 		}
 	}
 
@@ -7781,8 +7779,8 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, std::vecto
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 			der & dst.m_Outp;
 
-			dst.m_nCreate = sid.m_Number;
-			dst.m_nSpent = wlk.m_SpendBlock;
+			dst.m_hCreate = h;
+			dst.m_hSpent = wlk.m_SpendHeight;
 		}
 	}
 }
@@ -7801,8 +7799,8 @@ void NodeProcessor::ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts)
 		der.reset(wlk.m_Value.p, wlk.m_Value.n);
 		der& dst.m_Outp;
 
-		dst.m_nCreate.v = 0;
-		dst.m_nSpent = wlk.m_SpendBlock;
+		dst.m_hCreate = 0;
+		dst.m_hSpent = wlk.m_SpendHeight;
 	}
 }
 
@@ -8014,7 +8012,7 @@ bool NodeProcessor::ITxoRecover::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCre
 
 bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
 {
-	if (wlk.m_SpendBlock.v != MaxHeight)
+	if (wlk.m_SpendHeight != MaxHeight)
 		return true;
 
 	uint8_t pNaked[s_TxoNakedMax];
@@ -8025,7 +8023,7 @@ bool NodeProcessor::ITxoWalker_UnspentNaked::OnTxo(const NodeDB::WalkerTxo& wlk,
 
 bool NodeProcessor::ITxoWalker_Unspent::OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate)
 {
-	if (wlk.m_SpendBlock.v != MaxHeight)
+	if (wlk.m_SpendHeight != MaxHeight)
 		return true;
 
 	return ITxoWalker::OnTxo(wlk, hCreate);
@@ -8171,6 +8169,9 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	nCount = 0;
 
 	// outputs
+	Height hLo1 = Num2Height(nLo1);
+	Height hHi1 = Num2Height(nHi1);
+
 	NodeDB::WalkerTxo wlk;
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
@@ -8181,12 +8182,12 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
 		//	Otherwise - don't transfer
 
-		if (wlk.m_SpendBlock.v <= nLo1.v)
+		if (wlk.m_SpendHeight <= hLo1)
 			continue;
 
 		uint8_t pNaked[s_TxoNakedMax];
 
-		if (wlk.m_SpendBlock.v <= nHi1.v)
+		if (wlk.m_SpendHeight <= hHi1)
 			TxoToNaked(pNaked, wlk.m_Value);
 
 		nCount++;
@@ -8279,7 +8280,7 @@ void NodeProcessor::RebuildNonStd()
 	m_DB.AssetsDelAll(Rules::get().CA.ForeignEnd);
 	m_DB.AssetEvtsDeleteFrom(0);
 	m_DB.UniqueDeleteAll();
-	m_DB.KrnInfoDelFrom(Block::Number(0));
+	m_DB.KrnInfoDelFrom(0);
 
 	m_Mmr.m_Assets.ResizeTo(0);
 	m_Mmr.m_Shielded.ResizeTo(0);
@@ -8330,7 +8331,7 @@ void NodeProcessor::RebuildNonStd()
 				Serializer ser;
 				ser.swap_buf(m_Rollback);
 
-				bic.AddKrnInfo(ser, m_This.m_DB, sid.m_Number);
+				bic.AddKrnInfo(ser, m_This.m_DB);
 
 				ser.swap_buf(m_Rollback);
 
