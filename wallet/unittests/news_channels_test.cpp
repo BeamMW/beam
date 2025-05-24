@@ -97,7 +97,7 @@ namespace
 
     void setAfterFork3(IWalletDB::Ptr walletDB)
     {
-        beam::Block::SystemState::ID id = { };
+        HeightHash id = { };
         id.m_Height = Rules::get().pForks[3].m_Height + 1;
         walletDB->setSystemStateID(id);
     }

@@ -657,7 +657,7 @@ void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
     get_History().get_Tip(tip);
     Height channelLockHeight = channel->get_LockHeight();
 
-    if (tip.m_Height + 1 < channelLockHeight)
+    if (tip.get_Height() + 1 < channelLockHeight)
     {
         if (channel->Transfer(amount))
         {
@@ -678,7 +678,7 @@ void Mediator::TransferInternal(Amount amount, const Channel::Ptr& channel)
     {
         BEAM_LOG_ERROR() << "You can't transfer: " << PrintableAmount(amount, true)
                     << " to channel: " << channelIdStr;
-        BEAM_LOG_ERROR() << "Current height: " << tip.m_Height + 1
+        BEAM_LOG_ERROR() << "Current height: " << tip.get_Height() + 1
                     << " overtop channel lock height: " << channelLockHeight;
     }
        
@@ -695,7 +695,7 @@ void Mediator::GracefulCloseInternal(const Channel::Ptr& channel)
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
 
-    if (tip.m_Height < channel->get_LockHeight())
+    if (tip.get_Height() < channel->get_LockHeight())
     {
         if (!channel->Transfer(0, true))
         {
@@ -906,10 +906,10 @@ bool Mediator::ValidateTip()
 {
     Block::SystemState::Full tip;
     get_History().get_Tip(tip);
-    if (!IsValidTimeStamp(tip.m_TimeStamp, kDefaultLaserTolerance) || !tip.m_Height)
+    if (!IsValidTimeStamp(tip.m_TimeStamp, kDefaultLaserTolerance) || !tip.get_Height())
         return false;
 
-    Block::SystemState::ID id;
+    HeightHash id;
     tip.get_ID(id);
     m_pWalletDB->setSystemStateID(id);
     BEAM_LOG_INFO() << "LASER Current state is " << id;

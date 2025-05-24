@@ -60,7 +60,7 @@ namespace
         ECC::NoLeak<ECC::uintBig> seed;
         seed.V = 10283UL;
         auto walletDB = WalletDB::init(dbFileName, string("pass123"), seed);
-        beam::Block::SystemState::ID id = { };
+        HeightHash id = { };
         id.m_Height = 134;
         walletDB->setSystemStateID(id);
         return walletDB;

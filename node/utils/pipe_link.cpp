@@ -117,7 +117,7 @@ struct Manager
 
             virtual void OnSyncProgress() override;
             virtual void OnStateChanged() override;
-            virtual void OnRolledBack(const Block::SystemState::ID&) override;
+            virtual void OnRolledBack() override;
 
             IMPLEMENT_GET_PARENT_OBJ(LocalContext, m_NodeObserver)
         } m_NodeObserver;
@@ -422,7 +422,7 @@ void Manager::LocalContext::NodeObserver::OnStateChanged()
     get_ParentObj().OnStateChanged();
 }
 
-void Manager::LocalContext::NodeObserver::OnRolledBack(const Block::SystemState::ID&)
+void Manager::LocalContext::NodeObserver::OnRolledBack()
 {
     get_ParentObj().m_Coins.clear();
     get_ParentObj().m_hCoinsEvtNext = 0;
@@ -491,7 +491,7 @@ void Manager::OnEvent(uint32_t i)
 void Manager::LocalContext::SyncCoins()
 {
     auto& proc = m_Node.get_Processor();
-    if (m_hCoinsEvtNext > proc.m_Cursor.m_Full.m_Height)
+    if (m_hCoinsEvtNext > proc.m_Cursor.m_Full.get_Height())
         return;
 
     struct MyParser
@@ -527,13 +527,13 @@ void Manager::LocalContext::SyncCoins()
         }
     }
 
-    m_hCoinsEvtNext = proc.m_Cursor.m_Full.m_Height + 1;
+    m_hCoinsEvtNext = proc.m_Cursor.m_Full.get_Height() + 1;
 }
 
 void Manager::LocalContext::OnStateChanged()
 {
     const auto& s = m_Node.get_Processor().m_Cursor.m_Full;
-    Print() << "Height=" << s.m_Height;
+    Print() << "Height=" << s.get_Height();
 
     SyncCoins();
 
@@ -546,7 +546,7 @@ void Manager::LocalContext::OnStateChanged()
             Print() << "last tx confirmed";
         } else
         {
-            if (s.m_Height < m_hCurrentTxH1)
+            if (s.get_Height() < m_hCurrentTxH1)
                 return;
 
             Print() << "last tx timed-out";
@@ -612,7 +612,7 @@ void Manager::LocalContext::OnStateChanged()
         return;
     }
 
-    if (m_Manager.m_PushDummies && !(s.m_Height % 8))
+    if (m_Manager.m_PushDummies && !(s.get_Height() % 8))
     {
         struct ArgPlus
         {
@@ -639,12 +639,12 @@ void Manager::LocalContext::OnStateChanged()
         return;
 
     uint32_t nCps = so2.m_Checkpoint.m_iIdx;
-    if (so2.m_Checkpoint.m_iMsg && so2.IsCheckpointClosed(s.m_Height))
+    if (so2.m_Checkpoint.m_iMsg && so2.IsCheckpointClosed(s.get_Height()))
         nCps++;
 
     if (si.m_Dispute.m_iIdx >= nCps)
     {
-        if (so2.m_Checkpoint.m_iMsg && !so2.IsCheckpointClosed(s.m_Height))
+        if (so2.m_Checkpoint.m_iMsg && !so2.IsCheckpointClosed(s.get_Height()))
             Print() << so2.m_Checkpoint.m_iMsg << " msgs pending. Waiting for full package to assemble";
         return; // up-to-date
     }
@@ -698,7 +698,7 @@ void Manager::LocalContext::OnStateChanged()
         if (pWin->m_User == ptUser)
         {
             // already winning
-            if (si.CanFinalyze(s.m_Height))
+            if (si.CanFinalyze(s.get_Height()))
             {
                 Shaders::Pipe::FinalyzeRemote arg;
                 arg.m_DepositStake = 0;
@@ -761,7 +761,7 @@ void Manager::LocalContext::OnStateChanged()
 bool Manager::LocalContext::SendContractTx(std::unique_ptr<TxKernelContractControl>&& pKrn, const char* sz, Amount val, bool bSpend, ECC::Scalar::Native* pKs, uint32_t nKs)
 {
     pKrn->m_Fee = Rules::Coin / 50; // 2 cents
-    pKrn->m_Height.m_Min = m_Node.get_Processor().m_Cursor.m_Full.m_Height;
+    pKrn->m_Height.m_Min = m_Node.get_Processor().m_Cursor.m_Full.get_Height();
     pKrn->m_Height.m_Max = pKrn->m_Height.m_Min + 10;
 
     auto& skKrn = pKs[nKs - 1];

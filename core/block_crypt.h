@@ -1891,7 +1891,6 @@ namespace beam
 					PoW				m_PoW;
 
 					uint64_t get_Timestamp_ms() const; // PBFT only
-					uint32_t get_Span() const; // PoW: always 1, PoS can be larger
 				};
 			};
 
@@ -1906,7 +1905,8 @@ namespace beam
 				void get_HashForPoW(Merkle::Hash&) const; // all except PoW
 				void get_Hash(Merkle::Hash&) const; // all
 
-				void get_ID(ID&) const;
+				void get_ID(ID&) const; // with Block number
+				void get_ID(HeightHash&) const; // with Height
 
 				Height get_Height() const; // PoW: equals to Number, PoS can be heigher
 

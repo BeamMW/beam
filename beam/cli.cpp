@@ -617,8 +617,8 @@ int main(int argc, char* argv[])
 
 					if (vm.count(cli::MANUAL_ROLLBACK))
 					{
-						Height h = vm[cli::MANUAL_ROLLBACK].as<Height>();
-						if (h >= Rules::HeightGenesis)
+						Block::Number h(vm[cli::MANUAL_ROLLBACK].as<uint64_t>());
+						if (h.v)
 							node.get_Processor().ManualRollbackTo(h);
 						else
 							node.get_Processor().m_ManualSelection.ResetAndSave();
@@ -636,7 +636,7 @@ int main(int argc, char* argv[])
 						auto iPos = s.find('-');
 						if ((s.npos != iPos) && (s.size() > iPos + sid.m_Hash.nTxtLen))
 						{
-							sid.m_Height = std::stoull(s);
+							sid.m_Number.v = std::stoull(s);
 							sid.m_Hash.Scan(&s.front() + iPos + 1);
 
 							node.get_Processor().ManualSelect(sid);
