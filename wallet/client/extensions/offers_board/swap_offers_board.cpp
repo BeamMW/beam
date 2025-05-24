@@ -46,7 +46,7 @@ bool SwapOffersBoard::onMessage(BroadcastMsg&& msg)
  *  Watches for system state to remove stuck expired offers from board.
  *  Doesn't push any updates to network, just notify subscribers.
  */
-void SwapOffersBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
+void SwapOffersBoard::onSystemStateChanged(const HeightHash& stateID)
 {
     m_currentHeight = stateID.m_Height;
 

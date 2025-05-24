@@ -1463,7 +1463,7 @@ namespace
             showAssetId = vm[cli::ASSET_ID].as<Positive<uint32_t>>().value;
         }
 
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totals(*walletDB, false);
 
@@ -1561,7 +1561,7 @@ namespace
             walletDB = OpenDataBase(vm);
         }
 
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         walletDB->getSystemStateID(stateID);
         storage::Totals totalsCalc(*walletDB, false);
 

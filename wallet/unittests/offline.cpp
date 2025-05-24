@@ -31,7 +31,7 @@ struct WalletDBObserver : IWalletDbObserver {
     void onTransactionChanged(ChangeAction, const std::vector<TxDescription>& )  {
         BEAM_LOG_INFO() << _who << " QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ " << __FUNCTION__;
     }
-    void onSystemStateChanged(const Block::SystemState::ID& stateID)  {
+    void onSystemStateChanged(const HeightHash& stateID)  {
         BEAM_LOG_INFO() << _who << " " << __FUNCTION__;
     }
     void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)  {

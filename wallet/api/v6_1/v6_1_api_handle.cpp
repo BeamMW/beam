@@ -73,7 +73,7 @@ namespace beam::wallet
         //
         if ((_evSubs & SubFlags::SystemState) != 0 && (oldSubs & SubFlags::SystemState) == 0)
         {
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             getWalletDB()->getSystemStateID(stateID);
             onSystemStateChanged(stateID);
         }
@@ -158,7 +158,7 @@ namespace beam::wallet
         auto walletDB = getWalletDB();
 
         {
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             walletDB->getSystemStateID(stateID);
             response.currentHeight = stateID.m_Height;
             response.currentStateHash = stateID.m_Hash;

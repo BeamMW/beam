@@ -37,7 +37,7 @@ namespace beam::wallet
                 return;
             }
             Height refreshHeight = h;
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             getWalletDB()->getSystemStateID(stateID);
             if (h >= stateID.m_Height)
             {

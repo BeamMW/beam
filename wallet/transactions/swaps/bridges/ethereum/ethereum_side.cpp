@@ -655,7 +655,7 @@ bool EthereumSide::HasEnoughTimeToProcessLockTx()
     if (m_tx.GetParameter(TxParameterID::MaxHeight, lockTxMaxHeight, SubTxIndex::BEAM_LOCK_TX))
     {
         Block::SystemState::Full systemState;
-        if (m_tx.GetTip(systemState) && systemState.m_Height > lockTxMaxHeight - GetLockTxEstimatedTimeInBeamBlocks())
+        if (m_tx.GetTip(systemState) && systemState.get_Height() > lockTxMaxHeight - GetLockTxEstimatedTimeInBeamBlocks())
         {
             return false;
         }
