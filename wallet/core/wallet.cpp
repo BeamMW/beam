@@ -1659,7 +1659,7 @@ namespace beam::wallet
             Height startHeight = r.m_StartHeight;
             if (!r.m_Res.m_Bodies.empty())
             {
-                RequestBodies(r.m_Msg.m_Height0, startHeight + r.m_Res.m_Bodies.size());
+                RequestBodies(r.m_Msg.m_Block0.v, startHeight + r.m_Res.m_Bodies.size());
             }
             for (const auto& b : r.m_Res.m_Bodies)
             {
@@ -1706,7 +1706,7 @@ namespace beam::wallet
 
             ProcessBody(r.m_Res.m_Body, r.m_Height, recognizer);
 
-            if (r.m_Height < r.m_Msg.m_Top.m_Height)
+            if (r.m_Height < r.m_Msg.m_Top.m_Number.v)
             {
                 RequestBodies(r.m_Height, r.m_Height+1);
             }
@@ -1778,7 +1778,7 @@ namespace beam::wallet
 
         if (!storage::isTreasuryHandled(*m_WalletDB))
         {
-            m_RequestedBlocks = tip.m_Height;
+            m_RequestedBlocks = tip.get_Height();
             RequestTreasury();
         }
         else
@@ -1789,7 +1789,7 @@ namespace beam::wallet
                 --nextEvent;
                 if (!m_RequestedBlocks)
                 {
-                    m_RequestedBlocks = tip.m_Height - nextEvent;
+                    m_RequestedBlocks = tip.get_Height() - nextEvent;
                 }
                 else
                 {
@@ -1799,7 +1799,7 @@ namespace beam::wallet
             }
             else
             {
-                m_RequestedBlocks = tip.m_Height;
+                m_RequestedBlocks = tip.get_Height();
             }
             RequestBodies(nextEvent, nextEvent + 1);
         }
@@ -1834,10 +1834,10 @@ namespace beam::wallet
         Block::SystemState::Full newTip;
         m_WalletDB->get_History().get_Tip(newTip);
 
-        if (startHeight > newTip.m_Height)
+        if (startHeight > newTip.get_Height())
             return;
 
-        Height hCountExtra = newTip.m_Height - startHeight;
+        Height hCountExtra = newTip.get_Height() - startHeight;
         if (hCountExtra)
         {
             MyRequestBodyPack::Ptr pReq(new MyRequestBodyPack);
@@ -1849,12 +1849,12 @@ namespace beam::wallet
             newTip.get_ID(pReq->m_Msg.m_Top);
 
             Height r = Rules::get().MaxRollback;
-            Height count = std::min(newTip.m_Height - currentHeight, r * 2);
+            Height count = std::min(newTip.get_Height() - currentHeight, r * 2);
             pReq->m_StartHeight = startHeight;
-            msg.m_CountExtra = hCountExtra;
-            msg.m_Height0 = currentHeight;
-            msg.m_HorizonLo1 = newTip.m_Height - count;
-            msg.m_HorizonHi1 = newTip.m_Height;
+            msg.m_CountExtra.v = hCountExtra;
+            msg.m_Block0.v = currentHeight;
+            msg.m_HorizonLo1.v = newTip.get_Height() - count;
+            msg.m_HorizonHi1.v = newTip.get_Height();
 
             PostReqUnique(*pReq);
         }
@@ -1866,8 +1866,8 @@ namespace beam::wallet
             pReq->m_Msg.m_FlagE = proto::BodyBuffers::Full;
 
             newTip.get_ID(pReq->m_Msg.m_Top);
-            pReq->m_Height = pReq->m_Msg.m_Top.m_Height;
-            pReq->m_Msg.m_CountExtra = hCountExtra;
+            pReq->m_Height = pReq->m_Msg.m_Top.m_Number.v;
+            pReq->m_Msg.m_CountExtra.v = hCountExtra;
 
             PostReqUnique(*pReq);
         }
@@ -2375,11 +2375,9 @@ namespace beam::wallet
         Block::SystemState::Full sTip;
         get_tip(sTip);
 
-        Block::SystemState::ID id;
-        if (sTip.m_Height)
-            sTip.get_ID(id);
-        else
-            ZeroObject(id);
+        HeightHash id;
+        id.m_Height = sTip.get_Height();
+        sTip.get_Hash(id.m_Hash);
 
         m_WalletDB->setSystemStateID(id);
         BEAM_LOG_INFO() << "Current state is " << id;
