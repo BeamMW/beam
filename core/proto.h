@@ -591,7 +591,6 @@ namespace proto {
     inline void ZeroInit(std::string&) { }
     inline void ZeroInit(Block::SystemState::ID& x) { ZeroObject(x); }
     inline void ZeroInit(Block::Number& x) { x.v = 0; }
-    inline void ZeroInit(Block::NumberPos& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Full& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Prefix& x) { ZeroObject(x); }
     inline void ZeroInit(Block::SystemState::Sequence::Element& x) { ZeroObject(x); }

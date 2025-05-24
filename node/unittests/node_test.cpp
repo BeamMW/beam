@@ -1179,18 +1179,19 @@ namespace beam
 			TxVectors::Eternal txe;
 			std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
 			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
-			np.ExtractBlockWithExtra(sid, vIns, vOuts, txe, vC);
+			Block::SystemState::Full s;
+			np.ExtractBlockWithExtra(sid, s, vIns, vOuts, txe, vC);
 
 			for (const auto& x : vIns)
 			{
-				verify_test(x.m_nCreate.v < num.v);
-				verify_test(x.m_nSpent.v == num.v);
+				verify_test(x.m_hCreate < num.v);
+				verify_test(x.m_hSpent == num.v);
 			}
 
 			for (const auto& x : vOuts)
 			{
-				verify_test(x.m_nCreate.v == num.v);
-				verify_test(x.m_nSpent.v > num.v);
+				verify_test(x.m_hCreate == num.v);
+				verify_test(x.m_hSpent > num.v);
 			}
 
 		}

@@ -92,7 +92,7 @@ namespace beam {
 #define TblTxo					"Txo"
 #define TblTxo_ID				"ID"
 #define TblTxo_Value			"Value"
-#define TblTxo_SpendNumber		"SpendHeight"
+#define TblTxo_SpendHeight		"SpendHeight"
 
 #define TblStreams				"Streams"
 #define TblStream_ID			"ID"
@@ -608,7 +608,7 @@ void NodeDB::Create()
 	ExecQuick("CREATE TABLE [" TblTxo "] ("
 		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
-		"[" TblTxo_SpendNumber		"] INTEGER)");
+		"[" TblTxo_SpendHeight		"] INTEGER)");
 
 	CreateTables20();
 	CreateTables21();
@@ -2431,11 +2431,11 @@ void NodeDB::TxoDelFrom(TxoID id)
 	rs.Step();
 }
 
-void NodeDB::TxoSetSpent(TxoID id, Block::Number num)
+void NodeDB::TxoSetSpent(TxoID id, Height h)
 {
-	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendNumber "=? WHERE " TblTxo_ID "=?");
-	if (MaxHeight != num.v)
-		rs.put(0, num.v);
+	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
+	if (MaxHeight != h)
+		rs.put(0, h);
 	rs.put(1, id);
 
 	rs.Step();
@@ -2444,7 +2444,7 @@ void NodeDB::TxoSetSpent(TxoID id, Block::Number num)
 
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)
 {
-	wlk.m_Rs.Reset(*this, Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendNumber " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
+	wlk.m_Rs.Reset(*this, Query::TxoEnum, "SELECT " TblTxo_ID "," TblTxo_Value "," TblTxo_SpendHeight " FROM " TblTxo " WHERE " TblTxo_ID ">=? ORDER BY " TblTxo_ID);
 	wlk.m_Rs.put(0, id0);
 }
 
@@ -2457,9 +2457,9 @@ bool NodeDB::WalkerTxo::MoveNext()
 	m_Rs.get(1, m_Value);
 
 	if (m_Rs.IsNull(2))
-		m_SpendBlock.v = MaxHeight;
+		m_SpendHeight = MaxHeight;
 	else
-		m_Rs.get(2, m_SpendBlock.v);
+		m_Rs.get(2, m_SpendHeight);
 
 	return true;
 }
@@ -3342,39 +3342,39 @@ void NodeDB::KrnInfoInsert(const KrnInfo::Entry& x)
 	TestChanged1Row();
 }
 
-void NodeDB::KrnInfoDelFrom(Block::Number num)
+void NodeDB::KrnInfoDelFrom(Height h)
 {
 	Recordset rs(*this, Query::KrnInfoDel, "DELETE FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos ">=?");
 
-	HeightPos posMin(num.v);
-	HeightPosPacked bufMin, bufMax;
+	HeightPos posMin(h);
+	HeightPosPacked bufMin;
 	bufMin.put(rs, 0, posMin);
 
 	rs.Step();
 }
 
-void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Block::Number num)
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, Height h)
 {
-	HeightPos pos0(num.v);
-	HeightPos pos1(num.v, static_cast<uint32_t>(-1));
+	HeightPos pos0(h);
+	HeightPos pos1(h, static_cast<uint32_t>(-1));
 
-	KrnInfoEnum(wlk, Cast::Reinterpret<Block::NumberPos>(pos0), Cast::Reinterpret<Block::NumberPos>(pos1));
+	KrnInfoEnum(wlk, pos0, pos1);
 }
 
-void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const Block::NumberPos& posMin, const Block::NumberPos& posMax)
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const HeightPos& posMin, const HeightPos& posMax)
 {
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumN, "SELECT * FROM " TblKrnInfo " WHERE " TblKrnInfo_Pos " BETWEEN ? AND ? ORDER BY " TblKrnInfo_Pos);
 
-	wlk.m_bufMin.put(wlk.m_Rs, 0, Cast::Reinterpret<HeightPos>(posMin));
-	wlk.m_bufMax.put(wlk.m_Rs, 1, Cast::Reinterpret<HeightPos>(posMax));
+	wlk.m_bufMin.put(wlk.m_Rs, 0, posMin);
+	wlk.m_bufMax.put(wlk.m_Rs, 1, posMax);
 }
 
-void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Block::Number nMax)
+void NodeDB::KrnInfoEnum(KrnInfo::Walker& wlk, const KrnInfo::Cid& cid, Height hMax)
 {
 	wlk.m_Rs.Reset(*this, Query::KrnInfoEnumCid, "SELECT * FROM " TblKrnInfo
 		" WHERE (" TblKrnInfo_Key "=?) AND (" TblKrnInfo_Pos "<=?) ORDER BY " TblContractLogs_Pos " DESC");
 	wlk.m_Rs.put(0, cid);
-	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(nMax.v, static_cast<uint32_t>(-1)));
+	wlk.m_bufMax.put(wlk.m_Rs, 1, HeightPos(hMax, static_cast<uint32_t>(-1)));
 }
 
 bool NodeDB::KrnInfo::Walker::MoveNext()
