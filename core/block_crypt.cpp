@@ -3153,6 +3153,12 @@ namespace beam
 		get_Hash(out.m_Hash);
 	}
 
+	void Block::SystemState::Full::get_ID(HeightHash& out) const
+	{
+		out.m_Height = get_Height();
+		get_Hash(out.m_Hash);
+	}
+
 	Height Block::SystemState::Full::get_Height() const
 	{
 		const Rules& r = Rules::get();

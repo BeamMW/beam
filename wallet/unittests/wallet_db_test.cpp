@@ -70,7 +70,7 @@ IWalletDB::Ptr createSqliteWalletDB(bool separatePrivateDB = false)
     ECC::NoLeak<ECC::uintBig> seed;
     seed.V = 10283UL;
     auto walletDB = WalletDB::init(dbName, string("pass123"), seed, separatePrivateDB);
-    beam::Block::SystemState::ID id = { };
+    HeightHash id = { };
     id.m_Height = 134;
     walletDB->setSystemStateID(id);
     return walletDB;
@@ -137,7 +137,7 @@ void TestWalletDataBase()
     WALLET_CHECK(coins.size() == 0);
 
     {
-        Block::SystemState::ID a;
+        HeightHash a;
         Hash::Processor() << static_cast<uint32_t>(rand()) >> a.m_Hash;
         a.m_Height = rand();
 
@@ -145,7 +145,7 @@ void TestWalletDataBase()
         storage::setVar(*walletDB, name, "dummy");
         storage::setVar(*walletDB, name, a);
 
-        Block::SystemState::ID b;
+        HeightHash b;
         WALLET_CHECK(storage::getVar(*walletDB, name, b));
 
         WALLET_CHECK(a == b);

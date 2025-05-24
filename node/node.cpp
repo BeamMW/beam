@@ -850,7 +850,7 @@ void Node::Processor::OnRolledBack()
 
 	IObserver* pObserver = get_ParentObj().m_Cfg.m_Observer;
 	if (pObserver)
-		pObserver->OnRolledBack(m_Cursor.m_ID);
+		pObserver->OnRolledBack();
 
 	get_ParentObj().m_Validator.OnRolledBack();
 }

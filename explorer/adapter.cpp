@@ -146,7 +146,7 @@ public:
     {
         Block::SystemState::Full blockState;
         _walletDB->get_History().get_Tip(blockState);
-        if (!blockState.m_Height) return false;
+        if (!blockState.m_Number.v) return false;
 
         if (_validator.isSignatureValid(msg))
         {
@@ -157,7 +157,7 @@ public:
                 {
                     for (auto& rate : rates)
                     {
-                        wallet::ExchangeRateAtPoint rateHistory(rate, blockState.m_Height);
+                        wallet::ExchangeRateAtPoint rateHistory(rate, blockState.get_Height());
                         _walletDB->saveExchangeRate(rateHistory);
                     }
                 }
@@ -424,7 +424,7 @@ private:
 
     void get_StateTotals(StateData& sd, const NodeDB::StateID& sid)
     {
-        if (sid.m_Height >= Rules::HeightGenesis)
+        if (sid.m_Number.v)
             _nodeBackend.get_DB().get_StateExtra(sid.m_Row, &sd, sizeof(sd));
         else
             get_TreasuryTotals(sd.m_Totals);
@@ -434,10 +434,10 @@ private:
 
     Timestamp get_TimeStampGenesis()
     {
-        if (!m_tsBlock1 && (_nodeBackend.m_Cursor.m_Full.m_Height >= Rules::HeightGenesis))
+        if (!m_tsBlock1 && _nodeBackend.m_Cursor.m_Full.m_Number.v)
         {
             Block::SystemState::Full s;
-            auto row = _nodeBackend.FindActiveAtStrict(Rules::HeightGenesis);
+            auto row = _nodeBackend.FindActiveAtStrict(Block::Number(1));
             _nodeBackend.get_DB().get_State(row, s);
 
             m_tsBlock1 = s.m_TimeStamp;
@@ -451,13 +451,13 @@ private:
         auto& proc = _node.get_Processor();
         auto& db = proc.get_DB();
 
-        if (proc.m_Cursor.m_Full.m_Height < Rules::HeightGenesis)
+        if (!proc.m_Cursor.m_Full.m_Number.v)
             return;
 
         typedef std::pair<uint64_t, NodeProcessor::StateExtra::Full> RowPlusExtra;
         std::list<RowPlusExtra> lst;
 
-        LongAction la("Calculating totals...", proc.m_Cursor.m_Full.m_Height);
+        LongAction la("Calculating totals...", proc.m_Cursor.m_Full.m_Number.v);
 
         StateData sd;
 
@@ -562,8 +562,8 @@ private:
         EnsureHaveCumulativeStats();
     }
 
-    void OnRolledBack(const Block::SystemState::ID& id) override {
-        if (_nextHook) _nextHook->OnRolledBack(id);
+    void OnRolledBack() override {
+        if (_nextHook) _nextHook->OnRolledBack();
     }
 
     struct TresEntry
@@ -721,10 +721,10 @@ private:
             double possibleShieldedReadyHours = 0;
             uint64_t shieldedPer24h = 0;
 
-            if (c.m_Full.m_Height)
+            if (c.m_Full.m_Number.v)
             {
                 NodeDB& db = _nodeBackend.get_DB();
-                auto shieldedByLast24h = db.ShieldedOutpGet(c.m_Full.m_Height >= 1440 ? c.m_Full.m_Height - 1440 : 1);
+                auto shieldedByLast24h = db.ShieldedOutpGet(c.m_Full.m_Number.v >= 1440 ? c.m_Full.m_Number.v - 1440 : 1);
                 auto averageWindowBacklog = r.Shielded.MaxWindowBacklog / 2;
 
                 if (shieldedByLast24h && shieldedByLast24h != _nodeBackend.m_Extra.m_ShieldedOutputs)
@@ -737,7 +737,7 @@ private:
             char buf[80];
             json j{
                     { "timestamp", c.m_Full.m_TimeStamp },
-                    { "height", c.m_Full.m_Height },
+                    { "height", c.m_Full.m_Number.v },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
                     { "hash", hash_to_hex(buf, c.m_ID.m_Hash) },
                     { "peers_count", _node.get_AcessiblePeerCount() },
@@ -753,7 +753,7 @@ private:
 
         json jInfo_L = json::array();
 
-        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Height)  });
+        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Number.v)  });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
         if (Rules::Consensus::Pbft != r.m_Consensus)
             jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
@@ -762,7 +762,7 @@ private:
         get_StateTotals(sd, _nodeBackend.m_Cursor.m_Sid);
 
         if (Rules::Consensus::Pbft != r.m_Consensus)
-            jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(r.get_Emission(_nodeBackend.m_Cursor.m_Full.m_Height)) });
+            jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(r.get_Emission(_nodeBackend.m_Cursor.m_Full.get_Height())) });
 
         json jInfo = json::array();
         jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTotals(_nodeBackend.m_Cursor.m_Sid, _nodeBackend.m_Cursor.m_Full) });
@@ -770,7 +770,7 @@ private:
         auto jRet = MakeTable(std::move(jInfo));
 
         if (Mode::ExplicitType == m_Mode)
-            jRet["h"] = c.m_Full.m_Height;
+            jRet["h"] = c.m_Full.m_Number.v;
         return jRet;
     }
 

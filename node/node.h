@@ -36,7 +36,7 @@ struct Node
 	{
 		virtual void OnSyncProgress() = 0;
 		virtual void OnStateChanged() {}
-		virtual void OnRolledBack(const Block::SystemState::ID& id) {};
+		virtual void OnRolledBack() {};
 		virtual void InitializeUtxosProgress(uint64_t done, uint64_t total) {};
 		virtual ILongAction* GetLongActionHandler() { return nullptr; }
 

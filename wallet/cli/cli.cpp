@@ -2961,15 +2961,15 @@ namespace
         }
 
         Block::SystemState::Full state = request.m_vStates.front();
-        Merkle::Hash blockHash;
-        state.get_Hash(blockHash);
+        HeightHash blockID;
+        state.get_ID(blockID);
 
         const Rules& r = Rules::get();
-        std::string rulesHash = r.pForks[r.FindFork(state.m_Height)].m_Hash.str();
+        std::string rulesHash = r.pForks[r.FindFork(blockID.m_Height)].m_Hash.str();
 
         std::cout << "Block Details:" << "\n"
-            << "Height: " << state.m_Height << "\n"
-            << "Hash: " << blockHash.str() << "\n"
+            << "Height: " << blockID.m_Height << "\n"
+            << "Hash: " << blockID.m_Hash.str() << "\n"
             << "Previous state hash: " << state.m_Prev.str() << "\n"
             << "ChainWork: " << state.m_ChainWork.str() << "\n"
             << "Kernels: " << state.m_Kernels.str() << "\n"

@@ -516,15 +516,16 @@ struct TestDirector
 	virtual void OnSyncProgress() override {}
 	virtual void OnStateChanged() override
 	{
-		Height h = m_Node.get_Processor().m_Cursor.m_ID.m_Height;
+		Height h = m_Node.get_Processor().m_Cursor.m_Full.get_Height();
 		std::cout << "H=" << h << std::endl;
 
 		OnTip(h);
 	}
 
-	virtual void OnRolledBack(const Block::SystemState::ID& id) override
+	virtual void OnRolledBack() override
 	{
-		std::cout << "Rollback to  " << id.m_Height << std::endl;
+		Height h = m_Node.get_Processor().m_Cursor.m_Full.get_Height();
+		std::cout << "Rollback to  " << h << std::endl;
 	}
 
 	void Stop()

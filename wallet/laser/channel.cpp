@@ -114,7 +114,7 @@ Height Channel::get_Tip() const
     Block::SystemState::Full tip;
     auto& history = m_rHolder.getWalletDB()->get_History();
     history.get_Tip(tip);
-    return tip.m_Height;
+    return tip.get_Height();
 }
 
 proto::FlyClient::INetwork& Channel::get_Net()

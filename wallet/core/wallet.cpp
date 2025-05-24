@@ -2085,8 +2085,7 @@ namespace beam::wallet
         m_WalletDB->get_History().get_Tip(sTip);
 
         HeightHash id;
-        id.m_Height = sTip.get_Height();
-        sTip.get_Hash(id.m_Hash);
+        sTip.get_ID(id);
         BEAM_LOG_INFO() << "Rolled back to " << id;
 
         m_WalletDB->setSystemStateID(id);
@@ -2241,8 +2240,7 @@ namespace beam::wallet
             return; //?!
 
         HeightHash id;
-        id.m_Height = sTip.get_Height();
-        sTip.get_Hash(id.m_Hash);
+        sTip.get_ID(id);
         BEAM_LOG_INFO() << "Sync up to " << id;
 
         if (!SyncRemains())
@@ -2376,8 +2374,7 @@ namespace beam::wallet
         get_tip(sTip);
 
         HeightHash id;
-        id.m_Height = sTip.get_Height();
-        sTip.get_Hash(id.m_Hash);
+        sTip.get_ID(id);
 
         m_WalletDB->setSystemStateID(id);
         BEAM_LOG_INFO() << "Current state is " << id;
