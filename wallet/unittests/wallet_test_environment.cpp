@@ -111,8 +111,8 @@ public:
     bool getVarRaw(const char*, void*, int) const override { return false; }
     bool getBlob(const char* name, ByteBuffer& var) const override { return false; }
     Timestamp getLastUpdateTime() const override { return 0; }
-    void setSystemStateID(const Block::SystemState::ID&) override {};
-    bool getSystemStateID(Block::SystemState::ID&) const override { return false; };
+    void setSystemStateID(const HeightHash&) override {};
+    bool getSystemStateID(HeightHash&) const override { return false; };
 
     void Subscribe(IWalletDbObserver* observer) override {}
     void Unsubscribe(IWalletDbObserver* observer) override {}
@@ -646,7 +646,7 @@ struct TestBlockchain
     {
         UtxoTree::Key::Data d;
         d.m_Commitment = c;
-        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.get_Height();
 
         UtxoTree::Key key;
         key = d;
@@ -691,7 +691,7 @@ struct TestBlockchain
 
         d.m_Maturity = 0;
         kMin = d;
-        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.m_Height;
+        d.m_Maturity = m_mcm.m_vStates.back().m_Hdr.get_Height();
         kMax = d;
 
         t.m_pCu = &cu;
@@ -1040,13 +1040,13 @@ public:
 
         if (m_NewBlockFunc)
         {
-            m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height);
+            m_NewBlockFunc(m_Blockchain.m_mcm.m_vStates.back().m_Hdr.get_Height());
         }
     }
 
     Height GetHeight() const
     {
-        return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.m_Height;
+        return m_Blockchain.m_mcm.m_vStates.back().m_Hdr.get_Height();
     }
 
 private:
@@ -1207,7 +1207,7 @@ private:
 
         void OnMsg(proto::GetBodyPack&& msg) override
         {
-            if (msg.m_CountExtra)
+            if (msg.m_CountExtra.v)
             {
                 Send(proto::BodyPack{});
             }

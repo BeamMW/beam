@@ -2283,7 +2283,7 @@ namespace bvm2 {
 	{
 		bh.m_Prev = s.m_Prev;
 		bh.m_ChainWork = s.m_ChainWork;
-		bh.m_Height = s.m_Height;
+		bh.m_Height = s.m_Number.v;
 	}
 
 	void CvtHdrElement(Shaders::BlockHeader::Element& bh, const Block::SystemState::Sequence::Element& s)
@@ -2668,7 +2668,7 @@ namespace bvm2 {
 
 
 			beam::Block::SystemState::Full s;
-			s.m_Height = 903720;
+			s.m_Number.v = 903720;
 			s.m_Prev.Scan("62020e8ee408de5fdbd4c815e47ea098f5e30b84c788be566ac9425e9b07804d");
 			s.m_ChainWork.Scan("0000000000000000000000000000000000000000000000aa0bd15c0cf6e00000");
 			s.m_Kernels.Scan("ccabdcee29eb38842626ad1155014e2d7fc1b00d0a70ccb3590878bdb7f26a02");
@@ -3032,8 +3032,11 @@ namespace bvm2 {
 	{
 		Block::SystemState::Full s;
 		ZeroObject(s);
-		s.m_Height = 920000;
+		s.m_Number.v = 920000;
 		s.m_ChainWork = 100500U;
+
+		Block::SystemState::Sequence::Element el;
+		ZeroObject(el);
 
 		std::vector<Block::SystemState::Full> vChain;
 		vChain.push_back(s);
@@ -3059,8 +3062,7 @@ namespace bvm2 {
 
 			for (uint32_t i = 0; i < nSeq; i++)
 			{
-				s.NextPrefix();
-				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				s.MoveNext(el);
 				vChain.push_back(s);
 			}
 
@@ -3093,11 +3095,11 @@ namespace bvm2 {
 			args.m_nSequence = nSeq;
 			args.m_Contributor.m_X = 116U;
 
+			el.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
+
 			for (uint32_t i = 0; i < nSeq; i++)
 			{
-				s.NextPrefix();
-				s.m_PoW.m_Difficulty.m_Packed = 1 << Difficulty::s_MantissaBits; // difficulty x2
-				s.m_ChainWork += s.m_PoW.m_Difficulty;
+				s.MoveNext(el);
 
 				if (i)
 					s.m_Kernels = Zero;
@@ -3117,7 +3119,7 @@ namespace bvm2 {
 			fmmr.get_Proof(vProof, 4);
 
 			Shaders::Sidechain::VerifyProof<20> args;
-			args.m_Height = vChain[1].m_Height;
+			args.m_Height = vChain[1].m_Number.v;
 			args.m_KernelID = 4U;
 
 			args.m_nProof = static_cast<uint32_t>(vProof.size());
@@ -3601,7 +3603,7 @@ namespace bvm2 {
 		// alleged winner
 		Block::SystemState::Full s;
 		ZeroObject(s);
-		s.m_Height = m_Height;
+		s.m_Number.v = m_Height;
 		Merkle::Hash hv;
 		s.get_Hash(hv);
 

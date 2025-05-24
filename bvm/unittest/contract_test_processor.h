@@ -224,14 +224,13 @@ namespace beam::bvm2
 		Height m_Height = 0;
 		Height get_Height() override { return m_Height; }
 
-		bool get_HdrAt(Block::SystemState::Full& s) override
+		bool get_HdrAt(Block::SystemState::Full& s, Height h) override
 		{
-			Height h = s.m_Height;
 			if (h > m_Height)
 				return false;
 
 			ZeroObject(s);
-			s.m_Height = h;
+			s.m_Number.v = h;
 			return true;
 		}
 
