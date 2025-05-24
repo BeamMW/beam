@@ -213,7 +213,7 @@ class NodeProcessor
 
 	void ReadKrns(uint64_t rowid, TxVectors::Eternal&);
 
-	void InitCursor(bool bMovingUp);
+	void InitCursor(bool bMovingUp, const NodeDB::StateID&);
 	bool InitMapping(const char*, bool bForceReset);
 	void InitializeMapped(const char*);
 
@@ -348,15 +348,20 @@ public:
 	struct Cursor
 	{
 		// frequently used data
-		NodeDB::StateID m_Sid;
-		Block::SystemState::ID m_ID;
 		Block::SystemState::Full m_Full;
+		uint64_t m_Row;
+		Height m_Height;
+		Merkle::Hash m_Hash;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
 		StateExtra::Full m_StateExtra;
 		Merkle::Hash m_hvKernels;
 		bool m_bKernels;
+
+		Block::SystemState::ID get_ID() const;
+		NodeDB::StateID get_Sid() const;
+
 	} m_Cursor;
 
 	void EnsureCursorKernels();

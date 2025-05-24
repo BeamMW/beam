@@ -104,8 +104,9 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	Merkle::Hash hv;
 	Blob blob(hv);
 
-	m_DB.get_Cursor(m_Cursor.m_Sid);
-	InitCursor(false);
+	NodeDB::StateID sid;
+	m_DB.get_Cursor(sid);
+	InitCursor(false, sid);
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
@@ -120,7 +121,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 				throw std::runtime_error(os.str());
 			}
 
-			if (m_Cursor.m_Full.get_Height() >= pFork[1].m_Height)
+			if (m_Cursor.m_Height >= pFork[1].m_Height)
 			{
 				std::ostringstream os;
 				os << "Data configuration: " << hv << ", Fork didn't happen at " << pFork[1].m_Height;
@@ -510,38 +511,59 @@ void NodeProcessor::RollbackDB()
 	}
 }
 
-void NodeProcessor::InitCursor(bool bMovingUp)
+void NodeProcessor::InitCursor(bool bMovingUp, const NodeDB::StateID& sid)
 {
-	if (m_Cursor.m_Sid.m_Number.v)
+	if (sid.m_Number.v)
 	{
-		m_Mmr.m_States.m_Count = m_Cursor.m_Sid.m_Number.v - 1;
+		m_Cursor.m_Row = sid.m_Row;
+		assert(m_Cursor.m_Row);
+
+		m_Mmr.m_States.m_Count = sid.m_Number.v - 1;
 
 		if (bMovingUp)
 		{
-			assert(m_Cursor.m_Full.m_Number.v == m_Cursor.m_Sid.m_Number.v); // must already initialized
+			assert(m_Cursor.m_Full.m_Number.v == sid.m_Number.v); // must already initialized
 			m_Cursor.m_History = m_Cursor.m_HistoryNext;
 		}
 		else
 		{
-			m_DB.get_State(m_Cursor.m_Sid.m_Row, m_Cursor.m_Full);
+			m_DB.get_State(sid.m_Row, m_Cursor.m_Full);
 			m_Mmr.m_States.get_Hash(m_Cursor.m_History);
 
-			m_DB.get_StateExtra(m_Cursor.m_Sid.m_Row, &m_Cursor.m_StateExtra, sizeof(m_Cursor.m_StateExtra));
+			m_DB.get_StateExtra(sid.m_Row, &m_Cursor.m_StateExtra, sizeof(m_Cursor.m_StateExtra));
 
 			m_Cursor.m_bKernels = false;
 		}
 
-		m_Cursor.m_Full.get_ID(m_Cursor.m_ID);
-		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_ID.m_Hash);
+		m_Cursor.m_Full.get_Hash(m_Cursor.m_Hash);
+		m_Cursor.m_Height = m_Cursor.m_Full.get_Height();
+
+		m_Mmr.m_States.get_PredictedHash(m_Cursor.m_HistoryNext, m_Cursor.m_Hash);
 	}
 	else
 	{
 		m_Mmr.m_States.m_Count = 0;
 		ZeroObject(m_Cursor);
-		m_Cursor.m_ID.m_Hash = Rules::get().Prehistoric;
+		m_Cursor.m_Hash = Rules::get().Prehistoric;
 	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
+}
+
+Block::SystemState::ID NodeProcessor::Cursor::get_ID() const
+{
+	Block::SystemState::ID id;
+	id.m_Number = m_Full.m_Number;
+	id.m_Hash = m_Hash;
+	return id;
+}
+
+NodeDB::StateID NodeProcessor::Cursor::get_Sid() const
+{
+	NodeDB::StateID sid;
+	sid.m_Number = m_Full.m_Number;
+	sid.m_Row = m_Row;
+	return sid;
 }
 
 void NodeProcessor::PbftState::Hash::Update()
@@ -1540,7 +1562,7 @@ struct NodeProcessor::MultiblockContext
 	void OnBlock(const PeerID& pid, const MyTask::SharedBlock::Ptr& pShared)
 	{
 		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
-		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_Full.get_Height() + 1);
+		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_Height + 1);
 
 		if (m_bFail)
 			return;
@@ -1735,7 +1757,7 @@ void NodeProcessor::TryGoUp()
 		return;
 
 	bool bDirty = false;
-	uint64_t rowid = m_Cursor.m_Sid.m_Row;
+	uint64_t rowid = m_Cursor.m_Row;
 
 	while (true)
 	{
@@ -1747,7 +1769,7 @@ void NodeProcessor::TryGoUp()
 
 			if (!ws.MoveNext())
 			{
-				assert(!m_Cursor.m_Sid.m_Row);
+				assert(!m_Cursor.m_Row);
 				break; // nowhere to go
 			}
 
@@ -1768,7 +1790,7 @@ void NodeProcessor::TryGoUp()
 	if (bDirty)
 	{
 		PruneOld();
-		if (m_Cursor.m_Sid.m_Row != rowid)
+		if (m_Cursor.m_Row != rowid)
 			OnNewState();
 	}
 }
@@ -1796,12 +1818,12 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	MultiblockContext mbc(*this);
 	bool bContextFail = false, bKeepBlocks = false;
 
-	NodeDB::StateID sidFwd = m_Cursor.m_Sid;
+	NodeDB::StateID sidFwd = m_Cursor.get_Sid();
 
 	size_t iPos = vPath.size();
 	while (iPos)
 	{
-		sidFwd.m_Number.v = m_Cursor.m_Sid.m_Number.v + 1;
+		sidFwd.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 		sidFwd.m_Row = vPath[--iPos];
 
 		Block::SystemState::Full s;
@@ -1819,12 +1841,11 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 		// Update mmr and cursor
 		if (m_Cursor.m_Full.m_Number.v)
-			m_Mmr.m_States.Append(m_Cursor.m_ID.m_Hash);
+			m_Mmr.m_States.Append(m_Cursor.m_Hash);
 
 		m_DB.MoveFwd(sidFwd);
-		m_Cursor.m_Sid = sidFwd;
 		m_Cursor.m_Full = s;
-		InitCursor(true);
+		InitCursor(true, sidFwd);
 
 		if (IsFastSync())
 			m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
@@ -1874,9 +1895,9 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		}
 	}
 
-	BEAM_LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Sid.m_Number.v + 1) << "-" <<  sidFwd.m_Number.v;
+	BEAM_LOG_INFO() << "Deleting blocks range: " << (m_Cursor.m_Full.m_Number.v + 1) << "-" <<  sidFwd.m_Number.v;
 
-	DeleteBlocksInRange(sidFwd, m_Cursor.m_Sid.m_Number);
+	DeleteBlocksInRange(sidFwd, m_Cursor.m_Full.m_Number);
 }
 
 void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
@@ -1921,9 +1942,9 @@ void NodeProcessor::OnFastSyncOver(MultiblockContext& mbc, bool& bContextFail)
 			// try to preserve blocks, recover them from the TXOs.
 
 			ByteBuffer bbP, bbE;
-			while (m_Cursor.m_Sid.m_Number.v > m_SyncData.m_n0.v)
+			while (m_Cursor.m_Full.m_Number.v > m_SyncData.m_n0.v)
 			{
-				NodeDB::StateID sid = m_Cursor.m_Sid;
+				NodeDB::StateID sid = m_Cursor.get_Sid();
 
 				bbP.clear();
 				if (!GetBlock(sid, &bbE, &bbP, m_SyncData.m_n0, m_SyncData.m_TxoLo, m_SyncData.m_Target.m_Number, true))
@@ -1988,9 +2009,9 @@ Height NodeProcessor::PruneOld()
 
 	Height hRet = 0;
 
-	if (m_Cursor.m_Sid.m_Number.v > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
+	if (m_Cursor.m_Full.m_Number.v > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
 	{
-		Block::Number num(m_Cursor.m_Sid.m_Number.v - m_Horizon.m_Branching);
+		Block::Number num(m_Cursor.m_Full.m_Number.v - m_Horizon.m_Branching);
 
 		while (true)
 		{
@@ -2016,14 +2037,14 @@ Height NodeProcessor::PruneOld()
 		}
 	}
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Number.v, m_Extra.m_Fossil.v, (uint64_t) Rules::get().MaxRollback))
-		hRet += RaiseFossil(Block::Number(m_Cursor.m_Sid.m_Number.v - Rules::get().MaxRollback));
+	if (IsBigger2(m_Cursor.m_Full.m_Number.v, m_Extra.m_Fossil.v, (uint64_t) Rules::get().MaxRollback))
+		hRet += RaiseFossil(Block::Number(m_Cursor.m_Full.m_Number.v - Rules::get().MaxRollback));
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Number.v, m_Extra.m_TxoLo.v, m_Horizon.m_Local.Lo))
-		hRet += RaiseTxoLo(Block::Number(m_Cursor.m_Sid.m_Number.v - m_Horizon.m_Local.Lo));
+	if (IsBigger2(m_Cursor.m_Full.m_Number.v, m_Extra.m_TxoLo.v, m_Horizon.m_Local.Lo))
+		hRet += RaiseTxoLo(Block::Number(m_Cursor.m_Full.m_Number.v - m_Horizon.m_Local.Lo));
 
-	if (IsBigger2(m_Cursor.m_Sid.m_Number.v, m_Extra.m_TxoHi.v, m_Horizon.m_Local.Hi))
-		hRet += RaiseTxoHi(Block::Number(m_Cursor.m_Sid.m_Number.v - m_Horizon.m_Local.Hi));
+	if (IsBigger2(m_Cursor.m_Full.m_Number.v, m_Extra.m_TxoHi.v, m_Horizon.m_Local.Hi))
+		hRet += RaiseTxoHi(Block::Number(m_Cursor.m_Full.m_Number.v - m_Horizon.m_Local.Hi));
 
 	return hRet;
 }
@@ -2245,10 +2266,10 @@ struct NodeProcessor::KrnFlyMmr
 
 void NodeProcessor::EnsureCursorKernels()
 {
-	if (!m_Cursor.m_bKernels && m_Cursor.m_Sid.m_Row)
+	if (!m_Cursor.m_bKernels && m_Cursor.m_Row)
 	{
 		TxVectors::Eternal txve;
-		ReadKrns(m_Cursor.m_Sid.m_Row, txve);
+		ReadKrns(m_Cursor.m_Row, txve);
 
 		KrnFlyMmr fmmr(txve);
 		fmmr.get_Hash(m_Cursor.m_hvKernels);
@@ -2260,13 +2281,13 @@ void NodeProcessor::EnsureCursorKernels()
 NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 	:m_Proc(p)
 {
-	m_Height = m_Proc.m_Cursor.m_Full.get_Height();
+	m_Height = m_Proc.m_Cursor.m_Height;
 }
 
 bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
 {
 	const Cursor& c = m_Proc.m_Cursor;
-	hv = (m_Height == c.m_Full.get_Height()) ? c.m_History : c.m_HistoryNext;
+	hv = (m_Height == c.m_Height) ? c.m_History : c.m_HistoryNext;
 	return true;
 }
 
@@ -2394,7 +2415,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 
 	if (pPos)
 	{
-		if (pPos->m_Height > m_Cursor.m_Full.get_Height())
+		if (pPos->m_Height > m_Cursor.m_Height)
 			return 0;
 		h = pPos->m_Height;
 	}
@@ -3917,7 +3938,7 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 
 	// shielded items
 	Height h0 = Rules::get().pForks[2].m_Height;
-	if (m_Cursor.m_Full.get_Height() >= h0)
+	if (m_Cursor.m_Height >= h0)
 	{
 		TxoID nOuts = m_Extra.m_ShieldedOutputs;
 		m_Extra.m_ShieldedOutputs = 0;
@@ -4810,7 +4831,7 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			if (txp.m_setContexts.end() == itCtx)
 				return false;
 
-			BlockInterpretCtx bic(m_Cursor.m_Full.get_Height() + 1, true);
+			BlockInterpretCtx bic(m_Cursor.m_Height + 1, true);
 			bic.SetAidMax(*this);
 			bic.m_Temporary = true;
 			bic.m_TxValidation = true;
@@ -5795,7 +5816,7 @@ struct NodeProcessor::ProcessorInfoParser
 	ProcessorInfoParser(NodeProcessor& p)
 		:m_Proc(p)
 	{
-		m_Height = p.m_Cursor.m_Full.get_Height();
+		m_Height = p.m_Cursor.m_Height;
 	}
 
 	bool Init(uint32_t nStackBytesExtra)
@@ -6146,9 +6167,9 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemStat
 
 bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s, Height h)
 {
-	assert(h <= m_Cursor.m_Full.get_Height()); // must be checked earlier
+	assert(h <= m_Cursor.m_Height); // must be checked earlier
 
-	if (h == m_Cursor.m_Full.get_Height())
+	if (h == m_Cursor.m_Height)
 		s = m_Cursor.m_Full;
 	else
 	{
@@ -6493,37 +6514,6 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 	TxoID id0 = get_TxosBefore(Block::Number(num.v + 1));
 
-	// undo inputs
-	for (NodeDB::StateID sid = m_Cursor.m_Sid; sid.m_Number.v > num.v; )
-	{
-		std::vector<NodeDB::StateInput> v;
-		m_DB.get_StateInputs(sid.m_Row, v);
-
-		for (size_t i = 0; i < v.size(); i++)
-		{
-			const auto& src = v[i];
-			TxoID id = src.get_ID();
-			if (id >= id0)
-				continue; // created and spent within this range - skip it
-
-			Input inp;
-			src.Get(inp.m_Commitment);
-
-			InputAux inpAux;
-			inpAux.m_ID = id;
-			inpAux.m_Maturity = GetInputMaturity(id);
-
-			UndoInput(inp, inpAux);
-
-			m_DB.TxoSetSpent(id, MaxHeight);
-		}
-
-		m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
-
-		if (!m_DB.get_Prev(sid))
-			ZeroObject(sid);
-	}
-
 	// undo outputs
 	struct MyWalker
 		:public ITxoWalker_UnspentNaked
@@ -6549,24 +6539,51 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 	m_DB.TxoDelFrom(id0);
 
-	// Kernels, shielded elements, and cursor
+	// undo inputs, Kernels, shielded elements, and cursor
 	ByteBuffer bbE, bbR;
 	TxVectors::Eternal txve;
 
 	BlockInterpretCtx::ChangesFlushGlobal cf(*this);
 
-	for (; m_Cursor.m_Sid.m_Number.v > num.v; m_DB.MoveBack(m_Cursor.m_Sid))
+	NodeDB::StateID sid = m_Cursor.get_Sid();
+	while (sid.m_Number.v > num.v)
 	{
+		// inputs
+		std::vector<NodeDB::StateInput> v;
+		m_DB.get_StateInputs(sid.m_Row, v);
+
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			const auto& src = v[i];
+			TxoID id = src.get_ID();
+			if (id >= id0)
+				continue; // created and spent within this range - skip it (already deleted actually)
+
+			Input inp;
+			src.Get(inp.m_Commitment);
+
+			InputAux inpAux;
+			inpAux.m_ID = id;
+			inpAux.m_Maturity = GetInputMaturity(id);
+
+			UndoInput(inp, inpAux);
+
+			m_DB.TxoSetSpent(id, MaxHeight);
+		}
+
+		m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
+
+		// kernels
 		txve.m_vKernels.clear();
 		bbE.clear();
 		bbR.clear();
-		m_DB.GetStateBlock(m_Cursor.m_Sid.m_Row, nullptr, &bbE, &bbR);
+		m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, &bbR);
 
 		Deserializer der;
 		der.reset(bbE);
-		der & Cast::Down<TxVectors::Eternal>(txve);
+		der& Cast::Down<TxVectors::Eternal>(txve);
 
-		Height h = Num2Height(m_Cursor.m_Sid);
+		Height h = Num2Height(sid);
 
 		BlockInterpretCtx bic(h, false);
 		bic.m_Rollback.swap(bbR);
@@ -6577,21 +6594,25 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 		bic.m_Rollback.swap(bbR);
 		assert(bbR.empty());
+
+		m_DB.MoveBack(sid);
 	}
+
+	// other stuff
 
 	cf.Do(*this);
 
 	m_RecentStates.RollbackTo(num);
 	m_ValCache.OnShLo(m_Extra.m_ShieldedOutputs);
 
-	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.N2I(m_Cursor.m_Sid.m_Number));
+	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.N2I(sid.m_Number));
 
 	m_Extra.m_Txos = id0;
 
-	InitCursor(false);
+	InitCursor(false, sid);
 
 	// height-dependent events
-	Height h = m_Cursor.m_Full.get_Height();
+	Height h = m_Cursor.m_Height;
 
 	for (const auto& acc : m_vAccounts)
 		m_DB.DeleteEventsFrom(acc.m_iAccount, h + 1);
@@ -6897,7 +6918,7 @@ Height NodeProcessor::Num2Height(Block::Number num)
 
 Block::Number NodeProcessor::FindAtivePastHeight(Height h)
 {
-	assert(h <= m_Cursor.m_Full.get_Height());
+	assert(h <= m_Cursor.m_Height);
 
 	if (Rules::get().IsConstantSpan())
 		return Block::Number(h);
@@ -6909,12 +6930,12 @@ Block::Number NodeProcessor::FindAtivePastHeight(Height h)
 
 void NodeProcessor::FindAtivePastHeight(NodeDB::StateID& sid, Height h)
 {
-	assert(h <= m_Cursor.m_Full.get_Height());
+	assert(h <= m_Cursor.m_Height);
 
 	if (h)
 	{
-		if (h == m_Cursor.m_Full.get_Height())
-			sid = m_Cursor.m_Sid;
+		if (h == m_Cursor.m_Height)
+			sid = m_Cursor.get_Sid();
 		else
 		{
 			const Rules& r = Rules::get();
@@ -6985,7 +7006,7 @@ Difficulty NodeProcessor::get_NextDifficulty()
 	// actual dt, only making sure it's non-negative
 	uint32_t dtSrc_s = (thw1.first > thw0.first) ? static_cast<uint32_t>(thw1.first - thw0.first) : 0;
 
-	if (r.IsPastFork_<1>(m_Cursor.m_Full.get_Height()))
+	if (r.IsPastFork_<1>(m_Cursor.m_Height))
 	{
 		// Apply dampening. Recalculate dtSrc_s := dtSrc_s * M/N + dtTrg_s * (N-M)/N
 		// Use 64-bit arithmetic to avoid overflow
@@ -7083,7 +7104,7 @@ Timestamp NodeProcessor::get_MovingMedian()
 
 uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRange& hr, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew)
 {
-	Height h = m_Cursor.m_Full.get_Height() + 1;
+	Height h = m_Cursor.m_Height + 1;
 
 	if (!hr.IsInRange(h))
 	{
@@ -7217,7 +7238,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	d.m_Commitment = comm;
 	d.m_Maturity = 0;
 	kMin = d;
-	d.m_Maturity = m_Cursor.m_Full.get_Height();
+	d.m_Maturity = m_Cursor.m_Height;
 	kMax = d;
 
 	UtxoTree::Cursor cu;
@@ -7230,7 +7251,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 
 size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
 {
-	Height h = m_Cursor.m_Full.get_Height() + 1;
+	Height h = m_Cursor.m_Height + 1;
 	const auto& r = Rules::get();
 
 	// Generate the block up to the allowed size.
@@ -7401,7 +7422,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		if (bDelete)
 		{
-			x.m_Hist.m_Height = m_Cursor.m_Full.get_Height();
+			x.m_Hist.m_Height = m_Cursor.m_Height;
 			bc.m_TxPool.SetState(x, TxPool::Fluff::State::Outdated); // isn't available in this context
 		}
 	}
@@ -7441,7 +7462,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 {
-	bc.m_Hdr.m_Prev = m_Cursor.m_ID.m_Hash;
+	bc.m_Hdr.m_Prev = m_Cursor.m_Hash;
 	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 
 #ifndef NDEBUG
@@ -7485,7 +7506,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 
-	BlockInterpretCtx bic(m_Cursor.m_Full.get_Height() + 1, true);
+	BlockInterpretCtx bic(m_Cursor.m_Height + 1, true);
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
 	bic.SetAidMax(*this);
@@ -8266,7 +8287,7 @@ void NodeProcessor::RecentStates::Push(uint64_t rowID, const Block::SystemState:
 void NodeProcessor::RebuildNonStd()
 {
 	Height h0 = Rules::get().pForks[2].m_Height;
-	if (m_Cursor.m_Full.get_Height() < h0)
+	if (m_Cursor.m_Height < h0)
 		return; // no non-std data
 
 	LongAction la("Rebuilding non-std data...", m_Cursor.m_Full.m_Number.v, m_pExternalHandler);
@@ -8368,7 +8389,7 @@ void NodeProcessor::RebuildNonStd()
 
 int NodeProcessor::get_AssetAt(Asset::Full& ai, Height h, bool bFindAid)
 {
-	assert(h <= m_Cursor.m_Full.get_Height());
+	assert(h <= m_Cursor.m_Height);
 
 	// search for create/destroy
 	NodeDB::WalkerAssetEvt wlk;
