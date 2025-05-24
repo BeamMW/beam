@@ -108,7 +108,7 @@ namespace beam::wallet
     {
         try
         {
-            Block::SystemState::ID state;
+            HeightHash state;
             if (m_storage.getSystemStateID(state))
             {
                 if (Rules::get().IsPastFork_<3>(state.m_Height)) // we do not process old versioned messages

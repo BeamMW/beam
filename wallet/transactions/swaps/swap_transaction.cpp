@@ -999,9 +999,9 @@ namespace beam::wallet
             || !GetParameter(TxParameterID::KernelID, kernelID, SubTxIndex::BEAM_LOCK_TX))
         {
             Block::SystemState::Full state;
-            if (GetTip(state) && state.m_Height > lockTxMaxHeight)
+            if (GetTip(state) && state.get_Height() > lockTxMaxHeight)
             {
-                BEAM_LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.m_Height << ", max kernel height: " << lockTxMaxHeight;
+                BEAM_LOG_INFO() << GetTxID() << " Transaction expired. Current height: " << state.get_Height() << ", max kernel height: " << lockTxMaxHeight;
                 OnFailed(TxFailureReason::TransactionExpired, false);
                 return true;
             }
@@ -1303,7 +1303,7 @@ namespace beam::wallet
 
         Block::SystemState::Full state;
 
-        return GetTip(state) && state.m_Height > refundMinHeight;
+        return GetTip(state) && state.get_Height() > refundMinHeight;
     }
 
     bool AtomicSwapTransaction::IsBeamRedeemTxRegistered() const
@@ -1319,7 +1319,7 @@ namespace beam::wallet
 
         Block::SystemState::Full state;
 
-        return GetTip(state) && state.m_Height < (minHeight + kMaxSentTimeOfBeamRedeemInBlocks);
+        return GetTip(state) && state.get_Height() < (minHeight + kMaxSentTimeOfBeamRedeemInBlocks);
     }
 
     bool AtomicSwapTransaction::CompleteSubTx(SubTxID subTxID)

@@ -470,7 +470,7 @@ namespace beam::wallet
         {
             checkTxAccessRights(*tx, ApiError::InvalidParamsJsonRpc, kUnknownTxID);
 
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             walletDB->getSystemStateID(stateID);
 
             Status::Response result;
@@ -646,7 +646,7 @@ namespace beam::wallet
         WalletStatusApi::Response response;
         auto walletDB = getWalletDB();
 
-        Block::SystemState::ID stateID = {};
+        HeightHash stateID = {};
         walletDB->getSystemStateID(stateID);
         response.currentHeight = stateID.m_Height;
         response.currentStateHash = stateID.m_Hash;
@@ -726,7 +726,7 @@ namespace beam::wallet
         {
             auto walletDB = getWalletDB();
 
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             walletDB->getSystemStateID(stateID);
             res.resultList.reserve(data.count);
             uint32_t offset = 0;
@@ -968,10 +968,10 @@ namespace beam::wallet
         state.get_Hash(blockHash);
 
         const Rules& r = Rules::get();
-        std::string rulesHash = r.pForks[r.FindFork(state.m_Height)].m_Hash.str();
+        std::string rulesHash = r.pForks[r.FindFork(state.get_Height())].m_Hash.str();
 
         BlockDetails::Response response;
-        response.height = state.m_Height;
+        response.height = state.get_Height();
         response.blockHash = blockHash.str();
         response.previousBlock = state.m_Prev.str();
         response.chainwork = state.m_ChainWork.str();

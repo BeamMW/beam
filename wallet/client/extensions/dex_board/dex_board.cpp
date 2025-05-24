@@ -204,7 +204,7 @@ namespace beam::wallet {
             publishOrder(it->second);
     }
 
-    void DexBoard::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    void DexBoard::onSystemStateChanged(const HeightHash& stateID)
     {
         std::vector<DexOrderID> notActualOffers;
         for (const auto& it: _orders)

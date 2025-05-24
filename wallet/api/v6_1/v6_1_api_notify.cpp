@@ -17,7 +17,7 @@ namespace beam::wallet
 {
     namespace
     {
-        void fillSystemState(json &parent, const Block::SystemState::ID &stateID, IWalletDB::Ptr walletDB)
+        void fillSystemState(json &parent, const HeightHash&stateID, IWalletDB::Ptr walletDB)
         {
             Block::SystemState::Full state, tip;
             walletDB->get_History().get_At(state, stateID.m_Height);
@@ -33,7 +33,7 @@ namespace beam::wallet
             parent["current_state_timestamp"] = state.m_TimeStamp;
             parent["prev_state_hash"] = to_hex(state.m_Prev.m_pData, state.m_Prev.nBytes);
             parent["is_in_sync"] = IsValidTimeStamp(state.m_TimeStamp);
-            parent["tip_height"] = tip.m_Height;
+            parent["tip_height"] = tip.get_Height();
             parent["tip_state_hash"] = to_hex(tipHash.m_pData, tipHash.nBytes);
             parent["tip_state_timestamp"] = tip.m_TimeStamp;
             parent["tip_prev_state_hash"] = to_hex(tip.m_Prev.m_pData, tip.m_Prev.nBytes);
@@ -52,7 +52,7 @@ namespace beam::wallet
         {
             auto walletDB = getWalletDB();
 
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             walletDB->getSystemStateID(stateID);
 
             json msg = json
@@ -81,7 +81,7 @@ namespace beam::wallet
         sendConnectionStatus();
     }
 
-    void V61Api::onSystemStateChanged(const Block::SystemState::ID& stateID)
+    void V61Api::onSystemStateChanged(const HeightHash& stateID)
     {
         if ((_evSubs & SubFlags::SystemState) == 0)
         {
@@ -354,7 +354,7 @@ namespace beam::wallet
             };
 
             auto walletDB = getWalletDB();
-            Block::SystemState::ID stateID = {};
+            HeightHash stateID = {};
             walletDB->getSystemStateID(stateID);
 
             std::vector<Status::Response> items;

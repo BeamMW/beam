@@ -38,7 +38,7 @@ namespace beam::wallet
         //
         void onSyncProgress(int done, int total) override;
         void onOwnedNode(const PeerID& id, bool connected) override;
-        void onSystemStateChanged(const Block::SystemState::ID& stateID) override;
+        void onSystemStateChanged(const HeightHash& stateID) override;
         void onAssetsChanged(ChangeAction action, const std::vector<Asset::ID>&);
         void onAssetChanged(ChangeAction action, beam::Asset::ID) override;
         void onCoinsChanged(ChangeAction action, const std::vector<Coin>& items) override;
