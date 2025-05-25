@@ -193,7 +193,7 @@ namespace
             }
         }
 
-        void OnRolledBack(const Block::SystemState::ID& id) override 
+        void OnRolledBack() override 
         {
         
         }
