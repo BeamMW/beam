@@ -1954,7 +1954,7 @@ namespace detail
         Archive& save(Archive& ar, const beam::Block::SystemState::ID& v)
         {
             ar
-				& v.m_Height
+				& v.m_Number
 				& v.m_Hash;
 
             return ar;
@@ -1964,7 +1964,7 @@ namespace detail
         Archive& load(Archive& ar, beam::Block::SystemState::ID& v)
         {
 			ar
-				& v.m_Height
+				& v.m_Number
 				& v.m_Hash;
 
             return ar;
