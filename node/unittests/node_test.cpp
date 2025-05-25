@@ -2311,10 +2311,35 @@ namespace beam
 				return t.m_AllDone;
 			}
 
+			bool IsEmptyBlock(const Block::SystemState::Full& s)
+			{
+				if (Rules::get().IsConstantSpan())
+					return false;
+
+				const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
+				return !!(Block::Pbft::HdrData::Flags::Empty & d.m_Flags1);
+			}
+
 			virtual void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Number.v)
 					return; // skip the treasury-received notification
+
+				if (!m_vStates.empty())
+				{
+					auto& x = m_vStates.back();
+					verify_test(msg.m_Description.get_Height() > x.get_Height());
+
+					if (x.m_Number.v == msg.m_Description.m_Number.v)
+					{
+						verify_test(x.m_Number.v > 1); // very 1st block can't be reorged
+						verify_test(IsEmptyBlock(x));
+
+						printf("Re-written block =%u\n", (unsigned int) x.m_Number.v);
+
+						m_vStates.pop_back();
+					}
+				}
 
 				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.get_Height());
 				verify_test(m_vStates.size() + 1 == msg.m_Description.m_Number.v);
@@ -2977,13 +3002,28 @@ namespace beam
 				}
 			}
 
+			const Block::SystemState::Full* FindState(Height h)
+			{
+				for (size_t i = m_vStates.size(); i--; )
+				{
+					auto& x = m_vStates[i];
+					if (x.get_Height() == h)
+						return &x;
+				}
+
+				return nullptr;
+			}
+
 			virtual void OnMsg(proto::ContractLogProof&& msg) override
 			{
 				verify_test(!m_queProofLogsExpected.empty());
 				auto& x = m_queProofLogsExpected.front();
 
-				const auto& s = m_vStates[x.first - Rules::HeightGenesis];
-				verify_test(s.IsValidProofLog(x.second, msg.m_Proof));
+				// find the block. In PBFT thi
+				const auto* pHdr = FindState(x.first);
+				verify_test(pHdr);
+				if (pHdr)
+					verify_test(pHdr->IsValidProofLog(x.second, msg.m_Proof));
 
 				m_queProofLogsExpected.pop_front();
 			}
@@ -3183,11 +3223,11 @@ namespace beam
 
 						verify_test(msg.m_Kernel->IsValid(msg.m_Height));
 
-						verify_test(msg.m_Height <= m_vStates.size());
-						const Block::SystemState::Full& s = m_vStates[msg.m_Height - 1];
-						verify_test(s.get_Height() == msg.m_Height);
+						const auto* pHdr = FindState(msg.m_Height);
+						verify_test(pHdr);
+						if (pHdr)
+							verify_test(pHdr->IsValidProofKernel(msg.m_Kernel->get_ID(), msg.m_Proof));
 
-						verify_test(s.IsValidProofKernel(msg.m_Kernel->get_ID(), msg.m_Proof));
 
                         if (m_Evm.m_KrnProofIdx == nKrnIdx)
                         {
@@ -3205,10 +3245,10 @@ namespace beam
 						{
 							verify_test(msg.m_Kernel->get_Subtype() == TxKernel::Subtype::ContractInvoke);
 
-							if (!m_Bridge.m_hEmitConfirmed)
+							if (!m_Bridge.m_hEmitConfirmed && pHdr)
 							{
 								printf("Bridged emission confirmed confirmed\n");
-								m_Bridge.m_hEmitConfirmed = s.get_Height();
+								m_Bridge.m_hEmitConfirmed = pHdr->get_Height();
 							}
 						}
 					}

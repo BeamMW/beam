@@ -514,6 +514,7 @@ public:
 		:public Block::SystemState::Evaluator
 	{
 		NodeProcessor& m_Proc;
+		Block::Number m_Number; // affects the selection of prev states MMR
 		Evaluator(NodeProcessor&);
 
 		virtual bool get_History(Merkle::Hash&) override;

@@ -6290,9 +6290,21 @@ void Node::Validator::MakeFullHdr(Block::SystemState::Full& s, const Block::Syst
 {
 	auto& p = get_ParentObj().m_Processor; // alias
 
-	s.m_Prev = p.m_Cursor.m_Hash;
-	s.m_Number.v = p.m_Cursor.m_Full.m_Number.v + 1;
-	s.m_ChainWork = p.m_Cursor.m_Full.m_ChainWork + p.m_Cursor.m_DifficultyNext;
+	s.m_ChainWork = p.m_Cursor.m_Full.m_ChainWork + el.m_PoW.m_Difficulty;
+
+	const auto& d0 = Cast::Reinterpret<Block::Pbft::HdrData>(p.m_Cursor.m_Full.m_PoW);
+	if (Block::Pbft::HdrData::Flags::Empty & d0.m_Flags1)
+	{
+		// cannibalize prev
+		s.m_ChainWork -= p.m_Cursor.m_Full.m_PoW.m_Difficulty;
+		s.m_Prev = p.m_Cursor.m_Full.m_Prev;
+		s.m_Number = p.m_Cursor.m_Full.m_Number;
+	}
+	else
+	{
+		s.m_Prev = p.m_Cursor.m_Hash;
+		s.m_Number.v = p.m_Cursor.m_Full.m_Number.v + 1;
+	}
 
 	Cast::Down<Block::SystemState::Sequence::Element>(s) = el;
 }

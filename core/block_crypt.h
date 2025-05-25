@@ -620,6 +620,7 @@ namespace beam
 
 		void Height2Difficulty(Difficulty::Raw&, Height) const;
 		Difficulty Span2Difficulty(uint32_t) const;
+		uint32_t Difficulty2Span(Difficulty) const;
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
@@ -1612,6 +1613,7 @@ namespace beam
 			}
 
 			size_t Normalize();
+			bool IsEmpty() const;
 
 			void MoveInto(Full& trg);
 		};
@@ -1718,15 +1720,22 @@ namespace beam
 
 		struct Pbft
 		{
+#pragma pack (push, 1)
 			struct HdrData {
 				ECC::Hash::Value m_hvVsPrev;
 				ECC::Hash::Value m_hvVsNext;
 				ECC::Hash::Value m_hvMetadata;
-				uintBigFor<uint32_t>::Type m_nSizeMetadata;
+				uintBig_t<3> m_nSizeMetadata;
+				uint8_t m_Flags1;
 				uintBigFor<uint16_t>::Type m_Time_ms;
 				uint8_t m_pPad0[10];
 				Difficulty m_Difficulty;
+
+				struct Flags {
+					static const uint8_t Empty = 1; // empty block, hence not final, likely to be reorged
+				};
 			};
+#pragma pack (pop)
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");
 
 			typedef PeerID Address;
