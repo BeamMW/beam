@@ -543,7 +543,7 @@ private:
 		uint16_t m_Port; // to connect to
 		beam::io::Address m_RemoteAddr; // for logging only
 
-		Block::SystemState::Full m_Tip;
+		NodeProcessor::Tip m_Tip;
 
 		struct DependentContext
 		{

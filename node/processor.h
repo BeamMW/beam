@@ -345,12 +345,19 @@ public:
 	};
 #pragma pack (pop)
 
+	struct Tip
+	{
+		Block::SystemState::Full m_Full;
+		HeightHash m_hh;
+
+		bool IsRemoteNeeded(const Tip& tRemote) const;
+	};
+
 	struct Cursor
+		:public Tip
 	{
 		// frequently used data
-		Block::SystemState::Full m_Full;
 		uint64_t m_Row;
-		HeightHash m_hh;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
@@ -585,8 +592,6 @@ public:
 	// Lowest Number to which it's possible to rollback.
 	Block::Number get_LowestReturnNumber();
 	Block::Number get_LowestManualReturnNumber();
-
-	static bool IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy);
 
 	virtual void RequestData(const Block::SystemState::ID&, bool bBlock, const NodeDB::StateID& sidTrg) {}
 	virtual void OnPeerInsane(const PeerID&) {}

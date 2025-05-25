@@ -344,20 +344,17 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		return false;
 	}
 
-	if (p.m_Tip.m_Number.v < t.m_Key.first.m_Number.v)
+	if (p.m_Tip.m_Full.m_Number.v < t.m_Key.first.m_Number.v)
 	{
 		BEAM_LOG_DEBUG() << "behind";
 		return false;
 	}
 
-	if (p.m_Tip.m_Number.v == t.m_Key.first.m_Number.v)
+	if (p.m_Tip.m_Full.m_Number.v == t.m_Key.first.m_Number.v)
 	{
 		if (t.m_Key.first.m_Number.v)
 		{
-			Merkle::Hash hv;
-			p.m_Tip.get_Hash(hv);
-
-			if (hv != t.m_Key.first.m_Hash)
+			if (p.m_Tip.m_hh.m_Hash != t.m_Key.first.m_Hash)
 			{
 				BEAM_LOG_DEBUG() << "diverged";
 				return false;
@@ -656,6 +653,21 @@ void Node::DeleteOutdated()
 	}
 }
 
+struct LogTip
+{
+	const NodeProcessor::Tip& m_Tip;
+	LogTip(const NodeProcessor::Tip& x) :m_Tip(x) {}
+};
+
+std::ostream& operator << (std::ostream& os, const LogTip& x)
+{
+	if (!Rules::get().IsConstantSpan())
+		os << x.m_Tip.m_Full.m_Number.v << "-";
+
+	os << x.m_Tip.m_hh;
+	return os;
+}
+
 
 void Node::Processor::OnNewState()
 {
@@ -664,7 +676,7 @@ void Node::Processor::OnNewState()
 	if (!IsTreasuryHandled())
 		return;
 
-	BEAM_LOG_INFO() << "My Tip: " << m_Cursor.m_hh;
+	BEAM_LOG_INFO() << "My Tip: " << LogTip(m_Cursor);
 
 	if (IsFastSync())
 		return;
@@ -701,13 +713,13 @@ void Node::Processor::OnNewState()
 			if ((Rules::Consensus::Pbft == r.m_Consensus) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
 			{
 				// In pbft send our tip even if it's the same as peer's
-				if (msg.m_Description.m_Number.v < peer.m_Tip.m_Number.v)
+				if (m_Cursor.m_hh.m_Height < peer.m_Tip.m_hh.m_Height)
 					continue;
 			}
 			else
 			{
 				// send our tip if it's either ahead OR same chainwork but different from peer's
-				if (!NodeProcessor::IsRemoteTipNeeded(msg.m_Description, peer.m_Tip))
+				if (!peer.m_Tip.IsRemoteNeeded(m_Cursor))
 					continue;
 			}
 		}
@@ -806,7 +818,7 @@ void Node::MaybeGenerateRecovery()
 
 void Node::Processor::OnRolledBack()
 {
-	BEAM_LOG_INFO() << "Rolled back to: " << m_Cursor.m_hh;
+	BEAM_LOG_INFO() << "Rolled back to: " << LogTip(m_Cursor);
 
 	TxPool::Fluff& txp = get_ParentObj().m_TxPool;
 	while (!txp.m_lstOutdated.empty())
@@ -1033,6 +1045,8 @@ Node::Peer* Node::AllocPeer(const beam::io::Address& addr)
 	pPeer->m_CursorBbs = std::numeric_limits<int64_t>::max();
 	pPeer->m_pCursorTx = nullptr;
 
+	pPeer->m_Tip.m_hh.m_Hash = Rules::get().Prehistoric;
+
 	BEAM_LOG_DEBUG() << "+Peer " << addr;
 
 	return pPeer;
@@ -1114,7 +1128,7 @@ void Node::Initialize()
 	InitIDs();
 
 	BEAM_LOG_INFO() << "Node ID=" << m_MyPublicID;
-	BEAM_LOG_INFO() << "Initial Tip: " << m_Processor.m_Cursor.m_hh;
+	BEAM_LOG_INFO() << "Initial Tip: " << LogTip(m_Processor.m_Cursor);
 	BEAM_LOG_INFO() << "Tx replication is OFF";
 
 	if (!m_Cfg.m_Treasury.empty() && !m_Processor.IsTreasuryHandled()) {
@@ -1624,7 +1638,7 @@ void Node::Peer::SetupLogin(proto::Login& msg)
 
 void Node::Peer::PbftSendStamp()
 {
-	if (m_Tip == m_This.m_Processor.m_Cursor.m_Full)
+	if (m_Tip.m_hh == m_This.m_Processor.m_Cursor.m_hh)
 		return;
 
 	proto::PbftStamp msgStamp;
@@ -1926,7 +1940,7 @@ void Node::Peer::DeleteSelf(bool bIsError, uint8_t nByeReason)
 		m_This.m_Miner.OnFinalizerChanged(NULL);
 	}
 
-	m_Tip.m_Number.v = 0; // prevent reassigning the tasks
+	m_Tip.m_Full.m_Number.v = 0; // prevent reassigning the tasks
 	m_Flags &= ~Flags::HasTreasury;
 
 	ReleaseTasks();
@@ -2019,20 +2033,19 @@ void Node::Peer::OnMsg(proto::Pong&&)
 
 void Node::Peer::OnMsg(proto::NewTip&& msg)
 {
-	if (msg.m_Description.m_ChainWork < m_Tip.m_ChainWork)
+	if (msg.m_Description.m_ChainWork < m_Tip.m_Full.m_ChainWork)
 		ThrowUnexpected();
 
-	m_Tip = msg.m_Description;
+	m_Tip.m_Full = msg.m_Description;
+	m_Tip.m_Full.get_ID(m_Tip.m_hh);
+
 	m_setRejected.clear();
 	m_Flags |= Flags::HasTreasury;
 
-	HeightHash id;
-	m_Tip.get_ID(id);
-
 	Processor& p = m_This.m_Processor;
-	bool bTipNeeded = NodeProcessor::IsRemoteTipNeeded(m_Tip, p.m_Cursor.m_Full);
+	bool bTipNeeded = p.m_Cursor.IsRemoteNeeded(m_Tip);
 
-	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_DEBUG) << "Peer " << m_RemoteAddr << " Tip: " << id;
+	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_DEBUG) << "Peer " << m_RemoteAddr << " Tip: " << LogTip(m_Tip);
 
 	if (bTipNeeded)
 	{
@@ -2063,10 +2076,10 @@ void Node::Peer::OnNewTip2()
 		return;
 
 	Processor& p = m_This.m_Processor;
-	switch (p.OnState(m_Tip, m_pInfo->m_ID.m_Key))
+	switch (p.OnState(m_Tip.m_Full, m_pInfo->m_ID.m_Key))
 	{
 	case NodeProcessor::DataStatus::Invalid:
-		m_Tip.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
+		m_Tip.m_Full.m_TimeStamp > getTimestamp() && m_This.m_Cfg.m_Observer ?
 			m_This.m_Cfg.m_Observer->OnSyncError(IObserver::Error::TimeDiffToLarge):
 			ThrowUnexpected();
 		// no break;
@@ -4576,7 +4589,7 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 
 	auto& v = m_This.m_Validator;
 
-	if (m_Tip.get_Height() <= v.m_Stamp.m_ID.m_Height)
+	if (m_Tip.m_hh.m_Height <= v.m_Stamp.m_ID.m_Height)
 		return;
 
 	Block::Pbft::State state;
@@ -4593,19 +4606,16 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 	Merkle::Hash hv;
 	state.get_Hash(hv);
 
-	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_Tip.m_PoW);
+	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_Tip.m_Full.m_PoW);
 	if (d.m_hvVsPrev != hv)
 		ThrowUnexpected();
 
-	m_Tip.get_Hash(hv);
-
-	if (!state.CheckQuorum(hv, qc))
+	if (!state.CheckQuorum(m_Tip.m_hh.m_Hash, qc))
 		ThrowUnexpected();
 
 	// all good
 
-	v.m_Stamp.m_ID.m_Height = m_Tip.get_Height();
-	v.m_Stamp.m_ID.m_Hash = hv;
+	v.m_Stamp.m_ID = m_Tip.m_hh;
 	v.m_Stamp.m_vSer = std::move(msg.m_vSer);
 
 	v.SaveStamp();
@@ -6013,7 +6023,7 @@ bool Node::Validator::ShouldSendTo(const Peer& peer) const
 	if (!(proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
 		return false;
 
-	if (get_ParentObj().m_Processor.m_Cursor.m_Full != peer.m_Tip)
+	if (get_ParentObj().m_Processor.m_Cursor.m_hh != peer.m_Tip.m_hh)
 		return false; // optionally we can tolerate 1 block behind, for the broadcast to be more rapid
 
 	return true;
@@ -6109,7 +6119,7 @@ Node::Validator::RoundData* Node::Validator::get_PeerRound(const Peer& src, uint
 	if (p.m_Cursor.m_Full.m_Number.v != m_hAnchor.v)
 		return nullptr; // I'm inactive
 
-	if (src.m_Tip != p.m_Cursor.m_Full)
+	if (src.m_Tip.m_hh != p.m_Cursor.m_hh)
 		return nullptr; // peer state is different
 
 	if (iRoundMsg == static_cast<uint32_t>(m_iRound))
