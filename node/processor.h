@@ -477,7 +477,7 @@ public:
 		Height m_hSpent;
 	};
 
-	void ExtractBlockWithExtra(const NodeDB::StateID&, Block::SystemState::Full&, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
+	void ExtractBlockWithExtra(const NodeDB::StateID&, Height, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
 	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
 
