@@ -807,7 +807,7 @@ private:
 
 		struct Stamp
 		{
-			Block::SystemState::ID m_ID;
+			HeightHash m_ID;
 			ByteBuffer  m_vSer;
 		} m_Stamp;
 

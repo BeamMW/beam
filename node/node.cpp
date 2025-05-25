@@ -4576,7 +4576,7 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 
 	auto& v = m_This.m_Validator;
 
-	if (m_Tip.m_Number.v <= v.m_Stamp.m_ID.m_Number.v)
+	if (m_Tip.get_Height() <= v.m_Stamp.m_ID.m_Height)
 		return;
 
 	Block::Pbft::State state;
@@ -4604,7 +4604,7 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 
 	// all good
 
-	v.m_Stamp.m_ID.m_Number = m_Tip.m_Number;
+	v.m_Stamp.m_ID.m_Height = m_Tip.get_Height();
 	v.m_Stamp.m_ID.m_Hash = hv;
 	v.m_Stamp.m_vSer = std::move(msg.m_vSer);
 
@@ -6378,7 +6378,8 @@ bool Node::Validator::ShouldSendStamp()
 	return
 		(Rules::Consensus::Pbft == r.m_Consensus) &&
 		r.m_Pbft.m_RequiredWhite &&
-		(get_ParentObj().m_Processor.m_Cursor.get_ID() == m_Stamp.m_ID);
+		(get_ParentObj().m_Processor.m_Cursor.m_Height == m_Stamp.m_ID.m_Height) &&
+		(get_ParentObj().m_Processor.m_Cursor.m_Hash == m_Stamp.m_ID.m_Hash);
 }
 
 void Node::Validator::CheckQuorum(RoundData& rd)
@@ -6414,6 +6415,9 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 		iIdx++;
 	}
 
+	Block::SystemState::Full s;
+	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
+
 	if (r.m_Pbft.m_RequiredWhite)
 	{
 		Serializer ser;
@@ -6423,14 +6427,11 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 
 		ser.swap_buf(m_Stamp.m_vSer);
 
-		m_Stamp.m_ID.m_Number.v = p.m_Cursor.m_Full.m_Number.v + 1;
+		m_Stamp.m_ID.m_Height = s.get_Height();
 		m_Stamp.m_ID.m_Hash = rd.m_spCommitted.m_hv;
 
 		SaveStamp();
 	}
-
-	Block::SystemState::Full s;
-	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
 
 	auto eVal = p.OnState(s, Zero);
 
