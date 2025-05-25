@@ -1129,16 +1129,16 @@ namespace beam
 			{
 				// Spend it in a transaction
 				Transaction::Ptr pTx;
-				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_Height, hIncubation))
+				if (!np.m_Wallet.MakeTx(pTx, np.m_Cursor.m_hh.m_Height, hIncubation))
 					break;
 
-				HeightRange hr(np.m_Cursor.m_Height + 1, MaxHeight);
+				HeightRange hr(np.m_Cursor.m_hh.m_Height + 1, MaxHeight);
 
 				uint32_t nBvmCharge = 0;
 				verify_test(proto::TxStatus::Ok == np.ValidateTxContextEx(*pTx, hr, false, nBvmCharge, nullptr, nullptr, nullptr));
 
 				Transaction::Context ctx;
-				ctx.m_Height = np.m_Cursor.m_Height + 1;
+				ctx.m_Height = np.m_Cursor.m_hh.m_Height + 1;
 				verify_test(pTx->IsValid(ctx));
 
 				Transaction::KeyType key;

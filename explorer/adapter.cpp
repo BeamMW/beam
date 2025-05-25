@@ -737,9 +737,9 @@ private:
             char buf[80];
             json j{
                     { "timestamp", c.m_Full.m_TimeStamp },
-                    { "height", c.m_Height },
+                    { "height", c.m_hh.m_Height },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi.v },
-                    { "hash", hash_to_hex(buf, c.m_Hash) },
+                    { "hash", hash_to_hex(buf, c.m_hh.m_Hash) },
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
@@ -753,7 +753,7 @@ private:
 
         json jInfo_L = json::array();
 
-        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Height)  });
+        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_hh.m_Height)  });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
         if (Rules::Consensus::Pbft != r.m_Consensus)
             jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
@@ -770,7 +770,7 @@ private:
         auto jRet = MakeTable(std::move(jInfo));
 
         if (Mode::ExplicitType == m_Mode)
-            jRet["h"] = c.m_Height;
+            jRet["h"] = c.m_hh.m_Height;
         return jRet;
     }
 
@@ -1619,7 +1619,7 @@ private:
 
     void add_current_height(json& j)
     {
-        add_any_height(j, _nodeBackend.m_Cursor.m_Height);
+        add_any_height(j, _nodeBackend.m_Cursor.m_hh.m_Height);
     }
 
     json get_contracts() override
@@ -2202,7 +2202,7 @@ private:
             }));
 
 
-        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_Height);
+        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_hh.m_Height);
 
         Asset::Full ai;
         for (ai.m_ID = 0; ; )
@@ -2378,7 +2378,7 @@ private:
     json get_hdrs(Height hMax, uint64_t nMax, uint64_t dn, const TotalsCol* pCols, uint32_t nCols) override
     {
         std::setmin(nMax, 2048u);
-        std::setmin(hMax, _nodeBackend.m_Cursor.m_Height);
+        std::setmin(hMax, _nodeBackend.m_Cursor.m_hh.m_Height);
 
         std::setmax(dn, 1u);
 
@@ -2740,10 +2740,10 @@ private:
 
     bool FindBlockByHeight(NodeDB::StateID& sid, Block::SystemState::Full& s,  Height h)
     {
-        if (!h || (h > _nodeBackend.m_Cursor.m_Height))
+        if (!h || (h > _nodeBackend.m_Cursor.m_hh.m_Height))
             return false;
 
-        if (h == _nodeBackend.m_Cursor.m_Height)
+        if (h == _nodeBackend.m_Cursor.m_hh.m_Height)
         {
             sid = _nodeBackend.m_Cursor.get_Sid();
             s = _nodeBackend.m_Cursor.m_Full;
