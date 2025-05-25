@@ -1179,8 +1179,7 @@ namespace beam
 			TxVectors::Eternal txe;
 			std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
 			std::vector<NodeProcessor::ContractInvokeExtraInfo> vC;
-			Block::SystemState::Full s;
-			np.ExtractBlockWithExtra(sid, s, vIns, vOuts, txe, vC);
+			np.ExtractBlockWithExtra(sid, num.v, vIns, vOuts, txe, vC);
 
 			for (const auto& x : vIns)
 			{

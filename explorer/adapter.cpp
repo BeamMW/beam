@@ -463,7 +463,7 @@ private:
 
         TxoID txos = proc.m_Extra.m_TxosTreasury;
 
-        for (uint64_t row = proc.m_Cursor.m_Sid.m_Row; ; )
+        for (uint64_t row = proc.m_Cursor.m_Row; ; )
         {
             if (!bForceReset)
             {
@@ -737,9 +737,9 @@ private:
             char buf[80];
             json j{
                     { "timestamp", c.m_Full.m_TimeStamp },
-                    { "height", c.m_Full.m_Number.v },
-                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi },
-                    { "hash", hash_to_hex(buf, c.m_ID.m_Hash) },
+                    { "height", c.m_Height },
+                    { "low_horizon", _nodeBackend.m_Extra.m_TxoHi.v },
+                    { "hash", hash_to_hex(buf, c.m_Hash) },
                     { "peers_count", _node.get_AcessiblePeerCount() },
                     { "shielded_outputs_total", _nodeBackend.m_Extra.m_ShieldedOutputs },
                     { "shielded_outputs_per_24h", shieldedPer24h },
@@ -753,47 +753,25 @@ private:
 
         json jInfo_L = json::array();
 
-        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Full.m_Number.v)  });
+        jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_Height)  });
         jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
         if (Rules::Consensus::Pbft != r.m_Consensus)
             jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
         StateData sd;
-        get_StateTotals(sd, _nodeBackend.m_Cursor.m_Sid);
+        get_StateTotals(sd, _nodeBackend.m_Cursor.get_Sid());
 
         if (Rules::Consensus::Pbft != r.m_Consensus)
             jInfo_L.push_back({ MakeTableHdr("Next Block Reward"), MakeObjAmount(r.get_Emission(_nodeBackend.m_Cursor.m_Full.get_Height())) });
 
         json jInfo = json::array();
-        jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTotals(_nodeBackend.m_Cursor.m_Sid, _nodeBackend.m_Cursor.m_Full) });
+        jInfo.push_back({ MakeTable(std::move(jInfo_L)), MakeTotals(_nodeBackend.m_Cursor.get_Sid(), _nodeBackend.m_Cursor.m_Full) });
 
         auto jRet = MakeTable(std::move(jInfo));
 
         if (Mode::ExplicitType == m_Mode)
-            jRet["h"] = c.m_Full.m_Number.v;
+            jRet["h"] = c.m_Height;
         return jRet;
-    }
-
-    bool extract_row(Height height, uint64_t& row, uint64_t* prevRow) {
-        NodeDB& db = _nodeBackend.get_DB();
-        NodeDB::WalkerState ws;
-        db.EnumStatesAt(ws, height);
-        while (true) {
-            if (!ws.MoveNext()) {
-                return false;
-            }
-            if (NodeDB::StateFlags::Active & db.GetStateFlags(ws.m_Sid.m_Row)) {
-                row = ws.m_Sid.m_Row;
-                break;
-            }
-        }
-        if (prevRow) {
-            *prevRow = row;
-            if (!db.get_Prev(*prevRow)) {
-                *prevRow = 0;
-            }
-        }
-        return true;
     }
 
     template <typename T>
@@ -1626,10 +1604,10 @@ private:
 
     const std::vector<std::pair<SidCid, Height> >& get_contracts_vec()
     {
-        if (m_LatestContractList.m_Sid != _nodeBackend.m_Cursor.m_ID)
+        if (m_LatestContractList.m_Sid != _nodeBackend.m_Cursor.get_ID())
         {
             RefreshContractList();
-            m_LatestContractList.m_Sid = _nodeBackend.m_Cursor.m_ID;
+            m_LatestContractList.m_Sid = _nodeBackend.m_Cursor.get_ID();
         }
         return m_LatestContractList.m_vec;
     }
@@ -1641,7 +1619,7 @@ private:
 
     void add_current_height(json& j)
     {
-        add_any_height(j, _nodeBackend.m_Cursor.m_Full.m_Height);
+        add_any_height(j, _nodeBackend.m_Cursor.m_Height);
     }
 
     json get_contracts() override
@@ -2224,7 +2202,7 @@ private:
             }));
 
 
-        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_Full.m_Height);
+        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_Height);
 
         Asset::Full ai;
         for (ai.m_ID = 0; ; )
@@ -2295,7 +2273,7 @@ private:
             {
                 // size estimation
                 uint64_t ret =
-                    static_cast<uint64_t>(sizeof(Block::SystemState::Sequence::Element)) * (m_Hdr.m_Height - Rules::HeightGenesis + 1) +
+                    static_cast<uint64_t>(sizeof(Block::SystemState::Sequence::Element)) * (m_Hdr.m_Number.v) +
                     m_Totals.m_Kernels.m_Size +
                     m_Totals.m_MW.m_Outputs.m_Size;
 
@@ -2314,7 +2292,7 @@ private:
         void OnName_Hash_Abs() { m_json.push_back(MakeTableHdr("Hash")); }
         void OnData_Hash_Abs()
         {
-            if (m_hh.m_Height != m_pThis->m_Hdr.m_Height)
+            if (m_hh.m_Height != m_pThis->m_Hdr.get_Height())
                 m_pThis->m_Hdr.get_ID(m_hh);
 
             m_json.push_back(MakeObjBlob(m_hh.m_Hash));
@@ -2397,12 +2375,12 @@ private:
         void OnData_SizeCompressed_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->get_ChainSize(false) - m_pPrev->get_ChainSize(false)).m_sz); }
     };
 
-    json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, const TotalsCol* pCols, uint32_t nCols) override
+    json get_hdrs(Height hMax, uint64_t nMax, uint64_t dn, const TotalsCol* pCols, uint32_t nCols) override
     {
         std::setmin(nMax, 2048u);
-        std::setmin(hMax, _nodeBackend.m_Cursor.m_Full.m_Height);
+        std::setmin(hMax, _nodeBackend.m_Cursor.m_Height);
 
-        std::setmax(dh, 1u);
+        std::setmax(dn, 1u);
 
         json jRet = json::array();
 
@@ -2437,8 +2415,8 @@ private:
             uint32_t iIdxData = 0;
 
             NodeDB::StateID sid;
-            sid.m_Height = hMax;
-            sid.m_Row = db.FindActiveStateStrict(hMax);
+            _nodeBackend.FindAtivePastHeight(sid, hMax);
+            assert(sid.m_Number.v);
 
             get_StateTotals(pData[iIdxData], sid);
             db.get_State(sid.m_Row, pData[iIdxData].m_Hdr);
@@ -2451,16 +2429,16 @@ private:
                 ColFmt cfmt(*this, json::array());
                 cfmt.m_pThis = &d1;
                 cfmt.m_pPrev = &d0;
-                cfmt.m_json.push_back(MakeObjHeight(d1.m_Hdr.m_Height));
+                cfmt.m_json.push_back(MakeObjHeight(d1.m_Hdr.get_Height()));
 
-                if (sid.m_Height - Rules::HeightGenesis >= dh)
+                if (sid.m_Number.v - 1 >= dn)
                 {
-                    if (1u == dh)
+                    if (1u == dn)
                         db.get_Prev(sid);
                     else
                     {
-                        sid.m_Height -= dh;
-                        sid.m_Row = db.FindActiveStateStrict(sid.m_Height);
+                        sid.m_Number.v -= dn;
+                        sid.m_Row = db.FindActiveStateStrict(sid.m_Number);
                     }
 
                     db.get_State(sid.m_Row, d0.m_Hdr);
@@ -2489,13 +2467,13 @@ private:
 
                 jRet.push_back(std::move(std::move(cfmt.m_json)));
 
-                if (!sid.m_Height)
+                if (!sid.m_Number.v)
                     break;
 
 
                 if (!--nMax)
                 {
-                    hMore = sid.m_Height;
+                    hMore = d0.m_Hdr.get_Height();
                     break;
                 }
 
@@ -2517,7 +2495,7 @@ private:
 
         ColFmt::Data sd;
         get_StateTotals(sd, sid);
-        sd.m_Hdr.m_Height = s.m_Height; // other fields aren't needed for chain size 
+        sd.m_Hdr = s;
 
         json jInfo = json::array();
         jInfo.push_back({ MakeTableHdr("Transactions"), MakeDecimal(sd.m_Totals.m_Kernels.m_Count).m_sz });
@@ -2537,7 +2515,7 @@ private:
 
         if (Rules::Consensus::Pbft != r.m_Consensus)
         {
-            r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, sid.m_Height));
+            r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, s.get_Height()));
             jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
             r.get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
@@ -2558,7 +2536,7 @@ private:
         {
             Amount valTresTotal = m_mapTreasury.rbegin()->m_Total;
 
-            auto it = m_mapTreasury.upper_bound(s.m_Height, TresEntry::Comparator());
+            auto it = m_mapTreasury.upper_bound(s.get_Height(), TresEntry::Comparator());
             const TresEntry* pNext = (m_mapTreasury.end() == it) ? nullptr : &(*it);
 
             const TresEntry* pPrev = nullptr;
@@ -2588,30 +2566,13 @@ private:
         return MakeTable(std::move(jInfo));
     }
 
-    bool extract_block_from_row(json& out, uint64_t row, Height height) {
-        NodeDB& db = _nodeBackend.get_DB();
-
-        Block::SystemState::Full blockState;
-		Block::SystemState::ID id;
-		bool ok = true;
-
-
+    json extract_block_from_row(const NodeDB::StateID& sid, const Block::SystemState::Full& s, Height height)
+    {
         std::vector<NodeProcessor::TxoInfo> vIns, vOuts;
         TxVectors::Eternal txe;
         ExtraInfo::ContractRichInfo cri;
 
-        try {
-            db.get_State(row, blockState);
-			blockState.get_ID(id);
-
-			NodeDB::StateID sid;
-			sid.m_Row = row;
-			sid.m_Height = id.m_Height;
-			_nodeBackend.ExtractBlockWithExtra(sid, vIns, vOuts, txe, cri.m_vInfo);
-
-		} catch (...) {
-            ok = false;
-        }
+        _nodeBackend.ExtractBlockWithExtra(sid, height, vIns, vOuts, txe, cri.m_vInfo);
 
         struct CmpIn {
             bool operator() (const NodeProcessor::TxoInfo& a, const NodeProcessor::TxoInfo& b) const {
@@ -2640,106 +2601,103 @@ private:
         std::stable_sort(vOuts.begin(), vOuts.end(), CmpOut());
 
 
-        if (ok) {
-            char buf[80];
+        char buf[80];
 
-            json inputs = json::array();
-            for (const auto& v : vIns)
-            {
-                json jItem = ExtraInfo::get(v, m_Mode);
-                jItem["height"] = v.m_hCreate;
-                inputs.push_back(std::move(jItem));
-            }
+        json inputs = json::array();
+        for (const auto& v : vIns)
+        {
+            json jItem = ExtraInfo::get(v, m_Mode);
+            jItem["height"] = v.m_hCreate;
+            inputs.push_back(std::move(jItem));
+        }
 
-            json outputs = json::array();
-            for (const auto& v : vOuts)
-            {
-                json jItem = ExtraInfo::get(v, m_Mode);
-                if (v.m_hSpent != MaxHeight)
-                    jItem["spent"] = v.m_hSpent;
-                outputs.push_back(std::move(jItem));
-            }
+        json outputs = json::array();
+        for (const auto& v : vOuts)
+        {
+            json jItem = ExtraInfo::get(v, m_Mode);
+            if (v.m_hSpent != MaxHeight)
+                jItem["spent"] = v.m_hSpent;
+            outputs.push_back(std::move(jItem));
+        }
 
-            json kernels = json::array();
-            for (const auto &v : txe.m_vKernels) {
+        json kernels = json::array();
+        for (const auto &v : txe.m_vKernels) {
 
-                Amount fee = 0;
-                json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
-
-                if (Mode::Legacy == m_Mode)
-                    j["fee"] = fee;
-                else
-                    j["fee"] = MakeObjAmount(fee);
-
-                kernels.push_back(std::move(j));
-            }
-
-            const Rules& r = Rules::get();
+            Amount fee = 0;
+            json j = ExtraInfo::get(*v, fee, cri, height, m_Mode);
 
             if (Mode::Legacy == m_Mode)
-            {
-                auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), blockState.m_Height);
-                auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), blockState.m_Height);
-
-                out = json{
-                    {"found",      true},
-                    {"timestamp",  blockState.m_TimeStamp},
-                    {"height",     blockState.m_Height},
-                    {"hash",       hash_to_hex(buf, id.m_Hash)},
-                    {"prev",       hash_to_hex(buf, blockState.m_Prev)},
-                    {"inputs",     inputs},
-                    {"outputs",    outputs},
-                    {"kernels",    kernels},
-                    {"rate_btc",   btcRate},
-                    {"rate_usd",   usdRate}
-                };
-
-                if (Rules::Consensus::Pbft != r.m_Consensus)
-                {
-                    out["subsidy"] = r.get_Emission(blockState.m_Height);
-                    out["difficulty"] = blockState.m_PoW.m_Difficulty.ToFloat();
-                    out["chainwork"] = uint256_to_hex(buf, blockState.m_ChainWork);
-                }
-            }
+                j["fee"] = fee;
             else
+                j["fee"] = MakeObjAmount(fee);
+
+            kernels.push_back(std::move(j));
+        }
+
+        Merkle::Hash hv;
+        s.get_Hash(hv);
+
+        const Rules& r = Rules::get();
+        json out;
+
+        if (Mode::Legacy == m_Mode)
+        {
+            auto btcRate = _exchangeRateProvider->getBeamTo(wallet::Currency::BTC(), height);
+            auto usdRate = _exchangeRateProvider->getBeamTo(wallet::Currency::USD(), height);
+
+            out = json{
+                {"found",      true},
+                {"timestamp",  s.m_TimeStamp},
+                {"height",     height},
+                {"hash",       hash_to_hex(buf, hv)},
+                {"prev",       hash_to_hex(buf, s.m_Prev)},
+                {"inputs",     inputs},
+                {"outputs",    outputs},
+                {"kernels",    kernels},
+                {"rate_btc",   btcRate},
+                {"rate_usd",   usdRate}
+            };
+
+            if (Rules::Consensus::Pbft != r.m_Consensus)
             {
-                json jInfo = json::array();
+                out["subsidy"] = r.get_Emission(height);
+                out["difficulty"] = s.m_PoW.m_Difficulty.ToFloat();
+                out["chainwork"] = uint256_to_hex(buf, s.m_ChainWork);
+            }
+        }
+        else
+        {
+            json jInfo = json::array();
 
-                jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(id.m_Height) });
-                jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", blockState.m_TimeStamp) });
-                jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(id.m_Hash) });
-                if (Rules::Consensus::Pbft != r.m_Consensus)
-                {
-                    jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(blockState.m_PoW.m_Difficulty).m_sz });
-                    jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(r.get_Emission(blockState.m_Height)) });
-                }
-
-                struct FeeCalculator :public TxKernel::IWalker {
-                    AmountBig::Number m_Fees = Zero;
-                    bool OnKrn(const TxKernel& krn) override {
-                        m_Fees += MultiWord::From(krn.m_Fee);
-                        return true;
-                    }
-                } fc;
-                fc.Process(txe.m_vKernels); // probably cheaper than fetching stats of this and prev blocks, and taking the diff
-
-                jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(fc.m_Fees) });
-
-                out["info"] = MakeTable(std::move(jInfo));
-
-                {
-                    NodeDB::StateID sid;
-                    sid.m_Height = height;
-                    sid.m_Row = row;
-                    out["totals"] = MakeTotals(sid, blockState);
-                }
+            jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(height) });
+            jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", s.m_TimeStamp) });
+            jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(hv) });
+            if (Rules::Consensus::Pbft != r.m_Consensus)
+            {
+                jInfo.push_back({ MakeTableHdr("Difficulty"), NiceDecimal::MakeDifficulty(s.m_PoW.m_Difficulty).m_sz });
+                jInfo.push_back({ MakeTableHdr("Reward"), MakeObjAmount(r.get_Emission(height)) });
             }
 
-            out["inputs"] = std::move(inputs);
-            out["outputs"] = std::move(outputs);
-            out["kernels"] = std::move(kernels);
+            struct FeeCalculator :public TxKernel::IWalker {
+                AmountBig::Number m_Fees = Zero;
+                bool OnKrn(const TxKernel& krn) override {
+                    m_Fees += MultiWord::From(krn.m_Fee);
+                    return true;
+                }
+            } fc;
+            fc.Process(txe.m_vKernels); // probably cheaper than fetching stats of this and prev blocks, and taking the diff
+
+            jInfo.push_back({ MakeTableHdr("Fees"), MakeObjAmount(fc.m_Fees) });
+
+            out["info"] = MakeTable(std::move(jInfo));
+            out["totals"] = MakeTotals(sid, s);
         }
-        return ok;
+
+        out["inputs"] = std::move(inputs);
+        out["outputs"] = std::move(outputs);
+        out["kernels"] = std::move(kernels);
+
+        return out;
     }
 
     void get_treasury(json& out)
@@ -2780,57 +2738,64 @@ private:
         out["totals"] = MakeTotals(sid, s);
     }
 
+    bool FindBlockByHeight(NodeDB::StateID& sid, Block::SystemState::Full& s,  Height h)
+    {
+        if (!h || (h > _nodeBackend.m_Cursor.m_Height))
+            return false;
 
-    bool extract_block(json& out, Height height, uint64_t& row, uint64_t* prevRow) {
-        bool ok = true;
-        if (row == 0) {
-            ok = extract_row(height, row, prevRow);
-        } else if (prevRow != 0) {
-            *prevRow = row;
-            if (!_nodeBackend.get_DB().get_Prev(*prevRow)) {
-                *prevRow = 0;
-            }
-        }
-        return ok && extract_block_from_row(out, row, height);
-    }
-
-    json get_block_impl(uint64_t height, uint64_t& row, uint64_t* prevRow) {
-
-        Height h = _nodeBackend.m_Cursor.m_Full.m_Height;
-
-        if (height <= h)
+        if (h == _nodeBackend.m_Cursor.m_Height)
         {
-            json j;
-            if (extract_block(j, height, row, prevRow))
-                return j;
+            sid = _nodeBackend.m_Cursor.get_Sid();
+            s = _nodeBackend.m_Cursor.m_Full;
+        }
+        else
+        {
+            _nodeBackend.FindAtivePastHeight(sid, h);
+            if (!sid.m_Row)
+                return false;
+
+            _nodeBackend.get_DB().get_State(sid.m_Row, s);
         }
 
-        return json{ { "found", false}, {"height", height } };
+        return true;
     }
 
-    json get_block(uint64_t height) override {
+    json get_block_not_found(Height h)
+    {
+        return json{ { "found", false}, {"height", h } };
+    }
+
+    json get_block_strict(Height h) {
+
+        NodeDB::StateID sid;
+        Block::SystemState::Full s;
+
+        if (!FindBlockByHeight(sid, s, h) || (s.get_Height() != h))
+            return get_block_not_found(h);
+
+        return extract_block_from_row(sid, s, h);
+    }
+
+    json get_block(Height height) override
+    {
 
         if (height)
-        {
-            uint64_t row = 0;
-            return get_block_impl(height, row, 0);
-        }
+            return get_block_strict(height);
 
         json out;
         get_treasury(out);
         return out;
     }
 
-    json get_block_by_kernel(const Blob& key) override {
+    json get_block_by_kernel(const Blob& key) override
+    {
         NodeDB& db = _nodeBackend.get_DB();
-
         Height height = db.FindKernel(key);
-        uint64_t row = 0;
 
-        return get_block_impl(height, row, 0);
+        return get_block_strict(height);
     }
 
-    json get_blocks(uint64_t startHeight, uint64_t n) override {
+    json get_blocks(Height startHeight, uint64_t n) override {
 
         json result = json::array();
 
@@ -2838,21 +2803,29 @@ private:
         if (n > maxElements) n = maxElements;
         else if (n==0) n=1;
 
+        NodeDB::StateID sid;
+        Block::SystemState::Full s;
 
-        Height endHeight = startHeight + n - 1;
+        Height endHeight = startHeight + n - 1; // correct only for PoW
         _exchangeRateProvider->preloadRates(startHeight, endHeight);
 
-        uint64_t row = 0;
-        uint64_t prevRow = 0;
-        for (;;) {
-            json j = get_block_impl(endHeight, row, &prevRow);
-            if (endHeight == startHeight) {
-                break;
+        if (FindBlockByHeight(sid, s, startHeight))
+        {
+            while (true)
+            {
+                result.push_back(extract_block_from_row(sid, s, s.get_Height()));
+                if (!--n)
+                    break;
+
+                if (sid.m_Number.v >= _nodeBackend.m_Cursor.m_Full.m_Number.v)
+                    break;
+
+                sid.m_Number.v++;
+                sid.m_Row = _nodeBackend.FindActiveAtStrict(sid.m_Number);
             }
-            result.push_back(std::move(j));
-            row = prevRow;
-            --endHeight;
+
         }
+
         return result;
     }
 

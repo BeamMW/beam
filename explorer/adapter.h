@@ -68,10 +68,10 @@ struct IAdapter {
 
     /// Returns body for /status request
     virtual json get_status() = 0;
-    virtual json get_block(uint64_t height) = 0;
+    virtual json get_block(Height height) = 0;
     virtual json get_block_by_kernel(const Blob& key) = 0;
-    virtual json get_blocks(uint64_t startHeight, uint64_t n) = 0;
-    virtual json get_hdrs(uint64_t hMax, uint64_t nMax, uint64_t dh, const TotalsCol* pCols, uint32_t nCols) = 0;
+    virtual json get_blocks(Height startHeight, uint64_t n) = 0;
+    virtual json get_hdrs(Height hMax, uint64_t nMax, uint64_t dn, const TotalsCol* pCols, uint32_t nCols) = 0;
     virtual json get_peers() = 0;
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT

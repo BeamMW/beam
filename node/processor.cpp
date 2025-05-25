@@ -7731,11 +7731,8 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return false;
 }
 
-void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Block::SystemState::Full& s, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
+void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
 {
-	m_DB.get_State(sid.m_Row, s);
-	Height h = s.get_Height();
-
 	{
 		// kernels
 		ByteBuffer bbE;
