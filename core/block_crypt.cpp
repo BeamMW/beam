@@ -1846,6 +1846,14 @@ namespace beam
 		return NormalizeP();
 	}
 
+	bool TxVectors::Full::IsEmpty() const
+	{
+		return
+			m_vInputs.empty() &&
+			m_vOutputs.empty() &&
+			m_vKernels.empty();
+	}
+
 	template <typename T>
 	void MoveIntoVec(std::vector<T>& trg, std::vector<T>& src)
 	{
@@ -2811,8 +2819,17 @@ namespace beam
 	{
 		assert(!IsConstantSpan());
 		Difficulty d;
-		d.Pack(n);
+		d.PackLo(n);
 		return d;
+	}
+
+	uint32_t Rules::Difficulty2Span(Difficulty d) const
+	{
+		assert(!IsConstantSpan());
+
+		uint32_t ret;
+		d.UnpackLo(ret);
+		return ret;
 	}
 
 	int HeightHash::cmp(const HeightHash& v) const
@@ -3170,7 +3187,7 @@ namespace beam
 
 		// extract height from chainwork
 		uintBigFor<Height>::Type val;
-		m_ChainWork.ShiftRight(Difficulty::s_MantissaBits, val);;
+		m_ChainWork.ShiftRight(Difficulty::s_MantissaBits, val);
 
 		Height ret;
 		val.Export(ret);
@@ -3190,15 +3207,12 @@ namespace beam
 				return m_PoW.IsValid(hv.m_pData, hv.nBytes, get_Height());
 			}
 
-		case Rules::Consensus::Pbft:
-			// make sure difficulty isn't adjusted
-			return m_PoW.m_Difficulty.m_Packed == r.DA.Difficulty0.m_Packed;
-
 		default:
 			assert(false);
 			// no break
 
 		case Rules::Consensus::FakePoW:
+		case Rules::Consensus::Pbft:
 			return true;
 		}
 	}

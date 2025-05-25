@@ -17,7 +17,7 @@
 
 namespace beam
 {
-	bool Difficulty::Pack(uint32_t raw)
+	bool Difficulty::PackLo(uint32_t raw)
 	{
 		if (!raw)
 		{
@@ -27,7 +27,7 @@ namespace beam
 
 		// assume the value is raw << s_MantissaBits
 
-		uint32_t nMantissaBits = MultiWord::nWordBits - NumericUtils::clz(raw) - 1;
+		uint32_t nMantissaBits = (sizeof(raw) * 8) - NumericUtils::clz(raw) - 1;
 		bool bExact = (nMantissaBits <= s_MantissaBits);
 		if (bExact)
 			raw <<= (s_MantissaBits - nMantissaBits);
@@ -36,6 +36,34 @@ namespace beam
 
 		PackNonInf(nMantissaBits, raw);
 		return bExact;
+	}
+
+	bool Difficulty::UnpackLo(uint32_t& raw) const
+	{
+		uint32_t order, mantissa;
+		Unpack(order, mantissa);
+
+		// the result theoretically is mantissa << (order - s_MantissaBits)
+		if (order <= s_MantissaBits)
+		{
+			uint32_t n = s_MantissaBits - order;
+			raw = mantissa >> n;
+
+			if ((raw << n) != mantissa)
+				return false; // precision lost
+		}
+		else
+		{
+			if (order >= sizeof(raw) * 8)
+			{
+				raw = std::numeric_limits<uint32_t>::max();
+				return false;
+			}
+
+			raw = mantissa << (order - s_MantissaBits);
+		}
+
+		return true;
 	}
 
 	void Difficulty::PackNonInf(uint32_t order, uint32_t mantissa)

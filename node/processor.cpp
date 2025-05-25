@@ -1562,7 +1562,7 @@ struct NodeProcessor::MultiblockContext
 	void OnBlock(const PeerID& pid, const MyTask::SharedBlock::Ptr& pShared)
 	{
 		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
-		assert(pShared->m_Ctx.m_Height.m_Min == m_This.m_Cursor.m_Height + 1);
+		assert(pShared->m_Ctx.m_Height.m_Min > m_This.m_Cursor.m_Height);
 
 		if (m_bFail)
 			return;
@@ -1597,9 +1597,6 @@ struct NodeProcessor::MultiblockContext
 			nTasks = ex.Flush(nTasks - 1);
 		}
 
-		// The following won't hold if some blocks in the current range were already verified in the past, and omitted from the current verification
-		//		m_InProgress.m_Max++;
-		//		assert(m_InProgress.m_Max == pShared->m_Ctx.m_Height.m_Min);
 		m_InProgress.m_Max = pShared->m_Number;
 
 		bool bFull = (pShared->m_Number.v > m_This.m_SyncData.m_Target.m_Number.v);
@@ -2282,12 +2279,19 @@ NodeProcessor::Evaluator::Evaluator(NodeProcessor& p)
 	:m_Proc(p)
 {
 	m_Height = m_Proc.m_Cursor.m_Height;
+	m_Number = m_Proc.m_Cursor.m_Full.m_Number;
 }
 
 bool NodeProcessor::Evaluator::get_History(Merkle::Hash& hv)
 {
 	const Cursor& c = m_Proc.m_Cursor;
-	hv = (m_Height == c.m_Height) ? c.m_History : c.m_HistoryNext;
+	if (m_Number.v == c.m_Full.m_Number.v)
+		hv = c.m_History;
+	else
+	{
+		assert(m_Number.v == c.m_Full.m_Number.v + 1);
+		hv = c.m_HistoryNext;
+	}
 	return true;
 }
 
@@ -3060,37 +3064,60 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 
 			// TODO: deserialize the metadata, check d.m_hvMetadata
 
-			auto nBytes1 = der.bytes_left();
-			if (nBytes0 - nBytes1 != nSizeMetadata)
+			if (nBytes0 - der.bytes_left() != nSizeMetadata)
 				Exc::Fail(); // wrong metadata size
 
 			if (bFirstTime)
 			{
-				if (r.m_Pbft.T2S_strict(s.get_Timestamp_ms()) <= r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms()))
-					Exc::Fail("invalid slot");
+				if (m_Cursor.m_Full.m_Number.v)
+				{
+					auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
+					auto iSlot1 = r.m_Pbft.T2S_strict(s.get_Timestamp_ms());
+
+					if (iSlot1 <= iSlot0)
+						Exc::Fail("invalid slot");
+
+					if (iSlot1 - iSlot0 != (h - m_Cursor.m_Height))
+						Exc::Fail("invalid time/slot/difficulty");
+				}
+				else
+				{
+					if (d.m_Difficulty.m_Packed != r.DA.Difficulty0.m_Packed)
+						Exc::Fail("invalid 1st block height");
+
+					assert(h == 1u);
+				}
 
 				if (bTestOnly || r.m_Pbft.m_RequiredWhite)
 				{
 					// during block test the QC isn't ready yet
 					// In whitelist mode the QC isn't appended to the block anyway
-					// make sure nothing is appended instead of QC
-					if (nBytes1)
-						Exc::Fail("trailing junk"); // junk where the QC is supposed to be appended
 				}
 				else
 				{
 					// Deserialize QC
 					Block::Pbft::Quorum qc;
-					der& qc;
+					der & qc;
 
 					if (!m_PbftState.CheckQuorum(id.m_Hash, qc))
 						Exc::Fail("QC");
 				}
+
+				// make sure nothing is appended instead of QC
+				if (der.bytes_left())
+					Exc::Fail("trailing junk");
+
+				uint8_t nFlags = 0;
+				if (block.IsEmpty() && !nSizeMetadata && m_Cursor.m_Full.m_Number.v)
+					nFlags = Block::Pbft::HdrData::Flags::Empty;
+
+				if (d.m_Flags1 != nFlags)
+					Exc::Fail("flags mismatch");
 			}
 		}
 	}
-	catch (const std::exception&) {
-		BEAM_LOG_WARNING() << id << " Block deserialization failed";
+	catch (const std::exception& e) {
+		BEAM_LOG_WARNING() << id << " Block deserialization failed " << e.what();
 		return false;
 	}
 
@@ -3101,25 +3128,28 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 
 		mbc.OnBlock(pid, pShared);
 
-		// Chainwork test isn't really necessary, already tested in DB. Just for more safety.
-		Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
-
-		if (wrk != s.m_ChainWork)
+		if (Rules::Consensus::Pbft != r.m_Consensus)
 		{
-			BEAM_LOG_WARNING() << id << " Chainwork expected=" << wrk <<", actual=" << s.m_ChainWork;
-			return false;
-		}
+			// Chainwork test isn't really necessary, already tested in DB. Just for more safety.
+			Difficulty::Raw wrk = m_Cursor.m_Full.m_ChainWork + s.m_PoW.m_Difficulty;
 
-		if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
-		{
-			BEAM_LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
-			return false;
-		}
+			if (wrk != s.m_ChainWork)
+			{
+				BEAM_LOG_WARNING() << id << " Chainwork expected=" << wrk << ", actual=" << s.m_ChainWork;
+				return false;
+			}
 
-		if ((Rules::Consensus::Pbft != r.m_Consensus) && (s.m_TimeStamp <= get_MovingMedian()))
-		{
-			BEAM_LOG_WARNING() << id << " Timestamp inconsistent wrt median";
-			return false;
+			if (m_Cursor.m_DifficultyNext.m_Packed != s.m_PoW.m_Difficulty.m_Packed)
+			{
+				BEAM_LOG_WARNING() << id << " Difficulty expected=" << m_Cursor.m_DifficultyNext << ", actual=" << s.m_PoW.m_Difficulty;
+				return false;
+			}
+
+			if (s.m_TimeStamp <= get_MovingMedian())
+			{
+				BEAM_LOG_WARNING() << id << " Timestamp inconsistent wrt median";
+				return false;
+			}
 		}
 	}
 
@@ -3158,7 +3188,8 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 	ev.set_Logs(bic.m_vLogs);
 
 	Merkle::Hash hvDef;
-	ev.m_Height++;
+	ev.m_Height = h;
+	ev.m_Number = id.m_Number;
 
 	bool bPastFork3 = r.IsPastFork_<3>(h);
 	bool bPastFastSync = (s.m_Number.v >= m_SyncData.m_TxoLo.v);
@@ -3332,7 +3363,9 @@ bool NodeProcessor::HandleBlockInternal(const Block::SystemState::ID& id, const 
 	else
 	{
 		m_DB.AssetEvtsDeleteFrom(h);
-		OnInvalidBlock(s, block);
+
+		if (!bOk)
+			OnInvalidBlock(s, block);
 	}
 
 	return bOk;
@@ -7462,9 +7495,6 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 {
-	bc.m_Hdr.m_Prev = m_Cursor.m_Hash;
-	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
-
 #ifndef NDEBUG
 	// kernels must be sorted already
 	for (size_t i = 1; i < bc.m_Block.m_vKernels.size(); i++)
@@ -7476,7 +7506,8 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 #endif // NDEBUG
 
 	EvaluatorEx ev(*this);
-	ev.m_Height++;
+	ev.m_Number = bc.m_Hdr.m_Number;
+	ev.m_Height = bc.m_Hdr.get_Height();
 	ev.set_Kernels(bc.m_Block);
 	ev.set_Logs(bic.m_vLogs);
 
@@ -7486,9 +7517,6 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 		get_Utxos().get_Hash(bc.m_Hdr.m_Kernels);
 	else
 		bc.m_Hdr.m_Kernels = ev.m_hvKernels;
-
-	bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
-	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork + bc.m_Hdr.m_PoW.m_Difficulty;
 }
 
 NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey, Key::IKdf& coin, Key::IPKdf& tag)
@@ -7507,6 +7535,19 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 
 	BlockInterpretCtx bic(m_Cursor.m_Height + 1, true);
+
+	const auto& r = Rules::get();
+	if ((Rules::Consensus::Pbft == r.m_Consensus) && m_Cursor.m_Full.m_Number.v)
+	{
+		auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
+		auto iSlot1 = r.m_Pbft.T2S_strict(bc.m_Hdr.get_Timestamp_ms());
+		assert(iSlot1 > iSlot0);
+
+		// next height in pbft is determined w.r.t. timestamp
+		bic.m_Height = m_Cursor.m_Height + iSlot1 - iSlot0;
+	}
+
+
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
 	bic.SetAidMax(*this);
@@ -7543,7 +7584,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_AlreadyValidated = true;
 	bic.m_SkipDefinition = false;
 
-	const auto& r = Rules::get();
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
@@ -7561,6 +7601,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		return false; // ?!
 	}
 
+	bc.m_Hdr.m_Prev = m_Cursor.m_Hash;
+	bc.m_Hdr.m_ChainWork = m_Cursor.m_Full.m_ChainWork;
+
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
@@ -7572,7 +7615,31 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
 
 		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller
-		
+
+		if (m_Cursor.m_Height)
+		{
+			d.m_Flags1 = bc.m_Block.IsEmpty() ? Block::Pbft::HdrData::Flags::Empty : 0;
+			auto dh = static_cast<uint32_t>(bic.m_Height - m_Cursor.m_Height);
+
+			auto& d0 = Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW);
+			if (Block::Pbft::HdrData::Flags::Empty & d0.m_Flags1)
+			{
+				// cannibalize the previous empty block
+				bc.m_Hdr.m_Prev = m_Cursor.m_Full.m_Prev;
+				bc.m_Hdr.m_Number = m_Cursor.m_Full.m_Number;
+				bc.m_Hdr.m_ChainWork -= m_Cursor.m_Full.m_PoW.m_Difficulty;
+
+				dh += r.Difficulty2Span(m_Cursor.m_Full.m_PoW.m_Difficulty);
+			}
+
+			bc.m_Hdr.m_PoW.m_Difficulty = r.Span2Difficulty(dh);
+
+		}
+		else
+		{
+			d.m_Flags1 = 0; // very 1st block, defines the slot-height relation
+			bc.m_Hdr.m_PoW.m_Difficulty = r.DA.Difficulty0;
+		}
 	}
 	else
 	{
@@ -7580,9 +7647,14 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		// Adjust the timestamp to be no less than the moving median (otherwise the block'll be invalid)
 		Timestamp tm = get_MovingMedian() + 1;
 		std::setmax(bc.m_Hdr.m_TimeStamp, tm);
+
+		bc.m_Hdr.m_PoW.m_Difficulty = m_Cursor.m_DifficultyNext;
 	}
 
+	bc.m_Hdr.m_ChainWork += bc.m_Hdr.m_PoW.m_Difficulty; // always, in either mode
+
 	GenerateNewHdr(bc, bic);
+
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
 	assert(bic.m_Rollback.empty());
