@@ -166,8 +166,8 @@ class NodeProcessor
 	template <typename T>
 	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
 
-	bool HandleBlock(const NodeDB::StateID&, const Block::SystemState::Full&, MultiblockContext&);
-	bool HandleBlockInternal(const Block::SystemState::ID& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
+	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
+	bool HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
 	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
 	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
 	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
@@ -350,8 +350,7 @@ public:
 		// frequently used data
 		Block::SystemState::Full m_Full;
 		uint64_t m_Row;
-		Height m_Height;
-		Merkle::Hash m_Hash;
+		HeightHash m_hh;
 		Merkle::Hash m_History;
 		Merkle::Hash m_HistoryNext;
 		Difficulty m_DifficultyNext;
@@ -503,7 +502,7 @@ public:
 	DataStatus::Enum OnBlock(const NodeDB::StateID&, const Blob& bbP, const Blob& bbE, const PeerID&);
 	DataStatus::Enum OnTreasury(const Blob&);
 
-	bool TestBlock(const Block::SystemState::ID& id, const Block::SystemState::Full& s, const proto::BodyBuffers&);
+	bool TestBlock(const HeightHash& id, const Block::SystemState::Full& s, const proto::BodyBuffers&);
 
 	// use only for data retrieval for peers
 	NodeDB& get_DB() { return m_DB; }

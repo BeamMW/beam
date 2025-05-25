@@ -82,20 +82,20 @@ void TestAssets(Rules& r) {
     Height waitBlock = 0;
     NodeObserver observer([&](){
         const auto& cursor = node.get_Processor().m_Cursor;
-        if (cursor.m_Height == Rules::get().pForks[1].m_Height) {
+        if (cursor.m_hh.m_Height == Rules::get().pForks[1].m_Height) {
             BEAM_LOG_INFO () << "Reached fork 1...";
         }
-        if (cursor.m_Height == Rules::get().pForks[2].m_Height) {
+        if (cursor.m_hh.m_Height == Rules::get().pForks[2].m_Height) {
             BEAM_LOG_INFO () << "Reached fork 2...";
             reactor->stop();
             return;
         }
-        if (waitBlock && cursor.m_Height == waitBlock) {
+        if (waitBlock && cursor.m_hh.m_Height == waitBlock) {
             BEAM_LOG_INFO () << "Reached block " << waitBlock << "...";
             reactor->stop();
             return;
         }
-        if (cursor.m_Height >= 100) {
+        if (cursor.m_hh.m_Height >= 100) {
             BEAM_LOG_INFO () << "Reached max allowed block...";
             WALLET_CHECK(!"Test should complete before block 100. Something went wrong.");
             reactor->stop();
@@ -117,8 +117,8 @@ void TestAssets(Rules& r) {
     //
     auto cursor = node.get_Processor().m_Cursor;
     WALLET_CHECK(receiverDB->getTxHistory().empty());
-    WALLET_CHECK(cursor.m_Height > Rules::get().pForks[1].m_Height);
-    WALLET_CHECK(cursor.m_Height >= Rules::get().pForks[2].m_Height);
+    WALLET_CHECK(cursor.m_hh.m_Height > Rules::get().pForks[1].m_Height);
+    WALLET_CHECK(cursor.m_hh.m_Height >= Rules::get().pForks[2].m_Height);
 
     //
     // And enough BEAM mined

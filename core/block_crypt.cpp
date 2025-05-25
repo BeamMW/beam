@@ -3773,7 +3773,7 @@ namespace beam
 
 	std::ostream& operator << (std::ostream& s, const Block::SystemState::ID& id)
 	{
-		s << id.m_Number.v << "-" << id.m_Hash;
+		s << "Num-" << id.m_Number.v << "-" << id.m_Hash;
 		return s;
 	}
 
