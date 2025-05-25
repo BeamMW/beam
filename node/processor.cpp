@@ -6879,15 +6879,15 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnTreasury(const Blob& blob)
 	return DataStatus::Accepted;
 }
 
-bool NodeProcessor::IsRemoteTipNeeded(const Block::SystemState::Full& sTipRemote, const Block::SystemState::Full& sTipMy)
+bool NodeProcessor::Tip::IsRemoteNeeded(const Tip& tRemote) const
 {
-	int n = sTipMy.m_ChainWork.cmp(sTipRemote.m_ChainWork);
+	int n = m_Full.m_ChainWork.cmp(tRemote.m_Full.m_ChainWork);
 	if (n > 0)
 		return false;
 	if (n < 0)
 		return true;
 
-	return sTipMy != sTipRemote;
+	return m_hh != tRemote.m_hh;
 }
 
 uint64_t NodeProcessor::FindActiveAtStrict(Block::Number num)
