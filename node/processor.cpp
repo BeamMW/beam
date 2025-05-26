@@ -2445,7 +2445,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 	if (h < Rules::HeightGenesis)
 		return 0;
 
-	FindActiveAtStrict(sid, h);
+	FindAtivePastHeight(sid, h);
 
 	TxVectors::Eternal txve;
 	ReadKrns(sid.m_Row, txve);
@@ -2540,7 +2540,7 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 	lmmr.get_Proof(proof, iTrg);
 
 	NodeDB::StateID sid;
-	FindActiveAtStrict(sid, pos.m_Height);
+	FindAtivePastHeight(sid, pos.m_Height);
 
 	struct MyProofBuilder
 		:public ProofBuilder_PrevState
@@ -6221,8 +6221,8 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s, Height h)
 			return false;
 
 		NodeDB::StateID sid;
-		FindActiveAtStrict(sid, h);
-		m_DB.get_State(sid.m_Row, s);
+		FindAtivePastHeight(sid, h);
+		m_DB.get_State(sid.m_Row, s); // can be higher than requested
 	}
 
 	return true;
@@ -6907,29 +6907,6 @@ uint64_t NodeProcessor::FindActiveAtStrict(Block::Number num)
 		return pE->m_RowID;
 
 	return m_DB.FindActiveStateStrict(num);
-}
-
-void NodeProcessor::FindActiveAtStrict(NodeDB::StateID& sid, Height h)
-{
-	const Rules& r = Rules::get();
-	if (r.IsConstantSpan())
-	{
-		sid.m_Number.v = h;
-		sid.m_Row = FindActiveAtStrict(sid.m_Number);
-	}
-	else
-	{
-		if (h)
-		{
-			// Search w.r.t. chainwork
-			Difficulty::Raw d;
-			r.Height2Difficulty(d, h);
-
-			m_DB.FindActiveStateStrict(sid, d);
-		}
-		else
-			sid.SetNull();
-	}
 }
 
 Height NodeProcessor::Num2Height(const NodeDB::StateID& sid)

@@ -641,7 +641,6 @@ public:
 
 	void RescanAccounts(uint32_t nRecent);
 
-	void FindActiveAtStrict(NodeDB::StateID&, Height);
 	uint64_t FindActiveAtStrict(Block::Number);
 
 	Height Num2Height(const NodeDB::StateID&);

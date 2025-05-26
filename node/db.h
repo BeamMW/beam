@@ -91,10 +91,8 @@ public:
 			StateGetHash,
 			StateGetNumberAndPrev,
 			StateFind,
-			//StateFindCW,
 			StateFind2,
 			StateFindWithFlag,
-			StateFindWithFlagCW,
 			StateFindWithFlagCWLB,
 			StateFindWorkGreater,
 			StateUpdPrevRow,
@@ -357,7 +355,6 @@ public:
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 	void get_StateHash(uint64_t rowid, Merkle::Hash&);
 
-	void FindActiveStateStrict(StateID&, const Difficulty::Raw&);
 	void FindActiveStateStrictLowBound(StateID&, const Difficulty::Raw&);
 
 	bool DeleteState(uint64_t rowid, uint64_t& rowPrev); // State must exist. Returns false if there are ancestors.

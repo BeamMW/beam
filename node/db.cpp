@@ -1178,23 +1178,8 @@ bool NodeDB::DeleteState(uint64_t rowid, uint64_t& rowPrev)
 
 uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 {
-	Recordset rs;
-
-	Difficulty::Raw d;
-
-	//const Rules& r = Rules::get();
-	//if (r.IsConstantSpan())
-	{
-		rs.Reset(*this, Query::StateFind, "SELECT rowid FROM " TblStates " WHERE " TblStates_Number "=? AND " TblStates_Hash "=?");
-		rs.put(0, k.m_Number.v);
-	}
-	//else
-	//{
-	//	r.Height2Difficulty(d, k.m_Height);
-	//	rs.Reset(*this, Query::StateFindCW, "SELECT rowid FROM " TblStates " WHERE " TblStates_ChainWork "=? AND " TblStates_Hash "=?");
-	//	rs.put(0, d);
-	//}
-
+	Recordset rs(*this, Query::StateFind, "SELECT rowid FROM " TblStates " WHERE " TblStates_Number "=? AND " TblStates_Hash "=?");
+	rs.put(0, k.m_Number.v);
 	rs.put(1, k.m_Hash);
 	if (!rs.Step())
 		return 0;
@@ -1218,21 +1203,9 @@ uint64_t NodeDB::FindActiveStateStrict(Block::Number num)
 	return rowid;
 }
 
-void NodeDB::FindActiveStateStrict(StateID& sid, const Difficulty::Raw& d)
-{
-	Recordset rs(*this, Query::StateFindWithFlagCW, "SELECT rowid," TblStates_Number " FROM " TblStates " WHERE " TblStates_ChainWork "=? AND (" TblStates_Flags " & ?)");
-	rs.put(0, d);
-	rs.put(1, StateFlags::Active);
-	rs.StepStrict();
-
-	rs.get(0, sid.m_Row);
-	rs.get(1, sid.m_Number.v);
-	assert(sid.m_Row);
-}
-
 void NodeDB::FindActiveStateStrictLowBound(StateID& sid, const Difficulty::Raw& d)
 {
-	Recordset rs(*this, Query::StateFindWithFlagCWLB, "SELECT rowid," TblStates_Number " FROM " TblStates " WHERE " TblStates_ChainWork ">=? AND (" TblStates_Flags " & ?)");
+	Recordset rs(*this, Query::StateFindWithFlagCWLB, "SELECT rowid," TblStates_Number " FROM " TblStates " WHERE " TblStates_ChainWork ">=? AND (" TblStates_Flags " & ?) LIMIT 1");
 	rs.put(0, d);
 	rs.put(1, StateFlags::Active);
 	rs.StepStrict();
