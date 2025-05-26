@@ -950,7 +950,8 @@ namespace beam
 		const MyUtxo* AddMyUtxo(const CoinID& cid)
 		{
 			Height h = cid.m_Idx; // this is our convention
-			h += (Key::Type::Coinbase == cid.m_Type) ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std;
+			if (Key::Type::Coinbase == cid.m_Type)
+				h += Rules::get().Maturity.Coinbase;
 
 			return AddMyUtxo(cid, h);
 		}
@@ -1856,8 +1857,6 @@ namespace beam
 			Block::Pbft::DeriveValidatorAddress(*node.m_Keys.m_pMiner, r.m_Pbft.m_vE[0].m_Addr, sk);
 			Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, r.m_Pbft.m_vE[1].m_Addr, sk);
 
-			r.DA.Target_ms = 576;
-			r.DA.Difficulty0.m_Packed = 0;
 			r.UpdateChecksum();
 		}
 
@@ -4385,7 +4384,7 @@ void TestAll()
     r.Evm.Groth2Wei = 10'000'000'000ull;
 
 	if (bTestPbft)
-		r.m_Consensus = beam::Rules::Consensus::Pbft;
+		r.SetParamsPbft(576);
 
 	if (bTestBridge)
 	{

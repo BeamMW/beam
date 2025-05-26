@@ -705,7 +705,6 @@ namespace beam
             macro(Amount, Emission.Drop0, "height of the last block that still has the initial emission, the drop is starting from the next block") \
             macro(Amount, Emission.Drop1, "Each such a cycle there's a new drop") \
             macro(Height, Maturity.Coinbase, "num of blocks before coinbase UTXO can be spent") \
-            macro(Height, Maturity.Std, "num of blocks before non-coinbase UTXO can be spent") \
             macro(size_t, MaxBodySize, "Max block body size [bytes]") \
             macro(uint32_t, DA.Target_ms, "Desired rate of generated blocks [ms]") \
             macro(uint32_t, DA.MaxAhead_s, "Block timestamp tolerance [seconds]") \

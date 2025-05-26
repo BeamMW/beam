@@ -2988,8 +2988,6 @@ namespace
             ECC::Hash::Processor() << Blob(treasury) >> m_RulesL2.TreasuryChecksum;
         }
 
-        m_RulesL2.DA.Target_ms = 940;
-        m_RulesL2.DA.Difficulty0.m_Packed = 0;
         m_RulesL2.UpdateChecksum();
 
         // setup validator nodes
@@ -3153,11 +3151,11 @@ namespace
 
         L2Params pars;
 
-        pars.m_RulesL2.CA.ForeignEnd = 1'000'000;
-        for (uint32_t i = 0; i < 7; i++)
-            pars.m_RulesL2.pForks[i].m_Height = 0;
+        pars.m_RulesL2.SetForksFrom(0, 0);
+        pars.m_RulesL2.SetParamsPbft(920);
 
-        pars.m_RulesL2.m_Consensus = Rules::Consensus::Pbft;
+        pars.m_RulesL2.CA.ForeignEnd = 1'000'000;
+
         pars.m_RulesL2.m_Pbft.m_AidStake = 7;
         pars.m_RulesL2.m_Pbft.m_RequiredWhite = 1;
         pars.m_RulesL2.m_Pbft.m_vE.resize(pars.s_Validators);
