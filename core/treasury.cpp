@@ -187,7 +187,7 @@ namespace beam
 			cid.m_Value = c0.m_Value;
 			cid.set_Subkey(0, CoinID::Scheme::V1);
 
-			c.m_pOutput->Create(Rules::HeightGenesis - 1, sk, kdf, cid, kdf);
+			c.m_pOutput->Create(0, sk, kdf, cid, kdf);
 			offset += sk;
 
 			Hash::Value hv;
@@ -215,7 +215,7 @@ namespace beam
 
 		if (!m_pKernel ||
 			m_pKernel->m_Fee ||
-			(m_pKernel->m_Height.m_Min > Rules::HeightGenesis) ||
+			(m_pKernel->m_Height.m_Min) ||
 			(m_pKernel->m_Height.m_Max != MaxHeight))
 			return false;
 
@@ -376,7 +376,7 @@ namespace beam
 		req.m_WalletID = pid;
 
 		HeightRange hr;
-		hr.m_Max = pars.m_Maturity0 + Rules::HeightGenesis - 1;
+		hr.m_Max = pars.m_Maturity0;
 
 		const Rules& r = Rules::get();
 
@@ -537,7 +537,7 @@ namespace beam
 			{
 				const Output& outp = *g.m_Data.m_vOutputs[iO];
 				CoinID cid;
-				if (outp.Recover(Rules::HeightGenesis - 1, kdf, cid))
+				if (outp.Recover(0, kdf, cid))
 				{
 					out.emplace_back();
 					out.back().m_Incubation = outp.m_Incubation;

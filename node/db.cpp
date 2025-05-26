@@ -2340,7 +2340,7 @@ void NodeDB::SetDummyHeight(const Key::ID& kid, Height h)
 
 void NodeDB::InsertKernel(const Blob& key, Height h)
 {
-	assert(h >= Rules::HeightGenesis);
+	assert(h);
 
 	Recordset rs(*this, Query::KernelIns, "INSERT INTO " TblKernels "(" TblKernels_Key "," TblKernels_Height ") VALUES(?,?)");
 	rs.put(0, key);
@@ -2351,7 +2351,7 @@ void NodeDB::InsertKernel(const Blob& key, Height h)
 
 void NodeDB::DeleteKernel(const Blob& key, Height h)
 {
-	assert(h >= Rules::HeightGenesis);
+	assert(h);
 
 	Recordset rs(*this, Query::KernelDel, "DELETE FROM " TblKernels " WHERE " TblKernels_Key "=? AND " TblKernels_Height "=?");
 	rs.put(0, key);
@@ -2372,12 +2372,12 @@ Height NodeDB::FindKernel(const Blob& key)
 	Recordset rs(*this, Query::KernelFind, "SELECT " TblKernels_Height " FROM " TblKernels " WHERE " TblKernels_Key "=? ORDER BY " TblKernels_Height " DESC LIMIT 1");
 	rs.put(0, key);
 	if (!rs.Step())
-		return Rules::HeightGenesis - 1;
+		return 0;
 
 	Height h;
 	rs.get(0, h);
 
-	assert(h >= Rules::HeightGenesis);
+	assert(h);
 	return h;
 }
 

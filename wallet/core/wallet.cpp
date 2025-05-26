@@ -281,7 +281,7 @@ namespace beam::wallet
         }
 
         storage::setNextEventHeight(*m_WalletDB, 0);
-        m_WalletDB->deleteEventsFrom(Rules::HeightGenesis - 1);
+        m_WalletDB->deleteEventsFrom(0);
         ResetCommitmentsCache();
         SetTreasuryHandled(false);
         if (!m_OwnedNodesOnline)
@@ -1700,7 +1700,7 @@ namespace beam::wallet
                 }
 
                 SetTreasuryHandled(true);
-                RequestBodies(0, Rules::get().HeightGenesis);
+                RequestBodies(0, 1);
                 return;
             }
 

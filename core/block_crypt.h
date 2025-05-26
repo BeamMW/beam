@@ -410,7 +410,6 @@ namespace beam
 			~Scope();
 		};
 
-		static const Height HeightGenesis; // height of the 1st block, defines the convention. Currently =1
 		static constexpr Amount Coin = AmountBig::Text::nCoin; // how many quantas in a single coin. Just cosmetic, has no meaning to the processing (which is in terms of quantas)
 
 #define RulesNetworks(macro) \

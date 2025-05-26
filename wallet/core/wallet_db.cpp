@@ -3018,7 +3018,7 @@ namespace beam::wallet
 
         };
 
-        get_History().DeleteFrom(Rules::HeightGenesis); // clear all the history
+        get_History().DeleteFrom(0); // clear all the history
         MyParser p(*this, gateway, prog);
         p.Init(get_OwnerKdf());
 

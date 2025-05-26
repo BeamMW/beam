@@ -405,12 +405,12 @@ namespace beam
 			Merkle::Hash hv;
 			if (sid.m_Number.v < 1 + 50) // skip it for big heights, coz it's quadratic
 			{
-				for (Height h = Rules::HeightGenesis; h < sid.m_Number.v; h++)
+				for (Height h = 1; h < sid.m_Number.v; h++)
 				{
 					Merkle::ProofBuilderStd bld;
 					smmr.get_Proof(bld, smmr.N2I(Block::Number(h)));
 
-					vStates[h - Rules::HeightGenesis].get_Hash(hv);
+					vStates[h - 1].get_Hash(hv);
 					Merkle::Interpret(hv, bld.m_Proof);
 					verify_test(hvRoot == hv);
 				}
@@ -1123,7 +1123,7 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
-		for (Height h = Rules::HeightGenesis; h < 96 + Rules::HeightGenesis; h++)
+		for (Height h = 1; h <= 96; h++)
 		{
 			while (true)
 			{
@@ -2945,7 +2945,7 @@ namespace beam
 					{
 						// proofs for logs. Don't include height=0, we can't get proof for it
 						NodeDB::ContractLog::Walker wlk;
-						for (m_pProc1->get_DB().ContractLogEnum(wlk, HeightPos(Rules::HeightGenesis), HeightPos(MaxHeight)); wlk.MoveNext(); )
+						for (m_pProc1->get_DB().ContractLogEnum(wlk, HeightPos(1), HeightPos(MaxHeight)); wlk.MoveNext(); )
 						{
 							proto::GetContractLogProof msgOut;
 							msgOut.m_Pos = wlk.m_Entry.m_Pos;
@@ -3912,7 +3912,7 @@ namespace beam
 	void TestHalving()
 	{
 		HeightRange hr;
-		for (hr.m_Min = Rules::HeightGenesis; ; hr.m_Min++)
+		for (hr.m_Min = 1; ; hr.m_Min++)
 		{
 			Amount v = Rules::get().get_Emission(hr.m_Min);
 			if (!v)
