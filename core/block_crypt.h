@@ -439,7 +439,6 @@ namespace beam
 
 		struct {
 			Height Coinbase;
-			Height Std;
 		} Maturity;
 
 		struct {
@@ -620,6 +619,9 @@ namespace beam
 		void Height2Difficulty(Difficulty::Raw&, Height) const;
 		Difficulty Span2Difficulty(uint32_t) const;
 		uint32_t Difficulty2Span(Difficulty) const;
+
+		void SetForksFrom(uint32_t iBegin, Height);
+		void SetParamsPbft(uint32_t nTarget_ms);
 
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;

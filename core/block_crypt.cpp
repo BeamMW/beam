@@ -723,7 +723,8 @@ namespace beam
 
 	Height Output::get_MinMaturity(Height h) const
 	{
-		HeightAdd(h, m_Coinbase ? Rules::get().Maturity.Coinbase : Rules::get().Maturity.Std);
+		if (m_Coinbase)
+			HeightAdd(h, Rules::get().Maturity.Coinbase);
 		HeightAdd(h, m_Incubation);
 		return h;
 	}
@@ -2198,7 +2199,6 @@ namespace beam
 
 		// maturity
 		Maturity.Coinbase = 240; // 4 hours
-		Maturity.Std = 0; // not restricted. Can spend even in the block of creation (i.e. spend it before it becomes visible)
 
 		// timestamp & difficulty.
 		DA.Target_ms = 60'000; // 1 minute
@@ -2344,12 +2344,9 @@ namespace beam
 
 		case Network::dappnet2:
 
-			for (uint32_t i = 1; i < 7; i++)
-				pForks[i].m_Height = 1;
+			SetParamsPbft(15'000);
+			SetForksFrom(1, 1);
 
-			m_Consensus = Consensus::Pbft;
-			DA.Target_ms = 15'000;
-			DA.Difficulty0.m_Packed = 0;
 			m_Pbft.m_AidStake = 0;
 			m_Pbft.m_RequiredWhite = 1;
 			m_Pbft.m_vE.resize(1);
@@ -2371,12 +2368,9 @@ namespace beam
 
 		case Network::l2_test1:
 
-			for (uint32_t i = 1; i < 7; i++)
-				pForks[i].m_Height = 0;
+			SetParamsPbft(3'000);
+			SetForksFrom(1, 0);
 
-			m_Consensus = Consensus::Pbft;
-			DA.Target_ms = 3'000;
-			DA.Difficulty0.m_Packed = 0;
 			CA.ForeignEnd = 1'000'000;
 
 			m_Pbft.m_AidStake = 0;
@@ -2574,7 +2568,7 @@ namespace beam
 			<< Emission.Drop0
 			<< Emission.Drop1
 			<< Maturity.Coinbase
-			<< Maturity.Std
+			<< static_cast<Height>(0) // Maturity.Std
 			<< MaxBodySize
 			<< (uint32_t) m_Consensus
 			<< AllowPublicUtxos
@@ -2759,10 +2753,22 @@ namespace beam
 		return pForks[i];
 	}
 
+	void Rules::SetForksFrom(uint32_t iBegin, Height h)
+	{
+		for (; iBegin < _countof(pForks); iBegin++)
+			pForks[iBegin].m_Height = h;
+	}
+
 	void Rules::DisableForksFrom(uint32_t i)
 	{
-		for (; i < _countof(pForks); i++)
-			pForks[i].m_Height = MaxHeight;
+		SetForksFrom(i, MaxHeight);
+	}
+
+	void Rules::SetParamsPbft(uint32_t nTarget_ms)
+	{
+		m_Consensus = Consensus::Pbft;
+		DA.Target_ms = nTarget_ms;
+		DA.Difficulty0.m_Packed = 0;
 	}
 
 	Amount Rules::get_DepositForCA(Height hScheme) const

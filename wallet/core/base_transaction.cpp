@@ -600,7 +600,7 @@ namespace beam::wallet
                 if (bIn)
                 {
                     std::setmin(coin.m_confirmHeight, proofHeight);
-                    coin.m_maturity = proofHeight + Rules::get().Maturity.Std; // so far we don't use incubation for our created outputs
+                    coin.m_maturity = proofHeight; // so far we don't use incubation for our created outputs
                 }
                 if (bOut)
                 {
