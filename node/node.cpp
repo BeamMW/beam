@@ -2171,7 +2171,7 @@ void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
 	NodeDB::StateID sid;
 	uint32_t nCount;
 
-	HeightRange hr(Rules::HeightGenesis, m_This.m_Processor.m_Cursor.m_hh.m_Height);
+	HeightRange hr(1, m_This.m_Processor.m_Cursor.m_hh.m_Height);
 	hr.Intersect(msg.m_Height);
 	if (!hr.IsEmpty())
 	{
@@ -5578,7 +5578,7 @@ void Node::PrintTxos()
 		if (m_Processor.IsFastSync())
 			os << "Note: Fast-sync is in progress. Data is preliminary and not fully verified yet." << std::endl;
 
-		if (acc.m_hTxoHi >= Rules::HeightGenesis)
+		if (acc.m_hTxoHi)
 			os << "Note: Cut-through up to Height=" << acc.m_hTxoHi << ", Txos spent earlier may be missing. To recover them too please make full sync." << std::endl;
 
 		struct MyParser :public proto::Event::IParser
@@ -5620,7 +5620,7 @@ void Node::PrintTxos()
 		p.m_Height = m_Processor.m_Cursor.m_hh.m_Height;
 
 		NodeDB::WalkerEvent wlk;
-		for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, Rules::HeightGenesis - 1); wlk.MoveNext(); )
+		for (m_Processor.get_DB().EnumEvents(wlk, acc.m_iAccount, 0); wlk.MoveNext(); )
 		{
 			os << "\tHeight=" << wlk.m_Pos.m_Height << ", ";
 			p.ProceedOnce(wlk.m_Body);

@@ -5297,7 +5297,7 @@ void GenerateTreasury(size_t walletCount, size_t utxoCount, Amount value)
         r.m_WalletID = pid;
 
         HeightRange hr;
-        hr.m_Max = params.m_Maturity0 + Rules::HeightGenesis - 1;
+        hr.m_Max = params.m_Maturity0;
 
         hr.m_Min = hr.m_Max + 1;
         hr.m_Max += params.m_MaturityStep;

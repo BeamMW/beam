@@ -732,7 +732,7 @@ void NodeConnection::SetupLogin(Login&)
 
 Height NodeConnection::get_MinPeerFork()
 {
-	return Rules::HeightGenesis - 1;
+	return 0;
 }
 
 void NodeConnection::OnLogin(Login&&, uint32_t /* nFlagsPrev */)

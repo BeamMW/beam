@@ -542,7 +542,7 @@ void Manager::LocalContext::OnStateChanged()
 
     if (m_hCurrentTxH1)
     {
-        if (db.FindKernel(m_hvCurrentTx) >= Rules::HeightGenesis) {
+        if (db.FindKernel(m_hvCurrentTx)) {
             Print() << "last tx confirmed";
         } else
         {

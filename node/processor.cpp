@@ -141,9 +141,9 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	}
 
 	ZeroObject(m_Extra);
-	m_Extra.m_Fossil.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberFossil, Rules::HeightGenesis - 1);
-	m_Extra.m_TxoLo.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoLo, Rules::HeightGenesis - 1);
-	m_Extra.m_TxoHi.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoHi, Rules::HeightGenesis - 1);
+	m_Extra.m_Fossil.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberFossil);
+	m_Extra.m_TxoLo.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoLo);
+	m_Extra.m_TxoHi.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoHi);
 
 	ZeroObject(m_SyncData);
 
@@ -2022,7 +2022,7 @@ Height NodeProcessor::PruneOld()
 
 	Height hRet = 0;
 
-	if (m_Cursor.m_Full.m_Number.v > m_Horizon.m_Branching + Rules::HeightGenesis - 1)
+	if (m_Cursor.m_Full.m_Number.v > m_Horizon.m_Branching)
 	{
 		Block::Number num(m_Cursor.m_Full.m_Number.v - m_Horizon.m_Branching);
 
@@ -2442,7 +2442,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 	else
 		h = m_DB.FindKernel(idKrn);
 
-	if (h < Rules::HeightGenesis)
+	if (!h)
 		return 0;
 
 	FindAtivePastHeight(sid, h);
@@ -2510,7 +2510,7 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 
 bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& pos)
 {
-	if (pos.m_Height < Rules::HeightGenesis)
+	if (!pos.m_Height)
 		return false; // it's possible to include contracts in treasury, and have logs. But proof won't be available
 
 	Merkle::FixedMmr lmmr;
@@ -4045,7 +4045,7 @@ Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInter
 	}
 
 	Height h = m_DB.FindKernel(id);
-	if (h >= Rules::HeightGenesis)
+	if (h)
 	{
 		assert(h <= bic.m_Height);
 
@@ -4065,7 +4065,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& 
 		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
 		Height h0 = FindVisibleKernel(x.m_ID, bic);
-		if (h0 < Rules::HeightGenesis)
+		if (!h0)
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "RelLock not found " << x.m_ID;
@@ -4913,7 +4913,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 		UtxoTree::Key::Data d;
 		d.m_Commitment = v.m_Commitment;
-		d.m_Maturity = Rules::HeightGenesis - 1;
+		d.m_Maturity = 0;
 		kMin = d;
 		d.m_Maturity = bic.m_Height - 1;
 		kMax = d;
@@ -5053,7 +5053,7 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 
 void NodeProcessor::ManageKrnID(BlockInterpretCtx& bic, const TxKernel& krn)
 {
-	if (bic.m_Height < Rules::HeightGenesis)
+	if (!bic.m_Height)
 		return; // for historical reasons treasury kernels are ignored
 
 	const auto& key = krn.get_ID();
@@ -5088,7 +5088,7 @@ bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic
 	if (bic.m_Fwd && r.IsPastFork_<2>(bic.m_Height) && !bic.m_AlreadyValidated)
 	{
 		Height hPrev = FindVisibleKernel(v.get_ID(), bic);
-		if (hPrev >= Rules::HeightGenesis)
+		if (hPrev)
 		{
 			if (bic.m_pTxErrorInfo)
 				*bic.m_pTxErrorInfo << "Kernel ID=" << v.get_ID() << " duplicated at " << hPrev;
@@ -6217,7 +6217,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s, Height h)
 		s = m_Cursor.m_Full;
 	else
 	{
-		if (h < Rules::HeightGenesis)
+		if (!h)
 			return false;
 
 		NodeDB::StateID sid;
@@ -8024,7 +8024,6 @@ bool NodeProcessor::EnumKernels(IKrnWalker& wlkKrn, Block::NumberRange nr)
 
 		}
 
-		wlkKrn.m_Height = Rules::HeightGenesis;
 		nr.m_Min.v++;
 	}
 

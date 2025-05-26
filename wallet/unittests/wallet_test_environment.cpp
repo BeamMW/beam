@@ -787,7 +787,7 @@ struct TestBlockchain
 
                     proof.swap(bld.m_Proof);
 
-                    Height h = Rules::HeightGenesis + iState;
+                    Height h = iState + 1;
                     const Height hf3 = Rules::get().pForks[3].m_Height;
                     if (h >= hf3)
                     {
@@ -802,7 +802,7 @@ struct TestBlockchain
                         proof.emplace_back();
                         proof.back().first = false;
 
-                        uint64_t nCount = h - Rules::HeightGenesis;
+                        uint64_t nCount = iState;
                         TemporarySwap<uint64_t>(nCount, m_mcm.m_Mmr.m_Count);
                         m_mcm.m_Mmr.get_Hash(proof.back().second);
 
@@ -825,7 +825,7 @@ struct TestBlockchain
         Height h = get_KrnProofInner(data.m_ID, msgOut.m_Proof.m_Inner);
         if (!h)
             return;
-        size_t iState = h - Rules::HeightGenesis;
+        size_t iState = h - 1;
 
         msgOut.m_Proof.m_State = m_mcm.m_vStates[iState].m_Hdr;
 

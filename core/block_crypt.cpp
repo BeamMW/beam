@@ -2181,8 +2181,6 @@ namespace beam
 		s_pInstance = m_pPrev;
 	}
 
-	const Height Rules::HeightGenesis	= 1;
-
 	Rules::Rules()
 	{
 		Prehistoric = {
@@ -2437,7 +2435,7 @@ namespace beam
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
 	{
-		h -= Rules::HeightGenesis; // may overflow, but it's ok. If h < HeightGenesis (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
+		h--; // may overflow, but it's ok. If h is zero (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
 
 		// Current emission strategy:
 		// at Emission.Drop0 - 1/2
@@ -2446,7 +2444,7 @@ namespace beam
 
 		if (h < Emission.Drop0)
 		{
-			hEnd = Rules::HeightGenesis + Emission.Drop0;
+			hEnd = Emission.Drop0 + 1;
 			return base;
 		}
 
@@ -2460,7 +2458,7 @@ namespace beam
 			return 0;
 		}
 
-		hEnd = Rules::HeightGenesis + Emission.Drop0 + n * Emission.Drop1;
+		hEnd = Emission.Drop0 + n * Emission.Drop1 + 1;
 
 		if (n >= 2)
 			base += (base >> 2); // the unusual part - add 1/4
@@ -2507,7 +2505,7 @@ namespace beam
 
 	bool Rules::IsForkHeightsConsistent() const
 	{
-		if (pForks[0].m_Height != Rules::HeightGenesis - 1)
+		if (pForks[0].m_Height)
 			return false;
 
 		for (size_t i = 1; i < _countof(pForks); i++)
@@ -2570,7 +2568,7 @@ namespace beam
 			<< ECC::Context::get().m_hvChecksum
 			<< Prehistoric
 			<< TreasuryChecksum
-			<< HeightGenesis
+			<< static_cast<Height>(1) // HeightGenesis
 			<< Coin
 			<< Emission.Value0
 			<< Emission.Drop0

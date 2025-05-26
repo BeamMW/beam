@@ -2515,10 +2515,10 @@ private:
 
         if (Rules::Consensus::Pbft != r.m_Consensus)
         {
-            r.get_Emission(valCurrent, HeightRange(Rules::HeightGenesis, s.get_Height()));
+            r.get_Emission(valCurrent, HeightRange(1, s.get_Height()));
             jInfo.push_back({ MakeTableHdr("Current Emission"), MakeObjAmount(valCurrent) });
 
-            r.get_Emission(valTotal, HeightRange(Rules::HeightGenesis, MaxHeight));
+            r.get_Emission(valTotal, HeightRange(1, MaxHeight));
             jInfo.push_back({ MakeTableHdr("Total Emission"), MakeObjAmount(valTotal) });
         }
         else
