@@ -1758,6 +1758,11 @@ void NodeProcessor::TryGoUp()
 	bool bDirty = false;
 	uint64_t rowid = m_Cursor.m_Row;
 
+	bool bAtEmptyBlock =
+		rowid &&
+		(Rules::Consensus::Pbft == Rules::get().m_Consensus) &&
+		(Block::Pbft::HdrData::Flags::Empty & Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW).m_Flags1);
+
 	while (true)
 	{
 		NodeDB::StateID sidTrg;
@@ -1790,7 +1795,12 @@ void NodeProcessor::TryGoUp()
 	{
 		PruneOld();
 		if (m_Cursor.m_Row != rowid)
+		{
+			if (bAtEmptyBlock)
+				m_DB.DeleteState(rowid, rowid); // cannibalized. No reason to keep empty forked blocks
+
 			OnNewState();
+		}
 	}
 }
 
