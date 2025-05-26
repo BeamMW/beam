@@ -5885,16 +5885,10 @@ void Node::Validator::OnNewRound()
 		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
 	}
 
-	if (m_iRound)
+	if (m_iRound && (State::None == m_State))
 	{
-		ECC::Hash::Processor()
-			<< "pbft.roundstart.not-committed"
-			<< get_ParentObj().m_Processor.m_Cursor.m_hh.m_Hash
-			<< m_iRound
-			>> m_Current.m_spNotCommitted.m_hv;
-
-		if (State::None == m_State)
-			Vote_NotCommitted();
+		SetNotCommittedHash(m_Current, m_iRound);
+		Vote_NotCommitted();
 	}
 
 	if ((Proposal::State::None == m_Current.m_Proposal.m_State) && (Proposal::State::None != m_FutureCandidate.m_Proposal.m_State) && (m_Current.m_pLeader == m_pMe))
@@ -5912,6 +5906,21 @@ void Node::Validator::OnNewRound()
 	CheckState();
 }
 
+void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)
+{
+	if (!rd.m_bNotCommittedHashSet)
+	{
+		ECC::Hash::Processor()
+			<< "pbft.roundstart.not-committed"
+			<< get_ParentObj().m_Processor.m_Cursor.m_hh.m_Hash
+			<< iRound
+			>> m_Current.m_spNotCommitted.m_hv;
+
+		rd.m_bNotCommittedHashSet = true;
+	}
+}
+
+
 void Node::Validator::RoundDataBase::Reset()
 {
 	m_spPreVoted.Reset();
@@ -5923,6 +5932,7 @@ void Node::Validator::RoundData::Reset()
 {
 	RoundDataBase::Reset();
 	m_spNotCommitted.Reset();
+	m_bNotCommittedHashSet = false;
 	m_pLeader = nullptr;
 }
 
@@ -6155,6 +6165,8 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 			return; // non-commit for round 0 is implicit. Check non-truncated (64bit) var, not the msg field
 
 		pSp = &pRd->m_spNotCommitted;
+		SetNotCommittedHash(*pRd, iRound);
+
 	}
 	else
 	{

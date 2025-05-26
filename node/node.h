@@ -875,6 +875,7 @@ private:
 		{
 			const Block::Pbft::Validator* m_pLeader;
 			SigsAndPower m_spNotCommitted; // at the round start
+			bool m_bNotCommittedHashSet;
 			void Reset();
 		};
 		
@@ -909,6 +910,7 @@ private:
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
+		void SetNotCommittedHash(RoundData&, uint64_t iRound);
 
 		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
 
