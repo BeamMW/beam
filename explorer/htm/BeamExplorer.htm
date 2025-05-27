@@ -1933,6 +1933,11 @@
       return;
     }
 
+    // the returned height may be adjusted
+    let jH = jData['h'];
+    if (jH != null)
+        g_height = jH;
+
     // Parse "info" section
     let j = jData['info'];
 
@@ -1946,13 +1951,13 @@
       text += '&nbsp;';
       text += 'Block ' + AddClass(g_height, 'blockHeight');
       text += '&nbsp;';
-      text += AddClass(MakeRef(UrlBlock(g_height - 1), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      text += AddClass(MakeRef(UrlBlock(g_height - 1) + '&adj=-1', "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
     } else {
       text += 'Treasury';
       text += '&nbsp;';
       text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
     }
-    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
     text += '</h2>';
 
     if (j) {
@@ -2610,6 +2615,9 @@
     } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explorer node handle the case where both are requested)
       if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
       if (g_height) { urlSuffix += '&height=' + g_height; }
+      adj = URLparams.get('adj'); // Used to adjust the block height, if there's no exact match
+      if (adj != null)
+        urlSuffix += '&adj=' + adj;
       xmlhttp.onload = DisplayBlock;
 
     } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
