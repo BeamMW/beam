@@ -458,15 +458,24 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
     }
     else
     {
-        GetCommonState msg;
-        msg.m_IDs.resize(w.m_vStates.size());
+        if (w.m_vStates.front().IsNext(m_Tip))
+        {
+            // only the last block has been rolled-back. Typical in pbft mode (cannibalization), but can happen in PoW mode too
+            m_pSync->m_Confirmed = w.m_vStates.front();
+            PostChainworkProof();
+        }
+        else
+        {
+            GetCommonState msg;
+            msg.m_IDs.resize(w.m_vStates.size());
 
-        for (size_t i = 0; i < msg.m_IDs.size(); i++)
-            w.m_vStates[i].get_ID(msg.m_IDs[i]);
+            for (size_t i = 0; i < msg.m_IDs.size(); i++)
+                w.m_vStates[i].get_ID(msg.m_IDs[i]);
 
-        Send(msg);
+            Send(msg);
 
-        m_pSync->m_vConfirming.swap(w.m_vStates);
+            m_pSync->m_vConfirming.swap(w.m_vStates);
+        }
     }
 }
 
@@ -545,6 +554,16 @@ bool FlyClient::NetworkStd::Connection::StateArray::Find(const Block::SystemStat
     return (m_vec.end() != it) && (*it == s);
 }
 
+void FlyClient::NetworkStd::Connection::PostChainworkProof()
+{
+    assert(m_pSync);
+
+    SyncCtx::Ptr pSync = std::move(m_pSync);
+    StateArray arr;
+    PostChainworkProof(arr, pSync->m_Confirmed.get_Height());
+}
+
+
 void FlyClient::NetworkStd::Connection::RequestChainworkProof()
 {
     assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
@@ -553,9 +572,7 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
     {
         // for trusted nodes this is not required. Go straight to finish
         // In Pbft chainwork proof is irrelevant (though supported anyway)
-        SyncCtx::Ptr pSync = std::move(m_pSync);
-        StateArray arr;
-        PostChainworkProof(arr, pSync->m_Confirmed.get_Height());
+        PostChainworkProof();
     }
     else
     {
