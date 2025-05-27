@@ -257,6 +257,7 @@ namespace proto {
 				void SearchBelow(Height, uint32_t nCount);
 				void RequestChainworkProof();
 				void PostChainworkProof(const StateArray&, Height hLowHeight);
+				void PostChainworkProof();
 				void PrioritizeSelf();
 				RequestNode& get_FirstRequest();
 				void OnDone(RequestNode&, bool bMaybeRetry = true);
