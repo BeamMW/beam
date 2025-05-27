@@ -2693,6 +2693,7 @@ private:
             out["totals"] = MakeTotals(sid, s);
         }
 
+        out["h"] = height;
         out["inputs"] = std::move(inputs);
         out["outputs"] = std::move(outputs);
         out["kernels"] = std::move(kernels);
@@ -2765,22 +2766,51 @@ private:
         return json{ { "found", false}, {"height", h } };
     }
 
-    json get_block_strict(Height h) {
-
+    json get_block(Height height, int adj) override
+    {
         NodeDB::StateID sid;
         Block::SystemState::Full s;
-
-        if (!FindBlockByHeight(sid, s, h) || (s.get_Height() != h))
-            return get_block_not_found(h);
-
-        return extract_block_from_row(sid, s, h);
-    }
-
-    json get_block(Height height) override
-    {
+        Height h = height;
 
         if (height)
-            return get_block_strict(height);
+        {
+            if (FindBlockByHeight(sid, s, height))
+            {
+                h = s.get_Height();
+                assert(h >= height);
+            }
+            else
+            {
+                assert(height > _nodeBackend.m_Cursor.m_hh.m_Height); // requested above current tip
+
+                sid = _nodeBackend.m_Cursor.get_Sid();
+                s = _nodeBackend.m_Cursor.m_Full;
+                h = _nodeBackend.m_Cursor.m_hh.m_Height;
+            }
+
+            if (h != height)
+            {
+                if (!adj)
+                    return get_block_not_found(height);
+
+                if ((h > height) && (adj < 0))
+                {
+                    if (_nodeBackend.get_DB().get_Prev(sid))
+                    {
+                        _nodeBackend.get_DB().get_State(sid.m_Row, s);
+                        h = s.get_Height();
+                        assert(h < height);
+                    }
+                    else
+                        h = 0; // fall back to treasury
+                }
+
+                // ignore other cases
+            }
+        }
+
+        if (h)
+            return extract_block_from_row(sid, s, h);
 
         json out;
         get_treasury(out);
@@ -2789,10 +2819,16 @@ private:
 
     json get_block_by_kernel(const Blob& key) override
     {
-        NodeDB& db = _nodeBackend.get_DB();
-        Height height = db.FindKernel(key);
+        Height h = _nodeBackend.get_DB().FindKernel(key);
+        if (h)
+        {
+            NodeDB::StateID sid;
+            Block::SystemState::Full s;
+            if (FindBlockByHeight(sid, s, h))
+                return extract_block_from_row(sid, s, h);
+        }
 
-        return get_block_strict(height);
+        return get_block_not_found(h);
     }
 
     json get_blocks(Height startHeight, uint64_t n) override {

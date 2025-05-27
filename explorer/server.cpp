@@ -701,7 +701,8 @@ OnRequest(block)
         return _backend.get_block_by_kernel(hv);
 
     auto height = _currentUrl.get_int_arg("height", 0);
-    return _backend.get_block(height);
+    auto adj = _currentUrl.get_int_arg("adj", 0);
+    return _backend.get_block(height, static_cast<int>(adj));
 }
 
 OnRequest(blocks)
