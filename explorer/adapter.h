@@ -68,7 +68,7 @@ struct IAdapter {
 
     /// Returns body for /status request
     virtual json get_status() = 0;
-    virtual json get_block(Height height) = 0;
+    virtual json get_block(Height height, int adj) = 0;
     virtual json get_block_by_kernel(const Blob& key) = 0;
     virtual json get_blocks(Height startHeight, uint64_t n) = 0;
     virtual json get_hdrs(Height hMax, uint64_t nMax, uint64_t dn, const TotalsCol* pCols, uint32_t nCols) = 0;
