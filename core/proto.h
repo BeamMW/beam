@@ -928,6 +928,8 @@ namespace proto {
 
             virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) = 0;
         };
+
+        static void Test(const PbftStamp&, const Block::SystemState::Full&);
     };
 
     std::ostream& operator << (std::ostream& s, const NodeConnection::DisconnectReason&);

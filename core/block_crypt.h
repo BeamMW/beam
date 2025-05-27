@@ -623,6 +623,13 @@ namespace beam
 		void SetForksFrom(uint32_t iBegin, Height);
 		void SetParamsPbft(uint32_t nTarget_ms);
 
+		bool IsPbftWhitelistMode() const
+		{
+			return
+				(Rules::Consensus::Pbft == m_Consensus) &&
+				m_Pbft.m_RequiredWhite;
+		}
+
 	private:
 		Amount get_EmissionEx(Height, Height& hEnd, Amount base) const;
 		bool IsForkHeightsConsistent() const;

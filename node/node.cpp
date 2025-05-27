@@ -2047,12 +2047,8 @@ void Node::Peer::OnMsg(proto::NewTip&& msg)
 
 	BEAM_LOG_MESSAGE(bTipNeeded ? BEAM_LOG_LEVEL_INFO : BEAM_LOG_LEVEL_DEBUG) << "Peer " << m_RemoteAddr << " Tip: " << LogTip(m_Tip);
 
-	if (bTipNeeded)
-	{
-		const Rules& r = Rules::get();
-		if ((Rules::Consensus::Pbft == r.m_Consensus) && r.m_Pbft.m_RequiredWhite)
-			bTipNeeded = false; // delay it, till we receive the stamp. Make sure we store only confirmed headers, OR those that we explicitly requested
-	}
+	if (bTipNeeded && Rules::get().IsPbftWhitelistMode())
+		bTipNeeded = false; // delay it, till we receive the stamp. Make sure we store only confirmed headers, OR those that we explicitly requested
 
 	if (bTipNeeded)
 		OnNewTip2();
@@ -4582,39 +4578,13 @@ void Node::Peer::OnMsg(proto::PbftVote&& msg)
 
 void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 {
-	const Rules& r = Rules::get();
-
-	if ((Rules::Consensus::Pbft != r.m_Consensus) || !r.m_Pbft.m_RequiredWhite)
-		ThrowUnexpected();
-
 	auto& v = m_This.m_Validator;
-
 	if (m_Tip.m_hh.m_Height <= v.m_Stamp.m_ID.m_Height)
 		return;
 
-	Block::Pbft::State state;
-	Block::Pbft::Quorum qc;
-
-	Deserializer der;
-	der.reset(msg.m_vSer);
-	der
-		& state
-		& qc;
-
-	state.ResolveWhitelisted(r);
-
-	Merkle::Hash hv;
-	state.get_Hash(hv);
-
-	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_Tip.m_Full.m_PoW);
-	if (d.m_hvVsPrev != hv)
-		ThrowUnexpected();
-
-	if (!state.CheckQuorum(m_Tip.m_hh.m_Hash, qc))
-		ThrowUnexpected();
+	NodeConnection::Test(msg, m_Tip.m_Full);
 
 	// all good
-
 	v.m_Stamp.m_ID = m_Tip.m_hh;
 	v.m_Stamp.m_vSer = std::move(msg.m_vSer);
 
@@ -6398,8 +6368,7 @@ bool Node::Validator::ShouldSendStamp()
 {
 	const Rules& r = Rules::get();
 	return
-		(Rules::Consensus::Pbft == r.m_Consensus) &&
-		r.m_Pbft.m_RequiredWhite &&
+		r.IsPbftWhitelistMode() &&
 		(get_ParentObj().m_Processor.m_Cursor.m_hh == m_Stamp.m_ID);
 }
 
