@@ -1028,6 +1028,36 @@ void NodeConnection::Send(const NewTransaction& msg)
     }
 }
 
+void NodeConnection::Test(const PbftStamp& msg, const Block::SystemState::Full& s)
+{
+    const Rules& r = Rules::get();
+    if (!r.IsPbftWhitelistMode())
+        ThrowUnexpected();
+
+    Block::Pbft::State state;
+    Block::Pbft::Quorum qc;
+
+    Deserializer der;
+    der.reset(msg.m_vSer);
+    der
+        & state
+        & qc;
+
+    state.ResolveWhitelisted(r);
+
+    Merkle::Hash hv;
+    state.get_Hash(hv);
+
+    const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
+    if (d.m_hvVsPrev != hv)
+        ThrowUnexpected();
+
+    s.get_Hash(hv);
+    if (!state.CheckQuorum(hv, qc))
+        ThrowUnexpected();
+}
+
+
 /////////////////////////
 // NodeConnection::Server
 void NodeConnection::Server::Listen(const io::Address& addr)
