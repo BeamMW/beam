@@ -251,6 +251,7 @@ namespace proto {
 
 				struct StateArray;
 
+				void OnNewTip();
 				bool ShouldSync() const;
 				void StartSync();
 				void SearchBelow(Height, uint32_t nCount);
@@ -312,6 +313,7 @@ namespace proto {
 				void OnMsg(proto::Authentication&& msg) override;
 				void OnMsg(proto::GetBlockFinalization&& msg) override;
 				void OnMsg(proto::NewTip&& msg) override;
+				void OnMsg(proto::PbftStamp&& msg) override;
 				void OnMsg(proto::ProofCommonState&& msg) override;
 				void OnMsg(proto::ProofChainWork&& msg) override;
 				void OnMsg(proto::BbsMsg&& msg) override;

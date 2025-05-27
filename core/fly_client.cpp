@@ -374,6 +374,12 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
 
     m_Tip = msg.m_Description;
 
+    if (!Rules::get().IsPbftWhitelistMode())
+        OnNewTip();
+}
+
+void FlyClient::NetworkStd::Connection::OnNewTip()
+{
     if (!m_pSync)
     {
         if (ShouldSync())
@@ -386,6 +392,13 @@ void FlyClient::NetworkStd::Connection::OnMsg(NewTip&& msg)
             AssignRequests();
         }
     }
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(PbftStamp&& msg)
+{
+    Connection::Test(msg, m_Tip);
+    // all good
+    OnNewTip();
 }
 
 void FlyClient::NetworkStd::Connection::StartSync()
@@ -421,9 +434,13 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
     {
         std::vector<Block::SystemState::Full> m_vStates;
         uint32_t m_Count;
+        Block::Number m_TipNum;
 
         virtual bool OnState(const Block::SystemState::Full& s) override
         {
+            if (s.m_Number.v >= m_TipNum.v)
+                return true;
+
             m_vStates.push_back(s);
             return m_vStates.size() < m_Count;
         }
@@ -431,6 +448,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
 
     w.m_Count = nCount;
     w.m_vStates.reserve(nCount);
+    w.m_TipNum = m_Tip.m_Number;
     m_This.m_Client.get_History().Enum(w, &h);
 
     if (w.m_vStates.empty())
@@ -531,9 +549,10 @@ void FlyClient::NetworkStd::Connection::RequestChainworkProof()
 {
     assert(ShouldSync() && m_pSync && m_pSync->m_vConfirming.empty());
 
-    if (Flags::Owned & m_Flags)
+    if ((Flags::Owned & m_Flags) || (Rules::Consensus::Pbft == Rules::get().m_Consensus))
     {
         // for trusted nodes this is not required. Go straight to finish
+        // In Pbft chainwork proof is irrelevant (though supported anyway)
         SyncCtx::Ptr pSync = std::move(m_pSync);
         StateArray arr;
         PostChainworkProof(arr, pSync->m_Confirmed.get_Height());
