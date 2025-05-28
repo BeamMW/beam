@@ -46,10 +46,6 @@
   let mode = localStorage.getItem('mode');
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
-  // Address of the remote explorer node
-  //const urlPrefix = "http://localhost:8888/";
-  //const urlPrefix = 'http://116.203.118.51:8100/';
-  const urlPrefix = 'https://explorer-api.beamprivacy.community/';
 </script>
 
 <!-- ************ SECTION 2 - CSS STYLES ************ -->
@@ -1432,22 +1428,27 @@
       <div id="Banner">
         <span id="BeamLogo">
           <!-- Clicking on the logo sends back to the main page -->
-          <a href='?' title='Main page'>
+          <a href='?network=$network' title='Main page'>
             <!-- A simplified SVG version of the BEAM logo -->
             <svg height='6em' width='6em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
           </a>
+            <select id="networkSelect" name="network">
+                <option value="mainnet">mainnet</option>
+                <option value="dappnet2">dappnet2</option>
+            </select>
+
         </span>
         <div id="BannerCenter">
           <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.7.6</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
-            <span class="menuItem"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
+            <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?type=assets" title="List of current Confidential Assets">Confidential Assets</a></span>
+            <span class="menuItem"><a href="?network=$network&type=assets" title="List of current Confidential Assets">Confidential Assets</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+            <span class="menuItem"><a href="?network=$network&type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?type=historical" title="List of special historical blocks">Historical blocks</a></span>
+            <span class="menuItem"><a href="?network=$network&type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
             <!-- Search field -->
@@ -1499,7 +1500,7 @@
   }
 
   function UrlSelf(type, extra = '') {
-    return window.location.pathname + '?type=' + type + extra;
+    return window.location.pathname + '?network=' + g_network + '&type=' + type + extra;
   }
 
   function MakeCell(text, styles = '') {
@@ -2554,8 +2555,45 @@
     },
   ];
 
+
+  // Address of the explorer node
+  urlPrefix = 'https://explorer-api.beamprivacy.community/'; // default for mainnet
+  //urlPrefix = "http://localhost:17379/";
+  //urlPrefix = 'http://116.203.118.51:8100/';
+
   // URL and explorer node parameters
   const URLparams = new URL(document.location).searchParams;
+  let g_network = URLparams.get('network');
+  switch (g_network)
+  {
+  case 'dappnet2':
+    urlPrefix = 'http://159.69.148.122:7777/';
+    break;
+
+  default: // should also include null
+    g_network = 'mainnet';
+    break;
+
+  case 'mainnet':
+    break;
+  }
+
+  document.querySelectorAll('a[href]').forEach(link => {
+   const href = link.getAttribute('href');
+   if (href.includes('$network')) {
+       link.setAttribute('href', href.replaceAll('$network', encodeURIComponent(g_network)));
+   }
+  });
+
+  const network_combo = document.getElementById('networkSelect');
+  network_combo.value = g_network;
+
+  network_combo.addEventListener('change', function() {
+    const selected = this.value;
+    // Example: redirect with new network parameter
+    window.location.search = '?network=' + encodeURIComponent(selected);
+  });
+
   let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ("historical" and "treasury")
   let g_id = URLparams.get('id'); // Used for type=asset & contract
   let g_height = URLparams.get('height'); // Used for type=block & blocks & assets
