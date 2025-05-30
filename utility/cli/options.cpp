@@ -805,13 +805,8 @@ namespace beam
         return vm;
     }
 
-    void getRulesOptions(po::variables_map& vm, Rules& r)
+    void SetNetworkStrict(Rules& r, const std::string& sName)
     {
-        const auto& vProf = vm[cli::NETWORK];
-        if (!vProf.empty())
-        {
-            const std::string& sName = vProf.as<std::string>();
-
 #define THE_MACRO(name) \
         if (sName == #name) \
             r.m_Network = Rules::Network::name; \
@@ -821,7 +816,14 @@ namespace beam
 #undef THE_MACRO
 
                 Exc::Fail((std::string("Invalid network: ") + sName).c_str());
+    }
 
+    void getRulesOptions(po::variables_map& vm, Rules& r)
+    {
+        const auto& vProf = vm[cli::NETWORK];
+        if (!vProf.empty())
+        {
+            SetNetworkStrict(r, vProf.as<std::string>());
             r.SetNetworkParams();
         }
 

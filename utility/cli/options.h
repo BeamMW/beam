@@ -484,6 +484,8 @@ namespace beam
         v = Positive<T>(numb);
     }
 
+    void SetNetworkStrict(Rules&, const std::string&);
+
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
     bool confirm_wallet_pass(const SecString& pass);
 
