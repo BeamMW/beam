@@ -1837,8 +1837,8 @@ namespace beam
 		node2.m_Cfg.m_Horizon = node.m_Cfg.m_Horizon;
 		node2.m_Cfg.m_Horizon.m_Local = node2.m_Cfg.m_Horizon.m_Sync;
 
-		node.m_PostStartSynced = true;
-		node2.m_PostStartSynced = true;
+		//node.m_PostStartSynced = true;
+		//node2.m_PostStartSynced = true;
 
 		ECC::SetRandom(node2);
 
