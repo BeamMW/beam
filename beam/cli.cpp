@@ -16,6 +16,7 @@
 #include "core/common.h"
 
 #include "node/node.h"
+#include "node/bridge.h"
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/block_rw.h"
@@ -582,6 +583,29 @@ int main(int argc, char* argv[])
 					node.m_Cfg.m_pExternalPOW = stratumServer.get();
 
 					node.Initialize();
+
+					beam::L2Bridge bridge(node);
+					var = vm[cli::BRIDGE_NETWORK_L1];
+					if (!var.empty())
+					{
+						L2Bridge::Params bp;
+
+						SetNetworkStrict(bp.m_Rules, var.as<std::string>());
+						bp.m_Rules.SetNetworkParams();
+						bp.m_Rules.UpdateChecksum();
+
+						bp.m_hDelay = vm[cli::BRIDGE_DH].as<Height>();
+
+						if (!bp.m_Addr.resolve(vm[cli::BRIDGE_PEER].as<std::string>().c_str()) || !bp.m_Addr.port())
+							Exc::Fail("couldn't resolve L1 bridge peer");
+
+						auto nLen = bp.m_cidBridgeL1.Scan(vm[cli::BRIDGE_CID].as<std::string>().c_str());
+						if (bp.m_cidBridgeL1.nTxtLen != nLen)
+							Exc::Fail("couldn't parse L1 Contract ID");
+
+						bridge.Init(std::move(bp));
+
+					}
 
 					if (vm[cli::PRINT_TXO].as<bool>())
 						node.PrintTxos();

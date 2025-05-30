@@ -259,6 +259,12 @@ namespace beam
         extern const char* PREDEFINED_ICON;
         extern const char* PREDEFINED_COLOR;
 
+        // bridge
+        extern const char* BRIDGE_PEER;
+        extern const char* BRIDGE_CID;
+        extern const char* BRIDGE_NETWORK_L1;
+        extern const char* BRIDGE_DH;
+
         // lelantus
         extern const char* MAX_PRIVACY_ADDRESS;
         extern const char* OFFLINE_COUNT;

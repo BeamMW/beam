@@ -212,6 +212,12 @@ namespace beam
         const char* REQUEST_BODIES = "request_bodies";
         const char* IMPORT_RECOVERY = "import_recovery";
 
+        // bridge
+        const char* BRIDGE_PEER = "bridge_peer";
+        const char* BRIDGE_CID = "bridge_cid";
+        const char* BRIDGE_NETWORK_L1 = "birdge_network_l1";
+        const char* BRIDGE_DH = "bridge_height_delay";
+
         // ethereum
         const char* ETHEREUM_SEED = "ethereum_seed";
         const char* INFURA_PROJECT_ID = "infura_project_id";
@@ -437,6 +443,11 @@ namespace beam
             (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             (cli::CONTRACT_RICH_INFO, po::value<bool>(), "Set to save rich contract invocation info")
             (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
+
+            (cli::BRIDGE_NETWORK_L1, po::value<std::string>(), "Bridge L1 network")
+            (cli::BRIDGE_CID, po::value<std::string>(), "Bridge L1 Contract ID")
+            (cli::BRIDGE_PEER, po::value<std::string>(), "L1 node to connect to")
+            (cli::BRIDGE_DH, po::value<Height>()->default_value(false), "Safety Height delay on L1")
             ;
 
         po::options_description node_treasury_options("Node treasury options");
