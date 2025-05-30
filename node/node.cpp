@@ -68,31 +68,30 @@ void Node::RefreshCongestions()
 
 void Node::UpdateSyncStatus()
 {
+	if (!m_UpdatedFromPeers)
+		return;
+
 	SyncStatus stat = m_SyncStatus;
 	UpdateSyncStatusRaw();
 
-	if (!(m_SyncStatus == stat) && m_UpdatedFromPeers)
+	if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total) && !m_Processor.IsFastSync())
 	{
-		if (!m_PostStartSynced && (m_SyncStatus.m_Done == m_SyncStatus.m_Total) && !m_Processor.IsFastSync())
+		m_PostStartSynced = true;
+
+		BEAM_LOG_INFO() << "Tx replication is ON";
+
+		for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
 		{
-			m_PostStartSynced = true;
-
-			BEAM_LOG_INFO() << "Tx replication is ON";
-
-			for (PeerList::iterator it = m_lstPeers.begin(); m_lstPeers.end() != it; ++it)
-			{
-				Peer& peer = *it;
-				if ((Peer::Flags::Connected & peer.m_Flags) && !(Peer::Flags::Probe & peer.m_Flags))
-					peer.SendLogin();
-			}
-
-			m_Validator.OnNewState();
-
+			Peer& peer = *it;
+			if ((Peer::Flags::Connected & peer.m_Flags) && !(Peer::Flags::Probe & peer.m_Flags))
+				peer.SendLogin();
 		}
 
-		if (m_Cfg.m_Observer)
-			m_Cfg.m_Observer->OnSyncProgress();
+		m_Validator.OnNewState();
 	}
+
+	if (m_Cfg.m_Observer && !(m_SyncStatus == stat))
+		m_Cfg.m_Observer->OnSyncProgress();
 }
 
 void Node::UpdateSyncStatusRaw()
@@ -147,7 +146,9 @@ void Node::UpdateSyncStatusRaw()
 
 	// consider the timestamp of the tip, upon successful sync it should not be too far in the past
 	if (!m_Processor.m_Cursor.m_Full.m_Number.v)
-		hTotal++;
+	{
+		// hTotal++; - what for?
+	}
 	else
 	{
 		Timestamp ts0_s = m_Processor.m_Cursor.m_Full.m_TimeStamp;
@@ -692,25 +693,23 @@ void Node::Processor::OnNewState()
 		get_ParentObj().m_Miner.SetTimer(0, true); // async start mining
 	}
 
-	const Rules& r = Rules::get();
-
-	proto::NewTip msg;
-	msg.m_Description = m_Cursor.m_Full;
-
-	bool bSendStamp = get_ParentObj().m_Validator.ShouldSendStamp();
-
-	for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
+	bool bDonSendTip = m_Cursor.m_Full.m_Number.v && IsFastSync();
+	if (!bDonSendTip)
 	{
-		Peer& peer = *it;
-		if (!(Peer::Flags::Connected & peer.m_Flags))
-			continue;
+		const Rules& r = Rules::get();
 
-		if (msg.m_Description.m_Number.v)
+		proto::NewTip msg;
+		msg.m_Description = m_Cursor.m_Full;
+
+		bool bSendStamp = get_ParentObj().m_Validator.ShouldSendStamp();
+
+		for (PeerList::iterator it = get_ParentObj().m_lstPeers.begin(); get_ParentObj().m_lstPeers.end() != it; ++it)
 		{
-			if (IsFastSync())
+			Peer& peer = *it;
+			if (!(Peer::Flags::Connected & peer.m_Flags))
 				continue;
 
-			if ((Rules::Consensus::Pbft == r.m_Consensus) && (proto::LoginFlags::SpreadingTransactions & peer.m_LoginFlags))
+			if (Rules::Consensus::Pbft == r.m_Consensus)
 			{
 				// In pbft send our tip even if it's the same as peer's
 				if (m_Cursor.m_hh.m_Height < peer.m_Tip.m_hh.m_Height)
@@ -718,23 +717,26 @@ void Node::Processor::OnNewState()
 			}
 			else
 			{
-				// send our tip if it's either ahead OR same chainwork but different from peer's
-				if (!peer.m_Tip.IsRemoteNeeded(m_Cursor))
-					continue;
+				if (msg.m_Description.m_Number.v)
+				{
+					// send our tip if it's either ahead OR same chainwork but different from peer's
+					if (!peer.m_Tip.IsRemoteNeeded(m_Cursor))
+						continue;
+				}
+				else
+				{
+					if (Peer::Flags::HasTreasury & peer.m_Flags)
+						continue;
+				}
 			}
-		}
-		else
-		{
-			if (Peer::Flags::HasTreasury & peer.m_Flags)
-				continue;
-		}
 
-		peer.Send(msg);
+			peer.Send(msg);
 
-		if (bSendStamp)
-		{
-			// TODO: don't send stamp iff this peer participated in the most recent round
-			peer.PbftSendStamp();
+			if (bSendStamp)
+			{
+				// TODO: don't send stamp iff this peer participated in the most recent round
+				peer.PbftSendStamp();
+			}
 		}
 	}
 
