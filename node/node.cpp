@@ -5886,7 +5886,7 @@ void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)
 			<< "pbft.roundstart.not-committed"
 			<< get_ParentObj().m_Processor.m_Cursor.m_hh.m_Hash
 			<< iRound
-			>> m_Current.m_spNotCommitted.m_hv;
+			>> rd.m_spNotCommitted.m_hv;
 
 		rd.m_bNotCommittedHashSet = true;
 	}
