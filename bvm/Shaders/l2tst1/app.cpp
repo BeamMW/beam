@@ -465,8 +465,19 @@ struct BridgeOpL1Context
 };
 
 
+void AutoFixCookie(Cookie& c)
+{
+    if (_POD_(c.m_p).IsZero())
+    {
+        Env::GenerateRandom(c.m_p, sizeof(c.m_p));
+        Env::DocAddBlob_T("cookie", c);
+    }
+}
+
 ON_METHOD(bridge_export)
 {
+    AutoFixCookie(Cast::NotConst(cookie));
+
     BridgeOpL1Context ctx;
     Method::BridgeExport arg;
     if (!ctx.Init(cid, amount, aid, cookie, arg, Tags::s_BridgeExp))
@@ -678,6 +689,7 @@ void OnBridgeL2(L2Tst1_bridge_op_base(THE_FIELD) uint32_t iMethod, uint8_t consu
 
 ON_METHOD(bridge_export_l2)
 {
+    AutoFixCookie(Cast::NotConst(cookie));
     OnBridgeL2(amount, aid, cookie, L2Tst1_L2::Method::BridgeBurn::s_iMethod, 1, "bridge L2 export");
 }
 
