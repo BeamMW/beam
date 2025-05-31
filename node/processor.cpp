@@ -4489,7 +4489,7 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 	fep.m_Details.m_Aid = aid;
 	fep.m_Details.m_Amount = valUns;
 
-	if (bic.m_Fwd && !bic.m_AlreadyValidated && bAdd)
+	if (bic.m_Fwd && !bic.m_AlreadyValidated && bAdd && bic.m_Temporary) // verify bridge ONLY when checking txs and blocks. But not when interpeting already signed blocks
 	{
 		NodeDB::Recordset rs;
 		Blob blobDetails;
