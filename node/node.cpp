@@ -6236,8 +6236,12 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	id.m_Height = s.get_Height();
 
 	if (!p.TestBlock(id, s, pRd->m_Proposal.m_Msg.m_Body))
+	{
 		// TODO: don't disconnect this peer. Save and broadcast this info, punish leader for invalid proposal
-		src.ThrowUnexpected("invalid proposal");
+		// current design: ignore invalid proposals
+		PBFT_LOG(DEBUG, "invalid proposal");
+		return;
+	}
 
 	// all good
 	pRd->m_Proposal.m_State = Proposal::State::Received;
