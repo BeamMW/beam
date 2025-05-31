@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define LOG_DEBUG_ENABLED 1
+#include "../utility/logger.h"
+
 #include "bridge.h"
 #include "../bvm/bvm2.h"
 #include "node.h"
@@ -148,6 +151,8 @@ Block::SystemState::IHistory& EventsExtractor::FlyClient::get_History()
 
 void EventsExtractor::FlyClient::OnNewTip()
 {
+	BEAM_LOG_DEBUG() << "Bridge L1 tip=" << get_ParentObj().get_Height();
+
 	get_ParentObj().CheckState();
 	get_ParentObj().OnNewTip();
 }
@@ -641,6 +646,7 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 			const auto& x = *(const Method::BridgeOp*) &d.m_Event.front();
 
 			get_ParentObj().m_Node.get_Processor().BridgeAddInfo(Cast::Up<PeerID>(x.m_pk.m_X), d.m_Pos, x.m_Aid, x.m_Amount);
+			BEAM_LOG_DEBUG() << "Bridge imported event pk=" << Cast::Up<PeerID>(x.m_pk.m_X) << "H=" << d.m_Pos.m_Height << "Coin=" << x.m_Aid << ":" << x.m_Amount;
 		}
 		break;
 
