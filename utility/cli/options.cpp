@@ -215,7 +215,7 @@ namespace beam
         // bridge
         const char* BRIDGE_PEER = "bridge_peer";
         const char* BRIDGE_CID = "bridge_cid";
-        const char* BRIDGE_NETWORK_L1 = "birdge_network_l1";
+        const char* BRIDGE_NETWORK_L1 = "bridge_network_l1";
         const char* BRIDGE_DH = "bridge_height_delay";
 
         // ethereum

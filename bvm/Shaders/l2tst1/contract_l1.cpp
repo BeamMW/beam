@@ -112,7 +112,7 @@ BEAM_EXPORT void Method_3(const Method::UserStake& r)
     Env::FundsLock(s.m_Settings.m_aidStaking, r.m_Amount);
 }
 
-void OnBirdgeOp(const Method::BridgeOp& r, uint8_t nTag)
+void OnBridgeOp(const Method::BridgeOp& r, uint8_t nTag)
 {
     BridgeOpSave::Key k;
     k.m_Tag = nTag;
@@ -127,13 +127,13 @@ void OnBirdgeOp(const Method::BridgeOp& r, uint8_t nTag)
 
 BEAM_EXPORT void Method_4(const Method::BridgeExport& r)
 {
-    OnBirdgeOp(r, Tags::s_BridgeExp);
+    OnBridgeOp(r, Tags::s_BridgeExp);
     Env::FundsLock(r.m_Aid, r.m_Amount);
 }
 
 BEAM_EXPORT void Method_5(const Method::BridgeImport& r)
 {
-    OnBirdgeOp(r, Tags::s_BridgeImp);
+    OnBridgeOp(r, Tags::s_BridgeImp);
     Env::FundsUnlock(r.m_Aid, r.m_Amount);
 
     Env::AddSig(r.m_pk);
