@@ -5912,13 +5912,43 @@ namespace beam::wallet
         Block::SystemState::Full s;
         if (m_History.get_Tip(s))
         {
-            const Height hMaxBacklog = Rules::get().MaxRollback * 2; // can actually be more
+            Height hTip = s.get_Height();
+            Height h0 = 0;
 
-            if (s.get_Height() > hMaxBacklog)
+            if (Rules::get().IsConstantSpan())
+            {
+                const Height hMaxBacklog = Rules::get().MaxRollback * 2; // can actually be more
+                if (hTip > hMaxBacklog)
+                    h0 = hTip - hMaxBacklog;
+            }
+            else
+            {
+                // make sure we leave at least some most recent headers.
+                struct Walker :public Block::SystemState::IHistory::IWalker
+                {
+                    uint32_t m_Count = 3;
+                    Height m_h0 = 0;
+
+                    bool OnState(const Block::SystemState::Full& s) override
+                    {
+                        if (--m_Count)
+                            return true;
+
+                        m_h0 = s.get_Height();
+                        return false;
+                    }
+                } w;
+
+                if (!m_History.Enum(w, &hTip))
+                    h0 = w.m_h0;
+
+            }
+
+            if (h0)
             {
                 const char* req = "DELETE FROM " TblStates " WHERE " TblStates_Height "<=?";
                 sqlite::Statement stm(this, req);
-                stm.bind(1, s.get_Height() - hMaxBacklog);
+                stm.bind(1, h0);
                 stm.step();
 
             }

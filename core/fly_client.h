@@ -332,6 +332,7 @@ namespace proto {
 #undef THE_MACRO
 
 				void OnMsg(proto::Pong&& msg) override;
+				void OnMsg(proto::Hdr&& msg) override;
 				void OnMsg(proto::HdrPack&& msg) override;
 				void OnMsg(proto::ContractVars&& msg) override;
 				void OnMsg(proto::ContractLogs&& msg) override;

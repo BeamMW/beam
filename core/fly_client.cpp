@@ -558,6 +558,36 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof()
 {
     assert(m_pSync);
 
+    if (!Rules::get().IsConstantSpan())
+    {
+        // make sure we have at least header preceding the current tip. Otherwise we may constantly experience deep reorgs
+        struct Walker :public Block::SystemState::IHistory::IWalker
+        {
+            Block::SystemState::Full m_State;
+            
+            bool OnState(const Block::SystemState::Full& s) override
+            {
+                m_State = s;
+                return false;
+            }
+        } w;
+
+
+        Height hTip = m_Tip.get_Height();
+        bool bHavePrev =
+            (m_Tip.m_Number.v <= 1) &&
+            !m_This.m_Client.get_History().Enum(w, &hTip) &&
+            w.m_State.IsNext(m_Tip);
+
+        if (!bHavePrev)
+        {
+            proto::GetHdr msg;
+            msg.m_ID.m_Number.v = m_Tip.m_Number.v - 1;
+            msg.m_ID.m_Hash = m_Tip.m_Prev;
+            Send(msg);
+        }
+    }
+
     SyncCtx::Ptr pSync = std::move(m_pSync);
     StateArray arr;
     PostChainworkProof(arr, pSync->m_Confirmed.get_Height());
@@ -673,6 +703,7 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
     else
         m_This.m_Client.get_History().AddStates(&arr.m_vec.front(), arr.m_vec.size());
     PrioritizeSelf();
+
     m_This.m_Client.OnNewTip(); // finished!
     AssignRequests();
 }
@@ -864,8 +895,12 @@ void FlyClient::NetworkStd::Connection::OnRequestData(RequestUtxo& req)
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestKernel& req)
 {
     if (!req.m_Res.m_Proof.empty())
+    {
         if (!m_Tip.IsValidProofKernel(req.m_Msg.m_ID, req.m_Res.m_Proof))
             ThrowUnexpected();
+
+        m_This.m_Client.get_History().AddStates(&req.m_Res.m_Proof.m_State, 1);
+    }
 }
 
 void FlyClient::NetworkStd::Connection::OnRequestData(RequestAsset& req)
@@ -1026,6 +1061,14 @@ void FlyClient::NetworkStd::Connection::OnMsg(proto::HdrPack&& msg)
         ThrowUnexpected();
 
     OnDone(n, r.m_vStates.empty());
+}
+
+void FlyClient::NetworkStd::Connection::OnMsg(proto::Hdr&& msg)
+{
+    if (!msg.m_Description.IsValid())
+        ThrowUnexpected();
+
+    m_This.m_Client.get_History().AddStates(&msg.m_Description, 1);
 }
 
 void FlyClient::NetworkStd::Connection::OnMsg(DataMissing&& msg)
