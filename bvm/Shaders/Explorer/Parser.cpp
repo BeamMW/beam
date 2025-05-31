@@ -27,6 +27,7 @@ namespace Testnet {
 #include "../minter/contract.h"
 #include "../blackhole/contract.h"
 #include "../l2tst1/contract_l1.h"
+#include "../l2tst1/contract_l2.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -222,6 +223,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Faucet2, Faucet2::s_SID) \
 	macro(Minter, Minter::s_SID) \
 	macro(BlackHole, BlackHole::s_SID) \
+	macro(L2Tst1_L2, L2Tst1_L2::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -318,7 +320,7 @@ struct ParserContext
 	void OnMethod_##name(); \
 	void OnState_##name();
 	HandleContractsStd(THE_MACRO)
-		HandleContractsWrapped(THE_MACRO)
+	HandleContractsWrapped(THE_MACRO)
 #undef THE_MACRO
 
 #define THE_MACRO(name, psid) \
@@ -1855,6 +1857,42 @@ void ParserContext::OnState_L2Tst1_L1(uint32_t /* iVer */)
 	}
 }
 
+void ParserContext::OnMethod_L2Tst1_L2()
+{
+	switch (m_iMethod)
+	{
+	case L2Tst1_L2::Method::BridgeEmit::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L2::Method::BridgeEmit>();
+			if (pArg)
+			{
+				OnMethod("Mint");
+				GroupArgs gr;
+				OnL2tsts1_BridgeOp(*pArg);
+			}
+		}
+		break;
+
+	case L2Tst1_L2::Method::BridgeBurn::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<L2Tst1_L2::Method::BridgeBurn>();
+			if (pArg)
+			{
+				OnMethod("Burn");
+				GroupArgs gr;
+				OnL2tsts1_BridgeOp(*pArg);
+			}
+		}
+		break;
+	}
+
+}
+
+
+void ParserContext::OnState_L2Tst1_L2()
+{
+	// no state
+}
 
 void ParserContext::WriteOracle2Settings(const Oracle2::Settings& stg)
 {
