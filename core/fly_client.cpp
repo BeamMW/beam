@@ -685,6 +685,39 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
 
     if (w.m_LowErase != MaxHeight)
     {
+        bool bRolledBack = true;
+
+        if (!Rules::get().IsConstantSpan())
+        {
+            // check if we only removed 1 empty block, and have the previous one.
+            // It's a typical scenario for PBFT, and In such a case we won't report the rollback
+            
+            struct Walker2 :public Block::SystemState::IHistory::IWalker
+            {
+                Block::SystemState::Full m_pS[2];
+                uint32_t m_Count = 0;
+
+                bool OnState(const Block::SystemState::Full& s) override
+                {
+                    assert(m_Count < _countof(m_pS));
+                    m_pS[m_Count] = s; // copy
+
+                    return ++m_Count < _countof(m_pS);
+                }
+            } w2;
+
+            m_This.m_Client.get_History().Enum(w2, nullptr);
+            assert(w2.m_Count); // otherwise nothing to erase
+
+            if ((w2.m_pS[1].m_Number.v + 1 == w2.m_pS[0].m_Number.v) &&
+                (w2.m_pS[1].get_Height() < w.m_LowErase))
+            {
+                const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(w2.m_pS[0].m_PoW);
+                if (Block::Pbft::HdrData::Flags::Empty & d.m_Flags1)
+                    bRolledBack = false;
+            }
+        }
+
         m_This.m_Client.get_History().DeleteFrom(w.m_LowErase);
 
         // if more connections are opened simultaneously - notify them
@@ -695,7 +728,8 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
                 std::setmin(c.m_pSync->m_LowHeight, w.m_LowErase - 1);
         }
 
-        m_This.m_Client.OnRolledBack();
+        if (bRolledBack)
+            m_This.m_Client.OnRolledBack();
     }
 
     if (arr.m_vec.empty())
