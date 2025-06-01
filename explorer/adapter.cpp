@@ -2304,6 +2304,11 @@ private:
         void OnName_Hash_Rel() {}
         void OnData_Hash_Rel() {}
 
+        void OnName_Number_Abs() { m_json.push_back(MakeTableHdr("Number")); }
+        void OnName_Number_Rel() { m_json.push_back(MakeTableHdr("d.Number")); }
+        void OnData_Number_Abs() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_Number.v).m_sz); }
+        void OnData_Number_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_Number.v - m_pPrev->m_Hdr.m_Number.v).m_sz); }
+
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
         void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", m_pThis->m_Hdr.m_TimeStamp)); }
