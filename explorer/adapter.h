@@ -25,6 +25,7 @@ using nlohmann::json;
     macro(Time) \
     macro(Age) \
     macro(Hash) \
+    macro(Number) \
     macro(Difficulty) \
     macro(Fee) \
     macro(Kernels) \
