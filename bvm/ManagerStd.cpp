@@ -533,7 +533,7 @@ namespace bvm2 {
 		if (static_cast<uint32_t>(-1) != nTimeout_ms)
 		{
 			p->m_pTimer = io::Timer::create(io::Reactor::get_Current());
-			p->m_pTimer->start(nTimeout_ms, false, [this]() { Comm_OnNewMsg(); });
+			p->m_pTimer->start(nTimeout_ms, false, [this]() { Comm_OnTimeout(); });
 		}
 
 		m_Pending.m_pCommMsg = std::move(p);
@@ -554,6 +554,12 @@ namespace bvm2 {
 			
 		msg.Export(pItem->m_Msg);
 
+		Comm_OnNewMsg();
+	}
+
+	void ManagerStd::Comm_OnTimeout()
+	{
+		m_Comms.m_TimedOut = true;
 		Comm_OnNewMsg();
 	}
 

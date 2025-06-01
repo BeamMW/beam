@@ -3700,7 +3700,12 @@ namespace bvm2 {
 	BVM_METHOD_HOST(Comm_WaitMsg)
 	{
 		if (m_Comms.m_Rcv.empty())
-			Comm_Wait(nTimeout_ms);
+		{
+			if (m_Comms.m_TimedOut)
+				m_Comms.m_TimedOut = false;
+			else
+				Comm_Wait(nTimeout_ms);
+		}
 	}
 
 #undef BVM_METHOD_BinaryVar
