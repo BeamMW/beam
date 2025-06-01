@@ -578,7 +578,7 @@ ON_METHOD(bridge_import)
         Env::Cost::Log_For(sizeof(Method::BridgeOp)) +
         Env::Cost::FundsLock +
         Env::Cost::AddSig * (1 + nCountApproved) +
-        Env::Cost::Cycle * 100;
+        Env::Cost::Cycle * (300 + 100 * Validator::s_Max);
 
     Msg::GetSignature msg2;
     _POD_(msg2.m_pkOwner) = msg1.m_pkOwner;
@@ -626,7 +626,7 @@ ON_METHOD(bridge_import)
 
     for (uint32_t nMskRemaining = arg.m_ApproveMask; ; )
     {
-        Env::Comm_WaitMsg(0);
+        Env::Comm_WaitMsg();
 
         Msg::Signature msgIn;
         uint32_t nRet = Env::Comm_Read(&msgIn, sizeof(msgIn), nullptr, 0);
