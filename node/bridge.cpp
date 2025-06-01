@@ -759,7 +759,8 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 	hp << x.m_Owner.m_Key; // 1st sig requested by L1 contract
 
-	uint32_t iChallenge = 0;
+	uint32_t iChallenge = 1; // The 1st challenge is for pkOwner, then all the validators
+	uint32_t iMyChallenge = 0;
 
 	const Rules& r = Rules::get(); // our (L2) rules
 	for (uint32_t i = 0; i < r.m_Pbft.m_vE.size(); i++)
@@ -776,13 +777,15 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 			hp << pk;
 
 			if (i == m_iWhiteValidator)
-				iChallenge = i + 1; // The 1st challenge is for pkOwner, then all the validators
+				iMyChallenge = iChallenge;
+
+			iChallenge++;
 		}
 
 		msk >>= 1;
 	}
 
-	if (iChallenge)
+	if (iMyChallenge)
 	{
 		ECC::Hash::Value hv;
 		hp
@@ -795,7 +798,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 		// get our challenge. The 1st challenge is for pkOwner, then all the validators
 		ECC::Scalar::Native e;
 
-		for (uint32_t i = 0; i <= iChallenge; i++)
+		for (uint32_t i = 0; i <= iMyChallenge; i++)
 			oracle >> e;
 
 		e = e * m_Node.m_Keys.m_Validator.m_sk;
