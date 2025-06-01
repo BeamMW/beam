@@ -2332,12 +2332,8 @@ namespace
         boost::optional<TxID> currentTxID;
         auto onTxCompleteAction = [&currentTxID](const TxID& txID)
         {
-            if (currentTxID.is_initialized() &&
-                currentTxID.get() != txID)
-            {
-                return;
-            }
-            io::Reactor::get_Current().stop();
+            if (currentTxID.is_initialized() && (currentTxID.get() == txID))
+                io::Reactor::get_Current().stop();
         };
 
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
