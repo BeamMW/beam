@@ -638,11 +638,13 @@ namespace bvm2 {
 
 			Channel::Map m_Map;
 			Rcv::Global::List m_Rcv;
+			bool m_TimedOut = false;
 
 			void Clear()
 			{
 				m_Map.Clear();
 				assert(m_Rcv.empty());
+				m_TimedOut = false;
 			}
 
 		} m_Comms;

@@ -59,6 +59,7 @@ namespace beam::bvm2 {
 		void RunSync();
 		void Comm_OnNewMsg(const Blob&, Comm::Channel&);
 		void Comm_OnNewMsg();
+		void Comm_OnTimeout();
 
 		void SelectContext(bool bDependent, uint32_t nChargeNeeded) override;
 		bool get_HdrAt(Block::SystemState::Full&, Height) override;
