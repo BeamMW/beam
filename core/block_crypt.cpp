@@ -550,7 +550,7 @@ namespace beam
 		bool isPublic = (OpCode::Public == eOp) || m_Coinbase;
 
 		ECC::Scalar::Native skSign = sk;
-		if (cid.m_AssetID || (!isPublic && Asset::Proof::Params::get_AidMax(hScheme)))
+		if (!isPublic && Asset::Proof::Params::IsNeeded(cid.m_AssetID, hScheme))
 		{
 			ECC::Hash::Value hv;
 			if (!bUseCoinKdf)
@@ -4050,22 +4050,17 @@ namespace beam
 		}
 	}
 
-	Asset::ID Asset::Proof::Params::s_AidMax_Global = 1u; // by default demand AssetProof
-
 	thread_local Asset::ID Asset::Proof::Params::s_AidMax_Override = 0;
 
-	Asset::ID Asset::Proof::Params::get_AidMax(Height hScheme)
+	bool Asset::Proof::Params::IsNeeded(Asset::ID aid, Height hScheme)
 	{
+		if (aid)
+			return true;
+
 		if (!Rules::get().IsEnabledCA(hScheme))
-			return 0;
+			return false;
 
-		return get_AidMax();
-	}
-
-	Asset::ID Asset::Proof::Params::get_AidMax()
-	{
-		auto ret = s_AidMax_Override;
-		return ret ? (ret - 1) : s_AidMax_Global;
+		return true;
 	}
 
 
@@ -4087,7 +4082,9 @@ namespace beam
 			return true;
 		}
 
+		static void MakeRandom(ECC::Hash::Value&, const ECC::Scalar::Native& skGen);
 		void SelectWindow(Asset::ID, const Rules&, const ECC::Scalar::Native& skGen);
+		uint32_t SelectOffset(uint32_t n, uint32_t nMax, uint32_t N, ECC::Hash::Value&, const ECC::Scalar::Native& skGen, bool b);
 	};
 
 	void Asset::Proof::Create(Height hScheme, ECC::Point::Native& genBlinded, ECC::Scalar::Native& skInOut, Amount val, Asset::ID aid, const ECC::Hash::Value* phvSeed)
@@ -4164,51 +4161,101 @@ namespace beam
 		skInOut += k;
 	}
 
+	void Asset::Proof::CmList::MakeRandom(ECC::Hash::Value& hv, const ECC::Scalar::Native& skGen)
+	{
+		ECC::Hash::Processor() << skGen >> hv; // pseudo-random
+	}
+
+	uint32_t Asset::Proof::CmList::SelectOffset(uint32_t n, uint32_t nMax, uint32_t N, ECC::Hash::Value& hv, const ECC::Scalar::Native& skGen, bool b)
+	{
+		assert(N);
+		assert(n);
+
+		if (nMax <  n)
+			std::setmax(nMax, n + N / 2); // guess
+
+		if (nMax < N)
+			return 0;
+
+		// the whole range [0, nMax] is larger than N, means there's a degree of freedom to choose the window
+		if (!b)
+			MakeRandom(hv, skGen);
+
+		// select the pos of our element within the window as uniform random
+		uint32_t nPos;
+		hv.ExportWord<0>(nPos);
+
+		if (m_IsPastHF6)
+			nPos = 1u + (nPos % (N - 1)); // our element position within [1, N)
+		else
+			nPos %= N; // our element position within [0, N)
+
+		if (n <= nPos)
+			return 0; // start saturated
+
+		if (n - nPos + (N - 1) >= nMax)
+			return nMax - (N - 1); // end saturated
+
+		return n - nPos;
+	}
+
 	void Asset::Proof::CmList::SelectWindow(Asset::ID aid, const Rules& r, const ECC::Scalar::Native& skGen)
 	{
 		// Randomize m_Aid0
 		m_Aid0 = 0;
 
+		// 2 nuances to take into consideration:
+		// (1) after HF6 the 0th element of the list is always the default asset (aid==0), the window affects only remaining elements
+		// (2) For bridged network with foreign assets, there's a gap (usually very large). So basically we have 2 distinct ranges.
+
 		uint32_t N = r.CA.m_ProofCfg.get_N();
 		if (N <= 1)
 			return; // should not happen
 
-		Asset::ID aidMax = Params::get_AidMax();
-
-		if (aidMax < aid)
-			aidMax = aid + N / 2; // guess
-
-		if (aidMax < N)
-			return;
+		uint32_t nCountForeign = std::min(N - 1, r.CA.ForeignEnd); // we have no reliable information, this is a guess
+		uint32_t nCountLocal = (Params::s_AidMax_Override > r.CA.ForeignEnd) ? (Params::s_AidMax_Override - r.CA.ForeignEnd) : 0;
 
 		ECC::Hash::Value hv;
-		ECC::Hash::Processor() << skGen >> hv; // pseudo-random
+		bool bHv = false;
 
-		uint32_t nPos;
-		hv.ExportWord<0>(nPos);
-
-		if (m_IsPastHF6)
+		if (!aid)
 		{
-			if (!aid)
+			if (!m_IsPastHF6)
+				return;
+
+			if (!nCountLocal && (nCountForeign < N))
+				; // leave it as-is
+			else
 			{
-				// choose a pseudo-random aid within [1, aidMax]
-				hv.ExportWord<1>(aid);
-				aid = 1u + (aid % aidMax);
+				if (!nCountForeign && (nCountLocal < N))
+					aid = r.CA.ForeignEnd;
+				else
+				{
+					// choose a pseudo-random aid from either foreign or local ranges
+					uint32_t nCountTotal = nCountForeign + nCountLocal; // won't overflow
+					assert(nCountTotal);
+
+					MakeRandom(hv, skGen);
+					bHv = true;
+
+					hv.ExportWord<1>(aid);
+					aid %= nCountTotal;
+
+					if (aid >= nCountForeign)
+						aid += (r.CA.ForeignEnd - nCountForeign);
+				}
 			}
 
-			nPos = 1u + (nPos % (N - 1)); // our element position within [1, N)
-
+			aid++;
 		}
-		else
-			nPos %= N; // our element position within [0, N)
 
-
-		if (aid + (N - 1) - nPos > aidMax)
-			m_Aid0 = aidMax - (N - 1); // last element of window shouldn't exceed aidMax
+		if (aid < r.CA.ForeignEnd)
+			m_Aid0 = SelectOffset(aid, nCountForeign, N, hv, skGen, bHv);
 		else
 		{
-			if (aid > nPos)
-				m_Aid0 = aid - nPos;
+			aid -= r.CA.ForeignEnd;
+			m_Aid0 = SelectOffset(aid, nCountLocal, N, hv, skGen, bHv);
+			m_Aid0 += r.CA.ForeignEnd;
 		}
 	}
 
