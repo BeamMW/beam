@@ -326,19 +326,13 @@ namespace beam
 
 			struct Params
 			{
-				static Asset::ID s_AidMax_Global;
 				static thread_local Asset::ID s_AidMax_Override;
 
 				static Asset::ID Make(Asset::ID aid, bool bHideAlways) {
 					return aid ? aid : bHideAlways ? 1 : 0;
 				}
 
-				static Asset::ID get_AidMax(Height hScheme); // returns 0 if no need to hide
-				static Asset::ID get_AidMax();
-
-				static bool IsNeeded(Asset::ID aid, Height hScheme) {
-					return aid || get_AidMax(hScheme);
-				}
+				static bool IsNeeded(Asset::ID aid, Height hScheme);
 
 				struct Override
 				{
