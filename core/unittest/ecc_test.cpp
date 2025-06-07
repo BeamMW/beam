@@ -3260,7 +3260,7 @@ int main()
 	for (uint32_t i = 0; i < _countof(r.pForks); i++)
 		r.pForks[i].m_Height = g_hFork;
 
-	beam::Asset::Proof::Params::s_AidMax_Global = 160;
+	beam::Asset::Proof::Params::s_AidMax_Override = 160;
 
 	ECC::TestAll(r);
 	ECC::RunBenchmark();
