@@ -260,6 +260,8 @@ private:
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
+		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
+
 		void Stop();
 
 		struct MyExecutorMT
@@ -792,8 +794,6 @@ private:
 
 	struct Validator
 	{
-		const Block::Pbft::Validator* m_pMe; // refreshed after each block
-		
 		Validator();
 
 		void OnNewState();
@@ -813,6 +813,19 @@ private:
 
 		void SaveStamp();
 		bool ShouldSendStamp();
+
+		struct Assessment
+		{
+			Merkle::Hash m_hvCommitted;
+		};
+
+		struct ValidatorWithAssessment
+			:public Block::Pbft::Validator
+		{
+			Assessment m_Assessment;
+		};
+
+		ValidatorWithAssessment* m_pMe; // refreshed after each block
 
 	private:
 
@@ -883,8 +896,6 @@ private:
 		RoundData m_Next; // some peers may send data a little too early, we'll accumulate them before processing
 
 		RoundDataBase m_FutureCandidate;
-
-		Merkle::Hash m_hvCommitted;
 
 		Block::Number m_hAnchor;
 		uint64_t m_iSlot0;

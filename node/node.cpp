@@ -5762,14 +5762,23 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 #define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
 
+std::unique_ptr<Block::Pbft::Validator> Node::Processor::CreateValidator()
+{
+	return std::make_unique<Node::Validator::ValidatorWithAssessment>();
+}
+
 Node::Validator::Validator()
 {
 	m_hAnchor.v = MaxHeight;
+	m_iSlot0 = 0;
+	m_iRound = 0;
 }
 
 void Node::Validator::OnRolledBack()
 {
 	m_hAnchor.v = MaxHeight;
+	m_iSlot0 = 0;
+	m_iRound = 0;
 	KillTimer();
 	// wait till the next state
 }
@@ -5786,27 +5795,13 @@ void Node::Validator::OnNewState()
 		return;
 	}
 
-	// Theoretically this method can be called WITHOUT new state (such as trying to interpret blocks, failing, and rolling back)
-	// it's important to preserve our commitment, if we already committed to a specific round
-	if (m_hAnchor.v == p.m_Cursor.m_Full.m_Number.v)
-		return;
-
-	m_hAnchor = p.m_Cursor.m_Full.m_Number;
-
-	m_Current.Reset();
-	m_Next.Reset();
-	m_FutureCandidate.Reset();
-
-	m_State = State::None;
-	m_iSlot0 = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
+	if (!m_iSlot0)
+	{
+		m_iSlot0 = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
+		m_iRound = std::numeric_limits<uint64_t>::max();
+	}
 
 	KillTimer();
-
-	m_pMe = p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false);
-	m_iRound = std::numeric_limits<uint64_t>::max();
-
-	//PBFT_LOG(DEBUG, "tip=" << m_hAnchor << " iSlot0=" << m_iSlot0);
-
 	OnNewRound();
 }
 
@@ -5827,9 +5822,45 @@ void Node::Validator::OnNewRound()
 		return;
 	}
 
-	m_iRound = iSlotNow - m_iSlot0 - 1;
+	if (iSlotNow == iExpectedSlot)
+		FinalyzeAssessment();
+
 
 	SetTimerEx(tNow_ms, iSlotNow + 1);
+
+	auto& p = get_ParentObj().m_Processor; // alias
+	if (m_hAnchor.v != p.m_Cursor.m_Full.m_Number.v)
+	{
+		auto iSlotLast = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());;
+		if (iSlotLast >= iSlotNow)
+			return; // wait for the next slot
+
+		m_hAnchor = p.m_Cursor.m_Full.m_Number;
+
+		m_Current.Reset();
+		m_Next.Reset();
+		m_FutureCandidate.Reset();
+
+		m_State = State::None;
+		m_iSlot0 = iSlotLast;
+
+		for (auto& v : p.m_PbftState.m_lstVs)
+		{
+			auto& vp = Cast::Up<ValidatorWithAssessment>(v);
+			vp.m_Assessment.m_hvCommitted = Zero;
+		}
+
+		KillTimer();
+
+		m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false));
+		if (m_pMe && !m_pMe->m_Weight)
+			m_pMe = nullptr; // no voting power - not a validator
+
+		//PBFT_LOG(DEBUG, "tip=" << m_hAnchor << " iSlot0=" << m_iSlot0);
+	}
+
+	m_iRound = iSlotNow - m_iSlot0 - 1;
+
 
 	if (State::QuorumReached == m_State)
 		return; // ignore
@@ -5852,10 +5883,7 @@ void Node::Validator::OnNewRound()
 	m_Next.Reset();
 
 	if (!m_Current.m_pLeader)
-	{
-		auto& p = get_ParentObj().m_Processor; // alias
 		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
-	}
 
 	if (m_iRound && (State::None == m_State))
 	{
@@ -6172,11 +6200,15 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (p.m_PbftState.m_mapVs.end() == itV)
 		src.ThrowUnexpected("not a validator vote");
 
+	auto& vp = Cast::Up<ValidatorWithAssessment>(itV->get_ParentObj());
+
 	if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
 
+	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_Assessment.m_hvCommitted != sp.m_hv))
+		vp.m_Assessment.m_hvCommitted = sp.m_hv;
 	// ok
-	sp.Add(itV->get_ParentObj(), msg.m_Signature);
+	sp.Add(vp, msg.m_Signature);
 	PBFT_LOG(DEBUG, "vote accepted");
 
 	Broadcast(msg, &src);
@@ -6268,7 +6300,7 @@ void Node::Validator::CheckProposalCommit()
 {
 	assert(Proposal::State::Received == m_Current.m_Proposal.m_State);
 
-	if ((State::Committed == m_State) && (m_hvCommitted == m_Current.m_spCommitted.m_hv))
+	if ((State::Committed == m_State) && m_pMe && (m_pMe->m_Assessment.m_hvCommitted == m_Current.m_spCommitted.m_hv))
 	{
 		Vote_PreVote();
 		Vote_Commit();
@@ -6347,7 +6379,8 @@ void Node::Validator::CheckState()
 
 		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
-		m_hvCommitted = m_Current.m_spCommitted.m_hv;
+		if (m_pMe)
+			m_pMe->m_Assessment.m_hvCommitted = m_Current.m_spCommitted.m_hv;
 	}
 
 	CheckQuorum(m_Current);
