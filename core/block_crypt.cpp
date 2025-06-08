@@ -2902,7 +2902,7 @@ namespace beam
 		m_mapVs.insert(pV->m_Addr);
 
 		pV->m_Weight = 0;
-		pV->m_White = false;
+		pV->m_Flags = 0;
 		return pV;
 	}
 
@@ -3028,7 +3028,7 @@ namespace beam
 
 					wVoted += v.m_Weight;
 
-					if (v.m_White)
+					if (Validator::Flags::White & v.m_Flags)
 						nWhite++;
 				}
 			}
@@ -3055,19 +3055,22 @@ namespace beam
 			pV->m_Weight += v.m_Stake;
 
 			if (v.m_White)
-				pV->m_White = true;
+				pV->m_Flags |= Validator::Flags::White;
 		}
 	}
 
 	void Block::Pbft::State::ResolveWhitelisted(const Rules& r)
 	{
+		for (auto& v : m_lstVs)
+			v.m_Flags &= ~Validator::Flags::White;
+
 		for (const auto& x : r.m_Pbft.m_vE)
 		{
 			if (x.m_White)
 			{
 				auto* pVal = Find(x.m_Addr, false);
 				if (pVal)
-					pVal->m_White = true;
+					pVal->m_Flags |= Validator::Flags::White;
 			}
 		}
 	}

@@ -672,6 +672,7 @@ private:
 		virtual void OnMsg(proto::PbftProposal&&) override;
 		virtual void OnMsg(proto::PbftVote&&) override;
 		virtual void OnMsg(proto::PbftStamp&&) override;
+		virtual void OnMsg(proto::PbftPeerAssessment&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -801,6 +802,7 @@ private:
 
 		void OnMsg(proto::PbftProposal&&, const Peer&);
 		void OnMsg(proto::PbftVote&&, const Peer&);
+		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
 
 		uint64_t get_RefTime_ms() const;
@@ -816,6 +818,9 @@ private:
 
 		struct Assessment
 		{
+			struct Settings;
+
+			proto::PbftPeerAssessment m_Last;
 			uint32_t m_Score = 0;
 			Merkle::Hash m_hvCommitted;
 		};
@@ -910,6 +915,7 @@ private:
 		} m_State;
 
 		void OnNewRound();
+		void OnNewStateInternal();
 		void GenerateProposal();
 		void SignProposal();
 		void OnProposalReceived(const Peer*);
@@ -924,7 +930,10 @@ private:
 		bool ShouldSendTo(const Peer&) const;
 		void SetNotCommittedHash(RoundData&, uint64_t iRound);
 
-		void FinalyzeAssessment();
+		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
+		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
+
+		void FinalyzeRoundAssessment();
 
 		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
 

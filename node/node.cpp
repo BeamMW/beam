@@ -4596,6 +4596,11 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 	TakeTasks();
 }
 
+void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
+{
+	m_This.m_Validator.OnMsg(std::move(msg), *this);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -5767,6 +5772,26 @@ std::unique_ptr<Block::Pbft::Validator> Node::Processor::CreateValidator()
 	return std::make_unique<Node::Validator::ValidatorWithAssessment>();
 }
 
+struct Node::Validator::Assessment::Settings
+{
+	static void Regress(uint32_t& score)
+	{
+		score -= (score + 15) / 16; // auto-regression
+	}
+
+	static const uint32_t NotProposed = 2048;
+	static const uint32_t NotVotedNotCommit = 256;
+	static const uint32_t NotVotedPre = 128;
+	static const uint32_t NotVotedCommit = 96;
+	static const uint32_t DoubleCommit = 8192;
+
+	struct Watermark
+	{
+		static const uint32_t Jail = 5000;
+		static const uint32_t Unjail = 150;
+	};
+};
+
 Node::Validator::Validator()
 {
 	m_hAnchor.v = MaxHeight;
@@ -5823,8 +5848,7 @@ void Node::Validator::OnNewRound()
 	}
 
 	if (iSlotNow == iExpectedSlot)
-		FinalyzeAssessment();
-
+		FinalyzeRoundAssessment();
 
 	SetTimerEx(tNow_ms, iSlotNow + 1);
 
@@ -5835,32 +5859,13 @@ void Node::Validator::OnNewRound()
 		if (iSlotLast >= iSlotNow)
 			return; // wait for the next slot
 
-		m_hAnchor = p.m_Cursor.m_Full.m_Number;
-
-		m_Current.Reset();
-		m_Next.Reset();
-		m_FutureCandidate.Reset();
-
-		m_State = State::None;
 		m_iSlot0 = iSlotLast;
-
-		for (auto& v : p.m_PbftState.m_lstVs)
-		{
-			auto& vp = Cast::Up<ValidatorWithAssessment>(v);
-			vp.m_Assessment.m_hvCommitted = Zero;
-		}
-
-		KillTimer();
-
-		m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false));
-		if (m_pMe && !m_pMe->m_Weight)
-			m_pMe = nullptr; // no voting power - not a validator
+		OnNewStateInternal();
 
 		//PBFT_LOG(DEBUG, "tip=" << m_hAnchor << " iSlot0=" << m_iSlot0);
 	}
 
 	m_iRound = iSlotNow - m_iSlot0 - 1;
-
 
 	if (State::QuorumReached == m_State)
 		return; // ignore
@@ -5904,6 +5909,69 @@ void Node::Validator::OnNewRound()
 	}
 
 	CheckState();
+}
+
+void Node::Validator::OnNewStateInternal()
+{
+	auto& p = get_ParentObj().m_Processor; // alias
+	m_hAnchor = p.m_Cursor.m_Full.m_Number;
+
+	m_Current.Reset();
+	m_Next.Reset();
+	m_FutureCandidate.Reset();
+
+	m_State = State::None;
+
+	for (auto& v : p.m_PbftState.m_lstVs)
+	{
+		auto& vp = Cast::Up<ValidatorWithAssessment>(v);
+		vp.m_Assessment.m_hvCommitted = Zero;
+	}
+
+	m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false));
+	if (m_pMe && !m_pMe->m_Weight)
+		m_pMe = nullptr; // no weight - not a validator
+
+	if (!m_pMe)
+		return;
+
+	// update our assessment
+	auto& msg = m_pMe->m_Assessment.m_Last;
+	msg.m_From = m_pMe->m_Addr.m_Key;
+	msg.m_Height = p.m_Cursor.m_hh.m_Height;
+	msg.m_Reputation.clear();
+
+	for (auto& x : p.m_PbftState.m_lstVs)
+	{
+		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
+		if (!vp.m_Weight)
+			continue;
+		if (&vp == m_pMe)
+			continue;
+
+		typedef ValidatorWithAssessment::Flags F;
+
+		uint8_t flags = F::Jailed & vp.m_Flags;
+		if (F::Jailed & flags)
+		{
+			if (vp.m_Assessment.m_Score < Assessment::Settings::Watermark::Unjail)
+				flags &= ~F::Jailed;
+		}
+		else
+		{
+			if (vp.m_Assessment.m_Score >= Assessment::Settings::Watermark::Jail)
+				flags |= F::Jailed;
+		}
+
+		msg.m_Reputation[vp.m_Addr.m_Key] = flags;
+	}
+
+	// sign
+	Merkle::Hash hv;
+	get_AssessmentMsg(hv, msg);
+	Sign(msg.m_Signature, hv);
+
+	Broadcast(msg, nullptr);
 }
 
 void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)
@@ -6041,7 +6109,8 @@ bool Node::Validator::ShouldSendTo(const Peer& peer) const
 
 void Node::Validator::SendState(Peer& peer) const
 {
-	if (get_ParentObj().m_Processor.m_Cursor.m_Full.m_Number.v != m_hAnchor.v)
+	auto& p = get_ParentObj().m_Processor;
+	if (p.m_Cursor.m_Full.m_Number.v != m_hAnchor.v)
 		return;
 
 	if (!ShouldSendTo(peer))
@@ -6061,6 +6130,14 @@ void Node::Validator::SendState(Peer& peer) const
 	{
 		peer.Send(m_Current.m_Proposal.m_Msg); // the proposal
 		SendVotes(&peer);
+	}
+
+	for (auto& x : p.m_PbftState.m_lstVs)
+	{
+		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
+		if (vp.m_Weight && IsAssessmentRelevant(vp.m_Assessment.m_Last))
+			peer.Send(vp.m_Assessment.m_Last);
+
 	}
 }
 
@@ -6083,7 +6160,7 @@ void Node::Validator::SendVotes(Peer* pPeer) const
 void Node::Validator::Power::Add(const Block::Pbft::Validator& v)
 {
 	m_wVoted += v.m_Weight;
-	if (v.m_White)
+	if (ValidatorWithAssessment::Flags::White & v.m_Flags)
 		m_nWhite++;
 }
 
@@ -6210,7 +6287,7 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 		if (vp.m_Assessment.m_hvCommitted != Zero)
 		{
 			PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << "double commit");
-			vp.m_Assessment.m_Score += 8192; // for now. Must be slashed actually
+			vp.m_Assessment.m_Score += Assessment::Settings::DoubleCommit; // for now. Must be slashed actually
 		}
 
 		vp.m_Assessment.m_hvCommitted = sp.m_hv;
@@ -6585,7 +6662,58 @@ void Node::Validator::SetTimer(uint32_t timeout_ms)
 	//PBFT_LOG(DEBUG, "timer set " << timeout_ms);
 }
 
-void Node::Validator::FinalyzeAssessment()
+void Node::Validator::get_AssessmentMsg(Merkle::Hash& hv, const proto::PbftPeerAssessment& msg)
+{
+	ECC::Hash::Processor hp;
+	hp
+		<< "dredd.1"
+		<< msg.m_From
+		<< msg.m_Height
+		<< msg.m_Reputation.size();
+
+	for (const auto& x : msg.m_Reputation)
+	{
+		hp
+			<< x.first
+			<< x.second;
+	}
+
+	hp >> hv;
+}
+
+bool Node::Validator::IsAssessmentRelevant(const proto::PbftPeerAssessment& msg) const
+{
+	Height hMy = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height;
+	Height val = hMy - msg.m_Height + 5;
+	return val <= 10;
+}
+
+void Node::Validator::OnMsg(proto::PbftPeerAssessment&& msg, const Peer& src)
+{
+	Merkle::Hash hv;
+	get_AssessmentMsg(hv, msg);
+
+	if (!IsAssessmentRelevant(msg))
+		return; // not interested
+
+	auto& p = get_ParentObj().m_Processor; // alias
+	auto* pV = p.m_PbftState.Find(msg.m_From, false);
+	if (!pV)
+		return; // not a validator
+
+	auto& vp = Cast::Up<ValidatorWithAssessment>(*pV);
+	if (vp.m_Assessment.m_Last.m_Height >= msg.m_Height)
+		return;
+
+	if (!msg.m_From.CheckSignature(hv, msg.m_Signature))
+		src.ThrowUnexpected();
+
+	// ok
+	vp.m_Assessment.m_Last = std::move(msg);
+	Broadcast(vp.m_Assessment.m_Last, &src);
+}
+
+void Node::Validator::FinalyzeRoundAssessment()
 {
 	auto& rd = m_Current; // round data to finalyze
 	if (!rd.m_pLeader)
@@ -6600,7 +6728,10 @@ void Node::Validator::FinalyzeAssessment()
 		if (!vp.m_Weight)
 			continue;
 
-		vp.m_Assessment.m_Score -= (vp.m_Assessment.m_Score + 15) / 16; // auto-regression
+		if (&vp == m_pMe)
+			continue; // don't assess self
+
+		Assessment::Settings::Regress(vp.m_Assessment.m_Score);
 
 		if (rd.m_pLeader == &vp)
 		{
@@ -6619,7 +6750,7 @@ void Node::Validator::FinalyzeAssessment()
 				if (bHadToPropose)
 				{
 					// not good
-					vp.m_Assessment.m_Score += 2048;
+					vp.m_Assessment.m_Score += Assessment::Settings::NotProposed;
 					PBFT_LOG(DEBUG, "\t\tnot proposed");
 				}
 			}
@@ -6631,7 +6762,7 @@ void Node::Validator::FinalyzeAssessment()
 				// did it vote?
 				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Addr.m_Key)))
 				{
-					vp.m_Assessment.m_Score += 256; // didn't vote not-committed
+					vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // didn't vote not-committed
 					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
 				}
 				else
@@ -6641,14 +6772,14 @@ void Node::Validator::FinalyzeAssessment()
 						// did it pre-vote?
 						if (rd.m_spPreVoted.m_Sigs.end() == rd.m_spPreVoted.m_Sigs.find(vp.m_Addr.m_Key))
 						{
-							vp.m_Assessment.m_Score += 128; // not pre-voted
+							vp.m_Assessment.m_Score += Assessment::Settings::NotVotedPre; // not pre-voted
 							PBFT_LOG(DEBUG, "\t\tnot voted pre");
 						}
 						else
 						{
 							if (rd.m_spPreVoted.m_Power.IsMajorityReached(m_wTotal))
 							{
-								vp.m_Assessment.m_Score += 96; // should have committed
+								vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // should have committed
 								PBFT_LOG(DEBUG, "\t\tnot committed");
 							}
 						}
