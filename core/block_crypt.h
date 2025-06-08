@@ -1751,6 +1751,12 @@ namespace beam
 
 				virtual ~Validator() {}
 
+				struct Flags
+				{
+					static const uint8_t White = 1;
+					static const uint8_t Jailed = 2;
+				};
+
 				struct Addr
 					:public intrusive::set_base_hook<Address>
 				{
@@ -1760,14 +1766,15 @@ namespace beam
 				} m_Addr;
 
 				uint64_t m_Weight;
-				bool m_White; // not serialized!
+				uint8_t m_Flags;
 
 				template <typename Archive>
 				void serialize(Archive& ar)
 				{
 					ar
 						& m_Addr.m_Key
-						& m_Weight;
+						& m_Weight
+						& m_Flags;
 				}
 
 				static std::unique_ptr<Validator> Create();

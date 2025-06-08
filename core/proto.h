@@ -317,6 +317,12 @@ namespace proto {
 #define BeamNodeMsg_PbftStamp(macro) \
     macro(ByteBuffer, vSer)
 
+#define BeamNodeMsg_PbftPeerAssessment(macro) \
+    macro(Block::Pbft::Address, From) \
+    macro(Height, Height) \
+    macro(ECC::Signature, Signature) \
+    macro(PbftReputationMap, Reputation)
+
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
     macro(0x01, Bye) \
@@ -405,7 +411,9 @@ namespace proto {
     macro(0x55, PbftProposal) \
     macro(0x52, PbftVote) \
     macro(0x53, PbftStamp) \
+    macro(0x54, PbftPeerAssessment) \
 
+    typedef std::map<Block::Pbft::Address, uint8_t>  PbftReputationMap;
 
     struct LoginFlags {
         static const uint32_t SpreadingTransactions  = 0x1; // I'm spreading txs, please send
@@ -602,6 +610,7 @@ namespace proto {
     inline void ZeroInit(Asset::Info& x) { x.Reset(); }
     inline void ZeroInit(Asset::Full& x) { x.Reset(); }
     inline void ZeroInit(HeightPos& x) { ZeroObject(x); }
+    inline void ZeroInit(PbftReputationMap&) { }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

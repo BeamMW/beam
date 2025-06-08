@@ -183,8 +183,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 			Deserializer der;
 			der.reset(buf);
 			der & Cast::Down<Block::Pbft::State>(m_PbftState);
-
-			m_PbftState.ResolveWhitelisted(r);
 		}
 		else
 			m_PbftState.SetInitial();
