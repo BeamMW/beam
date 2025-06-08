@@ -577,6 +577,16 @@ void NodeProcessor::PbftState::Hash::Update()
 	}
 }
 
+std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::PbftState::CreateValidator()
+{
+	return get_ParentObj().CreateValidator();
+}
+
+std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::CreateValidator()
+{
+	return Block::Pbft::Validator::Create();
+}
+
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
 	TipCongestion* pRet = nullptr;
