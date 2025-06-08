@@ -398,6 +398,9 @@ public:
 			IMPLEMENT_GET_PARENT_OBJ(PbftState, m_Hash)
 		} m_Hash;
 
+		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
+
+		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_PbftState)
 	} m_PbftState;
 
 	struct SyncData
@@ -602,6 +605,7 @@ public:
 	virtual void OnFastSyncSucceeded() {}
 	virtual uint32_t get_MaxAutoRollback();
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
+	virtual std::unique_ptr<Block::Pbft::Validator> CreateValidator();
 
 	struct MyExecutor
 		:public Executor

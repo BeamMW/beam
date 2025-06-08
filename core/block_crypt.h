@@ -1747,7 +1747,9 @@ namespace beam
 			struct Validator
 				:public boost::intrusive::list_base_hook<>
 			{
-				typedef intrusive::list<Validator> List;
+				typedef boost::intrusive::list<Validator> List;
+
+				virtual ~Validator() {}
 
 				struct Addr
 					:public intrusive::set_base_hook<Address>
@@ -1768,6 +1770,7 @@ namespace beam
 						& m_Weight;
 				}
 
+				static std::unique_ptr<Validator> Create();
 			};
 
 			struct Quorum
@@ -1814,6 +1817,7 @@ namespace beam
 			private:
 				// uniform random within [0, nBound)
 				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
+				virtual std::unique_ptr<Validator> CreateValidator();
 			};
 		};
 

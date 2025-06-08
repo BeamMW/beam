@@ -2881,7 +2881,8 @@ namespace beam
 	void Block::Pbft::State::Delete(Validator& v)
 	{
 		m_mapVs.erase(Validator::Addr::Map::s_iterator_to(v.m_Addr));
-		m_lstVs.Delete(v);
+		m_lstVs.erase(Validator::List::s_iterator_to(v));
+		delete &v;
 	}
 
 	Block::Pbft::Validator* Block::Pbft::State::Find(const Address& addr, bool bCreate)
@@ -2893,13 +2894,26 @@ namespace beam
 		if (!bCreate)
 			return nullptr;
 
-		Validator* pV = m_lstVs.Create_back();
+		auto sp = CreateValidator();
+		Validator* pV = sp.release();
+		m_lstVs.push_back(*pV);
+
 		pV->m_Addr.m_Key = addr;
 		m_mapVs.insert(pV->m_Addr);
 
 		pV->m_Weight = 0;
 		pV->m_White = false;
 		return pV;
+	}
+
+	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::Validator::Create()
+	{
+		return std::make_unique<Validator>();
+	}
+
+	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::State::CreateValidator()
+	{
+		return Validator::Create();
 	}
 
 	uint64_t Block::Pbft::State::get_Random(ECC::Oracle& oracle, uint64_t nBound)
