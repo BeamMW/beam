@@ -816,6 +816,7 @@ private:
 
 		struct Assessment
 		{
+			uint32_t m_Score = 0;
 			Merkle::Hash m_hvCommitted;
 		};
 
@@ -922,6 +923,8 @@ private:
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
 		void SetNotCommittedHash(RoundData&, uint64_t iRound);
+
+		void FinalyzeAssessment();
 
 		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
 

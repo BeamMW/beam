@@ -6206,7 +6206,16 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 		src.ThrowUnexpected("invalid validator sig");
 
 	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_Assessment.m_hvCommitted != sp.m_hv))
+	{
+		if (vp.m_Assessment.m_hvCommitted != Zero)
+		{
+			PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << "double commit");
+			vp.m_Assessment.m_Score += 8192; // for now. Must be slashed actually
+		}
+
 		vp.m_Assessment.m_hvCommitted = sp.m_hv;
+	}
+
 	// ok
 	sp.Add(vp, msg.m_Signature);
 	PBFT_LOG(DEBUG, "vote accepted");
@@ -6574,6 +6583,81 @@ void Node::Validator::SetTimer(uint32_t timeout_ms)
 	m_bTimerPending = true;
 
 	//PBFT_LOG(DEBUG, "timer set " << timeout_ms);
+}
+
+void Node::Validator::FinalyzeAssessment()
+{
+	auto& rd = m_Current; // round data to finalyze
+	if (!rd.m_pLeader)
+		return;
+
+	bool bWasRound0 = !m_iRound;
+
+	auto& p = get_ParentObj().m_Processor;
+	for (auto& x : p.m_PbftState.m_lstVs)
+	{
+		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
+		if (!vp.m_Weight)
+			continue;
+
+		vp.m_Assessment.m_Score -= (vp.m_Assessment.m_Score + 15) / 16; // auto-regression
+
+		if (rd.m_pLeader == &vp)
+		{
+			// did the leader propose?
+			if (Proposal::State::None == rd.m_Proposal.m_State)
+			{
+				bool bHadToPropose = bWasRound0;
+				if (!bHadToPropose)
+				{
+					Power pwr = rd.m_spNotCommitted.m_Power;
+					pwr.m_wVoted += rd.m_spCommitted.m_Power.m_wVoted;
+					pwr.m_nWhite += rd.m_spCommitted.m_Power.m_nWhite;
+					bHadToPropose = pwr.IsMajorityReached(m_wTotal);
+				}
+
+				if (bHadToPropose)
+				{
+					// not good
+					vp.m_Assessment.m_Score += 2048;
+					PBFT_LOG(DEBUG, "\t\tnot proposed");
+				}
+			}
+		}
+		else
+		{
+			if (vp.m_Assessment.m_hvCommitted == Zero)
+			{
+				// did it vote?
+				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Addr.m_Key)))
+				{
+					vp.m_Assessment.m_Score += 256; // didn't vote not-committed
+					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
+				}
+				else
+				{
+					if (Proposal::State::Accepted == rd.m_Proposal.m_State)
+					{
+						// did it pre-vote?
+						if (rd.m_spPreVoted.m_Sigs.end() == rd.m_spPreVoted.m_Sigs.find(vp.m_Addr.m_Key))
+						{
+							vp.m_Assessment.m_Score += 128; // not pre-voted
+							PBFT_LOG(DEBUG, "\t\tnot voted pre");
+						}
+						else
+						{
+							if (rd.m_spPreVoted.m_Power.IsMajorityReached(m_wTotal))
+							{
+								vp.m_Assessment.m_Score += 96; // should have committed
+								PBFT_LOG(DEBUG, "\t\tnot committed");
+							}
+						}
+					}
+				}
+			}
+		}
+		PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << " score=" << vp.m_Assessment.m_Score);
+	}
 }
 
 } // namespace beam
