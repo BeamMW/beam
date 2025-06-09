@@ -585,6 +585,11 @@ std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::CreateValidator()
 	return Block::Pbft::Validator::Create();
 }
 
+bool NodeProcessor::ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&)
+{
+	return false;
+}
+
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
 	TipCongestion* pRet = nullptr;
@@ -3055,6 +3060,8 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	const auto& r = Rules::get();
 
+	Block::Pbft::Metadata pbftMd;
+
 	try {
 		Deserializer der;
 		der.reset(bufs.m_Perishable);
@@ -3081,7 +3088,25 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			if (nBytes0 < nSizeMetadata)
 				Exc::Fail();
 
-			// TODO: deserialize the metadata, check d.m_hvMetadata
+			ECC::Hash::Value hvMd;
+			if (nSizeMetadata)
+			{
+				der & pbftMd;
+
+				if (bFirstTime)
+				{
+					auto* pMd = &bufs.m_Eternal.at(0) + bufs.m_Eternal.size() - nBytes0;
+
+					ECC::Hash::Processor hp;
+					hp.Write(pMd, nSizeMetadata);
+					hp >> hvMd;
+				}
+			}
+			else
+				hvMd = Zero;
+
+			if (bFirstTime && (d.m_hvMetadata != hvMd))
+				Exc::Fail("md");
 
 			if (nBytes0 - der.bytes_left() != nSizeMetadata)
 				Exc::Fail(); // wrong metadata size
@@ -3267,20 +3292,37 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			}
 		}
 
+		bool bExecPbft = false;
+
 		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
+			bExecPbft = true;
+
 			// exec metadata, modify the validator set
-			m_PbftState.m_Hash.Update();
-			if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+			if (!HandleBlockData(pbftMd, bic))
 			{
-				BEAM_LOG_WARNING() << id << " pbft vs mismatch";
+				BEAM_LOG_WARNING() << id << " pbft md mismatch";
 				bOk = false;
+			}
+
+			if (bOk)
+			{
+				m_PbftState.m_Hash.Update();
+				if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+				{
+					BEAM_LOG_WARNING() << id << " pbft vs mismatch";
+					bOk = false;
+				}
 			}
 		}
 
 		if (!bOk || bTestOnly)
 		{
 			bic.m_Fwd = false;
+
+			if (bExecPbft)
+				UndoBlockData(bic);
+
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
 		}
 	}
@@ -4902,6 +4944,65 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 	return true;
 }
 
+bool NodeProcessor::HandleBlockData(const Block::Pbft::Metadata& md, BlockInterpretCtx& bic)
+{
+	{
+		BlockInterpretCtx::Ser ser(bic);
+		uint8_t op = 0;
+		ser & op;
+	}
+
+	for (const auto& x : md.m_vec)
+	{
+		auto* pV = m_PbftState.Find(x.m_Address, false);
+		if (!pV)
+			return false;
+
+		if (!bic.m_AlreadyValidated)
+		{
+			if (bic.m_Temporary && ApproveValidatorAction(*pV, x))
+				return false;
+
+			if (pV->m_Flags == x.m_Cmd)
+				return false; // redundant
+		}
+
+		BlockInterpretCtx::Ser ser(bic);
+		uint8_t op = 1;
+		ser
+			& op
+			& x;
+
+		pV->m_Flags = x.m_Cmd;
+	}
+
+	return true;
+}
+
+void NodeProcessor::UndoBlockData(BlockInterpretCtx& bic)
+{
+	while (true)
+	{
+		BlockInterpretCtx::Der der(bic);
+
+		uint8_t op;
+		der & op;
+		if (!op)
+			break;
+
+		if (1 != op)
+			OnCorrupted();
+
+		Block::Pbft::Metadata::Entry x;
+		der & x;
+
+		auto* pV = m_PbftState.Find(x.m_Address, false);
+		if (!pV)
+			OnCorrupted();
+
+		pV->m_Flags = x.m_Cmd;
+	}
+}
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 {
@@ -6633,7 +6734,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 		Deserializer der;
 		der.reset(bbE);
-		der& Cast::Down<TxVectors::Eternal>(txve);
+		der & Cast::Down<TxVectors::Eternal>(txve);
 
 		Height h = Num2Height(sid);
 
@@ -6642,6 +6743,10 @@ void NodeProcessor::RollbackTo(Block::Number num)
 		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
+
+		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+			UndoBlockData(bic);
+
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 
 		bic.m_Rollback.swap(bbR);
@@ -8383,6 +8488,7 @@ void NodeProcessor::RebuildNonStd()
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;
+		std::vector<Block::Pbft::Metadata::Entry> m_vMd;
 
 		virtual bool ProcessBlock(const NodeDB::StateID& sid, const std::vector<TxKernel::Ptr>& v) override
 		{
@@ -8396,17 +8502,64 @@ void NodeProcessor::RebuildNonStd()
 			bic.m_Rollback.swap(m_Rollback); // optimization
 			bic.m_DontUpdatePbft = true;
 
-			Process(v);
+			bool bSaveRollback = (sid.m_Number.v > m_This.m_Extra.m_Fossil.v);
+			bool bSaveRollbackPbft = bSaveRollback && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
 
-			bic.m_Rollback.swap(m_Rollback);
-			
-			if (sid.m_Number.v > m_This.m_Extra.m_Fossil.v)
+			if (bSaveRollbackPbft)
 			{
-				assert(sid.m_Row); // can't be treasury height, since it's above the fossil height
-				// replace rollback data
-				m_This.m_DB.set_StateRB(sid.m_Row, m_Rollback);
+				// Save the pbft metadata undo data (we're not re-creating it)
+				m_This.get_DB().GetStateBlock(sid.m_Row, nullptr, nullptr, &bic.m_Rollback);
+
+				m_vMd.clear();
+				while (true)
+				{
+					BlockInterpretCtx::Der der(bic);
+
+					uint8_t op;
+					der & op;
+					if (!op)
+						break;
+
+					if (1 != op)
+						OnCorrupted();
+
+					auto& x = m_vMd.emplace_back();
+					der & x;
+				}
+
+				bic.m_Rollback.clear();
+
 			}
 
+			Process(v);
+		
+			if (bSaveRollback)
+			{
+				assert(sid.m_Row); // can't be treasury height, since it's above the fossil height
+
+				if (bSaveRollbackPbft)
+				{
+					{
+						BlockInterpretCtx::Ser ser(bic);
+						uint8_t op = 0;
+						ser & op;
+					}
+
+					for (const auto& x : m_vMd)
+					{
+						BlockInterpretCtx::Ser ser(bic);
+						uint8_t op = 1;
+						ser
+							& op
+							& x;
+					}
+				}
+
+				// replace rollback data
+				m_This.m_DB.set_StateRB(sid.m_Row, bic.m_Rollback);
+			}
+
+			bic.m_Rollback.swap(m_Rollback);
 			m_Rollback.clear();
 
 			cf.Do(m_This, m_Height);
