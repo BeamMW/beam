@@ -1736,6 +1736,8 @@ namespace beam
 				struct Flags {
 					static const uint8_t Empty = 1; // empty block, hence not final, likely to be reorged
 				};
+
+				static void get_MdHash(ECC::Hash::Value&, const Blob& md);
 			};
 #pragma pack (pop)
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");

@@ -261,6 +261,7 @@ private:
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
 		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
+		bool ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&) override;
 
 		void Stop();
 
@@ -804,6 +805,7 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
+		bool ApproveAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&);
 
 		uint64_t get_RefTime_ms() const;
 
