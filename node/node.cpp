@@ -4601,6 +4601,11 @@ void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
+bool Node::Processor::ApproveValidatorAction(Block::Pbft::Validator& v, const Block::Pbft::Metadata::Entry& e)
+{
+	return get_ParentObj().m_Validator.ApproveAction(v, e);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -5972,6 +5977,32 @@ void Node::Validator::OnNewStateInternal()
 	Sign(msg.m_Signature, hv);
 
 	Broadcast(msg, nullptr);
+}
+
+bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const Block::Pbft::Metadata::Entry& e)
+{
+	typedef ValidatorWithAssessment::Flags F;
+
+	if (e.m_Cmd & ~F::Jailed)
+		return false; // we only support jail/unjail command so far.
+
+	if (!(v.m_Flags ^ e.m_Cmd))
+		return false; // no change in the only supported flag
+
+	if (!m_pMe)
+		return true; // don't care, consider actions are ok
+
+	// Check if this is consistent with my assessment
+	auto& msg = m_pMe->m_Assessment.m_Last;
+	auto it = msg.m_Reputation.find(v.m_Addr.m_Key);
+	if (msg.m_Reputation.end() == it)
+		return false;
+
+	auto fMy = it->second;
+	if (fMy != e.m_Cmd)
+		return false;
+
+	return true; // my assessment is consistent with this
 }
 
 void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)

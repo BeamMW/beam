@@ -691,6 +691,7 @@ public:
 		};
 
 		Mode m_Mode = Mode::SinglePass;
+		Blob m_Metadata;
 
 		BlockContext(TxPool::Fluff& txp, Key::Index, Key::IKdf& coin, Key::IPKdf& tag);
 	};

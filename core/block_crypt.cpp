@@ -3081,6 +3081,19 @@ namespace beam
 		addr.FromSk(sk);
 	}
 
+	void Block::Pbft::HdrData::get_MdHash(ECC::Hash::Value& hv, const Blob& md)
+	{
+		if (md.n)
+		{
+			ECC::Hash::Processor()
+				<< "pbft.1.md"
+				<< md
+				>> hv;
+		}
+		else
+			hv = Zero;
+	}
+
 	/////////////
 	// Block
 

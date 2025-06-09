@@ -3088,25 +3088,19 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			if (nBytes0 < nSizeMetadata)
 				Exc::Fail();
 
-			ECC::Hash::Value hvMd;
-			if (nSizeMetadata)
+			if (bFirstTime)
 			{
-				der & pbftMd;
+				auto* pMd = &bufs.m_Eternal.at(0) + bufs.m_Eternal.size() - nBytes0;
 
-				if (bFirstTime)
-				{
-					auto* pMd = &bufs.m_Eternal.at(0) + bufs.m_Eternal.size() - nBytes0;
+				ECC::Hash::Value hvMd;
+				d.get_MdHash(hvMd, Blob(pMd, nSizeMetadata));
 
-					ECC::Hash::Processor hp;
-					hp.Write(pMd, nSizeMetadata);
-					hp >> hvMd;
-				}
+				if (d.m_hvMetadata != hvMd)
+					Exc::Fail("md");
 			}
-			else
-				hvMd = Zero;
 
-			if (bFirstTime && (d.m_hvMetadata != hvMd))
-				Exc::Fail("md");
+			if (nSizeMetadata)
+				der & pbftMd;
 
 			if (nBytes0 - der.bytes_left() != nSizeMetadata)
 				Exc::Fail(); // wrong metadata size
@@ -4960,11 +4954,11 @@ bool NodeProcessor::HandleBlockData(const Block::Pbft::Metadata& md, BlockInterp
 
 		if (!bic.m_AlreadyValidated)
 		{
-			if (bic.m_Temporary && ApproveValidatorAction(*pV, x))
-				return false;
-
 			if (pV->m_Flags == x.m_Cmd)
 				return false; // redundant
+
+			if (bic.m_Temporary && ApproveValidatorAction(*pV, x))
+				return false;
 		}
 
 		BlockInterpretCtx::Ser ser(bic);
@@ -7629,6 +7623,7 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();
+	ZeroObject(m_Metadata);
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -7709,8 +7704,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
-		d.m_hvMetadata = Zero;
-		d.m_nSizeMetadata = Zero;
+		d.m_nSizeMetadata = uintBigFrom(bc.m_Metadata.n);
+
+		d.get_MdHash(d.m_hvMetadata, bc.m_Metadata);
 
 		m_PbftState.m_Hash.Update();
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
