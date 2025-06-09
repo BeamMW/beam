@@ -1826,6 +1826,26 @@ namespace beam
 				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
 				virtual std::unique_ptr<Validator> CreateValidator();
 			};
+
+			struct Metadata
+			{
+				struct Entry {
+					Address m_Address;
+					uint8_t m_Cmd;
+
+					template <typename Archive> void serialize(Archive& ar) {
+						ar
+							& m_Address;
+							& m_Cmd;
+					}
+				};
+
+				std::vector<Entry> m_vec;
+
+				template <typename Archive> void serialize(Archive& ar) {
+					ar & m_vec;
+				}
+			};
 		};
 
 

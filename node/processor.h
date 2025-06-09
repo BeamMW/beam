@@ -174,6 +174,8 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	void UndoInput(const Input&, const InputAux&);
+	bool HandleBlockData(const Block::Pbft::Metadata&, BlockInterpretCtx&);
+	void UndoBlockData(BlockInterpretCtx&);
 
 	struct DependentContextSwitch;
 
@@ -606,6 +608,7 @@ public:
 	virtual uint32_t get_MaxAutoRollback();
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 	virtual std::unique_ptr<Block::Pbft::Validator> CreateValidator();
+	virtual bool ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&);
 
 	struct MyExecutor
 		:public Executor
