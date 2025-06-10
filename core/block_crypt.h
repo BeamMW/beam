@@ -1813,7 +1813,7 @@ namespace beam
 
 				uint64_t get_Weight() const;
 
-				Validator* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound, uint64_t& wTotal);
+				Validator* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound);
 
 				void get_Hash(Merkle::Hash&) const;
 

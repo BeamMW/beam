@@ -2946,10 +2946,16 @@ namespace beam
 		return wTotal;
 	}
 
-	Block::Pbft::Validator* Block::Pbft::State::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound, uint64_t& wTotal)
+	Block::Pbft::Validator* Block::Pbft::State::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound)
 	{
-		wTotal = get_Weight();
-		if (!wTotal)
+		uint64_t wUnjailed = 0;
+		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
+		{
+			if (!(Validator::Flags::Jailed & it->m_Flags))
+				wUnjailed += it->m_Weight;
+		}
+
+		if (!wUnjailed)
 			return nullptr;
 
 		// Select in a pseudo-random way. Probability according to the validator weight
@@ -2959,8 +2965,8 @@ namespace beam
 			<< hvInp
 			<< iRound;
 
-		uint64_t w = get_Random(oracle, wTotal);
-		assert(w < wTotal);
+		uint64_t w = get_Random(oracle, wUnjailed);
+		assert(w < wUnjailed);
 
 		for (auto it = m_lstVs.begin(); ; it++)
 		{

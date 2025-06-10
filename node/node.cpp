@@ -5860,7 +5860,7 @@ void Node::Validator::OnNewRound()
 	auto& p = get_ParentObj().m_Processor; // alias
 	if (m_hAnchor.v != p.m_Cursor.m_Full.m_Number.v)
 	{
-		auto iSlotLast = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());;
+		auto iSlotLast = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
 		if (iSlotLast >= iSlotNow)
 			return; // wait for the next slot
 
@@ -5893,7 +5893,7 @@ void Node::Validator::OnNewRound()
 	m_Next.Reset();
 
 	if (!m_Current.m_pLeader)
-		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound), m_wTotal);
+		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
 
 	if (m_iRound && (State::None == m_State))
 	{
@@ -5926,6 +5926,8 @@ void Node::Validator::OnNewStateInternal()
 	m_FutureCandidate.Reset();
 
 	m_State = State::None;
+
+	m_wTotal = p.m_PbftState.get_Weight();
 
 	for (auto& v : p.m_PbftState.m_lstVs)
 	{
@@ -6072,8 +6074,6 @@ void Node::Validator::SignProposal()
 	Merkle::Hash hv;
 	m_Current.get_LeaderMsg(hv);
 	Sign(m_Current.m_Proposal.m_Msg.m_Signature, hv);
-
-	//PBFT_LOG(DEBUG, "signed proposal " << m_Current.m_spCommitted.m_hv << ", msg " << hv);
 }
 
 bool Node::Validator::ShouldAcceptProposal() const
@@ -6364,7 +6364,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	if (!pRd->m_pLeader)
 	{
-		pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, msg.m_iRound, m_wTotal);
+		pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, msg.m_iRound);
 		if (!pRd->m_pLeader)
 			return;
 	}
@@ -6658,7 +6658,6 @@ uint64_t Node::Validator::get_RefTime_ms() const
 
 void Node::Validator::OnTimer()
 {
-	//PBFT_LOG(DEBUG, "on_timer");
 	m_bTimerPending = false;
 	OnNewRound();
 }
@@ -6669,8 +6668,6 @@ void Node::Validator::KillTimer()
 	{
 		m_bTimerPending = false;
 		m_pTimer->cancel();
-
-		//PBFT_LOG(DEBUG, "timer kill");
 	}
 }
 
@@ -6689,8 +6686,6 @@ void Node::Validator::SetTimer(uint32_t timeout_ms)
 
 	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
 	m_bTimerPending = true;
-
-	//PBFT_LOG(DEBUG, "timer set " << timeout_ms);
 }
 
 void Node::Validator::get_AssessmentMsg(Merkle::Hash& hv, const proto::PbftPeerAssessment& msg)
