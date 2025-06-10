@@ -7315,7 +7315,9 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 	if (!HandleValidatedTx(bc.m_Block, bic)) // pre-added elements
 	{
-		bc.m_Block = Block::Body();
+		bc.m_Block.m_vInputs.clear();
+		bc.m_Block.m_vOutputs.clear();
+		bc.m_Block.m_vKernels.clear();
 		return 0;
 	}
 
