@@ -5194,7 +5194,7 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		if (bic.m_Fwd)
 			bic.m_nKrnIdx++;
 
-		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && !bic.m_SkipDefinition && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
+		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
 		if (bHandleFee)
 		{
 			if (bic.m_Fwd)
