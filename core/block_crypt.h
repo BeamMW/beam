@@ -1744,18 +1744,14 @@ namespace beam
 			struct HdrData {
 				ECC::Hash::Value m_hvVsPrev;
 				ECC::Hash::Value m_hvVsNext;
-				ECC::Hash::Value m_hvMetadata;
-				uintBig_t<3> m_nSizeMetadata;
-				uint8_t m_Flags1;
 				uintBigFor<uint16_t>::Type m_Time_ms;
-				uint8_t m_pPad0[10];
+				uint8_t m_Flags1;
+				uint8_t m_pPad0[45];
 				Difficulty m_Difficulty;
 
 				struct Flags {
 					static const uint8_t Empty = 1; // empty block, hence not final, likely to be reorged
 				};
-
-				static void get_MdHash(ECC::Hash::Value&, const Blob& md);
 			};
 #pragma pack (pop)
 			static_assert(sizeof(HdrData) == sizeof(PoW), "");
@@ -1845,26 +1841,6 @@ namespace beam
 				// uniform random within [0, nBound)
 				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
 				virtual std::unique_ptr<Validator> CreateValidator();
-			};
-
-			struct Metadata
-			{
-				struct Entry {
-					Address m_Address;
-					uint8_t m_Flags1;
-
-					template <typename Archive> void serialize(Archive& ar) {
-						ar
-							& m_Address
-							& m_Flags1;
-					}
-				};
-
-				std::vector<Entry> m_vec;
-
-				template <typename Archive> void serialize(Archive& ar) {
-					ar & m_vec;
-				}
 			};
 		};
 

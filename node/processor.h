@@ -174,8 +174,6 @@ class NodeProcessor
 	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
 	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
 	void UndoInput(const Input&, const InputAux&);
-	bool HandleBlockData(const Block::Pbft::Metadata&, BlockInterpretCtx&);
-	void UndoBlockData(BlockInterpretCtx&);
 
 	struct DependentContextSwitch;
 
@@ -608,7 +606,7 @@ public:
 	virtual uint32_t get_MaxAutoRollback();
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 	virtual std::unique_ptr<Block::Pbft::Validator> CreateValidator();
-	virtual bool ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&);
+	virtual bool ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&);
 
 	struct MyExecutor
 		:public Executor
@@ -691,7 +689,6 @@ public:
 		};
 
 		Mode m_Mode = Mode::SinglePass;
-		Blob m_Metadata;
 
 		BlockContext(TxPool::Fluff& txp, Key::Index, Key::IKdf& coin, Key::IPKdf& tag);
 	};
@@ -982,7 +979,7 @@ public:
 	bool FindExternalAssetEmit(const PeerID&, bool bEmit, ForeignDetailsPacked&);
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&, uint32_t nSizeReserve);
+	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 };

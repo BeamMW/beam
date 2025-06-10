@@ -585,7 +585,7 @@ std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::CreateValidator()
 	return Block::Pbft::Validator::Create();
 }
 
-bool NodeProcessor::ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&)
+bool NodeProcessor::ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&)
 {
 	return false;
 }
@@ -2598,7 +2598,6 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_AlreadyValidated = false; // Block/tx already validated, i.e. this is not the 1st invocation (reorgs, block generation multi-pass, etc.)
 	bool m_Temporary = false; // Interpretation will be followed by 'undo', try to avoid heavy state changes (use mem vars whenever applicable)
 	bool m_SkipDefinition = false; // no need to calculate the full definition (i.e. not generating/interpreting a block), MMR updates and etc. can be omitted
-	bool m_DontUpdatePbft = true;
 	bool m_LimitExceeded = false;
 	bool m_TxValidation = false; // tx or block
 	bool m_DependentCtxSet = false;
@@ -3060,8 +3059,6 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	const auto& r = Rules::get();
 
-	Block::Pbft::Metadata pbftMd;
-
 	try {
 		Deserializer der;
 		der.reset(bufs.m_Perishable);
@@ -3080,30 +3077,6 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			m_PbftState.m_Hash.Update();
 			if (d.m_hvVsPrev != m_PbftState.m_Hash.m_hv)
 				Exc::Fail();
-
-			uint32_t nSizeMetadata;
-			d.m_nSizeMetadata.Export(nSizeMetadata);
-
-			auto nBytes0 = der.bytes_left();
-			if (nBytes0 < nSizeMetadata)
-				Exc::Fail();
-
-			if (bFirstTime)
-			{
-				auto* pMd = &bufs.m_Eternal.at(0) + bufs.m_Eternal.size() - nBytes0;
-
-				ECC::Hash::Value hvMd;
-				d.get_MdHash(hvMd, Blob(pMd, nSizeMetadata));
-
-				if (d.m_hvMetadata != hvMd)
-					Exc::Fail("md");
-			}
-
-			if (nSizeMetadata)
-				der & pbftMd;
-
-			if (nBytes0 - der.bytes_left() != nSizeMetadata)
-				Exc::Fail(); // wrong metadata size
 
 			if (bFirstTime)
 			{
@@ -3146,7 +3119,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 					Exc::Fail("trailing junk");
 
 				uint8_t nFlags = 0;
-				if (block.IsEmpty() && !nSizeMetadata && m_Cursor.m_Full.m_Number.v)
+				if (block.IsEmpty() && m_Cursor.m_Full.m_Number.v)
 					nFlags = Block::Pbft::HdrData::Flags::Empty;
 
 				if (d.m_Flags1 != nFlags)
@@ -3286,37 +3259,19 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			}
 		}
 
-		bool bExecPbft = false;
-
 		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
-			bExecPbft = true;
-
-			// exec metadata, modify the validator set
-			if (!HandleBlockData(pbftMd, bic))
+			m_PbftState.m_Hash.Update();
+			if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 			{
-				BEAM_LOG_WARNING() << id << " pbft md mismatch";
+				BEAM_LOG_WARNING() << id << " pbft vs mismatch";
 				bOk = false;
-			}
-
-			if (bOk)
-			{
-				m_PbftState.m_Hash.Update();
-				if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
-				{
-					BEAM_LOG_WARNING() << id << " pbft vs mismatch";
-					bOk = false;
-				}
 			}
 		}
 
 		if (!bOk || bTestOnly)
 		{
 			bic.m_Fwd = false;
-
-			if (bExecPbft)
-				UndoBlockData(bic);
-
 			BEAM_VERIFY(HandleValidatedBlock(block, bic));
 		}
 	}
@@ -4783,6 +4738,36 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 
 bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpretCtx& bic)
 {
+	auto* pV = m_PbftState.Find(krn.m_Address, false);
+	if (!pV)
+		return false;
+
+	if (bic.m_Fwd)
+	{
+		if (!bic.m_AlreadyValidated)
+		{
+			if (krn.m_Height.m_Min != bic.m_Height)
+				return false;
+
+			if (pV->m_Flags == krn.m_Flags)
+				return false; // redundant
+
+			if (bic.m_Temporary && !ApproveValidatorAction(*pV, krn))
+				return false;
+		}
+
+		BlockInterpretCtx::Ser ser(bic);
+		ser & pV->m_Flags;
+
+		pV->m_Flags = krn.m_Flags;
+	}
+	else
+	{
+		BlockInterpretCtx::Der der(bic);
+		der & pV->m_Flags;
+	}
+
+	m_PbftState.m_Hash.m_Valid = false;
 	return true;
 }
 
@@ -4945,71 +4930,6 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 	}
 
 	return true;
-}
-
-bool NodeProcessor::HandleBlockData(const Block::Pbft::Metadata& md, BlockInterpretCtx& bic)
-{
-	{
-		BlockInterpretCtx::Ser ser(bic);
-		uint8_t op = 0;
-		ser & op;
-	}
-
-	for (const auto& x : md.m_vec)
-	{
-		auto* pV = m_PbftState.Find(x.m_Address, false);
-		if (!pV)
-			return false;
-
-		if (!bic.m_AlreadyValidated)
-		{
-			if (pV->m_Flags == x.m_Flags1)
-				return false; // redundant
-
-			if (bic.m_Temporary && !ApproveValidatorAction(*pV, x))
-				return false;
-		}
-
-		BlockInterpretCtx::Ser ser(bic);
-		uint8_t op = 1;
-		ser
-			& op
-			& pV->m_Addr.m_Key
-			& pV->m_Flags;
-
-		pV->m_Flags = x.m_Flags1;
-	}
-
-	return true;
-}
-
-void NodeProcessor::UndoBlockData(BlockInterpretCtx& bic)
-{
-	while (true)
-	{
-		BlockInterpretCtx::Der der(bic);
-
-		uint8_t op;
-		der & op;
-		if (!op)
-			break;
-
-		if (1 != op)
-			OnCorrupted();
-
-		Block::Pbft::Address addr;
-		uint8_t flags;
-
-		der
-			& addr
-			& flags;
-
-		auto* pV = m_PbftState.Find(addr, false);
-		if (!pV)
-			OnCorrupted();
-
-		pV->m_Flags = flags;
-	}
 }
 
 bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
@@ -5274,7 +5194,7 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		if (bic.m_Fwd)
 			bic.m_nKrnIdx++;
 
-		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && !bic.m_SkipDefinition && !bic.m_DontUpdatePbft && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
+		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && !bic.m_SkipDefinition && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
 		if (bHandleFee)
 		{
 			if (bic.m_Fwd)
@@ -6752,9 +6672,6 @@ void NodeProcessor::RollbackTo(Block::Number num)
 		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 
-		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-			UndoBlockData(bic);
-
 		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
 
 		bic.m_Rollback.swap(bbR);
@@ -7391,16 +7308,18 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	return !m_Mapped.m_Utxo.Traverse(t);
 }
 
-size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic, uint32_t nSizeReserve)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
 {
 	Height h = m_Cursor.m_hh.m_Height + 1;
 	const auto& r = Rules::get();
+
+	if (!HandleValidatedTx(bc.m_Block, bic)) // pre-added elements
+		return 0;
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
 
 	SerializerSizeCounter ssc;
-	ssc.m_Counter.m_Value = nSizeReserve;
 	ssc & bc.m_Block;
 
 	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
@@ -7530,8 +7449,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		{
 			if (bc.m_Block.m_vInputs.empty() &&
 				(bc.m_Block.m_vOutputs.size() == 1) &&
-				(bc.m_Block.m_vKernels.size() == 1) &&
-				!nSizeReserve)
+				(bc.m_Block.m_vKernels.size() == 1))
 			{
 				// won't fit in empty block
 				BEAM_LOG_INFO() << "Tx is too big.";
@@ -7639,7 +7557,6 @@ NodeProcessor::BlockContext::BlockContext(TxPool::Fluff& txp, Key::Index nSubKey
 {
 	m_Fees = 0;
 	m_Block.ZeroInit();
-	ZeroObject(m_Metadata);
 }
 
 bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
@@ -7672,7 +7589,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 			return false;
 	}
 	else
-		nSizeEstimated = GenerateNewBlockInternal(bc, bic, bc.m_Metadata.n);
+		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
 
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
@@ -7720,9 +7637,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
-		d.m_nSizeMetadata = uintBigFrom(bc.m_Metadata.n);
-
-		d.get_MdHash(d.m_hvMetadata, bc.m_Metadata);
 
 		m_PbftState.m_Hash.Update();
 		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
@@ -7731,7 +7645,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 		if (m_Cursor.m_hh.m_Height)
 		{
-			d.m_Flags1 = (bc.m_Block.IsEmpty() && !bc.m_Metadata.n) ? Block::Pbft::HdrData::Flags::Empty : 0;
+			d.m_Flags1 = bc.m_Block.IsEmpty() ? Block::Pbft::HdrData::Flags::Empty : 0;
 			auto dh = static_cast<uint32_t>(bic.m_Height - m_Cursor.m_hh.m_Height);
 
 			auto& d0 = Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW);
@@ -7781,7 +7695,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	ser.reset();
 	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
-	ser.WriteRaw(bc.m_Metadata.p, bc.m_Metadata.n);
 	ser.swap_buf(bc.m_Body.m_Eternal);
 
 	size_t nSize = bc.m_Body.m_Perishable.size() + bc.m_Body.m_Eternal.size();
@@ -8501,7 +8414,6 @@ void NodeProcessor::RebuildNonStd()
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
 		ByteBuffer m_Rollback;
-		std::vector<Block::Pbft::Metadata::Entry> m_vMd;
 
 		virtual bool ProcessBlock(const NodeDB::StateID& sid, const std::vector<TxKernel::Ptr>& v) override
 		{
@@ -8513,60 +8425,12 @@ void NodeProcessor::RebuildNonStd()
 			bic.m_AlreadyValidated = true;
 			bic.SetAidMax(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
-			bic.m_DontUpdatePbft = true;
-
-			bool bSaveRollback = (sid.m_Number.v > m_This.m_Extra.m_Fossil.v);
-			bool bSaveRollbackPbft = bSaveRollback && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
-
-			if (bSaveRollbackPbft)
-			{
-				// Save the pbft metadata undo data (we're not re-creating it)
-				m_This.get_DB().GetStateBlock(sid.m_Row, nullptr, nullptr, &bic.m_Rollback);
-
-				m_vMd.clear();
-				while (true)
-				{
-					BlockInterpretCtx::Der der(bic);
-
-					uint8_t op;
-					der & op;
-					if (!op)
-						break;
-
-					if (1 != op)
-						OnCorrupted();
-
-					auto& x = m_vMd.emplace_back();
-					der & x;
-				}
-
-				bic.m_Rollback.clear();
-
-			}
 
 			Process(v);
 		
-			if (bSaveRollback)
+			if (sid.m_Number.v > m_This.m_Extra.m_Fossil.v)
 			{
 				assert(sid.m_Row); // can't be treasury height, since it's above the fossil height
-
-				if (bSaveRollbackPbft)
-				{
-					{
-						BlockInterpretCtx::Ser ser(bic);
-						uint8_t op = 0;
-						ser & op;
-					}
-
-					for (const auto& x : m_vMd)
-					{
-						BlockInterpretCtx::Ser ser(bic);
-						uint8_t op = 1;
-						ser
-							& op
-							& x;
-					}
-				}
 
 				// replace rollback data
 				m_This.m_DB.set_StateRB(sid.m_Row, bic.m_Rollback);
@@ -8611,7 +8475,19 @@ void NodeProcessor::RebuildNonStd()
 	wlk.m_pLa = &la;
 
 	Block::NumberRange nr;
-	nr.m_Min = FindAtivePastHeight(h0);
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		// start from the beginning, rebuild pbft data too
+
+		m_PbftState.Clear();
+		m_PbftState.m_Hash.m_Valid = false;
+
+		m_PbftState.SetInitial();
+
+	}
+	else
+		nr.m_Min = FindAtivePastHeight(h0);
+
 	nr.m_Max = m_Cursor.m_Full.m_Number;
 
 	EnumKernels(wlk, nr);
