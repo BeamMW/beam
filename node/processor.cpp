@@ -4954,10 +4954,10 @@ bool NodeProcessor::HandleBlockData(const Block::Pbft::Metadata& md, BlockInterp
 
 		if (!bic.m_AlreadyValidated)
 		{
-			if (pV->m_Flags == x.m_Cmd)
+			if (pV->m_Flags == x.m_Flags1)
 				return false; // redundant
 
-			if (bic.m_Temporary && ApproveValidatorAction(*pV, x))
+			if (bic.m_Temporary && !ApproveValidatorAction(*pV, x))
 				return false;
 		}
 
@@ -4965,9 +4965,10 @@ bool NodeProcessor::HandleBlockData(const Block::Pbft::Metadata& md, BlockInterp
 		uint8_t op = 1;
 		ser
 			& op
-			& x;
+			& pV->m_Addr.m_Key
+			& pV->m_Flags;
 
-		pV->m_Flags = x.m_Cmd;
+		pV->m_Flags = x.m_Flags1;
 	}
 
 	return true;
@@ -4987,14 +4988,18 @@ void NodeProcessor::UndoBlockData(BlockInterpretCtx& bic)
 		if (1 != op)
 			OnCorrupted();
 
-		Block::Pbft::Metadata::Entry x;
-		der & x;
+		Block::Pbft::Address addr;
+		uint8_t flags;
 
-		auto* pV = m_PbftState.Find(x.m_Address, false);
+		der
+			& addr
+			& flags;
+
+		auto* pV = m_PbftState.Find(addr, false);
 		if (!pV)
 			OnCorrupted();
 
-		pV->m_Flags = x.m_Cmd;
+		pV->m_Flags = flags;
 	}
 }
 
@@ -7377,7 +7382,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	return !m_Mapped.m_Utxo.Traverse(t);
 }
 
-size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
+size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic, uint32_t nSizeReserve)
 {
 	Height h = m_Cursor.m_hh.m_Height + 1;
 	const auto& r = Rules::get();
@@ -7386,6 +7391,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
 
 	SerializerSizeCounter ssc;
+	ssc.m_Counter.m_Value = nSizeReserve;
 	ssc & bc.m_Block;
 
 	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
@@ -7515,7 +7521,8 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		{
 			if (bc.m_Block.m_vInputs.empty() &&
 				(bc.m_Block.m_vOutputs.size() == 1) &&
-				(bc.m_Block.m_vKernels.size() == 1))
+				(bc.m_Block.m_vKernels.size() == 1) &&
+				!nSizeReserve)
 			{
 				// won't fit in empty block
 				BEAM_LOG_INFO() << "Tx is too big.";
@@ -7656,7 +7663,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 			return false;
 	}
 	else
-		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
+		nSizeEstimated = GenerateNewBlockInternal(bc, bic, bc.m_Metadata.n);
 
 	bic.m_Fwd = false;
     BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
@@ -7715,7 +7722,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 		if (m_Cursor.m_hh.m_Height)
 		{
-			d.m_Flags1 = bc.m_Block.IsEmpty() ? Block::Pbft::HdrData::Flags::Empty : 0;
+			d.m_Flags1 = (bc.m_Block.IsEmpty() && !bc.m_Metadata.n) ? Block::Pbft::HdrData::Flags::Empty : 0;
 			auto dh = static_cast<uint32_t>(bic.m_Height - m_Cursor.m_hh.m_Height);
 
 			auto& d0 = Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW);
@@ -7765,6 +7772,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	ser.reset();
 	ser & Cast::Down<TxVectors::Eternal>(bc.m_Block);
+	ser.WriteRaw(bc.m_Metadata.p, bc.m_Metadata.n);
 	ser.swap_buf(bc.m_Body.m_Eternal);
 
 	size_t nSize = bc.m_Body.m_Perishable.size() + bc.m_Body.m_Eternal.size();

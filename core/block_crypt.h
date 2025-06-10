@@ -1833,12 +1833,12 @@ namespace beam
 			{
 				struct Entry {
 					Address m_Address;
-					uint8_t m_Cmd;
+					uint8_t m_Flags1;
 
 					template <typename Archive> void serialize(Archive& ar) {
 						ar
-							& m_Address;
-							& m_Cmd;
+							& m_Address
+							& m_Flags1;
 					}
 				};
 
