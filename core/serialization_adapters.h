@@ -1751,6 +1751,37 @@ namespace detail
 				& val.m_Subsidy;
 		}
 
+		/// beam::TxKernelPbftUpdate serialization
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::TxKernelPbftUpdate& val)
+		{
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val);
+
+			ar
+				& nFlags
+				& val.m_Address
+				& val.m_Flags;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		void load0(Archive& ar, beam::TxKernelPbftUpdate& val, uint32_t nRecursion)
+		{
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Address
+				& val.m_Flags;
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+		}
+
         /// beam::Transaction serialization
         template<typename Archive>
         Archive& save(Archive& ar, const beam::TxBase& txb)

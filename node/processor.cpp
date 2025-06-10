@@ -3638,6 +3638,10 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelEvmInvoke&, uint32_t)
 {
 }
 
+void NodeProcessor::Recognizer::Recognize(const TxKernelPbftUpdate& v, uint32_t)
+{
+}
+
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
@@ -4774,6 +4778,11 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 		bic.m_ShieldedIns--;
 	}
 
+	return true;
+}
+
+bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpretCtx& bic)
+{
 	return true;
 }
 

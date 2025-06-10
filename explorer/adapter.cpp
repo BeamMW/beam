@@ -1416,6 +1416,14 @@ private:
                 {
                 }
 
+                void OnKrnEx(const TxKernelPbftUpdate& krn)
+                {
+                    Writer wr;
+                    wr.AddHex("Validator", krn.m_Address);
+                    wr.m_json["Status"] = (Block::Pbft::Validator::Flags::Jailed & krn.m_Flags) ? "Jail" : "Unjail";
+                }
+
+
             } wlk;
             wlk.m_pCri = &cri;
             wlk.m_Height = h;

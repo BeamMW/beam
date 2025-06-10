@@ -1676,6 +1676,39 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelPbftUpdate
+	void TxKernelPbftUpdate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		if (pParent || !m_vNested.empty() || m_Fee)
+			Exc::Fail();
+
+		if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
+			Exc::Fail();
+	}
+
+	void TxKernelPbftUpdate::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< "pbft.upd"
+			<< m_Address
+			<< m_Flags;
+	}
+
+	void TxKernelPbftUpdate::HashSelfForID(ECC::Hash::Processor&) const
+	{
+	}
+
+	void TxKernelPbftUpdate::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelPbftUpdate);
+		TxKernelPbftUpdate& v = Cast::Up<TxKernelPbftUpdate>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Address = m_Address;
+		v.m_Flags = m_Flags;
+	}
+
+	/////////////
 	// FeeSettings
 
 	struct FeeSettingsGlobal
