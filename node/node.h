@@ -261,7 +261,7 @@ private:
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
 		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
-		bool ApproveValidatorAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&) override;
+		bool ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&) override;
 
 		void Stop();
 
@@ -805,7 +805,7 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
-		bool ApproveAction(Block::Pbft::Validator&, const Block::Pbft::Metadata::Entry&);
+		bool ApproveAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&);
 
 		uint64_t get_RefTime_ms() const;
 
@@ -930,7 +930,7 @@ private:
 		bool ShouldAcceptProposal() const;
 		void CheckQuorum(RoundData&);
 		bool CreateProposal();
-		void CreateProposalMd(Block::Pbft::Metadata&);
+		void CreateProposalMd(NodeProcessor::BlockContext&);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;

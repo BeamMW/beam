@@ -4601,9 +4601,9 @@ void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
-bool Node::Processor::ApproveValidatorAction(Block::Pbft::Validator& v, const Block::Pbft::Metadata::Entry& e)
+bool Node::Processor::ApproveValidatorAction(Block::Pbft::Validator& v, const TxKernelPbftUpdate& krn)
 {
-	return get_ParentObj().m_Validator.ApproveAction(v, e);
+	return get_ParentObj().m_Validator.ApproveAction(v, krn);
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -5990,11 +5990,11 @@ void Node::Validator::OnNewStateInternal()
 	Broadcast(msg, nullptr);
 }
 
-bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const Block::Pbft::Metadata::Entry& e)
+bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const TxKernelPbftUpdate& krn)
 {
 	typedef ValidatorWithAssessment::Flags F;
 
-	auto diff = e.m_Flags1 ^ v.m_Flags;
+	auto diff = krn.m_Flags ^ v.m_Flags;
 	assert(diff);
 
 	if (diff & ~F::Jailed)
@@ -6010,7 +6010,7 @@ bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const Block::Pbft
 		return false;
 
 	auto fMy = it->second;
-	if ((fMy ^ e.m_Flags1) & F::Jailed)
+	if ((fMy ^ krn.m_Flags) & F::Jailed)
 		return false;
 
 	return true; // my assessment is consistent with this
@@ -6632,7 +6632,7 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 	get_ParentObj().m_Processor.TryGoUpAsync();
 }
 
-void Node::Validator::CreateProposalMd(Block::Pbft::Metadata& md)
+void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 {
 	auto& p = get_ParentObj().m_Processor; // alias
 	typedef ValidatorWithAssessment::Flags F;
@@ -6670,10 +6670,14 @@ void Node::Validator::CreateProposalMd(Block::Pbft::Metadata& md)
 
 			if (pwr.IsMajorityReached(m_wTotal))
 			{
-				auto& e = md.m_vec.emplace_back();
-				e.m_Address = x.first;
-				e.m_Flags1 = fMy;
-				e.m_Flags1 |= (~F::Jailed & pV->m_Flags); // keep other flags
+				auto pKrn = std::make_unique<TxKernelPbftUpdate>();
+
+				pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + m_iRound + 1;
+				pKrn->m_Address = x.first;
+				pKrn->m_Flags = fMy;
+				pKrn->m_Flags |= (~F::Jailed & pV->m_Flags); // keep other flags
+
+				bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 			}
 		}
 	}
@@ -6687,27 +6691,13 @@ bool Node::Validator::CreateProposal()
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
 	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
-	ByteBuffer bufMd;
-	
-	{
-		Block::Pbft::Metadata md;
-		CreateProposalMd(md);
-
-		if (!md.m_vec.empty())
-		{
-			Serializer ser;
-			ser & md;
-			ser.swap_buf(bufMd);
-		}
-	}
-
-	bc.m_Metadata = bufMd;
-
 	auto t_ms = Rules::get().m_Pbft.S2T(m_iSlot0 + m_iRound + 1);
 	bc.m_Hdr.m_TimeStamp = static_cast<Timestamp>(t_ms / 1000);
 
 	auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 	d.m_Time_ms = static_cast<uint16_t>(t_ms % 1000);
+
+	CreateProposalMd(bc);
 
 	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 
