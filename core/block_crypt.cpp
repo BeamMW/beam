@@ -3028,7 +3028,8 @@ namespace beam
 			const auto& v = *it;
 			hp
 				<< v.m_Addr.m_Key
-				<< v.m_Weight;
+				<< v.m_Weight
+				<< v.m_Flags;
 		}
 
 		hp >> hv;
