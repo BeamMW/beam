@@ -982,7 +982,7 @@ public:
 	bool FindExternalAssetEmit(const PeerID&, bool bEmit, ForeignDetailsPacked&);
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
+	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&, uint32_t nSizeReserve);
 	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 };

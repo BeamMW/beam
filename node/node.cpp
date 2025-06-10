@@ -5792,9 +5792,11 @@ struct Node::Validator::Assessment::Settings
 
 	struct Watermark
 	{
-		static const uint32_t Jail = 5000;
+		static const uint32_t Jail = 3500;
 		static const uint32_t Unjail = 150;
 	};
+
+	static const uint32_t ConsecutiveRoundsToAssess = 10;
 };
 
 Node::Validator::Validator()
@@ -5802,6 +5804,8 @@ Node::Validator::Validator()
 	m_hAnchor.v = MaxHeight;
 	m_iSlot0 = 0;
 	m_iRound = 0;
+	m_iSlotAssessment0 = 0;
+	m_iSlotAssessmentLast  = 0;
 }
 
 void Node::Validator::OnRolledBack()
@@ -5942,12 +5946,14 @@ void Node::Validator::OnNewStateInternal()
 	if (!m_pMe)
 		return;
 
-	// update our assessment
 	auto& msg = m_pMe->m_Assessment.m_Last;
-	msg.m_From = m_pMe->m_Addr.m_Key;
-	msg.m_Height = p.m_Cursor.m_hh.m_Height;
 	msg.m_Reputation.clear();
+	msg.m_Height = 0;
 
+	if (m_iSlotAssessmentLast - m_iSlotAssessment0 < Assessment::Settings::ConsecutiveRoundsToAssess)
+		return;
+
+	// update our assessment
 	for (auto& x : p.m_PbftState.m_lstVs)
 	{
 		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
@@ -5973,6 +5979,9 @@ void Node::Validator::OnNewStateInternal()
 		msg.m_Reputation[vp.m_Addr.m_Key] = flags;
 	}
 
+	msg.m_From = m_pMe->m_Addr.m_Key;
+	msg.m_Height = p.m_Cursor.m_hh.m_Height;
+
 	// sign
 	Merkle::Hash hv;
 	get_AssessmentMsg(hv, msg);
@@ -5985,11 +5994,11 @@ bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const Block::Pbft
 {
 	typedef ValidatorWithAssessment::Flags F;
 
-	if (e.m_Cmd & ~F::Jailed)
-		return false; // we only support jail/unjail command so far.
+	auto diff = e.m_Flags1 ^ v.m_Flags;
+	assert(diff);
 
-	if (!(v.m_Flags ^ e.m_Cmd))
-		return false; // no change in the only supported flag
+	if (diff & ~F::Jailed)
+		return false; // we only support jail/unjail command so far.
 
 	if (!m_pMe)
 		return true; // don't care, consider actions are ok
@@ -6001,7 +6010,7 @@ bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const Block::Pbft
 		return false;
 
 	auto fMy = it->second;
-	if (fMy != e.m_Cmd)
+	if ((fMy ^ e.m_Flags1) & F::Jailed)
 		return false;
 
 	return true; // my assessment is consistent with this
@@ -6623,6 +6632,53 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 	get_ParentObj().m_Processor.TryGoUpAsync();
 }
 
+void Node::Validator::CreateProposalMd(Block::Pbft::Metadata& md)
+{
+	auto& p = get_ParentObj().m_Processor; // alias
+	typedef ValidatorWithAssessment::Flags F;
+
+	assert(m_pMe && m_wTotal);
+	auto& my_map = m_pMe->m_Assessment.m_Last.m_Reputation;
+
+	for (const auto& x : my_map)
+	{
+		const auto* pV = p.m_PbftState.Find(x.first, false);
+		if (!pV)
+			continue;
+
+		auto fMy = x.second;
+		
+		if ((pV->m_Flags ^ fMy) & F::Jailed)
+		{
+			// check if there's a consensus here
+			Power pwr;
+
+			for (const auto& v : p.m_PbftState.m_lstVs)
+			{
+				auto& vp = Cast::Up<ValidatorWithAssessment>(v);
+				if (IsAssessmentRelevant(vp.m_Assessment.m_Last))
+				{
+					auto it = vp.m_Assessment.m_Last.m_Reputation.find(x.first);
+					if (vp.m_Assessment.m_Last.m_Reputation.end() != it)
+					{
+						auto fThis = it->second;
+						if ((pV->m_Flags ^ fThis) & F::Jailed)
+							pwr.Add(v); // supports this
+					}
+				}
+			}
+
+			if (pwr.IsMajorityReached(m_wTotal))
+			{
+				auto& e = md.m_vec.emplace_back();
+				e.m_Address = x.first;
+				e.m_Flags1 = fMy;
+				e.m_Flags1 |= (~F::Jailed & pV->m_Flags); // keep other flags
+			}
+		}
+	}
+}
+
 bool Node::Validator::CreateProposal()
 {
 	// In PBFT mode miner/owner keys are not used, since the block contains neither subsidy nor UTXO collecting fees
@@ -6630,6 +6686,22 @@ bool Node::Validator::CreateProposal()
 
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
 	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
+
+	ByteBuffer bufMd;
+	
+	{
+		Block::Pbft::Metadata md;
+		CreateProposalMd(md);
+
+		if (!md.m_vec.empty())
+		{
+			Serializer ser;
+			ser & md;
+			ser.swap_buf(bufMd);
+		}
+	}
+
+	bc.m_Metadata = bufMd;
 
 	auto t_ms = Rules::get().m_Pbft.S2T(m_iSlot0 + m_iRound + 1);
 	bc.m_Hdr.m_TimeStamp = static_cast<Timestamp>(t_ms / 1000);
@@ -6709,6 +6781,9 @@ void Node::Validator::get_AssessmentMsg(Merkle::Hash& hv, const proto::PbftPeerA
 
 bool Node::Validator::IsAssessmentRelevant(const proto::PbftPeerAssessment& msg) const
 {
+	if (!msg.m_Height)
+		return false;
+
 	Height hMy = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height;
 	Height val = hMy - msg.m_Height + 5;
 	return val <= 10;
@@ -6813,8 +6888,20 @@ void Node::Validator::FinalyzeRoundAssessment()
 				}
 			}
 		}
+
+		if (ValidatorWithAssessment::Flags::Jailed & vp.m_Flags)
+			PBFT_LOG(DEBUG, "\t\tjailed");
+
 		PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << " score=" << vp.m_Assessment.m_Score);
+
 	}
+
+	auto iSlot = m_iSlot0 + m_iRound;
+
+	if (m_iSlotAssessmentLast + 1 != iSlot)
+		m_iSlotAssessment0 = iSlot;
+	m_iSlotAssessmentLast = iSlot;
+
 }
 
 } // namespace beam

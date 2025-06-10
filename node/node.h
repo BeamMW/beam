@@ -910,6 +910,9 @@ private:
 		uint64_t m_iRound;
 		uint64_t m_wTotal;
 
+		uint64_t m_iSlotAssessment0;
+		uint64_t m_iSlotAssessmentLast;
+
 		enum struct State {
 			None,
 			Committed,
@@ -927,6 +930,7 @@ private:
 		bool ShouldAcceptProposal() const;
 		void CheckQuorum(RoundData&);
 		bool CreateProposal();
+		void CreateProposalMd(Block::Pbft::Metadata&);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
