@@ -7314,7 +7314,10 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	const auto& r = Rules::get();
 
 	if (!HandleValidatedTx(bc.m_Block, bic)) // pre-added elements
+	{
+		bc.m_Block = Block::Body();
 		return 0;
+	}
 
 	// Generate the block up to the allowed size.
 	// All block elements are serialized independently, their binary size can just be added to the size of the "empty" block.
