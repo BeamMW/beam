@@ -1421,6 +1421,7 @@ private:
                     Writer wr;
                     wr.AddHex("Validator", krn.m_Address);
                     wr.m_json["Status"] = (Block::Pbft::Validator::Flags::Jailed & krn.m_Flags) ? "Jail" : "Unjail";
+                    m_Wr.m_json["PBFT.Update"] = std::move(wr.m_json);
                 }
 
 
