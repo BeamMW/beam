@@ -2629,6 +2629,7 @@ namespace beam
 				Exc::Fail("slot duration not specified");
 
 			oracle
+				<< "pbft.1"
 				<< DA.Target_ms
 				<< x.m_vE.size();
 
@@ -2982,10 +2983,10 @@ namespace beam
 	Block::Pbft::Validator* Block::Pbft::State::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound)
 	{
 		uint64_t wUnjailed = 0;
-		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
+		for (const auto& v : m_lstVs)
 		{
-			if (!(Validator::Flags::Jailed & it->m_Flags))
-				wUnjailed += it->m_Weight;
+			if (!(Validator::Flags::Jailed & v.m_Flags))
+				wUnjailed += v.m_Weight;
 		}
 
 		if (!wUnjailed)
@@ -3005,6 +3006,8 @@ namespace beam
 		{
 			assert(m_lstVs.end() != it);
 			auto& v = *it;
+			if (Validator::Flags::Jailed & v.m_Flags)
+				continue;
 
 			if (w < v.m_Weight)
 				return &v;
