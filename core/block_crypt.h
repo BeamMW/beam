@@ -1785,10 +1785,9 @@ namespace beam
 				uint8_t m_Flags;
 
 				template <typename Archive>
-				void serialize(Archive& ar)
+				void serialize_nokey(Archive& ar)
 				{
 					ar
-						& m_Addr.m_Key
 						& m_Weight
 						& m_Flags;
 				}

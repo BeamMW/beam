@@ -1935,8 +1935,11 @@ namespace detail
 				& state.m_Totals.m_Revenue
 				& state.m_lstVs.size();
 
-			for (auto it = state.m_lstVs.begin(); state.m_lstVs.end() != it; it++)
-				ar & (*it);
+			for (const auto& v : state.m_lstVs)
+			{
+				ar & v.m_Addr.m_Key;
+				Cast::NotConst(v).serialize_nokey(ar);
+			}
 
 			return ar;
 		}
@@ -1951,11 +1954,9 @@ namespace detail
 
 			while (n--)
 			{
-				beam::Block::Pbft::Validator v;
-				ar & v;
-
-				if (v.m_Weight)
-					state.Find(v.m_Addr.m_Key, true)->m_Weight += v.m_Weight;
+				beam::Block::Pbft::Address addr;
+				ar & addr;
+				state.Find(addr, true)->serialize_nokey(ar);
 			}
 
 			return ar;
