@@ -223,26 +223,25 @@ bool AppData::FindAddr(uint32_t& ret, const char* szLine, const char* szPattern)
 	static const char sz2[] = "0x";
 	auto szPtr = strstr(szLine, sz2);
 	if (szPtr)
-	{
 		szPtr += _countof(sz2) - 1; // nanos-style
-
-		uintBigFor<uint64_t>::Type x;
-		if (x.Scan(szPtr) != x.nTxtLen)
-			return false;
-
-		x.ExportWord<1>(ret);
-	}
 	else
-	{
-		// nanosplus-style
-		uintBigFor<uint32_t>::Type x;
-		if (x.Scan(szLine) != x.nTxtLen)
-			return false;
+		szPtr = szLine;
 
-		x.Export(ret);
+	uintBigFor<uint64_t>::Type x64;
+	if (x64.Scan(szPtr) == x64.nTxtLen)
+	{
+		x64.ExportWord<1>(ret);
+		return true;
 	}
 
-	return true;
+	uintBigFor<uint32_t>::Type x;
+	if (x.Scan(szPtr) == x.nTxtLen)
+	{
+		x.Export(ret);
+		return true;
+	}
+
+	return false;
 }
 
 void AppData::ParseMap(const char* szPath)
@@ -374,8 +373,8 @@ void AppData::SetTargetNanoSPlus()
 {
 	m_HidProductID = 0x5000;
 	m_TargetID = 0x33100004;
-	m_sTargetVer = "1.3.1";
-	m_ApiLevel = 22;
+	m_sTargetVer = "1.4.0";
+	m_ApiLevel = 24;
 
 	
 	//static const char szIcon[] = "0E000E0000190000000000E00C80C20C68C6A462918A31A831A030803200380000";
