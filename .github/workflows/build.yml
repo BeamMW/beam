@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-15, ubuntu-22.04, windows-2019]
+        os: [macos-15, ubuntu-22.04, windows-2022]
 
     steps:  
       - name: Checkout 
@@ -46,7 +46,7 @@ jobs:
 
       - name: Create Build Environment [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: |
           git clone --depth=1 https://github.com/BeamMW/libs.git c:/beam-libs
           echo "OPENSSL_ROOT_DIR=c:\beam-libs\openssl" >> $GITHUB_ENV
@@ -54,7 +54,7 @@ jobs:
           echo "BOOST_ROOT=c:\boost_prebuild" >> $GITHUB_ENV
 
       - name: Download boost [ubuntu && macos]
-        if: matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-2022'
         shell: bash
         run: |
           rm -rf ${{runner.workspace}}/boost_prebuild
@@ -77,7 +77,7 @@ jobs:
 
       - name: Configure CMake [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: |
           cmake --version
           cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_CONFIGURATION_TYPES:STRING=$BUILD_CONFIG -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=On -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_BUILD_JNI=Off -DBEAM_HW_WALLET=Off .
@@ -102,7 +102,7 @@ jobs:
 
       - name: Build [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: cmake --build . --config $BUILD_CONFIG --parallel
 
       ###############################################################################
@@ -120,7 +120,7 @@ jobs:
         run: ctest --verbose
 
       - name: Test [windows]
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         continue-on-error: false
         shell: bash
         run: ctest -C $BUILD_CONFIG --verbose
@@ -168,7 +168,7 @@ jobs:
 
       - name: Collect [macos && ununtu all]
         shell: bash
-        if: matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-2022'
         run: |
           if [ ! -d "artifacts" ]; then
             mkdir artifacts
@@ -182,7 +182,7 @@ jobs:
 
       - name: Collect [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: |
           mkdir artifacts
           cp beam/${{env.BUILD_CONFIG}}/beam-node.exe artifacts/beam-node.exe
@@ -199,7 +199,7 @@ jobs:
 
       - name: Collect pdb [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: |
           mkdir pdb
           cp beam/${{env.BUILD_CONFIG}}/beam-node.pdb pdb/beam-node.pdb
@@ -210,7 +210,7 @@ jobs:
           cp bvm/ethash_service/${{env.BUILD_CONFIG}}/ethash-service.pdb pdb/ethash-service.pdb
 
       - name: Checksum [windows]
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: |
           certUtil -hashfile artifacts/beam-node.exe SHA256 > artifacts/beam-node-checksum.txt
           certUtil -hashfile artifacts/beam-wallet.exe SHA256 > artifacts/beam-wallet-checksum.txt
@@ -231,7 +231,7 @@ jobs:
         
       - name: OS name [windows]
         shell: bash
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         run: echo "PLATFORM_NAME=win" >> $GITHUB_ENV
 
       ###############################################################################
@@ -279,7 +279,7 @@ jobs:
       # Upload windows pdb
       ###############################################################################
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'windows-2019'
+        if: matrix.os == 'windows-2022'
         with:
           name: pdb-${{env.BEAM_VERSION}}
           path: pdb

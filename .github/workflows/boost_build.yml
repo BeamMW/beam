@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_windows:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - name: Create Build Environment
         shell: cmd
@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: boost_prebuild_windows-2019
+          name: boost_prebuild_windows-2022
           path: ${{runner.workspace}}\boost_prebuild
           if-no-files-found: error
 
