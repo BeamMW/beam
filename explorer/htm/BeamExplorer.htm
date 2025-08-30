@@ -211,6 +211,11 @@
     --color_table_search_background: #1d3a5a;
     --color_table_search_border_filled: #0bccf7;
     --color_table_search_background_filled: #1d3a5a;
+    --color_graph_area: #f0f0f0;
+    --color_graph_border: grey;
+    --color_graph_cursor: darkgrey;
+    --color_graph_legend_title: black;
+    --color_graph_legend_subtitle: #777;
   }
   :root.light {
     /* BEAM reference colors */
@@ -345,6 +350,11 @@
     --color_table_search_background: #afb3d8;
     --color_table_search_border_filled: #ddd;
     --color_table_search_background_filled: #b8bbd8;
+    --color_graph_area: #fafafa;
+    --color_graph_border: grey;
+    --color_graph_cursor: darkgrey;
+    --color_graph_legend_title: black;
+    --color_graph_legend_subtitle: #777;
   }
   :root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
     background: var(--color_background); /* Shouldn't be needed */
@@ -1545,6 +1555,145 @@
     border: 1px solid var(--color_table_search_border_filled); /* Active border */
   }
 
+  /* GRAPH AREA */
+  #tableOptionsContainer {
+    display: block;
+    position: relative; /* Needed to be the reference for the absolute positioning of its children (the labels) */
+    margin: 0 0 0.5rem 0;
+    padding: 1.5rem 0 0 0; /* Space for the labels on top */
+  }
+  #graphCollapsible, #optionsCollapsible {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  #graphCollapsible .collapsible-label, #optionsCollapsible .collapsible-label {
+    display: inline;
+    white-space: nowrap; /* Don't wrap labels */
+    margin: 0;
+    padding: 0;
+    height: 1.5rem;
+    min-width: 7rem;
+    position: absolute; /* Put all labels on the top left corner */
+    left: 0;
+    top: 0;
+  }
+  #graphCollapsible .collapsible-label {
+    left: 7rem; /* Put the second label to the right of the first one */
+  }
+  #optionsCollapsible[open] .collapsible-content, #graphCollapsible[open] .collapsible-content {
+    margin: 5px 0 5px 0;
+    padding: 5px;
+  }
+  #graphCollapsible[open] .collapsible-content {
+    margin: 5px 0 10px 0; /* For some reason I have to increase the margin-bottom of the second collapsible... */
+    padding: 5px 0 5px 0;
+  }
+  #graphCollapsible .collapsible-content {
+    width: 100%;
+    height: 300px;
+    display: flex; /* This will allow the graph to occupy all the available vertical space */
+    flex-direction: column;
+    resize: both; /* Make it resizable with mouse */
+    overflow: hidden; /* Avoid scrollbars appearing */
+    min-width: 400px;
+    min-height: 200px;
+  }
+  #resetColors {
+    display: block;
+    text-align: right;
+    font-size: 0.8rem;
+    margin: 0 10px 0 0;
+    color: black;
+  }
+  #graphContainer {
+    display: block;
+    flex: 1 1 auto; /* This element will extend to use all the available vertical space */
+    width: auto;
+    height: auto;
+    min-height: 0; /* We set this value to avoid the default 'auto' (where flex items cannot be smaller than their content). Otherwise the legend below the canvas can disapear when we shrink the container! */
+  }
+  #graphSVG {
+    display: block;
+    outline: none;
+    border: none;
+    width: 100%; /* Use all the available space in the container */
+    height: 100%; /* Use all the available space in the container */
+  }
+  #graphBox {
+    fill: var(--color_graph_area);
+    stroke: var(--color_graph_border);
+    stroke-width: 1px;
+  }
+  #graphCursor {
+    stroke: var(--color_graph_cursor);
+    stroke-width: 5px;
+  }
+  .graphPolyline {
+    stroke-width: 3px;
+  }
+  #graphLegend {
+    display: block;
+    flex: 0 0 auto; /* This element will keep its size (i.e. it won't grow more than it needs) */
+    width: auto;
+    height: auto;
+    margin: 5px 10px 5px 10px;
+    font-size: 1.3rem;
+    line-height: 1.8rem;
+    font-weight: bold;
+  }
+  #graphLegendTitle {
+    color: var(--color_graph_legend_title);
+  }
+  #graphLegendSubtitle {
+    color: var(--color_graph_legend_subtitle);
+    font-weight: normal;
+    font-style: italic;
+  }
+  .graphLegendItem { /* The colors of these items will be step by a javascript function */
+    display: inline-block;
+    cursor: pointer;
+    padding-right: 5px;
+    min-width: 19em; /* Some extra space is reserved to display the graph values */
+  }
+  .graphLegendValue {
+    display: inline-block;
+    font-weight: normal;
+  }
+  .graphColorPicker { /* Hide color picker... */
+    display: none;
+  }
+  .graphLegendItem::before { /* ...and use another symbol instead */
+    content: "\002B24 \00a0";
+  }
+  .graphLegendItem:hover { /* Highlight the label on hover (JS sets a class to also highlight the corresponding graph) */
+    font-weight: bolder;
+  }
+  .graphLegendItem:hover .graphLegendValue {
+    font-weight: bold;
+  }
+  #graphArea.graph-highlight .graphPolyline { /* To highlight one graph, dim all of them... */
+    stroke-width: 1px;
+  }
+  #graphArea.graph-highlight .graphPolyline.graph-highlight { /* ...and then highlight the selected one! */
+    stroke-width: 5px;
+  }
+
+  /* GRAPH CHECKBOXES ON TABLE HEADERS */
+  .th .tableGraphCheckbox { /* Checkboxes are hidden by default */
+    display: none;
+  }
+  .th.graphable .tableGraphCheckbox { /* Display checkboxes */
+    display: inline-block;
+    text-align: center;
+    width: 1.3em;
+    margin: 0 0 0 2px;
+    cursor: copy; /* Special cursor for the checkboxes */
+  }
+  .th.graphable::after { /* No extra symbol needed when checkbox is visible */
+    content: none;
+  }
+
   /* GENERAL ANIMATIONS */
     @keyframes bounce { /* Used for loading dots */
     0%,40%,100% { transform: translateY(0) }
@@ -1843,10 +1992,11 @@
     if (typeof obj === 'string') {
       // If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
-      // We also make here some changes to the default labels in table header, and also add descriptions in tooltips
-      for (let n in columnHeaders) {
-        let item = columnHeaders[n];
-        if (obj == item.original) { return "<span title='" + item.description + "'>" + item.title + "</span>" }
+      // For the table of block headers, we also replace some default labels and add the corresponding codes and descriptions
+      if (g_type == 'hdrs') {
+        for (let item of columnHeaders) {
+          if (obj == item.original) { return "<span title='" + item.description + "' data-code='" + item.code + "'>" + item.title + "</span>" }
+        }
       }
     }
 
@@ -2273,10 +2423,10 @@
     return text;
   }
 
-  function MakeCollapsibleBegin(title, variant = '', status = 'open') { // Collapsible are open by default
+  function MakeCollapsibleBegin(title, variant = '', status = 'open', extra = '') { // Collapsible are open by default
     // Create a details/summary/content combo
     return "\
-      <details class='collapsible " + variant + "' " + status + ">\n\
+      <details class='collapsible " + variant + "' " + status + " " + extra + ">\n\
         <summary class='collapsible-label " + variant + "'>" + title + "</summary>\n\
         <div class='collapsible-content " + variant + "'>\n\
     ";
@@ -2395,7 +2545,7 @@
     text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
     text += '</h2>\n';
 
-    // Display table options
+    // Display graph and table options
     text += DisplayHdrsOptions();
 
     // Main table
@@ -2410,6 +2560,24 @@
     selectColumns('current'); // Mark checkboxes as per current column selection
     reorderColumns(); // Reorder checkboxes (from localStorage, or in default order)
     defineDraggableElements(); // Make checkboxes draggable
+    
+    // Force alternate opening of table options and graph collapsibles
+    switchCollapsibles();
+
+    // Setup graph options
+    setupGraph();
+  }
+
+  function switchCollapsibles() { // This function is needed because Chrome 83 does not recognize 'name' in <details>...
+    document.querySelectorAll('[name="tableOptionsCollapsibles"]').forEach(details => {
+      details.querySelector('summary').addEventListener('click', (e) => { // Add a event listener on each <summary> element
+        details = e.target.parentElement;
+        if (!details.open) { // Opening one <details> closes all the others
+          document.querySelectorAll('[name="tableOptionsCollapsibles"]').forEach(any => { any.open = false; });
+          // Remark: The selected <detail> will then naturally be open by the browser!
+        }
+      });
+    });
   }
 
   function AboutSection() { // Display an 'ABOUT' block
@@ -2528,41 +2696,42 @@
 <!-- ************ SECTION 5 - MAIN JS CODE ************ -->
 <script> // ADDITIONAL GLOBAL VARIABLES
 
-  // Array of codes, names and descriptions for the Block Header columns
+  // Array of codes, graph colors, old/new names and descriptions for the Block Header columns
+  // (columns with 'undefined' color won't be displayable as graphs)
   const columnDefaultOrder = "NTHgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
   const columnDefaultDisplay = "THdfkioyzp";
   const columnHeaders = [
-    { code: "h", original: "Height", title: "Height", description: "Block height" }, // Remark: The code here is useless as this is always the default first column
-    { code: "H", original: "Hash", title: "Hash", description: "Block hash" },
-    { code: "N", original: "Number", title: "Number", description: "Block number (in pBFT chains)" }, // Only available for pBFT chains
-    //{ code: "t", original: "d.Time", title: "Time", description: "Block duration (in seconds)" }, // Redundant with "g"
-    { code: "T", original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
-    { code: "g", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
-    { code: "G", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
-    { code: "d", original: "Difficulty", title: "Difficulty", description: "Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)" },
-    { code: "D", original: "Chainwork", title: "Chainwork", description: "Total difficulty since genesis" },
-    { code: "f", original: "Fee", title: "Fees", description: "Block fees (in Beams)" },
-    { code: "F", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
-    { code: "k", original: "Txs", title: "Txs", description: "Number of transactions (kernels) in the block" },
-    { code: "K", original: "T.Txs", title: "Total txs", description: "Total number of transactions (kernels) since genesis" },
-    { code: "i", original: "MW.Inputs", title: "MW in", description: "Number of MimbleWimble inputs in the block" },
-    { code: "I", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of MimbleWimble inputs since genesis" },
-    { code: "o", original: "MW.Outputs", title: "MW out", description: "Number of MimbleWimble outputs in the block" },
-    { code: "O", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of MimbleWimble outputs since genesis" },
-    { code: "u", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. block outputs minus inputs)" },
-    { code: "U", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent MimbleWimble UTXOs in the blockchain" },
-    { code: "y", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
-    { code: "Y", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
-    { code: "z", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
-    { code: "Z", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)" },
-    { code: "b", original: "Contracts", title: "New contracts", description: "Number of Smart Contracts deployed in the block" },
-    { code: "B", original: "T.Contracts", title: "Total contracts", description: "Total number of Smart Contracts deployed since genesis" },
-    { code: "p", original: "ContractCalls", title: "Contract calls", description: "Number of Smart Contract calls in the block" },
-    { code: "P", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of Smart Contract calls since genesis" },
-    { code: "c", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in bytes)" },
-    { code: "C", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in bytes)" },
-    { code: "a", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent MimbleWimble UTXOs were kept" },
-    { code: "A", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent MimbleWimble UTXOs were kept" }
+    { code: "h", color: "#000000", original: "Height", title: "Height", description: "Block height" }, // Remark: The code here is useless as this is always the default first column
+    { code: "H", color: undefined, original: "Hash", title: "Hash", description: "Block hash" },
+    { code: "N", color: "#7d7d7d", original: "Number", title: "Number", description: "Block number (in pBFT chains)" }, // Only available for pBFT chains
+    //{ code: "t", color: "#bf3c3c", original: "d.Time", title: "Time", description: "Block duration (in seconds)" }, // Redundant with "g"
+    { code: "T", color: undefined, original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
+    { code: "g", color: "#bf3c3c", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
+    { code: "G", color: "#d67a7a", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
+    { code: "d", color: "#008484", original: "Difficulty", title: "Difficulty", description: "Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)" },
+    { code: "D", color: "#00bdbd", original: "Chainwork", title: "Chainwork", description: "Total difficulty since genesis" },
+    { code: "f", color: "#7b00b0", original: "Fee", title: "Fees", description: "Block fees (in Beams)" },
+    { code: "F", color: "#8660d7", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
+    { code: "k", color: "#ff0080", original: "Txs", title: "Txs", description: "Number of transactions (kernels) in the block" },
+    { code: "K", color: "#ff79bc", original: "T.Txs", title: "Total txs", description: "Total number of transactions (kernels) since genesis" },
+    { code: "i", color: "#006400", original: "MW.Inputs", title: "MW in", description: "Number of MimbleWimble inputs in the block" },
+    { code: "I", color: "#00bb00", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of MimbleWimble inputs since genesis" },
+    { code: "o", color: "#ff0006", original: "MW.Outputs", title: "MW out", description: "Number of MimbleWimble outputs in the block" },
+    { code: "O", color: "#ff5e5e", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of MimbleWimble outputs since genesis" },
+    { code: "u", color: "#808000", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. block outputs minus inputs)" },
+    { code: "U", color: "#bdb76b", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent MimbleWimble UTXOs in the blockchain" },
+    { code: "y", color: "#0000e3", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
+    { code: "Y", color: "#4f4fff", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
+    { code: "z", color: "#804040", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
+    { code: "Z", color: "#b87272", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)" },
+    { code: "b", color: "#5a3362", original: "Contracts", title: "New contracts", description: "Number of Smart Contracts deployed in the block" },
+    { code: "B", color: "#a66ab3", original: "T.Contracts", title: "Total contracts", description: "Total number of Smart Contracts deployed since genesis" },
+    { code: "p", color: "#ce00ce", original: "ContractCalls", title: "Contract calls", description: "Number of Smart Contract calls in the block" },
+    { code: "P", color: "#ff53ff", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of Smart Contract calls since genesis" },
+    { code: "c", color: "#004080", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in bytes)" },
+    { code: "C", color: "#6d92c2", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in bytes)" },
+    { code: "a", color: "#009d27", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent MimbleWimble UTXOs were kept" },
+    { code: "A", color: "#00d535", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent MimbleWimble UTXOs were kept" }
   ];
 
   // Array of objects listing the special historical blocks.
@@ -3334,11 +3503,351 @@
   }
 </script>
 
+<script> // GRAPH DISPLAY FUNCTIONS
+
+  // Global variables for the graphs
+  const g_graph = {
+    // For x and y, each key is a column code (usually one letter) and its value is the corresponding array of data.
+    x: {}, // Data for x coordinates: 'row' number, 'h' blockheight and 'svg' coordinates (identical for all graphs, and can't have empty values)
+    y: {}, // Data for y coordinates of each requested graph (e.g. { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], ...} )
+    color: {}, // One CSS color per graph (e.g. { c:'blue', k:'#FF0000', ...} )
+    width: 2040, // Arbitrary SVG width (we set it here to 2000 max points + 2*10 margins + 2*10 padding)
+    height: 600, // Arbitrary SVG height
+    margins: { top: 10, right: 10, bottom: 10, left: 10 }, // Margins around the graph area
+    padding: 10, // Padding inside the graph area
+    area: {}, // Other measures of the graph area (values will be computed later)
+    hover: true, // Indicates if the hovering effects are active (the cursor position will follow the mouse)
+    index: undefined, // Index in the x coordinates array for the cursor position
+  };
+
+  // Setup the whole graph environment
+  function setupGraph() {
+    // Add a toggle event to the collapsible containing the graph
+    document.getElementById("graphCollapsible").addEventListener("toggle", toggleGraph);
+
+    // Compute all the main measures of the graph area
+    g_graph.area.xmin = g_graph.margins.left;
+    g_graph.area.xmax = g_graph.width - g_graph.margins.right;
+    g_graph.area.ymin = g_graph.margins.top;
+    g_graph.area.ymax = g_graph.height - g_graph.margins.bottom;
+    g_graph.area.width = g_graph.area.xmax - g_graph.area.xmin;
+    g_graph.area.height = g_graph.area.ymax - g_graph.area.ymin;
+
+    // Fill the global variable with the default colors
+    for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
+    // Get locally saved colors, if any
+    try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
+      g_graph_colors = JSON.parse(localStorage.getItem('g_graph_colors'));
+    } catch (error) { // In case of any parsing error, also set the variable to 'null'
+      g_graph_colors = null;
+    }
+    // If the resulting variable doesn't exist or is not a literal object, then we set it empty
+    if (g_graph_colors === null || g_graph_colors.constructor !== Object) { g_graph_colors = {}; }
+    // Replace -in the the global variable- the default colors with the user-defined ones (if any)
+    for (let code in g_graph_colors) { g_graph.color[code] = g_graph_colors[code]; }
+
+    // A neat trick to systematically update the graphs every time the table is filtered or sorted:
+    // Wrap the original filterTable() and sortTable() functions into new versions... with added function calls!
+    const originalSortTable = sortTable; // Save the orignal function
+    sortTable = function(...args) { // Wrap the function into a new one... with the same name.
+      originalSortTable.apply(this, args); // Call the original function first.
+      updateGraphDataX(); // Then do the extra calls:
+      updateGraphDataY(); // Update all X & Y graph data,
+      drawGraph(); // and redraw all graphs.
+    };
+    const originalFilterTable = filterTable; // Save the orignal function
+    filterTable = function(...args) { // Wrap the function into a new one... with the same name.
+      originalFilterTable.apply(this, args); // Call the original function first.
+      updateGraphDataX(); // Then do the extra calls:
+      updateGraphDataY(); // Update all X & Y graph data,
+      drawGraph(); // and redraw all graphs.
+    };
+
+    // Add checkboxes for selecting columns to display as graphs
+    let headerTitles = document.querySelectorAll('#divTableBlocks .th');
+    // Loop on each header cell of the table
+    for (let n = 0; n < headerTitles.length; n++) {
+      let headerTitle = headerTitles[n];
+      let headerText = headerTitle.firstChild.textContent;
+      // All columns for which a color has been defined in the global variable 'columnHeaders' can be displayed as graphs
+      let add = true;
+      for (let item of columnHeaders) { if (item.title == headerText && item.color === undefined) { add = false; } }
+      if (add) {
+        // Add a checkbox to the right of the header title
+        let checkboxText = "<input type='checkbox' class='tableGraphCheckbox' title='Display as graph' id='checkbox_column_" + n + "' data-column='" + n + "' onclick='checkboxGraph(event);'>";
+        headerTitle.insertAdjacentHTML("beforeend", checkboxText);
+      }
+    }
+
+    // Already extract the x coordinates from the table (they will serve for all graphs)
+    updateGraphDataX();
+
+    // Set SVG parameters
+    let svg = document.getElementById("graphSVG");
+    svg.setAttribute('width', g_graph.width + 'px')
+    svg.setAttribute('height', g_graph.height + 'px')
+    svg.setAttribute('viewBox', '0 0 ' + g_graph.width + ' ' + g_graph.height);
+    // Prepare the basic SVG content
+    let text = '';
+    // Start group with origin of coordinates in the bottom-left corner (just because it's more natural for xy graphs)
+    text += `<g id='graphArea' transform='translate(0,${g_graph.height}) scale(1,-1)' >`;
+    // Draw a rectangle for the graph area (we use backticks to allow multilines)
+    text += `<rect id='graphBox' width='${g_graph.area.width}' height='${g_graph.area.height}' x='${g_graph.area.xmin}' y='${g_graph.area.ymin}' 
+             fill='none' stroke-width='1' stroke='black' />`;
+    // Draw the cursor line (starts out of view and will only appear on hover)
+    text += `<line id='graphCursor' x1='-10' y1='${g_graph.area.ymin}' x2='-10' y2='${g_graph.area.ymax}' 
+             stroke='darkgrey' stroke-width='5' />`;
+    // Close group
+    text += '</g>';
+    // Apply the content of SVG
+    document.getElementById("graphSVG").innerHTML = text;
+    // Add event listeners for the hovering effects (the cursor line will follow the mouse, showing graph values)
+    let g = document.getElementById('graphArea');
+    g.addEventListener('mousemove', graphHoverOn); // Cursor apears on hover and follows the mouse
+    g.addEventListener('mouseleave', graphHoverOff); // Cursor disapears when the mouse leaves the graph area
+    g.addEventListener('click', graphHoverToggle); // Cursor freezes and unfreezes when clicked
+  }
+
+  // Toggle class to show/hide checkboxes in table header when the graph's collapsible if opened/closed
+  function toggleGraph() {
+    for (let checkbox of document.querySelectorAll('.tableGraphCheckbox')) {
+      checkbox.parentElement.classList.toggle('graphable'); // The class is added to the <span> above, to also show/hide the '::after' symbol
+    }
+  }
+
+  // Draw/Delete graph when a checkbox is checked/unchecked
+  function checkboxGraph(event) {
+    event.stopPropagation(); // Avoid also triggering other events of the header cell (like sorting, etc)
+    // Get context information
+    let checkbox = event.target;
+    let col = checkbox.dataset.column; // Get the column number
+    let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+    let header = checkbox.closest('th').textContent; // Get header text
+
+    // Add or remove data series for the graphs
+    if (checkbox.checked == false) {
+      delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
+      document.getElementById('polyline_' + code).remove(); // Remove graph from SVG
+      document.getElementById('graphLegendItem_' + code).remove(); // Remove graph name from legend
+    } else {
+      // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
+      // Remark: Events here are included in the HTML (instead of addEventListener) to maitain them in case of manipulating the legend's 'innerHTML'
+      let color = g_graph.color[code];
+      let legend_id = 'graphLegendItem_' + code;
+      let colorpicker_id = 'graphColorPicker_' + code;
+      let hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
+      // Remark: We use backticks to allow both single and double quotes, variable substitutions and multilines
+      let legend_item = `<label class='graphLegendItem' id='${legend_id}' title='Click to change color'
+                         autocomplete='on' style='color:${color}; white-space:nowrap;'
+                         onmouseover='graphHighlightOn("${code}")' onmouseout='graphHighlightOff("${code}")'>`;
+      // Add color picker with events ('oninput' will preview any new color, 'onchange' will apply the final valid one)
+      legend_item += `<input type='color' class='graphColorPicker' id='${colorpicker_id}' name='${colorpicker_id}' value='${hex_color}' oninput='changeGraphColor("${code}")' onchange='changeGraphColor("${code}")'>`;
+      legend_item += header;
+      legend_item += " <span class='graphLegendValue' id='graphLegendValue_" + code + "'></span>";
+      legend_item += "</label>";
+      // Append the new item to the legend
+      document.getElementById('graphLegend').insertAdjacentHTML("beforeend", legend_item);
+    }
+
+    // Hide the legend title when legend items are displayed
+    document.getElementById("graphLegendTitle").style.display = (document.querySelectorAll(".graphLegendItem").length == 0) ? 'block' : 'none';
+
+    // Extract graph data for the selected column and draw the corresponding graph
+    updateGraphDataY(col);
+    drawGraph(code);
+  }
+
+  // Set classes for hovering/highlighting graphs
+  function graphHighlightOn(code) {
+    document.getElementById('graphArea').classList.add('graph-highlight');
+    document.getElementById('polyline_' + code).classList.add('graph-highlight');
+  }
+  function graphHighlightOff(code) {
+    document.getElementById('graphArea').classList.remove('graph-highlight');
+    document.getElementById('polyline_' + code).classList.remove('graph-highlight');
+  }
+
+  // Smart trick to convert any CSS color value (name, rgb, hsl...) into its HEX value
+  function convertColorToHex(CSScolor) {
+    let ctx = document.createElement('canvas').getContext('2d'); // No need to delete it, it will be garbage-collected
+    ctx.fillStyle = CSScolor;
+    return ctx.fillStyle;
+  }
+
+  // Apply a user-defined color to a graph and its legend
+  function changeGraphColor(code) {
+    let color = document.getElementById('graphColorPicker_' + code).value; // Get color from color picker
+    document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
+    document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
+    g_graph.color[code] = color; // Save color in the global variable, for future display of the same graph
+    localStorage.setItem('g_graph_colors',JSON.stringify(g_graph.color)); // Save all current colors in local storage
+  }
+
+  // Reset all graph colors to the default ones
+  function resetGraphColors() {
+    localStorage.removeItem('g_graph_colors'); // Remove locally saved colors
+    g_graph.color = {}; // Reset the global variable and fill it with the default colors
+    for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
+    // Update colors of displayed graphs and legends
+    for (let code in g_graph.y) {
+      let color = g_graph.color[code]; // Get color from updated global variable
+      document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
+      document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
+    }
+  }
+
+  // Recompute the X graph data arrays, common to all graphs (e.g. at start, or after sorting or filtering the table)
+  function updateGraphDataX() {
+    // Get a list of non-header rows
+    let table = document.querySelector('#divTableBlocks table');
+    let rows = table.tBodies[0].rows; // Remark: There is always at least one tbody, even if not explicitely defined
+    // Use the spread operator to make an array, and the filter method to keep only the visible rows
+    rows = [...rows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
+
+    // Use the map method to extract arrays with the cell values for the x coordinates
+    g_graph.x.h = rows.map(row => row.cells[0].innerText); // Array of the cells in first column (blockheight).
+    g_graph.x.row = rows.map((row, index) => rows.length - index); // Array of the row number (bottom to top)
+    // In the future, we could also add the block number () or the timestamp ()...
+
+    // Compute min and max (we use the spread operator '...' to expand the array elements)
+    let x_min = Math.min(...g_graph.x.row);
+    let x_max = Math.max(...g_graph.x.row);
+    // Map the x values into the equivalent x coordinates over the width of the SVG graph area
+    g_graph.x.svg = g_graph.x.row.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - x_min) / (x_max - x_min));
+  }
+
+  // Recompute one or all the Y graph data arrays (e.g. after checking a checkbox, or after sorting or filtering the table)
+  function updateGraphDataY(column) { // If no 'column' parameter is given, then all columns with checkboxes will be considered
+    // Get a list of non-header rows
+    let table = document.querySelector('#divTableBlocks table');
+    let rows = table.tBodies[0].rows; // Remark: There is always at least one tbody, even if not explicitely defined
+    // Use the spread operator to make an array, and the filter method to keep only the visible rows
+    rows = [...rows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
+
+    // Check if data should be updated for one or all graphs
+    let checkboxes;
+    if (column !== undefined) { // Get only the one requested checkbox
+      checkboxes = document.querySelectorAll('#checkbox_column_' + column);
+    } else { // Gat all the checkboxes
+      checkboxes = document.querySelectorAll('.tableGraphCheckbox');
+    }
+
+    // Update Y-coordinates for all selected checked checkboxes
+    for (let checkbox of checkboxes) {
+      // Update the selected data series for the graphs
+      if (checkbox.checked == true) {
+        let col = checkbox.dataset.column; // Get the column number
+        let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+        // Use the map method to extract an array with the cell values of the column
+        g_graph.y[code] = rows.map(function(row) {
+          let val = row.cells[col].innerText; // Return the content of the cell in a given column
+          val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
+          if (val == "") { val = "0" }; // Replace empty values with 0
+          return val;
+        });
+      }
+    }
+  }
+
+  // Draw one or all graphs from available data
+  function drawGraph(code) { // If no 'code' parameter is given, then redraw all the graphs
+    // Check if graph(s) should be drawn for one or all graphs
+    let codes;
+    if (code !== undefined) {
+      codes = [code];
+      // Delete that previous graph (if any)
+      for (let graph of document.querySelectorAll('#polyline_' + code)) { graph.remove(); }; // This form does not give an error if the element doesn't exist
+    } else {
+      codes = Object.keys(g_graph.y);
+      // Delete ALL previous graphs
+      for (let graph of document.querySelectorAll('.graphPolyline')) { graph.remove(); };
+      // In case the cursor is frozen (and thus potentially displaying graph values in the Legend), reset it.
+      graphHoverOff();
+    }
+
+    // Prepare HTML for the new SVG content
+    let text = '';
+    // Go through the requested graph data
+    for (let code of codes) {
+      // Verify there is enough data for the graph (i.e. more than 2 samples)
+      if (code in g_graph.y && g_graph.y[code].length > 1) {
+        let color = g_graph.color[code]; // Retrieve graph color
+        let y_min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
+        let y_max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
+        if (y_min == y_max) {y_min -= 1; y_max += 1}; // Special case if all values are identical
+        // Map the y values into the equivalent y coordinates over the height of the SVG graph area
+        let y_svg = g_graph.y[code].map(y => g_graph.padding + g_graph.area.ymin + (g_graph.area.height - 2*g_graph.padding) * (y - y_min) / (y_max - y_min));
+        // Start a polyline
+        text += "<polyline class='graphPolyline' id='polyline_" + code + "' points='";
+        // Add all the x,y points to the polyline
+        for (let i = 0; i < y_svg.length; i++) { text += " " + g_graph.x.svg[i] + "," + y_svg[i]; }
+        // Close the polyline (and add some default style)
+        text += "' stroke='" + color + "' stroke-width='1' fill='none' stroke-linecap='round' stroke-linejoin='round' />";
+        // If the cursor is active, display the corresponding graph value in legend (in US format)
+        if (g_graph.index !== undefined) {
+          document.getElementById('graphLegendValue_' + code).innerHTML = " : " + Intl.NumberFormat('en-US').format(g_graph.y[code][g_graph.index]);
+        }
+      }
+    }
+    // Add the graphs to the SVG group
+    document.getElementById('graphArea').insertAdjacentHTML("beforeend", text);
+  }
+
+  // The SVG cursor follows the mouse when hovering over the graph
+  function graphHoverOn(e) {
+    let g = e.currentTarget;
+    // Proceed only if hovering is active and graphs are displayed
+    if (g_graph.hover && document.getElementsByClassName('graphPolyline').length > 0) {
+      // Convert mouse viewport position into SVG coordinates
+      let svg = e.currentTarget.closest('svg'); // Get the whole SVG
+      let pt = svg.createSVGPoint(); // Create a SVG point
+      pt.x = e.clientX; // Give it the viewport X-position of the mouse
+      pt.y = e.clientY; // Give it the viewport Y-position of the mouse
+      // Transform these viewport coordinates into SVG coordinates (by applying the inverse transform the SVG is currently under)
+      pt = pt.matrixTransform(svg.getScreenCTM().inverse());
+      // Get the X-coordinate of the closest graph sample
+      let distances = g_graph.x.svg.map(x => Math.abs(pt.x - x)); // Compute an array of all the distances
+      let index = distances.indexOf(Math.min(...distances)); // Get the index of the corresponding sample
+      let x = g_graph.x.svg[index]; // Get the x coordinate of that sample
+      // Move the SVG cursor to that position and have it remember the corresponding index
+      let cursor = document.getElementById('graphCursor');
+      cursor.setAttribute("x1", x);
+      cursor.setAttribute("x2", x);
+      g_graph.index = index;
+      // Display all graph values in legend (in US format)
+      for (let code in g_graph.y) {
+        document.getElementById('graphLegendValue_' + code).innerHTML = " : " + Intl.NumberFormat('en-US').format(g_graph.y[code][g_graph.index]);
+      }
+    }
+  }
+  function graphHoverOff(e) { // When hovering ends, move the SVG cursor out of view
+     // Proceed only if the function is called without argument or if by an active hovering event
+    if (e === undefined || g_graph.hover) {
+      // Move the SVG cursor out of view (and have it forget its index)
+      let cursor = document.getElementById('graphCursor');
+      cursor.setAttribute("x1", -10);
+      cursor.setAttribute("x2", -10);
+      g_graph.index = undefined;
+      // Empty all graph values in legend
+      for (let value of document.querySelectorAll('.graphLegendValue')) { value.innerHTML = ""; }
+      // If function was called without argument, ensure the hovering effect is now active
+      if (e === undefined) { g_graph.hover = true; }
+    }
+  }
+  function graphHoverToggle(e) { // Start/Stop listening to hovering events (i.e. freeze/unfreeze the cursor)
+    g_graph.hover = !g_graph.hover // Elegant way to toggle a boolean! :-)
+  }
+
+</script>
+
 <script> // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
 
   function DisplayHdrsOptions() {
+
+    let text ="<div id='tableOptionsContainer'>";
+
     // Display table options
-    let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
+    text += MakeCollapsibleBegin('Options', 'tableOptions', 'close', 'id="optionsCollapsible" name="tableOptionsCollapsibles"');
     text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyHdrsSelection();'>";
     text += "<div id='selectionOptions'>";
     text += "<div id='rowSelectionOptions'>";
@@ -3435,6 +3944,18 @@
     text += "</dialog>";
 
     text += MakeCollapsibleEnd();
+
+    // Display graph area
+    text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
+    text += "<span><a href='javascript:resetGraphColors();' id='resetColors' title='Reset graph colors to default'>Reset colors</a></span>";
+    text += "<div id='graphContainer'>";
+    // Add empty SVG element (Remark: 'xmlns' is not needed in inline SVGs served as 'text/html')
+    text += "  <svg id='graphSVG' preserveAspectRatio='none'>Sorry, your browser does not support inline SVG.</svg>";
+    text += "</div>";
+    text += "<div id='graphLegend'><div id='graphLegendTitle'>Select in the table below the columns to display <span id='graphLegendSubtitle'>(the rows will be read from bottom to top)</span></div>";
+    text += MakeCollapsibleEnd();
+    
+    text += "</div>";
 
     return text;
   }
@@ -3704,7 +4225,7 @@
           // Define all cells in this first row as 'th' (remark: any attribute of those cells are lost, but we don't care)
           for (let myTd of myRow.cells) {
             let myTh = document.createElement('th');
-            myTh.innerHTML = myTd.innerHTML;
+            myTh.innerHTML = "<div>" + myTd.innerHTML + "</div>"; // This <div> is important: it will be used later on when filters are activated
             myTd.replaceWith(myTh);
             // Mark the cell as 'header'
             myTh.classList.add('headerCell');
@@ -3735,15 +4256,14 @@
 
     // Apply to each cell of the first row (whether 'th' or 'td', it doesn't matter)
     for (let myHeader of myRow.cells) {
-      // Wrap each header text into a div (will be clickable for sorting),
-      // and then add a search input field below it.
-      let myHTML = myHeader.innerHTML;
-      myHeader.innerHTML = "\
-        <div class='headerCell'>\n\
-          <div class='sortable' title='Sort column'>" + myHTML + "</div>\n\
-          <div class='searchable'><input type='text' class='search' title='Enter search term' size='5' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'></div>\n\
-        </div>\n\
-      ";
+      // Add a class to the existing div (it will be clickable for sorting),
+      myHeader.querySelector('div').classList.add('sortable');
+      myHeader.querySelector('div').title = 'Sort column';
+      // And then add another div below, with a search input.
+      let myDiv = document.createElement('div');
+      myDiv.classList.add('searchable');
+      myDiv.innerHTML = "<input type='text' class='search' title='Enter search term' size='5' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'>";
+      myHeader.appendChild(myDiv);
       // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
       myHeader.querySelector('.search').addEventListener('keyup', filterTable);
