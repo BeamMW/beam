@@ -6,7 +6,7 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
-  - Current version of the file: v0.8
+  - Current version of the file: v0.8.1 (beta)
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies!
@@ -606,7 +606,7 @@
     color: var(--color_neg);
   }
   .th {
-    /* This class is a "header" type from the node explorer data */
+    /* This class is a "header" type provided by the node explorer. The javascript will also add it on other table headers. */
   }
   .more, .more a {
     font-weight: bold;
@@ -665,7 +665,7 @@
   .mainCall, .subCall {
     text-align: center;
   }
-  .divTableStatus, .divTableBlocks {
+  .divTableStatus, #divTableBlocks {
     /* These div are just a dirty hack added to wrap and identify some special types of generic tables... */
   }
   /* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
@@ -675,7 +675,7 @@
   .tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
   .tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
   .tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
-  .divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
+  #divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
     background-color: var(--color_table_row_hover);
   }
   .emptyTable { /* Hide empty tables */
@@ -911,10 +911,10 @@
     padding: 3px 5px 3px 5px;
   }
   #Back *, #Reload *, #ExpandAll *, #ColorMode * {
-    fill: var(--color_banner_navigation_icon); /* Color all SVG elements */
+    fill: var(--color_banner_navigation_icon); /* Color SVG icons */
   }
   #Back:hover *, #Reload:hover *, #ExpandAll:hover *, #ColorMode:hover * {
-    fill: var(--color_banner_navigation_icon_hover); /* Color all SVG elements */
+    fill: var(--color_banner_navigation_icon_hover); /* Color SVG icons */
   }
   #Back:hover svg, #Reload:hover svg, #ExpandAll:hover svg, #ColorMode:hover svg {
     filter: drop-shadow(0 0 2px var(--color_banner_navigation_icon_shadow));
@@ -993,10 +993,6 @@
     display: inline-block;
     animation: bounce 1s infinite;
     animation-delay: calc(.1s * var(--t));
-  }
-  @keyframes bounce {
-    0%,40%,100% { transform: translateY(0) }
-    20% { transform: translateY(-1rem) }
   }
   .querying {
     font-weight: normal;
@@ -1083,6 +1079,9 @@
   .collapsible-content.small {
     background-color: unset; /* No specific background color for small collapsibles */
     border: none; /* No border for small collapsibles */
+  }
+  .collapsible[open] > .collapsible-content {
+    animation: smooth-opening 0.5s ease-in-out;  /* Just a small animation ;-) */
   }
 
   /* SHARED STYLES FOR TABLE OPTIONS */
@@ -1229,7 +1228,7 @@
   }
 
   /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
-  /* (the Block Headers table has hidden description and drag and drop items) */
+  /* (the Block Headers table has hidden descriptions and drag and drop items) */
   #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #pasteColumns, #reorderAllColumns {} /* Columns selection links */
   #pasteColumnsPopup { /* Dialog popup */
     border: solid 5px var(--color_popup_border);
@@ -1434,13 +1433,21 @@
     font-weight: bold;
   }
   /* Add placeholders for sorting indicators */
-  .filtersOff th::before {
+  .filtersOff .th::before {
     content: '\21c5 \00a0';
+    display: inline-block;
     visibility: hidden;
+    text-align: center;
+    width: 1.3em;
+    margin: 0;
   }
-  .filtersOff th::after { /* Hidden symbol, just to keep the text centered */
+  .filtersOff .th::after { /* Hidden symbol, just to keep the text centered */
     content: '\00a0 \21c5';
+    display: inline-block;
     visibility: hidden;
+    text-align: center;
+    width: 1.3em;
+    margin: 0;
   }
   /* Force same min column width as when filters are on */
   .filtersOff th {
@@ -1454,8 +1461,7 @@
     cursor: pointer; /* Change mouse to pointer to show it's clickable */
     background-color: var(--color_table_header_hover);
   }
-  .filtersOff th:hover::before { /* Show sorting indicator on hover */
-    content: '\21c5 \00a0';
+  .filtersOff:hover .th::before { /* Show sorting indicator on hover */
     color: var(--color_sorting_indicator);
     visibility: visible;
   }
@@ -1476,29 +1482,37 @@
     cursor: pointer; /* Change mouse pointer to show it's clickable */
   }
   /* Add sorting indicators */
-  .sortable::before {
+  .sortable .th::before {
     content: '\21c5 \00a0'; /* Symbol when not sorted */
     color: var(--color_sorting_indicator);
+    display: inline-block;
+    text-align: center;
+    width: 1.3em;
+    margin: 0;
   }
-  .sortable::after { /* Hidden symbol, just to keep the text centered */
+  .sortable .th::after { /* Hidden symbol, just to keep the text centered */
     content: '\00a0 \21c5';
+    display: inline-block;
     visibility: hidden;
+    text-align: center;
+    width: 1.3em;
+    margin: 0;
   }
-  .sortable:hover::before { /* Highlight symbol on hover */
+  .sortable:hover .th::before { /* Highlight symbol on hover */
     color: var(--color_sorting_indicator_hover);
   }
-  .sortable.asc::before {
+  .sortable.asc .th::before {
     content: '\25b2 \00a0'; /* Symbol when sorted ascending */
     color: var(--color_sorted_indicator);
   }
-  .sortable.desc::before {
+  .sortable.desc .th::before {
     content: '\25bc \00a0'; /* Symbol when sorted descending */
     color: var(--color_sorted_indicator);
   }
 
   /* SEARCH OPTIONS IN HEADERS */
   .searchable {
-    /* Nothing special */
+    margin: 3px 0 0 0;
   }
   .search {
     visibility: hidden; /* Search fields are hidden by default */
@@ -1529,6 +1543,16 @@
     max-width: 95%; /* Extend to full width */
     outline: none; /* Avoid the browser default focus outline */
     border: 1px solid var(--color_table_search_border_filled); /* Active border */
+  }
+
+  /* GENERAL ANIMATIONS */
+    @keyframes bounce { /* Used for loading dots */
+    0%,40%,100% { transform: translateY(0) }
+    20% { transform: translateY(-1rem) }
+  }
+  @keyframes smooth-opening { /* Used for certain collapsibles */
+    0% {opacity: 0}
+    100% {opacity: 1}
   }
 
 </style>
@@ -1582,7 +1606,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.1 (beta)</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1704,13 +1728,13 @@
     // Make collapsible and add some headers if more than a few rows
     let maxRows = 5;
     if (jFunds.length < maxRows) {
-      text += "<table class='tableFunds_compact'>";
+      text += "<table class='tableFunds_compact' border='1' cellspacing='0'>";
     } else {
       text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', 'close');
-      text +="<table class='tableFunds_full'>\n\
+      text +="<table class='tableFunds_full' border='1' cellspacing='0'>\n\
                 <thead><tr>\n\
-                  <th>Asset</th>\n\
-                  <th>Amount</th>\n\
+                  <th><span class='th'>Asset</span></th>\n\
+                  <th><span class='th'>Amount</span></th>\n\
                 </tr></thead>\n";
     }
 
@@ -1752,7 +1776,6 @@
   }
 
   function Obj2HtmlSpecial(obj) {
-    //console.log(JSON.stringify(obj))
 
     if (obj.type == 'cid') { return MakeCid(obj.value) }
 
@@ -1762,7 +1785,7 @@
 
     if (obj.type == 'table') {
       const jTbl = obj.value;
-      let text = "<table class='tableGeneric'>";
+      let text = "<table class='tableGeneric' border='1' cellspacing='0'>";
       text += Obj2Html_TableRows(jTbl);
       text += '</table>';
       return text;
@@ -1845,13 +1868,13 @@
   function DisplayContracts() {
     let text = "\
       <h2 class='title'>Deployed Smart Contracts</h2>\n\
-      <table class='tableContracts'>\n\
+      <table class='tableContracts' border='1' cellspacing='0'>\n\
         <thead><tr>\n\
-          <th>Cid</th>\n\
-          <th>Kind</th>\n\
-          <th>Deploy Height</th>\n\
-          <th>Locked Funds</th>\n\
-          <th>Owned Assets</th>\n\
+          <th><span class='th'>Cid</span></th>\n\
+          <th><span class='th'>Kind</span></th>\n\
+          <th><span class='th'>Deploy Height</span></th>\n\
+          <th><span class='th'>Locked Funds</span></th>\n\
+          <th><span class='th'>Owned Assets</span></th>\n\
         </tr></thead>\n\
     ";
 
@@ -1876,15 +1899,15 @@
         // Make collapsible and add some headers if more than a few rows
         let maxRows = 5;
         if (jOwned.length < maxRows) {
-          text += "<table class='tableOwned_compact'>";
+          text += "<table class='tableOwned_compact' border='1' cellspacing='0'>";
         } else {
           text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', 'close');
           text += "\
-            <table class='tableOwned_full'>\n\
+            <table class='tableOwned_full' border='1' cellspacing='0'>\n\
               <thead><tr>\n\
-                <th>Asset</th>\n\
-                <th>Description</th>\n\
-                <th>Amount</th>\n\
+                <th><span class='th'>Asset</span></th>\n\
+                <th><span class='th'>Description</span></th>\n\
+                <th><span class='th'>Amount</span></th>\n\
               </tr></thead>\n\
           ";
         }
@@ -1925,13 +1948,13 @@
 
     // Display table
     text += "\
-      <table class='tableAssetHistory'>\n\
+      <table class='tableAssetHistory' border='1' cellspacing='0'>\n\
         <thead><tr>\n\
-          <th>Height</th>\n\
-          <th>Event</th>\n\
-          <th>Amount</th>\n\
-          <th>Total Amount</th>\n\
-          <th>Extra</th>\n\
+          <th><span class='th'>Height</span></th>\n\
+          <th><span class='th'>Event</span></th>\n\
+          <th><span class='th'>Amount</span></th>\n\
+          <th><span class='th'>Total Amount</span></th>\n\
+          <th><span class='th'>Extra</span></th>\n\
         </tr></thead>\n\
     ";
 
@@ -1964,17 +1987,17 @@
 
   function MakeTableTxos(jTbl, isInp) {
     let text = "\
-      <table class='tableUTXO'>\n\
+      <table class='tableUTXO' border='1' cellspacing='0'>\n\
         <thead><tr>\n\
-          <th>Commitment</th>\n\
+          <th><span class='th'>Commitment</span></th>\n\
     ";
 
-    if (isInp) { text += '<th>Height</th>\n' }
-    else { text += '<th>Spent</th>\n' }
+    if (isInp) { text += "<th><span class='th'>Height</span></th>\n" }
+    else { text += "<th><span class='th'>Spent</span></th>\n" }
 
     text += "\
-          <th>Maturity</th>\n\
-          <th>Extra</th>\n\
+          <th><span class='th'>Maturity</span></th>\n\
+          <th><span class='th'>Extra</span></th>\n\
         </tr></thead>\n\
     ";
 
@@ -2032,14 +2055,14 @@
 
   function MakeTblAssets(j) {
     let text = "\
-    <table class='tableAssets'>\n\
+    <table class='tableAssets' border='1' cellspacing='0'>\n\
       <thead><tr>\n\
-        <th>Id</th>\n\
-        <th>Owner</th>\n\
-        <th>Deposit</th>\n\
-        <th>Supply</th>\n\
-        <th>Lock-Height</th>\n\
-        <th>Metadata</th>\n\
+        <th><span class='th'>Id</span></th>\n\
+        <th><span class='th'>Owner</span></th>\n\
+        <th><span class='th'>Deposit</span></th>\n\
+        <th><span class='th'>Supply</span></th>\n\
+        <th><span class='th'>Lock-Height</span></th>\n\
+        <th><span class='th'>Metadata</span></th>\n\
       </tr></thead>\n\
     ";
 
@@ -2107,7 +2130,7 @@
 
     if (j) {
       text += MakeCollapsibleBegin('Block Summary');
-      text += "<table class='tableSummary'>";
+      text += "<table class='tableSummary' border='1' cellspacing='0'>";
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2131,12 +2154,12 @@
     if (jTbl) {
       text += "<h3 class='sub'>Kernels (" + jTbl.length + ")</h3>\n";
       text += "\
-        <table class='tableKernels'>\n\
+        <table class='tableKernels' border='1' cellspacing='0'>\n\
           <thead><tr>\n\
-            <th>ID</th>\n\
-            <th>Fee</th>\n\
-            <th>Height</th>\n\
-            <th>Extra</th>\n\
+            <th><span class='th'>ID</span></th>\n\
+            <th><span class='th'>Fee</span></th>\n\
+            <th><span class='th'>Height</span></th>\n\
+            <th><span class='th'>Extra</span></th>\n\
           </tr></thead>\n\
       ";
 
@@ -2185,7 +2208,7 @@
     j = jData['totals'];
     if (j) {
       text += MakeCollapsibleBegin('Totals');
-      text += "<table class='tableTotals'>";
+      text += "<table class='tableTotals' border='1' cellspacing='0'>";
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2316,16 +2339,16 @@
 
     // Display table
     text += "\
-      <table class='tableCallHistory'>\n\
+      <table class='tableCallHistory' border='1' cellspacing='0'>\n\
         <thead><tr>\n\
-          <th>Height</th>\n\
-          <th>Cid</th>\n\
-          <th>Kind</th>\n\
-          <th>Method</th>\n\
-          <th>Arguments</th>\n\
-          <th>Funds</th>\n\
-          <th>Emisison</th>\n\
-          <th>Keys</th>\n\
+          <th><span class='th'>Height</span></th>\n\
+          <th><span class='th'>Cid</span></th>\n\
+          <th><span class='th'>Kind</span></th>\n\
+          <th><span class='th'>Method</span></th>\n\
+          <th><span class='th'>Arguments</span></th>\n\
+          <th><span class='th'>Funds</span></th>\n\
+          <th><span class='th'>Emisison</span></th>\n\
+          <th><span class='th'>Keys</span></th>\n\
         </tr></thead>\n\
     ";
 
@@ -2376,7 +2399,7 @@
     text += DisplayHdrsOptions();
 
     // Main table
-    text += "<div class='divTableBlocks'>";
+    text += "<div id='divTableBlocks'>";
     text += Obj2Html(jData);
     text += '</div>';
     text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
@@ -2464,16 +2487,14 @@
   function DisplayHistoricalBlocks() {
     let text = "<h2 class='title'>Special historical blocks in Beam's mainnet</h2>";
     text += "\
-      <table class='tableHistoricalBlocks'>\n\
+      <table class='tableHistoricalBlocks' border='1' cellspacing='0'>\n\
         <thead><tr>\n\
-          <th>Height</th>\n\
-          <th>Description</th>\n\
+          <th><span class='th'>Height</span></th>\n\
+          <th><span class='th'>Description</span></th>\n\
         </tr></thead>\n\
     ";
 
-    for (let n in specialBlocks) {
-      let obj = specialBlocks[n];
-
+    for (let obj of specialBlocks) {
       text += '<tr>';
 
       let blocks = '';
@@ -2491,7 +2512,7 @@
       if (obj.title) { desc += MakeCollapsibleBegin(obj.title, 'special'); }
       if (obj.description) { desc += AddClassDiv(obj.description, 'specialBlock_Description') }
       if (obj.links) {
-        for (let i in obj.links) { desc += AddClassDiv(obj.links[i][0] + '&nbsp;: ' + MakeRef(obj.links[i][1], obj.links[i][1], '_blank'), 'specialBlock_Link') }
+        for (let link of obj.links) { desc += AddClassDiv(link[0] + '&nbsp;: ' + MakeRef(link[1], link[1], '_blank'), 'specialBlock_Link') }
       }
       if (obj.title) { desc += MakeCollapsibleEnd() }
       text += MakeCell(desc);
@@ -2518,7 +2539,7 @@
     { code: "T", original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
     { code: "g", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
     { code: "G", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
-    { code: "d", original: "Difficulty", title: "Difficulty", description: "Block difficulty" },
+    { code: "d", original: "Difficulty", title: "Difficulty", description: "Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)" },
     { code: "D", original: "Chainwork", title: "Chainwork", description: "Total difficulty since genesis" },
     { code: "f", original: "Fee", title: "Fees", description: "Block fees (in Beams)" },
     { code: "F", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
@@ -2933,7 +2954,6 @@
   }
 
   function applyNodeSelection() { // Apply popup selection
-    let popup = document.getElementById('nodeSelectionPopup');
     // Update global variable with selected nodes
     for (let network in explorerNodes) {
       let nodes = explorerNodes[network];
@@ -2965,8 +2985,8 @@
     for (let str of document.querySelectorAll('.metadata')) {
       // Add a class around the asset name (the name field is detected with a regexp)
       str.innerHTML = str.innerHTML.replace(/(:|;)N=([^;]*)/,'$1N=<span class="metadataAssetName">$2</span>');
-   }
-    for (str of document.querySelectorAll('.metadataAssetName')) {
+    }
+    for (let str of document.querySelectorAll('.metadataAssetName')) {
       // Add another class to AMML asset names
       // (Here we only check the name, but it would be better to verify the owner too...)
       if (str.innerHTML.startsWith('Amm Liquidity Token')) { str.classList.add('AMML') }
@@ -3373,16 +3393,15 @@
     text += "<div id='columnOptions'>";
     // Make list of all checkboxes
     let nbr = 0;
-    for (let n in columnHeaders) {
-      let item = columnHeaders[n];
+    for (let item of columnHeaders) {
       nbr++;
       // Put each checkbox and its text into a div
       text += "<div class='columnOption' id='Option_" + item.code + "'><label title='" + item.description + "'>";
-      if (n == 0) {
+      if (item.code == "h") {
         // First column (the block height) is mandatory: the checkbox is checked and disabled
-        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='" + item.code + "' checked disabled></span>";
+        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='check_" + item.code + "' data-code='" + item.code + "' checked disabled></span>";
       } else {
-        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='" + item.code + "'></span>";
+        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='check_" + item.code + "' data-code='" + item.code + "'></span>";
       }
       text += "<span class='columnOptionText'>";
       text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
@@ -3406,10 +3425,10 @@
                </form>";
     // Display a list of all column codes
     text += "<div class='pasteColumnsList'>";
-    for (let i = 1; i < columnHeaders.length; i++) {
-        text += "<div class='pasteColumnsListItem' title='" + columnHeaders[i].description + "'>";
-        text += "<span class='pasteColumnsListCode'>" + columnHeaders[i].code + " </span>";
-        text += "<span class='pasteColumnsListTitle'>" + columnHeaders[i].title + "</span>";
+    for (let item of columnHeaders) {
+        text += "<div class='pasteColumnsListItem' title='" + item.description + "'>";
+        text += "<span class='pasteColumnsListCode'>" + item.code + " </span>";
+        text += "<span class='pasteColumnsListTitle'>" + item.title + "</span>";
         text += "</div>";
     }
     text += "</div>";
@@ -3481,7 +3500,7 @@
 
     // Check selected checkboxes
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-      item.checked = (string.includes(item.id)) ? true : false; 
+      item.checked = (string.includes(item.dataset.code)) ? true : false; 
     }
   }
 
@@ -3506,7 +3525,7 @@
       // Get current order of checkboxes (they are automatically listed in order)
       let currentSeries = '';
       for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-        currentSeries += item.id; // String of codes for the current order of all checkboxes
+        currentSeries += item.dataset.code; // String of codes for the current order of all checkboxes
       }
       // Adjust current checkboxes order to match the order of the sub-group
       // Remark: We only reorder the needed ones (if a letter is any of the requested ones, we replace it with the next requested one, in sequence).
@@ -3534,7 +3553,7 @@
     // Get codes for selected checkboxes (they will be automatically listed in their current order)
     let params = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-      if (item.checked == true) { params += item.id }; // String of codes with the selected checkboxes (in the same order)
+      if (item.checked == true) { params += item.dataset.code }; // String of codes with the selected checkboxes (in the same order)
     }
     // Set form input value to those codes
     document.getElementById('pasteColumnsInput').value = params;
@@ -3568,8 +3587,8 @@
     // Get codes for selected checkboxes (they are automatically listed in their current order)
     let params = '', series = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-      series += item.id; // String of codes with the order of all the checkboxes
-      if (item.checked == true) { params += item.id }; // String of codes with the selected checkboxes only (in the same order)
+      series += item.dataset.code; // String of codes with the order of all the checkboxes
+      if (item.checked == true) { params += item.dataset.code }; // String of codes with the selected checkboxes only (in the same order)
     }
     // Save results in localStorage
     g_cols = params;
@@ -3680,13 +3699,15 @@
             let myTHead = myTable.createTHead();
             myTHead.appendChild(myRow);
           }
-          // Mark the row as header
+          // Mark the row as 'header'
           myRow.classList.add('headerRow');
           // Define all cells in this first row as 'th' (remark: any attribute of those cells are lost, but we don't care)
           for (let myTd of myRow.cells) {
             let myTh = document.createElement('th');
             myTh.innerHTML = myTd.innerHTML;
             myTd.replaceWith(myTh);
+            // Mark the cell as 'header'
+            myTh.classList.add('headerCell');
           }
           // Add filters only to tables with more than a 5 lines
           if (myTable.rows.length > 5) {
@@ -3723,7 +3744,7 @@
           <div class='searchable'><input type='text' class='search' title='Enter search term' size='5' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'></div>\n\
         </div>\n\
       ";
-      // Add event listeners to all elements
+      // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
       myHeader.querySelector('.search').addEventListener('keyup', filterTable);
     }
@@ -3768,11 +3789,11 @@
         for (let trow of item.rows) {
           // Concatenate content of each cell
           if (val != '') { val += '\n' }
-          val += trow.cells[col].innerText;
+          val += trow.cells[col].textContent; // We use 'textContent' because 'innerText' returns and empty string for hidden rows (thus only partially sorting filtered columns)
         }
       } else {
         // Get content of the cell
-        val = item.cells[col].innerText;
+        val = item.cells[col].textContent;
       }
       // Remove comas (just for numbers to be recognized as such).
       // And add its initial index (it will allow reordering the actual table rows or tbodies).
@@ -3783,8 +3804,8 @@
     // We initialise two collators for sorting:
     // One for "alphabetical sorting" (character by character, insensitive to case and accents).
     // One for "natural sorting" (same, except numbers are treated numerically: "Asset-1" < "Asset-2" < "Asset-10").
-    let collator1 = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
-    let collator2 = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
+    const collator1 = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
+    const collator2 = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
 
     // Sort the array (in ascending order by default)
     colArray.sort(function ([a, b], [c, d]) {
@@ -3795,6 +3816,7 @@
       // Compare as other strings
       else { return collator2.compare(a, c) }
     });
+
     // Reverse the array for descending order
     if (dir == 'desc') { colArray.reverse() }
 
