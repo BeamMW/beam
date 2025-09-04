@@ -2697,7 +2697,7 @@ void ParserContext::OnMethod_DaoVote(uint32_t /* iVer */)
 	{
 		auto pArg = get_ArgsAs<DaoVote::Method::MoveFunds>();
 		if (pArg)
-			OnMethod(pArg->m_Lock ? "Funs Lock" : "Funds Unlock");
+			OnMethod(pArg->m_Lock ? "Funds Lock" : "Funds Unlock");
 	}
 	break;
 
