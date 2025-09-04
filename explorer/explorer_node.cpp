@@ -214,8 +214,7 @@ bool parse_cmdline(int argc, char* argv[], Options& o) {
     }
     catch (const po::error& ex)
     {
-        cout << ex.what();
-        cout << cliOptions << std::endl;
+        cout << ex.what() << std::endl;
     }
     catch (const exception& ex)
     {

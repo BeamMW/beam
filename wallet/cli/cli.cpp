@@ -3414,7 +3414,6 @@ int main(int argc, char* argv[])
         catch (const po::error& e)
         {
             cout << e.what() << std::endl;
-            printHelp(begin(commands), end(commands), visibleOptions);
 
             return 0;
         }
@@ -3467,7 +3466,6 @@ int main(int argc, char* argv[])
                 if (vm.count(cli::COMMAND) == 0)
                 {
                     BEAM_LOG_ERROR() << kErrorCommandNotSpecified;
-                    printHelp(begin(commands), end(commands), visibleOptions);
                     return 0;
                 }
 
@@ -3520,7 +3518,6 @@ int main(int argc, char* argv[])
         catch (const po::error& e)
         {
             BEAM_LOG_ERROR() << e.what();
-            printHelp(begin(commands), end(commands), visibleOptions);
         }
         catch (const std::runtime_error& e)
         {
