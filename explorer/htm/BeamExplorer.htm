@@ -216,7 +216,10 @@
     --color_table_search_background_filled: #1d3a5a;
     --color_graph_area: #f0f0f0;
     --color_graph_border: grey;
-    --color_graph_cursor: darkgrey;
+    --color_graph_grid: lightgrey;
+    --color_graph_cursor_line: #666666;
+    --color_graph_cursor_marker: #666666;
+    --color_graph_cursor_marker_hover: #dbdb8a;
     --color_graph_row_highlight: #dbdb8a;
     --color_graph_row_highlight_hover: #cdcd70;
     --color_graph_legend_title: #323232;
@@ -356,7 +359,10 @@
     --color_table_search_background_filled: #b8bbd8;
     --color_graph_area: #fafafa;
     --color_graph_border: grey;
-    --color_graph_cursor: darkgrey;
+    --color_graph_grid: lightgrey;
+    --color_graph_cursor_line: #666666;
+    --color_graph_cursor_marker: #666666;
+    --color_graph_cursor_marker_hover: #ffffa8;
     --color_graph_row_highlight: #ffffa8;
     --color_graph_row_highlight_hover: #fcfc86;
     --color_graph_legend_title: #323232;
@@ -1605,11 +1611,28 @@
     vertical-align: middle;
   }
   #graphContainer {
-    display: block;
+    display: flex; /* This will allow the graph to occupy all the available horizontal space (minus axis when displayed) */
+    flex-direction: row;
     flex: 1 1 auto; /* This element will extend to use all the available vertical space */
     width: auto;
     height: auto;
     min-height: 0; /* We set this value to avoid the default 'auto' (where flex items cannot be smaller than their content). Otherwise the legend below the canvas can disapear when we shrink the container! */
+  }
+  #graphSVGContainer {
+    display: inline-block;
+    flex: 1 1 auto; /* This element will extend to use all the available horizontal space */
+    width: auto; /* Will use the maximum horizontal space available */
+    height: 100%; /* Use all the available space in the container */
+  }
+  #axisSVGContainer {
+    display: inline-block;
+    flex: 0 0 auto; /* This element will use a constant horizontal space */
+    width: max-content; /* Adapt width to its content (i.e. the SVG width) */
+    height: 100%; /* Use all the available space in the container */
+    white-space: nowrap;
+  }
+  .axisContainer {
+    cursor: default;
   }
   #graphSVG {
     display: block;
@@ -1618,14 +1641,58 @@
     width: 100%; /* Use all the available space in its container */
     height: 100%; /* Use all the available space in its container */
   }
+  #plotSVG {
+    display: block;
+    outline: none;
+    border: none;
+    width: 100%; /* Use all the available space in its container */
+    height: 100%; /* Use all the available space in its container */
+  }
+  .axisSVG {
+    display: inline-block;
+    outline: none;
+    border: none;
+    /*width: max-content /* 'max-content' does not work on SVGs, so the width will be set by JS (to adapt it the SVG content) */
+    height: 100%; /* Use all the available space in its container */
+  }
+  .scaleLine .scalePrimaryTick {
+    stroke-width: 2px;
+  }
+  .scaleSecondaryTick {
+    stroke-width: 1px;
+  }
+  .scaleValue {
+    font-size: 1rem;
+  }
+  .scaleCursor { 
+    /* Nothing special */
+  }
+  .scaleCursorMarker {
+    /* Fill and stroke colors are defined by JS */
+  }
   #graphBox {
     fill: var(--color_graph_area);
     stroke: var(--color_graph_border);
     stroke-width: 1px;
   }
-  #graphCursor {
-    stroke: var(--color_graph_cursor);
-    stroke-width: 5px;
+  .graphGridLine {
+    stroke: var(--color_graph_grid);
+    stroke-width: 1px;
+  }
+  #graphCursorLine {
+    stroke: var(--color_graph_cursor_line);
+    stroke-width: 2px;
+    stroke-dasharray: 8,4;
+  }
+  #graphCursorMarker {
+    stroke: none;
+    fill: var(--color_graph_cursor_marker);
+    cursor: pointer;
+  }
+  #graphCursorMarker:hover {
+    stroke: var(--color_graph_cursor_marker);
+    fill: var(--color_graph_cursor_marker_hover);
+    filter: drop-shadow(0 0 3px var(--color_graph_cursor_marker));
   }
   .graphPolyline {
     stroke-width: 1.5px;
@@ -1652,23 +1719,53 @@
     display: inline-block;
     cursor: default;
     margin: 0 5px 0 5px;
-    min-width: 19em; /* Some extra space is reserved to display the graph values */
   }
-  .graphLegendValue {
-    display: inline-block;
-    font-weight: normal;
-  }
-  .graphColorPicker { /* Hide color picker... */
+  .graphColorPicker { /* Hide the default color picker... */
     display: none;
   }
-  .graphLegendItem::before { /* ...and use another symbol instead */
-    content: "\002B24 \00a0";
+  .graphColorPickerLabel::after { /* ...and use another symbol instead */
+    content: "\002B24";
+    font-size: 1.5rem;
+    cursor: pointer; /* Special pointer for color picker */
+    vertical-align: middle; /* To align it nicely with the legend text */
   }
-  .graphLegendItem:hover { /* Highlight the label on hover (JS sets a class to also highlight the corresponding graph) */
-    font-weight: bolder;
+  .graphColorPickerLabel:hover::after {
+    text-shadow: 0 0 0.4em;
   }
-  .graphLegendItem:hover .graphLegendValue {
+  .graphLegendText {
+    display: inline-block;
+    vertical-align: middle; /* To align it nicely with the color picker symbol */
+    min-width: 18.5em; /* Fix width with some space reserved for the graph values */
+    padding: 0 0 0 2px;
+  }
+  .graphLegendName {
     font-weight: bold;
+  }
+  .graphLegendValue {
+    font-weight: normal;
+  }
+  .graphLegendItem.graph-highlight .graphLegendName { /* Highlight legend label (JS sets the highlighting classes) */
+    font-weight: 900; /* Boldest */
+  }
+  .graphLegendItem.graph-highlight .graphLegendValue { /* Highlight legend values */
+    font-weight: bold;
+  }
+  #axisContainer {
+    fill: var(--color_graph_area);
+    stroke: var(--color_graph_border);
+    stroke-width: 1px;
+  }
+  .axisContainer.graph-highlight svg .scaleLine { /* Highlight axis line */
+	  stroke-width: 5px;
+  }
+  .axisContainer.graph-highlight svg .scalePrimaryTick { /* Highlight axis ticks */
+	  stroke-width: 3px;
+  }
+  .axisContainer.graph-highlight svg .scaleSecondaryTick { /* Highlight axis ticks */
+	  stroke-width: 2px;
+  }
+  .axisContainer.graph-highlight svg .scaleValue { /* Highlight axis values */
+	  font-weight: bold;
   }
   #graphArea.graph-highlight .graphPolyline { /* To better highlight one graph, dim all of them... */
     stroke-width: 1px;
@@ -3502,16 +3599,23 @@
 <script> // GRAPH DISPLAY FUNCTIONS
 
   // Global variables for the graphs
+  // For x and y data (as well as ticks and colors), each key is a column code (usually one letter) and its value is the corresponding array of data.
+  // Example: { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], etc.}
   const g_graph = {
-    // For x and y, each key is a column code (usually one letter) and its value is the corresponding array of data.
-    x: {}, // Data for x coordinates: 'row' number, 'h' blockheight and 'svg' coordinates (identical for all graphs, and can't have empty values)
-    y: {}, // Data for y coordinates of each requested graph (e.g. { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], ...} )
-    color: {}, // One CSS color per graph (e.g. { c:'blue', k:'#FF0000', ...} )
+    rows: [], // List of visible rows
+    x: {}, // Data for each possible x coordinates (identical for all graphs, and without empty values)
+    xsvg: {}, // Proportional x coordinates over the SVG width
+    xcode: 'row', // Current code for the X axis (might allow other options in the future: 'h' blockheight, 'N' block number and 'T' timestamp)
+    y: {}, // Data for y coordinates of each displayed graph
+    ysvg: {}, // Proportional y coordinates over the SVG height
+    ticks: {}, // Nice ticks for the vertical scale of each displayed graph
+    color: {}, // CSS color of each graph
     width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
     height: 600, // Arbitrary SVG height
-    margins: { top: 10, right: 10, bottom: 10, left: 10 }, // Margins around the graph area
+    margin: 10, // Margin around the graph area
     padding: 10, // Padding inside the graph area
     area: {}, // Other measures of the graph area (values are computed here below)
+    axis: {}, // Other measures of the axis area (values are computed here below)
     hover: true, // Indicates if the hovering effect is active (the cursor position follows the mouse)
     index: undefined, // Index in the x coordinates array for the cursor position
   };
@@ -3521,13 +3625,16 @@
     // Add a toggle event to the collapsible containing the graph
     document.getElementById("graphCollapsible").addEventListener("toggle", toggleGraph);
 
-    // Compute all the main measures of the graph area
-    g_graph.area.xmin = g_graph.margins.left;
-    g_graph.area.xmax = g_graph.width - g_graph.margins.right;
-    g_graph.area.ymin = g_graph.margins.top;
-    g_graph.area.ymax = g_graph.height - g_graph.margins.bottom;
+    // Compute all the main measures of the graph and axis areas
+    g_graph.area.xmin = g_graph.margin;
+    g_graph.area.xmax = g_graph.width - g_graph.margin;
+    g_graph.area.ymin = g_graph.margin;
+    g_graph.area.ymax = g_graph.height - g_graph.margin;
     g_graph.area.width = g_graph.area.xmax - g_graph.area.xmin;
     g_graph.area.height = g_graph.area.ymax - g_graph.area.ymin;
+    g_graph.axis.min = g_graph.area.ymin + g_graph.padding;
+    g_graph.axis.max = g_graph.area.ymax - g_graph.padding;
+    g_graph.axis.height = g_graph.axis.max - g_graph.axis.min;
 
     // Fill the global variable with the default colors
     for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
@@ -3549,14 +3656,16 @@
       originalSortTable.apply(this, args); // Call the original function first.
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
-      drawGraph(); // and redraw all graphs.
+      drawGraph(); // Redraw all graphs
+      graphUpdateCursor(); // Update or reset cursor
     };
     const originalFilterTable = filterTable; // Save the orignal function
     filterTable = function(...args) { // Wrap the function into a new one, with the same name.
       originalFilterTable.apply(this, args); // Call the original function first.
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
-      drawGraph(); // and redraw all graphs.
+      drawGraph(); // Redraw all graphs
+      graphUpdateCursor(); // Update or reset cursor
     };
 
     // Add checkboxes for selecting columns to display as graphs
@@ -3578,30 +3687,43 @@
     // Extract now the x coordinates from the table (they will serve for all graphs)
     updateGraphDataX();
 
-    // Set SVG parameters
-    let svg = document.getElementById("graphSVG");
-    svg.setAttribute('width', g_graph.width + 'px')
-    svg.setAttribute('height', g_graph.height + 'px')
-    svg.setAttribute('viewBox', '0 0 ' + g_graph.width + ' ' + g_graph.height);
-    // Prepare the basic SVG content
+    // Prepare the basic SVG content for the graph area
+    const graphSVG = document.getElementById('graphSVG');
     let text = '';
+    // We don't add a 'viewBox' to the main SVG, so that its elements can scale with the SVG (using '%') or remain fixed (using 'px' or 'rem').
+    // However, since 'polylines' don't accept '%', we embed another SVG with 'viewBox' which will scale ALL its content.
+    text = `<svg id='plotSVG' width='100%' height='100%' viewBox='0 0 ${g_graph.width} ${g_graph.height}' preserveAspectRatio='none'>`;
     // Start group with origin of coordinates in the bottom-left corner (just because it's more natural for xy graphs)
     text += `<g id='graphArea' transform='translate(0,${g_graph.height}) scale(1,-1)' >`;
-    // Draw a rectangle for the graph area (we use backticks to allow multilines)
+    // Draw a rectangle for the graph area, and some reference grid lines
     text += `<rect id='graphBox' width='${g_graph.area.width}' height='${g_graph.area.height}' x='${g_graph.area.xmin}' y='${g_graph.area.ymin}' 
-             fill='none' stroke-width='1' stroke='black' />`;
-    // Draw the cursor line (starts out of view and will only appear on hover)
-    text += `<line id='graphCursor' x1='-10' y1='${g_graph.area.ymin}' x2='-10' y2='${g_graph.area.ymax}' 
-             stroke='darkgrey' stroke-width='5' />`;
-    // Close group
-    text += '</g>';
+             fill='none' stroke-width='1' stroke='black' vector-effect='non-scaling-stroke' />`;
+    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 1 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 1 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
+    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 2 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 2 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
+    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 3 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 3 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
+    // Close group and embedded SVG
+    text += `</g></svg>`;
+    // Draw the cursor line (it starts out of view at x=-100 and will only appear on hover)
+    // It's embedded in a different SVG, so that its X position can easily be changed and its sizes can be both absolute ('px') and relative ('%')
+    // A small translation allows centering all its elements without using a 'viewBox' (which would make all shapes to scale with the SVG)
+    text += `<svg id='graphCursor' x='-100' y='0' width='20' height='100%' transform='translate(-8 0)'>
+               <line id='graphCursorLine' x1='8' y1='0' x2='8' y2='${100 - 100 * g_graph.area.xmin / g_graph.height}%' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke' />
+               <polygon id='graphCursorMarker' points='0 0, 16 0, 8 16' fill='black' vector-effect='non-scaling-stroke'>
+                 <title>Go to this row</title>
+               </polygon>
+             </svg>`;
     // Apply the content of SVG
-    document.getElementById("graphSVG").innerHTML = text;
-    // Add event listeners for the hovering effects (the cursor line will follow the mouse, showing graph values)
-    let g = document.getElementById('graphArea');
-    g.addEventListener('mousemove', graphHoverOn); // Cursor apears on hover and follows the mouse
-    g.addEventListener('mouseleave', graphHoverOff); // Cursor disapears when the mouse leaves the graph area
-    g.addEventListener('click', graphHoverToggle); // Cursor freezes and unfreezes when clicked
+    graphSVG.innerHTML = text;
+    // Add event listeners for the hovering effects (the cursor will follow the mouse, showing graph values)
+    graphSVG.addEventListener('mousemove', graphHoverOn); // Cursor apears on hover and follows the mouse
+    graphSVG.addEventListener('mouseleave', graphHoverOff); // Cursor disapears when the mouse leaves the graph area
+    graphSVG.addEventListener('click', graphHoverToggle); // Cursor freezes and unfreezes when clicked
+    // Add event to scroll down to the highlighted table row
+    graphSVG.getElementById('graphCursorMarker').addEventListener('click', function(event) {
+      event.stopPropagation(); // Stop propagation to avoid triggering the other SVG events
+      g_graph.hover = false; // Ensure the cursor now remains fixed
+      scrollTo(".rowHighlight","center"); // Scroll to the highlighted table row
+    });
   }
 
   // Toggle class to show/hide checkboxes in table header when the graph's collapsible if opened/closed
@@ -3619,11 +3741,16 @@
     let col = checkbox.dataset.column; // Get the column number
     let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
     let header = checkbox.closest('th').textContent; // Get header text
+    let description = ''; // Get description
+    for (let item of columnHeaders) { if (item.code == code) { description = item.description; } }
 
     // Add or remove data series for the graphs
     if (checkbox.checked == false) {
       delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
+      delete g_graph.ticks[code]; // Remove ticks data for the selected column
+      delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
       document.getElementById('polyline_' + code).remove(); // Remove graph from SVG
+      document.getElementById('axisContainer_' + code).remove(); // Remove graph axis
       document.getElementById('graphLegendItem_' + code).remove(); // Remove graph name from legend
     } else {
       // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
@@ -3633,14 +3760,17 @@
       const colorpicker_id = 'graphColorPicker_' + code;
       const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
       // Remark: We use backticks to allow both single and double quotes, variable substitutions and multilines
-      let legend_item = `<label class='graphLegendItem' id='${legend_id}' title='Click to change color'
-                         autocomplete='on' style='color:${color}; white-space:nowrap;'
+      let legend_item = `<span class='graphLegendItem' id='${legend_id}' style='color:${color}; white-space:nowrap;'
                          onmouseover='graphHighlightOn("${code}")' onmouseout='graphHighlightOff("${code}")'>`;
       // Add color picker with events ('oninput' will preview any new color, 'onchange' will apply the final valid one)
-      legend_item += `<input type='color' class='graphColorPicker' id='${colorpicker_id}' name='${colorpicker_id}' value='${hex_color}' oninput='changeGraphColor("${code}")' onchange='changeGraphColor("${code}")'>`;
-      legend_item += header;
-      legend_item += " <span class='graphLegendValue' id='graphLegendValue_" + code + "'></span>";
-      legend_item += "</label>";
+      legend_item += `<label class='graphColorPickerLabel' autocomplete='on' title='Click to change color'>
+                        <input type='color' class='graphColorPicker' id='${colorpicker_id}' name='${colorpicker_id}' value='${hex_color}' oninput='changeGraphColor("${code}")' onchange='changeGraphColor("${code}")'>
+                      </label>`;
+      // Add legend name (and description), with a placeholder for values
+      legend_item += `&nbsp;<span class='graphLegendText' title='${description}'>
+                        <span class='graphLegendName'>${header}<span class='graphLegendValue' id='graphLegendValue_${code}'></span></span>
+                      &nbsp;</span>`;
+      legend_item += `</span>`;
       // Append the new item to the legend area
       document.getElementById('graphLegend').insertAdjacentHTML("beforeend", legend_item);
     }
@@ -3651,16 +3781,22 @@
     // Extract graph data for the selected column and draw the corresponding graph
     updateGraphDataY(col);
     drawGraph(code);
+    // If the cursor is active, display the axis cursor and the value in legend
+    graphDisplayCursorValues(code);
   }
 
-  // Set classes for hovering/highlighting graphs
+  // Set classes for hovering effects (highlight graphs, names and scales)
   function graphHighlightOn(code) {
     document.getElementById('graphArea').classList.add('graph-highlight');
     document.getElementById('polyline_' + code).classList.add('graph-highlight');
+    document.getElementById('axisContainer_' + code).classList.add('graph-highlight');
+    document.getElementById('graphLegendItem_' + code).classList.add('graph-highlight');
   }
   function graphHighlightOff(code) {
     document.getElementById('graphArea').classList.remove('graph-highlight');
     document.getElementById('polyline_' + code).classList.remove('graph-highlight');
+    document.getElementById('axisContainer_' + code).classList.remove('graph-highlight');
+    document.getElementById('graphLegendItem_' + code).classList.remove('graph-highlight');
   }
 
   // Smart trick to convert any CSS color value (name, rgb, hsl...) into its HEX value
@@ -3670,11 +3806,10 @@
     return ctx.fillStyle;
   }
 
-  // Apply a user-defined color to a graph and its legend
+  // Apply a user-defined color to a graph
   function changeGraphColor(code) {
     let color = document.getElementById('graphColorPicker_' + code).value; // Get color from color picker
-    document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
-    document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
+    applyGraphColor(code, color); // Apply color to graph, legend and axis
     g_graph.color[code] = color; // Save color in the global variable, for future display of the same graph
     localStorage.setItem('g_graph_colors',JSON.stringify(g_graph.color)); // Save all current colors in local storage
   }
@@ -3684,42 +3819,40 @@
     localStorage.removeItem('g_graph_colors'); // Remove locally saved colors
     g_graph.color = {}; // Reset the global variable and fill it with the default colors
     for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
-    // Update colors of displayed graphs and legends
-    for (let code in g_graph.y) {
-      let color = g_graph.color[code]; // Get color from updated global variable
-      document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
-      document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
-    }
+    for (let code in g_graph.y) { applyGraphColor(code, g_graph.color[code]); } // Apply updated colors to Apply color to graphs, legends and axis
+  }
+
+  // Apply a color to a graph (including its legend and axis)
+  function applyGraphColor(code, color) {
+    document.getElementById('graphColorPicker_' + code).value = color; // Update color picker
+    document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
+    document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
+    document.querySelector('#axisSVG_' + code + ' polygon').style.fill = color; // Apply color to scale cursor
+    for (let line of document.querySelectorAll('#axisSVG_' + code + ' line')) { line.style.stroke = color; } // Apply color to axis line and ticks
+    for (let text of document.querySelectorAll('#axisSVG_' + code + ' text')) { text.style.fill = color; } // Apply color to axis values
   }
 
   // Recompute the X graph data arrays, common to all graphs (e.g. at start, or after sorting or filtering the table)
   function updateGraphDataX() {
-    // Get a list of non-header rows
-    let table = document.querySelector('#divTableBlocks table');
-    let rows = table.tBodies[0].rows; // Remark: There is always at least one tbody, even if not explicitely defined
-    // Use the spread operator to make an array, and the filter method to keep only the visible rows
-    rows = [...rows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
+    // Get a list of all non-header table rows (Remark: There is always at least one 'tbody', even if not explicitely defined)
+    const allRows = document.querySelector('#divTableBlocks table').tBodies[0].rows;
+    // Use the spread operator to make an array, and the filter method to keep (as a global variable) only the visible rows
+    g_graph.rows = [...allRows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
 
     // Use the map method to extract arrays with the cell values for the x coordinates
-    g_graph.x.h = rows.map(row => row.cells[0].innerText); // Array of the cells in first column (blockheight).
-    g_graph.x.row = rows.map((row, index) => rows.length - index); // Array of the row number (bottom to top)
-    // In the future, we could also add the block number () or the timestamp ()...
+    g_graph.x.row = g_graph.rows.map((row, index) => g_graph.rows.length - index); // Array of the row number (bottom to top)
+    // In the future, we could also add the block height (h), and -if available- the block number (N) or the timestamp (T)
+    //g_graph.x.h = g_graph.rows.map(row => g_graph.row.cells[0].innerText); // Array of the cells in first column (which is always blockheight).
 
-    // Compute min and max (we use the spread operator '...' to expand the array elements)
-    let x_min = Math.min(...g_graph.x.row);
-    let x_max = Math.max(...g_graph.x.row);
     // Map the x values into the equivalent x coordinates over the width of the SVG graph area
-    g_graph.x.svg = g_graph.x.row.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - x_min) / (x_max - x_min));
+    let [xMin, xMax] = [Math.min(...g_graph.x.row), Math.max(...g_graph.x.row)]; // We use the spread operator '...' to expand the array elements
+    g_graph.xsvg.row = g_graph.x.row.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - xMin) / (xMax - xMin));
+    //[xMin, xMax] = [Math.min(...g_graph.x.h), Math.max(...g_graph.x.h)]; // We use the spread operator '...' to expand the array elements
+    //g_graph.xsvg.h = g_graph.x.h.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - xMin) / (xMax - xMin));
   }
 
   // Recompute one or all the Y graph data arrays (e.g. after checking a checkbox, or after sorting or filtering the table)
   function updateGraphDataY(column) { // If no 'column' parameter is given, then all columns with checkboxes will be considered
-    // Get a list of non-header rows
-    let table = document.querySelector('#divTableBlocks table');
-    let rows = table.tBodies[0].rows; // Remark: There is always at least one tbody, even if not explicitely defined
-    // Use the spread operator to make an array, and the filter method to keep only the visible rows
-    rows = [...rows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
-
     // Check if data should be updated for one or all graphs
     let checkboxes;
     if (column !== undefined) { // Get only the one requested checkbox
@@ -3730,19 +3863,69 @@
 
     // Update Y-coordinates for all selected checked checkboxes
     for (let checkbox of checkboxes) {
-      // Update the selected data series for the graphs
-      if (checkbox.checked == true) {
-        let col = checkbox.dataset.column; // Get the column number
-        let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
-        // Use the map method to extract an array with the cell values of the column
-        g_graph.y[code] = rows.map(function(row) {
+      let col = checkbox.dataset.column; // Get the column number
+      let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+      // Add/update or remove data series for the graph
+      if (checkbox.checked == false) { // Remove data series (this shouldn't be needed, but we do it just in case)
+        delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
+        delete g_graph.ticks[code]; // Remove ticks data for the selected column
+        delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
+      } else { // Add/update data series
+        // Use the map method to extract from the visible rows an array with the cell values of the column
+        g_graph.y[code] = g_graph.rows.map(function(row) {
           let val = row.cells[col].innerText; // Return the content of the cell in a given column
           val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
           if (val == "") { val = "0" }; // Replace empty values with 0
           return val;
         });
+        // Compute and store nice axis ticks (including nice min and max values)
+        const min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
+        const max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
+        g_graph.ticks[code] = defineNiceTicks(min, max, 5); // Get arrays of nicely defined ticks ('primary', 'secondary', and nice 'min' and 'max')
+        // Map the y values into the equivalent SVG y coordinates within the height of min/max ticks
+        g_graph.ysvg[code] = g_graph.y[code].map(val => g_graph.padding + g_graph.area.ymin + (g_graph.area.height - 2*g_graph.padding) * (val - g_graph.ticks[code].min) / (g_graph.ticks[code].max - g_graph.ticks[code].min));
       }
     }
+  }
+
+  // Define an array of nicely defined ticks for any given array for values
+  function defineNiceTicks(min, max, targetTicks = 5) {
+    // Special cases
+    if (min == max) { [min, max] = [min - 1, max + 1]; }
+    if (min > max) { [min, max] = [max, min]; }
+    // Calculate step magnitude (power of 10)
+    const rawStep = (max - min) / targetTicks;
+    const exponent = Math.floor(Math.log10(rawStep));
+    const magnitude = Math.pow(10, exponent);
+    // Determine "nice" step fractions for primary and secondary ticks (i.e. pattern of 1, 2, 5 or 10)
+    const rawFraction = rawStep / magnitude;
+    const [primaryFraction, secondaryFraction] =
+      rawFraction <= 1 ? [1, 0.2] : // Primary steps of 1, secondary of 0.2
+      rawFraction <= 2 ? [2, 0.5] : // Primary steps of 2, secondary of 0.5
+      rawFraction <= 5 ? [5, 1] : // Primary steps of 5, secondary of 1
+      [10, 2]; // Primary steps of 10, secondary of 2
+    // Define "nice" primary and secondary steps
+    const primaryStep = primaryFraction * magnitude;
+    const secondaryStep = secondaryFraction * magnitude;
+    // Round min/max values to step increments
+    const niceMin = Math.floor(min / primaryStep) * primaryStep;
+    const niceMax = Math.ceil(max / primaryStep) * primaryStep;
+    // Generate ticks
+    const primaryTicks = [];
+    const secondaryTicks = [];
+    for (let value1 = niceMin; value1 <= niceMax; value1 += primaryStep) {
+      // Add primary ticks
+      primaryTicks.push(Number(value1.toFixed(10))); // Avoid floating point errors
+      // Add secondary ticks (until the next primary tick)
+      if (value1 < niceMax) { // Not above the max tick
+        for (let offset = 1; offset * secondaryStep < primaryStep; offset++) {
+          const value2 = value1 + offset * secondaryStep;
+          secondaryTicks.push(Number(value2.toFixed(10))); // Avoid floating point errors
+        }
+      }
+    }
+    // Return all ticks
+    return { primary: primaryTicks, secondary: secondaryTicks, min: niceMin, max: niceMax };
   }
 
   // Draw one or all graphs from available data
@@ -3753,86 +3936,166 @@
       codes = [code];
       // Delete that previous graph (using the 'for...of' format does not give an error if the element doesn't exist)
       for (let graph of document.querySelectorAll('#polyline_' + code)) { graph.remove(); };
+      for (let axis of document.querySelectorAll('#axisContainer_' + code)) { axis.remove(); };
     } else {
       codes = Object.keys(g_graph.y);
-      // Delete ALL previous graphs
+      // Delete ALL previous graphs and their axis
       for (let graph of document.querySelectorAll('.graphPolyline')) { graph.remove(); };
-      // In case the cursor is frozen (and thus potentially displaying graph values in the Legend), reset it.
-      graphHoverOff();
+      for (let axis of document.querySelectorAll('.axisContainer')) { axis.remove(); };
     }
 
-    // Prepare HTML for the new SVG content
-    let text = '';
-    // Go through the requested graph data
+    // Get containers
+    const graphArea = document.getElementById('graphArea'); // SVG group where the graphs are displayed
+    const axisSVGContainer = document.getElementById('axisSVGContainer'); // Container for all the axis SVGs
+    // Loop through the requested graph data
     for (let code of codes) {
       // Verify there is enough data for the graph (i.e. more than 2 samples)
       if (code in g_graph.y && g_graph.y[code].length > 1) {
-        let color = g_graph.color[code]; // Retrieve graph color
-        let y_min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
-        let y_max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
-        if (y_min == y_max) {y_min -= 1; y_max += 1}; // Special case if all values are identical
-        // Map the y values into the equivalent y coordinates over the height of the SVG graph area
-        let y_svg = g_graph.y[code].map(y => g_graph.padding + g_graph.area.ymin + (g_graph.area.height - 2*g_graph.padding) * (y - y_min) / (y_max - y_min));
-        // Start a polyline
-        text += "<polyline class='graphPolyline' id='polyline_" + code + "' points='";
+
+        // Retrieve graph color and name
+        const color = g_graph.color[code];
+        let name = '';
+        for (let item of columnHeaders) { if (item.code == code) { name = item.title; } };
+        if (name === '') { continue; } // Skip this iteration if 'code' does not correspond to a known code
+
+        // Create a new polyline for the graph SVG
+        let text1 = `<polyline class='graphPolyline' id='polyline_${code}' points='`;
         // Add all the x,y points to the polyline
-        for (let i = 0; i < y_svg.length; i++) { text += " " + g_graph.x.svg[i] + "," + y_svg[i]; }
+        for (let i = 0; i < g_graph.ysvg[code].length; i++) { text1 += ` ${g_graph.xsvg[g_graph.xcode][i]}, ${g_graph.ysvg[code][i]}`; }
         // Close the polyline (and add some default style)
-        text += "' stroke='" + color + "' stroke-width='1' fill='none' stroke-linecap='round' stroke-linejoin='round' />";
-        // If the cursor is active, display the corresponding graph value in legend (in US format)
-        if (g_graph.index !== undefined) {
-          document.getElementById('graphLegendValue_' + code).innerHTML = " : " + Intl.NumberFormat('en-US').format(g_graph.y[code][g_graph.index]);
+        text1 += `' stroke='${color}' stroke-width='1.5' vector-effect='non-scaling-stroke' fill='none' stroke-linecap='round' stroke-linejoin='round' />`;
+        // Add the polyline to the graph SVG
+        graphArea.insertAdjacentHTML("beforeend", text1);
+
+        // Create a new SVG for the vertical axis
+        // Remark: We don't define a 'viewBox', so that the text size remains constant when resizing the SVG
+        // Remark: Contrary to the plot's SVG, here we don't change the origin of coordinates, so that the text is not flipped (we thus adjust the ticks and axis values accordingly)
+        // Remark: The width of the SVG will be redefined at the end, to fit all its content
+        let text2 = `<span class='axisContainer' id='axisContainer_${code}' title='${name}\n'
+                     onmouseover='graphHighlightOn("${code}")' onmouseout='graphHighlightOff("${code}")'>`;
+        text2 += `<svg class='axisSVG' id='axisSVG_${code}' width='15px' height='100%'>`;
+        text2 += `<g id='boundingBox'>`; // This group will allow measuring the bounding box of the whole thing (axis + text)
+        // Convert ticks to a percentage of the whole SVG height (using percentages allows scaling when resizing the SVG, even without 'viewBox')
+        // We also invert direction, and min and max (since graphs were plotted with vertical origin at bottom)
+        const ticks = g_graph.ticks[code]; // Get arrays of nicely defined ticks ('primary', 'secondary', with nice 'min' and 'max')
+        const primaryTicks = ticks.primary.map(val => 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
+        const secondaryTicks = ticks.secondary.map(val => 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
+        const ticksMin = primaryTicks[primaryTicks.length - 1];
+        const ticksMax = primaryTicks[0];
+        // Format nicely the values of the primary ticks
+        const ticksValues = ticks.primary.map(val => Intl.NumberFormat('en-US').format(val));
+        // Draw the axis line
+        text2 += `  <line class='scaleLine' x1='0' y1='${ticksMin}%' x2='0' y2='${ticksMax}%' stroke='${color}' stroke-width='2' />`;
+        // Draw primary ticks and values
+        for (let i = 0; i < primaryTicks.length; i++) {
+          text2 += `  <line class='scalePrimaryTick' x1='0' y1='${primaryTicks[i]}%' x2='10' y2='${primaryTicks[i]}%' stroke='${color}' stroke-width='2' />`;
+          text2 += `  <text class='scaleValue' x='15' y='${primaryTicks[i]}%' fill='${color}' font-size='1rem' dominant-baseline='middle'>${ticksValues[i]}</text>`;
         }
+        // Draw secondary ticks (smaller and without values)
+        for (let i = 0; i < secondaryTicks.length; i++) {
+          text2 += `  <line class='scaleSecondaryTick' x1='0' y1='${secondaryTicks[i]}%' x2='5' y2='${secondaryTicks[i]}%' stroke='${color}' stroke-width='1' />`;
+        }
+        // Draw value indicator (it starts out of view at y=-100 and will only appear with the graph cursor)
+        // Remark: We embed it in a SVG, so that its Y position can easily be changed
+        // Remark: We add a small translation to center all its elements on Y position (without using a 'viewBox')
+        text2 += `<svg class='scaleCursor' id='scaleCursor_${code}' x='0' y='-100' width='10' height='10' transform='translate(0 -5)'>
+                   <polygon class='scaleCursorMarker' points='10 0, 0 5, 10 10' fill='${color}' stroke='none' stroke-width='1' vector-effect='non-scaling-stroke' />
+                 </svg>`;
+        // Close bounding box group, svg and container
+        text2 += `</g></svg></span>`;
+        // Add the axis SVG to the container
+        axisSVGContainer.insertAdjacentHTML("beforeend", text2);
+        // Now, set the axis SVG width equal to the width of its content (this simulates 'max-content' in the case of a SVG!)
+        const axisSVG = document.getElementById('axisSVG_' + code); // Get the above created SVG
+        const axisWidth = axisSVG.getElementById('boundingBox').getBBox().width + 5; // Get the width from its bounding box (plus a small margin)
+        axisSVG.setAttribute('width', axisWidth + 'px'); // Apply width to the SVG attribute
       }
     }
-    // Add the graphs to the SVG group
-    document.getElementById('graphArea').insertAdjacentHTML("beforeend", text);
   }
 
   // The SVG cursor follows the mouse when hovering over the graph
   function graphHoverOn(e) {
-    let g = e.currentTarget;
     // Proceed only if hovering is active and graphs are displayed
     if (g_graph.hover && document.getElementsByClassName('graphPolyline').length > 0) {
       // Convert mouse viewport position into SVG coordinates
-      let svg = e.currentTarget.closest('svg'); // Get the whole SVG
-      let pt = svg.createSVGPoint(); // Create a SVG point
-      pt.x = e.clientX; // Give it the viewport X-position of the mouse
-      pt.y = e.clientY; // Give it the viewport Y-position of the mouse
-      // Transform these viewport coordinates into SVG coordinates (by applying the inverse transform the SVG is currently under)
-      pt = pt.matrixTransform(svg.getScreenCTM().inverse());
-      // Get the X-coordinate of the closest graph sample
-      let distances = g_graph.x.svg.map(x => Math.abs(pt.x - x)); // Compute an array of all the distances
-      let index = distances.indexOf(Math.min(...distances)); // Get the index of the corresponding sample
-      let x = g_graph.x.svg[index]; // Get the x coordinate of that sample
-      // Move the SVG cursor to that position and have it remember the corresponding index
-      let cursor = document.getElementById('graphCursor');
-      cursor.setAttribute("x1", x);
-      cursor.setAttribute("x2", x);
-      g_graph.index = index;
-      // Display all graph values in legend (in US format)
-      for (let code in g_graph.y) {
-        document.getElementById('graphLegendValue_' + code).innerHTML = " : " + Intl.NumberFormat('en-US').format(g_graph.y[code][g_graph.index]);
-      }
+      let pt = document.getElementById('plotSVG').createSVGPoint(); // Create a point in the SVG
+      [pt.x, pt.y] = [e.clientX, e.clientY]; // Give it the viewport's X and Y position of the mouse
+      // Transform these viewport coordinates into SVG coordinates (by applying the inverse transform of the SVG group)
+      pt = pt.matrixTransform(document.getElementById('graphArea').getScreenCTM().inverse());
+      // Get the X coordinate of the closest graph sample
+      const distances = g_graph.xsvg[g_graph.xcode].map(x => Math.abs(pt.x - x)); // Compute an array of all the distances
+      g_graph.index = distances.indexOf(Math.min(...distances)); // Get the index of the closest sample (and store it as global variable)
+      // Display the cursor (and all the corresponding values)
+      graphDisplayCursor();
     }
   }
   function graphHoverOff(e) { // When hovering ends, move the SVG cursor out of view
-     // Proceed only if the function is called without argument or if by an active hovering event
-    if (e === undefined || g_graph.hover) {
+     // Proceed only if hovering is active, or if the function is called directly without argument
+    if (g_graph.hover || e === undefined) {
       // Move the SVG cursor out of view (and have it forget its index)
-      let cursor = document.getElementById('graphCursor');
-      cursor.setAttribute("x1", -10);
-      cursor.setAttribute("x2", -10);
-      g_graph.index = undefined;
+      document.getElementById('graphCursor').setAttribute("x", -100);
+      // Hide all scale cursors in axis
+      for (let cursor of document.querySelectorAll('.scaleCursor')) { cursor.setAttribute("y", "-100"); }
+      // Remove values from axis tooltips (just leave the newline)
+      for (let container of document.querySelectorAll('.axisContainer')) { container.title = container.title.replace(/[ :]*\n.*/, '\n'); }
       // Empty all graph values in legend
       for (let value of document.querySelectorAll('.graphLegendValue')) { value.innerHTML = ""; }
-      // If function was called without argument, ensure the hovering effect is now active
-      if (e === undefined) { g_graph.hover = true; }
+      // Remove all row highlighting (if any)
+      g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
+      // Reset cursor index and ensure the hovering effect is now active
+      g_graph.index = undefined;
+      g_graph.hover = true;
     }
   }
   function graphHoverToggle(e) { // Start/Stop listening to hovering events (i.e. freeze/unfreeze the cursor)
     g_graph.hover = !g_graph.hover // Elegant way to toggle a boolean! :-)
   }
+  function graphDisplayCursor() { // Display graph cursor (and all the corresponding values)
+    if (g_graph.index !== undefined) {
+      // Get the X coordinate of the sample (we use % because the cursor is not in the same embedded SVG as the graphs)
+      const x = 100 * g_graph.xsvg[g_graph.xcode][g_graph.index] / g_graph.width;
+      // Move the SVG cursor to that position
+      document.getElementById('graphCursor').setAttribute("x", x + "%");
+      // Highlight the corresponding row in the table
+      g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
+      g_graph.rows[g_graph.index].classList.add('rowHighlight');
+      // Display the axis cursors and the graph values, in legend and on axis
+      for (let code in g_graph.y) { graphDisplayCursorValues(code); }
+    }
+  }
+  function graphDisplayCursorValues(code) { // Display axis cursor and graph value, in legend and on axis
+    if (g_graph.index !== undefined) {
+      // Get graph values at cursor position
+      const y = g_graph.y[code][g_graph.index];
+      const yNice = Intl.NumberFormat('en-US').format(y); // Make a nice number format
+      // Convert value to a percentage of the whole SVG height (inverted because graphs were plotted with vertical origin at bottom, but not the axis)
+      const [min, max] = [g_graph.ticks[code].min, g_graph.ticks[code].max];
+      const yPercentage = 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (y - min) / (max - min)) / g_graph.height;
+      // Move scale cursor to the corresponding axis position
+      document.getElementById('scaleCursor_' + code).setAttribute("y", yPercentage + "%");
+      // Add/replace the value in the second line of its tooltip
+      const container = document.getElementById('axisContainer_' + code);
+      container.title = container.title.replace(/[ : ]*\n.*/, ' : \n' + yNice); // Everything after the new line becomes the new value
+      // Display graph values in legend
+      document.getElementById('graphLegendValue_' + code).innerHTML = " : " + yNice;
+    }
+  }
+  function graphUpdateCursor() { // Update or reset cursor when table rows have changed
+    // Get a list of all non-header table rows (Remark: There is always at least one 'tbody', even if not explicitely defined)
+    const allRows = document.querySelector('#divTableBlocks table').tBodies[0].rows;
+    // Remove highlighting marks in rows not visible anymore
+    for (let row of allRows) { if (!g_graph.rows.includes(row)) { row.classList.remove('rowHighlight'); }};
+    // Get the index of the first visible highlighted row (if any)
+    g_graph.index = undefined;
+    for (let i = 0; i < g_graph.rows.length; i++) { if (g_graph.rows[i].classList.contains('rowHighlight')) { g_graph.index = i; break; }};
+    // If an highlighted row is still visible, redraw the cursor
+    if (g_graph.index !== undefined) {
+      graphDisplayCursor(); // Redraw the cursor at its new position
+    } else {
+      graphHoverOff(); // Or hide it and activate the hover mode
+    }
+  }
+
 
 </script>
 
@@ -3945,8 +4208,9 @@
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
     text += "<div id='resetColors'><a href='javascript:resetGraphColors();' title='Reset graph colors to default'>Reset colors</a></div>";
     text += "<div id='graphContainer' style='white-space:nowrap'>"; // 'nowrap' added just for the CSS-less display
-    // Add empty SVG element
-    text += "  <svg id='graphSVG' preserveAspectRatio='none'>Sorry, your browser does not support inline SVG.</svg>";
+    // Add empty SVG elements for the graphs and their axis (the width here is just a default for the CSS-less display)
+    text += "  <span id='graphSVGContainer'><svg id='graphSVG' width='80%' height='100%'>Sorry, your browser does not support inline SVG.</svg></span>";
+    text += "  <span id='axisSVGContainer'></span>";
     text += "</div>";
     text += "<div id='graphLegend'><div id='graphLegendTitle'>Select in the table below the columns to display <span id='graphLegendSubtitle'>(the rows will be read from bottom to top)</span></div>";
     text += MakeCollapsibleEnd();
