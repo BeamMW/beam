@@ -107,6 +107,7 @@
     --color_h3_sub: #17204e;
     --color_link: #0066CC;
     --color_link_visited: #3e1a8b;
+    --color_search_result_link: #d7d7a6;
     --color_node_url: var(--color-green);
     --color_blockheight_title_link: #65a4e3;
     --color_blockheight_title_link_visited: #a17eec;
@@ -114,8 +115,6 @@
     --color_metadata_assetname: #505050;
     --color_metadata_assetname_AMML: #707070;
     --color_hash: #505050;
-    --color_hash_highlight: var(--color_hash);
-    --color_hash_highlight_background: #ffffc0;
     --color_more: #ddd;
     --color_more_in_collapsible: #17204e;
     --color_icon: rgba(255,255,255,0.5);
@@ -218,7 +217,9 @@
     --color_graph_area: #f0f0f0;
     --color_graph_border: grey;
     --color_graph_cursor: darkgrey;
-    --color_graph_legend_title: black;
+    --color_graph_row_highlight: #dbdb8a;
+    --color_graph_row_highlight_hover: #cdcd70;
+    --color_graph_legend_title: #323232;
     --color_graph_legend_subtitle: #777;
   }
   :root.light {
@@ -246,6 +247,7 @@
     --color_h3_sub: #17204e;
     --color_link: #0066CC;
     --color_link_visited: #3e1a8b;
+    --color_search_result_link: #555fb8;
     --color_node_url: #2d3799;
     --color_blockheight_title_link: #0066CC;
     --color_blockheight_title_link_visited: #3e1a8b;
@@ -253,8 +255,6 @@
     --color_metadata_assetname: #505050;
     --color_metadata_assetname_AMML: #808080;
     --color_hash: #505050;
-    --color_hash_highlight: var(--color_hash);
-    --color_hash_highlight_background: #ffffa7;
     --color_more: #17204e;
     --color_more_in_collapsible: #17204e;
     --color_icon: #777ebc;
@@ -357,7 +357,9 @@
     --color_graph_area: #fafafa;
     --color_graph_border: grey;
     --color_graph_cursor: darkgrey;
-    --color_graph_legend_title: black;
+    --color_graph_row_highlight: #ffffa8;
+    --color_graph_row_highlight_hover: #fcfc86;
+    --color_graph_legend_title: #323232;
     --color_graph_legend_subtitle: #777;
   }
   :root { /* Background compatible with Beam Wallet on dark mode (copied from the dao-core-app) */
@@ -435,6 +437,19 @@
   }
   .title .blockHeight a:visited {
     color: var(--color_blockheight_title_link_visited);
+  }
+  h2.title .scrollToSearchResult { /* Addition to the title in case of a search result */
+    padding: 0 0 0 4rem;
+    color: var(--color_search_result_link);
+  }
+  h2.title .scrollToSearchResult a {
+    color: var(--color_search_result_link);
+  }
+  h2.title .scrollToSearchResult a::after { /* Add a decorative arrow */
+    content: "\00a0 \002BAF";
+    display: inline-block;
+    vertical-align: bottom;
+    text-decoration: none;
   }
   .listOfBlockHeaders {
     cursor: pointer;
@@ -542,13 +557,6 @@
     white-space: nowrap;
     display: inline;
     vertical-align: middle; /* Needed to align text and symbol */
-  }
-  .kernelId.highlight { /* Highlight queried kernel */
-    background: var(--color_hash_highlight_background);
-    color: var(--color_hash_highlight);
-    font-weight: bold;
-    padding: 5px 0 3px 2px;
-    border-radius: 3px;
   }
   .cid a {
     font-family: "Lucida Console", ui-monospace, monospace;
@@ -679,6 +687,12 @@
   .tableAssets tbody > tr:hover, .tableAssetHistory tbody > tr:hover,
   #divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
     background-color: var(--color_table_row_hover);
+  }
+  tr.rowHighlight { /* Highlight a full row */
+    background-color: var(--color_graph_row_highlight) !important; /* We use '!important' to override the alternate coloring of rows */
+  }
+  tr.rowHighlight:hover {
+    background-color: var(--color_graph_row_highlight_hover) !important;
   }
   .emptyTable { /* Hide empty tables */
     display: none;
@@ -1545,6 +1559,10 @@
     margin: 0;
     padding: 0;
   }
+  #graphCollapsible {
+    width: 100%;
+    max-width: 1200px; /* Just for elegance, in case the screen width is very wide */
+  }
   #graphCollapsible .collapsible-label, #optionsCollapsible .collapsible-label {
     display: inline;
     white-space: nowrap; /* Don't wrap labels */
@@ -1579,10 +1597,12 @@
   }
   #resetColors {
     display: block;
-    text-align: right;
+    margin: 0 5px 0 8px;
+  }
+  #resetColors a {
     font-size: 0.8rem;
-    margin: 0 10px 0 0;
-    color: black;
+    color: var(--color_graph_legend_title);
+    vertical-align: middle;
   }
   #graphContainer {
     display: block;
@@ -1608,7 +1628,7 @@
     stroke-width: 5px;
   }
   .graphPolyline {
-    stroke-width: 3px;
+    stroke-width: 1.5px;
   }
   #graphLegend {
     display: block;
@@ -1618,10 +1638,10 @@
     margin: 5px 10px 5px 10px;
     font-size: 1.3rem;
     line-height: 1.8rem;
-    font-weight: bold;
   }
   #graphLegendTitle {
     color: var(--color_graph_legend_title);
+    font-weight: bold;
   }
   #graphLegendSubtitle {
     color: var(--color_graph_legend_subtitle);
@@ -1630,8 +1650,8 @@
   }
   .graphLegendItem { /* The colors of these items will be step by a javascript function */
     display: inline-block;
-    cursor: pointer;
-    padding-right: 5px;
+    cursor: default;
+    margin: 0 5px 0 5px;
     min-width: 19em; /* Some extra space is reserved to display the graph values */
   }
   .graphLegendValue {
@@ -1650,11 +1670,11 @@
   .graphLegendItem:hover .graphLegendValue {
     font-weight: bold;
   }
-  #graphArea.graph-highlight .graphPolyline { /* To highlight one graph, dim all of them... */
+  #graphArea.graph-highlight .graphPolyline { /* To better highlight one graph, dim all of them... */
     stroke-width: 1px;
   }
   #graphArea.graph-highlight .graphPolyline.graph-highlight { /* ...and then highlight the selected one! */
-    stroke-width: 5px;
+    stroke-width: 2.5px;
   }
 
   /* GRAPH CHECKBOXES ON TABLE HEADERS */
@@ -2252,6 +2272,8 @@
       text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
     }
     text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+    // If a search was made, add a link to scroll down to the result
+    if (g_kernel) { text += AddClass(`&nbsp;<a href='javascript:scrollTo(".rowHighlight","center");' title='Scroll down to the kernel'>Kernel found!</a>`,"scrollToSearchResult"); }
     text += '</h2>';
 
     if (j) {
@@ -2291,12 +2313,11 @@
 
       for (let i = 0; i < jTbl.length; i++) {
         let jRow = jTbl[i];
-        text += '<tr>';
 
-        let idClass = 'kernelId';
-        // Mark the kernel with a special class if it was the one queried
-        if (g_kernel && jRow['id'] == g_kernel) { idClass += ' highlight' }
-        text += MakeCell(AddClass(jRow['id'], idClass, " title='" + jRow['id'] + "'"));
+        // Mark the row to be highlighted if the kernel was the one queried
+        text += (g_kernel && jRow['id'] == g_kernel) ? "<tr class='rowHighlight'>" : "<tr>";
+
+        text += MakeCell(AddClass(jRow['id'], 'kernelId', " title='" + jRow['id'] + "'"));
         text += MakeCellRA(Obj2Html(jRow['fee']));
 
         let txtH = '';
@@ -3486,12 +3507,12 @@
     x: {}, // Data for x coordinates: 'row' number, 'h' blockheight and 'svg' coordinates (identical for all graphs, and can't have empty values)
     y: {}, // Data for y coordinates of each requested graph (e.g. { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], ...} )
     color: {}, // One CSS color per graph (e.g. { c:'blue', k:'#FF0000', ...} )
-    width: 2040, // Arbitrary SVG width (we set it here to 2000 max points + 2*10 margins + 2*10 padding)
+    width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
     height: 600, // Arbitrary SVG height
     margins: { top: 10, right: 10, bottom: 10, left: 10 }, // Margins around the graph area
     padding: 10, // Padding inside the graph area
-    area: {}, // Other measures of the graph area (values will be computed later)
-    hover: true, // Indicates if the hovering effects are active (the cursor position will follow the mouse)
+    area: {}, // Other measures of the graph area (values are computed here below)
+    hover: true, // Indicates if the hovering effect is active (the cursor position follows the mouse)
     index: undefined, // Index in the x coordinates array for the cursor position
   };
 
@@ -3524,17 +3545,17 @@
     // A neat trick to systematically update the graphs every time the table is filtered or sorted:
     // Wrap the original filterTable() and sortTable() functions into new versions... with added function calls!
     const originalSortTable = sortTable; // Save the orignal function
-    sortTable = function(...args) { // Wrap the function into a new one... with the same name.
+    sortTable = function(...args) { // Wrap the function into a new one, with the same name.
       originalSortTable.apply(this, args); // Call the original function first.
-      updateGraphDataX(); // Then do the extra calls:
-      updateGraphDataY(); // Update all X & Y graph data,
+      updateGraphDataX(); // Then, update X graph data
+      updateGraphDataY(); // Update Y graph data
       drawGraph(); // and redraw all graphs.
     };
     const originalFilterTable = filterTable; // Save the orignal function
-    filterTable = function(...args) { // Wrap the function into a new one... with the same name.
+    filterTable = function(...args) { // Wrap the function into a new one, with the same name.
       originalFilterTable.apply(this, args); // Call the original function first.
-      updateGraphDataX(); // Then do the extra calls:
-      updateGraphDataY(); // Update all X & Y graph data,
+      updateGraphDataX(); // Then, update X graph data
+      updateGraphDataY(); // Update Y graph data
       drawGraph(); // and redraw all graphs.
     };
 
@@ -3549,12 +3570,12 @@
       for (let item of columnHeaders) { if (item.title == headerText && item.color === undefined) { add = false; } }
       if (add) {
         // Add a checkbox to the right of the header title
-        let checkboxText = "<input type='checkbox' class='tableGraphCheckbox' title='Display as graph' id='checkbox_column_" + n + "' data-column='" + n + "' onclick='checkboxGraph(event);'>";
+        let checkboxText = "<input type='checkbox' class='tableGraphCheckbox' title='Display as graph' id='checkbox_column_" + n + "' data-column='" + n + "' autocomplete='off' onclick='checkboxGraph(event);'>";
         headerTitle.insertAdjacentHTML("beforeend", checkboxText);
       }
     }
 
-    // Already extract the x coordinates from the table (they will serve for all graphs)
+    // Extract now the x coordinates from the table (they will serve for all graphs)
     updateGraphDataX();
 
     // Set SVG parameters
@@ -3607,10 +3628,10 @@
     } else {
       // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
       // Remark: Events here are included in the HTML (instead of addEventListener) to maitain them in case of manipulating the legend's 'innerHTML'
-      let color = g_graph.color[code];
-      let legend_id = 'graphLegendItem_' + code;
-      let colorpicker_id = 'graphColorPicker_' + code;
-      let hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
+      const color = g_graph.color[code];
+      const legend_id = 'graphLegendItem_' + code;
+      const colorpicker_id = 'graphColorPicker_' + code;
+      const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
       // Remark: We use backticks to allow both single and double quotes, variable substitutions and multilines
       let legend_item = `<label class='graphLegendItem' id='${legend_id}' title='Click to change color'
                          autocomplete='on' style='color:${color}; white-space:nowrap;'
@@ -3620,7 +3641,7 @@
       legend_item += header;
       legend_item += " <span class='graphLegendValue' id='graphLegendValue_" + code + "'></span>";
       legend_item += "</label>";
-      // Append the new item to the legend
+      // Append the new item to the legend area
       document.getElementById('graphLegend').insertAdjacentHTML("beforeend", legend_item);
     }
 
@@ -3922,8 +3943,8 @@
 
     // Display graph area
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
-    text += "<span><a href='javascript:resetGraphColors();' id='resetColors' title='Reset graph colors to default'>Reset colors</a></span>";
-    text += "<div id='graphContainer'>";
+    text += "<div id='resetColors'><a href='javascript:resetGraphColors();' title='Reset graph colors to default'>Reset colors</a></div>";
+    text += "<div id='graphContainer' style='white-space:nowrap'>"; // 'nowrap' added just for the CSS-less display
     // Add empty SVG element
     text += "  <svg id='graphSVG' preserveAspectRatio='none'>Sorry, your browser does not support inline SVG.</svg>";
     text += "</div>";
@@ -4426,7 +4447,7 @@
 
 <script> // MORE MISCELLANEOUS STUFF
 
-  // SCROLL DOWN TO BOTTOM OR BACK TO TOP
+  // SCROLL FUNCTIONS
   window.onscroll = function () { scrollFunction() }
 
   function scrollFunction() { // When the user scrolls away 40px from top or bottom of the page, show the up or down buttons
@@ -4452,6 +4473,13 @@
   function bottomFunction() { // Scroll to the bottom of the document
     document.body.scrollTop = Math.abs(document.body.scrollHeight - document.body.clientHeight); // For Safari
     document.documentElement.scrollTop = Math.abs(document.documentElement.scrollHeight - document.documentElement.clientHeight); // For Chrome, Firefox, IE and Opera
+  }
+
+  function scrollTo(selector, vertical = 'start', horizontal = 'start', style = 'smooth') { // Scroll up or down to an element in the page
+    const destination = document.querySelector(selector); // Returns the first element, or 'null' if there is none
+    if (destination) { destination.scrollIntoView({ block:vertical, inline:horizontal, behavior:style }); }
+    // Vertical and Horizontal can be: 'start', 'center', 'end' or 'nearest'
+    // Style can be: 'smooth', 'instant' or 'auto'
   }
 
   // TOGGLE DARK MODE
