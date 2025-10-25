@@ -6,14 +6,15 @@
   <!-- WELCOME TO BEAM SMART EXPLORER!
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
-  - Current version of the file: v0.8.1
+  - Repository considered as "official": https://github.com/BeamMW/beam/tree/master/explorer/htm
+  - Current version of the file: v0.8.2 (beta)
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies!
   - Vanilla HTML/JS/CSS compatible with Chrome 83 (to allow using it as a Beam Wallet DApp).
-  - Graphics are embedded as SVG or are Unicode symbols.
-  - Except for filtering and sorting, JS functions shall mainly modify classes while most display features are done by CSS.
-  - That way, if we disable styling, the raw filtred data can directly be copy-pasted somewhere else.
+  - Graphics are Unicode symbols or embedded SVGs (Remark: inline SVGs in a file served as 'text/html' don't require 'xmlns' definition).
+  - Except for filtering, sorting and charting, JS functions shall mainly modify classes while most display features are done by CSS.
+  - That way, if we disable the main styling section, only the basic processing of the raw data will be visible.
 
   The file is organized in the following main sections:
   - SECTION 1 : Main global variables.
@@ -54,6 +55,9 @@
       "https://explorer-api.beamprivacy.community/",
       "https://BeamSmart.net:8000/",
       //"http://localhost:8888/",
+    ],
+    "dappnet": [
+      "https://BeamSmart.net:8001/",
     ],
     "dappnet2": [
       "https://explorer.0xmx.me/api/dappnet2/",
@@ -498,21 +502,18 @@
     font-size: 1.3rem;
     font-weight: bold;
     color: var(--color_metadata_assetname);
-    white-space: nowrap; /* Don't wrap text */
   }
   .metadataAssetName.AMML {
     color: var(--color_metadata_assetname_AMML);
   }
-  /* Display full metadata */
-  .metadata .full {
+  .metadata .full { /* Display full metadata */
     font-family: inherit;
     display: table-cell;
     max-width: 80ch; /* Wrap long strings after 80 characters */
     white-space: pre-wrap; /* Wrap and preserve all space */
     overflow-wrap: break-word; /* Break words when needed (similar to the old word-wrap) */
   }
-  /* Display reduced metadata */
-  .metadata .reduced {
+  .metadata .reduced { /* Display reduced metadata */
     font-family: inherit;
     display: table-cell;
     max-width: 45ch; /* Show only the 45 first characters (good enough for AMML tokens!) */
@@ -520,8 +521,7 @@
     overflow: hidden; /* Hide text that overflows */
     text-overflow: ellipsis; /* Add '...' when overflowing */
   }
-  /* Remark: The extend symbols are hidden by default in the HTML */
-  .extend {
+  .extend { /* Remark: The extend symbols are hidden by default in the HTML */
     vertical-align: middle; /* Needed to align text and symbol */
     visibility: hidden; /* Hide the symbols but maintain their space */
     display: table-cell;
@@ -529,12 +529,10 @@
     fill: var(--color_eye_icons);
     padding: 0 0 0 3px;
   }
-  /* Display the extend symbols when hovering over the element containing the text */
-  *:hover > .metadata .extend {
+  *:hover > .metadata .extend { /* Display the extend symbols when hovering over the element containing the text */
     visibility: visible;
   }
-  /* Highlight the symbol when hovering on it */
-  .extend:hover {
+  .extend:hover { /* Highlight the symbol when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
   .cid, .kernelId, .blob, .commitment {
@@ -563,8 +561,7 @@
     font-family: "Lucida Console", ui-monospace, monospace;
     font-weight: normal;
   }
-  /* Display truncated hashes */
-  .truncated {
+  .truncated { /* Display truncated hashes */
     font-family: inherit;
     vertical-align: middle; /* Needed to align text and symbol */
     display: inline-block; /* Needed to allow setting a max-width */
@@ -572,13 +569,11 @@
     overflow: hidden;  /* Hide text that overflows */
     text-overflow: ellipsis;  /* Add '...' when overflowing */
   }
-  /* Display extended hashes */
-  .expanded {
+  .expanded { /* Display extended hashes */
     font-family: inherit;
     vertical-align: middle; /* Needed to align text and symbol */
   }
-  /* The extend symbols are hidden by default in the HTML */
-  .expand {
+  .expand { /* The extend symbols are hidden by default in the HTML */
     vertical-align: middle; /* Needed to align text and symbol */
     display: inline; /* Superseed the HTML 'hidden' attribute */
     visibility: hidden; /* Hide the symbols but maintain their space */
@@ -589,16 +584,13 @@
   .expand svg {
     vertical-align: bottom; /* Needed to align text and symbol */
   }
-  /* Display the expand symbols when hovering over the cell or the list item containing the text */
-  *:hover > span > .expand {
+  *:hover > span > .expand { /* Display the expand symbols when hovering over the cell or the list item containing the text */
     visibility: visible;
   }
-  /* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
-  span.withLink:hover + .expand {
+  span.withLink:hover + .expand { /* Hide the expand symbol in the special case of a text with link (just to avoid confusion about the effect of clicking) */
     visibility: hidden;
   }
-  /* Highlight the symbol when hovering on it */
-  .expand:hover {
+  .expand:hover { /* Highlight the symbol when hovering on it */
     fill: var(--color_eye_icons_hover);
   }
   .amount {
@@ -1028,8 +1020,7 @@
     display: block;
     width: fit-content; /* Will have the width of its full content */
   }
-  /* Normal collapsible header */
-  .collapsible-label {
+  .collapsible-label { /* Normal collapsible header */
     display: block; /* When display is not the default 'list-item', the default triangle disapears */
     width: fit-content; /* Uses only its own needed width */
     min-width: 20rem; /* Keeps most labels with similar width */
@@ -1048,8 +1039,7 @@
   .collapsible-label:hover {
     background-color: var(--color_collapsible_hover);
   }
-  /* Smaller compact collapsible header */
-  .collapsible-label.small {
+  .collapsible-label.small { /* Smaller compact collapsible header */
     display: block;
     min-width: unset; /* no min width for small collapsible labels */
     font-size: 1.2rem;
@@ -1066,8 +1056,8 @@
     border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
     border-bottom-left-radius: 0; /* ...just because it's nice! :-) */
   }
-  /* Collapsible symbols */
-  .collapsible-label::-webkit-details-marker { /* On Chrome 83, this is needed to hide the default triangle */
+  .collapsible-label::-webkit-details-marker { /* Collapsible symbols */
+    /* On Chrome 83, this is needed to hide the default triangle */
     display: none;
   }
   .collapsible-label::before {
@@ -1077,8 +1067,7 @@
   .collapsible[open] > .collapsible-label::before {
     content: '\2212 \00a0'; /* Add minus sign when expanded */
   }
-  /* Collapsible content */
-  .collapsible-content {
+  .collapsible-content { /* Collapsible content */
     display: block;
     width: 100%;
     font-size: 1.5rem;
@@ -1095,8 +1084,7 @@
   }
 
   /* SHARED STYLES FOR TABLE OPTIONS */
-  /* Collapsible for table options */
-  .collapsible.tableOptions {
+  .collapsible.tableOptions { /* Collapsible for table options */
     display: block;
     margin-bottom: 10px;
   }
@@ -1210,7 +1198,7 @@
     filter: drop-shadow(0 0 1px var(--color_config_collapsible_text));
   }
   .selectionOptionsGroup { /* Block of selection links */
-    text-wrap: nowrap;
+    white-space: nowrap;
   }
   .selectionOption { /* Selection links */
     cursor: pointer;
@@ -1218,7 +1206,7 @@
     padding: 0 5px 0 5px;
     text-decoration-line: none;
     color: var(--color_config_collapsible_text); /* We keep it here, to avoid default link color */
-    text-wrap: nowrap;
+    white-space: nowrap;
   }
   .selectionOption:hover, .selectionOption:focus { /* Selection links */
     outline: none; /* Avoid the browser default focus outline */
@@ -1234,7 +1222,7 @@
     padding: 0 5px 0 5px;
     color: var(--color_config_collapsible_description);
     font-style: italic;
-    text-wrap: nowrap;
+    white-space: nowrap;
   }
 
   /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
@@ -1436,14 +1424,12 @@
   }
 
   /* SORT AND SEARCH HEADERS IN TABLES */
-  /* General for all headers */
-  .filtersOff th, .filtersOn th, .filtersNot th, .headerCell, .headerRow {
+  .filtersOff th, .filtersOn th, .filtersNot th, .headerCell, .headerRow { /* General for all headers */
     text-align: center;
     white-space: nowrap; /* Don't wrap header text */
     font-weight: bold;
   }
-  /* Add placeholders for sorting indicators */
-  .filtersOff .th::before {
+  .filtersOff .th::before { /* Add placeholders for sorting indicators */
     content: '\21c5 \00a0';
     display: inline-block;
     visibility: hidden;
@@ -1459,29 +1445,25 @@
     width: 1.3em;
     margin: 0;
   }
-  /* Force same min column width as when filters are on */
-  .filtersOff th {
+  .filtersOff th { /* Force same min column width as when filters are on */
     min-width: 5ch;
   }
-  /* Headers when filters are off */
-  .filtersOff th {
+  .filtersOff th { /* Headers when filters are off */
     background-color: var(--color_table_header);
   }
-  .filtersOff:hover th {
-    cursor: pointer; /* Change mouse to pointer to show it's clickable */
+  .filtersOff:hover th { /* Show the header is clickable */
+    cursor: pointer;
     background-color: var(--color_table_header_hover);
   }
   .filtersOff:hover .th::before { /* Show sorting indicator on hover */
     color: var(--color_sorting_indicator);
     visibility: visible;
   }
-  /* Headers when filters are on */
-  .filtersOn th {
+  .filtersOn th { /* Headers when filters are on */
     background-color: var(--color_table_header_active);
   }
-  /* Make header rows sticky to the top of the window */
-  /* Remark: On Chrome 83, sticky only works on 'th' (not on 'thead' or 'tr') */
-  .filtersOff th, .filtersOn th {
+  .filtersOff th, .filtersOn th { /* Make header rows sticky to the top of the window */
+    /* Remark: On Chrome 83, sticky only works on 'th' (not on 'thead' or 'tr') */
     position: sticky;
     top: 0;
     z-index: 10;
@@ -1491,8 +1473,7 @@
   .sortable {
     cursor: pointer; /* Change mouse pointer to show it's clickable */
   }
-  /* Add sorting indicators */
-  .sortable .th::before {
+  .sortable .th::before { /* Add sorting indicators */
     content: '\21c5 \00a0'; /* Symbol when not sorted */
     color: var(--color_sorting_indicator);
     display: inline-block;
@@ -1536,19 +1517,16 @@
     background-color: var(--color_table_search_background);
     padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
   }
-  /* Search fields on hover */
-  .headerCell:hover .search {
+  .headerCell:hover .search { /* Search fields on hover */
     visibility: visible; /* Make it appear when hover */
   }
-  /* Search fields with content */
-  .search:not(:placeholder-shown) {
+  .search:not(:placeholder-shown) { /* Search fields with content */
     visibility: visible; /* Keep it visible */
     max-width: 95%; /* Extend to full width */
     background-color: var(--color_table_search_background_filled); /* Use a lighter background */
     border: 1px solid var(--color_table_search_border); /* Active border */
   }
-  /* Search fields on focus */
-  .search:focus {
+  .search:focus { /* Search fields on focus */
     visibility: visible; /* Keep it visible */
     max-width: 95%; /* Extend to full width */
     outline: none; /* Avoid the browser default focus outline */
@@ -1617,8 +1595,8 @@
     display: block;
     outline: none;
     border: none;
-    width: 100%; /* Use all the available space in the container */
-    height: 100%; /* Use all the available space in the container */
+    width: 100%; /* Use all the available space in its container */
+    height: 100%; /* Use all the available space in its container */
   }
   #graphBox {
     fill: var(--color_graph_area);
@@ -1695,7 +1673,7 @@
   }
 
   /* GENERAL ANIMATIONS */
-    @keyframes bounce { /* Used for loading dots */
+  @keyframes bounce { /* Used for loading dots */
     0%,40%,100% { transform: translateY(0) }
     20% { transform: translateY(-1rem) }
   }
@@ -1712,7 +1690,6 @@
 
   <!-- SVG templates (= invisible 'symbols' that can be called elsewhere) -->
   <!-- Remark: No fixed size or color defined here. They will adapt to the SVG calling them. -->
-  <!-- Remark: 'xmlns' is not needed in inline SVGs served as 'text/html'-->
   <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
   <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
   <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
@@ -1755,7 +1732,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.1</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.2 (beta)</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -2244,7 +2221,7 @@
     const jData = JSON.parse(this.responseText);
 
     // Display error message if no block was found
-    // Remark: The explorer node often returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
+    // Remark: The explorer node returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
     if (jData['found']===false || (jData['info']===undefined && g_height!='0')) { // Remark: Only the Treasury lacks the 'info' field
       text += "<h2 class='title errorMessage'>Block not found.</h2>";
       SetContent(text);
@@ -2253,8 +2230,7 @@
 
     // the returned height may be adjusted
     let jH = jData['h'];
-    if (jH != null)
-        g_height = jH;
+    if (jH != null) { g_height = jH; }
 
     // Parse "info" section
     let j = jData['info'];
@@ -2585,7 +2561,7 @@
     text += "<h2 class='title'>About</h2>\n";
     text += "<p class='aboutText'>";
     text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
-            It's powered by the innovative <b>MimbleWimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
+            It's powered by the innovative <b>Mimblewimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
             It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
     text += "</p>\n";
     text += "<p class='aboutText'>";
@@ -2714,12 +2690,12 @@
     { code: "F", color: "#8660d7", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
     { code: "k", color: "#ff0080", original: "Txs", title: "Txs", description: "Number of transactions (kernels) in the block" },
     { code: "K", color: "#ff79bc", original: "T.Txs", title: "Total txs", description: "Total number of transactions (kernels) since genesis" },
-    { code: "i", color: "#006400", original: "MW.Inputs", title: "MW in", description: "Number of MimbleWimble inputs in the block" },
-    { code: "I", color: "#00bb00", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of MimbleWimble inputs since genesis" },
-    { code: "o", color: "#ff0006", original: "MW.Outputs", title: "MW out", description: "Number of MimbleWimble outputs in the block" },
-    { code: "O", color: "#ff5e5e", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of MimbleWimble outputs since genesis" },
-    { code: "u", color: "#808000", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent MimbleWimble UTXOs (i.e. block outputs minus inputs)" },
-    { code: "U", color: "#bdb76b", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent MimbleWimble UTXOs in the blockchain" },
+    { code: "i", color: "#006400", original: "MW.Inputs", title: "MW in", description: "Number of Mimblewimble inputs in the block" },
+    { code: "I", color: "#00bb00", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of Mimblewimble inputs since genesis" },
+    { code: "o", color: "#ff0006", original: "MW.Outputs", title: "MW out", description: "Number of Mimblewimble outputs in the block" },
+    { code: "O", color: "#ff5e5e", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of Mimblewimble outputs since genesis" },
+    { code: "u", color: "#808000", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent Mimblewimble UTXOs (i.e. block outputs minus inputs)" },
+    { code: "U", color: "#bdb76b", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent Mimblewimble UTXOs in the blockchain" },
     { code: "y", color: "#0000e3", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
     { code: "Y", color: "#4f4fff", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
     { code: "z", color: "#804040", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
@@ -2730,8 +2706,8 @@
     { code: "P", color: "#ff53ff", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of Smart Contract calls since genesis" },
     { code: "c", color: "#004080", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in bytes)" },
     { code: "C", color: "#6d92c2", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in bytes)" },
-    { code: "a", color: "#009d27", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent MimbleWimble UTXOs were kept" },
-    { code: "A", color: "#00d535", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent MimbleWimble UTXOs were kept" }
+    { code: "a", color: "#009d27", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent Mimblewimble UTXOs were kept" },
+    { code: "A", color: "#00d535", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept" }
   ];
 
   // Array of objects listing the special historical blocks.
@@ -2754,9 +2730,9 @@
     {
       block_list: [1],
       title: 'Genesis block',
-      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original MimbleWimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever MimbleWimble-based confidential cryptocurrency</b> on <a href='?network=mainnet&type=block&height=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original Mimblewimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever Mimblewimble-based confidential cryptocurrency</b> on <a href='?network=mainnet&type=block&height=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
       links: [
-        ['Original MimbleWimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
+        ['Original Mimblewimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
         ['First Beam Medium post', 'https://medium.com/beam-mw/introducing-beam-f35096a923ec'],
         ['Bitcointalk announcement', 'https://web.archive.org/web/20200506044733/https://bitcointalk.org/index.php?topic=5052151'],
         ['Mainnet launch', 'https://medium.com/beam-mw/mimblewimble-mainnet-release-notes-8766e49e241d'],
@@ -2800,7 +2776,7 @@
     {
       block_list: [778579],
       title: 'First Lelantus-MW transaction',
-      description: "<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to MimbleWimble, thanks to its use of similar cryptographic primitives. Contrary to MimbleWimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
+      description: "<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to Mimblewimble, thanks to its use of similar cryptographic primitives. Contrary to Mimblewimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
       links: [
         ['Lelantus paper', 'https://lelantus.io/lelantus.pdf'],
         ['Lelantus-MW adaptation', 'https://github.com/BeamMW/beam/wiki/Lelantus-MW']
@@ -2809,7 +2785,7 @@
     {
       block_list: [778857],
       title: 'First input UTXO from a Shielded Pool',
-      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?network=mainnet&type=block&height=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal MimbleWimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?network=mainnet&type=block&height=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the MimbleWimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. The current anonymity set is thus the total number of Shielded outputs produced up until now (as given in the <a href='?network=mainnet&'>Blockchain Status</a>).",
+      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?network=mainnet&type=block&height=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal Mimblewimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?network=mainnet&type=block&height=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the Mimblewimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. The current anonymity set is thus the total number of Shielded outputs produced up until now (as given in the <a href='?network=mainnet&'>Blockchain Status</a>).",
       links: null
     },
     {
@@ -3038,8 +3014,7 @@
       if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
       if (g_height) { urlSuffix += '&height=' + g_height; }
       adj = URLparams.get('adj'); // Used to adjust the block height, if there's no exact match
-      if (adj != null)
-        urlSuffix += '&adj=' + adj;
+      if (adj != null) { urlSuffix += '&adj=' + adj; }
       xmlhttp.onload = DisplayBlock;
 
     } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
@@ -3649,7 +3624,7 @@
       document.getElementById('graphLegend').insertAdjacentHTML("beforeend", legend_item);
     }
 
-    // Hide the legend title when legend items are displayed
+    // Hide the legend title if at least one legend item is displayed
     document.getElementById("graphLegendTitle").style.display = (document.querySelectorAll(".graphLegendItem").length == 0) ? 'block' : 'none';
 
     // Extract graph data for the selected column and draw the corresponding graph
@@ -3755,8 +3730,8 @@
     let codes;
     if (code !== undefined) {
       codes = [code];
-      // Delete that previous graph (if any)
-      for (let graph of document.querySelectorAll('#polyline_' + code)) { graph.remove(); }; // This form does not give an error if the element doesn't exist
+      // Delete that previous graph (using the 'for...of' format does not give an error if the element doesn't exist)
+      for (let graph of document.querySelectorAll('#polyline_' + code)) { graph.remove(); };
     } else {
       codes = Object.keys(g_graph.y);
       // Delete ALL previous graphs
@@ -3949,12 +3924,12 @@
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
     text += "<span><a href='javascript:resetGraphColors();' id='resetColors' title='Reset graph colors to default'>Reset colors</a></span>";
     text += "<div id='graphContainer'>";
-    // Add empty SVG element (Remark: 'xmlns' is not needed in inline SVGs served as 'text/html')
+    // Add empty SVG element
     text += "  <svg id='graphSVG' preserveAspectRatio='none'>Sorry, your browser does not support inline SVG.</svg>";
     text += "</div>";
     text += "<div id='graphLegend'><div id='graphLegendTitle'>Select in the table below the columns to display <span id='graphLegendSubtitle'>(the rows will be read from bottom to top)</span></div>";
     text += MakeCollapsibleEnd();
-    
+
     text += "</div>";
 
     return text;
