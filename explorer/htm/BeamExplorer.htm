@@ -7,7 +7,7 @@
   - This is an interactive web display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Repository considered as "official": https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.8.2 (beta)
+  - Current version of the file: v0.8.2
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies!
@@ -1849,7 +1849,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.2 (beta)</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.2</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1914,32 +1914,30 @@
     return window.location.pathname + '?network=' + g_network + '&type=' + type + extra;
   }
 
-  function MakeCell(text, styles = '') {
-    return '<td' + styles + '>' + text + '</td>';
+  function MakeCell(text, extra = '') {
+    return '<td ' + extra + '>' + text + '</td>';
   }
 
-  function MakeCellRA(text, styles = '') {
-    return MakeCell(text, " align='right'" + styles);
+  function MakeCellRA(text, extra = '') {
+    return MakeCell(text, "align='right' " + extra);
   }
 
   function MakeAmountClr(amount) {
     let type = 'amount';
-
-    if (amount[0] == '-') { type = 'amount neg' }
-    if (amount[0] == '+') { type = 'amount pos' }
-
-    // Add a span to the decimal dot (to allow speical formatting)
+    if (amount[0] == '-') { type += ' neg' }
+    if (amount[0] == '+') { type += ' pos' }
+    // Add a span to the decimal dot (to allow applying special styles)
     amount = amount.replace('.', AddClass('.','dot'));
 
     return AddClass(amount, type);
   }
 
-  function AddClass(txt, className, other = '') {
-    return "<span class='" + className + "' " + other + '>' + txt + '</span>';
+  function AddClass(txt, className, extra = '') {
+    return "<span class='" + className + "' " + extra + '>' + txt + '</span>';
   }
 
-  function AddClassDiv(txt, className, other = '') {
-    return "<div class='" + className + "' " + other + '>' + txt + '</div>';
+  function AddClassDiv(txt, className, extra = '') {
+    return "<div class='" + className + "' " + extra + '>' + txt + '</div>';
   }
 
   function UrlBlock(h) {
@@ -1950,7 +1948,7 @@
     return AddClass(MakeRef(UrlBlock(h), h), 'blockHeight');
   }
 
-  function MakeCellAmount(amount, extra) {
+  function MakeCellAmount(amount, extra = '') {
     return MakeCellRA(MakeAmountClr(amount), extra);
   }
 
@@ -1985,7 +1983,7 @@
       const jFR = jFunds[iF];
       text += '<tr>';
       text += MakeCell(MakeAsset(jFR[0]['value']));
-      text += MakeCellAmount(jFR[1]['value'], '');
+      text += MakeCellAmount(jFR[1]['value']);
       text += '</tr>';
     }
     text += '</table>';
@@ -2159,9 +2157,9 @@
         for (let iF = 0; iF < jOwned.length; iF++) {
           const jFR = jOwned[iF];
           text += '<tr>';
-          text += MakeCell(MakeAsset(jFR[0]['value']), " style='width:10%'");
+          text += MakeCell(MakeAsset(jFR[0]['value']), "style='width:10%'");
           text += MakeCell(AddClass(jFR[1], 'metadata'));
-          text += MakeCellAmount(jFR[2]['value'], " style='width:40%'");
+          text += MakeCellAmount(jFR[2]['value'], "style='width:40%'");
           text += '</tr>';
         }
         text += '</table>';
@@ -2208,8 +2206,8 @@
       text += '<tr>';
       text += MakeCell(MakeBlock(jRow[0]));
       text += MakeCell(jRow[1]);
-      text += MakeCellAmount(Obj2Html(jRow[2]), '');
-      text += MakeCellAmount(Obj2Html(jRow[3]), '');
+      text += MakeCellAmount(Obj2Html(jRow[2]));
+      text += MakeCellAmount(Obj2Html(jRow[3]));
       text += MakeCell(Obj2Html(jRow[4]));
       text += '</tr>';
     }
@@ -2414,7 +2412,7 @@
         // Mark the row to be highlighted if the kernel was the one queried
         text += (g_kernel && jRow['id'] == g_kernel) ? "<tr class='rowHighlight'>" : "<tr>";
 
-        text += MakeCell(AddClass(jRow['id'], 'kernelId', " title='" + jRow['id'] + "'"));
+        text += MakeCell(AddClass(jRow['id'], 'kernelId', "title='" + jRow['id'] + "'"));
         text += MakeCellRA(Obj2Html(jRow['fee']));
 
         let txtH = '';
@@ -2497,10 +2495,10 @@
       // (all these rows are kept together within a dedicated tbody).
       if (depth == 0) {
         // Display block height for main contract call
-        text += MakeCell(MakeBlock(jRow[0]), " class='mainCall'");
+        text += MakeCell(MakeBlock(jRow[0]), "class='mainCall'");
       } else {
         // Use an empty cell for subsequent contract calls
-        text += MakeCell('', " class='subCall'");
+        text += MakeCell('', "class='subCall'");
       }
 
       text += MakeCell(Obj2Html(jRow[1]));
@@ -3227,6 +3225,8 @@
     // Save in local storage
     localStorage.setItem('g_defaultNodes',JSON.stringify(g_defaultNodes));
     // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
+    // Reload the page
+    location.reload();
   }
 </script>
 
