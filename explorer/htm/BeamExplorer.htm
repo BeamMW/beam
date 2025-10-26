@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-us">
 <head>
   <meta charset="UTF-8">
 
@@ -12,6 +12,7 @@
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies!
   - Vanilla HTML/JS/CSS compatible with Chrome 83 (to allow using it as a Beam Wallet DApp).
+  - Quotes are double for HTML and single for JS (and backticks to allow using both, multilines and variable substitutions).
   - Graphics are Unicode symbols or embedded SVGs (Remark: inline SVGs in a file served as 'text/html' don't require 'xmlns' definition).
   - Except for filtering, sorting and charting, JS functions shall mainly modify classes while most display features are done by CSS.
   - That way, if we disable the main styling section, only the basic processing of the raw data will be visible.
@@ -41,26 +42,26 @@
 
   <!-- ************ SECTION 1 - MAIN GLOBAL VARIABLES ************ -->
 <script>
-  "use strict"; // Force safer JavaScript code (e.g. forbids using undeclared variables, etc.).
+  'use strict'; // Force safer JavaScript code (e.g. forbids using undeclared variables, etc.).
 
-  // Check localStorage for light/dark mode status ("light" or "")
+  // Check localStorage for light/dark mode status ('light' or '')
   let mode = localStorage.getItem('mode');
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
-  // List of authorized explorer nodes (URLs must end with "/").
+  // List of authorized explorer nodes (URLs must end with '/').
   // The first one for each network will be the default one.
   const explorerNodes = {
-    "mainnet": [
-      "https://explorer.0xmx.me/api/",
-      "https://explorer-api.beamprivacy.community/",
-      "https://BeamSmart.net:8000/",
-      //"http://localhost:8888/",
+    'mainnet': [
+      'https://explorer.0xmx.me/api/',
+      'https://explorer-api.beamprivacy.community/',
+      'https://BeamSmart.net:8000/',
+      //'http://localhost:8888/',
     ],
-    "dappnet": [
-      "https://BeamSmart.net:8001/",
+    'dappnet': [
+      'https://BeamSmart.net:8001/',
     ],
-    "dappnet2": [
-      "https://explorer.0xmx.me/api/dappnet2/",
+    'dappnet2': [
+      'https://explorer.0xmx.me/api/dappnet2/',
     ],
   };
 
@@ -1756,16 +1757,16 @@
     stroke-width: 1px;
   }
   .axisContainer.graph-highlight svg .scaleLine { /* Highlight axis line */
-	  stroke-width: 5px;
+    stroke-width: 5px;
   }
   .axisContainer.graph-highlight svg .scalePrimaryTick { /* Highlight axis ticks */
-	  stroke-width: 3px;
+    stroke-width: 3px;
   }
   .axisContainer.graph-highlight svg .scaleSecondaryTick { /* Highlight axis ticks */
-	  stroke-width: 2px;
+    stroke-width: 2px;
   }
   .axisContainer.graph-highlight svg .scaleValue { /* Highlight axis values */
-	  font-weight: bold;
+    font-weight: bold;
   }
   #graphArea.graph-highlight .graphPolyline { /* To better highlight one graph, dim all of them... */
     stroke-width: 1px;
@@ -1807,13 +1808,13 @@
 
   <!-- SVG templates (= invisible 'symbols' that can be called elsewhere) -->
   <!-- Remark: No fixed size or color defined here. They will adapt to the SVG calling them. -->
-  <svg style='display:none'><symbol id='eye_icon' viewBox='0 11 32 10'><path d='m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z'/></symbol></svg>
-  <svg style='display:none'><symbol id='left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m13 9-3 3 3 3'/></symbol></svg>
-  <svg style='display:none'><symbol id='right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m11 15 3-3-3-3'/></symbol></svg>
-  <svg style='display:none'><symbol id='double_right_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 9 15 L 12 12 L 9 9'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 13 15 L 16 12 L 13 9'/></symbol></svg>
-  <svg style='display:none'><symbol id='double_left_icon' fill='none' viewBox='0 0 24 24'><path stroke-width='2' stroke-linecap='round' d='M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 11 9 L 8 12 L 11 15'/><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M 15 9 L 12 12 L 15 15'/></symbol></svg>
-  <svg style='display:none'><symbol id='list_icon' viewBox='0 -3 10 14'><path d='M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z'/></symbol></svg>
-  <svg style='display:none'><symbol id='mode_icon' viewBox='0 0 512 512'><path d='M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z'/></symbol></svg>
+  <svg style="display:none"><symbol id="eye_icon" viewBox="0 11 32 10"><path d="m0 16 .16.35q.1.22.48.93t.83 1.34 1.25 1.54 1.66 1.7 2.15 1.56 2.62 1.35 3.14.9 3.71.35 3.71-.36 3.17-.92 2.6-1.32 2.14-1.6 1.66-1.63 1.25-1.6.83-1.31.48-.93L32 16q-.03-.13-.16-.35t-.48-.9-.83-1.34-1.25-1.57-1.66-1.66-2.15-1.57-2.62-1.35-3.14-.9T16 6.03t-3.71.35-3.17.9-2.6 1.34-2.14 1.57-1.66 1.66-1.25 1.57-.83 1.34-.48.93zm10.02 0q0-2.46 1.72-4.22T16 10.02t4.26 1.76T22.02 16t-1.76 4.26T16 22.02t-4.26-1.76T10.02 16zM12 16q0 1.66 1.18 2.85T16 20t2.82-1.15T20 16t-1.18-2.82T16 12t-2.82 1.18L16 16h-4z"/></symbol></svg>
+  <svg style="display:none"><symbol id="left_icon" fill="none" viewBox="0 0 24 24"><path stroke-width="2" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m13 9-3 3 3 3"/></symbol></svg>
+  <svg style="display:none"><symbol id="right_icon" fill="none" viewBox="0 0 24 24"><path stroke-width="2" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m11 15 3-3-3-3"/></symbol></svg>
+  <svg style="display:none"><symbol id="double_right_icon" fill="none" viewBox="0 0 24 24"><path stroke-width="2" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 9 15 L 12 12 L 9 9"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 13 15 L 16 12 L 13 9"/></symbol></svg>
+  <svg style="display:none"><symbol id="double_left_icon" fill="none" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 11 9 L 8 12 L 11 15"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 15 9 L 12 12 L 15 15"/></symbol></svg>
+  <svg style="display:none"><symbol id="list_icon" viewBox="0 -3 10 14"><path d="M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></symbol></svg>
+  <svg style="display:none"><symbol id="mode_icon" viewBox="0 0 512 512"><path d="M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z"/></symbol></svg>
 
   <!-- Wrappers (added just to keep footer at the bottom) -->
   <div id="Page-container">
@@ -1824,9 +1825,9 @@
         <div id="BannerLeft">
           <div id="BeamLogo">
             <!-- Clicking on the logo sends back to the main page -->
-            <a href='?network=$network' title='Main page'>
+            <a href="?network=$network" title="Main page">
               <!-- A simplified SVG version of the BEAM logo -->
-              <svg height='6em' width='6em' viewBox='42 42 460 460'><defs><linearGradient id='Gradient1' x1='-24.6' y1='683.51' x2='-23.57' y2='683.51' gradientTransform='matrix(98, 0, 0, -47, 2497.75, 32364.11)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#fff'/></linearGradient><linearGradient id='Gradient2' x1='-28.7' y1='703.17' x2='-27.72' y2='703.17' gradientTransform='matrix(-98, 0, 0, 26, -2353.25, -18019.72)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#9d6eff' stop-opacity='0'/><stop offset='1' stop-color='#a18cff'/></linearGradient><linearGradient id='Gradient3' x1='-28.69' y1='682.8' x2='-27.57' y2='682.8' gradientTransform='translate(-2353.25 29603.78) rotate(180) scale(98 43)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#ae60d6' stop-opacity='0'/><stop offset='1' stop-color='#ab38e6'/></linearGradient><linearGradient id='Gradient4' x1='-28.68' y1='685.09' x2='-27.47' y2='685.09' gradientTransform='translate(-2353.25 41328.94) rotate(180) scale(98 60)' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='#fd76fd' stop-opacity='0'/><stop offset='1' stop-color='#ff51ff'/></linearGradient></defs><circle id='circle' fill='#0b1624' cx='272' cy='272' r='230'/><g id='logo'><path id='Triangle-left' fill='#24c1ff' d='M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z'/><path id='Triangle-right' fill='#0b76ff' d='M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z'/><polygon id='Triangle-small-left' fill='#39fff2' points='272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3'/><polygon id='Triangle-small-right' fill='#00e2c2' points='272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3'/><polygon id='Ray1-left' fill='url(#Gradient1)' points='86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81'/><polygon id='Ray2-right-low' fill='url(#Gradient2)' points='458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33'/><polygon id='Ray3-right-mid' fill='url(#Gradient3)' points='458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67'/><polygon id='Ray4-right-top' fill='url(#Gradient4)' points='458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83'/></g></svg>
+              <svg height="6em" width="6em" viewBox="42 42 460 460"><defs><linearGradient id="Gradient1" x1="-24.6" y1="683.51" x2="-23.57" y2="683.51" gradientTransform="matrix(98, 0, 0, -47, 2497.75, 32364.11)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient><linearGradient id="Gradient2" x1="-28.7" y1="703.17" x2="-27.72" y2="703.17" gradientTransform="matrix(-98, 0, 0, 26, -2353.25, -18019.72)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9d6eff" stop-opacity="0"/><stop offset="1" stop-color="#a18cff"/></linearGradient><linearGradient id="Gradient3" x1="-28.69" y1="682.8" x2="-27.57" y2="682.8" gradientTransform="translate(-2353.25 29603.78) rotate(180) scale(98 43)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ae60d6" stop-opacity="0"/><stop offset="1" stop-color="#ab38e6"/></linearGradient><linearGradient id="Gradient4" x1="-28.68" y1="685.09" x2="-27.47" y2="685.09" gradientTransform="translate(-2353.25 41328.94) rotate(180) scale(98 60)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fd76fd" stop-opacity="0"/><stop offset="1" stop-color="#ff51ff"/></linearGradient></defs><circle id="circle" fill="#0b1624" cx="272" cy="272" r="230"/><g id="logo"><path id="Triangle-left" fill="#24c1ff" d="M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z"/><path id="Triangle-right" fill="#0b76ff" d="M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z"/><polygon id="Triangle-small-left" fill="#39fff2" points="272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3"/><polygon id="Triangle-small-right" fill="#00e2c2" points="272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3"/><polygon id="Ray1-left" fill="url(#Gradient1)" points="86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81"/><polygon id="Ray2-right-low" fill="url(#Gradient2)" points="458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33"/><polygon id="Ray3-right-mid" fill="url(#Gradient3)" points="458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67"/><polygon id="Ray4-right-top" fill="url(#Gradient4)" points="458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83"/></g></svg>
             </a>
           </div>
           <div id="Network">
@@ -1849,7 +1850,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id='Version'>v0.8.2</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.2</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1871,32 +1872,32 @@
         <!-- Banner symbols for navigation and special functions -->
         <div id="Navigation">
           <div class="NavRow">
-            <a id="Back" href="javascript:history.back();" title="Back"><svg width='1.2em' height='1.2em' viewBox='3 1 60 34'><path d='M3 18L19 2v10h42v12H19v10z'/></svg></a>
-            <a id="Reload" href="" title="Reload"><svg width='1.2em' height='1.2em' viewBox='-5 -10 140 140'><path d='M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z'/><polygon points='120,21.832 119.992,68.842 74.827,55.811'/></svg></a>
+            <a id="Back" href="javascript:history.back();" title="Back"><svg width="1.2em" height="1.2em" viewBox="3 1 60 34"><path d="M3 18L19 2v10h42v12H19v10z"/></svg></a>
+            <a id="Reload" href="" title="Reload"><svg width="1.2em" height="1.2em" viewBox="-5 -10 140 140"><path d="M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z"/><polygon points="120,21.832 119.992,68.842 74.827,55.811"/></svg></a>
           </div>
           <div class="NavRow">
-            <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></a>
-            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle light/dark mode"><svg width='0.9em' height='0.9em'><use href='#mode_icon'/></svg></a>
+            <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></a>
+            <a id="ColorMode" href="javascript:toggleDarkMode();" title="Toggle light/dark mode"><svg width="0.9em" height="0.9em"><use href="#mode_icon"/></svg></a>
           </div>
         </div>
       </div>
 
       <!-- Floating buttons to scroll up and down -->
-      <div><button onclick='topFunction();' id='TopButton' title='Top'>&#9650;</button></div>
-      <div><button onclick='bottomFunction();' id='BottomButton' title='Bottom'>&#9660;</button></div>
+      <div><button onclick="topFunction();" id="TopButton" title="Top">&#9650;</button></div>
+      <div><button onclick="bottomFunction();" id="BottomButton" title="Bottom">&#9660;</button></div>
 
       <!-- Main content area (will be replaced through Javascript) -->
       <div id="MainContent">
         <!-- Dots are isolated, for CSS animation... -->
         <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
         <p class="querying">Querying explorer node for <span class="queried-network"></span>: <span class="queried-node"></span></p>
-        <p class="querying">&#9656; <a href='javascript:openNodeSelection();' title='Show list of explorer nodes'>List of available nodes.</a></p>
+        <p class="querying">&#9656; <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">List of available nodes.</a></p>
       </div>
 
     </div>
 
     <!-- Fixed footer on all pages -->
-    <div id='Footer'><a href='https://www.beam.mw' target='_blank'>beam.mw</a></div>
+    <div id="Footer"><a href="https://www.beam.mw" target="_blank">beam.mw</a></div>
 
     <!-- No JavaScript warning -->
     <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -1907,7 +1908,7 @@
 <script>
 
   function MakeRef(link, text, target = '_self') {
-    return "<a href='" + link + "' target='" + target + "'>" + text + '</a>';
+    return '<a href="' + link + '" target="' + target + '">' + text + '</a>';
   }
 
   function UrlSelf(type, extra = '') {
@@ -1919,7 +1920,7 @@
   }
 
   function MakeCellRA(text, extra = '') {
-    return MakeCell(text, "align='right' " + extra);
+    return MakeCell(text, 'align="right" ' + extra);
   }
 
   function MakeAmountClr(amount) {
@@ -1933,11 +1934,11 @@
   }
 
   function AddClass(txt, className, extra = '') {
-    return "<span class='" + className + "' " + extra + '>' + txt + '</span>';
+    return '<span class="' + className + '" ' + extra + '>' + txt + '</span>';
   }
 
   function AddClassDiv(txt, className, extra = '') {
-    return "<div class='" + className + "' " + extra + '>' + txt + '</div>';
+    return '<div class="' + className + '" ' + extra + '>' + txt + '</div>';
   }
 
   function UrlBlock(h) {
@@ -1958,7 +1959,7 @@
   }
 
   function MakeCid(cid) {
-    return AddClass(MakeRef(UrlSelf('contract', '&id=' + cid), cid), 'cid', "title='" + cid + "'");
+    return AddClass(MakeRef(UrlSelf('contract', '&id=' + cid), cid), 'cid', 'title="' + cid + '"');
   }
 
   function MakeFundsTbl(jFunds) {
@@ -1969,14 +1970,14 @@
     // Make collapsible and add some headers if more than a few rows
     let maxRows = 5;
     if (jFunds.length < maxRows) {
-      text += "<table class='tableFunds_compact' border='1' cellspacing='0'>";
+      text += '<table class="tableFunds_compact" border="1" cellspacing="0">';
     } else {
       text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', 'close');
-      text +="<table class='tableFunds_full' border='1' cellspacing='0'>\n\
-                <thead><tr>\n\
-                  <th><span class='th'>Asset</span></th>\n\
-                  <th><span class='th'>Amount</span></th>\n\
-                </tr></thead>\n";
+      text +=`<table class="tableFunds_full" border="1" cellspacing="0">
+                <thead><tr>
+                  <th><span class="th">Asset</span></th>
+                  <th><span class="th">Amount</span></th>
+                </tr></thead>`;
     }
 
     for (let iF = 0; iF < jFunds.length; iF++) {
@@ -2005,7 +2006,7 @@
         text += '<tr>';
 
         for (let iCol = 0; iCol < jRow.length; iCol++) {
-          text += "<td align='right'>";
+          text += '<td align="right">';
           text += Obj2Html(jRow[iCol]);
           text += '</td>';
         }
@@ -2026,7 +2027,7 @@
 
     if (obj.type == 'table') {
       const jTbl = obj.value;
-      let text = "<table class='tableGeneric' border='1' cellspacing='0'>";
+      let text = '<table class="tableGeneric" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(jTbl);
       text += '</table>';
       return text;
@@ -2036,7 +2037,7 @@
 
     if (obj.type == 'height') { return MakeBlock(obj.value) }
 
-    if (obj.type == 'blob') { return AddClass(obj.value, 'blob', "title='" + obj.value + "'") }
+    if (obj.type == 'blob') { return AddClass(obj.value, 'blob', 'title="' + obj.value + '"') }
 
     if (obj.type == 'bool') { return obj.value > 0 ? AddClass('yes', 'bool yes') : AddClass('no', 'bool no') }
 
@@ -2082,12 +2083,12 @@
     }
 
     if (typeof obj === 'string') {
-      // If data is a text string starting with "STD:" (i.e. it's an asset description), then we type it as "metadata"
+      // If data is a text string starting with 'STD:' (i.e. it's an asset description), then we type it as 'metadata'
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
       // For the table of block headers, we also replace some default labels and add the corresponding codes and descriptions
       if (g_type == 'hdrs') {
         for (let item of columnHeaders) {
-          if (obj == item.original) { return "<span title='" + item.description + "' data-code='" + item.code + "'>" + item.title + "</span>" }
+          if (obj == item.original) { return '<span title="' + item.description + '" data-code="' + item.code + '">' + item.title + '</span>' }
         }
       }
     }
@@ -2108,17 +2109,15 @@
   }
 
   function DisplayContracts() {
-    let text = "\
-      <h2 class='title'>Deployed Smart Contracts</h2>\n\
-      <table class='tableContracts' border='1' cellspacing='0'>\n\
-        <thead><tr>\n\
-          <th><span class='th'>Cid</span></th>\n\
-          <th><span class='th'>Kind</span></th>\n\
-          <th><span class='th'>Deploy Height</span></th>\n\
-          <th><span class='th'>Locked Funds</span></th>\n\
-          <th><span class='th'>Owned Assets</span></th>\n\
-        </tr></thead>\n\
-    ";
+    let text = `<h2 class="title">Deployed Smart Contracts</h2>
+                <table class="tableContracts" border="1" cellspacing="0">
+                  <thead><tr>
+                    <th><span class="th">Cid</span></th>
+                    <th><span class="th">Kind</span></th>
+                    <th><span class="th">Deploy Height</span></th>
+                    <th><span class="th">Locked Funds</span></th>
+                    <th><span class="th">Owned Assets</span></th>
+                  </tr></thead>`;
 
     const jData = JSON.parse(this.responseText);
     const jTbl = jData['value'];
@@ -2141,25 +2140,23 @@
         // Make collapsible and add some headers if more than a few rows
         let maxRows = 5;
         if (jOwned.length < maxRows) {
-          text += "<table class='tableOwned_compact' border='1' cellspacing='0'>";
+          text += '<table class="tableOwned_compact" border="1" cellspacing="0">';
         } else {
           text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', 'close');
-          text += "\
-            <table class='tableOwned_full' border='1' cellspacing='0'>\n\
-              <thead><tr>\n\
-                <th><span class='th'>Asset</span></th>\n\
-                <th><span class='th'>Description</span></th>\n\
-                <th><span class='th'>Amount</span></th>\n\
-              </tr></thead>\n\
-          ";
+          text += `<table class="tableOwned_full" border="1" cellspacing="0">
+                    <thead><tr>
+                      <th><span class="th">Asset</span></th>
+                      <th><span class="th">Description</span></th>
+                      <th><span class="th">Amount</span></th>
+                    </tr></thead>`;
         }
 
         for (let iF = 0; iF < jOwned.length; iF++) {
           const jFR = jOwned[iF];
           text += '<tr>';
-          text += MakeCell(MakeAsset(jFR[0]['value']), "style='width:10%'");
+          text += MakeCell(MakeAsset(jFR[0]['value']), 'style="width:10%"');
           text += MakeCell(AddClass(jFR[1], 'metadata'));
-          text += MakeCellAmount(jFR[2]['value'], "style='width:40%'");
+          text += MakeCellAmount(jFR[2]['value'], 'style="width:40%"');
           text += '</tr>';
         }
         text += '</table>';
@@ -2169,7 +2166,7 @@
       }
 
       text += '</td>';
-      text += '</tr>\n';
+      text += '</tr>';
     }
 
     text += '</table>';
@@ -2181,7 +2178,7 @@
     const jTblObj = jData['Asset history'];
     const jTbl = jTblObj['value'];
 
-    let text = "<h2 class='title'>Status of Asset " + g_id + '</h2>\n';
+    let text = '<h2 class="title">Status of Asset ' + g_id + '</h2>';
 
     text += MakeCollapsibleBegin('Asset History');
 
@@ -2189,16 +2186,14 @@
     text += DisplayAssetOptions();
 
     // Display table
-    text += "\
-      <table class='tableAssetHistory' border='1' cellspacing='0'>\n\
-        <thead><tr>\n\
-          <th><span class='th'>Height</span></th>\n\
-          <th><span class='th'>Event</span></th>\n\
-          <th><span class='th'>Amount</span></th>\n\
-          <th><span class='th'>Total Amount</span></th>\n\
-          <th><span class='th'>Extra</span></th>\n\
-        </tr></thead>\n\
-    ";
+    text += `<table class='tableAssetHistory' border='1' cellspacing='0'>
+              <thead><tr>
+                <th><span class='th'>Height</span></th>
+                <th><span class='th'>Event</span></th>
+                <th><span class='th'>Amount</span></th>
+                <th><span class='th'>Total Amount</span></th>
+                <th><span class='th'>Extra</span></th>
+              </tr></thead>`;
 
     // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
@@ -2213,7 +2208,7 @@
     }
 
     text += '</table>';
-    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
+    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', 'title="Previous blocks"') + '</p>';
 
     text += MakeCollapsibleEnd();
 
@@ -2228,26 +2223,22 @@
   }
 
   function MakeTableTxos(jTbl, isInp) {
-    let text = "\
-      <table class='tableUTXO' border='1' cellspacing='0'>\n\
-        <thead><tr>\n\
-          <th><span class='th'>Commitment</span></th>\n\
-    ";
+    let text = `<table class='tableUTXO' border='1' cellspacing='0'>
+                  <thead><tr>
+                    <th><span class='th'>Commitment</span></th>`;
 
-    if (isInp) { text += "<th><span class='th'>Height</span></th>\n" }
-    else { text += "<th><span class='th'>Spent</span></th>\n" }
+    if (isInp) { text += '<th><span class="th">Height</span></th>' }
+    else { text += '<th><span class="th">Spent</span></th>' }
 
-    text += "\
-          <th><span class='th'>Maturity</span></th>\n\
-          <th><span class='th'>Extra</span></th>\n\
-        </tr></thead>\n\
-    ";
+    text += `<th><span class='th'>Maturity</span></th>
+             <th><span class='th'>Extra</span></th>
+           </tr></thead>`;
 
     for (let i = 0; i < jTbl.length; i++) {
       let jRow = jTbl[i];
       text += '<tr>';
 
-      text += MakeCell(AddClass(jRow['commitment'], 'commitment', " title='" + jRow['commitment'] + "'"));
+      text += MakeCell(AddClass(jRow['commitment'], 'commitment', 'title="' + jRow['commitment'] + '"'));
       delete jRow.commitment;
 
       let j = jRow[isInp ? 'height' : 'spent'];
@@ -2296,17 +2287,15 @@
   }
 
   function MakeTblAssets(j) {
-    let text = "\
-    <table class='tableAssets' border='1' cellspacing='0'>\n\
-      <thead><tr>\n\
-        <th><span class='th'>Id</span></th>\n\
-        <th><span class='th'>Owner</span></th>\n\
-        <th><span class='th'>Deposit</span></th>\n\
-        <th><span class='th'>Supply</span></th>\n\
-        <th><span class='th'>Lock-Height</span></th>\n\
-        <th><span class='th'>Metadata</span></th>\n\
-      </tr></thead>\n\
-    ";
+    let text = `<table class="tableAssets" border="1" cellspacing="0">
+                  <thead><tr>
+                    <th><span class="th">Id</span></th>
+                    <th><span class="th">Owner</span></th>
+                    <th><span class="th">Deposit</span></th>
+                    <th><span class="th">Supply</span></th>
+                    <th><span class="th">Lock-Height</span></th>
+                    <th><span class="th">Metadata</span></th>
+                  </tr></thead>`;
 
     const jTbl = j['value'];
 
@@ -2338,7 +2327,7 @@
     // Display error message if no block was found
     // Remark: The explorer node returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
     if (jData['found']===false || (jData['info']===undefined && g_height!='0')) { // Remark: Only the Treasury lacks the 'info' field
-      text += "<h2 class='title errorMessage'>Block not found.</h2>";
+      text += '<h2 class="title errorMessage">Block not found.</h2>';
       SetContent(text);
       return;
     }
@@ -2347,33 +2336,33 @@
     let jH = jData['h'];
     if (jH != null) { g_height = jH; }
 
-    // Parse "info" section
+    // Parse 'info' section
     let j = jData['info'];
 
     // If the request included a kernel, get the resulting height
     // (if the requested kernel did no exist, but a height was also given, then the same height will be obtained here)
     if (j && g_kernel) { g_height = j['value'][0][1]['value'] }
 
-    text += "<h2 class='title'>";
+    text += '<h2 class="title">';
     if (g_height > 0) {
-      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_height), "<svg width='1em' height='1em'><use href='#list_icon'/></svg>"), 'listOfBlockHeaders', "title='List of blocks up to this one'");
+      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_height), '<svg width="1em" height="1em"><use href="#list_icon"/></svg>'), 'listOfBlockHeaders', 'title="List of blocks up to this one"');
       text += '&nbsp;';
       text += 'Block ' + AddClass(g_height, 'blockHeight');
       text += '&nbsp;';
-      text += AddClass(MakeRef(UrlBlock(g_height - 1) + '&adj=-1', "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+      text += AddClass(MakeRef(UrlBlock(g_height - 1) + '&adj=-1', '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
     } else {
       text += 'Treasury';
       text += '&nbsp;';
-      text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
+      text += AddClass('<svg width="1em" height="1em"><use href="#left_icon"/></svg>', 'previousBlock off', 'title=""');
     }
-    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     // If a search was made, add a link to scroll down to the result
-    if (g_kernel) { text += AddClass(`&nbsp;<a href='javascript:scrollTo(".rowHighlight","center");' title='Scroll down to the kernel'>Kernel found!</a>`,"scrollToSearchResult"); }
+    if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');' title="Scroll down to the kernel">Kernel found!</a>`,'scrollToSearchResult'); }
     text += '</h2>';
 
     if (j) {
       text += MakeCollapsibleBegin('Block Summary');
-      text += "<table class='tableSummary' border='1' cellspacing='0'>";
+      text += '<table class="tableSummary" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2383,36 +2372,34 @@
 
     j = jData['inputs'];
     if (j) {
-      text += "<h3 class='sub'>Inputs (" + j.length + ")</h3>\n";
+      text += '<h3 class="sub">Inputs (' + j.length + ')</h3>';
       text += MakeTableTxos(j, true);
     }
 
     j = jData['outputs'];
     if (j) {
-      text += "<h3 class='sub'>Outputs (" + j.length + ")</h3>\n";
+      text += '<h3 class="sub">Outputs (' + j.length + ')</h3>';
       text += MakeTableTxos(j, false);
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += "<h3 class='sub'>Kernels (" + jTbl.length + ")</h3>\n";
-      text += "\
-        <table class='tableKernels' border='1' cellspacing='0'>\n\
-          <thead><tr>\n\
-            <th><span class='th'>ID</span></th>\n\
-            <th><span class='th'>Fee</span></th>\n\
-            <th><span class='th'>Height</span></th>\n\
-            <th><span class='th'>Extra</span></th>\n\
-          </tr></thead>\n\
-      ";
+      text += '<h3 class="sub">Kernels (' + jTbl.length + ')</h3>';
+      text += `<table class="tableKernels" border="1" cellspacing="0">
+                <thead><tr>
+                  <th><span class="th">ID</span></th>
+                  <th><span class="th">Fee</span></th>
+                  <th><span class="th">Height</span></th>
+                  <th><span class="th">Extra</span></th>
+                </tr></thead>`;
 
       for (let i = 0; i < jTbl.length; i++) {
         let jRow = jTbl[i];
 
         // Mark the row to be highlighted if the kernel was the one queried
-        text += (g_kernel && jRow['id'] == g_kernel) ? "<tr class='rowHighlight'>" : "<tr>";
+        text += (g_kernel && jRow['id'] == g_kernel) ? '<tr class="rowHighlight">' : '<tr>';
 
-        text += MakeCell(AddClass(jRow['id'], 'kernelId', "title='" + jRow['id'] + "'"));
+        text += MakeCell(AddClass(jRow['id'], 'kernelId', 'title="' + jRow['id'] + '"'));
         text += MakeCellRA(Obj2Html(jRow['fee']));
 
         let txtH = '';
@@ -2450,7 +2437,7 @@
     j = jData['totals'];
     if (j) {
       text += MakeCollapsibleBegin('Totals');
-      text += "<table class='tableTotals' border='1' cellspacing='0'>";
+      text += '<table class="tableTotals" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2495,10 +2482,10 @@
       // (all these rows are kept together within a dedicated tbody).
       if (depth == 0) {
         // Display block height for main contract call
-        text += MakeCell(MakeBlock(jRow[0]), "class='mainCall'");
+        text += MakeCell(MakeBlock(jRow[0]), 'class="mainCall"');
       } else {
         // Use an empty cell for subsequent contract calls
-        text += MakeCell('', "class='subCall'");
+        text += MakeCell('', 'class="subCall"');
       }
 
       text += MakeCell(Obj2Html(jRow[1]));
@@ -2517,16 +2504,14 @@
 
   function MakeCollapsibleBegin(title, variant = '', status = 'open', extra = '') { // Collapsible are open by default
     // Create a details/summary/content combo
-    return "\
-      <details class='collapsible " + variant + "' " + status + " " + extra + ">\n\
-        <summary class='collapsible-label " + variant + "'>" + title + "</summary>\n\
-        <div class='collapsible-content " + variant + "'>\n\
-    ";
+    return `<details class="collapsible ${variant}" ${status} ${extra}>
+              <summary class="collapsible-label ${variant}">${title}</summary>
+              <div class="collapsible-content ${variant}">`;
   }
 
   function MakeCollapsibleEnd() {
     // Close the opened tags
-    return '</div></details>\n';
+    return '</div></details>';
   }
 
   function MakeLinkToOlderBlocks(jTblObj) {
@@ -2572,38 +2557,36 @@
     const jTblObj = jData['Calls history'];
     const jTbl = jTblObj['value'];
 
-    let text = "<h2 class='title'>Contract " + AddClass(g_id, 'cidTitle') + '</h2>\n';
+    let text = '<h2 class="title">Contract ' + AddClass(g_id, 'cidTitle') + '</h2>';
 
-    text += MakeCollapsibleBegin('Call history')
+    text += MakeCollapsibleBegin('Call history');
     
     // Display table options
     text += DisplayContractOptions();
 
     // Display table
-    text += "\
-      <table class='tableCallHistory' border='1' cellspacing='0'>\n\
-        <thead><tr>\n\
-          <th><span class='th'>Height</span></th>\n\
-          <th><span class='th'>Cid</span></th>\n\
-          <th><span class='th'>Kind</span></th>\n\
-          <th><span class='th'>Method</span></th>\n\
-          <th><span class='th'>Arguments</span></th>\n\
-          <th><span class='th'>Funds</span></th>\n\
-          <th><span class='th'>Emisison</span></th>\n\
-          <th><span class='th'>Keys</span></th>\n\
-        </tr></thead>\n\
-    ";
+    text += `<table class="tableCallHistory" border="1" cellspacing="0">
+              <thead><tr>
+                <th><span class="th">Height</span></th>
+                <th><span class="th">Cid</span></th>
+                <th><span class="th">Kind</span></th>
+                <th><span class="th">Method</span></th>
+                <th><span class="th">Arguments</span></th>
+                <th><span class="th">Funds</span></th>
+                <th><span class="th">Emisison</span></th>
+                <th><span class="th">Keys</span></th>
+              </tr></thead>`;
 
     // Skip first row (the headers)
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       // Multiple contract calls are grouped in dedicated tbodies (HTML tables can have multiple tbodies!)
-      text += "<tbody class='contractCall'>";
+      text += '<tbody class="contractCall">';
       text += CallHistoryAddRow(jTbl[iRow], 0, get_CallRows(jTbl[iRow]));
       text += '</tbody>';
     }
 
     text += '</table>';
-    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
+    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jTblObj), 'Previous blocks...'), 'more', 'title="Previous blocks"') + '</p>';
 
     text += MakeCollapsibleEnd();
 
@@ -2628,23 +2611,23 @@
 
   function DisplayHdrs() {
     const jData = JSON.parse(this.responseText);
-    //const jTbl = jData["value"];
+    //const jTbl = jData['value'];
 
-    let text = "<h2 class='title'>\n";
+    let text = '<h2 class="title">';
     text += 'Block headers';
     text += '&nbsp;';
-    text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), "<svg width='1em' height='1em'><use href='#double_left_icon'/></svg>"), 'olderBlocks', "title='Previous blocks'");
-    text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), "<svg width='1em' height='1em'><use href='#double_right_icon'/></svg>"), 'newerBlocks', "title='Newer blocks'");
-    text += '</h2>\n';
+    text += AddClass(MakeRef(MakeLinkToOlderBlocks(jData), '<svg width="1em" height="1em"><use href="#double_left_icon"/></svg>'), 'olderBlocks', 'title="Previous blocks"');
+    text += AddClass(MakeRef(MakeLinkToNewerBlocks(jData), '<svg width="1em" height="1em"><use href="#double_right_icon"/></svg>'), 'newerBlocks', 'title="Newer blocks"');
+    text += '</h2>';
 
     // Display graph and table options
     text += DisplayHdrsOptions();
 
     // Main table
-    text += "<div id='divTableBlocks'>";
+    text += '<div id="divTableBlocks">';
     text += Obj2Html(jData);
     text += '</div>';
-    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), 'Previous blocks...'), 'more', "title='Previous blocks'") + '</p>';
+    text += '<p>' + AddClass(MakeRef(MakeLinkToOlderBlocks(jData), 'Previous blocks...'), 'more', 'title="Previous blocks"') + '</p>';
 
     SetContent(text);
 
@@ -2673,45 +2656,36 @@
   }
 
   function AboutSection() { // Display an 'ABOUT' block
-    let text = "<div class='about'>\n";
-    text += "<h2 class='title'>About</h2>\n";
-    text += "<p class='aboutText'>";
-    text += "<b>Beam</b> (<a href='https://beam.mw' target='_blank'>beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts.\
-            It's powered by the innovative <b>Mimblewimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain.\
-            It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Although amounts are concealed and addresses are not stored onchain, \
-            the blockchain explorer shows the <b>'commitments'</b> of all <b>inputs & outputs</b> (UTXOs) of each block. \
-            They are dissociated of the individual transactions, whose <b>'kernels'</b> can also be seen within each block.";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "Beam's native <b>Confidential Assets</b> (or 'privacy tokens') are also listed, with their complete mint and burn history. \
-            The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).";
-    text += "</p>\n";
-    text += "<p class='aboutText'>";
-    text += "This app is an interactive web display of the data queried to a Beam explorer node \
-            (selected from a <a href='javascript:openNodeSelection();' title='Show list of explorer nodes'>predefined list</a>).\
-            The whole thing is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. \
-            You can see and save the <a href='view-source:" + window.location.href.split('?')[0] + "' target='_blank'>source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href='https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm' target='_blank'>Github</a>.";
-    text += "</p>\n";
-    text += "<p class='aboutDisclaimer'>";
-    text += "Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.";
-    text += "</p>\n";
-    text += "</div>";
-
+    let text = `<div class="about">
+                  <h2 class="title">About</h2>
+                  <p class="aboutText">
+                    <b>Beam</b> (<a href="https://beam.mw" target="_blank">beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts. It's powered by the innovative <b>Mimblewimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain. It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.
+                  </p>
+                  <p class="aboutText">
+                    Although amounts are concealed and addresses are not stored onchain, the blockchain explorer shows the <b>"commitments"</b> of all <b>inputs & outputs</b> (UTXOs) of each block. They are dissociated of the individual transactions, whose <b>"kernels"</b> can also be seen within each block.
+                  </p>
+                  <p class="aboutText">
+                    Beam's native <b>Confidential Assets</b> (or "privacy tokens") are also listed, with their complete mint and burn history. The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).
+                  </p>
+                  <p class="aboutText">
+                    This app is an interactive web display of the data queried to a Beam explorer node (selected from a <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">predefined list</a>). The whole thing is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. You can see and save the <a href="view-source:${window.location.href.split('?')[0]}" target="_blank">source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href="https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm" target="_blank">Github</a>.
+                  </p>
+                  <p class="aboutDisclaimer">
+                    Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.
+                  </p>
+                </div>`;
     return text;
   }
 
   function DisplayStatus() {
     const jData = JSON.parse(this.responseText);
 
-    let text = "<h2 class='title'>Blockchain status</h2>";
-    text += "<div class='divTableStatus'>"; // Class added to avoid adding filters to these specific tables...
+    let text = '<h2 class="title">Blockchain status</h2>';
+    text += '<div class="divTableStatus">'; // Class added to avoid adding filters to these specific tables...
     text += Obj2Html(jData);
     text += '</div>';
 
-    // Add an "About" text below the Blockchain Status table
+    // Add an 'About' text below the Blockchain Status table
     text += AboutSection();
 
     SetContent(text);
@@ -2720,20 +2694,20 @@
   function DisplayAssets() {
     const jData = JSON.parse(this.responseText);
 
-    let text = "<h2 class='title'>\n";
+    let text = '<h2 class="title">';
     if (g_height) {
       text += 'Confidential Assets at block height ' + MakeBlock(g_height);
       text += '&nbsp;';
       if (g_height > 1) {
-        text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1)), "<svg width='1em' height='1em'><use href='#left_icon'/></svg>"), 'previousBlock', "title='Previous block'");
+        text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1)), '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
       } else {
-        text += AddClass("<svg width='1em' height='1em'><use href='#left_icon'/></svg>", 'previousBlock off', "title=''");
+        text += AddClass('<svg width="1em" height="1em"><use href="#left_icon"/></svg>', 'previousBlock off', 'title=""');
       }
-      text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1 + 2)), "<svg width='1em' height='1em'><use href='#right_icon'/></svg>"), 'nextBlock', "title='Next block'");
+      text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1 + 2)), '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     } else {
       text += 'Current Confidential Assets';
     }
-    text += '</h2>\n';
+    text += '</h2>';
 
     // Display table options
     text += DisplayAssetsOptions();
@@ -2745,14 +2719,12 @@
   }
 
   function DisplayHistoricalBlocks() {
-    let text = "<h2 class='title'>Special historical blocks in Beam's mainnet</h2>";
-    text += "\
-      <table class='tableHistoricalBlocks' border='1' cellspacing='0'>\n\
-        <thead><tr>\n\
-          <th><span class='th'>Height</span></th>\n\
-          <th><span class='th'>Description</span></th>\n\
-        </tr></thead>\n\
-    ";
+    let text = `<h2 class="title">Special historical blocks in Beam's mainnet</h2>`;
+    text += `<table class="tableHistoricalBlocks" border="1" cellspacing="0">
+               <thead><tr>
+                 <th><span class="th">Height</span></th>
+                 <th><span class="th">Description</span></th>
+               </tr></thead>`;
 
     for (let obj of specialBlocks) {
       text += '<tr>';
@@ -2790,53 +2762,53 @@
 
   // Array of codes, graph colors, old/new names and descriptions for the Block Header columns
   // (columns with 'undefined' color won't be displayable as graphs)
-  const columnDefaultOrder = "NTHgGdDfFkKiIoOuUyYzZbBpPcCaA"; // Without "t" (which is redundant with "g")
-  const columnDefaultDisplay = "THdfkioyzp";
+  const columnDefaultOrder = 'NTHgGdDfFkKiIoOuUyYzZbBpPcCaA'; // Without 't' (which is redundant with 'g')
+  const columnDefaultDisplay = 'THdfkioyzp';
   const columnHeaders = [
-    { code: "h", color: "#000000", original: "Height", title: "Height", description: "Block height" }, // Remark: The code here is useless as this is always the default first column
-    { code: "H", color: undefined, original: "Hash", title: "Hash", description: "Block hash" },
-    { code: "N", color: "#7d7d7d", original: "Number", title: "Number", description: "Block number (in pBFT chains)" }, // Only available for pBFT chains
-    //{ code: "t", color: "#bf3c3c", original: "d.Time", title: "Time", description: "Block duration (in seconds)" }, // Redundant with "g"
-    { code: "T", color: undefined, original: "Timestamp", title: "Timestamp", description: "Block timestamp (UTC)" },
-    { code: "g", color: "#bf3c3c", original: "d.Age", title: "Duration", description: "Block duration (in seconds)" },
-    { code: "G", color: "#d67a7a", original: "Age", title: "Age", description: "Block age since genesis (in seconds)" },
-    { code: "d", color: "#008484", original: "Difficulty", title: "Difficulty", description: "Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)" },
-    { code: "D", color: "#00bdbd", original: "Chainwork", title: "Chainwork", description: "Total difficulty since genesis" },
-    { code: "f", color: "#7b00b0", original: "Fee", title: "Fees", description: "Block fees (in Beams)" },
-    { code: "F", color: "#8660d7", original: "T.Fee", title: "Total fees", description: "Total fees since genesis (in Beams)" },
-    { code: "k", color: "#ff0080", original: "Txs", title: "Txs", description: "Number of transactions (kernels) in the block" },
-    { code: "K", color: "#ff79bc", original: "T.Txs", title: "Total txs", description: "Total number of transactions (kernels) since genesis" },
-    { code: "i", color: "#006400", original: "MW.Inputs", title: "MW in", description: "Number of Mimblewimble inputs in the block" },
-    { code: "I", color: "#00bb00", original: "T.MW.Inputs", title: "Total MW in", description: "Total number of Mimblewimble inputs since genesis" },
-    { code: "o", color: "#ff0006", original: "MW.Outputs", title: "MW out", description: "Number of Mimblewimble outputs in the block" },
-    { code: "O", color: "#ff5e5e", original: "T.MW.Outputs", title: "Total MW out", description: "Total number of Mimblewimble outputs since genesis" },
-    { code: "u", color: "#808000", original: "MW.Utxos", title: "MW UTXOs", description: "Change in the number of unspent Mimblewimble UTXOs (i.e. block outputs minus inputs)" },
-    { code: "U", color: "#bdb76b", original: "T.MW.Utxos", title: "Total MW UTXOs", description: "Total number of unspent Mimblewimble UTXOs in the blockchain" },
-    { code: "y", color: "#0000e3", original: "SH.Inputs", title: "SH in", description: "Number of block inputs from the Lelantus Shielded Pool" },
-    { code: "Y", color: "#4f4fff", original: "T.SH.Inputs", title: "Total SH inputs", description: "Total number of inputs from the Lelantus Shielded Pool since genesis" },
-    { code: "z", color: "#804040", original: "SH.Outputs", title: "SH out", description: "Number of block outputs sent to the Lelantus Shielded Pool" },
-    { code: "Z", color: "#b87272", original: "T.SH.Outputs", title: "Total SH out", description: "Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)" },
-    { code: "b", color: "#5a3362", original: "Contracts", title: "New contracts", description: "Number of Smart Contracts deployed in the block" },
-    { code: "B", color: "#a66ab3", original: "T.Contracts", title: "Total contracts", description: "Total number of Smart Contracts deployed since genesis" },
-    { code: "p", color: "#ce00ce", original: "ContractCalls", title: "Contract calls", description: "Number of Smart Contract calls in the block" },
-    { code: "P", color: "#ff53ff", original: "T.ContractCalls", title: "Total contract calls", description: "Total number of Smart Contract calls since genesis" },
-    { code: "c", color: "#004080", original: "D.Size.Compressed", title: "Size variation", description: "Blockchain size increase or decrease (in bytes)" },
-    { code: "C", color: "#6d92c2", original: "Size.Compressed", title: "Total size", description: "Total blockchain size (in bytes)" },
-    { code: "a", color: "#009d27", original: "D.Size.Archive", title: "Archive size", description: "Block size (in bytes) if its spent Mimblewimble UTXOs were kept" },
-    { code: "A", color: "#00d535", original: "Size.Archive", title: "Total archive size", description: "Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept" }
+    { code: 'h', color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
+    { code: 'H', color: undefined, original: 'Hash', title: 'Hash', description: 'Block hash' },
+    { code: 'N', color: '#7d7d7d', original: 'Number', title: 'Number', description: 'Block number (in pBFT chains)' }, // Only available for pBFT chains
+    //{ code: 't', color: '#bf3c3c', original: 'd.Time', title: 'Time', description: 'Block duration (in seconds)' }, // Redundant with 'g'
+    { code: 'T', color: undefined, original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp (UTC)' },
+    { code: 'g', color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Block duration (in seconds)' },
+    { code: 'G', color: '#d67a7a', original: 'Age', title: 'Age', description: 'Block age since genesis (in seconds)' },
+    { code: 'd', color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)' },
+    { code: 'D', color: '#00bdbd', original: 'Chainwork', title: 'Chainwork', description: 'Total difficulty since genesis' },
+    { code: 'f', color: '#7b00b0', original: 'Fee', title: 'Fees', description: 'Block fees (in Beams)' },
+    { code: 'F', color: '#8660d7', original: 'T.Fee', title: 'Total fees', description: 'Total fees since genesis (in Beams)' },
+    { code: 'k', color: '#ff0080', original: 'Txs', title: 'Txs', description: 'Number of transactions (kernels) in the block' },
+    { code: 'K', color: '#ff79bc', original: 'T.Txs', title: 'Total txs', description: 'Total number of transactions (kernels) since genesis' },
+    { code: 'i', color: '#006400', original: 'MW.Inputs', title: 'MW in', description: 'Number of Mimblewimble inputs in the block' },
+    { code: 'I', color: '#00bb00', original: 'T.MW.Inputs', title: 'Total MW in', description: 'Total number of Mimblewimble inputs since genesis' },
+    { code: 'o', color: '#ff0006', original: 'MW.Outputs', title: 'MW out', description: 'Number of Mimblewimble outputs in the block' },
+    { code: 'O', color: '#ff5e5e', original: 'T.MW.Outputs', title: 'Total MW out', description: 'Total number of Mimblewimble outputs since genesis' },
+    { code: 'u', color: '#808000', original: 'MW.Utxos', title: 'MW UTXOs', description: 'Change in the number of unspent Mimblewimble UTXOs (i.e. block outputs minus inputs)' },
+    { code: 'U', color: '#bdb76b', original: 'T.MW.Utxos', title: 'Total MW UTXOs', description: 'Total number of unspent Mimblewimble UTXOs in the blockchain' },
+    { code: 'y', color: '#0000e3', original: 'SH.Inputs', title: 'SH in', description: 'Number of block inputs from the Lelantus Shielded Pool' },
+    { code: 'Y', color: '#4f4fff', original: 'T.SH.Inputs', title: 'Total SH inputs', description: 'Total number of inputs from the Lelantus Shielded Pool since genesis' },
+    { code: 'z', color: '#804040', original: 'SH.Outputs', title: 'SH out', description: 'Number of block outputs sent to the Lelantus Shielded Pool' },
+    { code: 'Z', color: '#b87272', original: 'T.SH.Outputs', title: 'Total SH out', description: 'Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)' },
+    { code: 'b', color: '#5a3362', original: 'Contracts', title: 'New contracts', description: 'Number of Smart Contracts deployed in the block' },
+    { code: 'B', color: '#a66ab3', original: 'T.Contracts', title: 'Total contracts', description: 'Total number of Smart Contracts deployed since genesis' },
+    { code: 'p', color: '#ce00ce', original: 'ContractCalls', title: 'Contract calls', description: 'Number of Smart Contract calls in the block' },
+    { code: 'P', color: '#ff53ff', original: 'T.ContractCalls', title: 'Total contract calls', description: 'Total number of Smart Contract calls since genesis' },
+    { code: 'c', color: '#004080', original: 'D.Size.Compressed', title: 'Size variation', description: 'Blockchain size increase or decrease (in bytes)' },
+    { code: 'C', color: '#6d92c2', original: 'Size.Compressed', title: 'Total size', description: 'Total blockchain size (in bytes)' },
+    { code: 'a', color: '#009d27', original: 'D.Size.Archive', title: 'Archive size', description: 'Block size (in bytes) if its spent Mimblewimble UTXOs were kept' },
+    { code: 'A', color: '#00d535', original: 'Size.Archive', title: 'Total archive size', description: 'Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept' }
   ];
 
   // Array of objects listing the special historical blocks.
   // Remarks:
   // - Description should contain links to interesting explorer pages.
   // - External links are provided afterwards.
-  // - "block_list" is used for a one or several individual blocks, "block_range" for all blocks between two.
+  // - 'block_list' is used for a one or several individual blocks, 'block_range' for all blocks between two.
   // - The list can be completed with important tokens, first atomic swap, important smart contracts (Nephrite, DEX, Oracle, etc.).
   const specialBlocks = [
     {
       block_list: [0],
       title: 'Treasury',
-      description: "Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href='?network=mainnet&type=treasury' title='Treasury'>Treasury</a> is also represented in the explorer as a <a href='?network=mainnet&type=block&height=0' title='Treasury as block height 0'>pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate 'maturity' (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href='?network=mainnet&type=treasury' title='List Treasury UTXOs'>60 such groups</a>.",
+      description: `Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href="?network=mainnet&type=treasury" title="Treasury">Treasury</a> is also represented in the explorer as a <a href="?network=mainnet&type=block&height=0" title="Treasury as block height 0">pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate "maturity" (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href="?network=mainnet&type=treasury" title="List Treasury UTXOs">60 such groups</a>.`,
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
@@ -2846,43 +2818,43 @@
     {
       block_list: [1],
       title: 'Genesis block',
-      description: "The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original Mimblewimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever Mimblewimble-based confidential cryptocurrency</b> on <a href='?network=mainnet&type=block&height=1' title='Genesis block'>January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).",
+      description: `The Beam project started in March 2018 and the first medium post introducing Beam to the world was published on July 19<sup>th</sup> 2018 (exactly two years after the original Mimblewimble paper was published!). After nine and a half months of development, <b>Beam launched the first ever Mimblewimble-based confidential cryptocurrency</b> on <a href="?network=mainnet&type=block&height=1" title="Genesis block">January 3<sup>rd</sup> 2019</a> (which was also the 10-year anniversary of Bitcoin genesis block!). There was no pre-mine nor ICO, and the Beam mainnet launched with 0 coins in existence (to prove that there was no pre-mine, Beam's genesis block lists the hash of Bitcoin's block 556833, mined on 2019–01–03 12:46:37 GMT, as previous block hash).`,
       links: [
         ['Original Mimblewimble paper', 'https://download.wpsoftware.net/bitcoin/wizardry/mimblewimble.txt'],
         ['First Beam Medium post', 'https://medium.com/beam-mw/introducing-beam-f35096a923ec'],
         ['Bitcointalk announcement', 'https://web.archive.org/web/20200506044733/https://bitcointalk.org/index.php?topic=5052151'],
         ['Mainnet launch', 'https://medium.com/beam-mw/mimblewimble-mainnet-release-notes-8766e49e241d'],
-        ["Bitcoin's hash in Beam's genesis block", 'https://github.com/BeamMW/beam/blob/92bbc3137dfeb186a99935c3436c03871c188234/core/block_crypt.cpp#L2045']
-    ]
+        [`Bitcoin's hash in Beam's genesis block`, 'https://github.com/BeamMW/beam/blob/92bbc3137dfeb186a99935c3436c03871c188234/core/block_crypt.cpp#L2045']
+      ]
     },
     {
       block_list: [159, 160],
       title: 'The fastest blocks on Earth',
-      description: "On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href='?network=mainnet&type=hdrs&cols=THkioyz&hMax=160&nMax=8'>two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occure again a few times after that (example with <a href='?network=mainnet&type=hdrs&cols=THkioyz&hMax=25709&nMax=8'>blocks 25708 and 25709</a>). Indeed, the event is possible, but quite unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...",
+      description: `On January 3<sup>rd</sup> 2019, about one hour and half after the genesis block, a rare event occured: the <a href="?network=mainnet&type=hdrs&cols=THkioyz&hMax=160&nMax=8">two consecutive blocks 159 and 160</a> were mined <b>within the same second!</b> A similar event will occure again a few times after that (example with <a href="?network=mainnet&type=hdrs&cols=THkioyz&hMax=25709&nMax=8">blocks 25708 and 25709</a>). Indeed, the event is possible, but quite unlikely. Neglecting all other factors (like the time needed to assemble a block, or the minimal cycle time for a single PoW solution search) and considering that the mining process has a Poisson distribution, then the probability to mine a block in 1 second is 1-e^(-1/60) = 0.016. However, this particular case could also be due to block times being inaccurate, or to different miners having deviations in their time settings. Because small deviations are effectively allowed. It is even explicitely allowed to have time stamps coming in reverse order...`,
       links: [['Poisson distribution', 'https://en.wikipedia.org/wiki/Poisson_distribution']]
     },
     {
       block_range: [25709, 25820],
       title: 'Blockchain Stop Event',
-      description: "On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at <a href='?network=mainnet&type=hdrs&cols=THkioyz&hMax=25711&nMax=6'>block 25709</a>. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href='?network=mainnet&type=hdrs&cols=THkioyz&hMax=25711&nMax=6'>for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href='?network=mainnet&type=hdrs&cols=THkioyz&hMax=25822&nMax=120' title='Block headers over the whole period'>112 blocks</a>, until blocks <a href='?network=mainnet&type=block&height=25820'>25820</a> and <a href='?network=mainnet&type=block&height=25822'>25822</a> processed all the pending ones. No funds were lost.",
+      description: `On January 21<sup>st</sup> 2019, the Beam blockchain stopped producing blocks at <a href="?network=mainnet&type=hdrs&cols=THkioyz&hMax=25711&nMax=6">block 25709</a>. Beam developers immediately looked into it and released a hot fix a few hours later. No blocks were produced <a href="?network=mainnet&type=hdrs&cols=THkioyz&hMax=25711&nMax=6">for 2.5 hours</a>, and no transactions (except for the coinbase) were processed for <a href="?network=mainnet&type=hdrs&cols=THkioyz&hMax=25822&nMax=120" title="Block headers over the whole period">112 blocks</a>, until blocks <a href="?network=mainnet&type=block&height=25820">25820</a> and <a href="?network=mainnet&type=block&height=25822">25822</a> processed all the pending ones. No funds were lost.`,
       links: [['Postmortem analysis', 'https://medium.com/beam-mw/mimblewimble-blockchain-stop-event-postmortem-21012019-9a7ef38b2813']]
     },
     {
       block_list: [321321],
       title: 'First Hard-Fork',
-      description: "Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in block difficulty was observed as not all miners performed a timely upgrade. However, after <a href='?network=mainnet&type=hdrs&cols=THdkioyz&hMax=322327&nMax=1010' title='Block headers of the 17 hours after the hard-fork'>less than 24 hours</a>, the block difficulty had gone back to its pre-fork value.",
+      description: `Beam's first hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash I</b> to <b>BeamHash II</b>, which are upgrades from the vanilla Equihash on which they are based. Beam's strategy with these planned changes of the mining algorithm was to give GPU miners a head start, and then allow cheap ASICs to join in without disrupting the mining ecosystem.<br>After this hard-fork, a drop in block difficulty was observed as not all miners performed a timely upgrade. However, after <a href="?network=mainnet&type=hdrs&cols=THdkioyz&hMax=322327&nMax=1010" title="Block headers of the 17 hours after the hard-fork">less than 24 hours</a>, the block difficulty had gone back to its pre-fork value.`,
       links: [['Medium post', 'https://medium.com/beam-mw/mimblewimble-hard-fork-first-completed-1171f9642e51']]
     },
     {
       block_list: [525600, 525601],
       title: 'First Halving',
-      description: "As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years (i.e. every 2,102,400 blocks).",
+      description: `As planned in the emission schedule, the <b>first halving</b> happened on January 5<sup>th</sup> 2020, about one year after the mainnet launch (60 minutes x 24 hours x 365 days = 525,600 blocks). This early first halving allowed to sync with Bitcoin's halving rythnm. Until then, the block reward was of 100 BEAM (80 for the miners and 20 for the treasury). After this first halving, the block reward was cut down to 50 BEAM (40 for the miners and 10 for the treasury). The next halvings are now happenning every 4 years (i.e. every 2,102,400 blocks).`,
       links: [['Substack post', 'https://beamprivacy.substack.com/p/beam-2020-week-1-happy-halving']]
     },
     {
       block_list: [777777],
       title: 'Second Hard-Fork',
-      description: "Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href='?network=mainnet&type=assets'><b>Confidential Assets</b></a> (sometimes also called 'Privacy Tokens', and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).",
+      description: `Beam's second hard-fork was performed as announced in the roadmap. The PoW algorithm was updated from <b>BeamHash II</b> to <b>BeamHash III</b>, which is the final version in the planned strategy to balance GPU and ASIC mining. This hard-fork also saw the activation of the <a href="?network=mainnet&type=assets"><b>Confidential Assets</b></a> (sometimes also called "Privacy Tokens", and which were introduced in the first hard-fork but kept inactive) and the release of the <b>Lelantus-MW protocol</b> and its associated <b>one-side payments</b> (also known as <b>offline transactions</b>).`,
       links: [
         ['Medium post', 'https://medium.com/beam-mw/hard-fork-completed-72e8f1edb10b'],
         ['BeamHash III presentation', 'https://docs.beam.mw/Beam_Hash_III_Slides.pdf'],
@@ -2892,7 +2864,7 @@
     {
       block_list: [778579],
       title: 'First Lelantus-MW transaction',
-      description: "<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to Mimblewimble, thanks to its use of similar cryptographic primitives. Contrary to Mimblewimble's 'interactive transactions' (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.",
+      description: `<b>Lelantus</b> is an exciting protocol for private financial transactions, first published in December 2018. It was initially developed for Firo (ex-ZCoin), but Beam core dev managed to adapt it to Mimblewimble, thanks to its use of similar cryptographic primitives. Contrary to Mimblewimble's "interactive transactions" (also called <b>online transactions</b>, because both wallets need to come online within a 12-hour window to complete the transaction), Lelantus transactions (also called <b>offline transactions</b>) send the coins to a <b>Shielded Pool</b> where they are mixed with other coins (thus creating <b>an anonymity set that can grow up to 64k!</b>), and where the receiver wallet can retreive them later on.`,
       links: [
         ['Lelantus paper', 'https://lelantus.io/lelantus.pdf'],
         ['Lelantus-MW adaptation', 'https://github.com/BeamMW/beam/wiki/Lelantus-MW']
@@ -2901,23 +2873,23 @@
     {
       block_list: [778857],
       title: 'First input UTXO from a Shielded Pool',
-      description: "After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href='?network=mainnet&type=block&height=778857' title='Block details'>778857</a> saw the first use of one of these UTXOs as an input to a normal Mimblewimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href='?network=mainnet&type=block&height=778857' title='Block details'>block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no 'cut-through' for them, contrary to the Mimblewimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. The current anonymity set is thus the total number of Shielded outputs produced up until now (as given in the <a href='?network=mainnet&'>Blockchain Status</a>).",
+      description: `After a few transactions filling the <b>Lelantus Shielded Pool</b> with UTXOs, block <a href="?network=mainnet&type=block&height=778857" title="Block details">778857</a> saw the first use of one of these UTXOs as an input to a normal Mimblewimble transaction. We cannot know which one of the shielded UTXOs it was. However, as can be seen in the <a href="?network=mainnet&type=block&height=778857" title="Block details">block details</a>, the Shielded Pool at the time only contained 8 UTXOs, so its anonymity set was still quite low. Now, as the UTXOs from the Shielded Pool are never removed from the blockchain (there is no "cut-through" for them, contrary to the Mimblewimble ones), its anonymity set keeps increasing linearly as people use Lelantus transactions. The current anonymity set is thus the total number of Shielded outputs produced up until now (as given in the <a href="?network=mainnet&">Blockchain Status</a>).`,
       links: null
     },
     {
       block_list: [780219],
       title: 'Creation of the first Confidential Asset',
-      description: "Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href='?network=mainnet&type=block&height=780219'>created</a>. Although it has changed named since then, and seems to be <a href='?network=mainnet&type=asset&id=1'>inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href='?network=mainnet&type=asset&id=9'>Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href='?network=mainnet&type=block&height=2893306' title='Example in block 2893306'>block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and the wallet submitting the transaction can even make them undistinguishable from Beam transactions themselves (the id of the transacted asset being shown as belonging to a [0-63] range, with id:0 being Beam itself)!<br>As of today, <a href='?network=mainnet&type=assets'>several confidential assets</a> have been created (including the 'AMML' ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href='?network=mainnet&type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868' title='Smart contract call history'>Beam Asset Minter</a>.",
+      description: `Two days after the second hard-fork, the <b>first Confidential Asset (with id:1)</b> was <a href="?network=mainnet&type=block&height=780219">created</a>. Although it has changed named since then, and seems to be <a href="?network=mainnet&type=asset&id=1">inactive today</a>, this first Confidential Asset was actually a draft for the subsequent <a href="?network=mainnet&type=asset&id=9">Tico coin (id:9)</a> which has been quite successful as <b>the first confidential meme coin</b>, with its fair, fun and feathered initial distribution!<br>As can be seen in the <a href="?network=mainnet&type=block&height=2893306" title="Example in block 2893306">block details</a> of any block, the transactions of confidential assets are as private as Beam transactions (i.e. no amount and no addresses are visible), and the wallet submitting the transaction can even make them undistinguishable from Beam transactions themselves (the id of the transacted asset being shown as belonging to a [0-63] range, with id:0 being Beam itself)!<br>As of today, <a href="?network=mainnet&type=assets">several confidential assets</a> have been created (including the "AMML" ones, created by the DEX smart contract to represent the shares of its Liquidity Pools). Confidential assets have an <b>unlimited supply</b> when created through CLI (the owner wallet or contract can mint as many as needed), or a <b>hard-capped max supply</b> when created through the <a href="?network=mainnet&type=contract&id=295fe749dc12c55213d1bd16ced174dc8780c020f59cb17749e900bb0c15d868" title="Smart contract call history">Beam Asset Minter</a>.`,
       links: [
-        //["Tico website","https://www.ticotip.me"],
-        ["Tico's first anniversary", 'https://ticotipme.substack.com/p/tico-turns-1'],
+        //['Tico website','https://www.ticotip.me'],
+        [`Tico's first anniversary`, 'https://ticotipme.substack.com/p/tico-turns-1'],
         ['Tico Telegram group', 'https://t.me/ticotipme']
       ]
     },
     {
       block_list: [1280000],
       title: 'Third Hard-Fork (and wallet v6.0)',
-      description: "This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. 'Shaders'), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href='?network=mainnet&type=contracts'>we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide 'efficient' markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful 'Privacy DeFi' (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!",
+      description: `This hard-fork brought the addition of the <b>Beam Virtual Machine (BVM)</b> as an infrastructure to create <b>Smart Contracts</b> (a.k.a. "Shaders"), thus making Beam <b>the first privacy coin with smart contracts capabilities!</b><br>BVM smart contracts can be written in any WebAssembly compatible language (such as C++, Rust, Go, etc.) and are composed of two elements: the blockchain side (running on Beam nodes) and the wallet side (running in Beam wallet, together with the DApp front ends). This separation of chain-side and client-side logics allows very powerful and flexible applications.<br>Beam smart contracts are <b>transparent by default</b>, which means that <a href="?network=mainnet&type=contracts">we can see their state and their activity</a>. Nevertheless, <b>the users remain anonymous</b>, as their interactions with the smart contracts are based on normal confidential Beam transactions. With this approach, Beam's DeFi manages to provide "efficient" markets (e.g. where we can see what is bought and sold) while still protection its users' privacy (e.g. we cannot see who buys and sells!).<br>By allowing such <b>privacy-preserving smart contract capabilities</b>, this hard-fork opened the doors to Beam becoming not only <b>a powerful "Privacy DeFi" (PriFi) platform</b> but indeed a general-purpose <b>infrastructure for anything in Confidential Web3</b>!`,
       links: [
         ['Medium post', 'https://medium.com/beam-mw/hard-fork-completed-1608eb5ce439'],
         ['Beam smart contracts introduction', 'https://github.com/BeamMW/shader-sdk/wiki/Beam-Smart-Contracts'],
@@ -2928,13 +2900,13 @@
     {
       block_list: [1280003],
       title: 'Deployment of the first Smart Contract',
-      description: "A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href='?network=mainnet&type=block&height=1280003' title='Block details'>1280003</a>. The contract is a simple <a href='?network=mainnet&type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716' title='Smart contract call history'>faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href='?network=mainnet&type=contracts' title='List of all deployed smart contracts'>all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href='?network=mainnet&type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440' title='Smart contract call history'>Nephrite</a>, the confidential stable coin, interacting with both the <a href='?network=mainnet&type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b' title='Smart contract call history'>Oracle</a> and the <a href='?network=mainnet&type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a>).",
+      description: `A few minutes after the third hard-fork, <b>the first smart contract</b> was deployed in block <a href="?network=mainnet&type=block&height=1280003" title="Block details">1280003</a>. The contract is a simple <a href="?network=mainnet&type=contract&id=3fdd4171972875e0ac8f0131b3da047e8323cc9c2c8d53327be427c455d2a716" title="Smart contract call history">faucet</a> where people can deposit Beam coins so that any wallet can then get a small amount of it. Due to Beam's low transaction fees, this small amount is already enough for several transactions. Such a faucet is intended to help newcomers discovering the wallet for the first time, even if they don't have any Beam in it yet.<br>Since then, several other smart contracts have been developed, and the list of <a href="?network=mainnet&type=contracts" title="List of all deployed smart contracts">all deployed smart contracts</a> can be seen in the explorer, with the details of the call history for each of them, including the calls to each other, in interesting and powerful sequences (like <a href="?network=mainnet&type=contract&id=b8944fd3f6a62697a89b2a55acd1cb2e3893dadece99569706efa1da847dd440" title="Smart contract call history">Nephrite</a>, the confidential stable coin, interacting with both the <a href="?network=mainnet&type=contract&id=4f160f01dcc6751e61d793279b803328d5332125fe8492e93ee8f3bfe9abe13b" title="Smart contract call history">Oracle</a> and the <a href="?network=mainnet&type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25" title="Smart contract call history">DAO Vault</a>).`,
       links: [['Examples of smart contracts', 'https://github.com/BeamMW/beam/tree/master/bvm/Shaders']]
     },
     {
       block_list: [1464852],
       title: 'BeamX creation',
-      description: "The <b>BeamX</b> confidential asset (<a href='?network=mainnet&type=asset&id=7' title='See history of Confidential Asset id:7'>with id:7</a>) is <b>the governance token of the 'BeamX DAO'</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href='?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b' title='Smart contract call history'>DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).",
+      description: `The <b>BeamX</b> confidential asset (<a href="?network=mainnet&type=asset&id=7" title="See history of Confidential Asset id:7">with id:7</a>) is <b>the governance token of the "BeamX DAO"</b> towards which the <b>Beam Foundation</b> is now transitioning. Its 100,000,000 units were minted all at once by the <a href="?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b" title="Smart contract call history">DAO Core</a> smart contract, which would later distribute these units over a period of 4 years according to a predefined schedule. Part of the BeamX supply is reserved for liquidity incentives towards Beam's DeFi ecosystem (staking campaigns, liquidity provider rewards, etc.).`,
       links: [
         ['The BeamX DAO', 'https://www.beamxdao.org'],
         ['The BeamX token', 'https://medium.com/beam-mw/introducing-beamx-privacy-by-default-maximum-confidentiality-defi-ecosystem-629670b905ba']
@@ -2943,7 +2915,7 @@
     {
       block_list: [1466501],
       title: 'Start of the first BeamX staking campaign',
-      description: "A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href='?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&hMin=1464852&nMaxTxs=2000' title='List of deposits into the staking smart contract at block 1466501'>1466501</a>. Although the campaign ended a long time ago, we can see in the 'Locked Funds' section of the contract details that the <a href='?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&' title='Smart contract call history'>DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)",
+      description: `A first 3-month (131,400 blocks) staking campaign was launched to let users <b>earn BeamX rewards by locking their Beam coins</b>. 1,000,000 BEAMX tokens (1% of the total supply) were distributed this way, and people started staking Beam right after launch, on block <a href="?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&hMax=1466501&hMin=1464852&nMaxTxs=2000" title="List of deposits into the staking smart contract at block 1466501">1466501</a>. Although the campaign ended a long time ago, we can see in the "Locked Funds" section of the contract details that the <a href="?network=mainnet&type=contract&id=3f3d32e38cb27ac7b5b67343f81cf2f8bc53217eb995cc6c5d78ddc5e7b0642b&" title="Smart contract call history">DAO Core</a> contract still holds many Beams that users have not claimed back yet!... Are they yours? ;-)`,
       links: [
         ['First BeamX reward campaign', 'https://medium.com/@beam_privacy/heres-everything-you-need-to-know-to-prepare-for-beam-staking-108eef344f7d'],
         ['Details on the campaign', 'https://medium.com/beam-mw/beamers-hodlers-beam-staking-is-coming-513bd196af57']
@@ -2953,7 +2925,7 @@
       //block_list: [1790000],
       block_list: [1820000],
       title: 'Fourth Hard-Fork (and wallet v7.0)',
-      description: "This hard-fork introduced <b>'High-Frequency Transactions' (HFTX)</b> on both node and wallet sides, and <b>IPFS storage integration</b> on the wallet side. HFTX improve resistance to MEV, front-running and sandwich attacks by defining strict inclusion rules for transactions, thus protecting users from unwanted outcomes (as the submitted transactions can only be included into a block in their exact specific sequence).<br>On the wallet side, the IPFS integration allows storing data (such as NFTs) efficiently in a decentralized manner while reducing blockchain bloat. Thus, every Beam wallet today is at the same time a <b>blockchain node</b> (to submit transactions and verify blocks), an <b>SBBS node</b> (to allow secure communication between wallets), and an <b>IPFS node</b> (to allow decentralized storage, including for DApp front ends distribution).<br>This Hard Fork went smoothly and the difficulty remained fairly stable.",
+      description: `This hard-fork introduced <b>"High-Frequency Transactions" (HFTX)</b> on both node and wallet sides, and <b>IPFS storage integration</b> on the wallet side. HFTX improve resistance to MEV, front-running and sandwich attacks by defining strict inclusion rules for transactions, thus protecting users from unwanted outcomes (as the submitted transactions can only be included into a block in their exact specific sequence).<br>On the wallet side, the IPFS integration allows storing data (such as NFTs) efficiently in a decentralized manner while reducing blockchain bloat. Thus, every Beam wallet today is at the same time a <b>blockchain node</b> (to submit transactions and verify blocks), an <b>SBBS node</b> (to allow secure communication between wallets), and an <b>IPFS node</b> (to allow decentralized storage, including for DApp front ends distribution).<br>This Hard Fork went smoothly and the difficulty remained fairly stable.`,
       links: [
         ['Medium post', 'https://medium.com/beam-mw/beam-hard-fork-completed-903ce2b15b51'],
         ['BIP-1 and BIP-2 results', 'https://medium.com/beam-mw/beam-bip-1-bip-2-results-229d8289f54d']
@@ -2962,7 +2934,7 @@
     {
       block_list: [1920000],
       title: 'Fifth Hard-Fork (and wallet v7.1)',
-      description: "As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen, starting with CA id:8, in <a href='?network=mainnet&type=assets&height=1981005' title='List of Confidential Assets'>the CAs being created</a> (or re-created, for the older ones) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href='?network=mainnet&type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e' title='Smart contract call history'>BANS</a> (Beam Anonymous Name System) was improved.",
+      description: `As discussed on the Beam Forum, this hard-fork reduced the issuance cost of Confidential Assets from 3000 to 10 BEAM only. The result can be seen, starting with CA id:8, in <a href="?network=mainnet&type=assets&height=1981005" title="List of Confidential Assets">the CAs being created</a> (or re-created, for the older ones) after the fork</a>. The hard-fork also added smart contracts enhancements allowing them to verify fork heights (to support fork-dependent features). On the wallet side, DApp support for the <a href="?network=mainnet&type=contract&id=af4550f1f8a6051ffeffea06e0cb978f8076fdfc2101d2273d4e62c86540bc5e" title="Smart contract call history">BANS</a> (Beam Anonymous Name System) was improved.`,
       links: [
         ['Announcement', 'https://medium.com/beam-mw/beam-hard-fork-announcement-3e999dfba178'],
         ['Forum post for BIP-1', 'https://forum.beam.mw/t/bip-1-reduce-ca-minting-cost/116']
@@ -2971,13 +2943,13 @@
     {
       block_list: [2272779],
       title: 'Blockchain incident',
-      description: "On May 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href='?network=mainnet&type=hdrs&hMax=2272781&nMax=4&cols=THkioyzp' title='Blockchain stop for 103 minutes'>103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href='?network=mainnet&type=block&height=2272781' title='Blockchain stop for 103 minutes'>2272781</a>. No funds were lost.",
+      description: `On May 2023, the Beam <b>blockchain stopped producing blocks</b> for <a href="?network=mainnet&type=hdrs&hMax=2272781&nMax=4&cols=THkioyzp" title="Blockchain stop for 103 minutes">103 minutes</a>. After watching carefully the blockchain activity, the core team managed to identify and correct the problem (which was due to an incorrect sorting of the kernels). All pending transactions were recorded on block <a href="?network=mainnet&type=block&height=2272781" title="Blockchain stop for 103 minutes">2272781</a>. No funds were lost.`,
       links: [['Incident analysis', 'https://medium.com/beam-mw/beam-blockchain-incident-analysis-hotfix-for-minor-stoppage-cb96009b8097']]
     },
     {
       block_list: [2628000, 2628001],
       title: 'Second Halving & End of the 5-year treasury allocation',
-      description: "The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2024. It reduced the block rewards from 50 BEAM (block <a href='?network=mainnet&type=block&height=2628000'>2628000</a>) to 25 BEAM (block <a href='?network=mainnet&type=block&height=2628001'>2628001</a>).<br>This halving also saw the <a href='?network=mainnet&type=block&height=0' title='Treasury'>end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href='?network=mainnet&type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25' title='Smart contract call history'>DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).",
+      description: `The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2024. It reduced the block rewards from 50 BEAM (block <a href="?network=mainnet&type=block&height=2628000">2628000</a>) to 25 BEAM (block <a href="?network=mainnet&type=block&height=2628001">2628001</a>).<br>This halving also saw the <a href="?network=mainnet&type=block&height=0" title="Treasury">end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href="?network=mainnet&type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25" title="Smart contract call history">DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).`,
       links: [['The 5-year recap', 'https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f']]
     },
   ];
@@ -2985,7 +2957,7 @@
   // Get URL parameters
   const URLparams = new URL(document.location).searchParams;
   let g_network = URLparams.get('network'); // Should be one of those defined in global variable 'explorerNodes'
-  let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ("historical" and "treasury")
+  let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ('historical' and 'treasury')
   let g_id = URLparams.get('id'); // Used for type=asset & contract
   let g_height = URLparams.get('height'); // Used for type=block & blocks & assets
   let g_kernel = URLparams.get('kernel'); // Used for type=block
@@ -3053,8 +3025,8 @@
   localStorage.setItem('g_defaultNodes',JSON.stringify(g_defaultNodes));
 
   // Fill the network selection dropdown and the popup network list
-  let nodesList = "";
-  let networkOptions = "";
+  let nodesList = '';
+  let networkOptions = '';
   for (let network in explorerNodes) {
     // Create new option for the dropdown
     networkOptions += '<option value="' + network + '">' + network + '</option>';
@@ -3140,10 +3112,10 @@
       xmlhttp.onload = DisplayBlock;
     }
     // Option to query and display the details of multiple blocks (NOT USED HERE)
-    // else if (g_type == "blocks") // Arguments for 'blocks': height, n
+    // else if (g_type == 'blocks') // Arguments for 'blocks': height, n
     // {
     //   if (!g_n) { g_n = 5 }
-    //   urlSuffix += "&height=" + g_height + "&n=" + g_n;
+    //   urlSuffix += '&height=' + g_height + '&n=' + g_n;
     //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
     // }
     else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
@@ -3162,7 +3134,7 @@
       xmlhttp.onload = DisplayContracts;
 
     } else if (g_type == 'assets') { // Arguments for 'assets': height
-      if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = "" } // For inexistant blocks, display current assets 
+      if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = '' } // For inexistant blocks, display current assets 
       urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayAssets;
 
@@ -3261,12 +3233,12 @@
       // Check if table has only one row
       if (myTable.rows.length == 1) {
         let myRow = myTable.rows[0];
-        // If all cells are <th> or have a span with a "th" class, then consider the row as header.
+        // If all cells are <th> or have a span with a 'th' class, then consider the row as header.
         if (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length) {
           // Mark the table as empty (CSS will hide it)
           myTable.classList.add('emptyTable'); 
           // Add a span with a simple text after the table
-          let mySpan = document.createElement("span");
+          let mySpan = document.createElement('span');
           mySpan.className = 'noDataText';
           mySpan.innerHTML = '(none)'
           myTable.parentNode.insertBefore(mySpan, myTable.nextSibling); // (This is the way to add a node AFTER another...)
@@ -3290,7 +3262,7 @@
       let myClass = myHash.querySelector('a') ? 'truncated withLink' : 'truncated';
       // Add a span to truncate the text, and another span to hold the clickable symbol
       let myHTML = myHash.innerHTML;
-      myHash.innerHTML = "<span class='" + myClass + "'>" + myHTML + "</span><span class='expand' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
+      myHash.innerHTML = '<span class="' + myClass + '">' + myHTML + '</span><span class="expand" title="Toggle" hidden><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></span>';
       // Add event listener on the symbol
       myHash.querySelector('.expand').addEventListener('click', expandHash);
     }
@@ -3298,7 +3270,7 @@
     for (let myMetadata of document.querySelectorAll('.metadata')) {
       // Add a span to truncate the text, and another span to hold the clickable symbol
       let myHTML = myMetadata.innerHTML;
-      myMetadata.innerHTML = "<span class='reduced'>" + myHTML + "</span><span class='extend' title='Toggle' hidden><svg width='1.2em' height='1.2em'><use href='#eye_icon'/></svg></span>";
+      myMetadata.innerHTML = '<span class="reduced">' + myHTML + '</span><span class="extend" title="Toggle" hidden><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></span>';
       // Add event listener on the symbol
       myMetadata.querySelector('.extend').addEventListener('click', expandMetadata);
     }
@@ -3450,33 +3422,33 @@
   function DisplayContractOptions() {
     // Display table options
     let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
-    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyContractSelection();'>";
-    text += "<div id='selectionOptions'>";
-    text += "<div id='rowSelectionOptions'>";
-    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    text += '<form id="tableOptionsForm" name="tableOptionsForm" action="javascript:applyContractSelection();">';
+    text += '<div id="selectionOptions">';
+    text += '<div id="rowSelectionOptions">';
+    text += '  <button type="submit" id="applySelection" title="Save and reload with the selected parameters">Apply</button>';
     // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
-    text += "  <div class='selectRows'><label title='Number of contract calls to display (2000 max)'>\
-                 <span class='labelRows'>Max rows: </span>\
-                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxTxs + "'>\
-                 <datalist id='nbrOfRows'>\
-                   <option value='100'>100 (default)</option>\
-                   <option value='200'>200</option>\
-                   <option value='500'>500</option>\
-                   <option value='1000'>1000</option>\
-                   <option value='2000'>2000 (max)</option>\
-                 </datalist>\
-               </label></div>";
-    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
-                 <span class='labelHeight'>Min block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
-                 <span class='labelHeight'>Max block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "</div>";
-    text += "</div>";
-    text += "</form>";
+    text += `  <div class="selectRows"><label title="Number of contract calls to display (2000 max)">
+                 <span class="labelRows">Max rows: </span>
+                 <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMaxTxs}">
+                 <datalist id="nbrOfRows">
+                   <option value="100">100 (default)</option>
+                   <option value="200">200</option>
+                   <option value="500">500</option>
+                   <option value="1000">1000</option>
+                   <option value="2000">2000 (max)</option>
+                 </datalist>
+               </label></div>`;
+    text += `  <div class="selectHeight"><label title="Min block height (leave empty for default)">
+                 <span class="labelHeight">Min block height: </span>
+                 <input type="number" class="inputBlockHeight" id="minHeight" autocomplete="off" min="1" value="${g_hMin}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += `  <div class="selectHeight"><label title="Max block height (leave empty for current height)">
+                 <span class="labelHeight">Max block height: </span>
+                 <input type="number" class="inputBlockHeight" id="maxHeight" autocomplete="off" min="1" value="${g_hMax}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += '</div>';
+    text += '</div>';
+    text += '</form>';
     text += MakeCollapsibleEnd();
 
     return text;
@@ -3484,12 +3456,12 @@
 
   function applyContractSelection() {
     // Get number of rows
-    let nMaxTxs = document.getElementById("nbrRows").value;
+    let nMaxTxs = document.getElementById('nbrRows').value;
     if (nMaxTxs) { g_nMaxTxs = nMaxTxs; };
     // Get min block height (even when empty)
-    g_hMin = document.getElementById("minHeight").value;
+    g_hMin = document.getElementById('minHeight').value;
     // Get max block height (even when empty)
-    g_hMax = document.getElementById("maxHeight").value;
+    g_hMax = document.getElementById('maxHeight').value;
     // Save results in localStorage
     localStorage.setItem('g_nMaxTxs', g_nMaxTxs);
     //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
@@ -3500,7 +3472,7 @@
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
     // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
   }
 </script>
 
@@ -3509,33 +3481,33 @@
   function DisplayAssetOptions() {
     // Display table options
     let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
-    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetSelection();'>";
-    text += "<div id='selectionOptions'>";
-    text += "<div id='rowSelectionOptions'>";
-    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    text += '<form id="tableOptionsForm" name="tableOptionsForm" action="javascript:applyAssetSelection();">';
+    text += '<div id="selectionOptions">';
+    text += '<div id="rowSelectionOptions">';
+    text += '  <button type="submit" id="applySelection" title="Save and reload with the selected parameters">Apply</button>';
     // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
-    text += "  <div class='selectRows'><label title='Number of events to display (2000 max)'>\
-                 <span class='labelRows'>Max rows: </span>\
-                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMaxOps + "'>\
-                 <datalist id='nbrOfRows'>\
-                   <option value='100'>100 (default)</option>\
-                   <option value='200'>200</option>\
-                   <option value='500'>500</option>\
-                   <option value='1000'>1000</option>\
-                   <option value='2000'>2000 (max)</option>\
-                 </datalist>\
-               </label></div>";
-    text += "  <div class='selectHeight'><label title='Min block height (leave empty for default)'>\
-                 <span class='labelHeight'>Min block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='minHeight' autocomplete='off' min='1' value='" + g_hMin + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
-                 <span class='labelHeight'>Max block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "</div>";
-    text += "</div>";
-    text += "</form>";
+    text += `  <div class="selectRows"><label title="Number of events to display (2000 max)">
+                 <span class="labelRows">Max rows: </span>
+                 <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMaxOps}">
+                 <datalist id="nbrOfRows">
+                   <option value="100">100 (default)</option>
+                   <option value="200">200</option>
+                   <option value="500">500</option>
+                   <option value="1000">1000</option>
+                   <option value="2000">2000 (max)</option>
+                 </datalist>
+               </label></div>`;
+    text += `  <div class="selectHeight"><label title="Min block height (leave empty for default)">
+                 <span class="labelHeight">Min block height: </span>
+                 <input type="number" class="inputBlockHeight" id="minHeight" autocomplete="off" min="1" value="${g_hMin}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += `  <div class="selectHeight"><label title="Max block height (leave empty for current height)">
+                 <span class="labelHeight">Max block height: </span>
+                 <input type="number" class="inputBlockHeight" id="maxHeight" autocomplete="off" min="1" value="${g_hMax}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += '</div>';
+    text += '</div>';
+    text += '</form>';
     text += MakeCollapsibleEnd();
 
     return text;
@@ -3543,12 +3515,12 @@
 
   function applyAssetSelection() {
     // Get number of rows
-    let nMaxOps = document.getElementById("nbrRows").value;
+    let nMaxOps = document.getElementById('nbrRows').value;
     if (nMaxOps) { g_nMaxOps = nMaxOps; };
     // Get min block height (even when empty)
-    g_hMin = document.getElementById("minHeight").value;
+    g_hMin = document.getElementById('minHeight').value;
     // Get max block height (even when empty)
-    g_hMax = document.getElementById("maxHeight").value;
+    g_hMax = document.getElementById('maxHeight').value;
     // Save results in localStorage
     localStorage.setItem('g_nMaxOps', g_nMaxOps);
     //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
@@ -3559,7 +3531,7 @@
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
     // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
   }
 </script>
 
@@ -3568,17 +3540,17 @@
   function DisplayAssetsOptions() {
     // Display table options
     let text = MakeCollapsibleBegin('Options', 'tableOptions', 'close');
-    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyAssetsSelection();'>";
-    text += "<div id='selectionOptions'>";
-    text += "<div id='rowSelectionOptions'>";
-    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
-    text += "  <div class='selectHeight'><label title='Block height (leave empty for current height)'>\
-                 <span class='labelHeight'>Block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_height + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "</div>";
-    text += "</div>";
-    text += "</form>";
+    text += '<form id="tableOptionsForm" name="tableOptionsForm" action="javascript:applyAssetsSelection();">';
+    text += '<div id="selectionOptions">';
+    text += '<div id="rowSelectionOptions">';
+    text += '  <button type="submit" id="applySelection" title="Save and reload with the selected parameters">Apply</button>';
+    text += `  <div class="selectHeight"><label title="Block height (leave empty for current height)">
+                 <span class="labelHeight">Block height: </span>
+                 <input type="number" class="inputBlockHeight" id="maxHeight" autocomplete="off" min="1" value="${g_height}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += '</div>';
+    text += '</div>';
+    text += '</form>';
     text += MakeCollapsibleEnd();
 
     return text;
@@ -3586,13 +3558,13 @@
 
   function applyAssetsSelection() {
     // Get max block height (even when empty)
-    g_height = document.getElementById("maxHeight").value;
+    g_height = document.getElementById('maxHeight').value;
     // Remark: We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('height', g_height);
     // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
   }
 </script>
 
@@ -3623,7 +3595,7 @@
   // Setup the whole graph environment
   function setupGraph() {
     // Add a toggle event to the collapsible containing the graph
-    document.getElementById("graphCollapsible").addEventListener("toggle", toggleGraph);
+    document.getElementById('graphCollapsible').addEventListener('toggle', toggleGraph);
 
     // Compute all the main measures of the graph and axis areas
     g_graph.area.xmin = g_graph.margin;
@@ -3679,8 +3651,8 @@
       for (let item of columnHeaders) { if (item.title == headerText && item.color === undefined) { add = false; } }
       if (add) {
         // Add a checkbox to the right of the header title
-        let checkboxText = "<input type='checkbox' class='tableGraphCheckbox' title='Display as graph' id='checkbox_column_" + n + "' data-column='" + n + "' autocomplete='off' onclick='checkboxGraph(event);'>";
-        headerTitle.insertAdjacentHTML("beforeend", checkboxText);
+        let checkboxText = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + n + '" data-column="' + n + '" autocomplete="off" onclick="checkboxGraph(event);">';
+        headerTitle.insertAdjacentHTML('beforeend', checkboxText);
       }
     }
 
@@ -3692,23 +3664,22 @@
     let text = '';
     // We don't add a 'viewBox' to the main SVG, so that its elements can scale with the SVG (using '%') or remain fixed (using 'px' or 'rem').
     // However, since 'polylines' don't accept '%', we embed another SVG with 'viewBox' which will scale ALL its content.
-    text = `<svg id='plotSVG' width='100%' height='100%' viewBox='0 0 ${g_graph.width} ${g_graph.height}' preserveAspectRatio='none'>`;
+    text = `<svg id="plotSVG" width="100%" height="100%" viewBox="0 0 ${g_graph.width} ${g_graph.height}" preserveAspectRatio="none">`;
     // Start group with origin of coordinates in the bottom-left corner (just because it's more natural for xy graphs)
-    text += `<g id='graphArea' transform='translate(0,${g_graph.height}) scale(1,-1)' >`;
+    text += `<g id="graphArea" transform="translate(0,${g_graph.height}) scale(1,-1)" >`;
     // Draw a rectangle for the graph area, and some reference grid lines
-    text += `<rect id='graphBox' width='${g_graph.area.width}' height='${g_graph.area.height}' x='${g_graph.area.xmin}' y='${g_graph.area.ymin}' 
-             fill='none' stroke-width='1' stroke='black' vector-effect='non-scaling-stroke' />`;
-    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 1 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 1 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
-    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 2 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 2 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
-    text += `<line class='graphGridLine' x1='${g_graph.area.xmin}' y1='${g_graph.area.ymin + g_graph.area.height * 3 / 4}' x2='${g_graph.area.xmax}' y2='${g_graph.area.ymin + g_graph.area.height * 3 / 4}' stroke='lightgrey' stroke-width='1' vector-effect='non-scaling-stroke' />`
+    text += `<rect id="graphBox" width="${g_graph.area.width}" height="${g_graph.area.height}" x="${g_graph.area.xmin}" y="${g_graph.area.ymin}" fill="none" stroke-width="1" stroke="black" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 1 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 1 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 2 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 2 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 3 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 3 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
     // Close group and embedded SVG
-    text += `</g></svg>`;
+    text += '</g></svg>';
     // Draw the cursor line (it starts out of view at x=-100 and will only appear on hover)
     // It's embedded in a different SVG, so that its X position can easily be changed and its sizes can be both absolute ('px') and relative ('%')
     // A small translation allows centering all its elements without using a 'viewBox' (which would make all shapes to scale with the SVG)
-    text += `<svg id='graphCursor' x='-100' y='0' width='20' height='100%' transform='translate(-8 0)'>
-               <line id='graphCursorLine' x1='8' y1='0' x2='8' y2='${100 - 100 * g_graph.area.xmin / g_graph.height}%' stroke='black' stroke-width='2' vector-effect='non-scaling-stroke' />
-               <polygon id='graphCursorMarker' points='0 0, 16 0, 8 16' fill='black' vector-effect='non-scaling-stroke'>
+    text += `<svg id="graphCursor" x="-100" y="0" width="20" height="100%" transform="translate(-8 0)">
+               <line id="graphCursorLine" x1="8" y1="0" x2="8" y2="${100 - 100 * g_graph.area.xmin / g_graph.height}%" stroke="black" stroke-width="2" vector-effect="non-scaling-stroke" />
+               <polygon id="graphCursorMarker" points="0 0, 16 0, 8 16" fill="black" vector-effect="non-scaling-stroke">
                  <title>Go to this row</title>
                </polygon>
              </svg>`;
@@ -3722,7 +3693,7 @@
     graphSVG.getElementById('graphCursorMarker').addEventListener('click', function(event) {
       event.stopPropagation(); // Stop propagation to avoid triggering the other SVG events
       g_graph.hover = false; // Ensure the cursor now remains fixed
-      scrollTo(".rowHighlight","center"); // Scroll to the highlighted table row
+      scrollTo('.rowHighlight','center'); // Scroll to the highlighted table row
     });
   }
 
@@ -3759,24 +3730,23 @@
       const legend_id = 'graphLegendItem_' + code;
       const colorpicker_id = 'graphColorPicker_' + code;
       const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
-      // Remark: We use backticks to allow both single and double quotes, variable substitutions and multilines
-      let legend_item = `<span class='graphLegendItem' id='${legend_id}' style='color:${color}; white-space:nowrap;'
-                         onmouseover='graphHighlightOn("${code}")' onmouseout='graphHighlightOff("${code}")'>`;
+      let legend_item = `<span class="graphLegendItem" id="${legend_id}" style="color:${color}; white-space:nowrap;"
+                         onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
       // Add color picker with events ('oninput' will preview any new color, 'onchange' will apply the final valid one)
-      legend_item += `<label class='graphColorPickerLabel' autocomplete='on' title='Click to change color'>
-                        <input type='color' class='graphColorPicker' id='${colorpicker_id}' name='${colorpicker_id}' value='${hex_color}' oninput='changeGraphColor("${code}")' onchange='changeGraphColor("${code}")'>
+      legend_item += `<label class="graphColorPickerLabel" autocomplete="on" title="Click to change color">
+                        <input type="color" class="graphColorPicker" id="${colorpicker_id}" name="${colorpicker_id}" value="${hex_color}" oninput="changeGraphColor('${code}')" onchange="changeGraphColor('${code}')">
                       </label>`;
       // Add legend name (and description), with a placeholder for values
-      legend_item += `&nbsp;<span class='graphLegendText' title='${description}'>
-                        <span class='graphLegendName'>${header}<span class='graphLegendValue' id='graphLegendValue_${code}'></span></span>
+      legend_item += `&nbsp;<span class="graphLegendText" title="${description}">
+                        <span class="graphLegendName">${header}<span class="graphLegendValue" id="graphLegendValue_${code}"></span></span>
                       &nbsp;</span>`;
       legend_item += `</span>`;
       // Append the new item to the legend area
-      document.getElementById('graphLegend').insertAdjacentHTML("beforeend", legend_item);
+      document.getElementById('graphLegend').insertAdjacentHTML('beforeend', legend_item);
     }
 
     // Hide the legend title if at least one legend item is displayed
-    document.getElementById("graphLegendTitle").style.display = (document.querySelectorAll(".graphLegendItem").length == 0) ? 'block' : 'none';
+    document.getElementById('graphLegendTitle').style.display = (document.querySelectorAll('.graphLegendItem').length == 0) ? 'block' : 'none';
 
     // Extract graph data for the selected column and draw the corresponding graph
     updateGraphDataY(col);
@@ -3875,7 +3845,7 @@
         g_graph.y[code] = g_graph.rows.map(function(row) {
           let val = row.cells[col].innerText; // Return the content of the cell in a given column
           val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
-          if (val == "") { val = "0" }; // Replace empty values with 0
+          if (val == '') { val = '0' }; // Replace empty values with 0
           return val;
         });
         // Compute and store nice axis ticks (including nice min and max values)
@@ -3897,14 +3867,14 @@
     const rawStep = (max - min) / targetTicks;
     const exponent = Math.floor(Math.log10(rawStep));
     const magnitude = Math.pow(10, exponent);
-    // Determine "nice" step fractions for primary and secondary ticks (i.e. pattern of 1, 2, 5 or 10)
+    // Determine 'nice' step fractions for primary and secondary ticks (i.e. pattern of 1, 2, 5 or 10)
     const rawFraction = rawStep / magnitude;
     const [primaryFraction, secondaryFraction] =
       rawFraction <= 1 ? [1, 0.2] : // Primary steps of 1, secondary of 0.2
       rawFraction <= 2 ? [2, 0.5] : // Primary steps of 2, secondary of 0.5
       rawFraction <= 5 ? [5, 1] : // Primary steps of 5, secondary of 1
       [10, 2]; // Primary steps of 10, secondary of 2
-    // Define "nice" primary and secondary steps
+    // Define 'nice' primary and secondary steps
     const primaryStep = primaryFraction * magnitude;
     const secondaryStep = secondaryFraction * magnitude;
     // Round min/max values to step increments
@@ -3959,22 +3929,22 @@
         if (name === '') { continue; } // Skip this iteration if 'code' does not correspond to a known code
 
         // Create a new polyline for the graph SVG
-        let text1 = `<polyline class='graphPolyline' id='polyline_${code}' points='`;
+        let text1 = `<polyline class="graphPolyline" id="polyline_${code}" points="`;
         // Add all the x,y points to the polyline
         for (let i = 0; i < g_graph.ysvg[code].length; i++) { text1 += ` ${g_graph.xsvg[g_graph.xcode][i]}, ${g_graph.ysvg[code][i]}`; }
         // Close the polyline (and add some default style)
-        text1 += `' stroke='${color}' stroke-width='1.5' vector-effect='non-scaling-stroke' fill='none' stroke-linecap='round' stroke-linejoin='round' />`;
+        text1 += `" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
         // Add the polyline to the graph SVG
-        graphArea.insertAdjacentHTML("beforeend", text1);
+        graphArea.insertAdjacentHTML('beforeend', text1);
 
         // Create a new SVG for the vertical axis
         // Remark: We don't define a 'viewBox', so that the text size remains constant when resizing the SVG
         // Remark: Contrary to the plot's SVG, here we don't change the origin of coordinates, so that the text is not flipped (we thus adjust the ticks and axis values accordingly)
         // Remark: The width of the SVG will be redefined at the end, to fit all its content
-        let text2 = `<span class='axisContainer' id='axisContainer_${code}' title='${name}\n'
-                     onmouseover='graphHighlightOn("${code}")' onmouseout='graphHighlightOff("${code}")'>`;
-        text2 += `<svg class='axisSVG' id='axisSVG_${code}' width='15px' height='100%'>`;
-        text2 += `<g id='boundingBox'>`; // This group will allow measuring the bounding box of the whole thing (axis + text)
+        let text2 = `<span class="axisContainer" id="axisContainer_${code}" title="${name}"
+                     onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
+        text2 += `<svg class="axisSVG" id="axisSVG_${code}" width="15px" height="100%">`;
+        text2 += `<g id="boundingBox">`; // This group will allow measuring the bounding box of the whole thing (axis + text)
         // Convert ticks to a percentage of the whole SVG height (using percentages allows scaling when resizing the SVG, even without 'viewBox')
         // We also invert direction, and min and max (since graphs were plotted with vertical origin at bottom)
         const ticks = g_graph.ticks[code]; // Get arrays of nicely defined ticks ('primary', 'secondary', with nice 'min' and 'max')
@@ -3985,26 +3955,26 @@
         // Format nicely the values of the primary ticks
         const ticksValues = ticks.primary.map(val => Intl.NumberFormat('en-US').format(val));
         // Draw the axis line
-        text2 += `  <line class='scaleLine' x1='0' y1='${ticksMin}%' x2='0' y2='${ticksMax}%' stroke='${color}' stroke-width='2' />`;
+        text2 += `  <line class="scaleLine" x1="0" y1="${ticksMin}%" x2="0" y2="${ticksMax}%" stroke="${color}" stroke-width="2" />`;
         // Draw primary ticks and values
         for (let i = 0; i < primaryTicks.length; i++) {
-          text2 += `  <line class='scalePrimaryTick' x1='0' y1='${primaryTicks[i]}%' x2='10' y2='${primaryTicks[i]}%' stroke='${color}' stroke-width='2' />`;
-          text2 += `  <text class='scaleValue' x='15' y='${primaryTicks[i]}%' fill='${color}' font-size='1rem' dominant-baseline='middle'>${ticksValues[i]}</text>`;
+          text2 += `  <line class="scalePrimaryTick" x1="0" y1="${primaryTicks[i]}%" x2="10" y2="${primaryTicks[i]}%" stroke="${color}" stroke-width="2" />`;
+          text2 += `  <text class="scaleValue" x="15" y="${primaryTicks[i]}%" fill="${color}" font-size="1rem" dominant-baseline="middle">${ticksValues[i]}</text>`;
         }
         // Draw secondary ticks (smaller and without values)
         for (let i = 0; i < secondaryTicks.length; i++) {
-          text2 += `  <line class='scaleSecondaryTick' x1='0' y1='${secondaryTicks[i]}%' x2='5' y2='${secondaryTicks[i]}%' stroke='${color}' stroke-width='1' />`;
+          text2 += `  <line class="scaleSecondaryTick" x1="0" y1="${secondaryTicks[i]}%" x2="5" y2="${secondaryTicks[i]}%" stroke="${color}" stroke-width="1" />`;
         }
         // Draw value indicator (it starts out of view at y=-100 and will only appear with the graph cursor)
         // Remark: We embed it in a SVG, so that its Y position can easily be changed
         // Remark: We add a small translation to center all its elements on Y position (without using a 'viewBox')
-        text2 += `<svg class='scaleCursor' id='scaleCursor_${code}' x='0' y='-100' width='10' height='10' transform='translate(0 -5)'>
-                   <polygon class='scaleCursorMarker' points='10 0, 0 5, 10 10' fill='${color}' stroke='none' stroke-width='1' vector-effect='non-scaling-stroke' />
+        text2 += `<svg class="scaleCursor" id="scaleCursor_${code}" x="0" y="-100" width="10" height="10" transform="translate(0 -5)">
+                   <polygon class="scaleCursorMarker" points="10 0, 0 5, 10 10" fill="${color}" stroke="none" stroke-width="1" vector-effect="non-scaling-stroke" />
                  </svg>`;
         // Close bounding box group, svg and container
-        text2 += `</g></svg></span>`;
+        text2 += '</g></svg></span>';
         // Add the axis SVG to the container
-        axisSVGContainer.insertAdjacentHTML("beforeend", text2);
+        axisSVGContainer.insertAdjacentHTML('beforeend', text2);
         // Now, set the axis SVG width equal to the width of its content (this simulates 'max-content' in the case of a SVG!)
         const axisSVG = document.getElementById('axisSVG_' + code); // Get the above created SVG
         const axisWidth = axisSVG.getElementById('boundingBox').getBBox().width + 5; // Get the width from its bounding box (plus a small margin)
@@ -4033,13 +4003,13 @@
      // Proceed only if hovering is active, or if the function is called directly without argument
     if (g_graph.hover || e === undefined) {
       // Move the SVG cursor out of view (and have it forget its index)
-      document.getElementById('graphCursor').setAttribute("x", -100);
+      document.getElementById('graphCursor').setAttribute('x', '-100');
       // Hide all scale cursors in axis
-      for (let cursor of document.querySelectorAll('.scaleCursor')) { cursor.setAttribute("y", "-100"); }
+      for (let cursor of document.querySelectorAll('.scaleCursor')) { cursor.setAttribute('y', '-100'); }
       // Remove values from axis tooltips (just leave the newline)
       for (let container of document.querySelectorAll('.axisContainer')) { container.title = container.title.replace(/[ :]*\n.*/, '\n'); }
       // Empty all graph values in legend
-      for (let value of document.querySelectorAll('.graphLegendValue')) { value.innerHTML = ""; }
+      for (let value of document.querySelectorAll('.graphLegendValue')) { value.innerHTML = ''; }
       // Remove all row highlighting (if any)
       g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
       // Reset cursor index and ensure the hovering effect is now active
@@ -4055,7 +4025,7 @@
       // Get the X coordinate of the sample (we use % because the cursor is not in the same embedded SVG as the graphs)
       const x = 100 * g_graph.xsvg[g_graph.xcode][g_graph.index] / g_graph.width;
       // Move the SVG cursor to that position
-      document.getElementById('graphCursor').setAttribute("x", x + "%");
+      document.getElementById('graphCursor').setAttribute('x', x + '%');
       // Highlight the corresponding row in the table
       g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
       g_graph.rows[g_graph.index].classList.add('rowHighlight');
@@ -4072,12 +4042,12 @@
       const [min, max] = [g_graph.ticks[code].min, g_graph.ticks[code].max];
       const yPercentage = 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (y - min) / (max - min)) / g_graph.height;
       // Move scale cursor to the corresponding axis position
-      document.getElementById('scaleCursor_' + code).setAttribute("y", yPercentage + "%");
+      document.getElementById('scaleCursor_' + code).setAttribute('y', yPercentage + '%');
       // Add/replace the value in the second line of its tooltip
       const container = document.getElementById('axisContainer_' + code);
       container.title = container.title.replace(/[ : ]*\n.*/, ' : \n' + yNice); // Everything after the new line becomes the new value
       // Display graph values in legend
-      document.getElementById('graphLegendValue_' + code).innerHTML = " : " + yNice;
+      document.getElementById('graphLegendValue_' + code).innerHTML = ' : ' + yNice;
     }
   }
   function graphUpdateCursor() { // Update or reset cursor when table rows have changed
@@ -4103,119 +4073,118 @@
 
   function DisplayHdrsOptions() {
 
-    let text ="<div id='tableOptionsContainer'>";
+    let text ='<div id="tableOptionsContainer">';
 
     // Display table options
     text += MakeCollapsibleBegin('Options', 'tableOptions', 'close', 'id="optionsCollapsible" name="tableOptionsCollapsibles"');
-    text += "<form id='tableOptionsForm' name='tableOptionsForm' action='javascript:applyHdrsSelection();'>";
-    text += "<div id='selectionOptions'>";
-    text += "<div id='rowSelectionOptions'>";
-    text += "  <button type='submit' id='applySelection' title='Save and reload with the selected parameters'>Apply</button>";
+    text += '<form id="tableOptionsForm" name="tableOptionsForm" action="javascript:applyHdrsSelection();">';
+    text += '<div id="selectionOptions">';
+    text += '<div id="rowSelectionOptions">';
+    text += '  <button type="submit" id="applySelection" title="Save and reload with the selected parameters">Apply</button>';
     // Remark on input: We display a placeholder instead of a default value, to allow seeing the full datalist suggestion list
-    text += "  <div class='selectRows'><label title='Number of rows to display (2000 max)'>\
-                 <span class='labelRows'>Rows: </span>\
-                 <input type='number' class='nbrRows' id='nbrRows' list='nbrOfRows' autocomplete='off' min='1' max='2000' step='1' size='4' value='' placeholder='" + g_nMax + "'>\
-                 <datalist id='nbrOfRows'>\
-                   <option value='100'>100 (default)</option>\
-                   <option value='200'>200</option>\
-                   <option value='500'>500</option>\
-                   <option value='1000'>1000</option>\
-                   <option value='2000'>2000 (max)</option>\
-                 </datalist>\
-               </label></div>";
+    text += `  <div class="selectRows"><label title="Number of rows to display (2000 max)">
+                 <span class="labelRows">Rows: </span>
+                 <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMax}">
+                 <datalist id="nbrOfRows">
+                   <option value="100">100 (default)</option>
+                   <option value="200">200</option>
+                   <option value="500">500</option>
+                   <option value="1000">1000</option>
+                   <option value="2000">2000 (max)</option>
+                 </datalist>
+               </label></div>`;
     // Remark on input: We display a placeholder instead of a default value, just to keep it visually similar to the other input!
-    text += "  <div class='selectStep'><label title='Blockheight interval between two rows'>\
-                 <span class='labelStep'>Interval: </span>\
-                 <input type='number' class='nbrStep' id='nbrStep' list='nbrOfSteps' autocomplete='off' min='1' value='' step='1' size='4' placeholder='" + g_dh + "'>\
-                 <datalist id='nbrOfSteps'>\
-                   <option value='1'>1 (default)</option>\
-                   <option value='60'>60 (~hour)</option>\
-                   <option value='1440'>1,440 (~day)</option>\
-                   <option value='10080'>10,080 (~week)</option>\
-                   <option value='43200'>43,200 (~month)</option>\
-                 </datalist>\
-               </label></div>";
-    text += "  <div class='selectHeight'><label title='Max block height (leave empty for current height)'>\
-                 <span class='labelHeight'>Max block height: </span>\
-                 <input type='number' class='inputBlockHeight' id='maxHeight' autocomplete='off' min='1' value='" + g_hMax + "' step='1' size='8' placeholder=''>\
-               </label></div>";
-    text += "</div>";
-    // Remark: We use backticks (aka 'template strings') here because of the mix of single and double quotes inside them.
-    text += `<div id='columnSelectionOptions'>\
-              <span class='selectionOptionsGroup'>\
-                <span class='labelColumns'>Columns: </span>\
-                <a href='javascript:selectColumns("current");' id='selectCurrentColumns' class='selectionOption' title='Select current columns'>current</a>\
-                <span class='itemSeparator'> | </span>\
-                <a href='javascript:selectColumns("default");' id='selectDefaultColumns' class='selectionOption' title='Select default columns'>default</a>\
-                <span class='itemSeparator'> | </span>\
-                <a href='javascript:selectColumns("all");' id='selectAllColumns' class='selectionOption' title='Select all columns'>all</a>\
-                <span class='itemSeparator'> | </span>\
-                <a href='javascript:openPasteColumns();' id='pasteColumns' class='selectionOption' title='Copy/Paste codes for columns'>paste</a>\
-                <span class='itemSeparator'> | </span>\
-                <a href='javascript:reorderColumns(columnDefaultOrder);' id='reorderAllColumns' class='selectionOption' title='Reset column order'>reset order</a>\
-                <span class='selectionText'>(or reorder with drag and drop)</span>\
-              </span>\
-              <span id='toggleDescriptions'><a href='javascript:showDescriptions();' title='Show details' id='toggleDescriptionsLink'><svg width='1.5rem' height='1.5rem'><use href='#eye_icon'/></svg></a></span>\
+    text += `  <div class="selectStep"><label title="Blockheight interval between two rows">
+                 <span class="labelStep">Interval: </span>
+                 <input type="number" class="nbrStep" id="nbrStep" list="nbrOfSteps" autocomplete="off" min="1" value="" step="1" size="4" placeholder="${g_dh}">
+                 <datalist id="nbrOfSteps">
+                   <option value="1">1 (default)</option>
+                   <option value="60">60 (~hour)</option>
+                   <option value="1440">1,440 (~day)</option>
+                   <option value="10080">10,080 (~week)</option>
+                   <option value="43200">43,200 (~month)</option>
+                 </datalist>
+               </label></div>`;
+    text += `  <div class="selectHeight"><label title="Max block height (leave empty for current height)">
+                 <span class="labelHeight">Max block height: </span>
+                 <input type="number" class="inputBlockHeight" id="maxHeight" autocomplete="off" min="1" value="${g_hMax}" step="1" size="8" placeholder="">
+               </label></div>`;
+    text += '</div>';
+    text += `<div id="columnSelectionOptions">
+              <span class="selectionOptionsGroup">
+                <span class="labelColumns">Columns: </span>
+                <a href="javascript:selectColumns('current');" id="selectCurrentColumns" class="selectionOption" title="Select current columns">current</a>
+                <span class="itemSeparator"> | </span>
+                <a href="javascript:selectColumns('default');" id="selectDefaultColumns" class="selectionOption" title="Select default columns">default</a>
+                <span class="itemSeparator"> | </span>
+                <a href="javascript:selectColumns('all');" id="selectAllColumns" class="selectionOption" title="Select all columns">all</a>
+                <span class="itemSeparator"> | </span>
+                <a href="javascript:openPasteColumns();" id="pasteColumns" class="selectionOption" title="Copy/Paste codes for columns">paste</a>
+                <span class="itemSeparator"> | </span>
+                <a href="javascript:reorderColumns(columnDefaultOrder);" id="reorderAllColumns" class="selectionOption" title="Reset column order">reset order</a>
+                <span class="selectionText">(or reorder with drag and drop)</span>
+              </span>
+              <span id="toggleDescriptions"><a href="javascript:showDescriptions();" title="Show details" id="toggleDescriptionsLink"><svg width="1.5rem" height="1.5rem"><use href="#eye_icon"/></svg></a></span>
             </div>`;
-    text += "</div>";
-    text += "<div id='columnOptions'>";
+    text += '</div>';
+    text += '<div id="columnOptions">';
     // Make list of all checkboxes
     let nbr = 0;
     for (let item of columnHeaders) {
       nbr++;
       // Put each checkbox and its text into a div
-      text += "<div class='columnOption' id='Option_" + item.code + "'><label title='" + item.description + "'>";
-      if (item.code == "h") {
+      text += '<div class="columnOption" id="Option_' + item.code + '"><label title="' + item.description + '">';
+      if (item.code == 'h') {
         // First column (the block height) is mandatory: the checkbox is checked and disabled
-        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckboxDisabled' title='Always displayed' id='check_" + item.code + "' data-code='" + item.code + "' checked disabled></span>";
+        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckboxDisabled" title="Always displayed" id="check_' + item.code + '" data-code="' + item.code + '" checked disabled></span>';
       } else {
-        text += "<span class='columnOptionCheck'><input type='checkbox' class='columnOptionCheckbox' title='URL code: " + item.code + "' id='check_" + item.code + "' data-code='" + item.code + "'></span>";
+        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckbox" title="URL code: ' + item.code + '" id="check_' + item.code + '" data-code="' + item.code + '"></span>';
       }
-      text += "<span class='columnOptionText'>";
-      text += "<span class='columnOptionNumber'>" + nbr.toString().padStart(2,'0') + ". </span>";
-      text += "<span class='columnOptionLabel'>" + item.title + "</span>";
-      text += "<span class='columnOptionDescription hidden'> " + item.description + ".</span>";
-      text += "</span>";
-      text += "</label></div>";
+      text += '<span class="columnOptionText">';
+      text += '<span class="columnOptionNumber">' + nbr.toString().padStart(2,'0') + '. </span>';
+      text += '<span class="columnOptionLabel">' + item.title + '</span>';
+      text += '<span class="columnOptionDescription hidden"> ' + item.description + '.</span>';
+      text += '</span>';
+      text += '</label></div>';
     }
-    text += "</div>";
-    text += "</form>";
+    text += '</div>';
+    text += '</form>';
 
     // Popup for pasting column codes
     // Remark: We use 'dialog' because 'popover' does not work on Chrome 83.
     // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
-    text += "<dialog id='pasteColumnsPopup'>";
-    text += "  <form id='pasteColumnsForm' name='pasteColumnsForm' method='dialog' onsubmit='applyPasteColumns();'>\
-                  <div class='pasteColumnsText'>Copy/Paste codes for columns:</div>\
-                  <input type='text' id='pasteColumnsInput' value='" + columnDefaultDisplay + "' autocomplete='off' size='30' pattern='^(?:([" + columnDefaultOrder + "])(?!.*\\1))*$' placeholder='Enter column codes here' title='Valid codes are " + columnDefaultOrder + " (without repetition)' autofocus>\
-                  <button type='submit' class='popupButton' id='pasteColumnsApply' title='Apply column codes'>Ok</button>\
-                  <button type='button' class='popupButton' id='pasteColumnsCancel' title='Cancel' onclick='closePasteColumns();'>Cancel</button>\
-               </form>";
+    text += '<dialog id="pasteColumnsPopup">';
+    text += `  <form id="pasteColumnsForm" name="pasteColumnsForm" method="dialog" onsubmit="applyPasteColumns();">
+                  <div class="pasteColumnsText">Copy/Paste codes for columns:</div>
+                  <input type="text" id="pasteColumnsInput" value="${columnDefaultDisplay}" autocomplete="off" size="30" pattern="^(?:([${columnDefaultOrder}])(?!.*\\1))*$" placeholder="Enter column codes here" title="Valid codes are ${columnDefaultOrder} (without repetition)" autofocus>
+                  <button type="submit" class="popupButton" id="pasteColumnsApply" title="Apply column codes">Ok</button>
+                  <button type="button" class="popupButton" id="pasteColumnsCancel" title="Cancel" onclick="closePasteColumns();">Cancel</button>
+               </form>`;
     // Display a list of all column codes
-    text += "<div class='pasteColumnsList'>";
+    text += '<div class="pasteColumnsList">';
     for (let item of columnHeaders) {
-        text += "<div class='pasteColumnsListItem' title='" + item.description + "'>";
-        text += "<span class='pasteColumnsListCode'>" + item.code + " </span>";
-        text += "<span class='pasteColumnsListTitle'>" + item.title + "</span>";
-        text += "</div>";
+        text += '<div class="pasteColumnsListItem" title="' + item.description + '">';
+        text += '<span class="pasteColumnsListCode">' + item.code + ' </span>';
+        text += '<span class="pasteColumnsListTitle">' + item.title + '</span>';
+        text += '</div>';
     }
-    text += "</div>";
-    text += "</dialog>";
+    text += '</div>';
+    text += '</dialog>';
 
     text += MakeCollapsibleEnd();
 
     // Display graph area
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
-    text += "<div id='resetColors'><a href='javascript:resetGraphColors();' title='Reset graph colors to default'>Reset colors</a></div>";
-    text += "<div id='graphContainer' style='white-space:nowrap'>"; // 'nowrap' added just for the CSS-less display
+    text += '<div id="resetColors"><a href="javascript:resetGraphColors();" title="Reset graph colors to default">Reset colors</a></div>';
+    text += '<div id="graphContainer" style="white-space:nowrap">'; // 'nowrap' added just for the CSS-less display
     // Add empty SVG elements for the graphs and their axis (the width here is just a default for the CSS-less display)
-    text += "  <span id='graphSVGContainer'><svg id='graphSVG' width='80%' height='100%'>Sorry, your browser does not support inline SVG.</svg></span>";
-    text += "  <span id='axisSVGContainer'></span>";
-    text += "</div>";
-    text += "<div id='graphLegend'><div id='graphLegendTitle'>Select in the table below the columns to display <span id='graphLegendSubtitle'>(the rows will be read from bottom to top)</span></div>";
+    text += '  <span id="graphSVGContainer"><svg id="graphSVG" width="80%" height="100%">Sorry, your browser does not support inline SVG.</svg></span>';
+    text += '  <span id="axisSVGContainer"></span>';
+    text += '</div>';
+    text += '<div id="graphLegend"><div id="graphLegendTitle">Select in the table below the columns to display <span id="graphLegendSubtitle">(the rows will be read from bottom to top)</span></div>';
     text += MakeCollapsibleEnd();
 
-    text += "</div>";
+    text += '</div>';
 
     return text;
   }
@@ -4257,7 +4226,7 @@
         // Check all checkboxes (as per global variable)
         string = columnDefaultOrder;
         // Switch action of the link
-        link.setAttribute('href', 'javascript:selectColumns("none");');
+        link.setAttribute('href', `javascript:selectColumns('none');`);
         link.setAttribute('title', 'Deselect all columns');
         link.textContent = 'none';
         break;
@@ -4265,7 +4234,7 @@
         // Uncheck all checkboxes
         string = '';
         // Switch action of the link
-        link.setAttribute('href', 'javascript:selectColumns("all");');
+        link.setAttribute('href', `javascript:selectColumns('all');`);
         link.setAttribute('title', 'Select all columns');
         link.textContent = 'all';
         break;
@@ -4286,7 +4255,7 @@
   }
 
   function reorderColumns(series = '') { // Reorder checkboxes
-    let n = 0, series2 = "", fullSeries;
+    let n = 0, series2 = '', fullSeries;
     // 1) If no order is given, check localStorage. If it's also empty, then use the default order.
     if (series == '') {
       series = localStorage.getItem('g_colsAll');
@@ -4357,13 +4326,13 @@
 
   function applyHdrsSelection() {
     // Get number of rows
-    let nMax = document.getElementById("nbrRows").value;
+    let nMax = document.getElementById('nbrRows').value;
     if (nMax) { g_nMax = nMax; };
     // Get row interval
-    let dh = document.getElementById("nbrStep").value;
+    let dh = document.getElementById('nbrStep').value;
     if (dh) { g_dh = dh; };
     // Get max block height (even when empty)
-    g_hMax = document.getElementById("maxHeight").value;
+    g_hMax = document.getElementById('maxHeight').value;
 
     // Get codes for selected checkboxes (they are automatically listed in their current order)
     let params = '', series = '';
@@ -4385,7 +4354,7 @@
     args.set('dh', g_dh);
     args.set('hMax', g_hMax);
     // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the "foo=1&bar=2&baz=3" part (without "?")
+    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
   }
 
   // DRAG-AND-DROP OPTIONS FOR THE COLUMN HEADERS CHECKBOXES
@@ -4458,7 +4427,7 @@
     let nbr = 0;
     for (let item of document.querySelectorAll('.columnOptionNumber')) {
       nbr++;
-      item.innerHTML = nbr.toString().padStart(2,'0') + ". ";
+      item.innerHTML = nbr.toString().padStart(2,'0') + '. ';
     }
   }
 </script>
@@ -4471,7 +4440,7 @@
       // Ignore tables of certain specific classes
       if (!myTable.classList.contains('tableTotals') && !myTable.classList.contains('tableSummary') && !myTable.closest('.divTableStatus')) {
         let myRow = myTable.rows[0];
-        // If first row exists and all its cells are <th> or have a span with a "th" class, then mark the row as header.
+        // If first row exists and all its cells are <th> or have a span with a 'th' class, then mark the row as header.
         // We also enforce the use of <thead> to ensure that the row won't be included in the tbodies that will be filtered and sorted.
         // And since Chrome 83 (as in Beam Wallet) can only do 'sticky' on 'th' elements, we also change all its 'td' into 'th'.
         if (myRow && (myRow.querySelectorAll('td > span.th').length + myRow.querySelectorAll('th').length == myRow.cells.length)) {
@@ -4485,7 +4454,7 @@
           // Define all cells in this first row as 'th' (remark: any attribute of those cells are lost, but we don't care)
           for (let myTd of myRow.cells) {
             let myTh = document.createElement('th');
-            myTh.innerHTML = "<div>" + myTd.innerHTML + "</div>"; // This <div> is important: it will be used later on when filters are activated
+            myTh.innerHTML = '<div>' + myTd.innerHTML + '</div>'; // This <div> is important: it will be used later on when filters are activated
             myTd.replaceWith(myTh);
             // Mark the cell as 'header'
             myTh.classList.add('headerCell');
@@ -4522,7 +4491,7 @@
       // And then add another div below, with a search input.
       let myDiv = document.createElement('div');
       myDiv.classList.add('searchable');
-      myDiv.innerHTML = "<input type='text' class='search' title='Enter search term' size='5' placeholder='&#x1F50E;&#xFE0E;&nbsp;' autocomplete='off'>";
+      myDiv.innerHTML = '<input type="text" class="search" title="Enter search term" size="5" placeholder="&#x1F50E;&#xFE0E;&nbsp;" autocomplete="off">';
       myHeader.appendChild(myDiv);
       // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
@@ -4582,8 +4551,8 @@
     });
 
     // We initialise two collators for sorting:
-    // One for "alphabetical sorting" (character by character, insensitive to case and accents).
-    // One for "natural sorting" (same, except numbers are treated numerically: "Asset-1" < "Asset-2" < "Asset-10").
+    // One for 'alphabetical sorting' (character by character, insensitive to case and accents).
+    // One for 'natural sorting' (same, except numbers are treated numerically: 'Asset-1' < 'Asset-2' < 'Asset-10').
     const collator1 = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
     const collator2 = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
 
