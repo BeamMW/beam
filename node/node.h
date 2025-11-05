@@ -828,7 +828,7 @@ private:
 		};
 
 		struct ValidatorWithAssessment
-			:public Block::Pbft::Validator
+			:public Block::Pbft::StateWithDelegators::Validator
 		{
 			Assessment m_Assessment;
 		};

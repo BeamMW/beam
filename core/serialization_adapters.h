@@ -1976,7 +1976,6 @@ namespace detail
 		Archive& save(Archive& ar, const beam::Block::Pbft::State& state)
 		{
 			ar
-				& state.m_Totals.m_Revenue
 				& state.m_lstVs.size();
 
 			for (const auto& v : state.m_lstVs)
@@ -1993,7 +1992,6 @@ namespace detail
 		{
 			size_t n;
 			ar
-				& state.m_Totals.m_Revenue
 				& n;
 
 			state.Clear();
@@ -2002,6 +2000,94 @@ namespace detail
 				beam::Block::Pbft::Address addr;
 				ar & addr;
 				state.FindAlways(addr)->serialize_nokey(ar);
+			}
+
+			return ar;
+		}
+
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::Block::Pbft::StateWithDelegators& state)
+		{
+			ar
+				& Cast::Down<beam::Block::Pbft::State>(state)
+				& state.m_Totals.m_Fees
+				& state.m_Totals.m_Summa
+				& state.m_mapDelegates.size();
+
+			for (const auto& d : state.m_mapDelegates)
+			{
+				ar
+					& d.m_Key
+					& d.m_Unbonded.m_Value
+					& d.m_Unbonded.m_LockHeight
+					& d.m_mapBonds.size();
+
+				for (const auto& x : d.m_mapBonds)
+				{
+					const auto& bond = x.get_ParentObj();
+					ar
+						& bond.m_Validator.m_p->m_Addr.m_Key
+						& bond.m_Value
+						& bond.m_Summa0;
+				}
+
+			}
+
+			return ar;
+		}
+
+		template<typename Archive>
+		Archive& load(Archive& ar, beam::Block::Pbft::StateWithDelegators& state)
+		{
+			size_t nDelegators;
+			ar
+				& Cast::Down<beam::Block::Pbft::State>(state)
+				& state.m_Totals.m_Fees
+				& state.m_Totals.m_Summa
+				& nDelegators;
+
+			state.m_mapDelegates.clear();
+
+			beam::Block::Pbft::StateWithDelegators::Delegate* pD0 = nullptr;
+			while (nDelegators--)
+			{
+				beam::Block::Pbft::Address addr;
+				ar & addr;
+
+				if (pD0 && pD0->m_Key >= addr)
+					beam::Exc::Fail();
+
+				auto* pD = state.m_mapDelegates.Create(std::move(addr));
+				pD0 = pD;
+
+				size_t nBonds;
+				ar
+					& pD->m_Unbonded.m_Value
+					& pD->m_Unbonded.m_LockHeight
+					& nBonds;
+
+				beam::Block::Pbft::StateWithDelegators::Validator* pV0 = nullptr;
+				while (nBonds--)
+				{
+					beam::Block::Pbft::Address addrV;
+					ar & addrV;
+
+					if (pV0 && pV0->m_Addr.m_Key >= addr)
+						beam::Exc::Fail();
+
+					auto* pV = Cast::Up<beam::Block::Pbft::StateWithDelegators::Validator>(state.Find(addrV));
+					if (!pV)
+						beam::Exc::Fail();
+
+					auto* pBond = beam::Block::Pbft::StateWithDelegators::Bond::Create(*pV, *pD);
+
+					ar
+						& pBond->m_Value
+						& pBond->m_Summa0;
+
+					pV0 = pV;
+				}
+
 			}
 
 			return ar;
