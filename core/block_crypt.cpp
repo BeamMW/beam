@@ -2997,11 +2997,20 @@ namespace beam
 		delete &v;
 	}
 
-	Block::Pbft::Validator* Block::Pbft::State::Find(const Address& addr, bool bCreate)
+	Block::Pbft::Validator* Block::Pbft::State::Find(const Address& addr)
 	{
 		auto it = m_mapVs.find(addr, Validator::Addr::Comparator());
 		if (m_mapVs.end() != it)
 			return &it->get_ParentObj();
+
+		return nullptr;
+	}
+
+	Block::Pbft::Validator* Block::Pbft::State::FindFlex(const Address& addr, bool bCreate)
+	{
+		auto* pRet = Find(addr);
+		if (pRet)
+			return pRet;
 
 		if (!bCreate)
 			return nullptr;
@@ -3170,7 +3179,7 @@ namespace beam
 			if (!v.m_Stake)
 				continue;
 
-			auto* pV = Find(v.m_Addr, true);
+			auto* pV = FindAlways(v.m_Addr);
 			assert(pV);
 
 			pV->m_Weight += v.m_Stake;
@@ -3189,7 +3198,7 @@ namespace beam
 		{
 			if (x.m_White)
 			{
-				auto* pVal = Find(x.m_Addr, false);
+				auto* pVal = Find(x.m_Addr);
 				if (pVal)
 					pVal->m_Flags |= Validator::Flags::White;
 			}

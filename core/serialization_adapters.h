@@ -1996,11 +1996,12 @@ namespace detail
 				& state.m_Totals.m_Revenue
 				& n;
 
+			state.Clear();
 			while (n--)
 			{
 				beam::Block::Pbft::Address addr;
 				ar & addr;
-				state.Find(addr, true)->serialize_nokey(ar);
+				state.FindAlways(addr)->serialize_nokey(ar);
 			}
 
 			return ar;
