@@ -3597,6 +3597,10 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelPbftUpdate& v, uint32_t)
 {
 }
 
+void NodeProcessor::Recognizer::Recognize(const TxKernelPbftBond& v, uint32_t)
+{
+}
+
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
@@ -4768,6 +4772,11 @@ bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpr
 	}
 
 	m_PbftState.m_Hash.m_Valid = false;
+	return true;
+}
+
+bool NodeProcessor::HandleKernelType(const TxKernelPbftBond& krn, BlockInterpretCtx& bic)
+{
 	return true;
 }
 
