@@ -1782,6 +1782,50 @@ namespace detail
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
 		}
 
+		/// beam::TxKernelPbftBond serialization
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::TxKernelPbftBond& val)
+		{
+			uint32_t nFlags =
+				ImplTxKernel::get_CommonFlags(val) |
+				((val.m_Commitment.m_Y) ? 0x100 : 0) |
+				((val.m_Signature.m_NoncePub.m_Y) ? 0x200 : 0);
+
+			ar
+				& nFlags
+				& val.m_Address
+				& val.m_Owner
+				& val.m_Amount
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k;
+
+			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::save_Nested(ar, val);
+
+			return ar;
+		}
+
+		template<typename Archive>
+		void load0(Archive& ar, beam::TxKernelPbftBond& val, uint32_t nRecursion)
+		{
+			uint32_t nFlags;
+			ar
+				& nFlags
+				& val.m_Address
+				& val.m_Owner
+				& val.m_Amount
+				& val.m_Commitment.m_X
+				& val.m_Signature.m_NoncePub.m_X
+				& val.m_Signature.m_k;
+
+			val.m_Commitment.m_Y = !!(0x100 & nFlags);
+			val.m_Signature.m_NoncePub.m_Y = !!(0x200 & nFlags);
+
+			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
+			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
+		}
+
         /// beam::Transaction serialization
         template<typename Archive>
         Archive& save(Archive& ar, const beam::TxBase& txb)

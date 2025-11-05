@@ -1709,6 +1709,84 @@ namespace beam
 	}
 
 	/////////////
+	// TxKernelPbftBond
+	void TxKernelPbftBond::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	{
+		const auto& r = Rules::get();
+		if (Rules::Consensus::Pbft != r.m_Consensus)
+			Exc::Fail();
+
+		if (!m_Amount)
+			Exc::Fail();
+
+		ECC::Point::Native pPks[2];
+		auto& ptComm = pPks[0];
+		auto& ptOwner = pPks[1];
+
+		ptComm.ImportNnzStrict(m_Commitment);
+
+		TestValidBase(hScheme, exc, pParent, &ptComm);
+
+		exc += ptComm;
+
+		if (m_Address == Zero)
+		{
+			// funds i/o
+			bool bFundsConsumed = (m_Amount > 0);
+			if (bFundsConsumed)
+				ptComm = -ptComm;
+
+			CoinID::Generator(r.m_Pbft.m_AidStake).AddValue(ptComm, m_Amount);
+
+			if (bFundsConsumed)
+				ptComm = -ptComm;
+		}
+
+
+		// signature
+		if (!m_Owner.ExportNnz(ptOwner))
+			Exc::Fail();
+
+		const auto& sig = Cast::Down<ECC::SignatureBase>(m_Signature);
+		if (!sig.IsValid(ECC::Context::get().m_Sig.m_CfgG2, get_Msg(), &m_Signature.m_k, pPks))
+			TxBase::Fail_Signature();
+
+	}
+
+	void TxKernelPbftBond::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	{
+		bool isPositive;
+		Amount val = SplitAmountSigned(m_Amount, isPositive);
+
+		hp
+			<< "pbft.bond"
+			<< m_Address
+			<< m_Owner
+			<< m_Commitment
+			<< val
+			<< isPositive;
+	}
+
+	void TxKernelPbftBond::HashSelfForID(ECC::Hash::Processor& hp) const
+	{
+		hp
+			<< m_Signature.m_NoncePub;
+	}
+
+	void TxKernelPbftBond::Clone(TxKernel::Ptr& p) const
+	{
+		p.reset(new TxKernelPbftBond);
+		TxKernelPbftBond& v = Cast::Up<TxKernelPbftBond>(*p);
+
+		v.CopyFrom(*this);
+		v.m_Address = m_Address;
+		v.m_Owner = m_Owner;
+		v.m_Commitment = m_Commitment;
+		v.m_Amount = m_Amount;
+		v.m_Signature = m_Signature;
+	}
+
+	/////////////
 	// FeeSettings
 
 	struct FeeSettingsGlobal

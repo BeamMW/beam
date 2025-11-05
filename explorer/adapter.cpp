@@ -1424,6 +1424,14 @@ private:
                     m_Wr.m_json["PBFT.Update"] = std::move(wr.m_json);
                 }
 
+                void OnKrnEx(const TxKernelPbftBond& krn)
+                {
+                    Writer wr;
+                    wr.AddHex("Validator", krn.m_Address);
+                    wr.AddHex("Owner", krn.m_Owner);
+                    wr.m_json["Amount"] = krn.m_Amount;
+                    m_Wr.m_json["PBFT.Bond"] = std::move(wr.m_json);
+                }
 
             } wlk;
             wlk.m_pCri = &cri;
