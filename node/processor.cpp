@@ -182,7 +182,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 			Deserializer der;
 			der.reset(buf);
-			der & Cast::Down<Block::Pbft::State>(m_PbftState);
+			der & Cast::Down<Block::Pbft::StateWithDelegators>(m_PbftState);
 		}
 		else
 			m_PbftState.SetInitial();
@@ -3332,7 +3332,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			bic.m_Rollback.clear();
 
 			ser.swap_buf(bic.m_Rollback); // optimization
-			ser & m_PbftState;
+			ser & Cast::Down<Block::Pbft::StateWithDelegators>(m_PbftState);
 			ser.swap_buf(bic.m_Rollback);
 
 			Blob blob(bic.m_Rollback);
@@ -5183,11 +5183,9 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 		if (bHandleFee)
 		{
 			if (bic.m_Fwd)
-				m_PbftState.m_Totals.m_Revenue += v.m_Fee;
+				m_PbftState.m_Totals.m_Fees += v.m_Fee;
 			else
-				m_PbftState.m_Totals.m_Revenue -= v.m_Fee;
-
-			m_PbftState.m_Hash.m_Valid = false;
+				m_PbftState.m_Totals.m_Fees -= v.m_Fee;
 		}
 
 	}

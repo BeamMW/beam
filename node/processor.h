@@ -386,7 +386,7 @@ public:
 	} m_Extra;
 
 	struct PbftState
-		:public Block::Pbft::State
+		:public Block::Pbft::StateWithDelegators
 	{
 		struct Hash
 		{

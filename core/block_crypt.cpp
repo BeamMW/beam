@@ -2986,8 +2986,6 @@ namespace beam
 	{
 		while (!m_lstVs.empty())
 			Delete(m_lstVs.front());
-
-		m_Totals.m_Revenue = 0;
 	}
 
 	void Block::Pbft::State::Delete(Validator& v)
@@ -3110,7 +3108,6 @@ namespace beam
 		ECC::Hash::Processor hp;
 		hp
 			<< "vs.state"
-			<< m_Totals.m_Revenue
 			<< m_lstVs.size();
 
 		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
@@ -3209,6 +3206,41 @@ namespace beam
 	{
 		kdf.DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
 		addr.FromSk(sk);
+	}
+
+	/////////////
+	// Pbft::StateWithDelegators
+
+	void Block::Pbft::StateWithDelegators::Bond::DeleteStrict()
+	{
+		assert(m_Validator.m_p);
+		m_Validator.m_p->m_mapBonds.erase(intrusive::multiset<ValidatorSide>::s_iterator_to(m_Validator));
+
+		assert(m_Delegator.m_p);
+		m_Delegator.m_p->m_mapBonds.erase(intrusive::multiset<DelegatorSide>::s_iterator_to(m_Delegator));
+
+		delete this;
+	}
+
+	Block::Pbft::StateWithDelegators::Bond* Block::Pbft::StateWithDelegators::Bond::Create(Validator& v, Delegate& d)
+	{
+		auto* pBond = new Bond;
+
+		pBond->m_Validator.m_p = &v;
+		v.m_mapBonds.insert(pBond->m_Validator);
+
+		pBond->m_Delegator.m_p = &d;
+		d.m_mapBonds.insert(pBond->m_Delegator);
+
+		pBond->m_Summa0 = Zero;
+		pBond->m_Value = 0;
+
+		return pBond;
+	}
+
+	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::StateWithDelegators::CreateValidator()
+	{
+		return Validator::Create();
 	}
 
 	/////////////

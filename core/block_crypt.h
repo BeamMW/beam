@@ -1835,10 +1835,6 @@ namespace beam
 				Validator::List m_lstVs;
 				Validator::Addr::Map m_mapVs;
 
-				struct Totals {
-					Amount m_Revenue = 0;
-				} m_Totals;
-
 				~State() { Clear(); }
 				void Clear();
 
@@ -1863,6 +1859,104 @@ namespace beam
 				// uniform random within [0, nBound)
 				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
 				virtual std::unique_ptr<Validator> CreateValidator();
+			};
+
+			struct StateWithDelegators
+				:public State
+			{
+				struct Validator;
+				struct Delegate;
+
+				struct Bond
+				{
+					struct ValidatorSide
+						:public boost::intrusive::set_base_hook<>
+					{
+						Validator* m_p;
+
+						const Address& get_Key() const { return m_p->m_Addr.m_Key; }
+						bool operator < (const ValidatorSide& x) const { return get_Key() < x.get_Key(); }
+
+						struct Comparator
+						{
+							bool operator()(const Address& a, const ValidatorSide& b) const { return a < b.get_Key(); }
+							bool operator()(const ValidatorSide& a, const Address& b) const { return a.get_Key() < b; }
+						};
+
+						IMPLEMENT_GET_PARENT_OBJ(Bond, m_Validator)
+					} m_Validator;
+
+					struct DelegatorSide
+						:public boost::intrusive::set_base_hook<>
+					{
+						Delegate* m_p;
+
+						const Address& get_Key() const { return m_p->m_Key; }
+						bool operator < (const DelegatorSide& x) const { return get_Key() < x.get_Key(); }
+
+						struct Comparator
+						{
+							bool operator()(const Address& a, const DelegatorSide& b) const { return a < b.get_Key(); }
+							bool operator()(const DelegatorSide& a, const Address& b) const { return a.get_Key() < b; }
+						};
+
+						IMPLEMENT_GET_PARENT_OBJ(Bond, m_Delegator)
+					} m_Delegator;
+
+					Amount m_Value;
+					AmountBig::Type m_Summa0;
+
+					void DeleteStrict();
+					static Bond* Create(Validator&, Delegate&);
+				};
+
+
+				struct Validator
+					:public Pbft::Validator
+				{
+					intrusive::multiset<Bond::ValidatorSide> m_mapBonds;
+
+					virtual ~Validator() { CleanBonds(); }
+
+					void CleanBonds()
+					{
+						while (!m_mapBonds.empty())
+							m_mapBonds.begin()->get_ParentObj().DeleteStrict();
+					}
+				};
+
+				struct Delegate
+					:public intrusive::set_base_hook<Address>
+				{
+					typedef intrusive::multiset_autoclear<Delegate> Map;
+
+					struct Unbonded
+					{
+						Amount m_Value;
+						Height m_LockHeight;
+					} m_Unbonded;
+
+					intrusive::multiset<Bond::DelegatorSide> m_mapBonds;
+
+					~Delegate() { CleanBonds(); }
+
+					void CleanBonds()
+					{
+						while (!m_mapBonds.empty())
+							m_mapBonds.begin()->get_ParentObj().DeleteStrict();
+					}
+
+				};
+
+				Delegate::Map m_mapDelegates;
+
+				struct Totals {
+					AmountBig::Type m_Summa = Zero;
+					Amount m_Fees = 0; // remaining
+				} m_Totals;
+
+			private:
+				std::unique_ptr<Pbft::Validator> CreateValidator() override;
 			};
 		};
 
