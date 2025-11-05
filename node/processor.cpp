@@ -3563,10 +3563,6 @@ void NodeProcessor::Recognizer::Recognize(const Input& x)
 	AddEvent(*pEvt);
 }
 
-void NodeProcessor::Recognizer::Recognize(const TxKernelStd&, uint32_t)
-{
-}
-
 void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, uint32_t)
 {
 	EventKey::Shielded key = x.m_SpendProof.m_SpendPk;
@@ -3579,26 +3575,6 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelShieldedInput& x, uint32
 	evt.m_Flags &= ~proto::Event::Flags::Add;
 
 	AddEvent(evt);
-}
-
-void NodeProcessor::Recognizer::Recognize(const TxKernelContractCreate&, uint32_t)
-{
-}
-
-void NodeProcessor::Recognizer::Recognize(const TxKernelContractInvoke&, uint32_t)
-{
-}
-
-void NodeProcessor::Recognizer::Recognize(const TxKernelEvmInvoke&, uint32_t)
-{
-}
-
-void NodeProcessor::Recognizer::Recognize(const TxKernelPbftUpdate& v, uint32_t)
-{
-}
-
-void NodeProcessor::Recognizer::Recognize(const TxKernelPbftBond& v, uint32_t)
-{
 }
 
 bool NodeProcessor::KrnWalkerShielded::OnKrn(const TxKernel& krn)
@@ -3621,12 +3597,12 @@ bool NodeProcessor::KrnWalkerRecognize::OnKrn(const TxKernel& krn)
 {
 	switch (krn.get_Subtype())
 	{
-#define THE_MACRO(id, name) \
+#define THE_MACRO(name) \
 	case TxKernel::Subtype::name: \
 		m_Rec.Recognize(Cast::Up<TxKernel##name>(krn), m_nKrnIdx); \
 		break;
 
-	BeamKernelsAll(THE_MACRO)
+	BeamKernelsRecongizableAll(THE_MACRO)
 #undef THE_MACRO
 
 	default:

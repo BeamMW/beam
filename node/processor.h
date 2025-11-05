@@ -748,6 +748,13 @@ public:
 		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
 	};
 
+#define BeamKernelsRecongizableAll(macro) \
+	macro(ShieldedInput) \
+	macro(ShieldedOutput) \
+	macro(AssetCreate) \
+	macro(AssetEmit) \
+	macro(AssetDestroy)
+
 	struct Recognizer;
 	struct KrnWalkerRecognize
 		:public IKrnWalker
@@ -843,8 +850,8 @@ public:
 		void Recognize(const Input&);
 		void Recognize(const Output&, Key::IPKdf&);
 
-#define THE_MACRO(id, name) void Recognize(const TxKernel##name&, uint32_t nKrnIdx);
-		BeamKernelsAll(THE_MACRO)
+#define THE_MACRO(name) void Recognize(const TxKernel##name&, uint32_t nKrnIdx);
+		BeamKernelsRecongizableAll(THE_MACRO)
 #undef THE_MACRO
 
 		template <typename TKey, typename TEvt>
