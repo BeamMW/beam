@@ -1843,7 +1843,9 @@ namespace beam
 				void Clear();
 
 				void Delete(Validator&);
-				Validator* Find(const Address&, bool bCreate);
+				Validator* Find(const Address&);
+				Validator* FindFlex(const Address&, bool bCreate);
+				Validator* FindAlways(const Address& addr) { return FindFlex(addr, true); }
 
 				uint64_t get_Weight() const;
 

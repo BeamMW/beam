@@ -5939,7 +5939,7 @@ void Node::Validator::OnNewStateInternal()
 		vp.m_Assessment.m_hvCommitted = Zero;
 	}
 
-	m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr, false));
+	m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr));
 	if (m_pMe && !m_pMe->m_Weight)
 		m_pMe = nullptr; // no weight - not a validator
 
@@ -6642,7 +6642,7 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 
 	for (const auto& x : my_map)
 	{
-		const auto* pV = p.m_PbftState.Find(x.first, false);
+		const auto* pV = p.m_PbftState.Find(x.first);
 		if (!pV)
 			continue;
 
@@ -6788,7 +6788,7 @@ void Node::Validator::OnMsg(proto::PbftPeerAssessment&& msg, const Peer& src)
 		return; // not interested
 
 	auto& p = get_ParentObj().m_Processor; // alias
-	auto* pV = p.m_PbftState.Find(msg.m_From, false);
+	auto* pV = p.m_PbftState.Find(msg.m_From);
 	if (!pV)
 		return; // not a validator
 

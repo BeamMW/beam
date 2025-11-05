@@ -4718,7 +4718,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 
 bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpretCtx& bic)
 {
-	auto* pV = m_PbftState.Find(krn.m_Address, false);
+	auto* pV = m_PbftState.Find(krn.m_Address);
 	if (!pV)
 		return false;
 
