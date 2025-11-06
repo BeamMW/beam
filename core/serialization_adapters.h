@@ -2012,9 +2012,9 @@ namespace detail
 				& Cast::Down<beam::Block::Pbft::State>(state)
 				& state.m_Totals.m_Fees
 				& state.m_Totals.m_Summa
-				& state.m_mapDelegates.size();
+				& state.m_mapDelegators.size();
 
-			for (const auto& d : state.m_mapDelegates)
+			for (const auto& d : state.m_mapDelegators)
 			{
 				ar
 					& d.m_Key
@@ -2046,9 +2046,9 @@ namespace detail
 				& state.m_Totals.m_Summa
 				& nDelegators;
 
-			state.m_mapDelegates.clear();
+			state.m_mapDelegators.clear();
 
-			beam::Block::Pbft::StateWithDelegators::Delegate* pD0 = nullptr;
+			beam::Block::Pbft::StateWithDelegators::Delegator* pD0 = nullptr;
 			while (nDelegators--)
 			{
 				beam::Block::Pbft::Address addr;
@@ -2057,7 +2057,7 @@ namespace detail
 				if (pD0 && pD0->m_Key >= addr)
 					beam::Exc::Fail();
 
-				auto* pD = state.m_mapDelegates.Create(std::move(addr));
+				auto* pD = state.m_mapDelegators.Create(std::move(addr));
 				pD0 = pD;
 
 				size_t nBonds;
