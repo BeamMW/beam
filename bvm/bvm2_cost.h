@@ -24,31 +24,31 @@ struct ChargeFor {
 
 struct Cost
 {
-	static const uint32_t Cycle			= ChargeFor<20*1000*1000>::V;
-	static const uint32_t MemOpPerByte		= ChargeFor<50*1000*1000>::V;
-	static const uint32_t HeapOp			= ChargeFor<1000*1000>::V;
-	static const uint32_t LoadVar			= ChargeFor<20*1000>::V;
-	static const uint32_t LoadVarPerByte		= ChargeFor<2*1000*1000>::V;
-	static const uint32_t SaveVar			= ChargeFor<5*1000>::V;
-	static const uint32_t SaveVarPerByte		= ChargeFor<1000*1000>::V;
-	static const uint32_t Log			= ChargeFor<20*1000>::V;
-	static const uint32_t LogPerByte		= ChargeFor<1000*1000>::V;
-	static const uint32_t UpdateShader		= ChargeFor<1*1000>::V;
-	static const uint32_t CallFar			= ChargeFor<10*1000>::V;
-	static const uint32_t AddSig			= ChargeFor<10*1000>::V;
-	static const uint32_t AssetManage		= ChargeFor<1000>::V;
-	static const uint32_t AssetEmit			= ChargeFor<20*1000>::V;
-	static const uint32_t FundsLock			= ChargeFor<50*1000>::V;
-	static const uint32_t HashOp			= ChargeFor<1000*1000>::V;
-	static const uint32_t HashWrite			= ChargeFor<5*1000*1000>::V;
-	static const uint32_t HashWritePerByte		= ChargeFor<50*1000*1000>::V;
+	static const uint32_t Cycle			= ChargeFor<20'000'000>::V;
+	static const uint32_t MemOpPerByte		= ChargeFor<50'000'000>::V;
+	static const uint32_t HeapOp			= ChargeFor<1'000'000>::V;
+	static const uint32_t LoadVar			= ChargeFor<20'000>::V;
+	static const uint32_t LoadVarPerByte		= ChargeFor<2'000'000>::V;
+	static const uint32_t SaveVar			= ChargeFor<5'000>::V;
+	static const uint32_t SaveVarPerByte		= ChargeFor<1'000'000>::V;
+	static const uint32_t Log			= ChargeFor<20'000>::V;
+	static const uint32_t LogPerByte		= ChargeFor<1'000'000>::V;
+	static const uint32_t UpdateShader		= ChargeFor<1'000>::V;
+	static const uint32_t CallFar			= ChargeFor<10'000>::V;
+	static const uint32_t AddSig			= ChargeFor<10'000>::V;
+	static const uint32_t AssetManage		= ChargeFor<1'000>::V;
+	static const uint32_t AssetEmit			= ChargeFor<20'000>::V;
+	static const uint32_t FundsLock			= ChargeFor<50'000>::V;
+	static const uint32_t HashOp			= ChargeFor<1'000'000>::V;
+	static const uint32_t HashWrite			= ChargeFor<5'000'000>::V;
+	static const uint32_t HashWritePerByte		= ChargeFor<50'000'000>::V;
 
-	static const uint32_t Secp_ScalarInv		= ChargeFor<5*1000>::V;
-	static const uint32_t Secp_Point_Import		= ChargeFor<5*1000>::V;
-	static const uint32_t Secp_Point_Export		= ChargeFor<5*1000>::V;
-	static const uint32_t Secp_Point_Multiply	= ChargeFor<2*1000>::V;
+	static const uint32_t Secp_ScalarInv		= ChargeFor<5'000>::V;
+	static const uint32_t Secp_Point_Import		= ChargeFor<5'000>::V;
+	static const uint32_t Secp_Point_Export		= ChargeFor<5'000>::V;
+	static const uint32_t Secp_Point_Multiply	= ChargeFor<2'000>::V;
 
-	static const uint32_t BeamHashIII		= ChargeFor<20*1000>::V;
+	static const uint32_t BeamHashIII		= ChargeFor<20'000>::V;
 
 	static const uint32_t Refs = LoadVar + SaveVar;
 
