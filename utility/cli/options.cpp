@@ -527,7 +527,7 @@ namespace beam
             (cli::INFURA_PROJECT_ID, po::value<string>(), "infura project ID")
             (cli::ACCOUNT_INDEX, po::value<Nonnegative<uint32_t>>(), "ethereum account index")
             (cli::SHOULD_CONNECT, po::value<bool>(), "connect to ethereum [true|false]")
-            (cli::ETH_GAS_PRICE, po::value<Positive<Amount>>(), "gas price in the gwei")
+            (cli::ETH_GAS_PRICE, po::value<Positive<Amount>>(), "gas price in gwei")
             (cli::ETH_SWAP_AMOUNT, po::value<string>(), "swap amount in the ethereums or tokens");
 
         po::options_description wallet_assets_options("Confidential assets");
