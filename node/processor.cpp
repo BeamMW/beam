@@ -4751,8 +4751,103 @@ bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpr
 	return true;
 }
 
+bool IsDelegatorEmpty(const Block::Pbft::StateWithDelegators::Delegator& d)
+{
+	return
+		!d.m_Unbonded.m_Value &&
+		d.m_mapBonds.empty();
+}
+
 bool NodeProcessor::HandleKernelType(const TxKernelPbftBond& krn, BlockInterpretCtx& bic)
 {
+	bool bAdd;
+	Amount valUns = SplitAmountSigned(krn.m_Amount, bAdd);
+
+	bool bFundsIO = (krn.m_Address == Zero);
+	if (bFundsIO && !valUns)
+	{
+		if (bic.m_pTxErrorInfo)
+			*bic.m_pTxErrorInfo << "no amount";
+		return false;
+	}
+
+	bool bAddTechnically = (bAdd == bic.m_Fwd);
+
+	auto itD = m_PbftState.m_mapDelegators.find(krn.m_Owner, Block::Pbft::StateWithDelegators::Delegator::Comparator());
+	auto* pD = (m_PbftState.m_mapDelegators.end() == itD) ? nullptr : &(*itD);
+
+	if (!pD)
+	{
+		if (!(bFundsIO && bAddTechnically))
+		{
+			if (bic.m_pTxErrorInfo)
+				*bic.m_pTxErrorInfo << "delegator not found";
+			return false;
+		}
+
+		pD = m_PbftState.m_mapDelegators.Create(krn.m_Owner);
+		ZeroObject(pD->m_Unbonded);
+	}
+
+	if (bFundsIO)
+	{
+		if (bAddTechnically)
+		{
+			if (!bAdd && IsDelegatorEmpty(*pD))
+			{
+				// undoing full removal of unbonded value
+				BlockInterpretCtx::Der der(bic);
+				der & pD->m_Unbonded.m_LockHeight;
+			}
+
+			auto val1 = pD->m_Unbonded.m_Value + valUns;
+			if (val1 < valUns)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "overflow";
+				return false;
+			}
+
+			pD->m_Unbonded.m_Value = val1;
+		}
+		else
+		{
+			if (pD->m_Unbonded.m_Value < valUns)
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "insufficient funds";
+				return false;
+			}
+
+			if (!bAdd && (pD->m_Unbonded.m_LockHeight > bic.m_Height))
+			{
+				if (bic.m_pTxErrorInfo)
+					*bic.m_pTxErrorInfo << "lock-height not reached";
+				return false;
+			}
+
+			pD->m_Unbonded.m_Value -= valUns;
+
+			if (IsDelegatorEmpty(*pD))
+			{
+				if (!bAdd)
+				{
+					// remove fully, save the lock height
+					BlockInterpretCtx::Ser ser(bic);
+					ser & pD->m_Unbonded.m_LockHeight;
+				}
+
+				m_PbftState.m_mapDelegators.Delete(*pD);
+			}
+
+		}
+	}
+	else
+	{
+
+
+	}
+
 	return true;
 }
 
