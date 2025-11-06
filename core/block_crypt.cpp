@@ -3222,7 +3222,7 @@ namespace beam
 		delete this;
 	}
 
-	Block::Pbft::StateWithDelegators::Bond* Block::Pbft::StateWithDelegators::Bond::Create(Validator& v, Delegate& d)
+	Block::Pbft::StateWithDelegators::Bond* Block::Pbft::StateWithDelegators::Bond::Create(Validator& v, Delegator& d)
 	{
 		auto* pBond = new Bond;
 

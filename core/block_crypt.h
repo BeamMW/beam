@@ -1865,7 +1865,7 @@ namespace beam
 				:public State
 			{
 				struct Validator;
-				struct Delegate;
+				struct Delegator;
 
 				struct Bond
 				{
@@ -1889,7 +1889,7 @@ namespace beam
 					struct DelegatorSide
 						:public boost::intrusive::set_base_hook<>
 					{
-						Delegate* m_p;
+						Delegator* m_p;
 
 						const Address& get_Key() const { return m_p->m_Key; }
 						bool operator < (const DelegatorSide& x) const { return get_Key() < x.get_Key(); }
@@ -1907,7 +1907,7 @@ namespace beam
 					AmountBig::Type m_Summa0;
 
 					void DeleteStrict();
-					static Bond* Create(Validator&, Delegate&);
+					static Bond* Create(Validator&, Delegator&);
 				};
 
 
@@ -1925,10 +1925,10 @@ namespace beam
 					}
 				};
 
-				struct Delegate
+				struct Delegator
 					:public intrusive::set_base_hook<Address>
 				{
-					typedef intrusive::multiset_autoclear<Delegate> Map;
+					typedef intrusive::multiset_autoclear<Delegator> Map;
 
 					struct Unbonded
 					{
@@ -1938,7 +1938,7 @@ namespace beam
 
 					intrusive::multiset<Bond::DelegatorSide> m_mapBonds;
 
-					~Delegate() { CleanBonds(); }
+					~Delegator() { CleanBonds(); }
 
 					void CleanBonds()
 					{
@@ -1948,7 +1948,7 @@ namespace beam
 
 				};
 
-				Delegate::Map m_mapDelegates;
+				Delegator::Map m_mapDelegators;
 
 				struct Totals {
 					AmountBig::Type m_Summa = Zero;
