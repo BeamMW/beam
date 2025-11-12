@@ -1117,7 +1117,7 @@ namespace beam
 	macro(8, ContractInvoke) \
 	macro(9, EvmInvoke) \
 	macro(21, PbftUpdate) \
-	macro(22, PbftBond) \
+	macro(22, PbftDelegatorUpdate) \
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -1525,18 +1525,20 @@ namespace beam
 		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
-	struct TxKernelPbftBond
+	struct TxKernelPbftDelegatorUpdate
 		:public TxKernelNonStd
 	{
-		typedef std::unique_ptr<TxKernelPbftBond> Ptr;
+		typedef std::unique_ptr<TxKernelPbftDelegatorUpdate> Ptr;
 
-		PeerID m_Address;
-		PeerID m_Owner;
-		AmountSigned m_Amount;
+		PeerID m_Delegator;
+		PeerID m_Validator;
+		AmountSigned m_StakeBond;
+		AmountSigned m_StakeOut;
+		Amount m_RevenueOut;
 		ECC::Point m_Commitment;
 		ECC::Signature m_Signature;
 
-		virtual ~TxKernelPbftBond() {}
+		virtual ~TxKernelPbftDelegatorUpdate() {}
 		virtual Subtype::Enum get_Subtype() const override;
 		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 		virtual void Clone(TxKernel::Ptr&) const override;
@@ -1935,6 +1937,8 @@ namespace beam
 						Amount m_Value;
 						Height m_LockHeight;
 					} m_Unbonded;
+
+					Amount m_Revenue;
 
 					intrusive::multiset<Bond::DelegatorSide> m_mapBonds;
 

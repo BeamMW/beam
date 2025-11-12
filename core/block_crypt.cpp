@@ -1709,19 +1709,19 @@ namespace beam
 	}
 
 	/////////////
-	// TxKernelPbftBond
-	void TxKernelPbftBond::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
+	// TxKernelPbftDelegatorUpdate
+	void TxKernelPbftDelegatorUpdate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
 	{
 		const auto& r = Rules::get();
 		if (Rules::Consensus::Pbft != r.m_Consensus)
 			Exc::Fail();
 
-		if (!m_Amount)
-			Exc::Fail();
+		if (!(m_StakeBond || m_StakeOut || m_RevenueOut))
+			Exc::Fail(); // no effect
 
 		ECC::Point::Native pPks[2];
 		auto& ptComm = pPks[0];
-		auto& ptOwner = pPks[1];
+		auto& ptDelegator = pPks[1];
 
 		ptComm.ImportNnzStrict(m_Commitment);
 
@@ -1729,22 +1729,28 @@ namespace beam
 
 		exc += ptComm;
 
-		if (m_Address == Zero)
+		if (m_StakeOut)
 		{
-			// funds i/o
-			bool bFundsConsumed = (m_Amount > 0);
+			Amount val = m_StakeOut;
+			bool bFundsConsumed = (m_StakeOut < 0);
 			if (bFundsConsumed)
+			{
+				val = -m_StakeOut;
 				ptComm = -ptComm;
+			}
 
-			CoinID::Generator(r.m_Pbft.m_AidStake).AddValue(ptComm, m_Amount);
+			CoinID::Generator(r.m_Pbft.m_AidStake).AddValue(ptComm, val);
 
 			if (bFundsConsumed)
 				ptComm = -ptComm;
 		}
 
+		if (m_RevenueOut)
+			AmountBig::AddTo(ptComm, m_RevenueOut);
+
 
 		// signature
-		if (!m_Owner.ExportNnz(ptOwner))
+		if (!m_Delegator.ExportNnz(ptDelegator))
 			Exc::Fail();
 
 		const auto& sig = Cast::Down<ECC::SignatureBase>(m_Signature);
@@ -1753,36 +1759,42 @@ namespace beam
 
 	}
 
-	void TxKernelPbftBond::HashSelfForMsg(ECC::Hash::Processor& hp) const
+	void TxKernelPbftDelegatorUpdate::HashSelfForMsg(ECC::Hash::Processor& hp) const
 	{
-		bool isPositive;
-		Amount val = SplitAmountSigned(m_Amount, isPositive);
+		bool isPositive1, isPositive2;
+		Amount val1 = SplitAmountSigned(m_StakeOut, isPositive1);
+		Amount val2 = SplitAmountSigned(m_StakeBond, isPositive2);
 
 		hp
 			<< "pbft.bond"
-			<< m_Address
-			<< m_Owner
+			<< m_Validator
+			<< m_Delegator
 			<< m_Commitment
-			<< val
-			<< isPositive;
+			<< val1
+			<< isPositive1
+			<< val2
+			<< isPositive2
+			<< m_RevenueOut;
 	}
 
-	void TxKernelPbftBond::HashSelfForID(ECC::Hash::Processor& hp) const
+	void TxKernelPbftDelegatorUpdate::HashSelfForID(ECC::Hash::Processor& hp) const
 	{
 		hp
 			<< m_Signature.m_NoncePub;
 	}
 
-	void TxKernelPbftBond::Clone(TxKernel::Ptr& p) const
+	void TxKernelPbftDelegatorUpdate::Clone(TxKernel::Ptr& p) const
 	{
-		p.reset(new TxKernelPbftBond);
-		TxKernelPbftBond& v = Cast::Up<TxKernelPbftBond>(*p);
+		p.reset(new TxKernelPbftDelegatorUpdate);
+		TxKernelPbftDelegatorUpdate& v = Cast::Up<TxKernelPbftDelegatorUpdate>(*p);
 
 		v.CopyFrom(*this);
-		v.m_Address = m_Address;
-		v.m_Owner = m_Owner;
+		v.m_Validator = m_Validator;
+		v.m_Delegator = m_Delegator;
 		v.m_Commitment = m_Commitment;
-		v.m_Amount = m_Amount;
+		v.m_StakeOut = m_StakeOut;
+		v.m_StakeBond = m_StakeBond;
+		v.m_RevenueOut = m_RevenueOut;
 		v.m_Signature = m_Signature;
 	}
 

@@ -4755,11 +4755,18 @@ bool IsDelegatorEmpty(const Block::Pbft::StateWithDelegators::Delegator& d)
 {
 	return
 		!d.m_Unbonded.m_Value &&
+		!d.m_Revenue &&
 		d.m_mapBonds.empty();
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelPbftBond& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::HandleKernelType(const TxKernelPbftDelegatorUpdate& krn, BlockInterpretCtx& bic)
 {
+/*	// This operation can do the following:
+	//	1. Add/remove funds to/from the delegator balance
+	//	2. Transfer funds to/from a choosen validator
+	//	3. Transfer revenue from the selected validator
+	//	4. Withdraw the revenue
+
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(krn.m_Amount, bAdd);
 
@@ -4847,7 +4854,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelPbftBond& krn, BlockInterpret
 
 
 	}
-
+	*/
 	return true;
 }
 
