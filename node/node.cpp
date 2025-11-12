@@ -6577,7 +6577,7 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 	{
 		Serializer ser;
 		ser
-			& p.m_PbftState
+			& Cast::Down<Block::Pbft::State>(p.m_PbftState)
 			& qc;
 
 		ser.swap_buf(m_Stamp.m_vSer);
