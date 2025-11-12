@@ -1424,7 +1424,7 @@ private:
                     m_Wr.m_json["PBFT.Update"] = std::move(wr.m_json);
                 }
 
-                void OnKrnEx(const TxKernelPbftBond& krn)
+                void OnKrnEx(const TxKernelPbftDelegatorUpdate& krn)
                 {
                     Writer wr;
                     wr.AddHex("Validator", krn.m_Address);

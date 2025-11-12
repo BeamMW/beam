@@ -1782,9 +1782,9 @@ namespace detail
 			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
 		}
 
-		/// beam::TxKernelPbftBond serialization
+		/// beam::TxKernelPbftUpdate serialization
 		template<typename Archive>
-		Archive& save(Archive& ar, const beam::TxKernelPbftBond& val)
+		Archive& save(Archive& ar, const beam::TxKernelPbftDelegatorUpdate& val)
 		{
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
@@ -1793,9 +1793,11 @@ namespace detail
 
 			ar
 				& nFlags
-				& val.m_Address
-				& val.m_Owner
-				& val.m_Amount
+				& val.m_Delegator
+				& val.m_Validator
+				& val.m_StakeBond
+				& val.m_StakeOut
+				& val.m_RevenueOut
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
@@ -1807,14 +1809,16 @@ namespace detail
 		}
 
 		template<typename Archive>
-		void load0(Archive& ar, beam::TxKernelPbftBond& val, uint32_t nRecursion)
+		void load0(Archive& ar, beam::TxKernelPbftDelegatorUpdate& val, uint32_t nRecursion)
 		{
 			uint32_t nFlags;
 			ar
 				& nFlags
-				& val.m_Address
-				& val.m_Owner
-				& val.m_Amount
+				& val.m_Delegator
+				& val.m_Validator
+				& val.m_StakeBond
+				& val.m_StakeOut
+				& val.m_RevenueOut
 				& val.m_Commitment.m_X
 				& val.m_Signature.m_NoncePub.m_X
 				& val.m_Signature.m_k;
