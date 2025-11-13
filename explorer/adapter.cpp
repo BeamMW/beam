@@ -1427,9 +1427,8 @@ private:
                 void OnKrnEx(const TxKernelPbftDelegatorUpdate& krn)
                 {
                     Writer wr;
-                    wr.AddHex("Validator", krn.m_Address);
-                    wr.AddHex("Owner", krn.m_Owner);
-                    wr.m_json["Amount"] = krn.m_Amount;
+                    wr.AddHex("Validator", krn.m_Validator);
+                    wr.AddHex("Delegator", krn.m_Delegator);
                     m_Wr.m_json["PBFT.Bond"] = std::move(wr.m_json);
                 }
 
