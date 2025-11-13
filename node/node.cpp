@@ -337,17 +337,17 @@ void Node::TryAssignTask(Task& t)
 
 bool Node::TryAssignTask(Task& t, Peer& p)
 {
-	BEAM_LOG_DEBUG() << "Peer " << p.m_RemoteAddr << " trying to assign task " << t.m_Key.first;
+	BEAM_LOG_VERBOSE() << "Peer " << p.m_RemoteAddr << " trying to assign task " << t.m_Key.first;
 
 	if (!p.ShouldAssignTasks())
 	{
-		BEAM_LOG_DEBUG() << "not auth";
+		BEAM_LOG_VERBOSE() << "not auth";
 		return false;
 	}
 
 	if (p.m_Tip.m_Full.m_Number.v < t.m_Key.first.m_Number.v)
 	{
-		BEAM_LOG_DEBUG() << "behind";
+		BEAM_LOG_VERBOSE() << "behind";
 		return false;
 	}
 
@@ -357,7 +357,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		{
 			if (p.m_Tip.m_hh.m_Hash != t.m_Key.first.m_Hash)
 			{
-				BEAM_LOG_DEBUG() << "diverged";
+				BEAM_LOG_VERBOSE() << "diverged";
 				return false;
 			}
 		}
@@ -371,7 +371,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
 	{
-		BEAM_LOG_DEBUG() << "task already rejected";
+		BEAM_LOG_VERBOSE() << "task already rejected";
 		return false;
 	}
 
@@ -388,7 +388,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	{
 		if (m_nTasksPackBody >= m_Cfg.m_MaxConcurrentBlocksRequest)
 		{
-			BEAM_LOG_DEBUG() << "too many blocks requested";
+			BEAM_LOG_VERBOSE() << "too many blocks requested";
 			return false; // too many blocks requested
 		}
 
@@ -431,13 +431,13 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
 		if (m_nTasksPackHdr >= nMaxHdrRequests)
 		{
-			BEAM_LOG_DEBUG() << "too many hdrs requested";
+			BEAM_LOG_VERBOSE() << "too many hdrs requested";
 			return false; // too many hdrs requested
 		}
 
 		if (nBlocks)
 		{
-			BEAM_LOG_DEBUG() << "peer busy";
+			BEAM_LOG_VERBOSE() << "peer busy";
 			return false; // don't requests headers from the peer that transfers a block
 		}
 
@@ -479,7 +479,8 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	if (bEmpty)
 		p.SetTimerWrtFirstTask();
 
-	BEAM_LOG_DEBUG() << "task assigned";
+	BEAM_LOG_DEBUG() << "Peer " << p.m_RemoteAddr << " assigned task " << t.m_Key.first;
+
 	return true;
 }
 
