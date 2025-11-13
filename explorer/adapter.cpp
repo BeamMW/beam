@@ -471,7 +471,14 @@ private:
 
             if (bForceReset)
             {
-                if (!lst.empty() && (lst.back().second.m_TotalOffset == sd.m_Extra0.m_TotalOffset))
+                // Historically explorer node could corrupt itself, it usually manifests in consecutive blocks having the same State Extra, in particular same Total Offset.
+                // Here we try to detect this.
+                // One situation which could be legit: it's a network running on PBFT consensus algorithm. Completely empty blocks are normal.
+                // But, due to cannibalization, this can happen only to the last block.
+                //
+                // hence we check that our backtravel list has at least 2 previous entries
+
+                if ((lst.size() >= 2) && (lst.back().second.m_TotalOffset == sd.m_Extra0.m_TotalOffset))
                 {
                     CorruptionException exc;
                     exc.m_sErr = "zero offset detected. Full Reset is required to recover";
