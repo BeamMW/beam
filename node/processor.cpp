@@ -3147,7 +3147,12 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	if (bFirstTime)
 	{
-		if (block.m_Offset.m_Value == Zero)
+		// Protect against blocks with invalid offset (historically happened in explorer node)
+
+		// Block with zero offset can be created in PBFT consensus algorithm, empty blocks are normal.
+		// However only the last block can be empty (due to cannibalization).
+		// Hence it's not applicable to Fast-Sync case.
+		if ((s.m_Number.v <= m_SyncData.m_TxoLo.v) && (block.m_Offset.m_Value == Zero))
 		{
 			BEAM_LOG_WARNING() << id << " has zero offset";
 			return false;
