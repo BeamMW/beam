@@ -465,17 +465,21 @@ private:
 
         for (uint64_t row = proc.m_Cursor.m_Row; ; )
         {
-            if (!bForceReset)
+            uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
+            if (nSize < sizeof(NodeProcessor::StateExtra::Base))
+                NodeProcessor::OnCorrupted();
+
+            if (bForceReset)
             {
-                uint32_t nSize = db.get_StateExtra(row, &sd, sizeof(sd)); // zero-initializes what wasn't read
+            }
+            else
+            {
                 if (nSize >= sizeof(sd))
                 {
                     if (!lst.empty())
                         txos = db.get_StateTxos(row);
                     break;
                 }
-
-                assert(nSize >= sizeof(NodeProcessor::StateExtra::Base));
             }
 
             lst.emplace_back();
