@@ -411,7 +411,7 @@ void NodeProcessor::LogSyncData()
 	if (!IsFastSync())
 		return;
 
-	BEAM_LOG_INFO() << "Fast-sync mode up to block number " << m_SyncData.m_Target.m_Number.v;
+	BEAM_LOG_INFO() << "Fast-sync mode up to block number " << m_SyncData.m_Target.m_Number.v << ", TxoLo=" << m_SyncData.m_TxoLo.v;
 }
 
 
@@ -1381,6 +1381,8 @@ struct NodeProcessor::MultiblockContext
 
 		if (m_This.IsFastSync())
 			m_Sigma.Import(m_This.m_SyncData.m_Sigma);
+
+		m_pidLast = Zero;
 	}
 
 	~MultiblockContext()
@@ -1534,6 +1536,8 @@ struct NodeProcessor::MultiblockContext
 
 			if (m_InProgress.m_Max.v == m_This.m_SyncData.m_TxoLo.v)
 			{
+				BEAM_LOG_INFO() << "TxoLo reached. Finalyzing multi-block balance";
+
 				Exc::CheckpointTxt cp("multi-block finalization"); // finalize multi-block arithmetics
 				
 				TxBase::Context ctx;
@@ -1574,11 +1578,8 @@ struct NodeProcessor::MultiblockContext
 		m_Msc.MoveToGlobalCache(m_This.m_ValCache);
 	}
 
-	void OnBlock(const PeerID& pid, const MyTask::SharedBlock::Ptr& pShared)
+	void OnNextBlockPid(const PeerID& pid)
 	{
-		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
-		assert(pShared->m_Ctx.m_Height.m_Min > m_This.m_Cursor.m_hh.m_Height);
-
 		if (m_bFail)
 			return;
 
@@ -1587,12 +1588,21 @@ struct NodeProcessor::MultiblockContext
 			(
 				(m_pidLast != pid) || // PeerID changed
 				(m_InProgress.m_Max.v == m_This.m_SyncData.m_TxoLo.v) // range complete up to TxLo
-			);
+				);
 
 		if (bMustFlush && !Flush())
 			return;
 
 		m_pidLast = pid;
+	}
+
+	void OnBlock(const MyTask::SharedBlock::Ptr& pShared)
+	{
+		assert(pShared->m_Ctx.m_Height.m_Min == pShared->m_Ctx.m_Height.m_Max);
+		assert(pShared->m_Ctx.m_Height.m_Min > m_This.m_Cursor.m_hh.m_Height);
+
+		if (m_bFail)
+			return;
 
 		const size_t nSizeMax = 1024 * 1024 * 10; // fair enough
 
@@ -3054,6 +3064,9 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			return false;
 	}
 
+	if (bFirstTime)
+		mbc.OnNextBlockPid(pid);
+
 	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number);
 	Block::Body& block = pShared->m_Body;
 
@@ -3137,7 +3150,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		pShared->m_Size = bufs.m_Perishable.size() + bufs.m_Eternal.size();
 		pShared->m_Ctx.m_Height = id.m_Height;
 
-		mbc.OnBlock(pid, pShared);
+		mbc.OnBlock(pShared);
 
 		if (Rules::Consensus::Pbft != r.m_Consensus)
 		{
@@ -3146,7 +3159,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 			if (wrk != s.m_ChainWork)
 			{
-				BEAM_LOG_WARNING() << id << " Chainwork expected=" << wrk << ", actual=" << s.m_ChainWork;
+				BEAM_LOG_WARNING() << id << " Chainwork expected=" << wrk.full() << ", actual=" << s.m_ChainWork.full();
 				return false;
 			}
 
@@ -3298,8 +3311,8 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		{
 			blobExtra.n = sizeof(m_Cursor.m_StateExtra);
 
-			// omit trailing hashes if they're zero
-			for (; blobExtra.n; blobExtra.n--)
+			// omit trailing hashes if they're zero. Make sure to always include offset
+			for (; blobExtra.n > sizeof(m_Cursor.m_StateExtra.m_TotalOffset); blobExtra.n--)
 				if (reinterpret_cast<const uint8_t*>(blobExtra.p)[blobExtra.n - 1])
 					break;
 		}
