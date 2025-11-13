@@ -249,7 +249,7 @@ private:
         _quote.data += 3;
     }
 
-    static const uint64_t s_TotalsVer = 1;
+    static const uint64_t s_TotalsVer = 2;
 
     void Initialize() override
     {
@@ -471,6 +471,12 @@ private:
 
             if (bForceReset)
             {
+                if (!lst.empty() && (lst.back().second.m_TotalOffset == sd.m_Extra0.m_TotalOffset))
+                {
+                    CorruptionException exc;
+                    exc.m_sErr = "zero offset detected. Full Reset is required to recover";
+                    throw exc;
+                }
             }
             else
             {

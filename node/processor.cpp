@@ -3147,6 +3147,13 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	if (bFirstTime)
 	{
+		if (block.m_Offset.m_Value == Zero)
+		{
+			BEAM_LOG_WARNING() << id << " has zero offset";
+			return false;
+		}
+
+
 		pShared->m_Size = bufs.m_Perishable.size() + bufs.m_Eternal.size();
 		pShared->m_Ctx.m_Height = id.m_Height;
 
