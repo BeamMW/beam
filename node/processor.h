@@ -383,25 +383,9 @@ public:
 
 		TxoID m_ShieldedOutputs;
 
+		ContractID m_cidPbft;
+
 	} m_Extra;
-
-	struct PbftState
-		:public Block::Pbft::StateWithDelegators
-	{
-		struct Hash
-		{
-			Merkle::Hash m_hv;
-			bool m_Valid = false;
-
-			void Update();
-
-			IMPLEMENT_GET_PARENT_OBJ(PbftState, m_Hash)
-		} m_Hash;
-
-		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
-
-		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_PbftState)
-	} m_PbftState;
 
 	struct SyncData
 	{
@@ -605,8 +589,10 @@ public:
 	virtual void OnFastSyncSucceeded() {}
 	virtual uint32_t get_MaxAutoRollback();
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
-	virtual std::unique_ptr<Block::Pbft::Validator> CreateValidator();
-	virtual bool ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&);
+
+	// PBFT-specific
+	virtual bool ApprovePbftContractInvoke(const TxKernelContractInvoke&); // called during block construction and voting
+	virtual const Block::Pbft::State::IValidatorSet* get_Validators();
 
 	struct MyExecutor
 		:public Executor

@@ -480,15 +480,15 @@ namespace beam
 
 		struct Pbft {
 
-			struct Entry {
-				PeerID m_Addr;
-				Amount m_Stake;
-				bool m_White;
-			};
+			struct Whitelist
+			{
+				std::vector<PeerID> m_Addresses; // must be sorted
+				uint32_t m_NumRequired;
 
-			std::vector<Entry> m_vE;
-			uint32_t m_RequiredWhite;
-			Asset::ID m_AidStake;
+				bool IsWhite(const PeerID&) const;
+				bool IsWhite(const PeerID&, uint32_t& iPos) const;
+
+			} m_Whitelist;
 
 			uint64_t T2S(uint64_t t_ms) const;
 			uint64_t T2S_strict(uint64_t t_ms) const; // returns 0 iff time is not a multiple of Target_ms
@@ -621,7 +621,7 @@ namespace beam
 		{
 			return
 				(Rules::Consensus::Pbft == m_Consensus) &&
-				m_Pbft.m_RequiredWhite;
+				m_Pbft.m_Whitelist.m_NumRequired;
 		}
 
 	private:
@@ -1115,9 +1115,7 @@ namespace beam
 	macro(6, AssetDestroy) \
 	macro(7, ContractCreate) \
 	macro(8, ContractInvoke) \
-	macro(9, EvmInvoke) \
-	macro(21, PbftUpdate) \
-	macro(22, PbftDelegatorUpdate) \
+	macro(9, EvmInvoke)
 
 #define THE_MACRO(id, name) struct TxKernel##name;
 	BeamKernelsAll(THE_MACRO)
@@ -1508,45 +1506,6 @@ namespace beam
 		void get_SubsidyCorrection(ECC::Point::Native& dst, bool isVerifying) const;
 	};
 
-	struct TxKernelPbftUpdate
-		:public TxKernelNonStd
-	{
-		typedef std::unique_ptr<TxKernelPbftUpdate> Ptr;
-
-		PeerID m_Address;
-		uint8_t m_Flags;
-
-		virtual ~TxKernelPbftUpdate() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
-	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
-	};
-
-	struct TxKernelPbftDelegatorUpdate
-		:public TxKernelNonStd
-	{
-		typedef std::unique_ptr<TxKernelPbftDelegatorUpdate> Ptr;
-
-		PeerID m_Delegator;
-		PeerID m_Validator;
-		AmountSigned m_StakeBond;
-		AmountSigned m_StakeOut;
-		Amount m_RevenueOut;
-		ECC::Point m_Commitment;
-		ECC::Signature m_Signature;
-
-		virtual ~TxKernelPbftDelegatorUpdate() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
-	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
-	};
-
 	inline bool operator < (const TxKernel::Ptr& a, const TxKernel::Ptr& b) { return *a < *b; }
 
 	struct DependentContext
@@ -1783,41 +1742,6 @@ namespace beam
 
 			static void DeriveValidatorAddress(Key::IKdf&, Address&, ECC::Scalar::Native& sk);
 
-			struct Validator
-				:public boost::intrusive::list_base_hook<>
-			{
-				typedef boost::intrusive::list<Validator> List;
-
-				virtual ~Validator() {}
-
-				struct Flags
-				{
-					static const uint8_t White = 1;
-					static const uint8_t Jailed = 2;
-				};
-
-				struct Addr
-					:public intrusive::set_base_hook<Address>
-				{
-					typedef intrusive::multiset<Addr> Map;
-
-					IMPLEMENT_GET_PARENT_OBJ(Validator, m_Addr)
-				} m_Addr;
-
-				uint64_t m_Weight;
-				uint8_t m_Flags;
-
-				template <typename Archive>
-				void serialize_nokey(Archive& ar)
-				{
-					ar
-						& m_Weight
-						& m_Flags;
-				}
-
-				static std::unique_ptr<Validator> Create();
-			};
-
 			struct Quorum
 			{
 				std::vector<uint8_t> m_vValidatorsMsk;
@@ -1832,135 +1756,25 @@ namespace beam
 				}
 			};
 
-			struct State
+			struct IValidatorSet
 			{
-				Validator::List m_lstVs;
-				Validator::Addr::Map m_mapVs;
+				struct ITarget {
+					virtual bool OnValidator(const Address&, uint64_t weight) = 0;
+				};
 
-				~State() { Clear(); }
-				void Clear();
-
-				void Delete(Validator&);
-				Validator* Find(const Address&);
-				Validator* FindFlex(const Address&, bool bCreate);
-				Validator* FindAlways(const Address& addr) { return FindFlex(addr, true); }
-
-				uint64_t get_Weight() const;
-
-				Validator* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound);
-
-				void get_Hash(Merkle::Hash&) const;
+				virtual bool EnumValidators(ITarget&) const = 0;
+				virtual void get_Hash(Merkle::Hash&) const; // def implementation recalculates
 
 				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite);
-				bool CheckQuorum(const Merkle::Hash&, const Quorum&);
-
-				void SetInitial();
-				void ResolveWhitelisted(const Rules&);
-
-			private:
-				// uniform random within [0, nBound)
-				static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
-				virtual std::unique_ptr<Validator> CreateValidator();
+				bool CheckQuorum(const Merkle::Hash&, const Quorum&) const;
 			};
 
-			struct StateWithDelegators
-				:public State
+			struct State
+				:public IValidatorSet
 			{
-				struct Validator;
-				struct Delegator;
+				std::map<Address, uint64_t> m_mapValidators;
 
-				struct Bond
-				{
-					struct ValidatorSide
-						:public boost::intrusive::set_base_hook<>
-					{
-						Validator* m_p;
-
-						const Address& get_Key() const { return m_p->m_Addr.m_Key; }
-						bool operator < (const ValidatorSide& x) const { return get_Key() < x.get_Key(); }
-
-						struct Comparator
-						{
-							bool operator()(const Address& a, const ValidatorSide& b) const { return a < b.get_Key(); }
-							bool operator()(const ValidatorSide& a, const Address& b) const { return a.get_Key() < b; }
-						};
-
-						IMPLEMENT_GET_PARENT_OBJ(Bond, m_Validator)
-					} m_Validator;
-
-					struct DelegatorSide
-						:public boost::intrusive::set_base_hook<>
-					{
-						Delegator* m_p;
-
-						const Address& get_Key() const { return m_p->m_Key; }
-						bool operator < (const DelegatorSide& x) const { return get_Key() < x.get_Key(); }
-
-						struct Comparator
-						{
-							bool operator()(const Address& a, const DelegatorSide& b) const { return a < b.get_Key(); }
-							bool operator()(const DelegatorSide& a, const Address& b) const { return a.get_Key() < b; }
-						};
-
-						IMPLEMENT_GET_PARENT_OBJ(Bond, m_Delegator)
-					} m_Delegator;
-
-					Amount m_Value;
-					AmountBig::Type m_Summa0;
-
-					void DeleteStrict();
-					static Bond* Create(Validator&, Delegator&);
-				};
-
-
-				struct Validator
-					:public Pbft::Validator
-				{
-					intrusive::multiset<Bond::ValidatorSide> m_mapBonds;
-
-					virtual ~Validator() { CleanBonds(); }
-
-					void CleanBonds()
-					{
-						while (!m_mapBonds.empty())
-							m_mapBonds.begin()->get_ParentObj().DeleteStrict();
-					}
-				};
-
-				struct Delegator
-					:public intrusive::set_base_hook<Address>
-				{
-					typedef intrusive::multiset_autoclear<Delegator> Map;
-
-					struct Unbonded
-					{
-						Amount m_Value;
-						Height m_LockHeight;
-					} m_Unbonded;
-
-					Amount m_Revenue;
-
-					intrusive::multiset<Bond::DelegatorSide> m_mapBonds;
-
-					~Delegator() { CleanBonds(); }
-
-					void CleanBonds()
-					{
-						while (!m_mapBonds.empty())
-							m_mapBonds.begin()->get_ParentObj().DeleteStrict();
-					}
-
-				};
-
-				Delegator::Map m_mapDelegators;
-
-				struct Totals {
-					AmountBig::Type m_Summa = Zero;
-					Amount m_Fees = 0; // remaining
-				} m_Totals;
-
-			private:
-				std::unique_ptr<Pbft::Validator> CreateValidator() override;
+				bool EnumValidators(ITarget&) const override;
 			};
 		};
 

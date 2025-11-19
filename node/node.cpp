@@ -13,6 +13,8 @@
 // limitations under the License.
 
 #define LOG_DEBUG_ENABLED 1
+#define HOST_BUILD
+
 #include "node.h"
 #include "../core/serialization_adapters.h"
 #include "../core/proto.h"
@@ -30,6 +32,12 @@
 #include "../bvm/bvm2.h"
 
 #include "pow/external_pow.h"
+
+namespace Shaders {
+#	define HOST_BUILD
+#	include "../bvm/Shaders/common.h"
+#	include "../bvm/Shaders/pbft/contract.h"
+} // namespace Shaders
 
 namespace beam {
 
@@ -4602,9 +4610,14 @@ void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
-bool Node::Processor::ApproveValidatorAction(Block::Pbft::Validator& v, const TxKernelPbftUpdate& krn)
+bool Node::Processor::ApprovePbftContractInvoke(const TxKernelContractInvoke& krn)
 {
-	return get_ParentObj().m_Validator.ApproveAction(v, krn);
+	return get_ParentObj().m_Validator.ApproveContractInvoke(krn);
+}
+
+const Block::Pbft::State::IValidatorSet* Node::Processor::get_Validators()
+{
+	return &get_ParentObj().m_Validator.m_ValidatorSet;
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -5773,11 +5786,6 @@ void Node::GenerateFakeBlocks(uint32_t n)
 
 #define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
 
-std::unique_ptr<Block::Pbft::Validator> Node::Processor::CreateValidator()
-{
-	return std::make_unique<Node::Validator::ValidatorWithAssessment>();
-}
-
 struct Node::Validator::Assessment::Settings
 {
 	static void Regress(uint32_t& score)
@@ -5898,7 +5906,7 @@ void Node::Validator::OnNewRound()
 	m_Next.Reset();
 
 	if (!m_Current.m_pLeader)
-		m_Current.m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
+		m_Current.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
 
 	if (m_iRound && (State::None == m_State))
 	{
@@ -5921,6 +5929,63 @@ void Node::Validator::OnNewRound()
 	CheckState();
 }
 
+void Node::Validator::RefreshValidatorSet()
+{
+	const uint8_t nDelFlag = 0x80;
+	for (auto& v : m_ValidatorSet.m_mapValidators)
+		v.m_Flags |= nDelFlag;
+
+	auto& p = get_ParentObj().m_Processor; // alias
+
+	uint32_t iPosWhite = 0;
+
+	using namespace Shaders::PBFT;
+	typedef Shaders::PBFT::State::Validator::Flags F;
+
+	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
+	VKeyType kMin, kMax;
+	kMin.m_Prefix.m_Cid = p.m_Extra.m_cidPbft;
+	kMax.m_Prefix.m_Cid = p.m_Extra.m_cidPbft;
+
+	kMin.m_KeyInContract.m_Address = Zero;
+	memset(kMax.m_KeyInContract.m_Address.m_pData, 0xff, kMax.m_KeyInContract.m_Address.nBytes);
+
+	Blob bMin(&kMin, sizeof(kMin));
+	Blob bMax(&kMax, sizeof(kMax));
+
+	NodeDB::WalkerContractData wlk;
+	for (p.get_DB().ContractDataEnum(wlk, bMin, bMax); wlk.MoveNext(); )
+	{
+		if (wlk.m_Key.n != sizeof(VKeyType))
+			NodeProcessor::OnCorrupted();
+
+		if (wlk.m_Val.n != sizeof(Shaders::PBFT::State::Validator))
+			NodeProcessor::OnCorrupted();
+
+		const auto& addr = ((const VKeyType*) wlk.m_Key.p)->m_KeyInContract.m_Address;
+		const auto& val = *((const Shaders::PBFT::State::Validator*) wlk.m_Val.p);
+
+		auto* pV = m_ValidatorSet.Find(addr);
+		if (!pV)
+		{
+			pV = m_ValidatorSet.m_mapValidators.Create(addr); // assessment is zero-inited
+			pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, iPosWhite);
+		}
+
+		pV->m_Flags = ByteOrder::from_le(val.m_Flags);
+		pV->m_Weight = ByteOrder::from_le(val.m_Weight);
+	}
+
+	for (auto it = m_ValidatorSet.m_mapValidators.begin(); m_ValidatorSet.m_mapValidators.end() != it; )
+	{
+		auto& v = *it++;
+
+		if (nDelFlag & v.m_Flags)
+			m_ValidatorSet.m_mapValidators.Delete(v);
+	}
+
+}
+
 void Node::Validator::OnNewStateInternal()
 {
 	auto& p = get_ParentObj().m_Processor; // alias
@@ -5932,15 +5997,16 @@ void Node::Validator::OnNewStateInternal()
 
 	m_State = State::None;
 
-	m_wTotal = p.m_PbftState.get_Weight();
+	RefreshValidatorSet();
 
-	for (auto& v : p.m_PbftState.m_lstVs)
+	m_wTotal = 0;
+	for (auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		auto& vp = Cast::Up<ValidatorWithAssessment>(v);
-		vp.m_Assessment.m_hvCommitted = Zero;
+		m_wTotal += v.m_Weight;
+		v.m_Assessment.m_hvCommitted = Zero;
 	}
 
-	m_pMe = Cast::Up<ValidatorWithAssessment>(p.m_PbftState.Find(get_ParentObj().m_Keys.m_Validator.m_Addr));
+	m_pMe = m_ValidatorSet.Find(get_ParentObj().m_Keys.m_Validator.m_Addr);
 	if (m_pMe && !m_pMe->m_Weight)
 		m_pMe = nullptr; // no weight - not a validator
 
@@ -5955,32 +6021,31 @@ void Node::Validator::OnNewStateInternal()
 		return;
 
 	// update our assessment
-	for (auto& x : p.m_PbftState.m_lstVs)
+	for (auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
-		if (!vp.m_Weight)
+		if (!v.m_Weight)
 			continue;
-		if (&vp == m_pMe)
+		if (&v == m_pMe)
 			continue;
 
-		typedef ValidatorWithAssessment::Flags F;
+		typedef Shaders::PBFT::State::Validator::Flags F;
 
-		uint8_t flags = F::Jailed & vp.m_Flags;
-		if (F::Jailed & flags)
+		uint8_t flags = (F::Jail & v.m_Flags);
+		if (flags)
 		{
-			if (vp.m_Assessment.m_Score < Assessment::Settings::Watermark::Unjail)
-				flags &= ~F::Jailed;
+			if (v.m_Assessment.m_Score < Assessment::Settings::Watermark::Unjail)
+				flags = 0;
 		}
 		else
 		{
-			if (vp.m_Assessment.m_Score >= Assessment::Settings::Watermark::Jail)
-				flags |= F::Jailed;
+			if (v.m_Assessment.m_Score >= Assessment::Settings::Watermark::Jail)
+				flags = F::Jail;
 		}
 
-		msg.m_Reputation[vp.m_Addr.m_Key] = flags;
+		msg.m_Reputation[v.m_Key] = flags;
 	}
 
-	msg.m_From = m_pMe->m_Addr.m_Key;
+	msg.m_From = m_pMe->m_Key;
 	msg.m_Height = p.m_Cursor.m_hh.m_Height;
 
 	// sign
@@ -5991,30 +6056,112 @@ void Node::Validator::OnNewStateInternal()
 	Broadcast(msg, nullptr);
 }
 
-bool Node::Validator::ApproveAction(Block::Pbft::Validator& v, const TxKernelPbftUpdate& krn)
+bool Node::Validator::ApproveContractInvoke(const TxKernelContractInvoke& krn)
 {
-	typedef ValidatorWithAssessment::Flags F;
-
-	auto diff = krn.m_Flags ^ v.m_Flags;
-	assert(diff);
-
-	if (diff & ~F::Jailed)
-		return false; // we only support jail/unjail command so far.
-
 	if (!m_pMe)
 		return true; // don't care, consider actions are ok
 
+	assert(krn.m_Cid == get_ParentObj().m_Processor.m_Extra.m_cidPbft);
+
+	using namespace Shaders::PBFT;
+	typedef Shaders::PBFT::State::Validator::Flags F;
+
+	if (Method::ValidatorStatusUpdate::s_iMethod != krn.m_iMethod)
+		return true; // irrelevant
+
+	if (krn.m_Args.size() != sizeof(Method::ValidatorStatusUpdate))
+		return false; // malformed
+
+	const auto& r = *(const Method::ValidatorStatusUpdate*) &krn.m_Args.front();
+
 	// Check if this is consistent with my assessment
 	auto& msg = m_pMe->m_Assessment.m_Last;
-	auto it = msg.m_Reputation.find(v.m_Addr.m_Key);
+	auto it = msg.m_Reputation.find(r.m_Address);
 	if (msg.m_Reputation.end() == it)
 		return false;
 
 	auto fMy = it->second;
-	if ((fMy ^ krn.m_Flags) & F::Jailed)
+	auto fTx = ByteOrder::from_le(r.m_Flags);
+	if ((fMy ^ fTx) & F::Jail)
 		return false;
 
 	return true; // my assessment is consistent with this
+}
+
+bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const
+{
+	for (const auto& v : m_mapValidators)
+		if (!x.OnValidator(v.m_Key, v.m_Weight))
+			return false;
+
+	return true;
+}
+
+Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::Find(const Block::Pbft::Address& addr) const
+{
+	auto it = m_mapValidators.find(addr, ValidatorWithAssessment::Comparator());
+	return (m_mapValidators.end() == it) ? nullptr : &Cast::NotConst(*it);
+}
+
+Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const
+{
+	typedef Shaders::PBFT::State::Validator::Flags F;
+
+	uint64_t wUnjailed = 0;
+	for (const auto& v : m_mapValidators)
+	{
+		if (!(F::Jail & v.m_Flags))
+			wUnjailed += v.m_Weight;
+	}
+
+	if (!wUnjailed)
+		return nullptr;
+
+	// Select in a pseudo-random way. Probability according to the validator weight
+	ECC::Oracle oracle;
+	oracle
+		<< "vs.select"
+		<< hvInp
+		<< iRound;
+
+	uint64_t w = get_Random(oracle, wUnjailed);
+	assert(w < wUnjailed);
+
+	for (auto it = m_mapValidators.begin(); ; it++)
+	{
+		assert(m_mapValidators.end() != it);
+		auto& v = *it;
+		if (F::Jail & v.m_Flags)
+			continue;
+
+		if (w < v.m_Weight)
+			return Cast::NotConst(&v);
+
+		w -= v.m_Weight;
+	}
+
+	// unreachable
+}
+
+uint64_t Node::Validator::ValidatorSet::get_Random(ECC::Oracle& oracle, uint64_t nBound)
+{
+	assert(nBound);
+
+	uint64_t nResid = ((static_cast<uint64_t>(-1) % nBound) + 1) % nBound;
+
+	while (true)
+	{
+		Merkle::Hash hv;
+		oracle >> hv;
+
+		uint64_t w;
+		hv.ExportWord<0>(w);
+
+		if (w <= static_cast<uint64_t>(-1) - nResid)
+			return w % nBound;
+	}
+
+	// unreachable
 }
 
 void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)
@@ -6173,11 +6320,10 @@ void Node::Validator::SendState(Peer& peer) const
 		SendVotes(&peer);
 	}
 
-	for (auto& x : p.m_PbftState.m_lstVs)
+	for (const auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
-		if (vp.m_Weight && IsAssessmentRelevant(vp.m_Assessment.m_Last))
-			peer.Send(vp.m_Assessment.m_Last);
+		if (v.m_Weight && IsAssessmentRelevant(v.m_Assessment.m_Last))
+			peer.Send(v.m_Assessment.m_Last);
 
 	}
 }
@@ -6198,10 +6344,10 @@ void Node::Validator::SendVotes(Peer* pPeer) const
 	SendSigs(pPeer, msg, m_Current.m_spCommitted);
 }
 
-void Node::Validator::Power::Add(const Block::Pbft::Validator& v)
+void Node::Validator::Power::Add(const ValidatorWithAssessment& v)
 {
 	m_wVoted += v.m_Weight;
-	if (ValidatorWithAssessment::Flags::White & v.m_Flags)
+	if (v.m_Whitelisted)
 		m_nWhite++;
 }
 
@@ -6210,9 +6356,9 @@ bool Node::Validator::Power::IsMajorityReached(uint64_t wTotal) const
 	return Block::Pbft::State::IsMajorityReached(m_wVoted, wTotal, m_nWhite);
 }
 
-void Node::Validator::SigsAndPower::Add(const Block::Pbft::Validator& v, const ECC::Signature& sig)
+void Node::Validator::SigsAndPower::Add(const ValidatorWithAssessment& v, const ECC::Signature& sig)
 {
-	m_Sigs[v.m_Addr.m_Key] = sig;
+	m_Sigs[v.m_Key] = sig;
 	m_Power.Add(v);
 }
 
@@ -6313,12 +6459,12 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (sp.m_Sigs.end() != sp.m_Sigs.find(msg.m_Address))
 		return; // already accounted
 
-	auto& p = get_ParentObj().m_Processor; // alias
-	auto itV = p.m_PbftState.m_mapVs.find(msg.m_Address, Block::Pbft::Validator::Addr::Comparator());
-	if (p.m_PbftState.m_mapVs.end() == itV)
+	//auto& p = get_ParentObj().m_Processor; // alias
+	auto* pV = m_ValidatorSet.Find(msg.m_Address);
+	if (!pV)
 		src.ThrowUnexpected("not a validator vote");
 
-	auto& vp = Cast::Up<ValidatorWithAssessment>(itV->get_ParentObj());
+	auto& vp = *pV;
 
 	if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
@@ -6327,7 +6473,7 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	{
 		if (vp.m_Assessment.m_hvCommitted != Zero)
 		{
-			PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << "double commit");
+			PBFT_LOG(DEBUG, "\tV " << vp.m_Key << "double commit");
 			vp.m_Assessment.m_Score += Assessment::Settings::DoubleCommit; // for now. Must be slashed actually
 		}
 
@@ -6374,7 +6520,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	if (!pRd->m_pLeader)
 	{
-		pRd->m_pLeader = p.m_PbftState.SelectLeader(p.m_Cursor.m_hh.m_Hash, msg.m_iRound);
+		pRd->m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, msg.m_iRound);
 		if (!pRd->m_pLeader)
 			return;
 	}
@@ -6387,7 +6533,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	Merkle::Hash hv;
 	pRd->get_LeaderMsg(hv);
-	if (!pRd->m_pLeader->m_Addr.m_Key.CheckSignature(hv, pRd->m_Proposal.m_Msg.m_Signature))
+	if (!pRd->m_pLeader->m_Key.CheckSignature(hv, pRd->m_Proposal.m_Msg.m_Signature))
 		src.ThrowUnexpected("invalid proposal sig");
 
 	HeightHash id;
@@ -6551,13 +6697,12 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 	PBFT_LOG(INFO, "quorum reached");
 
 	Block::Pbft::Quorum qc;
-	auto& p = get_ParentObj().m_Processor;
 	const Rules& r = Rules::get();
 
 	uint32_t iIdx = 0;
-	for (const auto& v : p.m_PbftState.m_lstVs)
+	for (const auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		auto itSig = rd.m_spCommitted.m_Sigs.find(v.m_Addr.m_Key);
+		auto itSig = rd.m_spCommitted.m_Sigs.find(v.m_Key);
 		if (rd.m_spCommitted.m_Sigs.end() != itSig)
 		{
 			qc.m_vSigs.push_back(itSig->second);
@@ -6574,12 +6719,20 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
 
-	if (r.m_Pbft.m_RequiredWhite)
+	if (r.m_Pbft.m_Whitelist.m_NumRequired)
 	{
 		Serializer ser;
-		ser
-			& Cast::Down<Block::Pbft::State>(p.m_PbftState)
-			& qc;
+
+		// serialize it in a form compatible with basic set
+		ser & m_ValidatorSet.m_mapValidators.size();
+		for (const auto& v : m_ValidatorSet.m_mapValidators)
+		{
+			ser
+				& v.m_Key
+				& v.m_Weight;
+		}
+
+		ser & qc;
 
 		ser.swap_buf(m_Stamp.m_vSer);
 
@@ -6589,6 +6742,7 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 		SaveStamp();
 	}
 
+	auto& p = get_ParentObj().m_Processor;
 	auto eVal = p.OnState(s, Zero);
 
 	switch (eVal)
@@ -6603,7 +6757,7 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 
 	size_t n0 = rd.m_Proposal.m_Msg.m_Body.m_Eternal.size();
 
-	if (!r.m_Pbft.m_RequiredWhite)
+	if (!r.m_Pbft.m_Whitelist.m_NumRequired)
 	{
 		// append QC to block body
 		Serializer ser;
@@ -6636,49 +6790,63 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 {
 	auto& p = get_ParentObj().m_Processor; // alias
-	typedef ValidatorWithAssessment::Flags F;
+	typedef Shaders::PBFT::State::Validator::Flags F;
 
 	assert(m_pMe && m_wTotal);
 	auto& my_map = m_pMe->m_Assessment.m_Last.m_Reputation;
 
 	for (const auto& x : my_map)
 	{
-		const auto* pV = p.m_PbftState.Find(x.first);
+		const auto* pV = m_ValidatorSet.Find(x.first);
 		if (!pV)
 			continue;
 
 		auto fMy = x.second;
 		
-		if ((pV->m_Flags ^ fMy) & F::Jailed)
+		if ((pV->m_Flags ^ fMy) & F::Jail)
 		{
 			// check if there's a consensus here
 			Power pwr;
 
-			for (const auto& v : p.m_PbftState.m_lstVs)
+			for (const auto& vp : m_ValidatorSet.m_mapValidators)
 			{
-				auto& vp = Cast::Up<ValidatorWithAssessment>(v);
 				if (IsAssessmentRelevant(vp.m_Assessment.m_Last))
 				{
 					auto it = vp.m_Assessment.m_Last.m_Reputation.find(x.first);
 					if (vp.m_Assessment.m_Last.m_Reputation.end() != it)
 					{
 						auto fThis = it->second;
-						if ((pV->m_Flags ^ fThis) & F::Jailed)
-							pwr.Add(v); // supports this
+						if ((pV->m_Flags ^ fThis) & F::Jail)
+							pwr.Add(vp); // supports this
 					}
 				}
 			}
 
 			if (pwr.IsMajorityReached(m_wTotal))
 			{
-				auto pKrn = std::make_unique<TxKernelPbftUpdate>();
+				using namespace Shaders::PBFT;
+
+
+				auto pKrn = std::make_unique<TxKernelContractInvoke>();
+				pKrn->m_Cid = p.m_Extra.m_cidPbft;
+				pKrn->m_iMethod = Method::ValidatorStatusUpdate::s_iMethod;
+
+				pKrn->m_Args.resize(sizeof(Method::ValidatorStatusUpdate));
+				auto& r = *(Method::ValidatorStatusUpdate*) &pKrn->m_Args.front();
+				r.m_Address = Cast::Down<Address>(x.first);
+				r.m_Flags = ByteOrder::to_le(fMy);
+
 
 				pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + m_iRound + 1;
-				pKrn->m_Address = x.first;
-				pKrn->m_Flags = fMy;
-				pKrn->m_Flags |= (~F::Jailed & pV->m_Flags); // keep other flags
+
+				ECC::Point::Native ptFunds(Zero);
+				pKrn->Sign(&get_ParentObj().m_Keys.m_Validator.m_sk, 1, ptFunds, nullptr);
 
 				bc.m_Block.m_vKernels.push_back(std::move(pKrn));
+
+				ECC::Scalar::Native s = -get_ParentObj().m_Keys.m_Validator.m_sk;
+				s += bc.m_Block.m_Offset;
+				bc.m_Block.m_Offset = s;
 			}
 		}
 	}
@@ -6788,12 +6956,12 @@ void Node::Validator::OnMsg(proto::PbftPeerAssessment&& msg, const Peer& src)
 	if (!IsAssessmentRelevant(msg))
 		return; // not interested
 
-	auto& p = get_ParentObj().m_Processor; // alias
-	auto* pV = p.m_PbftState.Find(msg.m_From);
+	//auto& p = get_ParentObj().m_Processor; // alias
+	auto* pV = m_ValidatorSet.Find(msg.m_From);
 	if (!pV)
 		return; // not a validator
 
-	auto& vp = Cast::Up<ValidatorWithAssessment>(*pV);
+	auto& vp = *pV;
 	if (vp.m_Assessment.m_Last.m_Height >= msg.m_Height)
 		return;
 
@@ -6813,10 +6981,10 @@ void Node::Validator::FinalyzeRoundAssessment()
 
 	bool bWasRound0 = !m_iRound;
 
-	auto& p = get_ParentObj().m_Processor;
-	for (auto& x : p.m_PbftState.m_lstVs)
+	typedef Shaders::PBFT::State::Validator::Flags F;
+	//auto& p = get_ParentObj().m_Processor;
+	for (auto& vp : m_ValidatorSet.m_mapValidators)
 	{
-		auto& vp = Cast::Up<ValidatorWithAssessment>(x);
 		if (!vp.m_Weight)
 			continue;
 
@@ -6852,7 +7020,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 			if (vp.m_Assessment.m_hvCommitted == Zero)
 			{
 				// did it vote?
-				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Addr.m_Key)))
+				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Key)))
 				{
 					vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // didn't vote not-committed
 					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
@@ -6862,7 +7030,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 					if (Proposal::State::Accepted == rd.m_Proposal.m_State)
 					{
 						// did it pre-vote?
-						if (rd.m_spPreVoted.m_Sigs.end() == rd.m_spPreVoted.m_Sigs.find(vp.m_Addr.m_Key))
+						if (rd.m_spPreVoted.m_Sigs.end() == rd.m_spPreVoted.m_Sigs.find(vp.m_Key))
 						{
 							vp.m_Assessment.m_Score += Assessment::Settings::NotVotedPre; // not pre-voted
 							PBFT_LOG(DEBUG, "\t\tnot voted pre");
@@ -6880,10 +7048,10 @@ void Node::Validator::FinalyzeRoundAssessment()
 			}
 		}
 
-		if (ValidatorWithAssessment::Flags::Jailed & vp.m_Flags)
+		if (F::Jail & vp.m_Flags)
 			PBFT_LOG(DEBUG, "\t\tjailed");
 
-		PBFT_LOG(DEBUG, "\tV " << vp.m_Addr.m_Key << " score=" << vp.m_Assessment.m_Score);
+		PBFT_LOG(DEBUG, "\tV " << vp.m_Key << " score=" << vp.m_Assessment.m_Score);
 
 	}
 

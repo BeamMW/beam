@@ -1675,128 +1675,6 @@ namespace beam
 		Cast::Down<ECC::SignatureBase>(m_Signature).Sign(ECC::Context::get().m_Sig.m_CfgG2, m_Lazy_Msg.get(), &m_Signature.m_k, pSk, &nnc);
 	}
 
-	/////////////
-	// TxKernelPbftUpdate
-	void TxKernelPbftUpdate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
-	{
-		if (pParent || !m_vNested.empty() || m_Fee)
-			Exc::Fail();
-
-		if (Rules::Consensus::Pbft != Rules::get().m_Consensus)
-			Exc::Fail();
-	}
-
-	void TxKernelPbftUpdate::HashSelfForMsg(ECC::Hash::Processor& hp) const
-	{
-		hp
-			<< "pbft.upd"
-			<< m_Address
-			<< m_Flags;
-	}
-
-	void TxKernelPbftUpdate::HashSelfForID(ECC::Hash::Processor&) const
-	{
-	}
-
-	void TxKernelPbftUpdate::Clone(TxKernel::Ptr& p) const
-	{
-		p.reset(new TxKernelPbftUpdate);
-		TxKernelPbftUpdate& v = Cast::Up<TxKernelPbftUpdate>(*p);
-
-		v.CopyFrom(*this);
-		v.m_Address = m_Address;
-		v.m_Flags = m_Flags;
-	}
-
-	/////////////
-	// TxKernelPbftDelegatorUpdate
-	void TxKernelPbftDelegatorUpdate::TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent /* = nullptr */) const
-	{
-		const auto& r = Rules::get();
-		if (Rules::Consensus::Pbft != r.m_Consensus)
-			Exc::Fail();
-
-		if (!(m_StakeBond || m_StakeOut || m_RevenueOut))
-			Exc::Fail(); // no effect
-
-		ECC::Point::Native pPks[2];
-		auto& ptComm = pPks[0];
-		auto& ptDelegator = pPks[1];
-
-		ptComm.ImportNnzStrict(m_Commitment);
-
-		TestValidBase(hScheme, exc, pParent, &ptComm);
-
-		exc += ptComm;
-
-		if (m_StakeOut)
-		{
-			Amount val = m_StakeOut;
-			bool bFundsConsumed = (m_StakeOut < 0);
-			if (bFundsConsumed)
-			{
-				val = -m_StakeOut;
-				ptComm = -ptComm;
-			}
-
-			CoinID::Generator(r.m_Pbft.m_AidStake).AddValue(ptComm, val);
-
-			if (bFundsConsumed)
-				ptComm = -ptComm;
-		}
-
-		if (m_RevenueOut)
-			AmountBig::AddTo(ptComm, m_RevenueOut);
-
-
-		// signature
-		if (!m_Delegator.ExportNnz(ptDelegator))
-			Exc::Fail();
-
-		const auto& sig = Cast::Down<ECC::SignatureBase>(m_Signature);
-		if (!sig.IsValid(ECC::Context::get().m_Sig.m_CfgG2, get_Msg(), &m_Signature.m_k, pPks))
-			TxBase::Fail_Signature();
-
-	}
-
-	void TxKernelPbftDelegatorUpdate::HashSelfForMsg(ECC::Hash::Processor& hp) const
-	{
-		bool isPositive1, isPositive2;
-		Amount val1 = SplitAmountSigned(m_StakeOut, isPositive1);
-		Amount val2 = SplitAmountSigned(m_StakeBond, isPositive2);
-
-		hp
-			<< "pbft.bond"
-			<< m_Validator
-			<< m_Delegator
-			<< m_Commitment
-			<< val1
-			<< isPositive1
-			<< val2
-			<< isPositive2
-			<< m_RevenueOut;
-	}
-
-	void TxKernelPbftDelegatorUpdate::HashSelfForID(ECC::Hash::Processor& hp) const
-	{
-		hp
-			<< m_Signature.m_NoncePub;
-	}
-
-	void TxKernelPbftDelegatorUpdate::Clone(TxKernel::Ptr& p) const
-	{
-		p.reset(new TxKernelPbftDelegatorUpdate);
-		TxKernelPbftDelegatorUpdate& v = Cast::Up<TxKernelPbftDelegatorUpdate>(*p);
-
-		v.CopyFrom(*this);
-		v.m_Validator = m_Validator;
-		v.m_Delegator = m_Delegator;
-		v.m_Commitment = m_Commitment;
-		v.m_StakeOut = m_StakeOut;
-		v.m_StakeBond = m_StakeBond;
-		v.m_RevenueOut = m_RevenueOut;
-		v.m_Signature = m_Signature;
-	}
 
 	/////////////
 	// FeeSettings
@@ -2361,8 +2239,7 @@ namespace beam
 		AllowPublicUtxos = false;
 		Magic.v2 = 2;
 
-		m_Pbft.m_RequiredWhite = 0;
-		m_Pbft.m_AidStake = 0;
+		m_Pbft.m_Whitelist.m_NumRequired = 0;
 
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^8 groth
@@ -2470,17 +2347,10 @@ namespace beam
 			SetParamsPbft(15'000);
 			SetForksFrom(1, 1);
 
-			m_Pbft.m_AidStake = 0;
-			m_Pbft.m_RequiredWhite = 1;
-			m_Pbft.m_vE.resize(1);
+			m_Pbft.m_Whitelist.m_NumRequired = 1;
+			m_Pbft.m_Whitelist.m_Addresses.resize(1);
 
-			for (auto& v : m_Pbft.m_vE)
-			{
-				v.m_Stake = Rules::Coin * 1000;
-				v.m_White = true;
-			}
-
-			Cast::Down<ECC::uintBig>(m_Pbft.m_vE[0].m_Addr) = {
+			Cast::Down<ECC::uintBig>(m_Pbft.m_Whitelist.m_Addresses[0]) = {
 				0x5f, 0xa7, 0x39, 0x27, 0xfe, 0x4f, 0x7c, 0xd2,
 				0xea, 0xb3, 0x81, 0xe2, 0xb6, 0x8a, 0x60, 0xa3,
 				0xf7, 0xd6, 0x13, 0x45, 0xcf, 0x69, 0x9d, 0x5d,
@@ -2496,40 +2366,36 @@ namespace beam
 
 			CA.ForeignEnd = 1'000'000;
 
-			m_Pbft.m_AidStake = 0;
-			m_Pbft.m_RequiredWhite = 2;
-			m_Pbft.m_vE.resize(4);
+			m_Pbft.m_Whitelist.m_NumRequired = 2;
 
-			for (auto& v : m_Pbft.m_vE)
-			{
-				v.m_Stake = Rules::Coin * 1000;
-				v.m_White = true;
-			}
+			m_Pbft.m_Whitelist.m_Addresses.resize(4);
 
-			Cast::Down<ECC::uintBig>(m_Pbft.m_vE[0].m_Addr) = {
+			Cast::Down<ECC::uintBig>(m_Pbft.m_Whitelist.m_Addresses[0]) = {
 				0x9b, 0x4c, 0xc0, 0xb1, 0xf4, 0x29, 0x26, 0xcc,
 				0xbf, 0x51, 0xd6, 0x4e, 0xec, 0x99, 0xd1, 0x7f,
 				0xde, 0x79, 0x42, 0x49, 0x04, 0xb2, 0x6b, 0x32,
 				0xf0, 0x53, 0xfe, 0x13, 0xfe, 0xf5, 0xb0, 0x22
 			};
-			Cast::Down<ECC::uintBig>(m_Pbft.m_vE[1].m_Addr) = {
+			Cast::Down<ECC::uintBig>(m_Pbft.m_Whitelist.m_Addresses[1]) = {
 				0xde, 0x90, 0xc5, 0xe5, 0x01, 0x53, 0xe6, 0x52,
 				0x1b, 0xe0, 0x34, 0x6a, 0x81, 0x88, 0x9c, 0x95,
 				0x2d, 0x96, 0x61, 0x47, 0xe8, 0xc5, 0x96, 0x9b,
 				0x4b, 0x5a, 0xc4, 0x93, 0x5c, 0x91, 0x03, 0x76
 			};
-			Cast::Down<ECC::uintBig>(m_Pbft.m_vE[2].m_Addr) = {
+			Cast::Down<ECC::uintBig>(m_Pbft.m_Whitelist.m_Addresses[2]) = {
 				0x9e, 0x88, 0x59, 0xdd, 0xf4, 0x52, 0x85, 0x8e,
 				0x6c, 0xd0, 0x4e, 0x4c, 0xb1, 0x9c, 0x29, 0xa3,
 				0x26, 0x10, 0x7a, 0x53, 0x3b, 0xf0, 0x72, 0xfa,
 				0xd3, 0xe1, 0x7f, 0x1b, 0x41, 0xca, 0xcf, 0x4d
 			};
-			Cast::Down<ECC::uintBig>(m_Pbft.m_vE[3].m_Addr) = {
+			Cast::Down<ECC::uintBig>(m_Pbft.m_Whitelist.m_Addresses[3]) = {
 				0xa6, 0xf0, 0x90, 0x63, 0x88, 0x51, 0x88, 0x40,
 				0x75, 0xb9, 0xfe, 0xab, 0xcd, 0x66, 0xc9, 0xd4,
 				0x7d, 0x55, 0x11, 0xd8, 0x21, 0xc8, 0x60, 0x2f,
 				0x48, 0x6b, 0x0a, 0x86, 0xfe, 0xb5, 0x42, 0x50
 			};
+
+			std::sort(m_Pbft.m_Whitelist.m_Addresses.begin(), m_Pbft.m_Whitelist.m_Addresses.end());
 
 			break;
 
@@ -2632,6 +2498,37 @@ namespace beam
 		return true;
 	}
 
+	bool Rules::Pbft::Whitelist::IsWhite(const PeerID& addr) const
+	{
+		return std::binary_search(m_Addresses.begin(), m_Addresses.end(), addr);
+		//uint32_t iPos = 0;
+		//return IsWhite(addr, iPos);
+	}
+
+	bool Rules::Pbft::Whitelist::IsWhite(const PeerID& addr, uint32_t& iPos) const
+	{
+		// for sequential check it's better not to use binary search, but just scan sequentially
+		while (iPos < m_Addresses.size())
+		{
+			const auto& val = m_Addresses[iPos];
+			if (val > addr)
+				break;
+
+			++iPos;
+			if (val == addr)
+				return true;
+		}
+
+		return false;
+
+		//auto it = std::lower_bound(m_Addresses.begin() + iPos, m_Addresses.end(), addr);
+		//iPos = static_cast<uint32_t>(it - m_Addresses.begin());
+
+		//return
+		//	(iPos < m_Addresses.size()) &&
+		//	(addr == m_Addresses[iPos]);
+	}
+
 	uint64_t Rules::Pbft::T2S(uint64_t t_ms) const
 	{
 		assert(Consensus::Pbft == get_ParentObj().m_Consensus);
@@ -2718,31 +2615,24 @@ namespace beam
 			if (!DA.Target_ms)
 				Exc::Fail("slot duration not specified");
 
+			const auto& vec = x.m_Whitelist.m_Addresses;
+
 			oracle
-				<< "pbft.1"
+				<< "pbft.2"
 				<< DA.Target_ms
-				<< x.m_vE.size();
+				<< x.m_Whitelist.m_NumRequired
+				<< vec.size();
 
-			Amount stakeTotal = 0;
-			uint32_t nWhite = 0;
+			for (const auto& addr : vec)
+				oracle << addr;
 
-			for (const auto& e : x.m_vE)
+			for (uint32_t i = 1; i < vec.size(); i++)
 			{
-				oracle
-					<< e.m_Addr
-					<< e.m_Stake
-					<< e.m_White;
-
-				stakeTotal += e.m_Stake;
-				if (stakeTotal < e.m_Stake)
-					Exc::Fail("stake overflow");
-				if (e.m_White)
-					nWhite++;
+				if (vec[i] <= vec[i-1])
+					Exc::Fail("whitelist not sorted");
 			}
 
-			if (!stakeTotal)
-				Exc::Fail("no stake");
-			if (nWhite < x.m_RequiredWhite)
+			if (vec.size() < x.m_Whitelist.m_NumRequired)
 				Exc::Fail("not enough white");
 		}
 
@@ -2994,265 +2884,109 @@ namespace beam
 
 	/////////////
 	// Pbft
-	void Block::Pbft::State::Clear()
+	bool Block::Pbft::State::EnumValidators(ITarget& x) const
 	{
-		while (!m_lstVs.empty())
-			Delete(m_lstVs.front());
+		for (const auto& kv : m_mapValidators)
+			if (!x.OnValidator(kv.first, kv.second))
+				return false;
+
+		return true;
 	}
 
-	void Block::Pbft::State::Delete(Validator& v)
+	void Block::Pbft::IValidatorSet::get_Hash(Merkle::Hash& hv) const
 	{
-		m_mapVs.erase(Validator::Addr::Map::s_iterator_to(v.m_Addr));
-		m_lstVs.erase(Validator::List::s_iterator_to(v));
-		delete &v;
-	}
-
-	Block::Pbft::Validator* Block::Pbft::State::Find(const Address& addr)
-	{
-		auto it = m_mapVs.find(addr, Validator::Addr::Comparator());
-		if (m_mapVs.end() != it)
-			return &it->get_ParentObj();
-
-		return nullptr;
-	}
-
-	Block::Pbft::Validator* Block::Pbft::State::FindFlex(const Address& addr, bool bCreate)
-	{
-		auto* pRet = Find(addr);
-		if (pRet)
-			return pRet;
-
-		if (!bCreate)
-			return nullptr;
-
-		auto sp = CreateValidator();
-		Validator* pV = sp.release();
-		m_lstVs.push_back(*pV);
-
-		pV->m_Addr.m_Key = addr;
-		m_mapVs.insert(pV->m_Addr);
-
-		pV->m_Weight = 0;
-		pV->m_Flags = 0;
-		return pV;
-	}
-
-	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::Validator::Create()
-	{
-		return std::make_unique<Validator>();
-	}
-
-	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::State::CreateValidator()
-	{
-		return Validator::Create();
-	}
-
-	uint64_t Block::Pbft::State::get_Random(ECC::Oracle& oracle, uint64_t nBound)
-	{
-		assert(nBound);
-
-		uint64_t nResid = ((static_cast<uint64_t>(-1) % nBound) + 1) % nBound;
-
-		while (true)
+		struct Target
+			:public ITarget
 		{
-			Merkle::Hash hv;
-			oracle >> hv;
+			ECC::Hash::Processor m_hp;
 
-			uint64_t w;
-			hv.ExportWord<0>(w);
+			bool OnValidator(const Address& addr, uint64_t weight) override
+			{
+				m_hp
+					<< static_cast<uint8_t>(1)
+					<< addr
+					<< weight;
+				return true;
+			}
+		} x;
 
-			if (w <= static_cast<uint64_t>(-1) - nResid)
-				return w % nBound;
-		}
+		x.m_hp << "vs.state";
+		EnumValidators(x);
 
-		// unreachable
+		x.m_hp
+			<< static_cast<uint8_t>(0)
+			>> hv;
 	}
 
-	uint64_t Block::Pbft::State::get_Weight() const
+	bool Block::Pbft::IValidatorSet::IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite)
 	{
-		uint64_t wTotal = 0;
-		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
-			wTotal += it->m_Weight;
-
-		return wTotal;
-	}
-
-	Block::Pbft::Validator* Block::Pbft::State::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound)
-	{
-		uint64_t wUnjailed = 0;
-		for (const auto& v : m_lstVs)
-		{
-			if (!(Validator::Flags::Jailed & v.m_Flags))
-				wUnjailed += v.m_Weight;
-		}
-
-		if (!wUnjailed)
-			return nullptr;
-
-		// Select in a pseudo-random way. Probability according to the validator weight
-		ECC::Oracle oracle;
-		oracle
-			<< "vs.select"
-			<< hvInp
-			<< iRound;
-
-		uint64_t w = get_Random(oracle, wUnjailed);
-		assert(w < wUnjailed);
-
-		for (auto it = m_lstVs.begin(); ; it++)
-		{
-			assert(m_lstVs.end() != it);
-			auto& v = *it;
-			if (Validator::Flags::Jailed & v.m_Flags)
-				continue;
-
-			if (w < v.m_Weight)
-				return &v;
-
-			w -= v.m_Weight;
-		}
-
-		// unreachable
-	}
-
-	void Block::Pbft::State::get_Hash(Merkle::Hash& hv) const
-	{
-		ECC::Hash::Processor hp;
-		hp
-			<< "vs.state"
-			<< m_lstVs.size();
-
-		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++)
-		{
-			const auto& v = *it;
-			hp
-				<< v.m_Addr.m_Key
-				<< v.m_Weight
-				<< v.m_Flags;
-		}
-
-		hp >> hv;
-	}
-
-	bool Block::Pbft::State::IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite)
-	{
-		if (nWhite < Rules::get().m_Pbft.m_RequiredWhite)
+		if (nWhite < Rules::get().m_Pbft.m_Whitelist.m_NumRequired)
 			return false;
 
 		assert(wVoted <= wTotal);
 		return (wVoted * 3 > wTotal * 2); // TODO: overflow test
 	}
 
-	bool Block::Pbft::State::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc)
+	bool Block::Pbft::IValidatorSet::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc) const
 	{
-		// check all signatures, and that the quorum is reached
-		uint64_t wTotal = 0, wVoted = 0;
-		uint32_t iIdx = 0, iSig = 0, nWhite = 0;
-		for (auto it = m_lstVs.begin(); m_lstVs.end() != it; it++, iIdx++)
+		struct Target
+			:public ITarget
 		{
-			auto& v = *it;
-			wTotal += v.m_Weight;
+			uint64_t wTotal = 0, wVoted = 0;
+			uint32_t iIdx = 0, iSig = 0, nWhite = 0;
+			uint32_t m_iWhitePos = 0;
 
-			uint32_t iByte = iIdx / 8;
-			if (iByte < qc.m_vValidatorsMsk.size())
+			const Merkle::Hash& m_msg;
+			const Quorum& m_qc;
+
+			Target(const Merkle::Hash& msg, const Quorum& qc)
+				:m_msg(msg)
+				,m_qc(qc)
+			{}
+
+			bool OnValidator(const Address& addr, uint64_t weight) override
 			{
-				uint8_t msk = 1 << (iIdx & 7);
-				if (qc.m_vValidatorsMsk[iByte] & msk)
+				wTotal += weight;
+
+				uint32_t iByte = iIdx / 8;
+				if (iByte < m_qc.m_vValidatorsMsk.size())
 				{
-					if (iSig >= qc.m_vSigs.size())
-						return false;
+					uint8_t msk = 1 << (iIdx & 7);
+					if (m_qc.m_vValidatorsMsk[iByte] & msk)
+					{
+						if (iSig >= m_qc.m_vSigs.size())
+							return false;
 
-					if (!v.m_Addr.m_Key.CheckSignature(msg, qc.m_vSigs[iSig++]))
-						return false;
+						if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[iSig++]))
+							return false;
 
-					wVoted += v.m_Weight;
+						wVoted += weight;
 
-					if (Validator::Flags::White & v.m_Flags)
-						nWhite++;
+						if (Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, m_iWhitePos))
+							nWhite++;
+					}
 				}
-			}
-		}
 
-		if (iSig != qc.m_vSigs.size())
+				return true;
+			}
+		};
+
+		Target x(msg, qc);
+
+		if (!EnumValidators(x))
+			return false;
+
+		if (x.iSig != qc.m_vSigs.size())
 			return false; // not all sigs used
 
 		// is quorum reached?
-		return IsMajorityReached(wVoted, wTotal, nWhite);
-	}
-
-	void Block::Pbft::State::SetInitial()
-	{
-		const auto& pars = Rules::get().m_Pbft;
-		for (const auto& v : pars.m_vE)
-		{
-			if (!v.m_Stake)
-				continue;
-
-			auto* pV = FindAlways(v.m_Addr);
-			assert(pV);
-
-			pV->m_Weight += v.m_Stake;
-
-			if (v.m_White)
-				pV->m_Flags |= Validator::Flags::White;
-		}
-	}
-
-	void Block::Pbft::State::ResolveWhitelisted(const Rules& r)
-	{
-		for (auto& v : m_lstVs)
-			v.m_Flags &= ~Validator::Flags::White;
-
-		for (const auto& x : r.m_Pbft.m_vE)
-		{
-			if (x.m_White)
-			{
-				auto* pVal = Find(x.m_Addr);
-				if (pVal)
-					pVal->m_Flags |= Validator::Flags::White;
-			}
-		}
+		return IsMajorityReached(x.wVoted, x.wTotal, x.nWhite);
 	}
 
 	void Block::Pbft::DeriveValidatorAddress(Key::IKdf& kdf, Block::Pbft::Address& addr, ECC::Scalar::Native& sk)
 	{
 		kdf.DeriveKey(sk, Key::ID(0, Key::Type::Coinbase));
 		addr.FromSk(sk);
-	}
-
-	/////////////
-	// Pbft::StateWithDelegators
-
-	void Block::Pbft::StateWithDelegators::Bond::DeleteStrict()
-	{
-		assert(m_Validator.m_p);
-		m_Validator.m_p->m_mapBonds.erase(intrusive::multiset<ValidatorSide>::s_iterator_to(m_Validator));
-
-		assert(m_Delegator.m_p);
-		m_Delegator.m_p->m_mapBonds.erase(intrusive::multiset<DelegatorSide>::s_iterator_to(m_Delegator));
-
-		delete this;
-	}
-
-	Block::Pbft::StateWithDelegators::Bond* Block::Pbft::StateWithDelegators::Bond::Create(Validator& v, Delegator& d)
-	{
-		auto* pBond = new Bond;
-
-		pBond->m_Validator.m_p = &v;
-		v.m_mapBonds.insert(pBond->m_Validator);
-
-		pBond->m_Delegator.m_p = &d;
-		d.m_mapBonds.insert(pBond->m_Delegator);
-
-		pBond->m_Summa0 = Zero;
-		pBond->m_Value = 0;
-
-		return pBond;
-	}
-
-	std::unique_ptr<Block::Pbft::Validator> Block::Pbft::StateWithDelegators::CreateValidator()
-	{
-		return Validator::Create();
 	}
 
 	/////////////
