@@ -2932,8 +2932,11 @@ namespace beam
 		struct Target
 			:public ITarget
 		{
-			uint64_t wTotal = 0, wVoted = 0;
-			uint32_t iIdx = 0, iSig = 0, nWhite = 0;
+			uint64_t m_wTotal = 0;
+			uint64_t m_wVoted = 0;
+			uint32_t m_nWhite = 0;
+			uint32_t m_iIdx = 0;
+			uint32_t m_iSig = 0;
 			uint32_t m_iWhitePos = 0;
 
 			const Merkle::Hash& m_msg;
@@ -2946,24 +2949,25 @@ namespace beam
 
 			bool OnValidator(const Address& addr, uint64_t weight) override
 			{
-				wTotal += weight;
+				m_wTotal += weight;
 
+				uint32_t iIdx = m_iIdx++;
 				uint32_t iByte = iIdx / 8;
 				if (iByte < m_qc.m_vValidatorsMsk.size())
 				{
 					uint8_t msk = 1 << (iIdx & 7);
 					if (m_qc.m_vValidatorsMsk[iByte] & msk)
 					{
-						if (iSig >= m_qc.m_vSigs.size())
+						if (m_iSig >= m_qc.m_vSigs.size())
 							return false;
 
-						if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[iSig++]))
+						if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[m_iSig++]))
 							return false;
 
-						wVoted += weight;
+						m_wVoted += weight;
 
 						if (Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, m_iWhitePos))
-							nWhite++;
+							m_nWhite++;
 					}
 				}
 
@@ -2976,11 +2980,11 @@ namespace beam
 		if (!EnumValidators(x))
 			return false;
 
-		if (x.iSig != qc.m_vSigs.size())
+		if (x.m_iSig != qc.m_vSigs.size())
 			return false; // not all sigs used
 
 		// is quorum reached?
-		return IsMajorityReached(x.wVoted, x.wTotal, x.nWhite);
+		return IsMajorityReached(x.m_wVoted, x.m_wTotal, x.m_nWhite);
 	}
 
 	void Block::Pbft::DeriveValidatorAddress(Key::IKdf& kdf, Block::Pbft::Address& addr, ECC::Scalar::Native& sk)
