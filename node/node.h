@@ -855,6 +855,9 @@ private:
 
 			ValidatorWithAssessment* Find(const Block::Pbft::Address&) const;
 			ValidatorWithAssessment* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const;
+			void get_Hash(Merkle::Hash&) const override;
+
+			mutable std::optional<Merkle::Hash> m_hv;
 
 		private:
 			static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
