@@ -2416,6 +2416,12 @@ namespace beam
 
 	Amount Rules::get_EmissionEx(Height h, Height& hEnd, Amount base) const
 	{
+		if (!base)
+		{
+			hEnd = MaxHeight;
+			return 0;
+		}
+
 		h--; // may overflow, but it's ok. If h is zero (which must not happen anyway) - then it'll give a huge height, for which the emission would be zero anyway.
 
 		// Current emission strategy:
@@ -2782,6 +2788,9 @@ namespace beam
 		m_Consensus = Consensus::Pbft;
 		DA.Target_ms = nTarget_ms;
 		DA.Difficulty0.m_Packed = 0;
+
+		ZeroObject(Emission);
+		Maturity.Coinbase = 0;
 	}
 
 	Amount Rules::get_DepositForCA(Height hScheme) const
