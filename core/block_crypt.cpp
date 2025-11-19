@@ -2395,8 +2395,6 @@ namespace beam
 				0x48, 0x6b, 0x0a, 0x86, 0xfe, 0xb5, 0x42, 0x50
 			};
 
-			std::sort(m_Pbft.m_Whitelist.m_Addresses.begin(), m_Pbft.m_Whitelist.m_Addresses.end());
-
 			break;
 
 		default: // mainnet
@@ -2609,13 +2607,14 @@ namespace beam
 
 		if (Rules::Consensus::Pbft == m_Consensus)
 		{
-			const auto& x = m_Pbft; // alias
+			auto& x = m_Pbft; // alias
 			Exc::CheckpointTxt cp2("pbft");
 
 			if (!DA.Target_ms)
 				Exc::Fail("slot duration not specified");
 
-			const auto& vec = x.m_Whitelist.m_Addresses;
+			auto& vec = x.m_Whitelist.m_Addresses;
+			std::sort(vec.begin(), vec.end());
 
 			oracle
 				<< "pbft.2"
@@ -2629,7 +2628,7 @@ namespace beam
 			for (uint32_t i = 1; i < vec.size(); i++)
 			{
 				if (vec[i] <= vec[i-1])
-					Exc::Fail("whitelist not sorted");
+					Exc::Fail("whitelist dups");
 			}
 
 			if (vec.size() < x.m_Whitelist.m_NumRequired)
