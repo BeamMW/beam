@@ -129,7 +129,7 @@ class NodeProcessor
 
 	Mapped m_Mapped;
 
-	size_t m_nSizeUtxoComissionUpperLimit = 0;
+	size_t m_nReserveBlockSizeForFees = 0;
 
 	struct InputAux {
 		TxoID m_ID = 0;
@@ -592,6 +592,7 @@ public:
 	virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
 	virtual void OnContractStoreReset();
 	virtual const Block::Pbft::State::IValidatorSet* get_Validators();
+	virtual TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk);
 
 	struct MyExecutor
 		:public Executor
