@@ -97,7 +97,7 @@ namespace beam::wallet {
                 try {
                     Deserializer der;
                     der.reset(pMsg, nSize);
-                    der& msgWallet;
+                    der & msgWallet;
                     bValid = true;
                 }
                 catch (const std::exception&) {

@@ -389,7 +389,7 @@ namespace beam::wallet
             else
             {
                 Serializer ser;
-                ser& m_Set.size();
+                ser & m_Set.size();
                 for (const auto& x : m_Set)
                     ser & x.m_Key;
 
@@ -1738,7 +1738,7 @@ namespace beam::wallet
         }
 
         der.reset(b.m_Eternal);
-        der& Cast::Down<TxVectors::Eternal>(block);
+        der & Cast::Down<TxVectors::Eternal>(block);
         PreprocessBlock(block);
 
         recognizer.m_Pos.m_Height = h;

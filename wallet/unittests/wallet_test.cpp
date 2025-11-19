@@ -294,7 +294,7 @@ namespace
             proto::Event::Type::Enum event = proto::Event::Type::Shielded;
 
             Serializer ser;
-            ser& event;
+            ser & event;
 
             ByteBuffer buf;
             ser.swap_buf(buf);
