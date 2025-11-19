@@ -209,7 +209,7 @@ class NodeProcessor
 	TxoID FindHeightByTxoID(Height&, TxoID id0);
 
 	void ReadOffset(ECC::Scalar&, uint64_t rowid);
-	void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
+	static void AdjustOffset(ECC::Scalar&, const ECC::Scalar& hvPrev, bool bAdd);
 
 	void ReadKrns(uint64_t rowid, TxVectors::Eternal&);
 

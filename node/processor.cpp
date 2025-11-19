@@ -2873,7 +2873,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 		for (size_t i = 0; i < vBursts.size(); i++)
 		{
 			const Treasury::Data::Burst& b = vBursts[i];
-			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << b.m_Value;
+			os << "\n\t" << "Height=" << b.m_Height << ", Value=" << AmountBig::Printable(b.m_Value);
 		}
 
 		BEAM_LOG_INFO() << os.str();
