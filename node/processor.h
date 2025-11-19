@@ -383,8 +383,6 @@ public:
 
 		TxoID m_ShieldedOutputs;
 
-		ContractID m_cidPbft;
-
 	} m_Extra;
 
 	struct SyncData
@@ -591,7 +589,8 @@ public:
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 
 	// PBFT-specific
-	virtual bool ApprovePbftContractInvoke(const TxKernelContractInvoke&); // called during block construction and voting
+	virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
+	virtual void OnContractStoreReset();
 	virtual const Block::Pbft::State::IValidatorSet* get_Validators();
 
 	struct MyExecutor

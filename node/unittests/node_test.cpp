@@ -102,6 +102,7 @@ namespace beam
 {
 	ByteBuffer g_Treasury;
 	Key::IKdf::Ptr g_pTreasuryKdf;
+	ContractID g_cidBridge;
 
 	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
@@ -1906,6 +1907,8 @@ namespace beam
 				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
 				beam::bvm2::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
 
+				beam::bvm2::get_Cid(g_cidBridge, pKrn->m_Data, pKrn->m_Args);
+
 				ECC::Scalar::Native sk;
 				ECC::SetRandom(sk);
 				ECC::Point::Native ptFunds(beam::Zero);
@@ -2706,7 +2709,7 @@ namespace beam
 #pragma pack (pop)
 
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
-				pKrn->m_Cid = m_pProc1->m_Extra.m_cidPbft;
+				pKrn->m_Cid = g_cidBridge;
 				pKrn->m_Fee = nFee;
 				pKrn->m_iMethod = 2;
 				pKrn->m_Height.m_Min = s.get_Height() + 1;
@@ -4360,7 +4363,7 @@ void TestAll()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	bool bClientProtoOnly = false;
+	bool bClientProtoOnly = true;
 	bool bTestPbft = true;
 	bool bTestBridge = false;
 
