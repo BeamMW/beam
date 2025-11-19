@@ -95,7 +95,7 @@ namespace beam::wallet
         treasury.Build(data);
 
         Serializer ser;
-        ser& data;
+        ser & data;
 
         ByteBuffer result;
         ser.swap_buf(result);

@@ -1094,7 +1094,7 @@ Event::Type::Enum Event::Type::Load(Deserializer& der)
     auto bytesLeft = der.bytes_left();
     try
     {
-        der& eType;
+        der & eType;
     }
     catch (const std::exception&)
     {
@@ -1109,7 +1109,7 @@ Event::Type::Enum Event::Type::Load(Deserializer& der)
 #undef THE_MACRO
         };
         Enum2 eType2;
-        der& eType2;
+        der & eType2;
         eType = static_cast<Type::Enum>(eType2);
     }
     return eType;

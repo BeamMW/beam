@@ -2949,8 +2949,8 @@ namespace beam::wallet
                     evt.m_User = user;
 
                     Serializer ser;
-                    ser& evt.s_Type;
-                    ser& evt;
+                    ser & evt.s_Type;
+                    ser & evt;
 
                     const NodeProcessor::EventKey::Utxo& key = outp.m_Commitment;
                     m_This.insertEvent(h, Blob(ser.buffer().first, static_cast<uint32_t>(ser.buffer().second)), Blob(&key, sizeof(NodeProcessor::EventKey::Utxo)));
@@ -7190,7 +7190,7 @@ namespace beam::wallet
             {
                 Deserializer der;
                 der.reset(data);
-                der& pi;
+                der & pi;
                 if (der.bytes_left() > 0)
                 {
                     throw std::runtime_error("Invalid data buffer");
@@ -7263,7 +7263,7 @@ namespace beam::wallet
                     std::cout << "Sender address own ID: " << nAddrOwnID << std::endl;
 
                     Serializer ser;
-                    ser& pi;
+                    ser & pi;
 
                     auto res = ser.buffer();
                     return ByteBuffer(res.first, res.first + res.second);
@@ -7320,7 +7320,7 @@ namespace beam::wallet
                     std::cout << "Payment tx details:\n" << pi.to_string(walletDB) << std::endl;
 
                     Serializer ser;
-                    ser& pi;
+                    ser & pi;
 
                     auto res = ser.buffer();
                     return ByteBuffer(res.first, res.first + res.second);
