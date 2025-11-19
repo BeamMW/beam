@@ -4597,6 +4597,11 @@ const Block::Pbft::State::IValidatorSet* Node::Processor::get_Validators()
 	return &get_ParentObj().m_Validator.m_ValidatorSet;
 }
 
+TxKernel::Ptr Node::Processor::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
+{
+	return get_ParentObj().m_Validator.GeneratePbftRewardKernel(fees, sk);
+}
+
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
 {
 	if (newStream)
@@ -6112,6 +6117,31 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 	}
 
 	pV->m_Flags = vd.m_Flags;
+}
+
+TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
+{
+	if (!m_cid)
+		return nullptr; // shouldn't happen though
+
+	using namespace Shaders::PBFT;
+
+	auto pKrn = std::make_unique<TxKernelContractInvoke>();
+	pKrn->m_Cid = *m_cid;
+	pKrn->m_iMethod = Method::AddReward::s_iMethod;
+
+	pKrn->m_Args.resize(sizeof(Method::AddReward));
+	auto& r = *(Method::AddReward*) &pKrn->m_Args.front();
+	r.m_Amount = ByteOrder::to_le(fees);
+
+	pKrn->m_Height.m_Min = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height + m_iRound + 1;
+
+	ECC::Point::Native ptFunds = ECC::Context::get().H * fees;
+
+	sk = get_ParentObj().m_Keys.m_Validator.m_sk;
+	pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+	return pKrn;
 }
 
 bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const

@@ -562,6 +562,11 @@ const Block::Pbft::State::IValidatorSet* NodeProcessor::get_Validators()
 	return nullptr;
 }
 
+TxKernel::Ptr NodeProcessor::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
+{
+	return nullptr;
+}
+
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
 {
 	TipCongestion* pRet = nullptr;
@@ -7297,11 +7302,13 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		}
 	}
 
-	if (Rules::Consensus::Pbft != r.m_Consensus)
+	if (!m_nReserveBlockSizeForFees)
 	{
-		// estimate the size of the fees UTXO
-		if (!m_nSizeUtxoComissionUpperLimit)
+		SerializerSizeCounter ssc2;
+
+		if (Rules::Consensus::Pbft != r.m_Consensus)
 		{
+			// size of extra UTXO
 			Output outp;
 			outp.m_pConfidential.reset(new ECC::RangeProof::Confidential);
 			ZeroObject(*outp.m_pConfidential);
@@ -7309,14 +7316,26 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			outp.m_pAsset->InitArrays(r.CA.m_ProofCfg);
 			outp.m_pAsset->m_Begin = static_cast<Asset::ID>(-1);
 
-			SerializerSizeCounter ssc2;
 			ssc2 & outp;
-			m_nSizeUtxoComissionUpperLimit = ssc2.m_Counter.m_Value;
+		}
+		else
+		{
+			// size of extra kernel
+			TxKernelContractInvoke krn;
+			krn.m_Height.m_Min = MaxHeight;
+			krn.m_Commitment = Zero;
+			ZeroObject(krn.m_Signature);
+			krn.m_iMethod = std::numeric_limits<uint32_t>::max();
+			krn.m_Args.resize(100); // excessive
+
+			ssc2 & krn;
 		}
 
-		if (bc.m_Fees)
-			ssc.m_Counter.m_Value += m_nSizeUtxoComissionUpperLimit;
+		m_nReserveBlockSizeForFees = ssc2.m_Counter.m_Value;
 	}
+
+	if (bc.m_Fees)
+		ssc.m_Counter.m_Value += m_nReserveBlockSizeForFees;
 
 	const size_t nSizeMax = r.MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
@@ -7351,8 +7370,8 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
-		if (!bc.m_Fees && feesNext && (Rules::Consensus::Pbft != r.m_Consensus))
-			nSizeNext += m_nSizeUtxoComissionUpperLimit;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nReserveBlockSizeForFees;
 
 		if (nSizeNext > nSizeMax)
 			break;
@@ -7383,8 +7402,8 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			continue; // huge fees are unsupported
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_Stats.m_Size;
-		if (!bc.m_Fees && feesNext && (Rules::Consensus::Pbft != r.m_Consensus))
-			nSizeNext += m_nSizeUtxoComissionUpperLimit;
+		if (!bc.m_Fees && feesNext)
+			nSizeNext += m_nReserveBlockSizeForFees;
 
 		if (nSizeNext > nSizeMax)
 		{
@@ -7434,24 +7453,42 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 	if (BlockContext::Mode::Assemble != bc.m_Mode)
 	{
-		if (bc.m_Fees && (Rules::Consensus::Pbft != r.m_Consensus))
+		if (bc.m_Fees)
 		{
-			{
-				Asset::Proof::Params::Override po(get_AidMax());
-				bb.AddFees(bc.m_Fees, pOutp);
-			}
-
-			if (!HandleBlockElement(*pOutp, bic))
-				return 0;
-
 			// make size estimation more precise
 			size_t n0 = ssc.m_Counter.m_Value;
-			ssc.m_Counter.m_Value -= m_nSizeUtxoComissionUpperLimit;
-			ssc& (*pOutp);
+			ssc.m_Counter.m_Value -= m_nReserveBlockSizeForFees;
+
+			if (Rules::Consensus::Pbft != r.m_Consensus)
+			{
+				{
+					Asset::Proof::Params::Override po(get_AidMax());
+					bb.AddFees(bc.m_Fees, pOutp);
+				}
+
+				if (!HandleBlockElement(*pOutp, bic))
+					return 0;
+
+				ssc & (*pOutp);
+				bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
+			}
+			else
+			{
+				pKrn = GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
+				if (!pKrn)
+					return 0;
+
+				if (!HandleBlockElement(*pKrn, bic))
+					return 0;
+
+				yas::detail::SaveKrn(ssc, *pKrn, false);
+
+				bc.m_Block.m_vKernels.push_back(std::move(pKrn));
+			}
+
 			assert(ssc.m_Counter.m_Value <= n0);
 			(n0); // suppress 'unused' warning in release build
 
-			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 		}
 
 		bb.m_Offset = -bb.m_Offset;

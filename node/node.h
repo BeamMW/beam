@@ -264,6 +264,7 @@ private:
 		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) override;
 		void OnContractStoreReset() override;
 		const Block::Pbft::State::IValidatorSet* get_Validators() override;
+		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
 
 		void Stop();
 
@@ -810,6 +811,7 @@ private:
 		void SendState(Peer&) const;
 		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
 		void OnContractStoreReset();
+		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk);
 
 		uint64_t get_RefTime_ms() const;
 

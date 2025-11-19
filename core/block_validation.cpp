@@ -247,47 +247,40 @@ namespace beam
 	{
 		const auto& r = Rules::get();
 
-		AmountBig::Number subsTotal;
+		AmountBig::Number subsidy = Zero;
 
 		bool bPbft = (Rules::Consensus::Pbft == r.m_Consensus);
 		if (bPbft)
-			subsTotal = m_Stats.m_Fee; // the value subtracted from the circulation
+		{
+			if (m_Stats.m_Coinbase != Zero)
+				Exc::Fail("Coinbase in pbft");
+		}
 		else
 		{
-			r.get_Emission(subsTotal, m_Height);
+			r.get_Emission(subsidy, m_Height);
 			m_Sigma = -m_Sigma;
+
+			AmountBig::AddTo(m_Sigma, subsidy);
 		}
 
-		AmountBig::AddTo(m_Sigma, subsTotal);
 		TestSigma();
 
-		if (!m_Params.m_bAllowUnsignedOutputs)
+		if (!m_Params.m_bAllowUnsignedOutputs && !bPbft)
 		{
 			bool bHasEnoughLocked = true;
 			bool bShortRange = (m_Height.m_Max - m_Height.m_Min < r.Maturity.Coinbase); // All the supposed coinbase UTXOs must be included (i.e. couldn't be spent and cut-through)
 
-			if (bPbft)
-			{
-				if (bShortRange)
-					bHasEnoughLocked = (m_Stats.m_Coinbase == Zero);
-
-				// for long range we don't really know which part of the coinbase could be spent already, hence we omit this verification
-			}
+			if (bShortRange)
+				bHasEnoughLocked = (m_Stats.m_Coinbase == subsidy);
 			else
 			{
-				if (bShortRange)
-					bHasEnoughLocked = (m_Stats.m_Coinbase == subsTotal);
-				else
-				{
-					// calculate the minimum coinbase value that's supposed still to be locked
-					HeightRange hr;
-					hr.m_Min = m_Height.m_Max - r.Maturity.Coinbase;
-					hr.m_Max = m_Height.m_Max;
-					r.get_Emission(subsTotal, hr);
+				// calculate the minimum coinbase value that's supposed still to be locked
+				HeightRange hr;
+				hr.m_Min = m_Height.m_Max - r.Maturity.Coinbase;
+				hr.m_Max = m_Height.m_Max;
+				r.get_Emission(subsidy, hr);
 
-					bHasEnoughLocked = (m_Stats.m_Coinbase >= subsTotal);
-
-				}
+				bHasEnoughLocked = (m_Stats.m_Coinbase >= subsidy);
 			}
 
 			if (!bHasEnoughLocked)
