@@ -6076,7 +6076,8 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 	else
 		ZeroObject(vd);
 
-	auto* pV = m_ValidatorSet.Find(vk.m_KeyInContract.m_Address);
+	const auto& addr = Cast::Up<Block::Pbft::Address>(vk.m_KeyInContract.m_Address);
+	auto* pV = m_ValidatorSet.Find(addr);
 
 	if (!vd.m_Weight)
 	{
@@ -6094,7 +6095,7 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		// I'm a validator, and the block isn't finalized yet.
 		// check if my assessment is consistent with this action
 		auto& msg = m_pMe->m_Assessment.m_Last;
-		auto it = msg.m_Reputation.find(vk.m_KeyInContract.m_Address);
+		auto it = msg.m_Reputation.find(addr);
 		if (msg.m_Reputation.end() != it)
 		{
 			auto fMy = it->second;
@@ -6105,8 +6106,8 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 
 	if (!pV)
 	{
-		pV = m_ValidatorSet.m_mapValidators.Create(vk.m_KeyInContract.m_Address);
-		pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(vk.m_KeyInContract.m_Address);
+		pV = m_ValidatorSet.m_mapValidators.Create(addr);
+		pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(addr);
 		pV->m_Weight = 0;
 	}
 
