@@ -24,6 +24,7 @@
 #include <boost/intrusive/set.hpp>
 #include <condition_variable>
 #include <pow/external_pow.h>
+#include <optional>
 
 namespace beam
 {
@@ -260,8 +261,8 @@ private:
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
-
-		bool ApprovePbftContractInvoke(const TxKernelContractInvoke&) override;
+		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) override;
+		void OnContractStoreReset() override;
 		const Block::Pbft::State::IValidatorSet* get_Validators() override;
 
 		void Stop();
@@ -799,6 +800,7 @@ private:
 	{
 		Validator();
 
+		void Initialize();
 		void OnNewState();
 		void OnRolledBack();
 
@@ -806,7 +808,8 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
-		bool ApproveContractInvoke(const TxKernelContractInvoke&);
+		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
+		void OnContractStoreReset();
 
 		uint64_t get_RefTime_ms() const;
 
@@ -815,6 +818,8 @@ private:
 			HeightHash m_ID;
 			ByteBuffer  m_vSer;
 		} m_Stamp;
+
+		std::optional<ContractID> m_cid;
 
 		void SaveStamp();
 		bool ShouldSendStamp();
@@ -941,7 +946,6 @@ private:
 
 		void OnNewRound();
 		void OnNewStateInternal();
-		void RefreshValidatorSet();
 		void GenerateProposal();
 		void SignProposal();
 		void OnProposalReceived(const Peer*);

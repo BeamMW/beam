@@ -1103,37 +1103,7 @@ void Node::Initialize()
 
 	const auto& r = Rules::get();
 	if (Rules::Consensus::Pbft == r.m_Consensus)
-	{
-		if (m_Keys.m_pMiner)
-		{
-			Block::Pbft::DeriveValidatorAddress(*m_Keys.m_pMiner, m_Keys.m_Validator.m_Addr, m_Keys.m_Validator.m_sk);
-			BEAM_LOG_INFO() << "Validator ID=" << m_Keys.m_Validator.m_Addr;
-		}
-		else
-			m_Keys.m_Validator.m_Addr = Zero;
-
-		ByteBuffer buf;
-		m_Processor.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
-		if (!buf.empty())
-		{
-			Block::Pbft::State state;
-			Block::Pbft::Quorum qc;
-
-			Deserializer der;
-			der.reset(buf);
-			der
-				& state
-				& qc;
-
-			auto n = der.bytes_left();
-			der & m_Validator.m_Stamp.m_ID;
-
-			buf.resize(buf.size() - n);
-			m_Validator.m_Stamp.m_vSer = std::move(buf);
-		}
-		else
-			ZeroObject(m_Validator.m_Stamp.m_ID);
-	}
+		m_Validator.Initialize();
 
 	InitKeys();
 	InitIDs();
@@ -4610,9 +4580,16 @@ void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
-bool Node::Processor::ApprovePbftContractInvoke(const TxKernelContractInvoke& krn)
+void Node::Processor::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
 {
-	return get_ParentObj().m_Validator.ApproveContractInvoke(krn);
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+		get_ParentObj().m_Validator.OnContractVarChange(key, val, bTemporary);
+}
+
+void Node::Processor::OnContractStoreReset()
+{
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+		get_ParentObj().m_Validator.OnContractStoreReset();
 }
 
 const Block::Pbft::State::IValidatorSet* Node::Processor::get_Validators()
@@ -5817,6 +5794,47 @@ Node::Validator::Validator()
 	m_iSlotAssessmentLast  = 0;
 }
 
+void Node::Validator::Initialize()
+{
+	auto& keys = get_ParentObj().m_Keys; // alias
+	if (keys.m_pMiner)
+	{
+		Block::Pbft::DeriveValidatorAddress(*keys.m_pMiner, keys.m_Validator.m_Addr, keys.m_Validator.m_sk);
+		BEAM_LOG_INFO() << "Validator ID=" << keys.m_Validator.m_Addr;
+	}
+	else
+		keys.m_Validator.m_Addr = Zero;
+
+	auto& p = get_ParentObj().m_Processor;
+
+	ContractID cid;
+	Blob blob = cid;
+	if (p.get_DB().ParamGet(NodeDB::ParamID::PbftCid, nullptr, &blob))
+		m_cid = cid;
+
+	ByteBuffer buf;
+	p.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
+	if (!buf.empty())
+	{
+		Block::Pbft::State state;
+		Block::Pbft::Quorum qc;
+
+		Deserializer der;
+		der.reset(buf);
+		der
+			& state
+			& qc;
+
+		auto n = der.bytes_left();
+		der & m_Stamp.m_ID;
+
+		buf.resize(buf.size() - n);
+		m_Stamp.m_vSer = std::move(buf);
+	}
+	else
+		ZeroObject(m_Stamp.m_ID);
+}
+
 void Node::Validator::OnRolledBack()
 {
 	m_hAnchor.v = MaxHeight;
@@ -5929,63 +5947,6 @@ void Node::Validator::OnNewRound()
 	CheckState();
 }
 
-void Node::Validator::RefreshValidatorSet()
-{
-	const uint8_t nDelFlag = 0x80;
-	for (auto& v : m_ValidatorSet.m_mapValidators)
-		v.m_Flags |= nDelFlag;
-
-	auto& p = get_ParentObj().m_Processor; // alias
-
-	uint32_t iPosWhite = 0;
-
-	using namespace Shaders::PBFT;
-	typedef Shaders::PBFT::State::Validator::Flags F;
-
-	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
-	VKeyType kMin, kMax;
-	kMin.m_Prefix.m_Cid = p.m_Extra.m_cidPbft;
-	kMax.m_Prefix.m_Cid = p.m_Extra.m_cidPbft;
-
-	kMin.m_KeyInContract.m_Address = Zero;
-	memset(kMax.m_KeyInContract.m_Address.m_pData, 0xff, kMax.m_KeyInContract.m_Address.nBytes);
-
-	Blob bMin(&kMin, sizeof(kMin));
-	Blob bMax(&kMax, sizeof(kMax));
-
-	NodeDB::WalkerContractData wlk;
-	for (p.get_DB().ContractDataEnum(wlk, bMin, bMax); wlk.MoveNext(); )
-	{
-		if (wlk.m_Key.n != sizeof(VKeyType))
-			NodeProcessor::OnCorrupted();
-
-		if (wlk.m_Val.n != sizeof(Shaders::PBFT::State::Validator))
-			NodeProcessor::OnCorrupted();
-
-		const auto& addr = ((const VKeyType*) wlk.m_Key.p)->m_KeyInContract.m_Address;
-		const auto& val = *((const Shaders::PBFT::State::Validator*) wlk.m_Val.p);
-
-		auto* pV = m_ValidatorSet.Find(addr);
-		if (!pV)
-		{
-			pV = m_ValidatorSet.m_mapValidators.Create(addr); // assessment is zero-inited
-			pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, iPosWhite);
-		}
-
-		pV->m_Flags = ByteOrder::from_le(val.m_Flags);
-		pV->m_Weight = ByteOrder::from_le(val.m_Weight);
-	}
-
-	for (auto it = m_ValidatorSet.m_mapValidators.begin(); m_ValidatorSet.m_mapValidators.end() != it; )
-	{
-		auto& v = *it++;
-
-		if (nDelFlag & v.m_Flags)
-			m_ValidatorSet.m_mapValidators.Delete(v);
-	}
-
-}
-
 void Node::Validator::OnNewStateInternal()
 {
 	auto& p = get_ParentObj().m_Processor; // alias
@@ -5996,8 +5957,6 @@ void Node::Validator::OnNewStateInternal()
 	m_FutureCandidate.Reset();
 
 	m_State = State::None;
-
-	RefreshValidatorSet();
 
 	m_wTotal = 0;
 	for (auto& v : m_ValidatorSet.m_mapValidators)
@@ -6056,36 +6015,90 @@ void Node::Validator::OnNewStateInternal()
 	Broadcast(msg, nullptr);
 }
 
-bool Node::Validator::ApproveContractInvoke(const TxKernelContractInvoke& krn)
+
+void Node::Validator::OnContractStoreReset()
 {
-	if (!m_pMe)
-		return true; // don't care, consider actions are ok
+	m_ValidatorSet.m_mapValidators.clear();
+}
 
-	assert(krn.m_Cid == get_ParentObj().m_Processor.m_Extra.m_cidPbft);
+void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
+{
+	if (!m_cid)
+	{
+		// we assume the very first deployed contract is the PBFT
+		if (ContractID::nBytes == key.n)
+		{
+			const auto& cid = *(const ContractID*) key.p;
+			m_cid = cid;
+			BEAM_LOG_INFO() << "PBFT contract is " << cid;
 
-	using namespace Shaders::PBFT;
-	typedef Shaders::PBFT::State::Validator::Flags F;
+			Blob blob = cid;
+			get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftCid, nullptr, &blob);
 
-	if (Method::ValidatorStatusUpdate::s_iMethod != krn.m_iMethod)
-		return true; // irrelevant
+		}
+		return;
+	}
 
-	if (krn.m_Args.size() != sizeof(Method::ValidatorStatusUpdate))
-		return false; // malformed
+	// track validator changes
+	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
 
-	const auto& r = *(const Method::ValidatorStatusUpdate*) &krn.m_Args.front();
+	// check sizes first (cheap) before checking cid
+	if (key.n != sizeof(VKeyType))
+		return;
 
-	// Check if this is consistent with my assessment
-	auto& msg = m_pMe->m_Assessment.m_Last;
-	auto it = msg.m_Reputation.find(r.m_Address);
-	if (msg.m_Reputation.end() == it)
-		return false;
+	if (val.n && (val.n < sizeof(Shaders::PBFT::State::Validator)))
+		return;
 
-	auto fMy = it->second;
-	auto fTx = ByteOrder::from_le(r.m_Flags);
-	if ((fMy ^ fTx) & F::Jail)
-		return false;
+	const auto& vk = *(const VKeyType*) key.p;
 
-	return true; // my assessment is consistent with this
+	if ((vk.m_Prefix.m_Cid != *m_cid) ||
+		(vk.m_Prefix.m_Tag != Shaders::KeyTag::Internal) ||
+		(vk.m_KeyInContract.m_Tag != Shaders::PBFT::State::Tag::s_Validator))
+		return;
+
+	// It's indeed a validator update action
+	Shaders::PBFT::State::Validator vd;
+	if (val.n)
+	{
+		const auto& newData = *(const Shaders::PBFT::State::Validator*) val.p;
+		vd.m_Flags = ByteOrder::from_le(newData.m_Flags);
+		vd.m_Weight = ByteOrder::from_le(newData.m_Weight);
+	}
+	else
+		ZeroObject(vd);
+
+	auto* pV = m_ValidatorSet.Find(vk.m_KeyInContract.m_Address);
+
+	if (!vd.m_Weight)
+	{
+		// delete it
+		if (pV)
+			m_ValidatorSet.m_mapValidators.Delete(*pV);
+		return;
+	}
+
+	if (bTemporary && m_pMe)
+	{
+		// I'm a validator, and the block isn't finalized yet.
+		// check if my assessment is consistent with this action
+		auto& msg = m_pMe->m_Assessment.m_Last;
+		auto it = msg.m_Reputation.find(vk.m_KeyInContract.m_Address);
+		if (msg.m_Reputation.end() == it)
+		{
+			auto fMy = it->second;
+			if ((fMy ^ vd.m_Flags) & Shaders::PBFT::State::Validator::Flags::Jail)
+				Exc::Fail();
+		}
+	}
+
+	if (!pV)
+	{
+		pV = m_ValidatorSet.m_mapValidators.Create(vk.m_KeyInContract.m_Address);
+		pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(vk.m_KeyInContract.m_Address);
+	}
+
+	pV->m_Weight = vd.m_Weight;
+	pV->m_Flags = vd.m_Flags;
 }
 
 bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const
@@ -6789,6 +6802,9 @@ void Node::Validator::CheckQuorum(RoundData& rd)
 
 void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 {
+	if (!m_cid)
+		return; // for more safety, shouldn't happen
+
 	auto& p = get_ParentObj().m_Processor; // alias
 	typedef Shaders::PBFT::State::Validator::Flags F;
 
@@ -6828,7 +6844,7 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 
 
 				auto pKrn = std::make_unique<TxKernelContractInvoke>();
-				pKrn->m_Cid = p.m_Extra.m_cidPbft;
+				pKrn->m_Cid = *m_cid;
 				pKrn->m_iMethod = Method::ValidatorStatusUpdate::s_iMethod;
 
 				pKrn->m_Args.resize(sizeof(Method::ValidatorStatusUpdate));

@@ -145,9 +145,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	m_Extra.m_TxoLo.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoLo);
 	m_Extra.m_TxoHi.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoHi);
 
-	blob = m_Extra.m_cidPbft;
-	m_DB.ParamGet(NodeDB::ParamID::PbftCid, nullptr, &blob);
-
 	ZeroObject(m_SyncData);
 
 	blob.p = &m_SyncData;
@@ -552,9 +549,12 @@ NodeDB::StateID NodeProcessor::Cursor::get_Sid() const
 	return sid;
 }
 
-bool NodeProcessor::ApprovePbftContractInvoke(const TxKernelContractInvoke&)
+void NodeProcessor::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
 {
-	return true;
+}
+
+void NodeProcessor::OnContractStoreReset()
+{
 }
 
 const Block::Pbft::State::IValidatorSet* NodeProcessor::get_Validators()
@@ -2888,51 +2888,6 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 		}
 	}
 
-	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-	{
-		// find deployed contract
-#pragma pack (push, 1)
-		struct Key {
-			struct Prefix {
-				ContractID m_cidZero = Zero;
-				uint8_t m_Tag = Shaders::KeyTag::SidCid;
-			};
-			struct Suffix {
-				bvm2::ShaderID m_Sid;
-				ContractID m_Cid;
-			};
-			struct Full
-			{
-				Prefix m_Prefix;
-				Suffix m_Suffix;
-			};
-
-		};
-#pragma pack (pop)
-
-		Key::Full kMin, kMax;
-		ZeroObject(kMin.m_Suffix);
-		memset(&kMax.m_Suffix, 0xff, sizeof(kMax.m_Suffix));
-
-		Blob bMin(&kMin, sizeof(kMin));
-		Blob bMax(&kMax, sizeof(kMax));
-
-		NodeDB::WalkerContractData wlk;
-		for (m_DB.ContractDataEnum(wlk, bMin, bMax); wlk.MoveNext(); )
-		{
-			if (sizeof(kMin) == wlk.m_Key.n)
-			{
-				const auto& key = *(const Key::Full*) wlk.m_Key.p;
-				m_Extra.m_cidPbft = key.m_Suffix.m_Cid;
-
-				bMin = m_Extra.m_cidPbft;
-				m_DB.ParamSet(NodeDB::ParamID::PbftCid, nullptr, &bMin);
-
-				break;
-			}
-		}
-	}
-
 	return true;
 }
 
@@ -3839,13 +3794,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 			return false; // c'tor call attempt
 		}
-
-		if (!bic.m_AlreadyValidated &&
-			bic.m_Temporary &&
-			(Rules::Consensus::Pbft == Rules::get().m_Consensus) &&
-			(m_Extra.m_cidPbft == krn.m_Cid) &&
-			!ApprovePbftContractInvoke(krn))
-			return false;
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		if (!proc.Invoke(krn.m_Cid, krn.m_iMethod, krn))
@@ -6049,6 +5997,8 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
+	m_Proc.OnContractVarChange(key, data, m_Bic.m_Temporary);
+
 	ContractDataSaveWithRecovery(e, data);
 
 	return nOldSize;
@@ -6082,8 +6032,8 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataSaveWithReco
 		}
 
 		BlockInterpretCtx::Ser ser(m_Bic);
-		ser& nTag;
-		ser& key.n;
+		ser & nTag;
+		ser & key.n;
 		ser.WriteRaw(key.p, key.n);
 		if (e.m_Data.size())
 			ser & e.m_Data;
@@ -6408,6 +6358,8 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 
 				if (RecoveryTag::Delete == nTag)
 				{
+					m_Proc.OnContractVarChange(key, Blob(), false);
+
 					ContractDataDel(key, e.m_Data);
 					e.m_Data.clear();
 				}
@@ -6415,6 +6367,8 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 				{
 					ByteBuffer data;
 					der & data;
+
+					m_Proc.OnContractVarChange(key, data, false);
 
 					if (RecoveryTag::Insert == nTag)
 						ContractDataInsert(key, data);
@@ -7901,7 +7855,7 @@ void NodeProcessor::ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts)
 
 		Deserializer der;
 		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-		der& dst.m_Outp;
+		der & dst.m_Outp;
 
 		dst.m_hCreate = 0;
 		dst.m_hSpent = wlk.m_SpendHeight;
@@ -8392,6 +8346,8 @@ void NodeProcessor::RebuildNonStd()
 	static_assert(NodeDB::StreamType::StatesMmr == 0);
 	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
 
+	OnContractStoreReset();
+
 	struct KrnWalkerRebuild
 		:public IKrnWalker
 	{
@@ -8465,8 +8421,6 @@ void NodeProcessor::RebuildNonStd()
 	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 	{
 		// start from the beginning, rebuild pbft data too
-
-		// TODO: hint Validators have been invalidated
 	}
 	else
 		nr.m_Min = FindAtivePastHeight(h0);
