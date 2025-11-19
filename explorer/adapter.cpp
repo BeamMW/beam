@@ -1433,22 +1433,6 @@ private:
                 {
                 }
 
-                void OnKrnEx(const TxKernelPbftUpdate& krn)
-                {
-                    Writer wr;
-                    wr.AddHex("Validator", krn.m_Address);
-                    wr.m_json["Status"] = (Block::Pbft::Validator::Flags::Jailed & krn.m_Flags) ? "Jail" : "Unjail";
-                    m_Wr.m_json["PBFT.Update"] = std::move(wr.m_json);
-                }
-
-                void OnKrnEx(const TxKernelPbftDelegatorUpdate& krn)
-                {
-                    Writer wr;
-                    wr.AddHex("Validator", krn.m_Validator);
-                    wr.AddHex("Delegator", krn.m_Delegator);
-                    m_Wr.m_json["PBFT.Bond"] = std::move(wr.m_json);
-                }
-
             } wlk;
             wlk.m_pCri = &cri;
             wlk.m_Height = h;
