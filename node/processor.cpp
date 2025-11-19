@@ -5394,7 +5394,10 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		if (m_Bic.m_pvC)
+		{
 			m_pFundsIO = &fundsIO;
+			m_iCurrentInvokeExtraInfo = (uint32_t) m_Bic.m_pvC->size();
+		}
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp(), (uint32_t)krn.m_Args.size(), 0);
 
