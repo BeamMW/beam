@@ -35,6 +35,13 @@
 #endif
 #include "utility/logger.h"
 
+namespace Shaders {
+#	define HOST_BUILD
+#	include "../bvm/Shaders/common.h"
+#	include "../bvm/Shaders/l2tst1/contract_l2.h"
+#	include "../bvm/Shaders/pbft/contract.h"
+} // namespace Shaders
+
 namespace ECC {
 
 	void SetRandom(uintBig& x)
@@ -95,8 +102,6 @@ namespace beam
 {
 	ByteBuffer g_Treasury;
 	Key::IKdf::Ptr g_pTreasuryKdf;
-
-	ContractID g_cidBridgeL2;
 
 	Amount get_Emission(const HeightRange& hr, Amount base = Rules::get().Emission.Value0)
 	{
@@ -1789,7 +1794,7 @@ namespace beam
 
 	}
 
-	void TestNodeClientProto(Rules& r)
+	void TestNodeClientProto(Rules& r, bool bTestPbft, bool bTestBridge)
 	{
 		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
 
@@ -1804,7 +1809,7 @@ namespace beam
 		node.m_Cfg.m_Listen.ip(INADDR_ANY);
 		node.m_Cfg.m_MiningThreads = 1;
 
-		if ((Rules::Consensus::Pbft == Rules::get().m_Consensus))
+		if (bTestPbft)
 		{
 			node.m_Keys.SetSingleKey(g_pTreasuryKdf);
 			node.m_Keys.m_pMiner = node.m_Keys.m_pGeneric;
@@ -1842,23 +1847,84 @@ namespace beam
 
 		ECC::SetRandom(node2);
 
-		if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+		if (bTestPbft || bTestBridge)
 		{
-			r.m_Pbft.m_RequiredWhite = 1;
-			r.m_Pbft.m_vE.resize(2);
+			r.SetForksFrom(0, 0);
 
-			r.m_Pbft.m_vE[0].m_Stake = Rules::Coin * 700;
-			r.m_Pbft.m_vE[0].m_White = false;
-			r.m_Pbft.m_vE[1].m_Stake = Rules::Coin * 700;
-			r.m_Pbft.m_vE[1].m_White = true;
+			auto td = beam::BuildTreasuryData();
 
-			ECC::Scalar::Native sk;
+			if (bTestPbft)
+			{
+				r.SetParamsPbft(576);
 
-			Block::Pbft::DeriveValidatorAddress(*node.m_Keys.m_pMiner, r.m_Pbft.m_vE[0].m_Addr, sk);
-			Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, r.m_Pbft.m_vE[1].m_Addr, sk);
+				// add PBFT contract to treasury
+				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+				beam::bvm2::Compile(pKrn->m_Data, "pbft/contract.wasm", beam::bvm2::Processor::Kind::Contract);
 
-			r.UpdateChecksum();
+				Shaders::PBFT::Method::Create m;
+				ZeroObject(m);
+
+				std::vector<Shaders::PBFT::ValidatorInit> vVals;
+				ECC::Scalar::Native sk;
+
+				m.m_Validators = 2;
+				vVals.resize(m.m_Validators);
+
+				Block::Pbft::DeriveValidatorAddress(*node.m_Keys.m_pMiner, Cast::Reinterpret<Block::Pbft::Address>(vVals[0].m_Address), sk);
+				Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, Cast::Reinterpret<Block::Pbft::Address>(vVals[1].m_Address), sk);
+
+				r.m_Pbft.m_Whitelist.m_NumRequired = 1;
+				r.m_Pbft.m_Whitelist.m_Addresses.resize(1);
+				r.m_Pbft.m_Whitelist.m_Addresses[0] = Cast::Reinterpret<Block::Pbft::Address>(vVals[1].m_Address);
+
+				vVals[0].m_Stake = Rules::Coin * 700;
+				vVals[1].m_Stake = Rules::Coin * 700;
+
+				pKrn->m_Args.resize(sizeof(m) + sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+				memcpy(&pKrn->m_Args.front(), &m, sizeof(m));
+
+				if (m.m_Validators)
+					memcpy(&pKrn->m_Args.front() + sizeof(m), &vVals.front(), sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+
+				ECC::SetRandom(sk);
+				ECC::Point::Native ptFunds(beam::Zero);
+				pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+				auto& tx = td.m_vGroups.back().m_Data;
+				tx.m_vKernels.push_back(std::move(pKrn));
+
+				sk = -sk;
+				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+
+			}
+
+			if (bTestBridge)
+			{
+				r.CA.ForeignEnd = 1'000'000;
+
+				// add L2 bridge
+				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+				beam::bvm2::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
+
+				ECC::Scalar::Native sk;
+				ECC::SetRandom(sk);
+				ECC::Point::Native ptFunds(beam::Zero);
+				pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+				auto& tx = td.m_vGroups.back().m_Data;
+				tx.m_vKernels.push_back(std::move(pKrn));
+
+				sk = -sk;
+				tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
+			}
+
+
+			beam::FinalizeTreasuryData(r, td);
+
 		}
+
+		r.UpdateChecksum();
+
 
 		struct MyClient
 			:public proto::NodeConnection
@@ -2640,7 +2706,7 @@ namespace beam
 #pragma pack (pop)
 
 				TxKernelContractInvoke::Ptr pKrn(new TxKernelContractInvoke);
-				pKrn->m_Cid = g_cidBridgeL2;
+				pKrn->m_Cid = m_pProc1->m_Extra.m_cidPbft;
 				pKrn->m_Fee = nFee;
 				pKrn->m_iMethod = 2;
 				pKrn->m_Height.m_Min = s.get_Height() + 1;
@@ -4383,50 +4449,10 @@ void TestAll()
 	r.Shielded.m_ProofMin = { 4, 5 }; // 1K
     r.Evm.Groth2Wei = 10'000'000'000ull;
 
-	if (bTestPbft)
-		r.SetParamsPbft(576);
-
-	if (bTestBridge)
-	{
-		r.CA.ForeignEnd = 1'000'000;
-
-		for (uint32_t i = 0; i < 7; i++)
-			r.pForks[i].m_Height = 0;
-
-		auto td = beam::BuildTreasuryData();
-
-		// add bridge L2 contract deployment
-		{
-			auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-			beam::bvm2::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
-
-			beam::bvm2::get_Cid(beam::g_cidBridgeL2, pKrn->m_Data, pKrn->m_Args);
-
-			ECC::Scalar::Native sk;
-			ECC::SetRandom(sk);
-			ECC::Point::Native ptFunds(beam::Zero);
-
-			pKrn->Sign(&sk, 1, ptFunds, nullptr);
-
-			auto& tx = td.m_vGroups.back().m_Data;
-			tx.m_vKernels.push_back(std::move(pKrn));
-
-			sk = -sk;
-			tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + sk;
-		}
-
-
-		beam::FinalizeTreasuryData(r, td);
-
-	}
-
-	if (!bTestPbft) // in test-pbft mode we assign actual validators inside the test
-		r.UpdateChecksum();
-
 	printf("Node <---> Client test (with proofs)...\n");
 	fflush(stdout);
 
-	beam::TestNodeClientProto(r);
+	beam::TestNodeClientProto(r, bTestPbft, bTestBridge);
 
 	{
 		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);

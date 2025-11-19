@@ -1751,85 +1751,6 @@ namespace detail
 				& val.m_Subsidy;
 		}
 
-		/// beam::TxKernelPbftUpdate serialization
-		template<typename Archive>
-		Archive& save(Archive& ar, const beam::TxKernelPbftUpdate& val)
-		{
-			uint32_t nFlags =
-				ImplTxKernel::get_CommonFlags(val);
-
-			ar
-				& nFlags
-				& val.m_Address
-				& val.m_Flags;
-
-			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
-			ImplTxKernel::save_Nested(ar, val);
-
-			return ar;
-		}
-
-		template<typename Archive>
-		void load0(Archive& ar, beam::TxKernelPbftUpdate& val, uint32_t nRecursion)
-		{
-			uint32_t nFlags;
-			ar
-				& nFlags
-				& val.m_Address
-				& val.m_Flags;
-
-			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
-			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
-		}
-
-		/// beam::TxKernelPbftUpdate serialization
-		template<typename Archive>
-		Archive& save(Archive& ar, const beam::TxKernelPbftDelegatorUpdate& val)
-		{
-			uint32_t nFlags =
-				ImplTxKernel::get_CommonFlags(val) |
-				((val.m_Commitment.m_Y) ? 0x100 : 0) |
-				((val.m_Signature.m_NoncePub.m_Y) ? 0x200 : 0);
-
-			ar
-				& nFlags
-				& val.m_Delegator
-				& val.m_Validator
-				& val.m_StakeBond
-				& val.m_StakeOut
-				& val.m_RevenueOut
-				& val.m_Commitment.m_X
-				& val.m_Signature.m_NoncePub.m_X
-				& val.m_Signature.m_k;
-
-			ImplTxKernel::save_FeeHeight(ar, val, nFlags);
-			ImplTxKernel::save_Nested(ar, val);
-
-			return ar;
-		}
-
-		template<typename Archive>
-		void load0(Archive& ar, beam::TxKernelPbftDelegatorUpdate& val, uint32_t nRecursion)
-		{
-			uint32_t nFlags;
-			ar
-				& nFlags
-				& val.m_Delegator
-				& val.m_Validator
-				& val.m_StakeBond
-				& val.m_StakeOut
-				& val.m_RevenueOut
-				& val.m_Commitment.m_X
-				& val.m_Signature.m_NoncePub.m_X
-				& val.m_Signature.m_k;
-
-			val.m_Commitment.m_Y = !!(0x100 & nFlags);
-			val.m_Signature.m_NoncePub.m_Y = !!(0x200 & nFlags);
-
-			ImplTxKernel::load_FeeHeight(ar, val, nFlags);
-			ImplTxKernel::load_Nested(ar, val, nFlags, nRecursion);
-		}
-
         /// beam::Transaction serialization
         template<typename Archive>
         Archive& save(Archive& ar, const beam::TxBase& txb)
@@ -1980,120 +1901,15 @@ namespace detail
 		Archive& save(Archive& ar, const beam::Block::Pbft::State& state)
 		{
 			ar
-				& state.m_lstVs.size();
-
-			for (const auto& v : state.m_lstVs)
-			{
-				ar & v.m_Addr.m_Key;
-				Cast::NotConst(v).serialize_nokey(ar);
-			}
-
+				& state.m_mapValidators;
 			return ar;
 		}
 
 		template<typename Archive>
 		Archive& load(Archive& ar, beam::Block::Pbft::State& state)
 		{
-			size_t n;
 			ar
-				& n;
-
-			state.Clear();
-			while (n--)
-			{
-				beam::Block::Pbft::Address addr;
-				ar & addr;
-				state.FindAlways(addr)->serialize_nokey(ar);
-			}
-
-			return ar;
-		}
-
-		template<typename Archive>
-		Archive& save(Archive& ar, const beam::Block::Pbft::StateWithDelegators& state)
-		{
-			ar
-				& Cast::Down<beam::Block::Pbft::State>(state)
-				& state.m_Totals.m_Fees
-				& state.m_Totals.m_Summa
-				& state.m_mapDelegators.size();
-
-			for (const auto& d : state.m_mapDelegators)
-			{
-				ar
-					& d.m_Key
-					& d.m_Unbonded.m_Value
-					& d.m_Unbonded.m_LockHeight
-					& d.m_mapBonds.size();
-
-				for (const auto& x : d.m_mapBonds)
-				{
-					const auto& bond = x.get_ParentObj();
-					ar
-						& bond.m_Validator.m_p->m_Addr.m_Key
-						& bond.m_Value
-						& bond.m_Summa0;
-				}
-
-			}
-
-			return ar;
-		}
-
-		template<typename Archive>
-		Archive& load(Archive& ar, beam::Block::Pbft::StateWithDelegators& state)
-		{
-			size_t nDelegators;
-			ar
-				& Cast::Down<beam::Block::Pbft::State>(state)
-				& state.m_Totals.m_Fees
-				& state.m_Totals.m_Summa
-				& nDelegators;
-
-			state.m_mapDelegators.clear();
-
-			beam::Block::Pbft::StateWithDelegators::Delegator* pD0 = nullptr;
-			while (nDelegators--)
-			{
-				beam::Block::Pbft::Address addr;
-				ar & addr;
-
-				if (pD0 && pD0->m_Key >= addr)
-					beam::Exc::Fail();
-
-				auto* pD = state.m_mapDelegators.Create(std::move(addr));
-				pD0 = pD;
-
-				size_t nBonds;
-				ar
-					& pD->m_Unbonded.m_Value
-					& pD->m_Unbonded.m_LockHeight
-					& nBonds;
-
-				beam::Block::Pbft::StateWithDelegators::Validator* pV0 = nullptr;
-				while (nBonds--)
-				{
-					beam::Block::Pbft::Address addrV;
-					ar & addrV;
-
-					if (pV0 && pV0->m_Addr.m_Key >= addr)
-						beam::Exc::Fail();
-
-					auto* pV = Cast::Up<beam::Block::Pbft::StateWithDelegators::Validator>(state.Find(addrV));
-					if (!pV)
-						beam::Exc::Fail();
-
-					auto* pBond = beam::Block::Pbft::StateWithDelegators::Bond::Create(*pV, *pD);
-
-					ar
-						& pBond->m_Value
-						& pBond->m_Summa0;
-
-					pV0 = pV;
-				}
-
-			}
-
+				& state.m_mapValidators;
 			return ar;
 		}
 

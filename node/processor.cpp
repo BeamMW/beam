@@ -145,6 +145,9 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	m_Extra.m_TxoLo.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoLo);
 	m_Extra.m_TxoHi.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoHi);
 
+	blob = m_Extra.m_cidPbft;
+	m_DB.ParamGet(NodeDB::ParamID::PbftCid, nullptr, &blob);
+
 	ZeroObject(m_SyncData);
 
 	blob.p = &m_SyncData;
@@ -172,23 +175,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	InitializeMapped(szPath);
 	m_Extra.m_Txos = get_TxosBefore(Block::Number(m_Cursor.m_Full.m_Number.v + 1));
-
-	if (Rules::Consensus::Pbft == r.m_Consensus)
-	{
-		if (m_Cursor.m_Full.m_Number.v)
-		{
-			ByteBuffer buf;
-			m_DB.ParamGet(NodeDB::ParamID::PbftState, nullptr, nullptr, &buf);
-
-			Deserializer der;
-			der.reset(buf);
-			der & Cast::Down<Block::Pbft::StateWithDelegators>(m_PbftState);
-		}
-		else
-			m_PbftState.SetInitial();
-
-		m_PbftState.m_Hash.m_Valid = false;
-	}
 
 	bool bRebuildNonStd = false;
 	if ((StartParams::RichInfo::Off | StartParams::RichInfo::On) & sp.m_RichInfoFlags)
@@ -566,28 +552,14 @@ NodeDB::StateID NodeProcessor::Cursor::get_Sid() const
 	return sid;
 }
 
-void NodeProcessor::PbftState::Hash::Update()
+bool NodeProcessor::ApprovePbftContractInvoke(const TxKernelContractInvoke&)
 {
-	if (!m_Valid)
-	{
-		get_ParentObj().get_Hash(m_hv);
-		m_Valid = true;
-	}
+	return true;
 }
 
-std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::PbftState::CreateValidator()
+const Block::Pbft::State::IValidatorSet* NodeProcessor::get_Validators()
 {
-	return get_ParentObj().CreateValidator();
-}
-
-std::unique_ptr<Block::Pbft::Validator>  NodeProcessor::CreateValidator()
-{
-	return Block::Pbft::Validator::Create();
-}
-
-bool NodeProcessor::ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&)
-{
-	return false;
+	return nullptr;
 }
 
 NodeProcessor::CongestionCache::TipCongestion* NodeProcessor::CongestionCache::Find(const NodeDB::StateID& sid)
@@ -2916,6 +2888,51 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 		}
 	}
 
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		// find deployed contract
+#pragma pack (push, 1)
+		struct Key {
+			struct Prefix {
+				ContractID m_cidZero = Zero;
+				uint8_t m_Tag = Shaders::KeyTag::SidCid;
+			};
+			struct Suffix {
+				bvm2::ShaderID m_Sid;
+				ContractID m_Cid;
+			};
+			struct Full
+			{
+				Prefix m_Prefix;
+				Suffix m_Suffix;
+			};
+
+		};
+#pragma pack (pop)
+
+		Key::Full kMin, kMax;
+		ZeroObject(kMin.m_Suffix);
+		memset(&kMax.m_Suffix, 0xff, sizeof(kMax.m_Suffix));
+
+		Blob bMin(&kMin, sizeof(kMin));
+		Blob bMax(&kMax, sizeof(kMax));
+
+		NodeDB::WalkerContractData wlk;
+		for (m_DB.ContractDataEnum(wlk, bMin, bMax); wlk.MoveNext(); )
+		{
+			if (sizeof(kMin) == wlk.m_Key.n)
+			{
+				const auto& key = *(const Key::Full*) wlk.m_Key.p;
+				m_Extra.m_cidPbft = key.m_Suffix.m_Cid;
+
+				bMin = m_Extra.m_cidPbft;
+				m_DB.ParamSet(NodeDB::ParamID::PbftCid, nullptr, &bMin);
+
+				break;
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -3071,6 +3088,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
+	const Block::Pbft::IValidatorSet* pValidators = nullptr;
 
 	try {
 		Deserializer der;
@@ -3087,8 +3105,14 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 			const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
-			m_PbftState.m_Hash.Update();
-			if (d.m_hvVsPrev != m_PbftState.m_Hash.m_hv)
+			pValidators = get_Validators();
+			if (!pValidators)
+				Exc::Fail();
+
+			Merkle::Hash hv;
+			pValidators->get_Hash(hv);
+
+			if (d.m_hvVsPrev != hv)
 				Exc::Fail();
 
 			if (bFirstTime)
@@ -3112,7 +3136,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 					assert(id.m_Height == 1u);
 				}
 
-				if (bTestOnly || r.m_Pbft.m_RequiredWhite)
+				if (bTestOnly || r.m_Pbft.m_Whitelist.m_NumRequired)
 				{
 					// during block test the QC isn't ready yet
 					// In whitelist mode the QC isn't appended to the block anyway
@@ -3123,7 +3147,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 					Block::Pbft::Quorum qc;
 					der & qc;
 
-					if (!m_PbftState.CheckQuorum(id.m_Hash, qc))
+					if (!pValidators->CheckQuorum(id.m_Hash, qc))
 						Exc::Fail("QC");
 				}
 
@@ -3286,8 +3310,10 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
-			m_PbftState.m_Hash.Update();
-			if (m_PbftState.m_Hash.m_hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+			Merkle::Hash hv;
+			pValidators->get_Hash(hv);
+
+			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 			{
 				BEAM_LOG_WARNING() << id << " pbft vs mismatch";
 				bOk = false;
@@ -3351,18 +3377,6 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			m_DB.set_StateInputs(row, &v.front(), v.size());
 
 		Serializer ser;
-
-		if (Rules::Consensus::Pbft == r.m_Consensus)
-		{
-			bic.m_Rollback.clear();
-
-			ser.swap_buf(bic.m_Rollback); // optimization
-			ser & Cast::Down<Block::Pbft::StateWithDelegators>(m_PbftState);
-			ser.swap_buf(bic.m_Rollback);
-
-			Blob blob(bic.m_Rollback);
-			m_DB.ParamSet(NodeDB::ParamID::PbftState, nullptr, &blob);
-		}
 
 		// recognize all
 		MyRecognizer rec(*this);
@@ -3825,6 +3839,13 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 			return false; // c'tor call attempt
 		}
+
+		if (!bic.m_AlreadyValidated &&
+			bic.m_Temporary &&
+			(Rules::Consensus::Pbft == Rules::get().m_Consensus) &&
+			(m_Extra.m_cidPbft == krn.m_Cid) &&
+			!ApprovePbftContractInvoke(krn))
+			return false;
 
 		BlockInterpretCtx::BvmProcessor proc(bic, *this);
 		if (!proc.Invoke(krn.m_Cid, krn.m_iMethod, krn))
@@ -4741,148 +4762,6 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInte
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelPbftUpdate& krn, BlockInterpretCtx& bic)
-{
-	auto* pV = m_PbftState.Find(krn.m_Address);
-	if (!pV)
-		return false;
-
-	if (bic.m_Fwd)
-	{
-		if (!bic.m_AlreadyValidated)
-		{
-			if (krn.m_Height.m_Min != bic.m_Height)
-				return false;
-
-			if (pV->m_Flags == krn.m_Flags)
-				return false; // redundant
-
-			if (bic.m_Temporary && !ApproveValidatorAction(*pV, krn))
-				return false;
-		}
-
-		BlockInterpretCtx::Ser ser(bic);
-		ser & pV->m_Flags;
-
-		pV->m_Flags = krn.m_Flags;
-	}
-	else
-	{
-		BlockInterpretCtx::Der der(bic);
-		der & pV->m_Flags;
-	}
-
-	m_PbftState.m_Hash.m_Valid = false;
-	return true;
-}
-
-bool IsDelegatorEmpty(const Block::Pbft::StateWithDelegators::Delegator& d)
-{
-	return
-		!d.m_Unbonded.m_Value &&
-		!d.m_Revenue &&
-		d.m_mapBonds.empty();
-}
-
-bool NodeProcessor::HandleKernelType(const TxKernelPbftDelegatorUpdate& krn, BlockInterpretCtx& bic)
-{
-/*	// This operation can do the following:
-	//	1. Add/remove funds to/from the delegator balance
-	//	2. Transfer funds to/from a choosen validator
-	//	3. Transfer revenue from the selected validator
-	//	4. Withdraw the revenue
-
-	bool bAdd;
-	Amount valUns = SplitAmountSigned(krn.m_Amount, bAdd);
-
-	bool bFundsIO = (krn.m_Address == Zero);
-	if (bFundsIO && !valUns)
-	{
-		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << "no amount";
-		return false;
-	}
-
-	bool bAddTechnically = (bAdd == bic.m_Fwd);
-
-	auto itD = m_PbftState.m_mapDelegators.find(krn.m_Owner, Block::Pbft::StateWithDelegators::Delegator::Comparator());
-	auto* pD = (m_PbftState.m_mapDelegators.end() == itD) ? nullptr : &(*itD);
-
-	if (!pD)
-	{
-		if (!(bFundsIO && bAddTechnically))
-		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "delegator not found";
-			return false;
-		}
-
-		pD = m_PbftState.m_mapDelegators.Create(krn.m_Owner);
-		ZeroObject(pD->m_Unbonded);
-	}
-
-	if (bFundsIO)
-	{
-		if (bAddTechnically)
-		{
-			if (!bAdd && IsDelegatorEmpty(*pD))
-			{
-				// undoing full removal of unbonded value
-				BlockInterpretCtx::Der der(bic);
-				der & pD->m_Unbonded.m_LockHeight;
-			}
-
-			auto val1 = pD->m_Unbonded.m_Value + valUns;
-			if (val1 < valUns)
-			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "overflow";
-				return false;
-			}
-
-			pD->m_Unbonded.m_Value = val1;
-		}
-		else
-		{
-			if (pD->m_Unbonded.m_Value < valUns)
-			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "insufficient funds";
-				return false;
-			}
-
-			if (!bAdd && (pD->m_Unbonded.m_LockHeight > bic.m_Height))
-			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "lock-height not reached";
-				return false;
-			}
-
-			pD->m_Unbonded.m_Value -= valUns;
-
-			if (IsDelegatorEmpty(*pD))
-			{
-				if (!bAdd)
-				{
-					// remove fully, save the lock height
-					BlockInterpretCtx::Ser ser(bic);
-					ser & pD->m_Unbonded.m_LockHeight;
-				}
-
-				m_PbftState.m_mapDelegators.Delete(*pD);
-			}
-
-		}
-	}
-	else
-	{
-
-
-	}
-	*/
-	return true;
-}
-
 template <typename T>
 bool NodeProcessor::HandleElementVecFwd(const T& vec, BlockInterpretCtx& bic, size_t& n)
 {
@@ -5305,16 +5184,6 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 	{
 		if (bic.m_Fwd)
 			bic.m_nKrnIdx++;
-
-		bool bHandleFee = v.m_Fee && !bic.m_TxValidation && (Rules::Consensus::Pbft == Rules::get().m_Consensus);
-		if (bHandleFee)
-		{
-			if (bic.m_Fwd)
-				m_PbftState.m_Totals.m_Fees += v.m_Fee;
-			else
-				m_PbftState.m_Totals.m_Fees -= v.m_Fee;
-		}
-
 	}
 	else
 	{
@@ -7728,12 +7597,16 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_AlreadyValidated = true;
 	bic.m_SkipDefinition = false;
 
+	const Block::Pbft::IValidatorSet* pValidators = nullptr;
+
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
-		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+		pValidators = get_Validators();
+		if (!pValidators)
+			return false;
 
-		m_PbftState.m_Hash.Update();
-		d.m_hvVsPrev = m_PbftState.m_Hash.m_hv;
+		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+		pValidators->get_Hash(d.m_hvVsPrev);
 	}
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
@@ -7753,8 +7626,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
 
-		m_PbftState.m_Hash.Update();
-		d.m_hvVsNext = m_PbftState.m_Hash.m_hv;
+		pValidators->get_Hash(d.m_hvVsNext);
 
 		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller
 
@@ -8594,11 +8466,7 @@ void NodeProcessor::RebuildNonStd()
 	{
 		// start from the beginning, rebuild pbft data too
 
-		m_PbftState.Clear();
-		m_PbftState.m_Hash.m_Valid = false;
-
-		m_PbftState.SetInitial();
-
+		// TODO: hint Validators have been invalidated
 	}
 	else
 		nr.m_Min = FindAtivePastHeight(h0);

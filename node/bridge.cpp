@@ -576,12 +576,9 @@ void L2Bridge::Init(Params&& pars)
 	const Rules& r = Rules::get(); // our (L2) rules
 	m_iWhiteValidator = std::numeric_limits<uint32_t>::max();
 	uint32_t nWhite = 0;
-	for (const auto& v : r.m_Pbft.m_vE)
+	for (const auto& addr : r.m_Pbft.m_Whitelist.m_Addresses)
 	{
-		if (!v.m_White)
-			continue;
-
-		if (v.m_Addr == m_Node.m_Keys.m_Validator.m_Addr)
+		if (addr == m_Node.m_Keys.m_Validator.m_Addr)
 		{
 			m_iWhiteValidator = nWhite;
 
@@ -763,16 +760,14 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	uint32_t iMyChallenge = 0;
 
 	const Rules& r = Rules::get(); // our (L2) rules
-	for (uint32_t i = 0; i < r.m_Pbft.m_vE.size(); i++)
+	for (uint32_t i = 0; i < r.m_Pbft.m_Whitelist.m_Addresses.size(); i++)
 	{
-		const auto& v = r.m_Pbft.m_vE[i];
-		if (!v.m_White)
-			continue;
+		const auto& addr = r.m_Pbft.m_Whitelist.m_Addresses[i];
 
 		if (1u & msk)
 		{
 			ECC::Point pk;
-			pk.m_X = Cast::Down<ECC::uintBig>(v.m_Addr);
+			pk.m_X = Cast::Down<ECC::uintBig>(addr);
 			pk.m_Y = 0;
 			hp << pk;
 

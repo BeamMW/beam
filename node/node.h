@@ -260,8 +260,9 @@ private:
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
-		std::unique_ptr<Block::Pbft::Validator> CreateValidator() override;
-		bool ApproveValidatorAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&) override;
+
+		bool ApprovePbftContractInvoke(const TxKernelContractInvoke&) override;
+		const Block::Pbft::State::IValidatorSet* get_Validators() override;
 
 		void Stop();
 
@@ -805,7 +806,7 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
-		bool ApproveAction(Block::Pbft::Validator&, const TxKernelPbftUpdate&);
+		bool ApproveContractInvoke(const TxKernelContractInvoke&);
 
 		uint64_t get_RefTime_ms() const;
 
@@ -828,12 +829,31 @@ private:
 		};
 
 		struct ValidatorWithAssessment
-			:public Block::Pbft::StateWithDelegators::Validator
+			:public intrusive::set_base_hook<Block::Pbft::Address>
 		{
+			typedef intrusive::multiset_autoclear<ValidatorWithAssessment> Map;
+
+			uint64_t m_Weight;
 			Assessment m_Assessment;
+			uint8_t m_Flags;
+			bool m_Whitelisted;
 		};
 
 		ValidatorWithAssessment* m_pMe; // refreshed after each block
+
+		struct ValidatorSet
+			:public Block::Pbft::IValidatorSet
+		{
+			ValidatorWithAssessment::Map m_mapValidators;
+
+			bool EnumValidators(ITarget&) const override;
+
+			ValidatorWithAssessment* Find(const Block::Pbft::Address&) const;
+			ValidatorWithAssessment* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const;
+
+		private:
+			static uint64_t get_Random(ECC::Oracle&, uint64_t nBound);
+		} m_ValidatorSet;
 
 	private:
 
@@ -848,7 +868,7 @@ private:
 			uint64_t m_wVoted = 0;
 			uint32_t m_nWhite = 0;
 
-			void Add(const Block::Pbft::Validator&);
+			void Add(const ValidatorWithAssessment&);
 			bool IsMajorityReached(uint64_t wTotal) const;
 
 			void Reset() { *this = Power(); }
@@ -860,7 +880,7 @@ private:
 			Power m_Power;
 			Merkle::Hash m_hv;
 
-			void Add(const Block::Pbft::Validator&, const ECC::Signature&);
+			void Add(const ValidatorWithAssessment&, const ECC::Signature&);
 
 			void Reset()
 			{
@@ -894,7 +914,7 @@ private:
 		struct RoundData
 			:public RoundDataBase
 		{
-			const Block::Pbft::Validator* m_pLeader;
+			const ValidatorWithAssessment* m_pLeader;
 			SigsAndPower m_spNotCommitted; // at the round start
 			bool m_bNotCommittedHashSet;
 			void Reset();
@@ -921,6 +941,7 @@ private:
 
 		void OnNewRound();
 		void OnNewStateInternal();
+		void RefreshValidatorSet();
 		void GenerateProposal();
 		void SignProposal();
 		void OnProposalReceived(const Peer*);

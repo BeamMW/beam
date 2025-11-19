@@ -1043,8 +1043,6 @@ void NodeConnection::Test(const PbftStamp& msg, const Block::SystemState::Full& 
         & state
         & qc;
 
-    state.ResolveWhitelisted(r);
-
     Merkle::Hash hv;
     state.get_Hash(hv);
 
