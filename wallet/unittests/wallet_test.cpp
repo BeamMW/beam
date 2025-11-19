@@ -65,6 +65,12 @@ WALLET_TEST_INIT
 #include "wallet_test_environment.cpp"
 #include "wallet/api/v6_0/v6_api.h"
 
+namespace Shaders {
+#	define HOST_BUILD
+#	include "../bvm/Shaders/common.h"
+#	include "../bvm/Shaders/pbft/contract.h"
+} // namespace Shaders
+
 namespace
 {
     struct AtomicSwapProvider : ISwapsProvider
@@ -2945,6 +2951,7 @@ namespace
 
         static const uint32_t s_Validators = 4;
         Key::IKdf::Ptr m_ppValidators[s_Validators];
+        Block::Pbft::Address m_pValidatorAddress[s_Validators];
     };
 
     void L2Params::RunInThread()
@@ -2960,25 +2967,64 @@ namespace
         // build treasury
         ByteBuffer treasury;
 
-        // add bridge L2 contract deployment
+        // add PBFT and bridge L2 contract deployment
         {
             Treasury::Data td;
             auto& tg = td.m_vGroups.emplace_back();
             tg.m_Value = Zero;
 
-            auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-            MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+            {
+				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+                MyManager::Compile(pKrn->m_Data, "pbft/contract.wasm", beam::bvm2::Processor::Kind::Contract);
 
-            ECC::Scalar::Native sk;
-            sk.GenRandomNnz();
-            ECC::Point::Native ptFunds(beam::Zero);
+				Shaders::PBFT::Method::Create m;
+				ZeroObject(m);
+                m.m_Validators = s_Validators;
+                m.m_Settings.m_aidStake = 7;
 
-            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+				std::vector<Shaders::PBFT::ValidatorInit> vVals;
+				ECC::Scalar::Native sk;
 
-            tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+				vVals.resize(s_Validators);
 
-            sk = -sk;
-            tg.m_Data.m_Offset = sk;
+                for (uint32_t i = 0; i < s_Validators; i++)
+                {
+                    vVals[i].m_Address = Cast::Down<ECC::uintBig>(m_pValidatorAddress[i]);
+                    vVals[i].m_Stake = Rules::Coin * 5000;
+                }
+
+				pKrn->m_Args.resize(sizeof(m) + sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+				memcpy(&pKrn->m_Args.front(), &m, sizeof(m));
+
+				if (m.m_Validators)
+					memcpy(&pKrn->m_Args.front() + sizeof(m), &vVals.front(), sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+
+				sk.GenRandomNnz();
+				ECC::Point::Native ptFunds(beam::Zero);
+				pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+				tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+				sk = -sk;
+				tg.m_Data.m_Offset = sk;
+            }
+
+
+            {
+                auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+                MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+
+                ECC::Scalar::Native sk;
+                sk.GenRandomNnz();
+                ECC::Point::Native ptFunds(beam::Zero);
+
+                pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+                tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+                sk = -sk;
+                tg.m_Data.m_Offset = ECC::Scalar::Native(tg.m_Data.m_Offset) + sk;
+            }
 
             beam::Serializer ser;
             ser & td;
@@ -3037,7 +3083,7 @@ namespace
 
             x.m_Node.Initialize();
 
-            WALLET_CHECK(x.m_Node.m_Keys.m_Validator.m_Addr == m_RulesL2.m_Pbft.m_vE[i].m_Addr);
+            WALLET_CHECK(x.m_Node.m_Keys.m_Validator.m_Addr == m_pValidatorAddress[i]);
 
             x.m_Node.m_PostStartSynced = true;
 
@@ -3156,9 +3202,8 @@ namespace
 
         pars.m_RulesL2.CA.ForeignEnd = 1'000'000;
 
-        pars.m_RulesL2.m_Pbft.m_AidStake = 7;
-        pars.m_RulesL2.m_Pbft.m_RequiredWhite = 1;
-        pars.m_RulesL2.m_Pbft.m_vE.resize(pars.s_Validators);
+        pars.m_RulesL2.m_Pbft.m_Whitelist.m_NumRequired = 1;
+        pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses.resize(pars.s_Validators);
 
         for (uint32_t i = 0; i < L2Params::s_Validators; i++)
         {
@@ -3173,12 +3218,9 @@ namespace
             if (CoinID(Zero).get_ChildKdfIndex(idxMiner))
                 pMiner = MasterKey::get_Child(*pMiner, idxMiner);
 
-            auto& v = pars.m_RulesL2.m_Pbft.m_vE[i];
-            v.m_Stake = Rules::Coin * 5000;
-            v.m_White = true;
-
             ECC::Scalar::Native sk;
-            Block::Pbft::DeriveValidatorAddress(*pMiner, v.m_Addr, sk);
+            Block::Pbft::DeriveValidatorAddress(*pMiner, pars.m_pValidatorAddress[i], sk);
+            pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses[i] = pars.m_pValidatorAddress[i];
         }
 
         int completedCount = 0;
@@ -3226,7 +3268,7 @@ namespace
         manSender.m_Args["action"] = "deploy";
 
         for (uint32_t i = 0; i < L2Params::s_Validators; i++)
-            manSender.m_Args["validator_" + std::to_string(i)] = pars.m_RulesL2.m_Pbft.m_vE[i].m_Addr.str() + "00";
+            manSender.m_Args["validator_" + std::to_string(i)] = pars.m_pValidatorAddress[i].str() + "00";
 
         manSender.m_Args["hUpgradeDelay"] = "1";
         manSender.m_Args["nMinApprovers"] = "1";

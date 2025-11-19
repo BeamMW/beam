@@ -24,6 +24,7 @@ configure_file("../../bvm/Shaders/dao-vault/contract.wasm" "${CMAKE_CURRENT_BINA
 configure_file("../../bvm/Shaders/l2tst1/contract_l1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/contract_l1.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/l2tst1/contract_l2.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/contract_l2.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/l2tst1/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/pbft/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pbft/contract.wasm" COPYONLY)
 
 
 add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node)
