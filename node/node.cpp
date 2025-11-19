@@ -6018,8 +6018,11 @@ void Node::Validator::OnNewStateInternal()
 
 void Node::Validator::OnContractStoreReset()
 {
-	m_ValidatorSet.m_mapValidators.clear();
-	m_ValidatorSet.m_hv.reset();
+	if (!m_ValidatorSet.m_mapValidators.empty())
+	{
+		m_ValidatorSet.m_mapValidators.clear();
+		m_ValidatorSet.m_hv.reset();
+	}
 }
 
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
@@ -6095,15 +6098,19 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		}
 	}
 
-	m_ValidatorSet.m_hv.reset();
-
 	if (!pV)
 	{
 		pV = m_ValidatorSet.m_mapValidators.Create(vk.m_KeyInContract.m_Address);
 		pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(vk.m_KeyInContract.m_Address);
+		pV->m_Weight = 0;
 	}
 
-	pV->m_Weight = vd.m_Weight;
+	if (pV->m_Weight != vd.m_Weight)
+	{
+		pV->m_Weight = vd.m_Weight;
+		m_ValidatorSet.m_hv.reset();
+	}
+
 	pV->m_Flags = vd.m_Flags;
 }
 
