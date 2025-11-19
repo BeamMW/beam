@@ -6019,6 +6019,7 @@ void Node::Validator::OnNewStateInternal()
 void Node::Validator::OnContractStoreReset()
 {
 	m_ValidatorSet.m_mapValidators.clear();
+	m_ValidatorSet.m_hv.reset();
 }
 
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
@@ -6073,7 +6074,10 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 	{
 		// delete it
 		if (pV)
+		{
+			m_ValidatorSet.m_hv.reset();
 			m_ValidatorSet.m_mapValidators.Delete(*pV);
+		}
 		return;
 	}
 
@@ -6083,13 +6087,15 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		// check if my assessment is consistent with this action
 		auto& msg = m_pMe->m_Assessment.m_Last;
 		auto it = msg.m_Reputation.find(vk.m_KeyInContract.m_Address);
-		if (msg.m_Reputation.end() == it)
+		if (msg.m_Reputation.end() != it)
 		{
 			auto fMy = it->second;
 			if ((fMy ^ vd.m_Flags) & Shaders::PBFT::State::Validator::Flags::Jail)
 				Exc::Fail();
 		}
 	}
+
+	m_ValidatorSet.m_hv.reset();
 
 	if (!pV)
 	{
@@ -6108,6 +6114,17 @@ bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const
 			return false;
 
 	return true;
+}
+
+void Node::Validator::ValidatorSet::get_Hash(Merkle::Hash& hv) const
+{
+	if (m_hv)
+		hv = *m_hv;
+	else
+	{
+		Block::Pbft::IValidatorSet::get_Hash(hv);
+		m_hv = hv;
+	}
 }
 
 Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::Find(const Block::Pbft::Address& addr) const
