@@ -4375,11 +4375,10 @@ void TestAll()
 	r.m_Consensus = beam::Rules::Consensus::FakePoW;
 	r.MaxRollback = 10;
 	r.DA.WindowWork = 35;
-	r.Maturity.Coinbase = 35; // lowered to see more txs
 	r.Emission.Drop0 = 5;
 	r.Emission.Drop1 = 8;
 	r.CA.Enabled = true;
-	r.Maturity.Coinbase = 10;
+	r.Maturity.Coinbase = 10; // lowered to see more txs
 	r.pForks[1].m_Height = 16;
 	r.UpdateChecksum();
 
@@ -4506,6 +4505,13 @@ void TestAll()
 
 	r.m_Consensus = beam::Rules::Consensus::FakePoW;
 	r.CA.ForeignEnd = 0;
+
+	r.Emission.Value0 = beam::Rules::Coin * 80;
+	r.Emission.Drop0 = 5;
+	r.Emission.Drop1 = 8;
+	r.CA.Enabled = true;
+	r.Maturity.Coinbase = 10;
+
 	r.UpdateChecksum();
 
 	beam::TestFlyClient();
