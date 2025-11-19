@@ -68,4 +68,16 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
     Env::SaveVar_T(vk, val);
 }
 
+BEAM_EXPORT void Method_3(const Method::AddReward& r)
+{
+    State::Global g;
+    auto gk = State::Tag::s_Global;
+    Env::LoadVar_T(gk, g);
+
+    Strict::Add(g.m_Pool.m_RewardPending, r.m_Amount);
+    Env::SaveVar_T(gk, g);
+
+    Env::FundsLock(0, r.m_Amount);
+}
+
 } // namespace PBFT
