@@ -732,7 +732,7 @@ namespace MultiPrecision
 		{
 			m_Val = resid.template DivOnceNormalized<nWords - 1>(div);
 			if constexpr (nWords > 1)
-				Base::template SetDivResidNormalized(resid, div);
+				this->Base::SetDivResidNormalized(resid, div); // this is how clang likes this
 		}
 
 		template <uint32_t nLShift, uint32_t wd>
