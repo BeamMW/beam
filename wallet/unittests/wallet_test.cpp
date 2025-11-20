@@ -3267,8 +3267,10 @@ namespace
 
         manSender.m_Args["action"] = "deploy";
 
-        for (uint32_t i = 0; i < L2Params::s_Validators; i++)
-            manSender.m_Args["validator_" + std::to_string(i)] = pars.m_pValidatorAddress[i].str() + "00";
+        std::sort(pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses.begin(), pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses.end());
+
+        for (uint32_t i = 0; i < pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses.size(); i++)
+            manSender.m_Args["validator_" + std::to_string(i)] = pars.m_RulesL2.m_Pbft.m_Whitelist.m_Addresses[i].str() + "00";
 
         manSender.m_Args["hUpgradeDelay"] = "1";
         manSender.m_Args["nMinApprovers"] = "1";
