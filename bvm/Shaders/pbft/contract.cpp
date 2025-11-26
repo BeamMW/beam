@@ -4,28 +4,96 @@
 
 namespace PBFT {
 
+void State::ValidatorPlus::Init(const State::Global& g)
+{
+    _POD_(*this).SetZero();
+    m_cuRewardGlobal.Update(g.m_accReward, 0); // just move 
+    m_kStakeScale.set_1();
+}
+
+void EraseUnbonded(Amount amount, const PubKey& pkDelegator, Height hMax)
+{
+    assert(amount);
+
+    State::Unbonded::Key uk;
+    _POD_(uk.m_Delegator) = pkDelegator;
+    uk.m_hLock_BE = Utils::FromBE(hMax); // assume from/to BE is the same
+
+    while (true)
+    {
+        State::Unbonded u;
+        uint32_t nVal = sizeof(u);
+        uint32_t nKey = sizeof(uk);
+
+        Env::LoadVarEx(&uk, nKey, nKey, &u, nVal, KeyTag::Internal, KeySearchFlags::Exact);
+        Env::Halt_if((sizeof(uk) != nKey) || (sizeof(u) != nVal) || (State::Tag::s_Unbonded != uk.m_Tag));
+
+        if (amount >= u.m_Amount)
+        {
+            amount -= u.m_Amount;
+            Env::DelVar_T(uk);
+        }
+        else
+        {
+            u.m_Amount -= amount;
+            Env::SaveVar_T(uk, u);
+            amount = 0;
+        }
+
+        if (!amount)
+            break;
+    }
+}
+
+void AddUnbonded(Amount amount, const PubKey& pkDelegator, Height h)
+{
+    assert(amount);
+
+    State::Unbonded::Key uk;
+    _POD_(uk.m_Delegator) = pkDelegator;
+    uk.m_hLock_BE = Utils::FromBE(h);
+
+    State::Unbonded u;
+    if (Env::LoadVar_T(uk, u))
+        Strict::Add(u.m_Amount, amount);
+    else
+        u.m_Amount = amount;
+
+    Env::SaveVar_T(uk, u);
+}
+
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
     State::Global g;
+    _POD_(g).SetZero();
     _POD_(g.m_Settings) = r.m_Settings;
-    _POD_(g.m_Pool).SetZero();
 
     State::Validator::Key vk;
-    State::Validator val;
-    _POD_(val).SetZero();
+    State::ValidatorPlus vp;
+    vp.Init(g);
+
+    State::Delegator::Key dk;
+    State::Delegator d;
+    _POD_(d).SetZero();
 
     for (uint32_t i = 0; i < r.m_Validators; i++)
     {
         const auto& v = ((const ValidatorInit*)(&r + 1))[i];
         _POD_(vk.m_Address) = v.m_Address;
 
-        val.m_Weight = v.m_Stake * 100ul;
-        Env::Halt_if(val.m_Weight <= v.m_Stake); // stake is zero or overflow
+        Env::Halt_if(!v.m_Stake);
+        vp.m_Weight = v.m_Stake;
+        _POD_(vp.m_Self.m_Delegator) = v.m_Delegator;
 
-        Env::Halt_if(Env::SaveVar_T(vk, val)); // fail if key is duplicated
+        Env::Halt_if(Env::SaveVar_T(vk, vp)); // fail if key is duplicated
 
-        Strict::Add(g.m_Pool.m_WeightNonJailed, val.m_Weight);
+        d.m_Bonded.m_kStakeScaled = v.m_Stake;
+        _POD_(dk.m_Validator) = v.m_Address;
+        _POD_(dk.m_Delegator) = v.m_Delegator;
+        Env::SaveVar_T(dk, d);
+
+        Strict::Add(g.m_TotakStakeNonJailed, vp.m_Weight);
     }
 
     auto key = State::Tag::s_Global;
@@ -42,30 +110,58 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
     State::Validator::Key vk;
     _POD_(vk.m_Address) = r.m_Address;
 
-    State::Validator val;
-    Env::Halt_if(!Env::LoadVar_T(vk, val));
-
-    auto flags = r.m_Flags;
-    uint8_t diff = val.m_Flags ^ flags;
-    Env::Halt_if(!diff); // fail if no change
+    State::ValidatorPlus vp;
+    Env::Halt_if(!Env::LoadVar_T(vk, vp));
+    bool bDirty = false;
 
     typedef State::Validator::Flags F;
-    Env::Halt_if(diff & ~F::Jail); // we support only jail flag atm
 
     State::Global g;
     auto gk = State::Tag::s_Global;
     Env::LoadVar_T(gk, g);
 
-    if (F::Jail & flags)
-        g.m_Pool.m_WeightNonJailed -= val.m_Weight; // assume valid
+    g.FlushRewardPending();
+    vp.FlushRewardPending(g);
+
+    if (F::Jail & r.m_Flags)
+    {
+        if (!(F::Jail & vp.m_Flags))
+        {
+            vp.m_Flags |= F::Jail;
+            g.m_TotakStakeNonJailed -= vp.m_Weight; // assume valid
+            bDirty = true;
+        }
+    }
     else
-        Strict::Add(g.m_Pool.m_WeightNonJailed, val.m_Weight);
+    {
+        if (F::Jail & vp.m_Flags)
+        {
+            vp.m_Flags &= ~F::Jail;
+            Strict::Add(g.m_TotakStakeNonJailed, vp.m_Weight); // assume valid
+            bDirty = true;
+        }
+    }
 
+    if (F::Slash & r.m_Flags)
+    {
+        // slash by 10%
+        Amount stake = vp.m_Weight;
+        Env::Halt_if(!stake);
+
+        Amount amountBurn = stake / 10;
+        vp.m_Weight -= amountBurn;
+        assert(vp.m_Weight);
+
+        // don't assume it's exactly 10%, it can be slightly different due to roundoffs
+        vp.m_kStakeScale *= State::Float(stake) / State::Float(vp.m_Weight);
+
+        bDirty = true;
+    }
+
+    Env::Halt_if(!bDirty);
+
+    Env::SaveVar_T(vk, vp);
     Env::SaveVar_T(gk, g);
-
-
-    val.m_Flags = flags;
-    Env::SaveVar_T(vk, val);
 }
 
 BEAM_EXPORT void Method_3(const Method::AddReward& r)
@@ -74,10 +170,138 @@ BEAM_EXPORT void Method_3(const Method::AddReward& r)
     auto gk = State::Tag::s_Global;
     Env::LoadVar_T(gk, g);
 
-    Strict::Add(g.m_Pool.m_RewardPending, r.m_Amount);
+    Strict::Add(g.m_RewardPending, r.m_Amount);
     Env::SaveVar_T(gk, g);
 
     Env::FundsLock(0, r.m_Amount);
+}
+
+BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
+{
+    State::Global g;
+    auto gk = State::Tag::s_Global;
+    Env::LoadVar_T(gk, g);
+
+    auto depositUnbonded = r.m_StakeDeposit;
+
+    if (r.m_RewardClaim || r.m_StakeBond)
+    {
+        // Load everything, update statuses
+        g.FlushRewardPending();
+
+        State::Validator::Key vk;
+        _POD_(vk.m_Address) = r.m_Validator;
+
+        State::ValidatorPlus vp;
+        bool bValidatorExisted = Env::LoadVar_T(vk, vp);
+        bool bSelf = !bValidatorExisted;
+        if (bValidatorExisted)
+        {
+            vp.FlushRewardPending(g);
+            bSelf = _POD_(vp.m_Self.m_Delegator) == r.m_Delegator;
+        }
+        else
+        {
+            vp.Init(g);
+            _POD_(vp.m_Self.m_Delegator) = r.m_Delegator;
+        }
+
+        State::Delegator::Key dk;
+        _POD_(dk.m_Validator) = r.m_Validator;
+        _POD_(dk.m_Delegator) = r.m_Delegator;
+
+        State::Delegator d;
+        bool bDelegatorExisted = Env::LoadVar_T(dk, d);
+        if (!bDelegatorExisted)
+            _POD_(d).SetZero();
+
+        Amount stakeBonded = d.Pop(vp, g);
+        if (bSelf)
+        {
+            Strict::Add(d.m_RewardRemaining, vp.m_Self.m_Reward);
+            vp.m_Self.m_Reward = 0;
+        }
+
+        // Reward
+        if (r.m_RewardClaim)
+        {
+            Env::FundsUnlock(0, r.m_RewardClaim);
+            Strict::Sub(d.m_RewardRemaining, r.m_RewardClaim);
+        }
+
+        // Update bond
+        if (r.m_StakeBond > 0)
+        {
+            // take as much as possible from current deposit, the rest is from unbonded
+            if (depositUnbonded >= r.m_StakeBond)
+                depositUnbonded -= r.m_StakeBond;
+            else
+            {
+                Amount fromUnbonded = r.m_StakeBond;
+                if (depositUnbonded > 0)
+                {
+                    assert(r.m_StakeBond > depositUnbonded);
+                    fromUnbonded -= depositUnbonded;
+                    depositUnbonded = 0;
+                }
+
+                EraseUnbonded(fromUnbonded, r.m_Delegator, static_cast<Height>(-1));
+            }
+
+            Strict::Add(stakeBonded, (Amount) r.m_StakeBond);
+        }
+        else
+        {
+            if (r.m_StakeBond < 0)
+            {
+                Amount val = -r.m_StakeBond;
+                Strict::Sub(stakeBonded, val);
+                AddUnbonded(val, r.m_Delegator, Env::get_Height() + g.m_Settings.m_hUnbondLock);
+            }
+        }
+
+        bool bEmptyDelegator = false;
+
+        // re-insert to pool
+        if (stakeBonded)
+        {
+            vp.StakeAdd(stakeBonded, g);
+            d.m_Bonded.m_kStakeScaled = vp.m_kStakeScale * State::Float(stakeBonded);
+        }
+        else
+        {
+            d.m_Bonded.m_kStakeScaled.Set0();
+
+            if (!d.m_RewardRemaining)
+                bEmptyDelegator = true;
+        }
+
+        if (bEmptyDelegator)
+            Env::DelVar_T(dk);
+        else
+            Env::SaveVar_T(dk, d);
+
+        if (vp.m_Weight)
+            Env::SaveVar_T(vk, vp);
+        else
+            Env::DelVar_T(vk);
+    }
+
+    if (depositUnbonded > 0)
+        AddUnbonded(depositUnbonded, r.m_Delegator, 0);
+    else
+        if (depositUnbonded < 0)
+            EraseUnbonded(-depositUnbonded, r.m_Delegator, Env::get_Height());
+
+    // finalyze tx balance and sig
+    if (r.m_StakeDeposit > 0)
+        Env::FundsLock(g.m_Settings.m_aidStake, r.m_StakeDeposit);
+    else
+        if (r.m_StakeDeposit < 0)
+            Env::FundsUnlock(g.m_Settings.m_aidStake, -r.m_StakeDeposit);
+
+    Env::AddSig(r.m_Delegator);
+
 }
 
 } // namespace PBFT
