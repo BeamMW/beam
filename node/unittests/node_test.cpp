@@ -4363,7 +4363,7 @@ void TestAll()
 	ECC::PseudoRandomGenerator prg;
 	ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
-	bool bClientProtoOnly = true;
+	bool bClientProtoOnly = false;
 	bool bTestPbft = true;
 	bool bTestBridge = false;
 
