@@ -183,7 +183,7 @@ namespace PBFT
 
             struct Self {
                 PubKey m_Delegator;
-                Amount m_Reward;
+                Amount m_Commission;
             } m_Self;
         };
 
@@ -230,7 +230,7 @@ namespace PBFT
                     Amount commission = reward / 20; // current commission is fixed at 5%
 
                     Strict::Add(m_RewardRemaining, reward - commission);
-                    Strict::Add(vp.m_Self.m_Reward, commission);
+                    Strict::Add(vp.m_Self.m_Commission, commission);
                 }
 
                 return stake;
