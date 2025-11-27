@@ -218,8 +218,8 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
         Amount stakeBonded = d.Pop(vp, g);
         if (bSelf)
         {
-            Strict::Add(d.m_RewardRemaining, vp.m_Self.m_Reward);
-            vp.m_Self.m_Reward = 0;
+            Strict::Add(d.m_RewardRemaining, vp.m_Self.m_Commission);
+            vp.m_Self.m_Commission = 0;
         }
 
         // Reward
@@ -285,6 +285,8 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
             Env::SaveVar_T(vk, vp);
         else
             Env::DelVar_T(vk);
+
+        Env::SaveVar_T(gk, g);
     }
 
     if (depositUnbonded > 0)
