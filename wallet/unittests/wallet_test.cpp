@@ -2982,7 +2982,7 @@ namespace
                 m.m_Validators = s_Validators;
                 m.m_Settings.m_aidStake = 7;
 
-				std::vector<Shaders::PBFT::ValidatorInit> vVals;
+				std::vector<Shaders::PBFT::State::Validator::Init> vVals;
 				ECC::Scalar::Native sk;
 
 				vVals.resize(s_Validators);
@@ -2993,11 +2993,11 @@ namespace
                     vVals[i].m_Stake = Rules::Coin * 5000;
                 }
 
-				pKrn->m_Args.resize(sizeof(m) + sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+				pKrn->m_Args.resize(sizeof(m) + sizeof(Shaders::PBFT::State::Validator::Init) * m.m_Validators);
 				memcpy(&pKrn->m_Args.front(), &m, sizeof(m));
 
 				if (m.m_Validators)
-					memcpy(&pKrn->m_Args.front() + sizeof(m), &vVals.front(), sizeof(Shaders::PBFT::ValidatorInit) * m.m_Validators);
+					memcpy(&pKrn->m_Args.front() + sizeof(m), &vVals.front(), sizeof(Shaders::PBFT::State::Validator::Init) * m.m_Validators);
 
 				sk.GenRandomNnz();
 				ECC::Point::Native ptFunds(beam::Zero);
