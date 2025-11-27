@@ -70,6 +70,7 @@ namespace Shaders {
 #include "../Shaders/nephrite/contract.h"
 #include "../Shaders/amm/contract.h"
 #include "../Shaders/minter/contract.h"
+#include "../Shaders/pbft/contract.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -394,6 +395,23 @@ namespace Shaders {
 		Convert<bToShader>(x.m_Pid);
 		ConvertOrd<bToShader>(x.m_Buy1);
 	}
+	template <bool bToShader> void Convert(PBFT::Method::Create & x) {
+		ConvertOrd<bToShader>(x.m_Settings.m_aidStake);
+		ConvertOrd<bToShader>(x.m_Settings.m_hUnbondLock);
+		ConvertOrd<bToShader>(x.m_Validators);
+	}
+	template <bool bToShader> void Convert(PBFT::Method::AddReward& x) {
+		ConvertOrd<bToShader>(x.m_Amount);
+	}
+	template <bool bToShader> void Convert(PBFT::Method::DelegatorUpdate& x) {
+		ConvertOrd<bToShader>(x.m_RewardClaim);
+		ConvertOrd<bToShader>(x.m_StakeBond);
+		ConvertOrd<bToShader>(x.m_StakeDeposit);
+	}
+	template <bool bToShader> void Convert(PBFT::Method::ValidatorStatusUpdate& x) {
+		ConvertOrd<bToShader>(x.m_Flags);
+	}
+
 
 	namespace Env {
 
@@ -465,6 +483,7 @@ namespace Shaders {
 //#include "../Shaders/nephrite/app.cpp"
 //#include "../Shaders/amm/contract.cpp" // already within namespace
 //#include "../Shaders/amm/app.cpp"
+//#include "../Shaders/pbft/contract.cpp"
 #include "../Shaders/upgradable2/app_common_impl.h"
 
 #ifdef _MSC_VER
@@ -591,6 +610,7 @@ namespace bvm2 {
 		ContractWrap m_Nephrite;
 		ContractWrap m_Minter;
 		ContractWrap m_Amm;
+		ContractWrap m_Pbft;
 
 		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
 
@@ -840,6 +860,20 @@ namespace bvm2 {
 				}
 			}
 */
+
+/*
+			if (cid == m_Pbft.m_Cid)
+			{
+				TempFrame f(*this, cid);
+				switch (iMethod)
+				{
+				case Shaders::PBFT::Method::Create::s_iMethod: Shaders::PBFT::Ctor(CastArg<Shaders::PBFT::Method::Create>(pArgs)); return;
+				case Shaders::PBFT::Method::ValidatorStatusUpdate::s_iMethod: Shaders::PBFT::Method_2(CastArg<Shaders::PBFT::Method::ValidatorStatusUpdate>(pArgs)); return;
+				case Shaders::PBFT::Method::AddReward::s_iMethod: Shaders::PBFT::Method_3(CastArg<Shaders::PBFT::Method::AddReward>(pArgs)); return;
+				case Shaders::PBFT::Method::DelegatorUpdate::s_iMethod: Shaders::PBFT::Method_4(CastArg<Shaders::PBFT::Method::DelegatorUpdate>(pArgs)); return;
+				}
+			}
+*/
 			ProcessorContract::CallFar(cid, iMethod, pArgs, nArgs, nFlags);
 		}
 
@@ -861,6 +895,7 @@ namespace bvm2 {
 		void TestNephrite();
 		void TestMinter();
 		void TestAmm();
+		void TestPbft();
 
 		void TestAll();
 	};
@@ -1114,6 +1149,7 @@ namespace bvm2 {
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Minter, "minter/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
+		AddCode(m_Pbft, "pbft/contract.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
 
@@ -1122,6 +1158,7 @@ namespace bvm2 {
 		TestNephrite();
 		TestMinter();
 		TestAmm();
+		TestPbft();
 		TestFaucet();
 		TestRoulette();
 		TestVoting();
@@ -2183,6 +2220,197 @@ namespace bvm2 {
 			args.m_Ctl = Rules::Coin * 100;
 			verify_test(RunGuarded_T(m_Amm.m_Cid, args.s_iMethod, args));
 		}
+
+	}
+
+	void MyProcessor::TestPbft()
+	{
+		static const uint32_t nValidators = 6;
+		const uint32_t nDelegators = 14;
+
+		Shaders::PBFT::Address pValidatorAddr[nValidators];
+
+		struct PerDelegator {
+			ECC::Point m_Pk;
+			Amount m_Stake;
+			uint32_t m_iValidator;
+		};
+
+		PerDelegator pDelegator[nDelegators];
+
+		for (uint32_t i = 0; i < nDelegators; i++)
+		{
+			auto& d = pDelegator[i];
+			ECC::GenRandom(d.m_Pk.m_X);
+			d.m_Pk.m_Y = (i & 1);
+		}
+
+		{
+#pragma pack (push, 1)
+			struct Args
+				:public Shaders::PBFT::Method::Create
+			{
+				Shaders::PBFT::ValidatorInit m_pVals[nValidators];
+			} args;
+#pragma pack (pop)
+
+			ZeroObject(args);
+
+			args.m_Settings.m_aidStake = 77;
+			args.m_Settings.m_hUnbondLock = 100;
+			args.m_Validators = nValidators;
+
+			for (uint32_t i = 0; i < nValidators; i++)
+			{
+				ECC::GenRandom(pValidatorAddr[i]);
+				args.m_pVals[i].m_Address = pValidatorAddr[i];
+
+				static_assert(nValidators <= nDelegators, "");
+				auto& d = pDelegator[i];
+				args.m_pVals[i].m_Delegator = d.m_Pk;
+				d.m_iValidator = i;
+
+				args.m_pVals[i].m_Stake = Rules::Coin * 1000 * (i + 3);
+				d.m_Stake = args.m_pVals[i].m_Stake;
+
+				std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
+			}
+
+			verify_test(ContractCreate_T(m_Pbft.m_Cid, m_Pbft.m_Code, args));
+		}
+
+
+		{
+			Shaders::PBFT::Method::AddReward args;
+			args.m_Amount = Rules::Coin * 40000;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
+		}
+
+		for (uint32_t i = nValidators; i < nDelegators; i++)
+		{
+			auto& d = pDelegator[i];
+			d.m_iValidator = i % nValidators;
+			d.m_Stake = Rules::Coin * 200;
+
+			Shaders::PBFT::Method::DelegatorUpdate args;
+			ZeroObject(args);
+			args.m_Delegator = d.m_Pk;
+			args.m_Validator = pValidatorAddr[d.m_iValidator];
+
+			args.m_StakeBond = d.m_Stake;
+
+			bool bExtraTest = (i == nValidators);
+
+			if (bExtraTest)
+			{
+				verify_test(!RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
+			}
+
+			args.m_StakeDeposit = args.m_StakeBond;
+			if (bExtraTest)
+				args.m_StakeDeposit *= 2; // deposit more, should be avail for withdrawing immediately
+
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
+
+			if (bExtraTest)
+			{
+				args.m_StakeDeposit = -args.m_StakeBond;
+				args.m_StakeBond = 0;
+				verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // withdraw extra
+			}
+
+			std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
+		}
+
+
+		{
+			Shaders::PBFT::Method::ValidatorStatusUpdate args;
+			args.m_Address = pValidatorAddr[0];
+			args.m_Flags = Shaders::PBFT::State::Validator::Flags::Jail;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "V-" << 0 << ", Jailed" << std::endl;
+		}
+
+		{
+			Shaders::PBFT::Method::AddReward args;
+			args.m_Amount = Rules::Coin * 14000;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
+		}
+
+		// unbond all
+		for (uint32_t i = 0; i < nDelegators; i++)
+		{
+			auto& d = pDelegator[i];
+
+			Shaders::PBFT::Method::DelegatorUpdate args;
+			ZeroObject(args);
+			args.m_Delegator = d.m_Pk;
+			args.m_Validator = pValidatorAddr[d.m_iValidator];
+
+			args.m_StakeBond = -(int64_t) d.m_Stake;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+		}
+
+		// Print stats
+
+		bool bLogIO = false;
+		TemporarySwap ts(m_LogIO, bLogIO);
+
+		Shaders::PBFT::State::Global g;
+		{
+			Shaders::Env::Key_T<uint8_t> key;
+			key.m_Prefix.m_Cid = m_Pbft.m_Cid;
+			key.m_KeyInContract = Shaders::PBFT::State::Tag::s_Global;
+
+			Blob b;
+			LoadVar(Blob(&key, sizeof(key)), b);
+			verify_test(sizeof(g) == b.n);
+			memcpy(&g, b.p, sizeof(g));
+		}
+
+		std::cout << "Reward in pool (roundoffs): " << AmountBig::Printable(g.m_RewardInPoolRemaining + g.m_RewardPending) << std::endl;
+		std::cout << "Stake unjailed (roundoffs): " << AmountBig::Printable(g.m_TotakStakeNonJailed) << std::endl;
+
+		for (uint32_t i = 0; i < nDelegators; i++)
+		{
+			auto& d = pDelegator[i];
+
+			Shaders::Env::Key_T<Shaders::PBFT::State::Delegator::Key> dk;
+			dk.m_Prefix.m_Cid = m_Pbft.m_Cid;
+			dk.m_KeyInContract.m_Delegator = d.m_Pk;
+			dk.m_KeyInContract.m_Validator = pValidatorAddr[d.m_iValidator];
+
+			Shaders::PBFT::State::Delegator dlg;
+
+			Blob bv;
+			LoadVar(Blob(&dk, sizeof(dk)), bv);
+			if (bv.n != sizeof(dlg))
+				continue;
+
+			memcpy(&dlg, bv.p, sizeof(dlg));
+
+			std::cout << "D-" << i << ", Reward=" << AmountBig::Printable(dlg.m_RewardRemaining) << std::endl;
+		}
+
+		//memset(&dk.m_KeyInContract, 0xff, sizeof(dk.m_KeyInContract));
+		//dk.m_KeyInContract.m_Tag = Shaders::PBFT::State::Tag::s_Delegator;
+
+		//while (true)
+		//{
+		//	Blob bk(&dk, sizeof(dk));
+		//	Blob bv;
+		//	LoadVarEx(bk, bv, false, false);
+		//	if (bk.n != sizeof(dk))
+		//		break;
+
+		//	if (memcmp(bk.p, &dk, sizeof(dk.m_Prefix) + 1))
+		//		break;
+
+		//	memcpy(&dk, bk.p, bk.n);
+		//}
+
 
 	}
 

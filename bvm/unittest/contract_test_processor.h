@@ -530,6 +530,7 @@ namespace beam::bvm2
 			{
 				m_Frame.m_Cid = cid;
 				m_Frame.m_FarRetAddr = 0;
+				m_Frame.m_Flags = 0; // no R/O
 				m_This.m_FarCalls.m_Stack.push_back(m_Frame);
 			}
 
