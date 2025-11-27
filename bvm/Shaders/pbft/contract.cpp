@@ -79,7 +79,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
 
     for (uint32_t i = 0; i < r.m_Validators; i++)
     {
-        const auto& v = ((const ValidatorInit*)(&r + 1))[i];
+        const auto& v = ((const State::Validator::Init*)(&r + 1))[i];
         _POD_(vk.m_Address) = v.m_Address;
 
         Env::Halt_if(!v.m_Stake);

@@ -2250,7 +2250,7 @@ namespace bvm2 {
 			struct Args
 				:public Shaders::PBFT::Method::Create
 			{
-				Shaders::PBFT::ValidatorInit m_pVals[nValidators];
+				Shaders::PBFT::State::Validator::Init m_pVals[nValidators];
 			} args;
 #pragma pack (pop)
 

@@ -14,12 +14,6 @@ namespace PBFT
 
     typedef HashValue Address;
 
-    struct ValidatorInit {
-        Address m_Address;
-        Amount m_Stake;
-        PubKey m_Delegator;
-    };
-
     // The contract implements the following logic:
     //
     // 1. At each block the node needs the current validator set. The info node needs is:
@@ -143,6 +137,12 @@ namespace PBFT
             // this is the part of interest to the node.
             uint64_t m_Weight;
             uint8_t m_Flags;
+
+            struct Init {
+                Address m_Address;
+                Amount m_Stake;
+                PubKey m_Delegator;
+            };
         };
 
         struct ValidatorPlus
@@ -259,7 +259,7 @@ namespace PBFT
             static const uint32_t s_iMethod = 0;
             Settings m_Settings;
             uint32_t m_Validators;
-            // followed by array of ValidatorInit structs
+            // followed by array of Validator::Init structs
         };
 
         struct ValidatorStatusUpdate
