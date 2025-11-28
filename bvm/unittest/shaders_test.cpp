@@ -2332,6 +2332,17 @@ namespace bvm2 {
 			std::cout << "V-" << 0 << ", Jailed" << std::endl;
 		}
 
+		const uint32_t iValidatorSlash = 2;
+		static_assert(iValidatorSlash < nValidators, "");
+
+		{
+			Shaders::PBFT::Method::ValidatorStatusUpdate args;
+			args.m_Address = pValidatorAddr[iValidatorSlash];
+			args.m_Flags = /*Shaders::PBFT::State::Validator::Flags::Jail | */Shaders::PBFT::State::Validator::Flags::Slash;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "V-" << iValidatorSlash << ", Jailed + Slashed" << std::endl;
+		}
+
 		{
 			Shaders::PBFT::Method::AddReward args;
 			args.m_Amount = Rules::Coin * 14000;
@@ -2348,6 +2359,10 @@ namespace bvm2 {
 			ZeroObject(args);
 			args.m_Delegator = d.m_Pk;
 			args.m_Validator = pValidatorAddr[d.m_iValidator];
+
+			if (iValidatorSlash == d.m_iValidator)
+				// should decrease by 10%
+				d.m_Stake -= d.m_Stake / 10;
 
 			args.m_StakeBond = -(int64_t) d.m_Stake;
 			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));

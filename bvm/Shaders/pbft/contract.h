@@ -150,6 +150,7 @@ namespace PBFT
         {
             Accumulator m_accReward;
             Accumulator::Cursor m_cuRewardGlobal;
+            Float m_kStakeScale;
 
             void Init(const Global&);
 
@@ -157,29 +158,44 @@ namespace PBFT
             {
                 Amount reward = m_cuRewardGlobal.Update(g.m_accReward, (Flags::Jail & m_Flags) ? 0 : m_Weight);
                 if (reward)
-                    m_accReward.Add(reward, m_Weight);
-            }
-
-            void StakeAdd(Amount val, Global& g)
-            {
-                Strict::Add(m_Weight, val);
-                if (!(Flags::Jail & m_Flags))
-                    Strict::Add(g.m_TotakStakeNonJailed, val);
-            }
-
-            void StakeDel(Amount val, Global& g)
-            {
-                assert(m_Weight >= val);
-                m_Weight -= val;
-
-                if (!(Flags::Jail & m_Flags))
                 {
-                    assert(g.m_TotakStakeNonJailed >= val);
-                    g.m_TotakStakeNonJailed -= val;
+                    Amount wScaled;
+                    (m_kStakeScale * Float(m_Weight)).Round(wScaled);
+                    m_accReward.Add(reward, wScaled);
                 }
             }
 
-            Float m_kStakeScale;
+            template <bool bAdd>
+            static void StakeChangeAny(Amount& total, Amount delta)
+            {
+                if constexpr (bAdd)
+                    Strict::Add(total, delta);
+                else
+                {
+                    assert(total >= delta);
+                    total -= delta;
+                }
+            }
+
+            template <bool bAdd>
+            void StakeChangeExternal(Global& g, Amount delta) const
+            {
+                if (!(Flags::Jail & m_Flags))
+                    StakeChangeAny<bAdd>(g.m_TotakStakeNonJailed, delta);
+            }
+
+            template <bool bAdd>
+            void StakeChangeExternal(Global& g) const
+            {
+                StakeChangeExternal<bAdd>(g, m_Weight);
+            }
+
+            template <bool bAdd>
+            void StakeChange(Global& g, Amount delta)
+            {
+                StakeChangeAny<bAdd>(m_Weight, delta);
+                StakeChangeExternal<bAdd>(g, delta);
+            }
 
             struct Self {
                 PubKey m_Delegator;
@@ -206,17 +222,18 @@ namespace PBFT
 
             Amount Pop(ValidatorPlus& vp, Global& g)
             {
-                Amount stake = 0;
+                Amount stake = 0, wReward = 0;
                 if (!m_Bonded.m_kStakeScaled.IsZero())
                 {
+                    m_Bonded.m_kStakeScaled.Round(wReward);
                     (m_Bonded.m_kStakeScaled / vp.m_kStakeScale).Round(stake);
                     if (stake > vp.m_Weight)
                         stake = vp.m_Weight;
 
-                    vp.StakeDel(stake, g);
+                    vp.StakeChange<false>(g, stake);
                 }
 
-                Amount reward = m_Bonded.m_cuReward.Update(vp.m_accReward, stake);
+                Amount reward = m_Bonded.m_cuReward.Update(vp.m_accReward, wReward);
                 if (reward)
                 {
                     if (reward > g.m_RewardInPoolRemaining)
