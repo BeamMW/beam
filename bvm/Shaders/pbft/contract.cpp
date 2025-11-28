@@ -93,7 +93,7 @@ BEAM_EXPORT void Ctor(const Method::Create& r)
         _POD_(dk.m_Delegator) = v.m_Delegator;
         Env::SaveVar_T(dk, d);
 
-        Strict::Add(g.m_TotakStakeNonJailed, vp.m_Weight);
+        vp.StakeChangeExternal<true>(g);
     }
 
     auto key = State::Tag::s_Global;
@@ -123,23 +123,13 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
     g.FlushRewardPending();
     vp.FlushRewardPending(g);
 
-    if (F::Jail & r.m_Flags)
+    vp.StakeChangeExternal<false>(g);
+
+    if (F::Jail & (r.m_Flags ^ vp.m_Flags))
     {
-        if (!(F::Jail & vp.m_Flags))
-        {
-            vp.m_Flags |= F::Jail;
-            g.m_TotakStakeNonJailed -= vp.m_Weight; // assume valid
-            bDirty = true;
-        }
-    }
-    else
-    {
-        if (F::Jail & vp.m_Flags)
-        {
-            vp.m_Flags &= ~F::Jail;
-            Strict::Add(g.m_TotakStakeNonJailed, vp.m_Weight); // assume valid
-            bDirty = true;
-        }
+        // Jail/Unjail
+        vp.m_Flags ^= F::Jail;
+        bDirty = true;
     }
 
     if (F::Slash & r.m_Flags)
@@ -157,6 +147,8 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
 
         bDirty = true;
     }
+
+    vp.StakeChangeExternal<true>(g);
 
     Env::Halt_if(!bDirty);
 
@@ -265,7 +257,7 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
         // re-insert to pool
         if (stakeBonded)
         {
-            vp.StakeAdd(stakeBonded, g);
+            vp.StakeChange<true>(g, stakeBonded);
             d.m_Bonded.m_kStakeScaled = vp.m_kStakeScale * State::Float(stakeBonded);
         }
         else
