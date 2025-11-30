@@ -4032,7 +4032,7 @@ namespace bvm2 {
 		//struct MyLutGenerator
 		//	:public LutGenerator
 		//{
-		//	virtual double Evaluate(TX x)
+		//	double Evaluate(TX x) override
 		//	{
 		//		double k = ((double) x) / (double) (Shaders::g_Beam2Groth * 100);
 		//		return pow(k, 0.7);

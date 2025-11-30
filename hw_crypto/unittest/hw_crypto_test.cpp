@@ -840,7 +840,7 @@ struct KeyKeeperHwEmu
 		uint32_t m_nRequest;
 		uint32_t m_nResponse;
 
-		virtual void Execute(Task::Ptr&) override
+		void Execute(Task::Ptr&) override
 		{
 			uint32_t nResSize = m_nResponse;
 			uint8_t* p = (uint8_t*) m_pBuf;
@@ -876,7 +876,7 @@ struct KeyKeeperHwEmu
 		}
 	};
 
-	virtual void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler)
+	void SendRequestAsync(void* pBuf, uint32_t nRequest, uint32_t nResponse, const Handler::Ptr& pHandler) override
 	{
 		Task::Ptr pTask = std::make_unique<MyTask>();
 		auto& t = Cast::Up<MyTask>(*pTask);
@@ -898,7 +898,7 @@ struct KeyKeeperStd
 	bool m_Trustless = true;
 
 	using LocalPrivateKeyKeeperStd::LocalPrivateKeyKeeperStd;
-	virtual bool IsTrustless() override { return m_Trustless; }
+	bool IsTrustless() override { return m_Trustless; }
 
 	Key::IPKdf& get_Owner() const { return *m_pKdf; }
 };

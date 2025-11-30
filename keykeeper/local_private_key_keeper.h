@@ -35,7 +35,7 @@ namespace beam::wallet
         LocalPrivateKeyKeeper2(const ECC::Key::IKdf::Ptr&);
 
 #define THE_MACRO(method) \
-        virtual Status::Type InvokeSync(Method::method& m) override;
+        Status::Type InvokeSync(Method::method& m) override;
 
         KEY_KEEPER_METHODS(THE_MACRO)
 #undef THE_MACRO
@@ -78,9 +78,9 @@ namespace beam::wallet
         LocalPrivateKeyKeeperStd(const ECC::Key::IKdf::Ptr& pkdf, const Slot::Type numSlots = s_DefNumSlots);
 
     protected:
-        virtual Slot::Type get_NumSlots() override;
-        virtual void get_Nonce(ECC::Scalar::Native&, Slot::Type) override;
-        virtual void Regenerate(Slot::Type) override;
+        Slot::Type get_NumSlots() override;
+        void get_Nonce(ECC::Scalar::Native&, Slot::Type) override;
+        void Regenerate(Slot::Type) override;
 
     private:
         Slot::Type m_numSlots;

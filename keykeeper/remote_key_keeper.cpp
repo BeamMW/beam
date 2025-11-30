@@ -326,7 +326,7 @@ namespace beam::wallet
                 m_This.PushOut(n, std::move(m_pFinal));
             }
 
-            virtual void OnDone(Status::Type n) override
+            void OnDone(Status::Type n) override
             {
                 if (Status::Success == n)
                 {

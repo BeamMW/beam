@@ -100,7 +100,7 @@ namespace bvm2 {
 				return false;
 			}
 
-			virtual void OnComplete(proto::FlyClient::Request&)
+			void OnComplete(proto::FlyClient::Request&) override
 			{
 				assert(m_pRequest && (this == m_pRequest->m_pTrg));
 				m_pRequest->m_pTrg = nullptr;

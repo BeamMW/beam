@@ -329,7 +329,7 @@ private:
             ECC::GenRandom(m_State.m_hvLast);
         }
 
-        virtual void Regenerate(Slot::Type iSlot) override
+        void Regenerate(Slot::Type iSlot) override
         {
             // instead of regenerating the slot - just delete it
             State::UsedMap::iterator it = m_State.m_Used.find(iSlot);
