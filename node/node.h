@@ -271,14 +271,14 @@ private:
 		struct MyExecutorMT
 			:public ExecutorMT_R
 		{
-			virtual void RunThread(uint32_t) override;
+			void RunThread(uint32_t) override;
 
 			~MyExecutorMT() { Stop(); }
 
 			IMPLEMENT_GET_PARENT_OBJ(Node::Processor, m_ExecutorMT)
 		} m_ExecutorMT;
 
-		virtual Executor& get_Executor() override { return m_ExecutorMT; }
+		Executor& get_Executor() override { return m_ExecutorMT; }
 
 
 		Block::ChainWorkProof m_Cwp; // cached
@@ -383,8 +383,8 @@ private:
 
 	struct WantedTx :public Wanted {
 		// Wanted
-		virtual uint32_t get_Timeout_ms() override;
-		virtual void OnExpired(const KeyType&) override;
+		uint32_t get_Timeout_ms() override;
+		void OnExpired(const KeyType&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Wtx)
 	} m_Wtx;
@@ -393,8 +393,8 @@ private:
 		:public TxPool::Stem
 	{
 		// TxPool::Stem
-		virtual bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Number&, Amount& feeReserve) override;
-		virtual void OnTimedOut(Element&) override;
+		bool ValidateTxContext(const Transaction&, const HeightRange&, const AmountBig::Number&, Amount& feeReserve) override;
+		void OnTimedOut(Element&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Dandelion)
 	} m_Dandelion;
@@ -412,7 +412,7 @@ private:
 
 		std::list<Element> m_lst;
 
-		virtual void OnSchedule() override;
+		void OnSchedule() override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_TxDeferred)
 	} m_TxDeferred;
@@ -441,8 +441,8 @@ private:
 	{
 		struct WantedMsg :public Wanted {
 			// Wanted
-			virtual uint32_t get_Timeout_ms() override;
-			virtual void OnExpired(const KeyType&) override;
+			uint32_t get_Timeout_ms() override;
+			void OnExpired(const KeyType&) override;
 
 			IMPLEMENT_GET_PARENT_OBJ(Bbs, m_W)
 		} m_W;
@@ -509,11 +509,11 @@ private:
 		};
 
 		// PeerManager
-		virtual void ActivatePeer(PeerInfo&) override;
-		virtual void DeactivatePeer(PeerInfo&) override;
-		virtual PeerInfo* AllocPeer() override;
-		virtual void DeletePeer(PeerInfo&) override;
-		virtual void ActivateMorePeers(uint32_t nTicks_ms) override;
+		void ActivatePeer(PeerInfo&) override;
+		void DeactivatePeer(PeerInfo&) override;
+		PeerInfo* AllocPeer() override;
+		void DeletePeer(PeerInfo&) override;
+		void ActivateMorePeers(uint32_t nTicks_ms) override;
 
 		typedef boost::intrusive::multiset<PeerInfoPlus::AdjustedRatingLive> LiveSet;
 		LiveSet m_LiveSet;
@@ -619,64 +619,64 @@ private:
 		};
 
 		// proto::NodeConnection
-		virtual void OnConnectedSecure() override;
-		virtual void OnDisconnect(const DisconnectReason&) override;
-		virtual void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
+		void OnConnectedSecure() override;
+		void OnDisconnect(const DisconnectReason&) override;
+		void GenerateSChannelNonce(ECC::Scalar::Native&) override; // Must be overridden to support SChannel
 		void OnTrafic(uint8_t msgCode, uint32_t msgSize, bool bOut) override;
 		// login
-		virtual void SetupLogin(proto::Login&) override;
-		virtual void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
-		virtual Height get_MinPeerFork() override;
+		void SetupLogin(proto::Login&) override;
+		void OnLogin(proto::Login&&, uint32_t nFlagsPrev) override;
+		Height get_MinPeerFork() override;
 		// messages
-		virtual void OnMsg(proto::Authentication&&) override;
-		virtual void OnMsg(proto::Bye&&) override;
-		virtual void OnMsg(proto::Pong&&) override;
-		virtual void OnMsg(proto::NewTip&&) override;
-		virtual void OnMsg(proto::DataMissing&&) override;
-		virtual void OnMsg(proto::GetHdr&&) override;
-		virtual void OnMsg(proto::GetHdrPack&&) override;
-		virtual void OnMsg(proto::HdrPack&&) override;
-		virtual void OnMsg(proto::EnumHdrs&&) override;
-		virtual void OnMsg(proto::GetBody&&) override;
-		virtual void OnMsg(proto::GetBodyPack&&) override;
-		virtual void OnMsg(proto::Body&&) override;
-		virtual void OnMsg(proto::BodyPack&&) override;
-		virtual void OnMsg(proto::NewTransaction&&) override;
-		virtual void OnMsg(proto::HaveTransaction&&) override;
-		virtual void OnMsg(proto::GetTransaction&&) override;
-		virtual void OnMsg(proto::GetCommonState&&) override;
-		virtual void OnMsg(proto::GetProofState&&) override;
-		virtual void OnMsg(proto::GetProofKernel&&) override;
-		virtual void OnMsg(proto::GetProofKernel2&&) override;
-		virtual void OnMsg(proto::GetProofKernel3&&) override;
-		virtual void OnMsg(proto::GetProofUtxo&&) override;
-		virtual void OnMsg(proto::GetProofShieldedOutp&&) override;
-		virtual void OnMsg(proto::GetProofShieldedInp&&) override;
-		virtual void OnMsg(proto::GetProofAsset&&) override;
-		virtual void OnMsg(proto::GetShieldedList&&) override;
-		virtual void OnMsg(proto::GetProofChainWork&&) override;
-		virtual void OnMsg(proto::PeerInfoSelf&&) override;
-		virtual void OnMsg(proto::PeerInfo&&) override;
-		virtual void OnMsg(proto::GetExternalAddr&&) override;
-		virtual void OnMsg(proto::BbsMsg&&) override;
-		virtual void OnMsg(proto::BbsHaveMsg&&) override;
-		virtual void OnMsg(proto::BbsGetMsg&&) override;
-		virtual void OnMsg(proto::BbsSubscribe&&) override;
-		virtual void OnMsg(proto::BbsResetSync&&) override;
-		virtual void OnMsg(proto::GetEvents&&) override;
-		virtual void OnMsg(proto::BlockFinalization&&) override;
-		virtual void OnMsg(proto::GetStateSummary&&) override;
-		virtual void OnMsg(proto::ContractVarsEnum&&) override;
-		virtual void OnMsg(proto::ContractLogsEnum&&) override;
-		virtual void OnMsg(proto::GetContractVar&&) override;
-		virtual void OnMsg(proto::GetContractLogProof&&) override;
-		virtual void OnMsg(proto::GetShieldedOutputsAt&&) override;
-		virtual void OnMsg(proto::SetDependentContext&&) override;
-		virtual void OnMsg(proto::GetAssetsListAt&&) override;
-		virtual void OnMsg(proto::PbftProposal&&) override;
-		virtual void OnMsg(proto::PbftVote&&) override;
-		virtual void OnMsg(proto::PbftStamp&&) override;
-		virtual void OnMsg(proto::PbftPeerAssessment&&) override;
+		void OnMsg(proto::Authentication&&) override;
+		void OnMsg(proto::Bye&&) override;
+		void OnMsg(proto::Pong&&) override;
+		void OnMsg(proto::NewTip&&) override;
+		void OnMsg(proto::DataMissing&&) override;
+		void OnMsg(proto::GetHdr&&) override;
+		void OnMsg(proto::GetHdrPack&&) override;
+		void OnMsg(proto::HdrPack&&) override;
+		void OnMsg(proto::EnumHdrs&&) override;
+		void OnMsg(proto::GetBody&&) override;
+		void OnMsg(proto::GetBodyPack&&) override;
+		void OnMsg(proto::Body&&) override;
+		void OnMsg(proto::BodyPack&&) override;
+		void OnMsg(proto::NewTransaction&&) override;
+		void OnMsg(proto::HaveTransaction&&) override;
+		void OnMsg(proto::GetTransaction&&) override;
+		void OnMsg(proto::GetCommonState&&) override;
+		void OnMsg(proto::GetProofState&&) override;
+		void OnMsg(proto::GetProofKernel&&) override;
+		void OnMsg(proto::GetProofKernel2&&) override;
+		void OnMsg(proto::GetProofKernel3&&) override;
+		void OnMsg(proto::GetProofUtxo&&) override;
+		void OnMsg(proto::GetProofShieldedOutp&&) override;
+		void OnMsg(proto::GetProofShieldedInp&&) override;
+		void OnMsg(proto::GetProofAsset&&) override;
+		void OnMsg(proto::GetShieldedList&&) override;
+		void OnMsg(proto::GetProofChainWork&&) override;
+		void OnMsg(proto::PeerInfoSelf&&) override;
+		void OnMsg(proto::PeerInfo&&) override;
+		void OnMsg(proto::GetExternalAddr&&) override;
+		void OnMsg(proto::BbsMsg&&) override;
+		void OnMsg(proto::BbsHaveMsg&&) override;
+		void OnMsg(proto::BbsGetMsg&&) override;
+		void OnMsg(proto::BbsSubscribe&&) override;
+		void OnMsg(proto::BbsResetSync&&) override;
+		void OnMsg(proto::GetEvents&&) override;
+		void OnMsg(proto::BlockFinalization&&) override;
+		void OnMsg(proto::GetStateSummary&&) override;
+		void OnMsg(proto::ContractVarsEnum&&) override;
+		void OnMsg(proto::ContractLogsEnum&&) override;
+		void OnMsg(proto::GetContractVar&&) override;
+		void OnMsg(proto::GetContractLogProof&&) override;
+		void OnMsg(proto::GetShieldedOutputsAt&&) override;
+		void OnMsg(proto::SetDependentContext&&) override;
+		void OnMsg(proto::GetAssetsListAt&&) override;
+		void OnMsg(proto::PbftProposal&&) override;
+		void OnMsg(proto::PbftVote&&) override;
+		void OnMsg(proto::PbftStamp&&) override;
+		void OnMsg(proto::PbftPeerAssessment&&) override;
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -700,7 +700,7 @@ private:
 		:public proto::NodeConnection::Server
 	{
 		// NodeConnection::Server
-		virtual void OnAccepted(io::TcpStream::Ptr&&, int errorCode) override;
+		void OnAccepted(io::TcpStream::Ptr&&, int errorCode) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Server)
 	} m_Server;

@@ -115,9 +115,9 @@ struct Manager
         {
             bool m_InitSyncReported = false;
 
-            virtual void OnSyncProgress() override;
-            virtual void OnStateChanged() override;
-            virtual void OnRolledBack() override;
+            void OnSyncProgress() override;
+            void OnStateChanged() override;
+            void OnRolledBack() override;
 
             IMPLEMENT_GET_PARENT_OBJ(LocalContext, m_NodeObserver)
         } m_NodeObserver;
@@ -499,7 +499,7 @@ void Manager::LocalContext::SyncCoins()
     {
         LocalContext* m_pThis;
 
-        virtual void OnEventType(proto::Event::Utxo& evt) override
+        void OnEventType(proto::Event::Utxo& evt) override
         {
             auto& x = m_pThis->m_Coins;
 

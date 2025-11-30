@@ -1057,7 +1057,7 @@ struct NodeProcessor::MultiSigmaContext::MyTask
 	MultiSigmaContext* m_pThis;
 	const Node* m_pNode;
 
-	virtual void Exec(Executor::Context& ctx) override
+	void Exec(Executor::Context& ctx) override
 	{
 		ECC::Point::Native& val = m_pThis->m_vRes[ctx.m_iThread];
 		val = Zero;
@@ -1117,12 +1117,12 @@ private:
 
 	bool IsValid(const TxKernelShieldedInput&, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
-	virtual Sigma::CmList& get_List() override
+	Sigma::CmList& get_List() override
 	{
 		return m_Lst;
 	}
 
-	virtual void PrepareList(NodeProcessor& np, const Node& n) override
+	void PrepareList(NodeProcessor& np, const Node& n) override
 	{
 		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
 		np.get_DB().ShieldedRead(n.m_ID.m_Value + n.m_Min, &m_Lst.m_vec.front() + n.m_Min, n.m_Max - n.m_Min);
@@ -1133,7 +1133,7 @@ private:
 	{
 		virtual bool OnKrn(const TxKernelShieldedInput&) = 0;
 
-		virtual bool OnKrn(const TxKernel& krn) override
+		bool OnKrn(const TxKernel& krn) override
 		{
 			if (TxKernel::Subtype::ShieldedInput != krn.get_Subtype())
 				return true;
@@ -1191,7 +1191,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		uint32_t m_Total;
 		Height m_Height;
 
-		virtual bool OnKrn(const TxKernelShieldedInput& v) override
+		bool OnKrn(const TxKernelShieldedInput& v) override
 		{
 			if (!m_iVerifier)
 			{
@@ -1246,7 +1246,7 @@ void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve
 	{
 		NodeProcessor* m_pProc;
 
-		virtual bool OnKrn(const TxKernelShieldedInput& v) override
+		bool OnKrn(const TxKernelShieldedInput& v) override
 		{
 			auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
 			// set it anyway, even if below HF3. This way the caching is more robust.
@@ -1278,7 +1278,7 @@ struct NodeProcessor::MultiAssetContext
 
 		std::vector<ECC::Scalar::Native> m_vKs;
 
-		virtual bool IsValid(Height, ECC::Point::Native& hGen, const Asset::Proof&) override;
+		bool IsValid(Height, ECC::Point::Native& hGen, const Asset::Proof&) override;
 	};
 
 private:
@@ -1295,12 +1295,12 @@ private:
 
 	} m_Lst;
 
-	virtual Sigma::CmList& get_List() override
+	Sigma::CmList& get_List() override
 	{
 		return m_Lst;
 	}
 
-	virtual void PrepareList(NodeProcessor& np, const Node& n) override
+	void PrepareList(NodeProcessor& np, const Node& n) override
 	{
 		static_assert(sizeof(n.m_ID.m_Value) >= sizeof(m_Lst.m_Begin));
 
@@ -1370,7 +1370,7 @@ struct NodeProcessor::MultiblockContext
 		{
 			// make sure we don't leave batch context in an invalid state
 			struct Task0 :public Executor::TaskSync {
-				virtual void Exec(Executor::Context&) override
+				void Exec(Executor::Context&) override
 				{
 					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 					if (pBc)
@@ -1397,7 +1397,7 @@ struct NodeProcessor::MultiblockContext
 	struct MyTask
 		:public Executor::TaskAsync
 	{
-		virtual void Exec(Executor::Context&) override;
+		void Exec(Executor::Context&) override;
 		virtual ~MyTask() {}
 
 		struct Shared
@@ -1436,7 +1436,7 @@ struct NodeProcessor::MultiblockContext
 
 			virtual ~SharedBlock() {} // auto
 
-			virtual void Exec(uint32_t iVerifier) override;
+			void Exec(uint32_t iVerifier) override;
 		};
 
 		Shared::Ptr m_pShared;
@@ -1466,7 +1466,7 @@ struct NodeProcessor::MultiblockContext
 			{
 				MultiblockContext* m_pMbc;
 				ECC::Point::Native* m_pBatchSigma;
-				virtual void Exec(Executor::Context&) override
+				void Exec(Executor::Context&) override
 				{
 					ECC::InnerProduct::BatchContext* pBc = ECC::InnerProduct::BatchContext::s_pInstance;
 					if (pBc && !pBc->Flush())
@@ -2271,7 +2271,7 @@ struct NodeProcessor::KrnFlyMmr
 		m_Count = txve.m_vKernels.size();
 	}
 
-	virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+	void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
 		assert(n < m_Count);
 		hv = m_Txve.m_vKernels[n]->get_ID();
 	}
@@ -2416,13 +2416,13 @@ struct NodeProcessor::ProofBuilder_PrevState
 		}
 	}
 
-	virtual bool get_History(Merkle::Hash& hv) override
+	bool get_History(Merkle::Hash& hv) override
 	{
 		hv = m_hvHistory;
 		return true;
 	}
 
-	virtual bool get_CSA(Merkle::Hash& hv) override
+	bool get_CSA(Merkle::Hash& hv) override
 	{
 		hv = m_StateExtra.m_hvCSA;
 		return true;
@@ -2488,9 +2488,9 @@ Height NodeProcessor::get_ProofKernel(Merkle::Proof* pProof, TxKernel::Ptr* ppRe
 			{
 				using ProofBuilder_PrevState::ProofBuilder_PrevState;
 
-				virtual bool get_Kernels(Merkle::Hash&) override { return false; }
+				bool get_Kernels(Merkle::Hash&) override { return false; }
 
-				virtual bool get_Logs(Merkle::Hash& hv) override
+				bool get_Logs(Merkle::Hash& hv) override
 				{
 					hv = m_StateExtra.m_hvLogs;
 					return true;
@@ -2549,13 +2549,13 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 
 		Merkle::Hash m_hvKernels;
 
-		virtual bool get_Kernels(Merkle::Hash& hv) override
+		bool get_Kernels(Merkle::Hash& hv) override
 		{
 			hv = m_hvKernels;
 			return true;
 		}
 
-		virtual bool get_Logs(Merkle::Hash& hv) override
+		bool get_Logs(Merkle::Hash& hv) override
 		{
 			return false;
 		}
@@ -2673,18 +2673,18 @@ struct NodeProcessor::BlockInterpretCtx
 		using VmProcessorBase::VmProcessorBase;
 
 
-		virtual void LoadVar(const Blob& key, Blob& res) override;
-		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
-		virtual uint32_t SaveVar(const Blob& key, const Blob&) override;
-		virtual uint32_t OnLog(const Blob& key, const Blob& val) override;
-		virtual bool get_AssetInfo(Asset::Full&) override;
+		void LoadVar(const Blob& key, Blob& res) override;
+		void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
+		uint32_t SaveVar(const Blob& key, const Blob&) override;
+		uint32_t OnLog(const Blob& key, const Blob& val) override;
+		bool get_AssetInfo(Asset::Full&) override;
 
-		virtual Height get_Height() override;
-		virtual bool get_HdrAt(Block::SystemState::Full&, Height) override;
+		Height get_Height() override;
+		bool get_HdrAt(Block::SystemState::Full&, Height) override;
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) override;
-		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
-		virtual bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) override;
+		Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) override;
+		bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
+		bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) override;
 
 		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
@@ -2694,8 +2694,8 @@ struct NodeProcessor::BlockInterpretCtx
 
 		void ParseExtraInfo(ContractInvokeExtraInfo&, const bvm2::ShaderID&, uint32_t iMethod, const Blob& args);
 
-		virtual void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override;
-		virtual void OnRet(Wasm::Word nRetAddr) override;
+		void CallFar(const bvm2::ContractID&, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override;
+		void OnRet(Wasm::Word nRetAddr) override;
 
 		uint32_t m_iCurrentInvokeExtraInfo = 0;
 		uint32_t m_iSig0 = 0;
@@ -2919,7 +2919,7 @@ void NodeProcessor::EvaluatorEx::set_Logs(const std::vector<Merkle::Hash>& v)
 	{
 		const Merkle::Hash* m_pArr;
 
-		virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+		void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
 			hv = m_pArr[n];
 		}
 
@@ -4884,7 +4884,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 	if (bic.m_Fwd)
 	{
 		struct Traveler :public UtxoTree::ITraveler {
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+			bool OnLeaf(const RadixTree::Leaf& x) override {
 				return false; // stop iteration
 			}
 		} t;
@@ -5207,7 +5207,7 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 		:public TxKernel::IWalker
 	{
 		NodeProcessor* m_pThis;
-		virtual bool OnKrn(const TxKernel& krn) override
+		bool OnKrn(const TxKernel& krn) override
 		{
 			if (krn.get_Subtype() != TxKernel::Subtype::ShieldedInput)
 				return true;
@@ -6542,7 +6542,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 	{
 		NodeProcessor* m_pThis;
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
+		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
 			BlockInterpretCtx bic(hCreate, false);
 			if (!m_pThis->HandleBlockElement(outp, bic))
@@ -7217,7 +7217,7 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	struct Traveler :public UtxoTree::ITraveler
 	{
 		uint32_t m_Count;
-		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		bool OnLeaf(const RadixTree::Leaf& x) override
 		{
 			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
 			Input::Count nCount = n.get_Count();
@@ -7746,7 +7746,7 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 
 		virtual ~MyShared() {} // auto
 
-		virtual void Exec(uint32_t iThread) override
+		void Exec(uint32_t iThread) override
 		{
 			TxBase::Context ctx;
 			ctx.m_Params = m_pCtx->m_Params;
@@ -8134,13 +8134,13 @@ void NodeProcessor::InitializeUtxos()
 		NodeProcessor& m_This;
 		Walker(NodeProcessor& x) :m_This(x) {}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
+		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate) override
 		{
 			m_This.InitializeUtxosProgress(wlk.m_ID, m_pLa->m_Total);
 			return ITxoWalker_UnspentNaked::OnTxo(wlk, hCreate);
 		}
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
+		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
 			m_This.m_Extra.m_Txos = wlk.m_ID;
 			BlockInterpretCtx bic(hCreate, true);
@@ -8398,7 +8398,7 @@ void NodeProcessor::RebuildNonStd()
 
 		ByteBuffer m_Rollback;
 
-		virtual bool ProcessBlock(const NodeDB::StateID& sid, const std::vector<TxKernel::Ptr>& v) override
+		bool ProcessBlock(const NodeDB::StateID& sid, const std::vector<TxKernel::Ptr>& v) override
 		{
 			BlockInterpretCtx bic(m_Height, true);
 			m_pBic = &bic;
@@ -8440,7 +8440,7 @@ void NodeProcessor::RebuildNonStd()
 			return true;
 		}
 
-		virtual bool OnKrn(const TxKernel& krn) override
+		bool OnKrn(const TxKernel& krn) override
 		{
 			m_pBic->m_nKrnIdx = m_nKrnIdx;
 

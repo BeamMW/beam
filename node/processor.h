@@ -32,7 +32,7 @@ class NodeProcessor
 		:public NodeDB
 	{
 		// NodeDB
-		virtual void OnModified() override { get_ParentObj().OnModified(); }
+		void OnModified() override { get_ParentObj().OnModified(); }
 		IMPLEMENT_GET_PARENT_OBJ(NodeProcessor, m_DB)
 	} m_DB;
 
@@ -58,21 +58,21 @@ class NodeProcessor
 		struct Utxo
 			:public UtxoTree
 		{
-			virtual intptr_t get_Base() const override;
+			intptr_t get_Base() const override;
 
-			virtual Leaf* CreateLeaf() override;
-			virtual void DeleteEmptyLeaf(Leaf*) override;
-			virtual Joint* CreateJoint() override;
-			virtual void DeleteJoint(Joint*) override;
+			Leaf* CreateLeaf() override;
+			void DeleteEmptyLeaf(Leaf*) override;
+			Joint* CreateJoint() override;
+			void DeleteJoint(Joint*) override;
 
-			virtual MyLeaf::IDQueue* CreateIDQueue() override;
-			virtual void DeleteIDQueue(MyLeaf::IDQueue*) override;
-			virtual MyLeaf::IDNode* CreateIDNode() override;
-			virtual void DeleteIDNode(MyLeaf::IDNode*) override;
+			MyLeaf::IDQueue* CreateIDQueue() override;
+			void DeleteIDQueue(MyLeaf::IDQueue*) override;
+			MyLeaf::IDNode* CreateIDNode() override;
+			void DeleteIDNode(MyLeaf::IDNode*) override;
 
 			friend class Mapped;
 
-			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+			void OnDirty() override { get_ParentObj().OnDirty(); }
 
 			void EnsureReserve();
 
@@ -82,14 +82,14 @@ class NodeProcessor
 		struct Contract
 			:public RadixHashOnlyTree
 		{
-			virtual intptr_t get_Base() const override;
+			intptr_t get_Base() const override;
 
-			virtual Leaf* CreateLeaf() override;
-			virtual void DeleteLeaf(Leaf* p) override;
-			virtual Joint* CreateJoint() override;
-			virtual void DeleteJoint(Joint*) override;
+			Leaf* CreateLeaf() override;
+			void DeleteLeaf(Leaf* p) override;
+			Joint* CreateJoint() override;
+			void DeleteJoint(Joint*) override;
 
-			virtual void OnDirty() override { get_ParentObj().OnDirty(); }
+			void OnDirty() override { get_ParentObj().OnDirty(); }
 
 			friend class Mapped;
 
@@ -508,13 +508,13 @@ public:
 		Block::Number m_Number; // affects the selection of prev states MMR
 		Evaluator(NodeProcessor&);
 
-		virtual bool get_History(Merkle::Hash&) override;
-		virtual bool get_Utxos(Merkle::Hash&) override;
-		virtual bool get_Kernels(Merkle::Hash&) override;
-		virtual bool get_Logs(Merkle::Hash&) override;
-		virtual bool get_Shielded(Merkle::Hash&) override;
-		virtual bool get_Assets(Merkle::Hash&) override;
-		virtual bool get_Contracts(Merkle::Hash&) override;
+		bool get_History(Merkle::Hash&) override;
+		bool get_Utxos(Merkle::Hash&) override;
+		bool get_Kernels(Merkle::Hash&) override;
+		bool get_Logs(Merkle::Hash&) override;
+		bool get_Shielded(Merkle::Hash&) override;
+		bool get_Assets(Merkle::Hash&) override;
+		bool get_Contracts(Merkle::Hash&) override;
 	};
 
 	struct EvaluatorEx
@@ -527,9 +527,9 @@ public:
 
 		Merkle::Hash m_hvKernels;
 		StateExtra::Comms m_Comms;
-		virtual bool get_Kernels(Merkle::Hash&) override;
-		virtual bool get_Logs(Merkle::Hash&) override;
-		virtual bool get_CSA(Merkle::Hash&) override;
+		bool get_Kernels(Merkle::Hash&) override;
+		bool get_Logs(Merkle::Hash&) override;
+		bool get_CSA(Merkle::Hash&) override;
 	};
 
 	struct ProofBuilder
@@ -697,7 +697,7 @@ public:
 	struct ITxoWalker_Unspent
 		:public ITxoWalker
 	{
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+		bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 	};
 
 	struct ITxoRecover
@@ -705,15 +705,15 @@ public:
 	{
 		Key::IPKdf* m_pKey = nullptr;
 
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
+		bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+		bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&) override;
 		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) = 0;
 	};
 
 	struct ITxoWalker_UnspentNaked
 		:public ITxoWalker
 	{
-		virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
+		bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate) override;
 	};
 
 	struct IKrnWalker
@@ -729,7 +729,7 @@ public:
 	struct KrnWalkerShielded
 		:public IKrnWalker
 	{
-		virtual bool OnKrn(const TxKernel& krn) override;
+		bool OnKrn(const TxKernel& krn) override;
 		virtual bool OnKrnEx(const TxKernelShieldedInput&) { return true; }
 		virtual bool OnKrnEx(const TxKernelShieldedOutput&) { return true; }
 	};
@@ -748,7 +748,7 @@ public:
 		Recognizer& m_Rec;
 		KrnWalkerRecognize(Recognizer& p) :m_Rec(p) {}
 
-		virtual bool OnKrn(const TxKernel& krn) override;
+		bool OnKrn(const TxKernel& krn) override;
 	};
 
 #pragma pack (push, 1)

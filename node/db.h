@@ -655,8 +655,8 @@ public:
 
 	protected:
 		// Mmr
-		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
-		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+		void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
 
 		struct CacheEntry
 		{
@@ -690,8 +690,8 @@ public:
 
 	protected:
 		// Mmr
-		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
-		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
+		void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override;
+		void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override;
 	};
 
 	bool UniqueInsertSafe(const Blob& key, const Blob* pVal); // returns false if not unique (and doesn't update the value)
