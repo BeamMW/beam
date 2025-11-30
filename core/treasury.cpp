@@ -28,12 +28,12 @@ namespace beam
 
 		Reader(const Group& g) :m_This(g) {}
 
-		virtual void Clone(Ptr& p) override
+		void Clone(Ptr& p) override
 		{
 			p.reset(new Reader(m_This));
 		}
 
-		virtual void Reset() override
+		void Reset() override
 		{
 			m_iOut = 0;
 			m_iKrn = 0;
@@ -43,12 +43,12 @@ namespace beam
 			NextKernel();
 		}
 
-		virtual void NextUtxoIn() override
+		void NextUtxoIn() override
 		{
 			assert(false);
 		}
 
-		virtual void NextUtxoOut() override
+		void NextUtxoOut() override
 		{
 			if (m_iOut < m_This.m_vCoins.size())
 			{
@@ -59,7 +59,7 @@ namespace beam
 				m_pUtxoOut = NULL;
 		}
 
-		virtual void NextKernel() override
+		void NextKernel() override
 		{
 			if (!m_iKrn)
 			{
@@ -100,7 +100,7 @@ namespace beam
 			volatile bool m_bValid;
 			Verifier() :m_bValid(true) {}
 
-			virtual void Do(size_t iTask) override
+			void Do(size_t iTask) override
 			{
 				typedef InnerProduct::BatchContextEx<4> MyBatch;
 
@@ -307,7 +307,7 @@ namespace beam
 				return nIndex;
 			}
 
-			virtual void Do(size_t iTask) override
+			void Do(size_t iTask) override
 			{
 				uint64_t nIndex = get_IndexAt(iTask);
 				m_Resp.m_vGroups[iTask].Create(m_Req.m_vGroups[iTask], m_Kdf, nIndex);
@@ -343,7 +343,7 @@ namespace beam
 				,m_Resp(resp)
 			{}
 
-			virtual bool Verify(size_t iTask) override
+			bool Verify(size_t iTask) override
 			{
 				return m_Resp.m_vGroups[iTask].IsValid(m_Req.m_vGroups[iTask]);
 			}
@@ -428,7 +428,7 @@ namespace beam
 			const Data& m_Data;
 			Context(const Data& d) :m_Data(d) {}
 
-			virtual bool Verify(size_t iTask) override
+			bool Verify(size_t iTask) override
 			{
 				return m_Data.m_vGroups[iTask].IsValid();
 			}

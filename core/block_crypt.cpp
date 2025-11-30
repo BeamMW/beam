@@ -3309,7 +3309,7 @@ namespace beam
 				(m_hv == s.m_Definition);
 		}
 
-		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		void OnProof(Merkle::Hash&, bool bOnRight) override
 		{
 			InterpretOnce(!bOnRight);
 		}
@@ -3351,7 +3351,7 @@ namespace beam
 			return hv == s.m_Definition;
 		}
 
-		virtual void OnProof(Merkle::Hash&, bool bOnRight) override
+		void OnProof(Merkle::Hash&, bool bOnRight) override
 		{
 			if (m_pNode)
 			{
@@ -3398,7 +3398,7 @@ namespace beam
 			struct MyVerifier
 				:public ProofVerifier
 			{
-				virtual bool get_Utxos(Merkle::Hash&) override {
+				bool get_Utxos(Merkle::Hash&) override {
 					return true;
 				}
 			} v;
@@ -3429,7 +3429,7 @@ namespace beam
 		struct MyVerifier
 			:public ProofVerifier
 		{
-			virtual bool get_Shielded(Merkle::Hash&) override {
+			bool get_Shielded(Merkle::Hash&) override {
 				return true;
 			}
 		} v;
@@ -3442,7 +3442,7 @@ namespace beam
 		struct MyVerifier
 			:public ProofVerifier
 		{
-			virtual bool get_Assets(Merkle::Hash&) override {
+			bool get_Assets(Merkle::Hash&) override {
 				return true;
 			}
 		} v;
@@ -3457,7 +3457,7 @@ namespace beam
 		struct MyVerifier
 			:public ProofVerifier
 		{
-			virtual bool get_Contracts(Merkle::Hash&) override {
+			bool get_Contracts(Merkle::Hash&) override {
 				return true;
 			}
 		} v;
@@ -3499,7 +3499,7 @@ namespace beam
 		struct MyVerifier
 			:public ProofVerifier
 		{
-			virtual bool get_Kernels(Merkle::Hash&) override {
+			bool get_Kernels(Merkle::Hash&) override {
 				return true;
 			}
 		} v;
@@ -3514,7 +3514,7 @@ namespace beam
 		struct MyVerifier
 			:public ProofVerifier
 		{
-			virtual bool get_Logs(Merkle::Hash&) override {
+			bool get_Logs(Merkle::Hash&) override {
 				return true;
 			}
 		} v;
@@ -3532,7 +3532,7 @@ namespace beam
 		{
 			using ProofVerifierHard::ProofVerifierHard;
 
-			virtual bool get_History(Merkle::Hash& hv) override {
+			bool get_History(Merkle::Hash& hv) override {
 				hv = m_hv;
 				return true;
 			}
@@ -3564,7 +3564,7 @@ namespace beam
 			Full& m_Res;
 			Walker(Full& s) :m_Res(s) {}
 
-			virtual bool OnState(const Full& s) override {
+			bool OnState(const Full& s) override {
 				m_Res = s;
 				return false;
 			}

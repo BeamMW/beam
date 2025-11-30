@@ -282,7 +282,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Cfg& c
 			struct Commitment_1 :public CommitmentStd
 			{
 				const MyContext* m_p;
-				virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+				void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 				{
 					m_p->get_F(x, j, i);
 				}
@@ -299,7 +299,7 @@ bool Proof::IsValid(InnerProduct::BatchContext& bc, Oracle& oracle, const Cfg& c
 			struct Commitment_2 :public CommitmentStd
 			{
 				const MyContext* m_p;
-				virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+				void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 				{
 					Scalar::Native v;
 					m_p->get_F(v, j, i);
@@ -483,7 +483,7 @@ void Prover::ExtractABCD()
 		struct Commitment_A :public CommitmentStd
 		{
 			Prover* m_p;
-			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+			void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
 				x = m_p->m_a[j * m_pCfg->n + i];
 			}
@@ -497,7 +497,7 @@ void Prover::ExtractABCD()
 		struct Commitment_B :public CommitmentStd
 		{
 			uint32_t m_L_Reduced;
-			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+			void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
 				assert(i < m_pCfg->n);
 
@@ -522,7 +522,7 @@ void Prover::ExtractABCD()
 			Prover* m_p;
 			uint32_t m_L_Reduced;
 
-			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+			void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
 				assert(i < m_pCfg->n);
 				x = m_p->m_a[j * m_pCfg->n + i];
@@ -545,7 +545,7 @@ void Prover::ExtractABCD()
 		struct Commitment_D :public CommitmentStd
 		{
 			Prover* m_p;
-			virtual void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
+			void get_At(Scalar::Native& x, uint32_t j, uint32_t i) override
 			{
 				x = m_p->m_a[j * m_pCfg->n + i];
 				x *= x;
@@ -621,7 +621,7 @@ void Prover::ExtractG(const Point::Native& ptBias)
 
 		std::vector<GB> m_vGB;
 
-		virtual void Exec(Executor::Context& ctx) override
+		void Exec(Executor::Context& ctx) override
 		{
 			const Cfg& cfg = m_pThis->m_Cfg;
 			const uint32_t N = cfg.get_N();

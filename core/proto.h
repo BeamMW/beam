@@ -744,9 +744,9 @@ namespace proto {
         void InitCipher();
 
         // Protocol
-        virtual void Decrypt(uint8_t*, uint32_t nSize) override;
-        virtual uint32_t get_MacSize() override;
-        virtual bool VerifyMsg(const uint8_t*, uint32_t nSize) override;
+        void Decrypt(uint8_t*, uint32_t nSize) override;
+        uint32_t get_MacSize() override;
+        bool VerifyMsg(const uint8_t*, uint32_t nSize) override;
 
         void Encrypt(SerializedMsg&, MsgSerializer&);
     };
@@ -804,8 +804,8 @@ namespace proto {
         static void OnConnectInternal(uint64_t tag, io::TcpStream::Ptr&& newStream, io::ErrorCode);
         void OnConnectInternal2(io::TcpStream::Ptr&& newStream, io::ErrorCode);
 
-        virtual void on_protocol_error(uint64_t, ProtocolError error) override;
-        virtual void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
+        void on_protocol_error(uint64_t, ProtocolError error) override;
+        void on_connection_error(uint64_t, io::ErrorCode errorCode) override;
 
 #define THE_MACRO(code, msg) bool OnMsgInternal(uint64_t, msg##_NoInit&& v, uint32_t msgSize);
         BeamNodeMsgsAll(THE_MACRO)
@@ -840,15 +840,15 @@ namespace proto {
         bool IsKdfObscured(Key::IPKdf&, const PeerID&);
         bool IsPKdfObscured(Key::IPKdf&, const PeerID&);
 
-        virtual void OnMsg(SChannelInitiate&&) override;
-        virtual void OnMsg(SChannelReady&&) override;
-        virtual void OnMsg(Authentication&&) override;
-        virtual void OnMsg(Bye&&) override;
-		virtual void OnMsg(Ping&&) override;
-		virtual void OnMsg(GetTime&&) override;
-		virtual void OnMsg(Time&&) override;
-		virtual void OnMsg(Login&&) override;
-        virtual void OnMsg(NewTransaction0&&) override;
+        void OnMsg(SChannelInitiate&&) override;
+        void OnMsg(SChannelReady&&) override;
+        void OnMsg(Authentication&&) override;
+        void OnMsg(Bye&&) override;
+		void OnMsg(Ping&&) override;
+		void OnMsg(GetTime&&) override;
+		void OnMsg(Time&&) override;
+		void OnMsg(Login&&) override;
+        void OnMsg(NewTransaction0&&) override;
 
         virtual void OnTrafic(uint8_t nCode, uint32_t nSize, bool bOut) {}
 

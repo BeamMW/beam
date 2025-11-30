@@ -91,9 +91,9 @@ namespace beam
 
 			void Init(const Key::IPKdf::Ptr&, Key::Index nMaxShieldedIdx = 1);
 
-			virtual bool OnUtxo(Height, const Output&) override;
-			virtual bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg, Height) override;
-			virtual bool OnAsset(Asset::Full&) override;
+			bool OnUtxo(Height, const Output&) override;
+			bool OnShieldedOut(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo&, const ECC::Hash::Value& hvMsg, Height) override;
+			bool OnAsset(Asset::Full&) override;
 
 			virtual bool OnUtxoRecognized(Height, const Output&, CoinID&, const Output::User&) { return true; }
 			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp&, const ShieldedTxo::DataParams&, Key::Index) { return true; }

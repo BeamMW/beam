@@ -91,18 +91,18 @@ namespace beam
 
 	protected:
 		// ChainNavigator
-		virtual void AdjustDefs(MappedFile::Defs&d)
+		void AdjustDefs(MappedFile::Defs& d) override
 		{
 			d.m_nBanks = Type::count;
 			d.m_nFixedHdr = sizeof(Header);
 		}
 
-		virtual void Delete(Patch& p)
+		void Delete(Patch& p) override
 		{
 			m_Mapping.Free(Type::MyPatch, &p);
 		}
 
-		virtual void Apply(const Patch& p, bool bFwd)
+		void Apply(const Patch& p, bool bFwd) override
 		{
 			PatchPlus& pp = (PatchPlus&) p;
 			Header& hdr = (Header&) get_Hdr_();
@@ -115,7 +115,7 @@ namespace beam
 				hdr.m_pDatas[pp.m_iIdx] -= pp.m_Delta;
 		}
 
-		virtual Patch* Clone(Offset x)
+		Patch* Clone(Offset x) override
 		{
 			// during allocation ptr may change
 			PatchPlus* pRet = (PatchPlus*) m_Mapping.Allocate(Type::MyPatch, sizeof(PatchPlus));
@@ -363,7 +363,7 @@ namespace beam
 		{
 			UtxoTree::Key m_Min, m_Max, m_Last;
 
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			bool OnLeaf(const RadixTree::Leaf& x) override
 			{
 				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 				verify_test(v.m_Key.V >= m_Min.V);
@@ -394,7 +394,7 @@ namespace beam
 		{
 			UtxoTree::Compact m_Compact;
 
-			virtual bool OnLeaf(const RadixTree::Leaf& x) override
+			bool OnLeaf(const RadixTree::Leaf& x) override
 			{
 				const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 				uint32_t nCount = v.get_Count();
@@ -437,12 +437,12 @@ namespace beam
 			return vec[size_t(pos.X)];
 		}
 
-		virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+		void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 		{
 			hv = Cast::NotConst(this)->get_At(pos);
 		}
 
-		virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
+		void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
 		{
 			get_At(pos) = hv;
 		}
@@ -461,13 +461,13 @@ namespace beam
 
 		std::vector<Node::Ptr> m_AllNodes;
 
-		virtual const void* get_NodeData(Key key) const override
+		const void* get_NodeData(Key key) const override
 		{
 			assert(key);
 			return ((Node*) key)->m_pArr.get();
 		}
 
-		virtual void get_NodeHash(Merkle::Hash& hash, Key key) const override
+		void get_NodeHash(Merkle::Hash& hash, Key key) const override
 		{
 			hash = ((Node*) key)->m_MyHash;
 		}
@@ -504,7 +504,7 @@ namespace beam
 		{
 			const Merkle::Hash* m_pHashes;
 
-			virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override
+			void LoadElement(Merkle::Hash& hv, uint64_t n) const override
 			{
 				verify_test(n < m_Count);
 				hv = m_pHashes[n];
@@ -592,7 +592,7 @@ namespace beam
 					{
 					}
 
-					virtual void get_Proof(Merkle::IProofBuilder& p, uint64_t i) override
+					void get_Proof(Merkle::IProofBuilder& p, uint64_t i) override
 					{
 						m_Mmr.get_Proof(p, i);
 					}
@@ -610,7 +610,7 @@ namespace beam
 
 				MyVerifier(const Merkle::MultiProof& x, uint64_t nCount) :Verifier(x, nCount) {}
 
-				virtual bool IsRootValid(const Merkle::Hash& hv) override { return hv == m_hvRoot; }
+				bool IsRootValid(const Merkle::Hash& hv) override { return hv == m_hvRoot; }
 			};
 
 			while (true)

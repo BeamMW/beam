@@ -300,8 +300,8 @@ namespace ECC
 			void DeriveKey(Scalar::Native&, const Key::ID&);
 			virtual void DeriveKey(Scalar::Native&, const Hash::Value&) = 0;
 
-			virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
-			virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+			void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+			void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
 
 			virtual uint32_t ExportS(void*) const { return 0; } // returns the size, ptr is optional
 		};

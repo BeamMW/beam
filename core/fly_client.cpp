@@ -436,7 +436,7 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
         uint32_t m_Count;
         Block::Number m_TipNum;
 
-        virtual bool OnState(const Block::SystemState::Full& s) override
+        bool OnState(const Block::SystemState::Full& s) override
         {
             if (s.m_Number.v >= m_TipNum.v)
                 return true;
@@ -664,7 +664,7 @@ void FlyClient::NetworkStd::Connection::PostChainworkProof(const StateArray& arr
         Height m_LowErase;
         const StateArray* m_pArr;
 
-        virtual bool OnState(const Block::SystemState::Full& s) override
+        bool OnState(const Block::SystemState::Full& s) override
         {
             if (s.get_Height() <= m_LowHeight)
                 return false;
@@ -1048,7 +1048,7 @@ bool FlyClient::Data::DecodedHdrPack::DecodeAndCheck(const HdrPack& msg)
 
         virtual ~MyTask() {}
 
-        virtual void Exec(Executor::Context& ctx) override
+        void Exec(Executor::Context& ctx) override
         {
             uint32_t i0, nCount;
             ctx.get_Portion(i0, nCount, m_Count);

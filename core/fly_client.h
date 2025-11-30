@@ -395,12 +395,12 @@ namespace proto {
 			} m_BbsMiner;
 
 			// INetwork
-			virtual void Connect() override;
-			virtual void Disconnect() override;
-			virtual void PostRequestInternal(Request&) override;
-			virtual void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
-			virtual void DependentSubscribe(bool bSubscribe) override;
-			virtual const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
+			void Connect() override;
+			void Disconnect() override;
+			void PostRequestInternal(Request&) override;
+			void BbsSubscribe(BbsChannel, Timestamp, IBbsReceiver*) override;
+			void DependentSubscribe(bool bSubscribe) override;
+			const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
 			// more events
 			virtual void OnNodeConnected(bool) {}

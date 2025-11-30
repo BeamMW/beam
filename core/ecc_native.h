@@ -232,9 +232,9 @@ namespace ECC
 
 			void get_At(Element& el, uint32_t iIdx);
 
-			virtual void Reset() override;
-			virtual bool MoveNext(Element& el) override;
-			virtual bool MovePrev(Element& el) override;
+			void Reset() override;
+			bool MoveNext(Element& el) override;
+			bool MovePrev(Element& el) override;
 		};
 
 		template <uint32_t nSize>
@@ -731,11 +731,11 @@ namespace ECC
 		HKdf();
 		virtual ~HKdf();
 		// IPKdf
-		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
-		virtual uint32_t ExportP(void*) const override;
+		void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		uint32_t ExportP(void*) const override;
 		// IKdf
-		virtual void DeriveKey(Scalar::Native&, const Hash::Value&) override;
-		virtual uint32_t ExportS(void*) const override;
+		void DeriveKey(Scalar::Native&, const Hash::Value&) override;
+		uint32_t ExportS(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed
@@ -772,10 +772,10 @@ namespace ECC
 		virtual ~HKdfPub();
 
 		// IPKdf
-		virtual void DerivePKey(Scalar::Native&, const Hash::Value&) override;
-		virtual void DerivePKeyG(Point::Native&, const Hash::Value&) override;
-		virtual void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
-		virtual uint32_t ExportP(void*) const override;
+		void DerivePKey(Scalar::Native&, const Hash::Value&) override;
+		void DerivePKeyG(Point::Native&, const Hash::Value&) override;
+		void DerivePKeyJ(Point::Native&, const Hash::Value&) override;
+		uint32_t ExportP(void*) const override;
 
 #pragma pack (push, 1)
 		struct Packed

@@ -241,8 +241,8 @@ struct DistributedMmr::Impl
 	}
 
 	// Mmr
-	virtual void LoadElement(Hash&, const Position&) const override;
-	virtual void SaveElement(const Hash&, const Position&) override;
+	void LoadElement(Hash&, const Position&) const override;
+	void SaveElement(const Hash&, const Position&) override;
 };
 
 uint32_t DistributedMmr::get_NodeSize(uint64_t n)
@@ -501,12 +501,12 @@ struct FlyMmr::Inner
 		}
 	}
 
-	virtual void LoadElement(Hash& hv, const Position& pos) const override
+	void LoadElement(Hash& hv, const Position& pos) const override
 	{
 		Calculate(hv, pos);
 	}
 
-	virtual void SaveElement(const Hash&, const Position&) override
+	void SaveElement(const Hash&, const Position&) override
 	{
 		assert(false); // not used
 	}
@@ -666,7 +666,7 @@ bool HardVerifier::InterpretMmr(uint64_t iIdx, uint64_t nCount)
 		HardVerifier& m_This;
 		MyMmr(HardVerifier& x) :m_This(x) {}
 
-		virtual bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
+		bool AppendNode(const Merkle::Node& n, const Merkle::Position&) override
 		{
 			return m_This.InterpretOnce(n.first);
 		}

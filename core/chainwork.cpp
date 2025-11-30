@@ -187,7 +187,7 @@ namespace beam
 			std::vector<SystemState::Full>& m_Trg;
 			Walker(std::vector<SystemState::Full>& trg) :m_Trg(trg) {}
 
-			virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
+			bool OnState(const SystemState::Full& s, bool bIsTip) override
 			{
 				m_Trg.push_back(s);
 				return true;
@@ -213,7 +213,7 @@ namespace beam
 			{
 			}
 
-			virtual void get_Proof(Merkle::IProofBuilder& bld, uint64_t i) override
+			void get_Proof(Merkle::IProofBuilder& bld, uint64_t i) override
 			{
 				m_Src.get_Proof(bld, Number(i + 1));
 			}
@@ -293,7 +293,7 @@ namespace beam
 				size_t m_Count;
 				SystemState::Sequence::Prefix* m_pTrg;
 
-				virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
+				bool OnState(const SystemState::Full& s, bool bIsTip) override
 				{
 					if (m_Count--)
 						return true;
@@ -339,7 +339,7 @@ namespace beam
 		{
 			SystemState::Full m_Tip;
 
-			virtual bool OnState(const SystemState::Full& s, bool bIsTip) override
+			bool OnState(const SystemState::Full& s, bool bIsTip) override
 			{
 				if (!(s.IsValid()))
 					return false;
@@ -370,17 +370,17 @@ namespace beam
 
 			const Merkle::Hash* m_pHist;
 
-			virtual bool get_History(Merkle::Hash& hv) override {
+			bool get_History(Merkle::Hash& hv) override {
 				hv = *m_pHist;
 				return true;
 			}
-			virtual bool get_Live(Merkle::Hash& hv) override {
+			bool get_Live(Merkle::Hash& hv) override {
 				hv = m_This.m_hvRootLive;
 				return true;
 			}
 
 
-			virtual bool IsRootValid(const Merkle::Hash& hv) override
+			bool IsRootValid(const Merkle::Hash& hv) override
 			{
 				// Use the standard Evaluator.
 				m_pHist = &hv;

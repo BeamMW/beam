@@ -448,31 +448,31 @@ namespace beam
 			Context& m_This;
 			Verifier(Context& ctx) :m_This(ctx) {}
 
-			virtual bool get_Utxos(Merkle::Hash& hv) override
+			bool get_Utxos(Merkle::Hash& hv) override
 			{
 				m_This.m_UtxoTree.Flush(hv);
 				return true;
 			}
 
-			virtual bool get_Shielded(Merkle::Hash& hv) override
+			bool get_Shielded(Merkle::Hash& hv) override
 			{
 				m_This.m_Shielded.get_Hash(hv);
 				return true;
 			}
 
-			virtual bool get_Assets(Merkle::Hash& hv) override
+			bool get_Assets(Merkle::Hash& hv) override
 			{
 				m_This.m_Assets.get_Hash(hv);
 				return true;
 			}
 
-			virtual bool get_Contracts(Merkle::Hash& hv) override
+			bool get_Contracts(Merkle::Hash& hv) override
 			{
 				hv = m_This.m_hvContracts;
 				return true;
 			}
 
-			virtual bool get_KL(Merkle::Hash& hv) override
+			bool get_KL(Merkle::Hash& hv) override
 			{
 				hv = m_This.m_hvKL;
 				return true;

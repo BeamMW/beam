@@ -466,7 +466,7 @@ size_t RadixTree::Count() const
 		:public ITraveler
 	{
 		size_t m_Count;
-		virtual bool OnLeaf(const Leaf&) override {
+		bool OnLeaf(const Leaf&) override {
 			m_Count++;
 			return true;
 		}
@@ -685,7 +685,7 @@ void UtxoTree::SaveIntenral(ISerializer& s) const
 		:public ITraveler
 	{
 		ISerializer* m_pS;
-		virtual bool OnLeaf(const Leaf& n) override {
+		bool OnLeaf(const Leaf& n) override {
 			MyLeaf& x = Cast::Up<MyLeaf>(Cast::NotConst(n));
 			m_pS->Process(x.m_Key);
 

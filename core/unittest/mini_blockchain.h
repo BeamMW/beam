@@ -30,7 +30,7 @@ namespace beam {
 		struct Source
 			:public Block::ChainWorkProof::ISource
 		{
-			virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+			void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
 			{
 				// median search. The Hdr.m_ChainWork must be strictly bigger than d. (It's exclusive)
 				typedef std::vector<State>::const_iterator Iterator;
@@ -49,7 +49,7 @@ namespace beam {
 				s = it0->m_Hdr;
 			}
 
-			virtual void get_Proof(Merkle::IProofBuilder& bld, Block::Number num) override
+			void get_Proof(Merkle::IProofBuilder& bld, Block::Number num) override
 			{
 				assert(num.v);
 				auto idx = num.v - 1;
