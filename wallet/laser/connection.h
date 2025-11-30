@@ -25,10 +25,10 @@ class Connection final : public FlyClient::INetwork
 public:
     explicit Connection(const FlyClient::NetworkStd::Ptr& net);
 
-    virtual void Connect() override;
-    virtual void Disconnect() override;
-    virtual void PostRequestInternal(FlyClient::Request& r) override;
-    virtual void BbsSubscribe(
+    void Connect() override;
+    void Disconnect() override;
+    void PostRequestInternal(FlyClient::Request& r) override;
+    void BbsSubscribe(
             BbsChannel ch,
             Timestamp timestamp,
             FlyClient::IBbsReceiver* receiver) override;

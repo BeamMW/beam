@@ -72,7 +72,7 @@ namespace
         MockBoardObserver(CheckerFunction checker) :
             m_testChecker(checker) {};
 
-        virtual void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
+        void onSwapOffersChanged(ChangeAction action, const vector<SwapOffer>& offers) override
         {
             m_testChecker(action, offers);
         }
@@ -86,7 +86,7 @@ namespace
 
         MockBroadcastListener(OnMessage func) : m_callback(func) {};
 
-        virtual bool onMessage(BroadcastMsg&& msg) override
+        bool onMessage(BroadcastMsg&& msg) override
         {
             m_callback(msg);
             return true;

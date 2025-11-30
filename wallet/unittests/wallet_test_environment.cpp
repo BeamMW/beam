@@ -521,7 +521,7 @@ struct TestWalletNetwork
     typedef std::map<WalletID, Entry> WalletMap;
     WalletMap m_Map;
 
-    virtual void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
+    void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
     {
         WalletMap::iterator it = m_Map.find(peerID);
         WALLET_CHECK(m_Map.end() != it);
@@ -531,11 +531,11 @@ struct TestWalletNetwork
         PostAsync();
     }
 
-    virtual void SendRawMessage(const WalletID& peerID, ByteBuffer&& msg) override
+    void SendRawMessage(const WalletID& peerID, ByteBuffer&& msg) override
     {
     }
 
-    virtual void Proceed() override
+    void Proceed() override
     {
         for (WalletMap::iterator it = m_Map.begin(); m_Map.end() != it; ++it)
             for (Entry& v = it->second; !v.m_Msgs.empty(); v.m_Msgs.pop_front())
@@ -564,7 +564,7 @@ struct TestBlockchain
                 m_pHashes = kpb.m_vKrnIDs.empty() ? NULL : &kpb.m_vKrnIDs.front();
             }
 
-            virtual void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
+            void LoadElement(Merkle::Hash& hv, uint64_t n) const override {
                 hv = m_pHashes[n];
             }
         };
@@ -681,7 +681,7 @@ struct TestBlockchain
         d.m_Commitment = c;
 
         struct Traveler :public UtxoTree::ITraveler {
-            virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+            bool OnLeaf(const RadixTree::Leaf& x) override {
                 return false; // stop iteration
             }
         } t;
@@ -727,7 +727,7 @@ struct TestBlockchain
             UtxoTree* m_pTree;
             Merkle::Hash m_hvHistory;
 
-            virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+            bool OnLeaf(const RadixTree::Leaf& x) override {
 
                 const UtxoTree::MyLeaf& v = (UtxoTree::MyLeaf&) x;
                 UtxoTree::Key::Data d;
@@ -929,10 +929,10 @@ struct TestNodeNetwork
     typedef std::deque<Request::Ptr> Queue;
     Queue m_queReqs;
 
-    virtual void Connect() override {}
-    virtual void Disconnect() override {}
+    void Connect() override {}
+    void Disconnect() override {}
 
-    virtual void PostRequestInternal(Request& r) override
+    void PostRequestInternal(Request& r) override
     {
         assert(r.m_pTrg);
 
@@ -940,7 +940,7 @@ struct TestNodeNetwork
         PostAsync();
     }
 
-    virtual void Proceed() override
+    void Proceed() override
     {
         Queue q;
         q.swap(m_queReqs);
@@ -1290,12 +1290,12 @@ struct MyMmr : public Merkle::Mmr
         return vec[pos.X];
     }
 
-    virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+    void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
     {
         hv = ((MyMmr*)this)->get_At(pos);
     }
 
-    virtual void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
+    void SaveElement(const Merkle::Hash& hv, const Merkle::Position& pos) override
     {
         get_At(pos) = hv;
     }

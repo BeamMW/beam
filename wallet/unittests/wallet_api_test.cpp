@@ -85,7 +85,7 @@ namespace
             }
         }
 
-        #define MESSAGE_FUNC(strct, name, ...) virtual void onHandle##strct(const JsonRpcId& id, strct&& data) override { \
+        #define MESSAGE_FUNC(strct, name, ...) void onHandle##strct(const JsonRpcId& id, strct&& data) override { \
                 WALLET_CHECK(!"error, onHandle should be never called"); };
 
         V6_API_METHODS(MESSAGE_FUNC)

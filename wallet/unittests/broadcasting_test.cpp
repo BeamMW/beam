@@ -42,7 +42,7 @@ namespace
 
         MockBroadcastListener(OnMessage func) : m_callback(func) {};
 
-        virtual bool onMessage(BroadcastMsg&& bMsg) override
+        bool onMessage(BroadcastMsg&& bMsg) override
         {
             m_callback(bMsg);
             return true;

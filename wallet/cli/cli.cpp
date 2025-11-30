@@ -2937,7 +2937,7 @@ namespace
                 m_Request->m_pTrg = nullptr;
             }
 
-            virtual void OnComplete(proto::FlyClient::Request&) override
+            void OnComplete(proto::FlyClient::Request&) override
             {
                 m_Request->m_pTrg = nullptr;
                 io::Reactor::get_Current().stop();
@@ -2989,7 +2989,7 @@ namespace
 
         struct MyProgress : IWalletDB::IRecoveryProgress
         {
-            virtual bool OnProgress(uint64_t done, uint64_t total)
+            bool OnProgress(uint64_t done, uint64_t total) override
             {
                 size_t percent = done * 100 / total;
                 std::cout << "\rImporting recovery data: " << percent << "% (" << done << "/" << total << ")";

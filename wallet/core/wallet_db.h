@@ -678,13 +678,13 @@ namespace beam::wallet
         WalletDB(sqlite3* db, sqlite3* sdb);
         ~WalletDB();
 
-        virtual beam::Key::IKdf::Ptr get_MasterKdf() const override;
-        virtual beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
-        virtual beam::Key::IKdf::Ptr get_SbbsKdf() const override;
-        virtual IPrivateKeyKeeper2::Ptr get_KeyKeeper() const override;
+        beam::Key::IKdf::Ptr get_MasterKdf() const override;
+        beam::Key::IPKdf::Ptr get_OwnerKdf() const override;
+        beam::Key::IKdf::Ptr get_SbbsKdf() const override;
+        IPrivateKeyKeeper2::Ptr get_KeyKeeper() const override;
 
-        virtual uint32_t SlotAllocate() override;
-        virtual void SlotFree(uint32_t) override;
+        uint32_t SlotAllocate() override;
+        void SlotFree(uint32_t) override;
 
         uint64_t AllocateKidRange(uint64_t nCount) override;
         void selectCoins2(Height, Amount amount, Asset::ID, std::vector<Coin>&, std::vector<ShieldedCoin>&, uint32_t nMaxShielded, bool bCanReturnLess) override;
@@ -754,7 +754,7 @@ namespace beam::wallet
         void getDefaultAddressAlways(WalletAddress&) override;
 
         void saveLaserChannel(const ILaserChannelEntity&) override;
-        virtual bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
+        bool getLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId,
                                      TLaserChannelEntity* entity) override;
         bool removeLaserChannel(const std::shared_ptr<uintBig_t<16>>& chId) override;
         std::vector<TLaserChannelEntity> loadLaserChannels(uint8_t state = 0) override;
@@ -801,14 +801,14 @@ namespace beam::wallet
         std::vector<Notification> getNotifications() const override;
         void saveNotification(const Notification&) override;
         
-        virtual ExchangeRates getLatestExchangeRates() const override;
-        virtual void saveExchangeRate(const ExchangeRate&) override;
-        virtual void saveExchangeRate(const ExchangeRateAtPoint&) override;
+        ExchangeRates getLatestExchangeRates() const override;
+        void saveExchangeRate(const ExchangeRate&) override;
+        void saveExchangeRate(const ExchangeRateAtPoint&) override;
         void saveVerification(const VerificationInfo&) override;
         std::vector<VerificationInfo> getVerification() const override;
 
-        virtual boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
-        virtual ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
+        boost::optional<ExchangeRateAtPoint> getExchangeRateNearPoint(const Currency& from, const Currency& to, uint64_t maxHeight) const override;
+        ExchangeRatesHistory getExchangeRatesHistory(uint64_t startHeight, uint64_t endHeight) const override;
 
         boost::optional<ShieldedTxo::Voucher> grabVoucher(const WalletID& peerID) override;
         void saveVoucher(const ShieldedTxo::Voucher& v, const WalletID& walletID, bool preserveOnGrab) override;

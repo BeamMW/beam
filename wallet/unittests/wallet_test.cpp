@@ -4690,7 +4690,7 @@ void TestArgumentParsing()
 {
     struct MyProcessor : bvm2::ProcessorManager
     {
-        virtual void SelectContext(bool bDependent, uint32_t nChargeNeeded) override {}
+        void SelectContext(bool bDependent, uint32_t nChargeNeeded) override {}
     };
     {
         MyProcessor p;
@@ -4925,7 +4925,7 @@ void TestVouchers()
             Cast::Down<FlyClient>(*this).OnOwnedNode(Zero, true); // hack, disable wallet's logic according to which it won't reply with voucher without owned node.
         }
 
-        virtual void OnVouchersFrom(const WalletAddress&, const WalletID& myAddr, std::vector<ShieldedTxo::Voucher>&& res) override
+        void OnVouchersFrom(const WalletAddress&, const WalletID& myAddr, std::vector<ShieldedTxo::Voucher>&& res) override
         {
             m_Vouchers = std::move(res);
             io::Reactor::get_Current().stop();

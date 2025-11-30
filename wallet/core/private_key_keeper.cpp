@@ -24,7 +24,7 @@ namespace beam::wallet
 	{
 		Status::Type m_Status = Status::InProgress;
 
-		virtual void OnDone(Status::Type nRes) override
+		void OnDone(Status::Type nRes) override
 		{
 			m_Status = nRes;
 			io::Reactor::get_Current().stop();
@@ -229,7 +229,7 @@ namespace beam::wallet
 	{
 		struct MyTask :public Task {
 			TMethod* m_pM;
-			virtual void Exec(IPrivateKeyKeeper2& k) override { m_Status = k.InvokeSync(*m_pM); }
+			void Exec(IPrivateKeyKeeper2& k) override { m_Status = k.InvokeSync(*m_pM); }
 		};
 
 		Task::Ptr pTask = std::make_unique<MyTask>();

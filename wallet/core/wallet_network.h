@@ -154,8 +154,8 @@ namespace beam::wallet
             :public proto::FlyClient::Request::IHandler
             , public proto::FlyClient::IBbsReceiver
         {
-            virtual void OnComplete(proto::FlyClient::Request&) override;
-            virtual void OnMsg(proto::BbsMsg&&) override;
+            void OnComplete(proto::FlyClient::Request&) override;
+            void OnMsg(proto::BbsMsg&&) override;
 
             IMPLEMENT_GET_PARENT_OBJ(BbsProcessor, m_BbsSentEvt)
         } m_BbsSentEvt;

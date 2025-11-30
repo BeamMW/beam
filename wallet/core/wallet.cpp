@@ -1924,17 +1924,17 @@ namespace beam::wallet
             Wallet& m_This;
             MyParser(Wallet& x) :m_This(x) {}
 
-            virtual void OnEventType(proto::Event::Shielded& evt) override
+            void OnEventType(proto::Event::Shielded& evt) override
             {
                 m_This.ProcessEventShieldedUtxo(evt, m_Height);
             }
 
-            virtual void OnEventType(proto::Event::AssetCtl& evt) override
+            void OnEventType(proto::Event::AssetCtl& evt) override
             {
                 m_This.ProcessEventAsset(evt, m_Height);
             }
 
-            virtual void OnEventType(proto::Event::Utxo& evt) override
+            void OnEventType(proto::Event::Utxo& evt) override
             {
                 m_This.ProcessEventUtxo(evt, m_Height);
             }
