@@ -5355,6 +5355,13 @@ NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpre
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
 {
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		auto* pPbft = m_Proc.get_PbftHandler();
+		if (pPbft && !pPbft->OnContractInvoke(cid, iMethod, krn.m_Args, m_Bic.m_Temporary))
+			return  false;
+	}
+
 	bool bRes = false;
 	try
 	{

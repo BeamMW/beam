@@ -812,6 +812,7 @@ private:
 		const Block::Pbft::State::IValidatorSet& get_Validators() override;
 		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) override;
 		void OnContractStoreReset() override;
+		bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) override;
 		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
 
 		uint64_t get_RefTime_ms() const;

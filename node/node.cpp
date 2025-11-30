@@ -6014,6 +6014,52 @@ void Node::Validator::OnContractStoreReset()
 	}
 }
 
+bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, const Blob& args, bool bTemporary)
+{
+	if (!m_cid && !iMethod)
+	{
+		// we assume the very first deployed contract is the PBFT
+		m_cid = cid;
+		BEAM_LOG_INFO() << "PBFT contract is " << cid;
+
+		Blob blob = cid;
+		get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftCid, nullptr, &blob);
+	}
+
+	if (*m_cid != cid)
+		return true;
+
+	switch (iMethod)
+	{
+	case Shaders::PBFT::Method::ValidatorStatusUpdate::s_iMethod:
+		if (bTemporary && m_pMe)
+		{
+			// I'm a validator, and the block isn't finalized yet.
+			// check if my assessment is consistent with this action
+			if (args.n < sizeof(Shaders::PBFT::Method::ValidatorStatusUpdate))
+				return false;
+			const auto& m = *(Shaders::PBFT::Method::ValidatorStatusUpdate*)args.p;
+
+			auto& msg = m_pMe->m_Assessment.m_Last;
+			auto it = msg.m_Reputation.find(m.m_Address);
+			if (msg.m_Reputation.end() != it)
+			{
+				auto fMy = it->second;
+				auto fOther = ByteOrder::from_le(m.m_Flags);
+
+				if ((fMy ^ fOther) & Shaders::PBFT::State::Validator::Flags::Jail)
+					return false;
+
+				if (fOther & ~Shaders::PBFT::State::Validator::Flags::Jail)
+					return false; // currently ban other flags
+			}
+		}
+		break;
+	}
+
+	return true;
+}
+
 const Block::Pbft::State::IValidatorSet& Node::Validator::get_Validators()
 {
 	return m_ValidatorSet;
@@ -6022,20 +6068,7 @@ const Block::Pbft::State::IValidatorSet& Node::Validator::get_Validators()
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
 {
 	if (!m_cid)
-	{
-		// we assume the very first deployed contract is the PBFT
-		if (ContractID::nBytes == key.n)
-		{
-			const auto& cid = *(const ContractID*) key.p;
-			m_cid = cid;
-			BEAM_LOG_INFO() << "PBFT contract is " << cid;
-
-			Blob blob = cid;
-			get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftCid, nullptr, &blob);
-
-		}
 		return;
-	}
 
 	// track validator changes
 	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
@@ -6077,20 +6110,6 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 			m_ValidatorSet.m_mapValidators.Delete(*pV);
 		}
 		return;
-	}
-
-	if (bTemporary && m_pMe)
-	{
-		// I'm a validator, and the block isn't finalized yet.
-		// check if my assessment is consistent with this action
-		auto& msg = m_pMe->m_Assessment.m_Last;
-		auto it = msg.m_Reputation.find(addr);
-		if (msg.m_Reputation.end() != it)
-		{
-			auto fMy = it->second;
-			if ((fMy ^ vd.m_Flags) & Shaders::PBFT::State::Validator::Flags::Jail)
-				Exc::Fail();
-		}
 	}
 
 	if (!pV)
