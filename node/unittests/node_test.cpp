@@ -667,7 +667,7 @@ namespace beam
 			uint32_t m_Total = 0;
 			uint32_t m_Miss = 0;
 
-			virtual void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
+			void LoadElement(Merkle::Hash& hv, const Merkle::Position& pos) const override
 			{
 				Cast::NotConst(this)->m_Total++;
 				if (!CacheFind(hv, pos))
@@ -1674,11 +1674,11 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
-			virtual void OnConnectedSecure() override {
+			void OnConnectedSecure() override {
 				OnTimer();
 			}
 
-			virtual void OnDisconnect(const DisconnectReason&) override {
+			void OnDisconnect(const DisconnectReason&) override {
 				fail_test("OnDisconnect");
 			}
 
@@ -1720,7 +1720,7 @@ namespace beam
 				SetTimer(100);
 			}
 
-			virtual void OnMsg(proto::NewTip&& msg) override
+			void OnMsg(proto::NewTip&& msg) override
 			{
 				printf("Tip Height=%u\n", (unsigned int) msg.m_Description.get_Height());
 				if (msg.m_Description.get_Height() >= m_HeightTrg)
@@ -1756,7 +1756,7 @@ namespace beam
 			Key::IPKdf::Ptr m_pOwner2;
 			uint32_t m_nUnrecognized = 0;
 
-			virtual bool OnUtxo(Height h, const Output& outp) override
+			bool OnUtxo(Height h, const Output& outp) override
 			{
 				CoinID cid;
 				bool b1 = outp.Recover(h, *m_pOwner1, cid);
@@ -1987,7 +1987,7 @@ namespace beam
 				ECC::SetRandom(m_Wallet2.m_pKdf);
 			}
 
-			virtual void OnConnectedSecure() override
+			void OnConnectedSecure() override
 			{
 				SetTimer(90 * 1000);
 				SendLogin();
@@ -1995,7 +1995,7 @@ namespace beam
 				Send(proto::GetExternalAddr());
 			}
 
-			virtual void OnMsg(proto::Authentication&& msg) override
+			void OnMsg(proto::Authentication&& msg) override
 			{
 				proto::NodeConnection::OnMsg(std::move(msg));
 
@@ -2014,11 +2014,11 @@ namespace beam
 				}
 			}
 
-			virtual void OnMsg(proto::ExternalAddr&& msg) override
+			void OnMsg(proto::ExternalAddr&& msg) override
 			{
 			}
 
-			virtual void OnDisconnect(const DisconnectReason&) override {
+			void OnDisconnect(const DisconnectReason&) override {
 				fail_test("OnDisconnect");
 				io::Reactor::get_Current().stop();
 			}
@@ -2169,7 +2169,7 @@ namespace beam
 				return true;
 			}
 
-			virtual void OnMsg(proto::ShieldedList&& msg) override
+			void OnMsg(proto::ShieldedList&& msg) override
 			{
 				verify_test(msg.m_Items.size() <= m_Shielded.m_N);
 
@@ -2243,7 +2243,7 @@ namespace beam
 				Send(msgTx);
 			}
 
-			virtual void OnMsg(proto::ProofShieldedOutp&& msg) override
+			void OnMsg(proto::ProofShieldedOutp&& msg) override
 			{
 				if (msg.m_Proof.empty())
 					return;
@@ -2269,7 +2269,7 @@ namespace beam
 				Send(msgOut);
 			}
 
-			virtual void OnMsg(proto::ProofShieldedInp&& msg) override
+			void OnMsg(proto::ProofShieldedInp&& msg) override
 			{
 				if (msg.m_Proof.empty())
 					return;
@@ -2283,7 +2283,7 @@ namespace beam
 				verify_test(m_vStates.back().IsValidProofShieldedInp(d, msg.m_Proof));
 			}
 
-			virtual void OnMsg(proto::ProofAsset&& msg) override
+			void OnMsg(proto::ProofAsset&& msg) override
 			{
 				verify_test(m_Assets.m_hCreated && !m_Assets.m_ID);
 
@@ -2299,7 +2299,7 @@ namespace beam
 				verify_test(m_Assets.m_ID);
 			}
 
-			virtual void OnMsg(proto::AssetsListAt&& msg) override
+			void OnMsg(proto::AssetsListAt&& msg) override
 			{
 				verify_test(m_Assets.m_hCreated);
 
@@ -2388,7 +2388,7 @@ namespace beam
 				return !!(Block::Pbft::HdrData::Flags::Empty & d.m_Flags1);
 			}
 
-			virtual void OnMsg(proto::NewTip&& msg) override
+			void OnMsg(proto::NewTip&& msg) override
 			{
 				if (!msg.m_Description.m_Number.v)
 					return; // skip the treasury-received notification
@@ -2834,13 +2834,13 @@ namespace beam
 				MyClient& m_This;
 				MyNetwork(MyClient& me) :m_This(me) {}
 
-				virtual void Connect() override {}
-				virtual void Disconnect() override {}
-				virtual void BbsSubscribe(BbsChannel, Timestamp, proto::FlyClient::IBbsReceiver*) override {}
+				void Connect() override {}
+				void Disconnect() override {}
+				void BbsSubscribe(BbsChannel, Timestamp, proto::FlyClient::IBbsReceiver*) override {}
 
 				proto::FlyClient::Request::Ptr m_pReq;
 
-				virtual void PostRequestInternal(proto::FlyClient::Request& r) override
+				void PostRequestInternal(proto::FlyClient::Request& r) override
 				{
 					switch (r.get_Type())
 					{
@@ -3042,19 +3042,19 @@ namespace beam
 				return true;
 			}
 
-			virtual void OnMsg(proto::ContractVars&& msg) override
+			void OnMsg(proto::ContractVars&& msg) override
 			{
 				if (m_pMyNetwork)
 					m_pMyNetwork->OnMsg(std::move(msg));
 			}
 
-			virtual void OnMsg(proto::ContractLogs&& msg) override
+			void OnMsg(proto::ContractLogs&& msg) override
 			{
 				if (m_pMyNetwork)
 					m_pMyNetwork->OnMsg(std::move(msg));
 			}
 
-			virtual void OnMsg(proto::ContractVar&& msg) override
+			void OnMsg(proto::ContractVar&& msg) override
 			{
 				if (m_pMyNetwork)
 				{
@@ -3082,7 +3082,7 @@ namespace beam
 				return nullptr;
 			}
 
-			virtual void OnMsg(proto::ContractLogProof&& msg) override
+			void OnMsg(proto::ContractLogProof&& msg) override
 			{
 				verify_test(!m_queProofLogsExpected.empty());
 				auto& x = m_queProofLogsExpected.front();
@@ -3233,13 +3233,13 @@ namespace beam
             }
 
 
-			virtual void SetupLogin(proto::Login& msg) override
+			void SetupLogin(proto::Login& msg) override
 			{
 				if (m_MiningFinalization)
 					msg.m_Flags |= proto::LoginFlags::MiningFinalization;
 			}
 
-			virtual void OnMsg(proto::ProofState&& msg) override
+			void OnMsg(proto::ProofState&& msg) override
 			{
 				if (!m_queProofsStateExpected.empty())
 				{
@@ -3255,13 +3255,13 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::ProofCommonState&& msg) override
+			void OnMsg(proto::ProofCommonState&& msg) override
 			{
 				verify_test(!m_vStates.empty());
 				verify_test(m_vStates.back().IsValidProofState(msg.m_ID, msg.m_Proof));
 			}
 
-			virtual void OnMsg(proto::ProofUtxo&& msg) override
+			void OnMsg(proto::ProofUtxo&& msg) override
 			{
 				if (!m_queProofsExpected.empty())
 				{
@@ -3278,7 +3278,7 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::ProofKernel2&& msg) override
+			void OnMsg(proto::ProofKernel2&& msg) override
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
@@ -3325,7 +3325,7 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::ProofKernel&& msg) override
+			void OnMsg(proto::ProofKernel&& msg) override
 			{
 				if (!m_queProofsKrnExpected.empty())
 				{
@@ -3355,7 +3355,7 @@ namespace beam
 					fail_test("unexpected proof");
 			}
 
-			virtual void OnMsg(proto::ProofChainWork&& msg) override
+			void OnMsg(proto::ProofChainWork&& msg) override
 			{
 				verify_test(m_nChainWorkProofsPending);
 				verify_test(!m_vStates.empty() && (msg.m_Proof.m_Heading.m_Prefix.m_Number.v + msg.m_Proof.m_Heading.m_vElements.size() - 1 == m_vStates.back().m_Number.v));
@@ -3363,7 +3363,7 @@ namespace beam
 				m_nChainWorkProofsPending--;
 			}
 
-			virtual void OnMsg(proto::Events&& msg) override
+			void OnMsg(proto::Events&& msg) override
 			{
 				verify_test(m_nRecoveryPending);
 				m_nRecoveryPending--;
@@ -3378,7 +3378,7 @@ namespace beam
 					MyClient& m_This;
 					MyParser(MyClient& x) :m_This(x) {}
 
-					virtual void OnEventBase(proto::Event::Base& evt) override
+					void OnEventBase(proto::Event::Base& evt) override
 					{
 						// log non-UTXO events
 						std::ostringstream os;
@@ -3387,7 +3387,7 @@ namespace beam
 						printf("%s\n", os.str().c_str());
 					}
 
-					virtual void OnEventType(proto::Event::Utxo& evt) override
+					void OnEventType(proto::Event::Utxo& evt) override
 					{
 						ECC::Scalar::Native sk;
 						ECC::Point comm;
@@ -3410,7 +3410,7 @@ namespace beam
 						}
 					}
 
-					virtual void OnEventType(proto::Event::Shielded& evt) override
+					void OnEventType(proto::Event::Shielded& evt) override
 					{
 						OnEventBase(evt);
 
@@ -3451,7 +3451,7 @@ namespace beam
 							m_This.m_Shielded.m_EvtSpend = true;
 					}
 
-					virtual void OnEventType(proto::Event::AssetCtl& evt) override
+					void OnEventType(proto::Event::AssetCtl& evt) override
 					{
 						OnEventBase(evt);
 
@@ -3482,7 +3482,7 @@ namespace beam
 
 			}
 
-			virtual void OnMsg(proto::GetBlockFinalization&& msg) override
+			void OnMsg(proto::GetBlockFinalization&& msg) override
 			{
 				Block::Builder bb(0, *m_Wallet.m_pKdf, *m_Wallet.m_pKdf, msg.m_Height);
 				bb.AddCoinbaseAndKrn();
@@ -3563,21 +3563,21 @@ namespace beam
 		{
 			MyClient* m_pOtherClient;
 
-			virtual void OnConnectedSecure() override
+			void OnConnectedSecure() override
 			{
 				SendLogin();
 			}
 
-			virtual void SetupLogin(proto::Login& msg) override
+			void SetupLogin(proto::Login& msg) override
 			{
 				msg.m_Flags |= proto::LoginFlags::SendPeers;
 			}
 
-			virtual void OnDisconnect(const DisconnectReason&) override {
+			void OnDisconnect(const DisconnectReason&) override {
 				fail_test("OnDisconnect");
 			}
 
-			virtual void OnMsg(proto::NewTip&& msg) override {
+			void OnMsg(proto::NewTip&& msg) override {
 				if (msg.m_Description.get_Height() == 10)
 				{
 					proto::BbsSubscribe msgOut;
@@ -3590,7 +3590,7 @@ namespace beam
 
 			uint32_t m_MsgCount = 0;
 
-			virtual void OnMsg(proto::BbsMsg&& msg) override {
+			void OnMsg(proto::BbsMsg&& msg) override {
 				OnBbsMsg(msg.m_Message);
 			}
 
@@ -3626,7 +3626,7 @@ namespace beam
 		{
 			uint32_t m_Recovered = 0;
 
-			virtual bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
+			bool OnTxo(const NodeDB::WalkerTxo&, Height hCreate, Output&, const CoinID&, const Output::User&) override
 			{
 				m_Recovered++;
 				return true;
@@ -3658,7 +3658,7 @@ namespace beam
 			typedef std::set<ECC::Point> PkSet;
 			PkSet m_SpendKeys;
 
-			virtual bool OnUtxoRecognized(Height, const Output&, CoinID& cid, const Output::User&) override
+			bool OnUtxoRecognized(Height, const Output&, CoinID& cid, const Output::User&) override
 			{
 				m_Utxos++;
 				if (cid.m_AssetID)
@@ -3666,7 +3666,7 @@ namespace beam
 				return true;
 			}
 
-			virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index) override
+			bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index) override
 			{
 				verify_test(m_SpendKeys.end() == m_SpendKeys.find(pars.m_Ticket.m_SpendPk));
 				m_SpendKeys.insert(pars.m_Ticket.m_SpendPk);
@@ -3674,14 +3674,14 @@ namespace beam
 				return true;
 			}
 
-			virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& din) override
+			bool OnShieldedIn(const ShieldedTxo::DescriptionInp& din) override
 			{
 				if (m_SpendKeys.end() != m_SpendKeys.find(din.m_SpendPk))
 					m_ShieldedIns++;
 				return true;
 			}
 
-			virtual bool OnAssetRecognized(Asset::Full&) override
+			bool OnAssetRecognized(Asset::Full&) override
 			{
 				m_Assets++;
 				return true;
@@ -3811,12 +3811,12 @@ namespace beam
 				m_pTimer = io::Timer::create(io::Reactor::get_Current());
 			}
 
-			virtual Block::SystemState::IHistory& get_History() override
+			Block::SystemState::IHistory& get_History() override
 			{
 				return m_Hist;
 			}
 
-			virtual void OnNewTip() override
+			void OnNewTip() override
 			{
 				m_bTip = true;
 				MaybeStop();
@@ -3831,7 +3831,7 @@ namespace beam
 				}
 			}
 
-			virtual void OnRolledBack() override
+			void OnRolledBack() override
 			{
 				m_hRolledTo = m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->second.get_Height();
 			}
@@ -3848,7 +3848,7 @@ namespace beam
 				m_pTimer->cancel();
 			}
 
-			virtual void OnComplete(Request& r) override
+			void OnComplete(Request& r) override
 			{
 				verify_test(this == r.m_pTrg);
 				verify_test(m_nProofsExpected);
@@ -3856,7 +3856,7 @@ namespace beam
 				MaybeStop();
 			}
 
-			virtual void OnMsg(proto::BbsMsg&&) override
+			void OnMsg(proto::BbsMsg&&) override
 			{
 				m_bBbsReceived = true;
 				MaybeStop();

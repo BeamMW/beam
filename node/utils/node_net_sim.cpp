@@ -241,7 +241,7 @@ struct Context
         Height m_hEvents = 0;
         proto::FlyClient::Request::Ptr m_pReq;
 
-        virtual void OnComplete(proto::FlyClient::Request& r_) override
+        void OnComplete(proto::FlyClient::Request& r_) override
         {
             assert(&r_ == m_pReq.get());
             m_pReq.reset();
@@ -253,7 +253,7 @@ struct Context
                 Context& m_This;
                 MyParser(Context& x) :m_This(x) {}
 
-                virtual void OnEventType(proto::Event::Utxo& evt) override
+                void OnEventType(proto::Event::Utxo& evt) override
                 {
                     TxoMW::ID cid;
                     cid.m_Value = evt.m_Cid;
@@ -280,7 +280,7 @@ struct Context
                     }
                 }
 
-                virtual void OnEventType(proto::Event::Shielded& evt) override
+                void OnEventType(proto::Event::Shielded& evt) override
                 {
                     TxoSH::ID cid;
                     cid.m_Value = evt.m_TxoID;
@@ -355,7 +355,7 @@ struct Context
     struct DummyHandler
         :public proto::FlyClient::Request::IHandler
     {
-        virtual void OnComplete(proto::FlyClient::Request& r_) override
+        void OnComplete(proto::FlyClient::Request& r_) override
         {
         };
 
@@ -371,27 +371,27 @@ struct Context
             return m_Hist.m_Map.empty() ? 0 : m_Hist.m_Map.rbegin()->first;
         }
 
-        virtual void OnNewTip() override
+        void OnNewTip() override
         {
             get_ParentObj().OnNewTip();
         }
 
-        virtual void OnRolledBack() override
+        void OnRolledBack() override
         {
             get_ParentObj().OnRolledBack();
         }
 
-        virtual void get_Kdf(Key::IKdf::Ptr& pKdf) override
+        void get_Kdf(Key::IKdf::Ptr& pKdf) override
         {
             pKdf = get_ParentObj().m_pKdf;
         }
 
-        virtual void get_OwnerKdf(Key::IPKdf::Ptr& pPKdf) override
+        void get_OwnerKdf(Key::IPKdf::Ptr& pPKdf) override
         {
             pPKdf = get_ParentObj().m_pKdf;
         }
 
-        virtual Block::SystemState::IHistory& get_History() override
+        Block::SystemState::IHistory& get_History() override
         {
             return m_Hist;
         }
@@ -1065,7 +1065,7 @@ int main_Guarded(int argc, char* argv[])
             Node& m_Node;
             MyObserver(Node& n) :m_Node(n) {}
 
-            virtual void OnSyncProgress() override
+            void OnSyncProgress() override
             {
                 if (m_Node.m_PostStartSynced)
                     io::Reactor::get_Current().stop();

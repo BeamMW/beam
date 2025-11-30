@@ -3665,7 +3665,7 @@ void Node::Processor::GenerateProofStateStrict(Merkle::HardProof& proof, Block::
 		:public ProofBuilderHard
 	{
 		using ProofBuilderHard::ProofBuilderHard;
-		virtual bool get_History(Merkle::Hash&) override { return false; }
+		bool get_History(Merkle::Hash&) override { return false; }
 	};
 
 	MyProofBuilder pb(*this, proof);
@@ -3726,7 +3726,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 		proto::ProofUtxo m_Msg;
 		NodeProcessor& m_Proc;
 
-		virtual bool OnLeaf(const RadixTree::Leaf& x) override {
+		bool OnLeaf(const RadixTree::Leaf& x) override {
 
 			const UtxoTree::MyLeaf& v = Cast::Up<UtxoTree::MyLeaf>(x);
 			UtxoTree::Key::Data d;
@@ -3742,7 +3742,7 @@ void Node::Peer::OnMsg(proto::GetProofUtxo&& msg)
 				:public NodeProcessor::ProofBuilder
 			{
 				using ProofBuilder::ProofBuilder;
-				virtual bool get_Utxos(Merkle::Hash&) override { return false; }
+				bool get_Utxos(Merkle::Hash&) override { return false; }
 			};
 
 			MyProofBuilder pb(m_Proc, ret.m_Proof);
@@ -3792,7 +3792,7 @@ void Node::Processor::GenerateProofShielded(Merkle::Proof& p, const uintBigFor<T
 		:public NodeProcessor::ProofBuilder
 	{
 		using ProofBuilder::ProofBuilder;
-		virtual bool get_Shielded(Merkle::Hash&) override { return false; }
+		bool get_Shielded(Merkle::Hash&) override { return false; }
 	};
 
 	MyProofBuilder pb(*this, p);
@@ -3879,7 +3879,7 @@ void Node::Peer::OnMsg(proto::GetProofAsset&& msg)
 				:public NodeProcessor::ProofBuilder
 			{
 				using ProofBuilder::ProofBuilder;
-				virtual bool get_Assets(Merkle::Hash&) override { return false; }
+				bool get_Assets(Merkle::Hash&) override { return false; }
 			};
 
 			MyProofBuilder pb(p, msgOut.m_Proof);
@@ -3929,13 +3929,13 @@ bool Node::Processor::BuildCwp()
 			:m_Proc(proc)
 		{}
 
-		virtual void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
+		void get_StateAt(Block::SystemState::Full& s, const Difficulty::Raw& d) override
 		{
 			uint64_t rowid = m_Proc.get_DB().FindStateWorkGreater(d);
 			m_Proc.get_DB().get_State(rowid, s);
 		}
 
-		virtual void get_Proof(Merkle::IProofBuilder& bld, Block::Number num) override
+		void get_Proof(Merkle::IProofBuilder& bld, Block::Number num) override
 		{
 			m_Proc.m_Mmr.m_States.get_Proof(bld, num.v ? (num.v - 1) : 0);
 		}
@@ -4524,7 +4524,7 @@ void Node::Peer::OnMsg(proto::GetContractVar&& msg)
 				:public NodeProcessor::ProofBuilder
 			{
 				using ProofBuilder::ProofBuilder;
-				virtual bool get_Contracts(Merkle::Hash&) override { return false; }
+				bool get_Contracts(Merkle::Hash&) override { return false; }
 			};
 
 			MyProofBuilder pb(p, msgOut.m_Proof);
@@ -5392,7 +5392,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 		RecoveryInfo::Writer m_Writer;
 		NodeDB* m_pDB;
 
-		virtual bool OnLeaf(const RadixTree::Leaf& x) override
+		bool OnLeaf(const RadixTree::Leaf& x) override
 		{
 			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
 			UtxoTree::Key::Data d;
@@ -5459,7 +5459,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 				MySerializer& m_Ser;
 				MyKrnWalker(MySerializer& ser) :m_Ser(ser) {}
 
-				virtual bool OnKrnEx(const TxKernelShieldedInput& krn) override
+				bool OnKrnEx(const TxKernelShieldedInput& krn) override
 				{
 					uint8_t nFlags = 0;
 
@@ -5469,7 +5469,7 @@ bool Node::GenerateRecoveryInfo(const char* szPath)
 					return true;
 				}
 
-				virtual bool OnKrnEx(const TxKernelShieldedOutput& krn) override
+				bool OnKrnEx(const TxKernelShieldedOutput& krn) override
 				{
 					Asset::Proof::Ptr pAsset;
 
@@ -5567,7 +5567,7 @@ void Node::PrintTxos()
 
 			MyParser(std::ostringstream& os) :m_os(os) {}
 
-			virtual void OnEventBase(proto::Event::Base& x) override
+			void OnEventBase(proto::Event::Base& x) override
 			{
 				x.Dump(m_os);
 			}
@@ -5582,13 +5582,13 @@ void Node::PrintTxos()
 					pa.m_Avail -= v;
 			}
 
-			virtual void OnEventType(proto::Event::Utxo& x) override
+			void OnEventType(proto::Event::Utxo& x) override
 			{
 				OnEventBase(x);
 				OnValue(x.m_Cid.m_Value, x.m_Cid.m_AssetID, x.m_Flags, x.m_Maturity <= m_Height);
 			}
 
-			virtual void OnEventType(proto::Event::Shielded& x) override
+			void OnEventType(proto::Event::Shielded& x) override
 			{
 				OnEventBase(x);
 				OnValue(x.m_CoinID.m_Value, x.m_CoinID.m_AssetID, x.m_Flags, true);

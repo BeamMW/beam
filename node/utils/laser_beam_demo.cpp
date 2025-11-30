@@ -168,17 +168,17 @@ struct Client
 			std::cout << m_This.m_sName << "-Channel" << std::endl;
 		}
 
-		virtual Height get_Tip() const override { return m_This.get_TipHeight(); }
-		virtual proto::FlyClient::INetwork& get_Net() override { return m_This.m_Conn; }
-		virtual void get_Kdf(ECC::Key::IKdf::Ptr& pKdf) override { pKdf = m_This.m_pKdf; }
+		Height get_Tip() const override { return m_This.get_TipHeight(); }
+		proto::FlyClient::INetwork& get_Net() override { return m_This.m_Conn; }
+		void get_Kdf(ECC::Key::IKdf::Ptr& pKdf) override { pKdf = m_This.m_pKdf; }
 
-		virtual void AllocTxoID(CoinID& cid) override
+		void AllocTxoID(CoinID& cid) override
 		{
 			cid.set_Subkey(0);
 			cid.m_Idx = m_This.m_nNextCoinID++;
 		}
 
-		virtual Amount SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override
+		Amount SelectInputs(std::vector<CoinID>& vInp, Amount valRequired, Asset::ID nAssetID) override
 		{
 			assert(!nAssetID);
 			assert(vInp.empty());
@@ -198,7 +198,7 @@ struct Client
 
 		}
 
-		virtual Channel::DataUpdate* SelectWithdrawalPath() override
+		Channel::DataUpdate* SelectWithdrawalPath() override
 		{
 			if (m_pOverrideWithdrawal)
 				return m_pOverrideWithdrawal;
@@ -206,7 +206,7 @@ struct Client
 			return Lightning::Channel::SelectWithdrawalPath(); // default
 		}
 
-		virtual void OnRevisionOutdated(uint32_t nRevision) override
+		void OnRevisionOutdated(uint32_t nRevision) override
 		{
 			std::cout
 				<< m_This.m_sName
@@ -222,7 +222,7 @@ struct Client
 
 		bool m_SendMyWid = true;
 
-		virtual void SendPeer(Storage::Map&& dataOut) override
+		void SendPeer(Storage::Map&& dataOut) override
 		{
 			assert(!dataOut.empty());
 
@@ -241,7 +241,7 @@ struct Client
 			m_This.Send(*this, ser);
 		}
 
-		virtual void OnCoin(const CoinID& cid, Height h, CoinState eState, bool bReverse) override
+		void OnCoin(const CoinID& cid, Height h, CoinState eState, bool bReverse) override
 		{
 			const char* szStatus = "";
 
@@ -312,14 +312,14 @@ struct Client
 		,public proto::FlyClient::IBbsReceiver
 	{
 		// proto::FlyClient
-		virtual void OnNewTip() override { get_ParentObj().OnNewTip(); }
-		virtual void OnRolledBack() override;
-		virtual Block::SystemState::IHistory& get_History() override { return get_ParentObj().m_Hdrs; }
-		virtual void OnOwnedNode(const PeerID&, bool bUp) override {}
+		void OnNewTip() override { get_ParentObj().OnNewTip(); }
+		void OnRolledBack() override;
+		Block::SystemState::IHistory& get_History() override { return get_ParentObj().m_Hdrs; }
+		void OnOwnedNode(const PeerID&, bool bUp) override {}
 		// proto::FlyClient::Request::IHandler
-		virtual void OnComplete(Request&) override {}
+		void OnComplete(Request&) override {}
 		// proto::FlyClient::IBbsReceiver
-		virtual void OnMsg(proto::BbsMsg&&) override;
+		void OnMsg(proto::BbsMsg&&) override;
 
 		IMPLEMENT_GET_PARENT_OBJ(Client, m_NodeEvts)
 	} m_NodeEvts;
@@ -329,7 +329,7 @@ struct Client
 	{
 		using proto::FlyClient::NetworkStd::NetworkStd;
 
-		virtual void PostRequestInternal(proto::FlyClient::Request& r) override
+		void PostRequestInternal(proto::FlyClient::Request& r) override
 		{
 			if (proto::FlyClient::Request::Type::Transaction == r.get_Type())
 				std::cout << get_ParentObj().m_sName << "### Broadcasting transaction ###" << std::endl;
@@ -513,8 +513,8 @@ struct TestDirector
 
 	virtual void OnTip(Height) = 0;
 
-	virtual void OnSyncProgress() override {}
-	virtual void OnStateChanged() override
+	void OnSyncProgress() override {}
+	void OnStateChanged() override
 	{
 		Height h = m_Node.get_Processor().m_Cursor.m_hh.m_Height;
 		std::cout << "H=" << h << std::endl;
@@ -522,7 +522,7 @@ struct TestDirector
 		OnTip(h);
 	}
 
-	virtual void OnRolledBack() override
+	void OnRolledBack() override
 	{
 		Height h = m_Node.get_Processor().m_Cursor.m_hh.m_Height;
 		std::cout << "Rollback to  " << h << std::endl;
@@ -645,7 +645,7 @@ void Test()
 	{
 		struct Test1 :public TestDirector
 		{
-			virtual void OnTip(Height h)
+			void OnTip(Height h) override
 			{
 				switch (h)
 				{
@@ -696,7 +696,7 @@ void Test()
 	{
 		struct Test2 :public TestDirector
 		{
-			virtual void OnTip(Height h)
+			void OnTip(Height h) override
 			{
 				switch (h)
 				{
@@ -760,7 +760,7 @@ void Test()
 	{
 		struct Test3 :public TestDirector
 		{
-			virtual void OnTip(Height h)
+			void OnTip(Height h) override
 			{
 				switch (h)
 				{
@@ -801,7 +801,7 @@ void Test()
 	{
 		struct Test4 :public TestDirector
 		{
-			virtual void OnTip(Height h)
+			void OnTip(Height h) override
 			{
 				switch (h)
 				{
