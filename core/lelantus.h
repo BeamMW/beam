@@ -30,7 +30,7 @@ namespace Sigma {
 		:public CmList
 	{
 		std::vector<ECC::Point::Storage> m_vec;
-		virtual bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
+		bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
 		{
 			if (iIdx >= m_vec.size())
 				return false;

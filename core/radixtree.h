@@ -191,8 +191,8 @@ public:
 
 protected:
 	// RadixTree
-	virtual Joint* CreateJoint() override { return new MyJoint; }
-	virtual void DeleteJoint(Joint* p) override { delete Cast::Up<MyJoint>(p); }
+	Joint* CreateJoint() override { return new MyJoint; }
+	void DeleteJoint(Joint* p) override { delete Cast::Up<MyJoint>(p); }
 
 	const Merkle::Hash& get_Hash(Node&, Merkle::Hash&);
 
@@ -222,10 +222,10 @@ public:
 	~RadixHashOnlyTree() { Clear(); }
 
 protected:
-	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Hash.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
-	virtual const Merkle::Hash& get_LeafHash(Node& n, Merkle::Hash&) override { return Cast::Up<MyLeaf>(n).m_Hash; }
+	Leaf* CreateLeaf() override { return new MyLeaf; }
+	uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Hash.m_pData; }
+	void DeleteLeaf(Leaf* p) override { delete Cast::Up<MyLeaf>(p); }
+	const Merkle::Hash& get_LeafHash(Node& n, Merkle::Hash&) override { return Cast::Up<MyLeaf>(n).m_Hash; }
 };
 
 
@@ -332,10 +332,10 @@ public:
 	};
 
 protected:
-	virtual Leaf* CreateLeaf() override { return new MyLeaf; }
-	virtual uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
-	virtual void DeleteLeaf(Leaf* p) override;
-	virtual const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
+	Leaf* CreateLeaf() override { return new MyLeaf; }
+	uint8_t* GetLeafKey(const Leaf& x) const override { return Cast::Up<MyLeaf>(Cast::NotConst(x)).m_Key.V.m_pData; }
+	void DeleteLeaf(Leaf* p) override;
+	const Merkle::Hash& get_LeafHash(Node&, Merkle::Hash&) override;
 
 	virtual MyLeaf::IDQueue* CreateIDQueue() { return new MyLeaf::IDQueue; }
 	virtual void DeleteIDQueue(MyLeaf::IDQueue* p) { delete p; }
@@ -354,9 +354,9 @@ protected:
 		Archive& m_ar;
 		Serializer(Archive& ar) :m_ar(ar) {}
 
-		virtual void Process(uint32_t& n) override { m_ar & n; }
-		virtual void Process(uint64_t& n) override { m_ar & n; }
-		virtual void Process(Key& k) override { m_ar & k.V.m_pData; }
+		void Process(uint32_t& n) override { m_ar & n; }
+		void Process(uint64_t& n) override { m_ar & n; }
+		void Process(Key& k) override { m_ar & k.V.m_pData; }
 	};
 
 	void SaveIntenral(ISerializer&) const;

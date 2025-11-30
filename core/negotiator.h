@@ -156,10 +156,10 @@ namespace Negotiator {
 			Storage::IBase* get_S() { return m_pS; }
 
 			// Gateway::IBase
-			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			void Send(uint32_t code, ByteBuffer&& buf) override;
 			// Storage::IBase
-			virtual void Write(uint32_t code, ByteBuffer&&) override;
-			virtual bool Read(uint32_t code, Blob& blob) override;
+			void Write(uint32_t code, ByteBuffer&&) override;
+			bool Read(uint32_t code, Blob& blob) override;
 		};
 
 		void DeriveKey(ECC::Scalar::Native&, const CoinID&) const;
@@ -202,7 +202,7 @@ namespace Negotiator {
 			Storage::IBase& m_Trg;
 			Direct(Storage::IBase& x) :m_Trg(x) {}
 
-			virtual void Send(uint32_t code, ByteBuffer&& buf) override;
+			void Send(uint32_t code, ByteBuffer&& buf) override;
 		};
 	}
 
@@ -212,8 +212,8 @@ namespace Negotiator {
 			:public IBase
 			,public std::map<uint32_t, ByteBuffer>
 		{
-			virtual void Write(uint32_t code, ByteBuffer&& buf) override;
-			virtual bool Read(uint32_t code, Blob& blob) override;
+			void Write(uint32_t code, ByteBuffer&& buf) override;
+			bool Read(uint32_t code, Blob& blob) override;
 		};
 	}
 
@@ -225,7 +225,7 @@ namespace Negotiator {
 		:public IBase
 	{
 		struct Impl;
-		virtual uint32_t Update2() override;
+		uint32_t Update2() override;
 	public:
 
 		struct Codes
@@ -242,7 +242,7 @@ namespace Negotiator {
 			static const uint32_t BpPart3 = PeerVariable0 + 3;
 		};
 
-		virtual void QueryVar(std::string&, uint32_t code) override;
+		void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -259,7 +259,7 @@ namespace Negotiator {
 		bool BuildTxPart(Transaction& tx, bool bIsSender, ECC::Scalar::Native& offs);
 		bool ReadKrn(TxKernelStd& krn);
 
-		virtual uint32_t Update2() override;
+		uint32_t Update2() override;
 
 	public:
 
@@ -307,7 +307,7 @@ namespace Negotiator {
 			static const uint32_t BarrierCrossed = Output0 + 2; // peer may come up with a valid tx
 		};
 
-		virtual void QueryVar(std::string&, uint32_t code) override;
+		void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -320,7 +320,7 @@ namespace Negotiator {
 	class WithdrawTx
 		:public IBase
 	{
-		virtual uint32_t Update2() override;
+		uint32_t Update2() override;
 
 	public:
 
@@ -365,13 +365,13 @@ namespace Negotiator {
 			struct S1 :public Router
 			{
 				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
+				bool Read(uint32_t code, Blob& blob) override;
 			} m_s1;
 
 			struct S2 :public Router
 			{
 				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
+				bool Read(uint32_t code, Blob& blob) override;
 			} m_s2;
 
 		public:
@@ -380,7 +380,7 @@ namespace Negotiator {
 
 		static const uint32_t s_Channels = 4;
 
-		virtual void QueryVar(std::string&, uint32_t code) override;
+		void QueryVar(std::string&, uint32_t code) override;
 
 	};
 
@@ -418,7 +418,7 @@ namespace Negotiator {
 		struct SB :public Router
 		{
 			using Router::Router;
-			virtual bool Read(uint32_t code, Blob& blob) override;
+			bool Read(uint32_t code, Blob& blob) override;
 		};
 
 	};
@@ -428,7 +428,7 @@ namespace Negotiator {
 	class ChannelOpen
 		:public ChannelWithdrawal
 	{
-		virtual uint32_t Update2() override;
+		uint32_t Update2() override;
 
 	public:
 
@@ -470,19 +470,19 @@ namespace Negotiator {
 			struct S1 :public Router
 			{
 				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
+				bool Read(uint32_t code, Blob& blob) override;
 			} m_s1;
 
 			struct SA :public Router
 			{
 				using Router::Router;
-				virtual bool Read(uint32_t code, Blob& blob) override;
+				bool Read(uint32_t code, Blob& blob) override;
 			} m_sa;
 
 			struct SB :public ChannelWithdrawal::SB
 			{
 				using ChannelWithdrawal::SB::SB;
-				virtual bool Read(uint32_t code, Blob& blob) override;
+				bool Read(uint32_t code, Blob& blob) override;
 			} m_sb;
 
 			WithdrawTx::Worker m_wrkA;
@@ -494,7 +494,7 @@ namespace Negotiator {
 
 		static const uint32_t s_Channels = 3 + WithdrawTx::s_Channels * 2;
 
-		virtual void QueryVar(std::string&, uint32_t code) override;
+		void QueryVar(std::string&, uint32_t code) override;
 	};
 
 	//////////////////////////////////////////
@@ -502,7 +502,7 @@ namespace Negotiator {
 	class ChannelUpdate
 		:public ChannelWithdrawal
 	{
-		virtual uint32_t Update2() override;
+		uint32_t Update2() override;
 
 		struct Codes
 			:public Negotiator::Codes
@@ -565,7 +565,7 @@ namespace Negotiator {
 
 		static const uint32_t s_Channels = 1 + WithdrawTx::s_Channels * 2;
 
-		virtual void QueryVar(std::string&, uint32_t code) override;
+		void QueryVar(std::string&, uint32_t code) override;
 	};
 
 

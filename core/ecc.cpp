@@ -1395,10 +1395,10 @@ namespace ECC {
 		void FromCursor(Element& el, const Cursor& cu) const;
 		bool MoveBkwd(Cursor& cu) const;
 
-		virtual void Reset() override;
-		virtual bool MoveNext(Element& el) override;
+		void Reset() override;
+		bool MoveNext(Element& el) override;
 
-		virtual bool MovePrev(Element& el) override;
+		bool MovePrev(Element& el) override;
 	};
 
 	void MultiMac::Normalizer::FromCursor(Element& el, const Cursor& cu) const

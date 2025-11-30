@@ -632,7 +632,7 @@ namespace beam
 	class ExecutorMT_R
 		:public ExecutorMT
 	{
-		virtual void StartThread(MyThread&, uint32_t iThread) override;
+		void StartThread(MyThread&, uint32_t iThread) override;
 		void RunThreadInternal(uint32_t iThread, const Rules&);
 		virtual void RunThread(uint32_t iThread);
 
@@ -1278,12 +1278,12 @@ namespace beam
 		std::unique_ptr<RelativeLock> m_pRelativeLock;
 
 		virtual ~TxKernelStd() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void CalculateID() const override;
-		virtual bool HasNonStd() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual int cmp_Subtype(const TxKernel&) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void CalculateID() const override;
+		bool HasNonStd() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		int cmp_Subtype(const TxKernel&) const override;
+		void Clone(TxKernel::Ptr&) const override;
 
 		void Sign(const ECC::Scalar::Native&); // suitable for aux kernels, created by single party
 	};
@@ -1307,14 +1307,14 @@ namespace beam
 			return m_Lazy_Msg.get();
 		}
 
-		virtual void CalculateID() const override;
-		virtual bool HasNonStd() const override;
+		void CalculateID() const override;
+		bool HasNonStd() const override;
 
 	protected:
 		virtual void HashSelfForMsg(ECC::Hash::Processor&) const = 0;
 		virtual void HashSelfForID(ECC::Hash::Processor&) const = 0;
 		void CopyFrom(const TxKernelNonStd&);
-		virtual void AddStats(TxStats&) const override;
+		void AddStats(TxStats&) const override;
 	};
 
 	struct TxKernelAssetControl
@@ -1333,8 +1333,8 @@ namespace beam
 	protected:
 		void CopyFrom(const TxKernelAssetControl&);
 		void TestValidAssetCtl(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent) const;
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetEmit
@@ -1347,11 +1347,11 @@ namespace beam
 		TxKernelAssetEmit() : m_AssetID(Asset::s_InvalidID), m_Value(0) {}
 
 		virtual ~TxKernelAssetEmit() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetCreate
@@ -1364,11 +1364,11 @@ namespace beam
 		void Sign(const ECC::Scalar::Native& sk, Key::IKdf&);
 
 		virtual ~TxKernelAssetCreate() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelAssetDestroy
@@ -1384,11 +1384,11 @@ namespace beam
 		Amount get_Deposit() const;
 
 		virtual ~TxKernelAssetDestroy() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelShieldedOutput
@@ -1399,13 +1399,13 @@ namespace beam
 		ShieldedTxo m_Txo;
 
 		virtual ~TxKernelShieldedOutput() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void AddStats(TxStats&) const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelShieldedInput
@@ -1424,13 +1424,13 @@ namespace beam
 		void Sign(Lelantus::Prover&, Asset::ID aids);
 
 		virtual ~TxKernelShieldedInput() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void AddStats(TxStats&) const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelContractControl
@@ -1442,16 +1442,16 @@ namespace beam
 		ByteBuffer m_Args;
 		bool m_Dependent = false;
 
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
-		virtual void AddStats(TxStats&) const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		void AddStats(TxStats&) const override;
 
 		void Prepare(ECC::Hash::Processor&, const Merkle::Hash* pParentCtx) const;
 		void Sign(const ECC::Scalar::Native*, uint32_t nKeys, const ECC::Point::Native& ptFunds, const Merkle::Hash* pParentCtx);
 
 	protected:
 		void CopyFrom(const TxKernelContractControl&);
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
-		virtual void HashSelfForID(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForID(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelContractCreate
@@ -1462,11 +1462,11 @@ namespace beam
 		typedef std::unique_ptr<TxKernelContractCreate> Ptr;
 
 		virtual ~TxKernelContractCreate() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
-		virtual void AddStats(TxStats&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void Clone(TxKernel::Ptr&) const override;
+		void AddStats(TxStats&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelContractInvoke
@@ -1478,10 +1478,10 @@ namespace beam
 		typedef std::unique_ptr<TxKernelContractInvoke> Ptr;
 
 		virtual ~TxKernelContractInvoke() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
+		Subtype::Enum get_Subtype() const override;
+		void Clone(TxKernel::Ptr&) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 	};
 
 	struct TxKernelEvmInvoke
@@ -1498,11 +1498,11 @@ namespace beam
 		void Sign(const ECC::Scalar::Native& skFrom, const ECC::Scalar::Native& skBlind);
 
 		virtual ~TxKernelEvmInvoke() {}
-		virtual Subtype::Enum get_Subtype() const override;
-		virtual void Clone(TxKernel::Ptr&) const override;
-		virtual void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
+		Subtype::Enum get_Subtype() const override;
+		void Clone(TxKernel::Ptr&) const override;
+		void TestValid(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent = nullptr) const override;
 	protected:
-		virtual void HashSelfForMsg(ECC::Hash::Processor&) const override;
+		void HashSelfForMsg(ECC::Hash::Processor&) const override;
 		void get_SubsidyCorrection(ECC::Point::Native& dst, bool isVerifying) const;
 	};
 
@@ -1588,11 +1588,11 @@ namespace beam
 			const Eternal& m_E;
 			Reader(const Perishable& p, const Eternal& e) :m_P(p) ,m_E(e) {}
 			// IReader
-			virtual void Clone(Ptr&) override;
-			virtual void Reset() override;
-			virtual void NextUtxoIn() override;
-			virtual void NextUtxoOut() override;
-			virtual void NextKernel() override;
+			void Clone(Ptr&) override;
+			void Reset() override;
+			void NextUtxoIn() override;
+			void NextUtxoOut() override;
+			void NextKernel() override;
 		};
 
 		struct Writer :public TxBase::IWriter
@@ -1601,9 +1601,9 @@ namespace beam
 			Eternal& m_E;
 			Writer(Perishable& p, Eternal& e) :m_P(p), m_E(e) {}
 
-			virtual void Write(const Input&) override;
-			virtual void Write(const Output&) override;
-			virtual void Write(const TxKernel&) override;
+			void Write(const Input&) override;
+			void Write(const Output&) override;
+			void Write(const TxKernel&) override;
 		};
 
 		struct Full
@@ -1925,10 +1925,10 @@ namespace beam
 				std::map<Height, Full> m_Map;
 				void ShrinkToWindow(Height dh);
 
-				virtual bool Enum(IWalker&, const Height* pBelow) override;
-				virtual bool get_At(Full&, Height) override;
-				virtual void AddStates(const Full*, size_t nCount) override;
-				virtual void DeleteFrom(Height) override;
+				bool Enum(IWalker&, const Height* pBelow) override;
+				bool get_At(Full&, Height) override;
+				void AddStates(const Full*, size_t nCount) override;
+				void DeleteFrom(Height) override;
 			};
 
 		};

@@ -39,7 +39,7 @@ namespace Merkle {
 	{
 		Proof m_Proof;
 
-		virtual bool AppendNode(const Node& n, const Position&) override
+		bool AppendNode(const Node& n, const Position&) override
 		{
 			m_Proof.push_back(n);
 			return true;
@@ -51,7 +51,7 @@ namespace Merkle {
 	{
 		HardProof m_Proof;
 
-		virtual bool AppendNode(const Node& n, const Position&) override
+		bool AppendNode(const Node& n, const Position&) override
 		{
 			m_Proof.push_back(n.second);
 			return true;
@@ -107,8 +107,8 @@ namespace Merkle {
 		bool InterpretPath(uint64_t i);
 
 	protected:
-		virtual void LoadElement(Hash&, const Position&) const override;
-		virtual void SaveElement(const Hash&, const Position&) override;
+		void LoadElement(Hash&, const Position&) const override;
+		void SaveElement(const Hash&, const Position&) override;
 	};
 
 	struct DistributedMmr
@@ -182,8 +182,8 @@ namespace Merkle {
 
 	protected:
 		// Mmr
-		virtual void LoadElement(Hash& hv, const Position& pos) const override;
-		virtual void SaveElement(const Hash& hv, const Position& pos) override;
+		void LoadElement(Hash& hv, const Position& pos) const override;
+		void SaveElement(const Hash& hv, const Position& pos) override;
 	};
 
 	// On-the-fly hash or proof calculation, without storing extra elements. They are all calculated internally during every invocation.
@@ -228,7 +228,7 @@ namespace Merkle {
 			std::vector<Position> m_vLast;
 			std::vector<Position> m_vLastRev;
 
-			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			bool AppendNode(const Node& n, const Position& pos) override;
 			virtual void get_Proof(IProofBuilder&, uint64_t i) = 0;
 
 		public:
@@ -251,7 +251,7 @@ namespace Merkle {
 			std::vector<MyNode> m_vLast;
 			std::vector<MyNode> m_vLastRev;
 
-			virtual bool AppendNode(const Node& n, const Position& pos) override;
+			bool AppendNode(const Node& n, const Position& pos) override;
 
 			virtual bool IsRootValid(const Hash&) = 0;
 

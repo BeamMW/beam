@@ -53,7 +53,7 @@ namespace Lightning {
 			:public proto::FlyClient::Request::IHandler
 		{
 			// proto::FlyClient::Request::IHandler
-			virtual void OnComplete(proto::FlyClient::Request&) override;
+			void OnComplete(proto::FlyClient::Request&) override;
 
 			IMPLEMENT_GET_PARENT_OBJ(Channel, m_RequestHandler)
 		} m_RequestHandler;
