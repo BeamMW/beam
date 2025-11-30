@@ -549,20 +549,7 @@ NodeDB::StateID NodeProcessor::Cursor::get_Sid() const
 	return sid;
 }
 
-void NodeProcessor::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
-{
-}
-
-void NodeProcessor::OnContractStoreReset()
-{
-}
-
-const Block::Pbft::State::IValidatorSet* NodeProcessor::get_Validators()
-{
-	return nullptr;
-}
-
-TxKernel::Ptr NodeProcessor::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
+NodeProcessor::IPbftHandler* NodeProcessor::get_PbftHandler()
 {
 	return nullptr;
 }
@@ -3048,7 +3035,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
-	const Block::Pbft::IValidatorSet* pValidators = nullptr;
+	IPbftHandler* pPbft = nullptr;
 
 	try {
 		Deserializer der;
@@ -3065,12 +3052,12 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 			const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
-			pValidators = get_Validators();
-			if (!pValidators)
+			pPbft = get_PbftHandler();
+			if (!pPbft)
 				Exc::Fail();
 
 			Merkle::Hash hv;
-			pValidators->get_Hash(hv);
+			pPbft->get_Validators().get_Hash(hv);
 
 			if (d.m_hvVsPrev != hv)
 				Exc::Fail();
@@ -3107,7 +3094,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 					Block::Pbft::Quorum qc;
 					der & qc;
 
-					if (!pValidators->CheckQuorum(id.m_Hash, qc))
+					if (!pPbft->get_Validators().CheckQuorum(id.m_Hash, qc))
 						Exc::Fail("QC");
 				}
 
@@ -3271,7 +3258,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
 		{
 			Merkle::Hash hv;
-			pValidators->get_Hash(hv);
+			pPbft->get_Validators().get_Hash(hv);
 
 			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 			{
@@ -6005,7 +5992,12 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key
 	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
-	m_Proc.OnContractVarChange(key, data, m_Bic.m_Temporary);
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		auto* pPbft = m_Proc.get_PbftHandler();
+		if (pPbft)
+			pPbft->OnContractVarChange(key, data, m_Bic.m_Temporary);
+	}
 
 	ContractDataSaveWithRecovery(e, data);
 
@@ -6364,9 +6356,12 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 				der & key;
 				auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
 
+				IPbftHandler* pPbft = (Rules::Consensus::Pbft == Rules::get().m_Consensus) ? m_Proc.get_PbftHandler() : nullptr;
+
 				if (RecoveryTag::Delete == nTag)
 				{
-					m_Proc.OnContractVarChange(key, Blob(), false);
+					if (pPbft)
+						pPbft->OnContractVarChange(key, Blob(), false);
 
 					ContractDataDel(key, e.m_Data);
 					e.m_Data.clear();
@@ -6376,7 +6371,8 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 					ByteBuffer data;
 					der & data;
 
-					m_Proc.OnContractVarChange(key, data, false);
+					if (pPbft)
+						pPbft->OnContractVarChange(key, data, false);
 
 					if (RecoveryTag::Insert == nTag)
 						ContractDataInsert(key, data);
@@ -7474,7 +7470,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			}
 			else
 			{
-				pKrn = GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
+				pKrn = get_PbftHandler()->GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
 				if (!pKrn)
 					return 0;
 
@@ -7543,17 +7539,25 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	BlockInterpretCtx bic(m_Cursor.m_hh.m_Height + 1, true);
 
+	IPbftHandler* pPbft = nullptr;
+
 	const auto& r = Rules::get();
-	if ((Rules::Consensus::Pbft == r.m_Consensus) && m_Cursor.m_Full.m_Number.v)
+	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
-		auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
-		auto iSlot1 = r.m_Pbft.T2S_strict(bc.m_Hdr.get_Timestamp_ms());
-		assert(iSlot1 > iSlot0);
+		pPbft = get_PbftHandler();
+		if (!pPbft)
+			return false;
 
-		// next height in pbft is determined w.r.t. timestamp
-		bic.m_Height = m_Cursor.m_hh.m_Height + iSlot1 - iSlot0;
+		if (m_Cursor.m_Full.m_Number.v)
+		{
+			auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
+			auto iSlot1 = r.m_Pbft.T2S_strict(bc.m_Hdr.get_Timestamp_ms());
+			assert(iSlot1 > iSlot0);
+
+			// next height in pbft is determined w.r.t. timestamp
+			bic.m_Height = m_Cursor.m_hh.m_Height + iSlot1 - iSlot0;
+		}
 	}
-
 
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
@@ -7591,16 +7595,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_AlreadyValidated = true;
 	bic.m_SkipDefinition = false;
 
-	const Block::Pbft::IValidatorSet* pValidators = nullptr;
-
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
-		pValidators = get_Validators();
-		if (!pValidators)
-			return false;
-
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-		pValidators->get_Hash(d.m_hvVsPrev);
+		pPbft->get_Validators().get_Hash(d.m_hvVsPrev);
 	}
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
@@ -7620,7 +7618,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		ZeroObject(d.m_pPad0);
 
-		pValidators->get_Hash(d.m_hvVsNext);
+		pPbft->get_Validators().get_Hash(d.m_hvVsNext);
 
 		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller
 
@@ -8386,7 +8384,12 @@ void NodeProcessor::RebuildNonStd()
 	static_assert(NodeDB::StreamType::StatesMmr == 0);
 	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
 
-	OnContractStoreReset();
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		IPbftHandler* pPbft = get_PbftHandler();
+		if (pPbft)
+			pPbft->OnContractStoreReset();
+	}
 
 	struct KrnWalkerRebuild
 		:public IKrnWalker

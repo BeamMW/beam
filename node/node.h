@@ -261,10 +261,7 @@ private:
 		void InitializeUtxosProgress(uint64_t done, uint64_t total) override;
 		uint32_t get_MaxAutoRollback() override;
 		void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) override;
-		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) override;
-		void OnContractStoreReset() override;
-		const Block::Pbft::State::IValidatorSet* get_Validators() override;
-		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
+		IPbftHandler* get_PbftHandler() override;
 
 		void Stop();
 
@@ -798,6 +795,7 @@ private:
 	} m_Miner;
 
 	struct Validator
+		:public NodeProcessor::IPbftHandler
 	{
 		Validator();
 
@@ -809,9 +807,12 @@ private:
 		void OnMsg(proto::PbftVote&&, const Peer&);
 		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
 		void SendState(Peer&) const;
-		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
-		void OnContractStoreReset();
-		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk);
+
+		// IPbftHandler
+		const Block::Pbft::State::IValidatorSet& get_Validators() override;
+		void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) override;
+		void OnContractStoreReset() override;
+		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
 
 		uint64_t get_RefTime_ms() const;
 
