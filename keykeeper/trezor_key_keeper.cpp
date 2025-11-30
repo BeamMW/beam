@@ -577,7 +577,7 @@ namespace beam::wallet
         {
             CreateOutputCtx::Ptr m_pCtx;
 
-            virtual void OnDone(Status::Type s) override
+            void OnDone(Status::Type s) override
             {
                 if (Status::Success == s)
                     OnDoneOk();
@@ -603,7 +603,7 @@ namespace beam::wallet
                 Method::get_Kdf m_Method;
 
                 virtual ~MyHandler() {}
-                virtual void OnDoneOk() override
+                void OnDoneOk() override
                 {
                     m_pCtx->m_pOwner = std::move(m_Method.m_pPKdf);
                     m_pCtx->Proceed2(m_pCtx);
@@ -636,7 +636,7 @@ namespace beam::wallet
                     Method::get_Kdf m_Method;
 
                     virtual ~MyHandler() {}
-                    virtual void OnDoneOk() override
+                    void OnDoneOk() override
                     {
                         m_pCtx->m_pChild = std::move(m_Method.m_pPKdf);
                         m_pCtx->Proceed3(m_pCtx);

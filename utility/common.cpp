@@ -828,7 +828,7 @@ void beam::Crash::Induce(Type type)
 			};
 
 			struct Derived :public Base {
-				virtual void Func() override {}
+				void Func() override {}
 			};
 
 			Derived d;

@@ -283,7 +283,7 @@ namespace beam
 			const char* m_sz;
 		public:
 			CheckpointTxt(const char* sz) :m_sz(sz) {}
-			virtual void Dump(std::ostream&) override;
+			void Dump(std::ostream&) override;
 		};
 
 	};

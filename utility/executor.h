@@ -74,10 +74,10 @@ namespace beam
 	struct ExecutorMT
 		:public Executor
 	{
-		virtual uint32_t get_Threads() override;
-		virtual void Push(TaskAsync::Ptr&&) override;
-		virtual uint32_t Flush(uint32_t nMaxTasks) override;
-		virtual void ExecAll(TaskSync&) override;
+		uint32_t get_Threads() override;
+		void Push(TaskAsync::Ptr&&) override;
+		uint32_t Flush(uint32_t nMaxTasks) override;
+		void ExecAll(TaskSync&) override;
 
 		ExecutorMT();
 		~ExecutorMT() { Stop(); }
