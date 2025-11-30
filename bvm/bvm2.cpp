@@ -758,7 +758,7 @@ namespace bvm2 {
 			struct Args :public Exc::Checkpoint { \
 				BVMOp_##name(PAR_DECL, MACRO_NOP) \
 				RetType_##name Call(TProcessor& me) const { return me.OnMethod_##name(BVMOp_##name(PAR_PASS, MACRO_COMMA)); } \
-				virtual void Dump(std::ostream& os) override { \
+				void Dump(std::ostream& os) override { \
 					os << #name BVMOp_##name(PAR_DUMP, MACRO_NOP); \
 				} \
 			} args; \
@@ -1903,7 +1903,7 @@ namespace bvm2 {
 
 			virtual void Read(uintBig&) = 0;
 
-			virtual uint32_t Read(uint8_t* p, uint32_t n) override
+			uint32_t Read(uint8_t* p, uint32_t n) override
 			{
 				if (n >= nBytes)
 				{
@@ -1925,15 +1925,15 @@ namespace bvm2 {
 			ECC::Hash::Processor m_Hp;
 
 			virtual ~Sha256() {}
-			virtual void Write(const uint8_t* p, uint32_t n) override
+			void Write(const uint8_t* p, uint32_t n) override
 			{
 				m_Hp << Blob(p, n);
 			}
-			virtual void Read(uintBig& hv) override
+			void Read(uintBig& hv) override
 			{
 				ECC::Hash::Processor(m_Hp) >> hv;
 			}
-			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			void Clone(std::unique_ptr<Base>& pOut) const override
 			{
 				pOut = std::make_unique<Sha256>();
 				Cast::Up<Sha256>(*pOut).m_Hp = m_Hp;
@@ -1946,16 +1946,16 @@ namespace bvm2 {
 			bvm2::Impl::HashProcessor::Blake2b_Base m_B2b;
 
 			virtual ~Blake2b() {}
-			virtual void Write(const uint8_t* p, uint32_t n) override
+			void Write(const uint8_t* p, uint32_t n) override
 			{
 				m_B2b.Write(p, n);
 			}
-			virtual uint32_t Read(uint8_t* p, uint32_t n) override
+			uint32_t Read(uint8_t* p, uint32_t n) override
 			{
 				auto s = m_B2b; // copy
 				return s.Read(p, n);
 			}
-			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			void Clone(std::unique_ptr<Base>& pOut) const override
 			{
 				pOut = std::make_unique<Blake2b>();
 				Cast::Up<Blake2b>(*pOut).m_B2b = m_B2b;
@@ -1968,17 +1968,17 @@ namespace bvm2 {
 		{
 			KeccakProcessor<nBits> m_State;
 
-			virtual void Write(const uint8_t* pSrc, uint32_t nSrc) override
+			void Write(const uint8_t* pSrc, uint32_t nSrc) override
 			{
 				m_State.Write(pSrc, nSrc);
 			}
 
-			virtual void Read(uintBig_t<nBits/8>& hv) override
+			void Read(uintBig_t<nBits/8>& hv) override
 			{
 				auto s = m_State; // copy
 				s.Read(hv.m_pData);
 			}
-			virtual void Clone(std::unique_ptr<Base>& pOut) const override
+			void Clone(std::unique_ptr<Base>& pOut) const override
 			{
 				pOut = std::make_unique<Keccak>();
 				Cast::Up<Keccak>(*pOut).m_State = m_State;

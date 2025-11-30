@@ -181,7 +181,7 @@ namespace bvm2 {
 		};
 
 
-		virtual void InvokeExt(uint32_t) override;
+		void InvokeExt(uint32_t) override;
 
 		virtual uint32_t get_HeapLimit() { return 0; }
 		virtual Height get_Height() { return 0; }
@@ -414,12 +414,12 @@ namespace bvm2 {
 		uint32_t SaveVarInternal(const Blob&, const Blob& val);
 
 
-		virtual void InvokeExt(uint32_t) override;
-		virtual void OnCall(Wasm::Word nAddr) override;
-		virtual void OnRet(Wasm::Word nRetAddr) override;
-		virtual uint32_t get_HeapLimit() override;
-		virtual void DischargeUnits(uint32_t size) override;
-		virtual uint32_t get_WasmVersion() override;
+		void InvokeExt(uint32_t) override;
+		void OnCall(Wasm::Word nAddr) override;
+		void OnRet(Wasm::Word nRetAddr) override;
+		uint32_t get_HeapLimit() override;
+		void DischargeUnits(uint32_t size) override;
+		uint32_t get_WasmVersion() override;
 
 		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
 
@@ -519,9 +519,9 @@ namespace bvm2 {
 		uint32_t VarGetProofInternal(const void* pKey, uint32_t nKey, Wasm::Word& pVal, Wasm::Word& nVal, Wasm::Word& pProof);
 		uint32_t LogGetProofInternal(const HeightPos&, Wasm::Word& pProof);
 
-		virtual void InvokeExt(uint32_t) override;
-		virtual uint32_t get_HeapLimit() override;
-		virtual Height get_Height() override;
+		void InvokeExt(uint32_t) override;
+		uint32_t get_HeapLimit() override;
+		Height get_Height() override;
 
 		struct IReadVars
 			:public intrusive::set_base_hook<uint32_t>
@@ -653,8 +653,8 @@ namespace bvm2 {
 
 		DebugCallstack m_DbgCallstack;
 
-		virtual void OnCall(Wasm::Word nAddr) override;
-		virtual void OnRet(Wasm::Word nRetAddr) override;
+		void OnCall(Wasm::Word nAddr) override;
+		void OnRet(Wasm::Word nRetAddr) override;
 
 		virtual void Comm_CreateListener(Comm::Channel::Ptr&, const ECC::Hash::Value&) {}
 		virtual void Comm_Send(const ECC::Point&, const Blob&) {}

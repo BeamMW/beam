@@ -136,7 +136,7 @@ namespace beam::bvm2
 			}
 		}
 
-		virtual void LoadVar(const Blob& key, Blob& res) override
+		void LoadVar(const Blob& key, Blob& res) override
 		{
 			auto* pE = m_Vars.Find(key);
 			if (pE)
@@ -147,7 +147,7 @@ namespace beam::bvm2
 			LogIO(key, res, 'R');
 		}
 
-		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override
+		void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override
 		{
 			auto pE = m_Vars.FindVarEx(key, bExact, bBigger);
 			if (pE)
@@ -176,13 +176,13 @@ namespace beam::bvm2
 			ByteBuffer m_Key;
 			ByteBuffer m_Value;
 
-			virtual void Undo(ContractTestProcessor& p) override
+			void Undo(ContractTestProcessor& p) override
 			{
 				p.SaveVar2(m_Key, m_Value, nullptr);
 			}
 		};
 
-		virtual uint32_t SaveVar(const Blob& key, const Blob& val) override
+		uint32_t SaveVar(const Blob& key, const Blob& val) override
 		{
 			LogIO(key, val, 'W');
 
@@ -242,7 +242,7 @@ namespace beam::bvm2
 		typedef std::map<Asset::ID, AssetData> AssetMap;
 		AssetMap m_Assets;
 
-		virtual Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid, Amount& valDeposit) override
+		Asset::ID AssetCreate(const Asset::Metadata& md, const PeerID& pid, Amount& valDeposit) override
 		{
 			Asset::ID aid = 1;
 			while (m_Assets.find(aid) != m_Assets.end())
@@ -260,7 +260,7 @@ namespace beam::bvm2
 			{
 				Asset::ID m_Aid;
 
-				virtual void Undo(ContractTestProcessor& p) override {
+				void Undo(ContractTestProcessor& p) override {
 					auto it = p.m_Assets.find(m_Aid);
 					verify_test(p.m_Assets.end() != it);
 					p.m_Assets.erase(it);
@@ -274,7 +274,7 @@ namespace beam::bvm2
 			return aid;
 		}
 
-		virtual bool AssetEmit(Asset::ID aid, const PeerID& pid, AmountSigned val) override
+		bool AssetEmit(Asset::ID aid, const PeerID& pid, AmountSigned val) override
 		{
 			auto it = m_Assets.find(aid);
 			if (m_Assets.end() == it)
@@ -292,7 +292,7 @@ namespace beam::bvm2
 				Asset::ID m_Aid;
 				AmountSigned m_Val;
 
-				virtual void Undo(ContractTestProcessor& p) override {
+				void Undo(ContractTestProcessor& p) override {
 					auto it = p.m_Assets.find(m_Aid);
 					verify_test(p.m_Assets.end() != it);
 					it->second.m_Amount -= m_Val;;
@@ -307,7 +307,7 @@ namespace beam::bvm2
 			return true;
 		}
 
-		virtual bool AssetDestroy(Asset::ID aid, const PeerID& pid, Amount& valDeposit) override
+		bool AssetDestroy(Asset::ID aid, const PeerID& pid, Amount& valDeposit) override
 		{
 			auto it = m_Assets.find(aid);
 			if (m_Assets.end() == it)
@@ -330,7 +330,7 @@ namespace beam::bvm2
 				PeerID m_Pid;
 				Amount m_Deposit;
 
-				virtual void Undo(ContractTestProcessor& p) override {
+				void Undo(ContractTestProcessor& p) override {
 					auto& x = p.m_Assets[m_Aid];
 					x.m_Amount = 0;
 					x.m_Pid = m_Pid;

@@ -639,7 +639,7 @@ namespace bvm2 {
 		} m_Eth;
 
 
-		virtual void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override
+		void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override
 		{
 			if (cid == m_Vault.m_Cid)
 			{
@@ -941,7 +941,7 @@ namespace bvm2 {
 			BlobMap::Set::iterator m_it;
 			BlobMap::Set::iterator m_itEnd;
 
-			virtual bool MoveNext() override
+			bool MoveNext() override
 			{
 				if (m_it == m_itEnd)
 					return false;
@@ -961,7 +961,7 @@ namespace bvm2 {
 			m_Context.m_Height = m_Proc.m_Height;
 		}
 
-		virtual void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
+		void VarsEnum(const Blob& kMin, const Blob& kMax, IReadVars::Ptr& pRes) override
 		{
 			auto p = std::make_unique<VarEnumCtx>();
 
