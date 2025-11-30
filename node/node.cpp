@@ -4580,26 +4580,10 @@ void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
 	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
-void Node::Processor::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
+NodeProcessor::IPbftHandler* Node::Processor::get_PbftHandler()
 {
-	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-		get_ParentObj().m_Validator.OnContractVarChange(key, val, bTemporary);
-}
-
-void Node::Processor::OnContractStoreReset()
-{
-	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-		get_ParentObj().m_Validator.OnContractStoreReset();
-}
-
-const Block::Pbft::State::IValidatorSet* Node::Processor::get_Validators()
-{
-	return &get_ParentObj().m_Validator.m_ValidatorSet;
-}
-
-TxKernel::Ptr Node::Processor::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
-{
-	return get_ParentObj().m_Validator.GeneratePbftRewardKernel(fees, sk);
+	assert(Rules::Consensus::Pbft == Rules::get().m_Consensus);
+	return &get_ParentObj().m_Validator;
 }
 
 void Node::Server::OnAccepted(io::TcpStream::Ptr&& newStream, int errorCode)
@@ -6028,6 +6012,11 @@ void Node::Validator::OnContractStoreReset()
 		m_ValidatorSet.m_mapValidators.clear();
 		m_ValidatorSet.m_hv.reset();
 	}
+}
+
+const Block::Pbft::State::IValidatorSet& Node::Validator::get_Validators()
+{
+	return m_ValidatorSet;
 }
 
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)

@@ -589,10 +589,15 @@ public:
 	virtual void OnInvalidBlock(const Block::SystemState::Full&, const Block::Body&) {}
 
 	// PBFT-specific
-	virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary);
-	virtual void OnContractStoreReset();
-	virtual const Block::Pbft::State::IValidatorSet* get_Validators();
-	virtual TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk);
+	struct IPbftHandler
+	{
+		virtual const Block::Pbft::State::IValidatorSet& get_Validators() = 0;
+		virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) = 0;
+		virtual void OnContractStoreReset() = 0;
+		virtual TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) = 0;
+	};
+
+	virtual IPbftHandler* get_PbftHandler();
 
 	struct MyExecutor
 		:public Executor
