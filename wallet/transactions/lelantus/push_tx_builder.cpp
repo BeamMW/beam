@@ -42,7 +42,7 @@ namespace beam::wallet::lelantus
 
             virtual ~MyHandler() {} // auto
 
-            virtual void OnSuccess(BaseTxBuilder& b_) override
+            void OnSuccess(BaseTxBuilder& b_) override
             {
                 PushTxBuilder& b = Cast::Up<PushTxBuilder>(b_);
 

@@ -252,7 +252,7 @@ namespace beam::wallet
         {
             Status::Type m_Status;
 
-            virtual void Execute(Task::Ptr&) override;
+            void Execute(Task::Ptr&) override;
             virtual ~TaskFin() {}
         };
 

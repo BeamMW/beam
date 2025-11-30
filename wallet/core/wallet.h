@@ -255,7 +255,7 @@ namespace beam::wallet
         struct RequestHandler
             :public proto::FlyClient::Request::IHandler
         {
-            virtual void OnComplete(Request&) override;
+            void OnComplete(Request&) override;
             IMPLEMENT_GET_PARENT_OBJ(Wallet, m_RequestHandler)
         } m_RequestHandler;
 

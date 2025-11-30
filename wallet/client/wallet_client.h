@@ -316,7 +316,7 @@ namespace beam::wallet
         void cancelDexOrder(const DexOrderID&) override;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
-        virtual void loadFullAssetsList() override;
+        void loadFullAssetsList() override;
 
         #ifdef BEAM_IPFS_SUPPORT
         void getIPFSStatus() override;

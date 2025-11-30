@@ -59,15 +59,15 @@ namespace
             , m_onRate(onRate)
         {};
 
-        virtual void onNewWalletVersion(const VersionInfo& v, const ECC::uintBig& s) override
+        void onNewWalletVersion(const VersionInfo& v, const ECC::uintBig& s) override
         {
             m_onVers(v, s);
         }
-        virtual void onNewWalletVersion(const WalletImplVerInfo& v, const ECC::uintBig& s) override
+        void onNewWalletVersion(const WalletImplVerInfo& v, const ECC::uintBig& s) override
         {
             m_onWalletVers(v, s);
         }
-        virtual void onExchangeRates(const std::vector<ExchangeRate>& r) override
+        void onExchangeRates(const std::vector<ExchangeRate>& r) override
         {
             m_onRate(r);
         }
@@ -87,7 +87,7 @@ namespace
         MockNotificationsObserver(OnNotification callback)
             : m_onNotification(callback) {};
         
-        virtual void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& list) override
+        void onNotificationsChanged(ChangeAction action, const std::vector<Notification>& list) override
         {
             m_onNotification(action, list);
         }

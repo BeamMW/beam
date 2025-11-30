@@ -2912,12 +2912,12 @@ namespace beam::wallet
             {
             }
 
-            virtual bool OnProgress(uint64_t nPos, uint64_t nTotal) override
+            bool OnProgress(uint64_t nPos, uint64_t nTotal) override
             {
                 return m_Progr.OnProgress(nPos, nTotal);
             }
 
-            virtual bool OnStates(std::vector<Block::SystemState::Full>& vec) override
+            bool OnStates(std::vector<Block::SystemState::Full>& vec) override
             {
                 if (!vec.empty())
                     m_This.get_History().AddStates(&vec.front(), vec.size());
@@ -2925,7 +2925,7 @@ namespace beam::wallet
                 return true;
             }
 
-            virtual bool OnUtxoRecognized(Height h, const Output& outp, CoinID& cid, const Output::User& user) override
+            bool OnUtxoRecognized(Height h, const Output& outp, CoinID& cid, const Output::User& user) override
             {
                 if (!cid.IsDummy() && m_This.IsRecoveredMatch(cid, outp.m_Commitment))
                 {
@@ -2962,13 +2962,13 @@ namespace beam::wallet
             typedef std::map<ECC::Point, ShieldedTxo::BaseKey> ShieldedSpendKeyMap;
             ShieldedSpendKeyMap m_mapShielded;
 
-            virtual bool OnAssetRecognized(Asset::Full&) override
+            bool OnAssetRecognized(Asset::Full&) override
             {
                 // TODO
                 return true;
             }
 
-            virtual bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index nIdx) override
+            bool OnShieldedOutRecognized(const ShieldedTxo::DescriptionOutp& dout, const ShieldedTxo::DataParams& pars, Key::Index nIdx) override
             {
                 ShieldedCoin sc;
                 pars.ToID(sc.m_CoinID);
@@ -2989,7 +2989,7 @@ namespace beam::wallet
                 return true;
             }
 
-            virtual bool OnShieldedIn(const ShieldedTxo::DescriptionInp& dinp) override
+            bool OnShieldedIn(const ShieldedTxo::DescriptionInp& dinp) override
             {
                 ShieldedSpendKeyMap::iterator it = m_mapShielded.find(dinp.m_SpendPk);
                 if (m_mapShielded.end() != it)

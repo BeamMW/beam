@@ -513,7 +513,7 @@ namespace beam::wallet
                 ECC::Point::Storage* m_p0;
                 uint32_t m_Skip;
 
-                virtual bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
+                bool get_At(ECC::Point::Storage& res, uint32_t iIdx) override
                 {
                     if (iIdx < m_Skip)
                     {
@@ -971,7 +971,7 @@ namespace beam::wallet
 
             virtual ~MyHandler() {} // auto
 
-            virtual void OnSuccess(BaseTxBuilder& b_) override
+            void OnSuccess(BaseTxBuilder& b_) override
             {
                 SimpleTxBuilder& b = Cast::Up<SimpleTxBuilder>(b_);
                 b.AddOffset(m_Method.m_kOffset);
@@ -1129,7 +1129,7 @@ namespace beam::wallet
 
             virtual ~MyHandler() {} // auto
 
-            virtual void OnSuccess(BaseTxBuilder& b_) override
+            void OnSuccess(BaseTxBuilder& b_) override
             {
                 MutualTxBuilder& b = Cast::Up<MutualTxBuilder>(b_);
 
@@ -1213,7 +1213,7 @@ namespace beam::wallet
                 dst = src;
             }
 
-            virtual void OnSuccess(BaseTxBuilder& b_) override
+            void OnSuccess(BaseTxBuilder& b_) override
             {
                 MutualTxBuilder& b = Cast::Up<MutualTxBuilder>(b_);
 

@@ -2570,7 +2570,7 @@ namespace beam::wallet
                 std::vector<Block::SystemState::Full> m_vStates;
                 uint32_t m_Count;
 
-                virtual bool OnState(const Block::SystemState::Full& s) override
+                bool OnState(const Block::SystemState::Full& s) override
                 {
                     m_vStates.push_back(s);
                     return m_vStates.size() < m_Count;
