@@ -117,7 +117,7 @@ namespace bvm2 {
 			size_t m_Consumed = 0;
 			ByteBuffer m_Buf;
 
-			virtual bool MoveNext() override
+			bool MoveNext() override
 			{
 				assert(m_pRequest);
 				auto& r = Cast::Up<proto::FlyClient::RequestContractVars>(*m_pRequest);
@@ -180,7 +180,7 @@ namespace bvm2 {
 			size_t m_Consumed = 0;
 			ByteBuffer m_Buf;
 
-			virtual bool MoveNext() override
+			bool MoveNext() override
 			{
 				assert(m_pRequest);
 				auto& r = Cast::Up<proto::FlyClient::RequestContractLogs>(*m_pRequest);
@@ -234,7 +234,7 @@ namespace bvm2 {
 			size_t m_iPos = 0;
 			std::vector<Asset::Full> m_Res;
 
-			virtual bool MoveNext() override
+			bool MoveNext() override
 			{
 				assert(m_pRequest);
 				auto& r = Cast::Up<proto::FlyClient::RequestAssetsListAt>(*m_pRequest);

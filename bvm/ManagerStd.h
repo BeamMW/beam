@@ -46,7 +46,7 @@ namespace beam::bvm2 {
 		struct UnfreezeEvt
 			:public io::IdleEvt
 		{
-			virtual void OnSchedule() override;
+			void OnSchedule() override;
 			IMPLEMENT_GET_PARENT_OBJ(ManagerStd, m_UnfreezeEvt)
 		} m_UnfreezeEvt;
 
@@ -75,7 +75,7 @@ namespace beam::bvm2 {
 
 		virtual void OnDone(const std::exception* pExc) {}
 		virtual void OnReset();
-		virtual bool IsSuspended() override;
+		bool IsSuspended() override;
 
 	public:
 

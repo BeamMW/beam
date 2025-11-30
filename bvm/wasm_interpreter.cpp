@@ -1400,7 +1400,7 @@ namespace Wasm {
 		struct MyCheckpoint :public Exc::Checkpoint {
 			uint32_t m_iFunc;
 			uint32_t m_Line = 0;
-			virtual void Dump(std::ostream& os) override {
+			void Dump(std::ostream& os) override {
 				os << "iFunc=" << m_iFunc << ", Line=" << m_Line;
 			}
 
@@ -1791,7 +1791,7 @@ namespace Wasm {
 		{
 			struct MyCheckpoint :public Exc::Checkpoint {
 				Word m_Ip;
-				virtual void Dump(std::ostream& os) override {
+				void Dump(std::ostream& os) override {
 					os << "wasm/Run, Ip=" << uintBigFrom(m_Ip);
 				}
 			} cp;
@@ -2078,7 +2078,7 @@ namespace Wasm {
 
 		struct MyCheckpoint :public Exc::Checkpoint {
 			uint32_t m_iExt;
-			virtual void Dump(std::ostream& os) override {
+			void Dump(std::ostream& os) override {
 				if (static_cast<uint32_t>(-1) == m_iExt)
 					os << "Unresolved binding";
 				else
