@@ -5750,7 +5750,8 @@ void Node::GenerateFakeBlocks(uint32_t n)
 ///////////////////
 // Pbft
 
-#define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
+//#define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
+#define PBFT_LOG(level, expr) std::cout << "PBFT " << m_iRound << " " << expr << std::endl
 
 struct Node::Validator::Assessment::Settings
 {
@@ -5759,19 +5760,21 @@ struct Node::Validator::Assessment::Settings
 		score -= (score + 15) / 16; // auto-regression
 	}
 
-	static const uint32_t NotProposed = 2048;
+	static const uint32_t NotProposed = 384;
 	static const uint32_t NotVotedNotCommit = 256;
 	static const uint32_t NotVotedPre = 128;
 	static const uint32_t NotVotedCommit = 96;
-	static const uint32_t DoubleCommit = 8192;
+	static const uint32_t SuspendDh = 20;
+	static const uint32_t SlashMaxLatency = 30;
+	static const uint8_t MaxSlash = 4;
 
 	struct Watermark
 	{
-		static const uint32_t Jail = 3500;
+		static const uint32_t Jail = 768;
 		static const uint32_t Unjail = 150;
 	};
 
-	static const uint32_t ConsecutiveRoundsToAssess = 10;
+	static const uint32_t ConsecutiveRoundsToAssess = 3;
 };
 
 Node::Validator::Validator()
@@ -5950,12 +5953,12 @@ void Node::Validator::OnNewStateInternal()
 	m_wTotal = 0;
 	for (auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		m_wTotal += v.m_Weight;
-		v.m_Assessment.m_hvCommitted = Zero;
+		m_wTotal += v.get_EffectiveWeight();
+		v.m_hvCommitted = Zero;
 	}
 
 	m_pMe = m_ValidatorSet.Find(get_ParentObj().m_Keys.m_Validator.m_Addr);
-	if (m_pMe && !m_pMe->m_Weight)
+	if (m_pMe && !m_pMe->get_EffectiveWeight())
 		m_pMe = nullptr; // no weight - not a validator
 
 	if (!m_pMe)
@@ -5971,26 +5974,16 @@ void Node::Validator::OnNewStateInternal()
 	// update our assessment
 	for (auto& v : m_ValidatorSet.m_mapValidators)
 	{
-		if (!v.m_Weight)
-			continue;
 		if (&v == m_pMe)
-			continue;
+			continue; // I don't assess myself
 
-		typedef Shaders::PBFT::State::Validator::Flags F;
+		uint8_t nStatus = v.m_Status;
+		UpdateAssessment(v, nStatus);
 
-		uint8_t flags = (F::Jail & v.m_Flags);
-		if (flags)
-		{
-			if (v.m_Assessment.m_Score < Assessment::Settings::Watermark::Unjail)
-				flags = 0;
-		}
-		else
-		{
-			if (v.m_Assessment.m_Score >= Assessment::Settings::Watermark::Jail)
-				flags = F::Jail;
-		}
+		if (v.m_Status != nStatus)
+			PBFT_LOG(DEBUG, v.m_Key << " assessment " << static_cast<uint32_t>(v.m_Status) << " -> " << static_cast<uint32_t>(nStatus));
 
-		msg.m_Reputation[v.m_Key] = flags;
+		msg.m_Reputation[v.m_Key] = nStatus;
 	}
 
 	msg.m_From = m_pMe->m_Key;
@@ -6004,6 +5997,50 @@ void Node::Validator::OnNewStateInternal()
 	Broadcast(msg, nullptr);
 }
 
+void Node::Validator::UpdateAssessment(const ValidatorWithAssessment& v, uint8_t& nStatus)
+{
+	assert(nStatus == v.m_Status);
+	typedef Shaders::PBFT::State::Validator::Status Status;
+
+	if ((v.m_Assessment.m_hShouldSlashAt > v.m_hSuspend) &&
+		(v.m_Assessment.m_hShouldSlashAt + Assessment::Settings::SlashMaxLatency <= get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height))
+	{
+		nStatus = (uint8_t) Status::Slash;
+		return;
+	}
+
+	if (v.m_NumSlashed >= Assessment::Settings::MaxSlash)
+	{
+		nStatus = (uint8_t) Status::Suspended; // tombed
+		return;
+	}
+
+	if (nStatus == (uint8_t) Status::Suspended)
+	{
+		if (v.m_hSuspend + Assessment::Settings::SuspendDh > get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height)
+			return;
+
+		nStatus = (uint8_t) Status::Jailed;
+	}
+
+	if (v.get_EffectiveWeight())
+		switch (nStatus)
+		{
+		case (uint8_t) Status::Jailed:
+			if (v.m_Assessment.m_Score < Assessment::Settings::Watermark::Unjail)
+				nStatus = (uint8_t) Status::Active;
+			break;
+
+		case (uint8_t) Status::Active:
+			if (v.m_Assessment.m_Score >= Assessment::Settings::Watermark::Jail)
+				nStatus = (uint8_t) Status::Jailed;
+			break;
+
+		default:
+			break; // suppress warning
+		}
+
+}
 
 void Node::Validator::OnContractStoreReset()
 {
@@ -6045,13 +6082,10 @@ bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, 
 			if (msg.m_Reputation.end() != it)
 			{
 				auto fMy = it->second;
-				auto fOther = ByteOrder::from_le(m.m_Flags);
+				auto fStatus = ByteOrder::from_le((uint8_t) m.m_Status);
 
-				if ((fMy ^ fOther) & Shaders::PBFT::State::Validator::Flags::Jail)
-					return false;
-
-				if (fOther & ~Shaders::PBFT::State::Validator::Flags::Jail)
-					return false; // currently ban other flags
+				if (fMy != fStatus)
+					return false; // currently demand exact match
 			}
 		}
 		break;
@@ -6064,6 +6098,15 @@ const Block::Pbft::State::IValidatorSet& Node::Validator::get_Validators()
 {
 	return m_ValidatorSet;
 }
+
+uint64_t Node::Validator::ValidatorWithAssessment::get_EffectiveWeight() const
+{
+	if (m_Status >= (uint8_t)Shaders::PBFT::State::Validator::Status::Suspended)
+		return 0;
+
+	return m_Weight;
+}
+
 
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
 {
@@ -6088,20 +6131,11 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		return;
 
 	// It's indeed a validator update action
-	Shaders::PBFT::State::Validator vd;
-	if (val.n)
-	{
-		const auto& newData = *(const Shaders::PBFT::State::Validator*) val.p;
-		vd.m_Flags = ByteOrder::from_le(newData.m_Flags);
-		vd.m_Weight = ByteOrder::from_le(newData.m_Weight);
-	}
-	else
-		ZeroObject(vd);
-
 	const auto& addr = Cast::Up<Block::Pbft::Address>(vk.m_KeyInContract.m_Address);
 	auto* pV = m_ValidatorSet.Find(addr);
+	PBFT_LOG(DEBUG, "\tV " << addr << " update");
 
-	if (!vd.m_Weight)
+	if (!val.n)
 	{
 		// delete it
 		if (pV)
@@ -6112,20 +6146,26 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		return;
 	}
 
+	const auto& vd = *(const Shaders::PBFT::State::Validator*) val.p;
+
 	if (!pV)
 	{
 		pV = m_ValidatorSet.m_mapValidators.Create(addr);
 		pV->m_Whitelisted = Rules::get().m_Pbft.m_Whitelist.IsWhite(addr);
+		pV->m_hvCommitted = Zero;
+		pV->m_Status = 0;
 		pV->m_Weight = 0;
 	}
 
-	if (pV->m_Weight != vd.m_Weight)
-	{
-		pV->m_Weight = vd.m_Weight;
-		m_ValidatorSet.m_hv.reset();
-	}
+	auto w0 = pV->get_EffectiveWeight();
 
-	pV->m_Flags = vd.m_Flags;
+	pV->m_Weight = ByteOrder::from_le(vd.m_Weight);
+	pV->m_Status = ByteOrder::from_le((uint8_t) vd.m_Status);
+	pV->m_NumSlashed = ByteOrder::from_le(vd.m_NumSlashed);
+	pV->m_hSuspend = ByteOrder::from_le(vd.m_hSuspend);
+
+	if (pV->get_EffectiveWeight() != w0)
+		m_ValidatorSet.m_hv.reset();
 }
 
 TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
@@ -6181,12 +6221,12 @@ Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::Find(co
 
 Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const
 {
-	typedef Shaders::PBFT::State::Validator::Flags F;
+	typedef Shaders::PBFT::State::Validator::Status Status;
 
 	uint64_t wUnjailed = 0;
 	for (const auto& v : m_mapValidators)
 	{
-		if (!(F::Jail & v.m_Flags))
+		if (v.m_Status == (uint8_t) Status::Active)
 			wUnjailed += v.m_Weight;
 	}
 
@@ -6207,7 +6247,7 @@ Node::Validator::ValidatorWithAssessment* Node::Validator::ValidatorSet::SelectL
 	{
 		assert(m_mapValidators.end() != it);
 		auto& v = *it;
-		if (F::Jail & v.m_Flags)
+		if (v.m_Status != (uint8_t) Status::Active)
 			continue;
 
 		if (w < v.m_Weight)
@@ -6545,15 +6585,15 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (!msg.m_Address.CheckSignature(sp.m_hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
 
-	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_Assessment.m_hvCommitted != sp.m_hv))
+	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_hvCommitted != sp.m_hv))
 	{
-		if (vp.m_Assessment.m_hvCommitted != Zero)
+		if (vp.m_hvCommitted != Zero)
 		{
 			PBFT_LOG(DEBUG, "\tV " << vp.m_Key << "double commit");
-			vp.m_Assessment.m_Score += Assessment::Settings::DoubleCommit; // for now. Must be slashed actually
+			vp.m_Assessment.m_hShouldSlashAt = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height;
 		}
 
-		vp.m_Assessment.m_hvCommitted = sp.m_hv;
+		vp.m_hvCommitted = sp.m_hv;
 	}
 
 	// ok
@@ -6649,7 +6689,7 @@ void Node::Validator::CheckProposalCommit()
 {
 	assert(Proposal::State::Received == m_Current.m_Proposal.m_State);
 
-	if ((State::Committed == m_State) && m_pMe && (m_pMe->m_Assessment.m_hvCommitted == m_Current.m_spCommitted.m_hv))
+	if ((State::Committed == m_State) && m_pMe && (m_pMe->m_hvCommitted == m_Current.m_spCommitted.m_hv))
 	{
 		Vote_PreVote();
 		Vote_Commit();
@@ -6729,7 +6769,7 @@ void Node::Validator::CheckState()
 		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
 		if (m_pMe)
-			m_pMe->m_Assessment.m_hvCommitted = m_Current.m_spCommitted.m_hv;
+			m_pMe->m_hvCommitted = m_Current.m_spCommitted.m_hv;
 	}
 
 	CheckQuorum(m_Current);
@@ -6869,7 +6909,6 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 		return; // for more safety, shouldn't happen
 
 	auto& p = get_ParentObj().m_Processor; // alias
-	typedef Shaders::PBFT::State::Validator::Flags F;
 
 	assert(m_pMe && m_wTotal);
 	auto& my_map = m_pMe->m_Assessment.m_Last.m_Reputation;
@@ -6881,53 +6920,50 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 			continue;
 
 		auto fMy = x.second;
+		if (pV->m_Status == fMy)
+			continue; // no change
 		
-		if ((pV->m_Flags ^ fMy) & F::Jail)
-		{
-			// check if there's a consensus here
-			Power pwr;
+		// check if there's a consensus here
+		Power pwr;
 
-			for (const auto& vp : m_ValidatorSet.m_mapValidators)
+		for (const auto& vp : m_ValidatorSet.m_mapValidators)
+			if (IsAssessmentRelevant(vp.m_Assessment.m_Last))
 			{
-				if (IsAssessmentRelevant(vp.m_Assessment.m_Last))
+				auto it = vp.m_Assessment.m_Last.m_Reputation.find(x.first);
+				if (vp.m_Assessment.m_Last.m_Reputation.end() != it)
 				{
-					auto it = vp.m_Assessment.m_Last.m_Reputation.find(x.first);
-					if (vp.m_Assessment.m_Last.m_Reputation.end() != it)
-					{
-						auto fThis = it->second;
-						if ((pV->m_Flags ^ fThis) & F::Jail)
-							pwr.Add(vp); // supports this
-					}
+					auto fThis = it->second;
+					if (fThis == fMy)
+						pwr.Add(vp); // supports this
 				}
 			}
 
-			if (pwr.IsMajorityReached(m_wTotal))
-			{
-				using namespace Shaders::PBFT;
+		if (!pwr.IsMajorityReached(m_wTotal))
+			continue;
+
+		using namespace Shaders::PBFT;
 
 
-				auto pKrn = std::make_unique<TxKernelContractInvoke>();
-				pKrn->m_Cid = *m_cid;
-				pKrn->m_iMethod = Method::ValidatorStatusUpdate::s_iMethod;
+		auto pKrn = std::make_unique<TxKernelContractInvoke>();
+		pKrn->m_Cid = *m_cid;
+		pKrn->m_iMethod = Method::ValidatorStatusUpdate::s_iMethod;
 
-				pKrn->m_Args.resize(sizeof(Method::ValidatorStatusUpdate));
-				auto& r = *(Method::ValidatorStatusUpdate*) &pKrn->m_Args.front();
-				r.m_Address = Cast::Down<Address>(x.first);
-				r.m_Flags = ByteOrder::to_le(fMy);
+		pKrn->m_Args.resize(sizeof(Method::ValidatorStatusUpdate));
+		auto& r = *(Method::ValidatorStatusUpdate*) &pKrn->m_Args.front();
+		r.m_Address = Cast::Down<Address>(x.first);
+		r.m_Status = (Shaders::PBFT::State::Validator::Status) ByteOrder::to_le(fMy);
 
 
-				pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + m_iRound + 1;
+		pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + m_iRound + 1;
 
-				ECC::Point::Native ptFunds(Zero);
-				pKrn->Sign(&get_ParentObj().m_Keys.m_Validator.m_sk, 1, ptFunds, nullptr);
+		ECC::Point::Native ptFunds(Zero);
+		pKrn->Sign(&get_ParentObj().m_Keys.m_Validator.m_sk, 1, ptFunds, nullptr);
 
-				bc.m_Block.m_vKernels.push_back(std::move(pKrn));
+		bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 
-				ECC::Scalar::Native s = -get_ParentObj().m_Keys.m_Validator.m_sk;
-				s += bc.m_Block.m_Offset;
-				bc.m_Block.m_Offset = s;
-			}
-		}
+		ECC::Scalar::Native s = -get_ParentObj().m_Keys.m_Validator.m_sk;
+		s += bc.m_Block.m_Offset;
+		bc.m_Block.m_Offset = s;
 	}
 }
 
@@ -7060,15 +7096,18 @@ void Node::Validator::FinalyzeRoundAssessment()
 
 	bool bWasRound0 = !m_iRound;
 
-	typedef Shaders::PBFT::State::Validator::Flags F;
-	//auto& p = get_ParentObj().m_Processor;
+	PBFT_LOG(DEBUG, "Finalizing assessments");
+
 	for (auto& vp : m_ValidatorSet.m_mapValidators)
 	{
 		if (!vp.m_Weight)
 			continue;
 
 		if (&vp == m_pMe)
+		{
+			PBFT_LOG(DEBUG, "\t" << vp.m_Key << " self");
 			continue; // don't assess self
+		}
 
 		Assessment::Settings::Regress(vp.m_Assessment.m_Score);
 
@@ -7096,7 +7135,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 		}
 		else
 		{
-			if (vp.m_Assessment.m_hvCommitted == Zero)
+			if (vp.m_hvCommitted == Zero)
 			{
 				// did it vote?
 				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Key)))
@@ -7127,10 +7166,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 			}
 		}
 
-		if (F::Jail & vp.m_Flags)
-			PBFT_LOG(DEBUG, "\t\tjailed");
-
-		PBFT_LOG(DEBUG, "\tV " << vp.m_Key << " score=" << vp.m_Assessment.m_Score);
+		PBFT_LOG(DEBUG, "\tV " << vp.m_Key << " score=" << vp.m_Assessment.m_Score << ", status=" << static_cast<uint32_t>(vp.m_Status));
 
 	}
 

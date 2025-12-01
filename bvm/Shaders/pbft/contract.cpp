@@ -114,7 +114,9 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
     Env::Halt_if(!Env::LoadVar_T(vk, vp));
     bool bDirty = false;
 
-    typedef State::Validator::Flags F;
+    typedef State::Validator::Status Status;
+
+    Env::Halt_if(r.m_Status == vp.m_Status);
 
     State::Global g;
     auto gk = State::Tag::s_Global;
@@ -125,32 +127,48 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
 
     vp.StakeChangeExternal<false>(g);
 
-    if (F::Jail & (r.m_Flags ^ vp.m_Flags))
+    switch (r.m_Status)
     {
-        // Jail/Unjail
-        vp.m_Flags ^= F::Jail;
-        bDirty = true;
-    }
+    default:
+        Env::Halt();
+        // no break;
 
-    if (F::Slash & r.m_Flags)
-    {
-        // slash by 10%
-        Amount stake = vp.m_Weight;
-        Env::Halt_if(!stake);
+    case Status::Active:
+    case Status::Jailed:
+    case Status::Suspended:
+        vp.m_Status = r.m_Status;
+        break;
 
-        Amount amountBurn = stake / 10;
-        vp.m_Weight -= amountBurn;
-        assert(vp.m_Weight);
+    case Status::Slash:
+        {
+            vp.m_Status = Status::Suspended; // Slash is a transition, not a state.
 
-        // don't assume it's exactly 10%, it can be slightly different due to roundoffs
-        vp.m_kStakeScale *= State::Float(stake) / State::Float(vp.m_Weight);
+            // slash by 10%
+            Amount stake = vp.m_Weight;
+            Env::Halt_if(!stake);
 
-        bDirty = true;
+            Events::Slash evt;
+            evt.m_StakeBurned = stake / 10;
+            _POD_(evt.m_Validator) = r.m_Address;
+
+            Events::Slash::Key ek;
+            Env::EmitLog_T(ek, evt);
+
+            vp.m_Weight -= evt.m_StakeBurned;
+            assert(vp.m_Weight);
+
+            // don't assume it's exactly 10%, it can be slightly different due to roundoffs
+            vp.m_kStakeScale *= State::Float(stake) / State::Float(vp.m_Weight);
+
+            if (vp.m_NumSlashed < 0xff)
+                vp.m_NumSlashed++;
+
+            vp.m_hSuspend = Env::get_Height();
+        }
+        break;
     }
 
     vp.StakeChangeExternal<true>(g);
-
-    Env::Halt_if(!bDirty);
 
     Env::SaveVar_T(vk, vp);
     Env::SaveVar_T(gk, g);
