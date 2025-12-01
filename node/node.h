@@ -834,7 +834,7 @@ private:
 
 			proto::PbftPeerAssessment m_Last;
 			uint32_t m_Score = 0;
-			Merkle::Hash m_hvCommitted;
+			Height m_hShouldSlashAt = 0;
 		};
 
 		struct ValidatorWithAssessment
@@ -842,10 +842,16 @@ private:
 		{
 			typedef intrusive::multiset_autoclear<ValidatorWithAssessment> Map;
 
+			Merkle::Hash m_hvCommitted;
+
 			uint64_t m_Weight;
 			Assessment m_Assessment;
-			uint8_t m_Flags;
+			uint8_t m_Status;
+			uint8_t m_NumSlashed;
+			Height m_hSuspend;
 			bool m_Whitelisted;
+
+			uint64_t get_EffectiveWeight() const;
 		};
 
 		ValidatorWithAssessment* m_pMe; // refreshed after each block
@@ -972,6 +978,7 @@ private:
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
 
 		void FinalyzeRoundAssessment();
+		void UpdateAssessment(const ValidatorWithAssessment&, uint8_t&);
 
 		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
 

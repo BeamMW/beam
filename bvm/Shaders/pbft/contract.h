@@ -128,15 +128,18 @@ namespace PBFT
                 Address m_Address;
             };
 
-            struct Flags
-            {
-                static const uint8_t Jail = 1;
-                static const uint8_t Slash = 2; // not stored, only used in method
+            enum class Status : uint8_t {
+                Active = 0,
+                Jailed = 1, // Won't receive reward, can't be a leader. But preserves the voting power, and votes normally
+                Suspended = 2, // Looses voting power. Temporary in case of Slash, or Permanent if Tombed
+                Slash = 3, //  Slash, not a permanent state
             };
 
             // this is the part of interest to the node.
             uint64_t m_Weight;
-            uint8_t m_Flags;
+            Status m_Status;
+            uint8_t m_NumSlashed;
+            Height m_hSuspend; //  when was suspended
 
             struct Init {
                 Address m_Address;
@@ -156,7 +159,7 @@ namespace PBFT
 
             void FlushRewardPending(Global& g)
             {
-                Amount reward = m_cuRewardGlobal.Update(g.m_accReward, (Flags::Jail & m_Flags) ? 0 : m_Weight);
+                Amount reward = m_cuRewardGlobal.Update(g.m_accReward, (Status::Active == m_Status) ? m_Weight : 0);
                 if (reward)
                 {
                     Amount wScaled;
@@ -180,7 +183,7 @@ namespace PBFT
             template <bool bAdd>
             void StakeChangeExternal(Global& g, Amount delta) const
             {
-                if (!(Flags::Jail & m_Flags))
+                if (Status::Active == m_Status)
                     StakeChangeAny<bAdd>(g.m_TotakStakeNonJailed, delta);
             }
 
@@ -269,6 +272,24 @@ namespace PBFT
 
     } // namespace State
 
+    namespace Events
+    {
+        struct Tag
+        {
+            static const uint8_t s_Slash = 1;
+        };
+
+        struct Slash
+        {
+            struct Key {
+                uint8_t m_Tag = Tag::s_Slash;
+            };
+
+            Address m_Validator;
+            Amount m_StakeBurned;
+        };
+    }
+
     namespace Method
     {
         struct Create
@@ -283,7 +304,7 @@ namespace PBFT
         {
             static const uint32_t s_iMethod = 2;
             Address m_Address;
-            uint8_t m_Flags;
+            State::Validator::Status m_Status;
         };
 
         struct AddReward
