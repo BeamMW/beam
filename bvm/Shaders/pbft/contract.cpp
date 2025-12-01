@@ -112,7 +112,6 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
 
     State::ValidatorPlus vp;
     Env::Halt_if(!Env::LoadVar_T(vk, vp));
-    bool bDirty = false;
 
     typedef State::Validator::Status Status;
 
