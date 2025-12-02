@@ -259,7 +259,7 @@ namespace beam::wallet
             );
         }
 
-        void AnyThread_sendApiResponse(const beam::wallet::json& result) override
+        void AnyThread_sendApiResponse(const beam::wallet::json& result)
         {
             auto str = result.dump();
             if (!str.empty())
