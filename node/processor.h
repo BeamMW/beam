@@ -596,6 +596,7 @@ public:
 		virtual void OnContractStoreReset() = 0;
 		virtual bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) = 0;
 		virtual TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) = 0;
+		virtual void TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly, Deserializer& der) = 0;
 	};
 
 	virtual IPbftHandler* get_PbftHandler();

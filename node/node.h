@@ -814,6 +814,7 @@ private:
 		void OnContractStoreReset() override;
 		bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) override;
 		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
+		void TestBlock(const Block::SystemState::Full& s, const HeightHash&, const Block::Body&, bool bStart, bool bTestOnly, Deserializer&) override;
 
 		uint64_t get_RefTime_ms() const;
 
