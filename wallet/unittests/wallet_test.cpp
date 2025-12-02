@@ -3054,7 +3054,8 @@ namespace
 
             for (uint32_t i = 0; i < s_Validators; i++)
             {
-                ECC::Point ptDelegator = Zero; // not used
+                ECC::Point ptDelegator;
+                ZeroObject(ptDelegator); // not used
                 tb.AddValidator(m_pValidatorAddress[i], ptDelegator, Rules::Coin * 5000);
             }
 
