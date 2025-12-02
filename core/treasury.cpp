@@ -414,7 +414,16 @@ namespace beam
 			return false; // doesn't make sense for treasury
 
 		ctx.m_Sigma = -ctx.m_Sigma;
-		AmountBig::AddTo(ctx.m_Sigma, m_Value);
+
+		if (m_Aid)
+		{
+			ECC::Scalar s;
+			s.m_Value.FromNumber(m_Value);
+			CoinID::Generator gen(m_Aid);
+			ctx.m_Sigma += gen.m_hGen * ECC::Scalar::Native(s);
+		}
+		else
+			AmountBig::AddTo(ctx.m_Sigma, m_Value);
 
 		return (ctx.m_Sigma == Zero);
 	}

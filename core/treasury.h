@@ -155,6 +155,7 @@ namespace beam
 			{
 				Transaction m_Data;
 				AmountBig::Number m_Value;
+				Asset::ID m_Aid = 0;
 
 				bool IsValid() const;
 
@@ -162,7 +163,22 @@ namespace beam
 				void serialize(Archive& ar)
 				{
 					ar & m_Data;
-					ar & m_Value;
+
+					// support AssetID, keep backward compatibility
+					AmountBig::Number valMax;
+					valMax.get_Slice().Fill(static_cast<MultiWord::Word>(-1));
+
+					AmountBig::Number val = m_Aid ? valMax : m_Value;
+					ar & val;
+
+					if (val == valMax)
+					{
+						ar
+							& m_Value
+							& m_Aid;
+					}
+					else
+						m_Value = val;
 				}
 			};
 
