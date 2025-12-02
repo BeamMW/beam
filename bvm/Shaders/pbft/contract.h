@@ -345,6 +345,7 @@ namespace PBFT
 
             Address m_Validator;
             PubKey m_Delegator;
+            Amount m_Stake;
             uint16_t m_Commission_cpc;
         };
 
