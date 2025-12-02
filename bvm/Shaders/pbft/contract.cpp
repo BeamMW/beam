@@ -343,16 +343,12 @@ BEAM_EXPORT void Method_6(const Method::ValidatorRegister& r)
 
     vctx.OnLoaded(g);
 
-    // the validator should immediately deposits the minimum allowed stake
-    if (Env::get_Height() == static_cast<Height>(-1))
-        // treasury block. Print the asset (supposed to be bridged)
-        Env::Halt_if(!Env::AssetEmit(g.m_Settings.m_aidStake, g.m_Settings.m_MinValidatorStake, 1));
-    else
-        Env::FundsLock(g.m_Settings.m_aidStake, g.m_Settings.m_MinValidatorStake);
-
     DelegatorCtx dctx(g, vctx, r.m_Delegator);
 
-    Strict::Add(dctx.m_StakeBonded, g.m_Settings.m_MinValidatorStake);
+    Strict::Add(dctx.m_StakeBonded, r.m_Stake);
+    Env::FundsLock(g.m_Settings.m_aidStake, r.m_Stake);
+
+    Env::Halt_if(dctx.m_StakeBonded < g.m_Settings.m_MinValidatorStake);
 
     dctx.Finalize(g, vctx);
     Env::Halt_if(vctx.SaveRaw()); // fail if duplicated
@@ -380,9 +376,6 @@ BEAM_EXPORT void Method_7(const Method::ValidatorUpdate& r)
 
     Env::AddSig(vctx.m_Val.m_Self.m_Delegator);
 }
-
-
-
 
 
 } // namespace PBFT

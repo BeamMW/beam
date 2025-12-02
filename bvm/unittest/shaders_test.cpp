@@ -2271,23 +2271,29 @@ namespace bvm2 {
 			static_assert(nValidators <= nDelegators, "");
 			auto& d = pDelegator[i];
 			d.m_iValidator = i;
+			d.m_Stake = Rules::Coin * 1000 * (i + 3);
+
+			bool bTestUpd = !(i & 1);
 
 			Shaders::PBFT::Method::ValidatorRegister args;
 			ZeroObject(args);
 			args.m_Validator = pValidatorAddr[i];
 			args.m_Delegator = d.m_Pk;
 			args.m_Commission_cpc = 500;
+
+			args.m_Stake = bTestUpd ? nMinValidatorStake : d.m_Stake;
 			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
 
-			d.m_Stake = Rules::Coin * 1000 * (i + 3);
-
-			Shaders::PBFT::Method::DelegatorUpdate args2;
-			ZeroObject(args2);
-			args2.m_Validator = args.m_Validator;
-			args2.m_Delegator = args.m_Delegator;
-			args2.m_StakeBond = d.m_Stake - nMinValidatorStake;
-			args2.m_StakeDeposit = args2.m_StakeBond;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+			if (bTestUpd)
+			{
+				Shaders::PBFT::Method::DelegatorUpdate args2;
+				ZeroObject(args2);
+				args2.m_Validator = args.m_Validator;
+				args2.m_Delegator = args.m_Delegator;
+				args2.m_StakeBond = d.m_Stake - nMinValidatorStake;
+				args2.m_StakeDeposit = args2.m_StakeBond;
+				verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+			}
 
 			std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
 		}
