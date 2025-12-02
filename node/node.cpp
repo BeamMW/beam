@@ -6009,6 +6009,9 @@ void Node::Validator::UpdateAssessment(const ValidatorWithAssessment& v, uint8_t
 		return;
 	}
 
+	if (v.m_Status == (uint8_t) Status::Tombed)
+		return; // never change
+
 	if (v.m_NumSlashed >= Assessment::Settings::MaxSlash)
 	{
 		nStatus = (uint8_t) Status::Suspended; // tombed
