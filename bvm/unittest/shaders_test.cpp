@@ -398,7 +398,10 @@ namespace Shaders {
 	template <bool bToShader> void Convert(PBFT::Method::Create & x) {
 		ConvertOrd<bToShader>(x.m_Settings.m_aidStake);
 		ConvertOrd<bToShader>(x.m_Settings.m_hUnbondLock);
-		ConvertOrd<bToShader>(x.m_Validators);
+		ConvertOrd<bToShader>(x.m_Settings.m_MinValidatorStake);
+	}
+	template <bool bToShader> void Convert(PBFT::Method::ValidatorStatusUpdate& x) {
+		ConvertOrd<bToShader>(x.m_Status);
 	}
 	template <bool bToShader> void Convert(PBFT::Method::AddReward& x) {
 		ConvertOrd<bToShader>(x.m_Amount);
@@ -408,8 +411,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_StakeBond);
 		ConvertOrd<bToShader>(x.m_StakeDeposit);
 	}
-	template <bool bToShader> void Convert(PBFT::Method::ValidatorStatusUpdate& x) {
-		ConvertOrd<bToShader>(x.m_Status);
+	template <bool bToShader> void Convert(PBFT::Method::ValidatorRegister& x) {
+		ConvertOrd<bToShader>(x.m_Commission_cpc);
+	}
+	template <bool bToShader> void Convert(PBFT::Method::ValidatorUpdate& x) {
+		ConvertOrd<bToShader>(x.m_Commission_cpc);
 	}
 
 
@@ -868,9 +874,11 @@ namespace bvm2 {
 				switch (iMethod)
 				{
 				case Shaders::PBFT::Method::Create::s_iMethod: Shaders::PBFT::Ctor(CastArg<Shaders::PBFT::Method::Create>(pArgs)); return;
-				case Shaders::PBFT::Method::ValidatorStatusUpdate::s_iMethod: Shaders::PBFT::Method_2(CastArg<Shaders::PBFT::Method::ValidatorStatusUpdate>(pArgs)); return;
-				case Shaders::PBFT::Method::AddReward::s_iMethod: Shaders::PBFT::Method_3(CastArg<Shaders::PBFT::Method::AddReward>(pArgs)); return;
-				case Shaders::PBFT::Method::DelegatorUpdate::s_iMethod: Shaders::PBFT::Method_4(CastArg<Shaders::PBFT::Method::DelegatorUpdate>(pArgs)); return;
+				case Shaders::PBFT::Method::ValidatorStatusUpdate::s_iMethod: Shaders::PBFT::Method_3(CastArg<Shaders::PBFT::Method::ValidatorStatusUpdate>(pArgs)); return;
+				case Shaders::PBFT::Method::AddReward::s_iMethod: Shaders::PBFT::Method_4(CastArg<Shaders::PBFT::Method::AddReward>(pArgs)); return;
+				case Shaders::PBFT::Method::DelegatorUpdate::s_iMethod: Shaders::PBFT::Method_5(CastArg<Shaders::PBFT::Method::DelegatorUpdate>(pArgs)); return;
+				case Shaders::PBFT::Method::ValidatorRegister::s_iMethod: Shaders::PBFT::Method_6(CastArg<Shaders::PBFT::Method::ValidatorRegister>(pArgs)); return;
+				case Shaders::PBFT::Method::ValidatorUpdate::s_iMethod: Shaders::PBFT::Method_7(CastArg<Shaders::PBFT::Method::ValidatorUpdate>(pArgs)); return;
 				}
 			}
 */
@@ -2245,39 +2253,45 @@ namespace bvm2 {
 			d.m_Pk.m_Y = (i & 1);
 		}
 
+		const Amount nMinValidatorStake = Rules::Coin * 70;
+
 		{
-#pragma pack (push, 1)
-			struct Args
-				:public Shaders::PBFT::Method::Create
-			{
-				Shaders::PBFT::State::Validator::Init m_pVals[nValidators];
-			} args;
-#pragma pack (pop)
-
+			Shaders::PBFT::Method::Create args;
 			ZeroObject(args);
-
 			args.m_Settings.m_aidStake = 77;
 			args.m_Settings.m_hUnbondLock = 100;
-			args.m_Validators = nValidators;
-
-			for (uint32_t i = 0; i < nValidators; i++)
-			{
-				ECC::GenRandom(pValidatorAddr[i]);
-				args.m_pVals[i].m_Address = pValidatorAddr[i];
-
-				static_assert(nValidators <= nDelegators, "");
-				auto& d = pDelegator[i];
-				args.m_pVals[i].m_Delegator = d.m_Pk;
-				d.m_iValidator = i;
-
-				args.m_pVals[i].m_Stake = Rules::Coin * 1000 * (i + 3);
-				d.m_Stake = args.m_pVals[i].m_Stake;
-
-				std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
-			}
-
+			args.m_Settings.m_MinValidatorStake = nMinValidatorStake;
 			verify_test(ContractCreate_T(m_Pbft.m_Cid, m_Pbft.m_Code, args));
 		}
+
+		for (uint32_t i = 0; i < nValidators; i++)
+		{
+			ECC::GenRandom(pValidatorAddr[i]);
+
+			static_assert(nValidators <= nDelegators, "");
+			auto& d = pDelegator[i];
+			d.m_iValidator = i;
+
+			Shaders::PBFT::Method::ValidatorRegister args;
+			ZeroObject(args);
+			args.m_Validator = pValidatorAddr[i];
+			args.m_Delegator = d.m_Pk;
+			args.m_Commission_cpc = 500;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+
+			d.m_Stake = Rules::Coin * 1000 * (i + 3);
+
+			Shaders::PBFT::Method::DelegatorUpdate args2;
+			ZeroObject(args2);
+			args2.m_Validator = args.m_Validator;
+			args2.m_Delegator = args.m_Delegator;
+			args2.m_StakeBond = d.m_Stake - nMinValidatorStake;
+			args2.m_StakeDeposit = args2.m_StakeBond;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+
+			std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
+		}
+
 
 
 		{
@@ -2367,7 +2381,7 @@ namespace bvm2 {
 
 		// unbond all
 		for (uint32_t i = 0; i < nDelegators; i++)
-		// for (uint32_t i = nDelegators; i--; )
+		//for (uint32_t i = nDelegators; i--; )
 		{
 			auto& d = pDelegator[i];
 
@@ -2381,7 +2395,22 @@ namespace bvm2 {
 				d.m_Stake -= d.m_Stake / 10;
 
 			args.m_StakeBond = -(int64_t) d.m_Stake;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+
+			bool bRes = RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args);
+			if (i >= nValidators)
+				verify_test(bRes);
+			else
+			{
+				verify_test(!bRes); // can't withdraw stake until the validator is deregistered
+
+				Shaders::PBFT::Method::ValidatorUpdate args2;
+				ZeroObject(args2);
+				args2.m_Validator = args.m_Validator;
+				args2.m_Commission_cpc = Shaders::PBFT::State::ValidatorPlus::s_CommissionTagTomb;
+				verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+
+				verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			}
 		}
 
 		// Print stats

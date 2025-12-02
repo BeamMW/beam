@@ -10,6 +10,7 @@ namespace PBFT
     {
         AssetID m_aidStake;
         uint32_t m_hUnbondLock;
+        Amount m_MinValidatorStake;
     };
 
     typedef HashValue Address;
@@ -143,7 +144,8 @@ namespace PBFT
                 Active = 0,
                 Jailed = 1, // Won't receive reward, can't be a leader. But preserves the voting power, and votes normally
                 Suspended = 2, // Looses voting power. Temporary in case of Slash, or Permanent if Tombed
-                Slash = 3, //  Slash, not a permanent state
+                Tombed = 3, // disabled permanently. Either by the validator itself, or by the validators
+                Slash = 4, //  Slash, not a permanent state
             };
 
             // this is the part of interest to the node.
@@ -151,12 +153,6 @@ namespace PBFT
             Status m_Status;
             uint8_t m_NumSlashed;
             Height m_hSuspend; //  when was suspended
-
-            struct Init {
-                Address m_Address;
-                Amount m_Stake;
-                PubKey m_Delegator;
-            };
         };
 
         struct ValidatorPlus
@@ -165,19 +161,25 @@ namespace PBFT
             Accumulator m_accReward;
             Accumulator::Cursor m_cuRewardGlobal;
             Float m_kStakeScale;
+            uint16_t m_Commission_cpc; // commission in centi-percents
 
-            void Init(const Global&);
+            static const uint16_t s_CommissionMax = 8000; // 80%
+            static const uint16_t s_CommissionTagTomb = 12000; // 80%
+
+
+            //void Init(const Global&);
 
             void FlushRewardPending(Global& g)
             {
                 Amount reward = m_cuRewardGlobal.Update(g.m_accReward, (Status::Active == m_Status) ? m_Weight : 0);
                 if (reward)
                 {
-                    Amount commission = reward / 20; // current commission is fixed at 5%
-                    reward -= commission;
+                    Amount commission = (MultiPrecision::From(reward) * MultiPrecision::From(m_Commission_cpc) / MultiPrecision::From(10000)).Get<0, Amount>(); // rounds down
 
                     g.RewardFixSubtract(commission);
                     Strict::Add(m_Self.m_Commission, commission);
+
+                    reward -= commission;
 
                     Amount wScaled;
                     (m_kStakeScale * Float(m_Weight)).Round(wScaled);
@@ -215,6 +217,13 @@ namespace PBFT
             {
                 StakeChangeAny<bAdd>(m_Weight, delta);
                 StakeChangeExternal<bAdd>(g, delta);
+            }
+
+            void ChangeStatus(Global& g, Status s)
+            {
+                StakeChangeExternal<false>(g);
+                m_Status = s;
+                StakeChangeExternal<true>(g);
             }
 
             struct Self {
@@ -303,26 +312,24 @@ namespace PBFT
         {
             static const uint32_t s_iMethod = 0;
             Settings m_Settings;
-            uint32_t m_Validators;
-            // followed by array of Validator::Init structs
         };
 
         struct ValidatorStatusUpdate
         {
-            static const uint32_t s_iMethod = 2;
+            static const uint32_t s_iMethod = 3;
             Address m_Address;
             State::Validator::Status m_Status;
         };
 
         struct AddReward
         {
-            static const uint32_t s_iMethod = 3;
+            static const uint32_t s_iMethod = 4;
             Amount m_Amount;
         };
 
         struct DelegatorUpdate
         {
-            static const uint32_t s_iMethod = 4;
+            static const uint32_t s_iMethod = 5;
 
             Address m_Validator;
             PubKey m_Delegator;
@@ -330,6 +337,23 @@ namespace PBFT
             int64_t m_StakeDeposit;
             int64_t m_StakeBond;
             Amount m_RewardClaim;
+        };
+
+        struct ValidatorRegister
+        {
+            static const uint32_t s_iMethod = 6;
+
+            Address m_Validator;
+            PubKey m_Delegator;
+            uint16_t m_Commission_cpc;
+        };
+
+        struct ValidatorUpdate
+        {
+            static const uint32_t s_iMethod = 7;
+
+            Address m_Validator;
+            uint16_t m_Commission_cpc; // set to invalid value to trigger the termination
         };
     }
 
