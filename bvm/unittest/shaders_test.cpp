@@ -409,7 +409,7 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_StakeDeposit);
 	}
 	template <bool bToShader> void Convert(PBFT::Method::ValidatorStatusUpdate& x) {
-		ConvertOrd<bToShader>(x.m_Flags);
+		ConvertOrd<bToShader>(x.m_Status);
 	}
 
 
@@ -2327,7 +2327,7 @@ namespace bvm2 {
 		{
 			Shaders::PBFT::Method::ValidatorStatusUpdate args;
 			args.m_Address = pValidatorAddr[0];
-			args.m_Flags = Shaders::PBFT::State::Validator::Flags::Jail;
+			args.m_Status = Shaders::PBFT::State::Validator::Status::Jailed;
 			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
 			std::cout << "V-" << 0 << ", Jailed" << std::endl;
 		}
@@ -2338,7 +2338,7 @@ namespace bvm2 {
 		{
 			Shaders::PBFT::Method::ValidatorStatusUpdate args;
 			args.m_Address = pValidatorAddr[iValidatorSlash];
-			args.m_Flags = /*Shaders::PBFT::State::Validator::Flags::Jail | */Shaders::PBFT::State::Validator::Flags::Slash;
+			args.m_Status = Shaders::PBFT::State::Validator::Status::Slash;
 			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
 			std::cout << "V-" << iValidatorSlash << ", Jailed + Slashed" << std::endl;
 		}
@@ -2350,8 +2350,24 @@ namespace bvm2 {
 			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
 		}
 
+		{
+			Shaders::PBFT::Method::ValidatorStatusUpdate args;
+			args.m_Address = pValidatorAddr[iValidatorSlash];
+			args.m_Status = Shaders::PBFT::State::Validator::Status::Active; // unjail
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "V-" << iValidatorSlash << ", Unjailed" << std::endl;
+		}
+
+		{
+			Shaders::PBFT::Method::AddReward args;
+			args.m_Amount = Rules::Coin * 9000;
+			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
+		}
+
 		// unbond all
 		for (uint32_t i = 0; i < nDelegators; i++)
+		// for (uint32_t i = nDelegators; i--; )
 		{
 			auto& d = pDelegator[i];
 
@@ -2408,23 +2424,6 @@ namespace bvm2 {
 
 			std::cout << "D-" << i << ", Reward=" << AmountBig::Printable(dlg.m_RewardRemaining) << std::endl;
 		}
-
-		//memset(&dk.m_KeyInContract, 0xff, sizeof(dk.m_KeyInContract));
-		//dk.m_KeyInContract.m_Tag = Shaders::PBFT::State::Tag::s_Delegator;
-
-		//while (true)
-		//{
-		//	Blob bk(&dk, sizeof(dk));
-		//	Blob bv;
-		//	LoadVarEx(bk, bv, false, false);
-		//	if (bk.n != sizeof(dk))
-		//		break;
-
-		//	if (memcmp(bk.p, &dk, sizeof(dk.m_Prefix) + 1))
-		//		break;
-
-		//	memcpy(&dk, bk.p, bk.n);
-		//}
 
 
 	}
