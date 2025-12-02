@@ -118,6 +118,17 @@ namespace PBFT
                     m_RewardPending = 0;
                 }
             }
+
+            void RewardFixSubtract(Amount& val)
+            {
+                if (m_RewardInPoolRemaining >= val)
+                    m_RewardInPoolRemaining -= val;
+                else
+                {
+                    val = m_RewardInPoolRemaining;
+                    m_RewardInPoolRemaining = 0;
+                }
+            }
         };
 
         struct Validator
@@ -162,6 +173,12 @@ namespace PBFT
                 Amount reward = m_cuRewardGlobal.Update(g.m_accReward, (Status::Active == m_Status) ? m_Weight : 0);
                 if (reward)
                 {
+                    Amount commission = reward / 20; // current commission is fixed at 5%
+                    reward -= commission;
+
+                    g.RewardFixSubtract(commission);
+                    Strict::Add(m_Self.m_Commission, commission);
+
                     Amount wScaled;
                     (m_kStakeScale * Float(m_Weight)).Round(wScaled);
                     m_accReward.Add(reward, wScaled);
@@ -239,18 +256,8 @@ namespace PBFT
                 Amount reward = m_Bonded.m_cuReward.Update(vp.m_accReward, wReward);
                 if (reward)
                 {
-                    if (reward > g.m_RewardInPoolRemaining)
-                    {
-                        reward = g.m_RewardInPoolRemaining;
-                        g.m_RewardInPoolRemaining = 0;
-                    }
-                    else
-                        g.m_RewardInPoolRemaining -= reward;
-
-                    Amount commission = reward / 20; // current commission is fixed at 5%
-
-                    Strict::Add(m_RewardRemaining, reward - commission);
-                    Strict::Add(vp.m_Self.m_Commission, commission);
+                    g.RewardFixSubtract(reward);
+                    Strict::Add(m_RewardRemaining, reward);
                 }
 
                 return stake;
