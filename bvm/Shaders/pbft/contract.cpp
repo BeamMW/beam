@@ -4,13 +4,6 @@
 
 namespace PBFT {
 
-void State::ValidatorPlus::Init(const State::Global& g)
-{
-    _POD_(*this).SetZero();
-    m_cuRewardGlobal.Update(g.m_accReward, 0); // just move 
-    m_kStakeScale.set_1();
-}
-
 void EraseUnbonded(Amount amount, const PubKey& pkDelegator, Height hMax)
 {
     assert(amount);
@@ -62,42 +55,127 @@ void AddUnbonded(Amount amount, const PubKey& pkDelegator, Height h)
     Env::SaveVar_T(uk, u);
 }
 
+struct GlobalCtx_NoLoad
+    :public State::Global
+{
+    void Save()
+    {
+        auto gk = State::Tag::s_Global;
+        Env::SaveVar_T(gk, *this);
+    }
+};
+
+struct GlobalCtx
+    :public GlobalCtx_NoLoad
+{
+    GlobalCtx()
+    {
+        auto gk = State::Tag::s_Global;
+        Env::LoadVar_T(gk, *this);
+    }
+};
+
+struct ValidatorCtx_NoLoad
+{
+    State::Validator::Key m_Key;
+    State::ValidatorPlus m_Val;
+
+    ValidatorCtx_NoLoad(const Address& addr)
+    {
+        _POD_(m_Key.m_Address) = addr;
+    }
+
+    bool SaveRaw()
+    {
+        return Env::SaveVar_T(m_Key, m_Val);
+    }
+
+    void OnLoaded(State::Global& g)
+    {
+        g.FlushRewardPending();
+        m_Val.FlushRewardPending(g);
+    }
+
+    void SaveFlex()
+    {
+        bool bKill =
+            (State::Validator::Status::Tombed == m_Val.m_Status) &&
+            !m_Val.m_Weight &&
+            !m_Val.m_Self.m_Commission;
+
+        if (bKill)
+            Env::DelVar_T(m_Key);
+        else
+            SaveRaw();
+    }
+};
+
+struct ValidatorCtx
+    :public ValidatorCtx_NoLoad
+{
+    ValidatorCtx(State::Global& g, const Address& addr)
+        :ValidatorCtx_NoLoad(addr)
+    {
+        Env::Halt_if(!Env::LoadVar_T(m_Key, m_Val));
+        OnLoaded(g);
+    }
+};
+
+struct DelegatorCtx
+{
+    State::Delegator::Key m_Key;
+    State::Delegator m_Val;
+
+    bool m_Self;
+    Amount m_StakeBonded;
+
+    DelegatorCtx(State::Global& g, ValidatorCtx_NoLoad& vctx, const PubKey& pkDelegator)
+    {
+        _POD_(m_Key.m_Validator) = vctx.m_Key.m_Address;
+        _POD_(m_Key.m_Delegator) = pkDelegator;
+
+        if (!Env::LoadVar_T(m_Key, m_Val))
+            _POD_(m_Val).SetZero();
+
+        m_StakeBonded = m_Val.Pop(vctx.m_Val, g);
+
+        m_Self = (_POD_(vctx.m_Val.m_Self.m_Delegator) == pkDelegator);
+        if (m_Self)
+        {
+            Strict::Add(m_Val.m_RewardRemaining, vctx.m_Val.m_Self.m_Commission);
+            vctx.m_Val.m_Self.m_Commission = 0;
+        }
+    }
+
+    void Finalize(State::Global& g, ValidatorCtx_NoLoad& vctx)
+    {
+        // re-insert to pool
+        if (m_StakeBonded)
+        {
+            vctx.m_Val.StakeChange<true>(g, m_StakeBonded);
+            m_Val.m_Bonded.m_kStakeScaled = vctx.m_Val.m_kStakeScale * State::Float(m_StakeBonded);
+        }
+        else
+        {
+            if (!m_Val.m_RewardRemaining)
+            {
+                Env::DelVar_T(m_Key);
+                return;
+            }
+
+            m_Val.m_Bonded.m_kStakeScaled.Set0();
+        }
+
+        Env::SaveVar_T(m_Key, m_Val);
+    }
+};
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
-    State::Global g;
+    GlobalCtx_NoLoad g;
     _POD_(g).SetZero();
     _POD_(g.m_Settings) = r.m_Settings;
-
-    State::Validator::Key vk;
-    State::ValidatorPlus vp;
-    vp.Init(g);
-
-    State::Delegator::Key dk;
-    State::Delegator d;
-    _POD_(d).SetZero();
-
-    for (uint32_t i = 0; i < r.m_Validators; i++)
-    {
-        const auto& v = ((const State::Validator::Init*)(&r + 1))[i];
-        _POD_(vk.m_Address) = v.m_Address;
-
-        Env::Halt_if(!v.m_Stake);
-        vp.m_Weight = v.m_Stake;
-        _POD_(vp.m_Self.m_Delegator) = v.m_Delegator;
-
-        Env::Halt_if(Env::SaveVar_T(vk, vp)); // fail if key is duplicated
-
-        d.m_Bonded.m_kStakeScaled = v.m_Stake;
-        _POD_(dk.m_Validator) = v.m_Address;
-        _POD_(dk.m_Delegator) = v.m_Delegator;
-        Env::SaveVar_T(dk, d);
-
-        vp.StakeChangeExternal<true>(g);
-    }
-
-    auto key = State::Tag::s_Global;
-    Env::SaveVar_T(key, g);
+    g.Save();
 }
 
 BEAM_EXPORT void Dtor(void*)
@@ -105,27 +183,18 @@ BEAM_EXPORT void Dtor(void*)
     // ignore
 }
 
-BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
+BEAM_EXPORT void Method_2(void*)
 {
-    State::Validator::Key vk;
-    _POD_(vk.m_Address) = r.m_Address;
+    Env::Halt(); // TODO: upgrade
+}
 
-    State::ValidatorPlus vp;
-    Env::Halt_if(!Env::LoadVar_T(vk, vp));
+BEAM_EXPORT void Method_3(const Method::ValidatorStatusUpdate& r)
+{
+    GlobalCtx g;
+    ValidatorCtx vctx(g, r.m_Address);
+    Env::Halt_if(r.m_Status == vctx.m_Val.m_Status);
 
     typedef State::Validator::Status Status;
-
-    Env::Halt_if(r.m_Status == vp.m_Status);
-
-    State::Global g;
-    auto gk = State::Tag::s_Global;
-    Env::LoadVar_T(gk, g);
-
-    g.FlushRewardPending();
-    vp.FlushRewardPending(g);
-
-    vp.StakeChangeExternal<false>(g);
-
     switch (r.m_Status)
     {
     default:
@@ -135,15 +204,18 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
     case Status::Active:
     case Status::Jailed:
     case Status::Suspended:
-        vp.m_Status = r.m_Status;
+    case Status::Tombed:
+        Env::Halt_if(Status::Tombed == vctx.m_Val.m_Status);
+        vctx.m_Val.ChangeStatus(g, r.m_Status);
         break;
 
     case Status::Slash:
         {
-            vp.m_Status = Status::Suspended; // Slash is a transition, not a state.
+            if (Status::Tombed != vctx.m_Val.m_Status)
+                vctx.m_Val.ChangeStatus(g, Status::Suspended); // Slash is a transition, not a state.
 
             // slash by 10%
-            Amount stake = vp.m_Weight;
+            Amount stake = vctx.m_Val.m_Weight;
             Env::Halt_if(!stake);
 
             Events::Slash evt;
@@ -153,89 +225,50 @@ BEAM_EXPORT void Method_2(const Method::ValidatorStatusUpdate& r)
             Events::Slash::Key ek;
             Env::EmitLog_T(ek, evt);
 
-            vp.m_Weight -= evt.m_StakeBurned;
-            assert(vp.m_Weight);
+            vctx.m_Val.m_Weight -= evt.m_StakeBurned;
+            assert(vctx.m_Val.m_Weight);
 
             // don't assume it's exactly 10%, it can be slightly different due to roundoffs
-            vp.m_kStakeScale *= State::Float(stake) / State::Float(vp.m_Weight);
+            vctx.m_Val.m_kStakeScale *= State::Float(stake) / State::Float(vctx.m_Val.m_Weight);
 
-            if (vp.m_NumSlashed < 0xff)
-                vp.m_NumSlashed++;
+            if (vctx.m_Val.m_NumSlashed < 0xff)
+                vctx.m_Val.m_NumSlashed++;
 
-            vp.m_hSuspend = Env::get_Height();
+            vctx.m_Val.m_hSuspend = Env::get_Height();
         }
         break;
     }
 
-    vp.StakeChangeExternal<true>(g);
-
-    Env::SaveVar_T(vk, vp);
-    Env::SaveVar_T(gk, g);
+    vctx.SaveFlex();
+    g.Save();
 }
 
-BEAM_EXPORT void Method_3(const Method::AddReward& r)
+BEAM_EXPORT void Method_4(const Method::AddReward& r)
 {
-    State::Global g;
-    auto gk = State::Tag::s_Global;
-    Env::LoadVar_T(gk, g);
-
+    GlobalCtx g;
     Strict::Add(g.m_RewardPending, r.m_Amount);
-    Env::SaveVar_T(gk, g);
+    g.Save();
 
     Env::FundsLock(0, r.m_Amount);
 }
 
-BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
+
+BEAM_EXPORT void Method_5(const Method::DelegatorUpdate& r)
 {
-    State::Global g;
-    auto gk = State::Tag::s_Global;
-    Env::LoadVar_T(gk, g);
+    GlobalCtx g;
 
     auto depositUnbonded = r.m_StakeDeposit;
 
     if (r.m_RewardClaim || r.m_StakeBond)
     {
-        // Load everything, update statuses
-        g.FlushRewardPending();
-
-        State::Validator::Key vk;
-        _POD_(vk.m_Address) = r.m_Validator;
-
-        State::ValidatorPlus vp;
-        bool bValidatorExisted = Env::LoadVar_T(vk, vp);
-        bool bSelf = !bValidatorExisted;
-        if (bValidatorExisted)
-        {
-            vp.FlushRewardPending(g);
-            bSelf = _POD_(vp.m_Self.m_Delegator) == r.m_Delegator;
-        }
-        else
-        {
-            vp.Init(g);
-            _POD_(vp.m_Self.m_Delegator) = r.m_Delegator;
-        }
-
-        State::Delegator::Key dk;
-        _POD_(dk.m_Validator) = r.m_Validator;
-        _POD_(dk.m_Delegator) = r.m_Delegator;
-
-        State::Delegator d;
-        bool bDelegatorExisted = Env::LoadVar_T(dk, d);
-        if (!bDelegatorExisted)
-            _POD_(d).SetZero();
-
-        Amount stakeBonded = d.Pop(vp, g);
-        if (bSelf)
-        {
-            Strict::Add(d.m_RewardRemaining, vp.m_Self.m_Commission);
-            vp.m_Self.m_Commission = 0;
-        }
+        ValidatorCtx vctx(g, r.m_Validator);
+        DelegatorCtx dctx(g, vctx, r.m_Delegator);
 
         // Reward
         if (r.m_RewardClaim)
         {
             Env::FundsUnlock(0, r.m_RewardClaim);
-            Strict::Sub(d.m_RewardRemaining, r.m_RewardClaim);
+            Strict::Sub(dctx.m_Val.m_RewardRemaining, r.m_RewardClaim);
         }
 
         // Update bond
@@ -257,45 +290,26 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
                 EraseUnbonded(fromUnbonded, r.m_Delegator, static_cast<Height>(-1));
             }
 
-            Strict::Add(stakeBonded, (Amount) r.m_StakeBond);
+            Strict::Add(dctx.m_StakeBonded, (Amount) r.m_StakeBond);
         }
         else
         {
             if (r.m_StakeBond < 0)
             {
                 Amount val = -r.m_StakeBond;
-                Strict::Sub(stakeBonded, val);
+                Strict::Sub(dctx.m_StakeBonded, val);
+
+                if (dctx.m_Self && (State::ValidatorPlus::Status::Tombed != vctx.m_Val.m_Status))
+                    // don't allow to withdraw funds below minimum threshold
+                    Env::Halt_if(dctx.m_StakeBonded < g.m_Settings.m_MinValidatorStake);
+
                 AddUnbonded(val, r.m_Delegator, Env::get_Height() + g.m_Settings.m_hUnbondLock);
             }
         }
 
-        bool bEmptyDelegator = false;
-
-        // re-insert to pool
-        if (stakeBonded)
-        {
-            vp.StakeChange<true>(g, stakeBonded);
-            d.m_Bonded.m_kStakeScaled = vp.m_kStakeScale * State::Float(stakeBonded);
-        }
-        else
-        {
-            d.m_Bonded.m_kStakeScaled.Set0();
-
-            if (!d.m_RewardRemaining)
-                bEmptyDelegator = true;
-        }
-
-        if (bEmptyDelegator)
-            Env::DelVar_T(dk);
-        else
-            Env::SaveVar_T(dk, d);
-
-        if (vp.m_Weight || vp.m_Self.m_Commission)
-            Env::SaveVar_T(vk, vp);
-        else
-            Env::DelVar_T(vk);
-
-        Env::SaveVar_T(gk, g);
+        dctx.Finalize(g, vctx);
+        vctx.SaveFlex();
+        g.Save();
     }
 
     if (depositUnbonded > 0)
@@ -314,5 +328,61 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
     Env::AddSig(r.m_Delegator);
 
 }
+
+BEAM_EXPORT void Method_6(const Method::ValidatorRegister& r)
+{
+    Env::Halt_if(r.m_Commission_cpc > State::ValidatorPlus::s_CommissionMax);
+
+    GlobalCtx g;
+    ValidatorCtx_NoLoad vctx(r.m_Validator);
+    _POD_(vctx.m_Val).SetZero();
+    vctx.m_Val.m_kStakeScale.set_1();
+    vctx.m_Val.m_Commission_cpc = r.m_Commission_cpc;
+    vctx.m_Val.m_Self.m_Delegator = r.m_Delegator;
+    static_assert(0 == (uint8_t) State::Validator::Status::Active, "");
+
+    vctx.OnLoaded(g);
+
+    // the validator should immediately deposits the minimum allowed stake
+    if (Env::get_Height() == static_cast<Height>(-1))
+        // treasury block. Print the asset (supposed to be bridged)
+        Env::Halt_if(!Env::AssetEmit(g.m_Settings.m_aidStake, g.m_Settings.m_MinValidatorStake, 1));
+    else
+        Env::FundsLock(g.m_Settings.m_aidStake, g.m_Settings.m_MinValidatorStake);
+
+    DelegatorCtx dctx(g, vctx, r.m_Delegator);
+
+    Strict::Add(dctx.m_StakeBonded, g.m_Settings.m_MinValidatorStake);
+
+    dctx.Finalize(g, vctx);
+    Env::Halt_if(vctx.SaveRaw()); // fail if duplicated
+    g.Save();
+}
+
+BEAM_EXPORT void Method_7(const Method::ValidatorUpdate& r)
+{
+    GlobalCtx g;
+    ValidatorCtx vctx(g, r.m_Validator);
+
+    Env::Halt_if(State::Validator::Status::Tombed == vctx.m_Val.m_Status);
+
+    if (State::ValidatorPlus::s_CommissionTagTomb == r.m_Commission_cpc)
+        vctx.m_Val.ChangeStatus(g, State::Validator::Status::Tombed);
+    else
+    {
+        // currently don't allow to raise commission
+        Env::Halt_if(vctx.m_Val.m_Commission_cpc <= r.m_Commission_cpc);
+        vctx.m_Val.m_Commission_cpc = r.m_Commission_cpc;
+    }
+
+    vctx.SaveFlex();
+    g.Save();
+
+    Env::AddSig(vctx.m_Val.m_Self.m_Delegator);
+}
+
+
+
+
 
 } // namespace PBFT
