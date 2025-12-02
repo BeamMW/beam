@@ -2954,6 +2954,78 @@ namespace
         Block::Pbft::Address m_pValidatorAddress[s_Validators];
     };
 
+
+    struct PbftTreasuryBuilder
+    {
+        Treasury::Data::Group& m_Tg;
+        ContractID m_Cid;
+        Shaders::PBFT::Settings m_Settings;
+
+        PbftTreasuryBuilder(Treasury::Data::Group& tg)
+            :m_Tg(tg)
+        {
+            ZeroObject(m_Settings);
+        }
+
+        void Init()
+        {
+			m_Tg.m_Aid = m_Settings.m_aidStake;
+
+            auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+			MyManager::Compile(pKrn->m_Data, "pbft/contract.wasm", beam::bvm2::Processor::Kind::Contract);
+
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT::Method::Create));
+            auto& args = *(Shaders::PBFT::Method::Create*) &pKrn->m_Args.front();
+            ZeroObject(args);
+
+            args.m_Settings.m_aidStake = ByteOrder::to_le(m_Settings.m_aidStake);
+            args.m_Settings.m_hUnbondLock = ByteOrder::to_le(m_Settings.m_hUnbondLock);
+            args.m_Settings.m_MinValidatorStake = ByteOrder::to_le(m_Settings.m_MinValidatorStake);
+
+            ECC::Scalar::Native sk;
+            sk.GenRandomNnz();
+            ECC::Point::Native ptFunds(beam::Zero);
+            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+            bvm2::get_Cid(m_Cid, pKrn->m_Data, pKrn->m_Args);
+
+            m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+            sk = -sk;
+            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+        }
+
+        void AddValidator(const Block::Pbft::Address& addr, const ECC::Point& pkDelegator, Amount stake)
+        {
+            auto pKrn = std::make_unique<beam::TxKernelContractInvoke>();
+            pKrn->m_Cid = m_Cid;
+
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT::Method::ValidatorRegister));
+            auto& args = *(Shaders::PBFT::Method::ValidatorRegister*)&pKrn->m_Args.front();
+            pKrn->m_iMethod = args.s_iMethod;
+
+            ZeroObject(args);
+            args.m_Commission_cpc = 500;
+			args.m_Stake = ByteOrder::to_le(stake);
+            args.m_Validator = Cast::Down<ECC::uintBig>(addr);
+            args.m_Delegator = pkDelegator;
+
+			ECC::Point::Native ptFunds(Zero);
+			CoinID::Generator(m_Settings.m_aidStake).AddValue(ptFunds, stake);
+
+            ECC::Scalar::Native sk;
+            sk.GenRandomNnz();
+            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+            m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+            sk = -sk;
+            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+
+            m_Tg.m_Value += MultiWord::From(stake);
+        }
+    };
+
     void L2Params::RunInThread()
     {
         Rules::Scope scopeRules(m_RulesL2);
@@ -2970,45 +3042,21 @@ namespace
         // add PBFT and bridge L2 contract deployment
         {
             Treasury::Data td;
-            auto& tg = td.m_vGroups.emplace_back();
-            tg.m_Value = Zero;
+            PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+            tb.m_Tg.m_Value = Zero;
+            tb.m_Tg.m_Data.m_Offset = Zero;
 
+            tb.m_Settings.m_aidStake = 7;
+            tb.m_Settings.m_hUnbondLock = 15;
+            tb.m_Settings.m_MinValidatorStake = Rules::Coin * 600;
+
+            tb.Init();
+
+            for (uint32_t i = 0; i < s_Validators; i++)
             {
-				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-                MyManager::Compile(pKrn->m_Data, "pbft/contract.wasm", beam::bvm2::Processor::Kind::Contract);
-
-				Shaders::PBFT::Method::Create m;
-				ZeroObject(m);
-                m.m_Validators = s_Validators;
-                m.m_Settings.m_aidStake = 7;
-
-				std::vector<Shaders::PBFT::State::Validator::Init> vVals;
-				ECC::Scalar::Native sk;
-
-				vVals.resize(s_Validators);
-
-                for (uint32_t i = 0; i < s_Validators; i++)
-                {
-                    vVals[i].m_Address = Cast::Down<ECC::uintBig>(m_pValidatorAddress[i]);
-                    vVals[i].m_Stake = Rules::Coin * 5000;
-                }
-
-				pKrn->m_Args.resize(sizeof(m) + sizeof(Shaders::PBFT::State::Validator::Init) * m.m_Validators);
-				memcpy(&pKrn->m_Args.front(), &m, sizeof(m));
-
-				if (m.m_Validators)
-					memcpy(&pKrn->m_Args.front() + sizeof(m), &vVals.front(), sizeof(Shaders::PBFT::State::Validator::Init) * m.m_Validators);
-
-				sk.GenRandomNnz();
-				ECC::Point::Native ptFunds(beam::Zero);
-				pKrn->Sign(&sk, 1, ptFunds, nullptr);
-
-				tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-				sk = -sk;
-				tg.m_Data.m_Offset = sk;
+                ECC::Point ptDelegator = Zero; // not used
+                tb.AddValidator(m_pValidatorAddress[i], ptDelegator, Rules::Coin * 5000);
             }
-
 
             {
                 auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
@@ -3020,10 +3068,10 @@ namespace
 
                 pKrn->Sign(&sk, 1, ptFunds, nullptr);
 
-                tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+                tb.m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
 
                 sk = -sk;
-                tg.m_Data.m_Offset = ECC::Scalar::Native(tg.m_Data.m_Offset) + sk;
+                tb.m_Tg.m_Data.m_Offset = ECC::Scalar::Native(tb.m_Tg.m_Data.m_Offset) + sk;
             }
 
             beam::Serializer ser;
