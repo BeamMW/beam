@@ -290,7 +290,7 @@ BEAM_EXPORT void Method_4(const Method::DelegatorUpdate& r)
         else
             Env::SaveVar_T(dk, d);
 
-        if (vp.m_Weight)
+        if (vp.m_Weight || vp.m_Self.m_Commission)
             Env::SaveVar_T(vk, vp);
         else
             Env::DelVar_T(vk);
