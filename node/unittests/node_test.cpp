@@ -1930,8 +1930,9 @@ namespace beam
 			{
 				r.SetParamsPbft(576);
 
-				td.m_vGroups.emplace_back().m_Data.m_Offset = Zero;
-				PbftTreasuryBuilder tb(td.m_vGroups.back());
+				PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+				tb.m_Tg.m_Value = Zero;
+				tb.m_Tg.m_Data.m_Offset = Zero;
 
 				tb.m_Settings.m_hUnbondLock = 10;
 				tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
