@@ -5750,8 +5750,8 @@ void Node::GenerateFakeBlocks(uint32_t n)
 ///////////////////
 // Pbft
 
-//#define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
-#define PBFT_LOG(level, expr) std::cout << "PBFT " << m_iRound << " " << expr << std::endl
+#define PBFT_LOG(level, expr) BEAM_LOG_##level() << "pbft " << m_iRound << " " << expr
+//#define PBFT_LOG(level, expr) std::cout << "PBFT " << m_iRound << " " << expr << std::endl
 
 struct Node::Validator::Assessment::Settings
 {
