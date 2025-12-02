@@ -6078,7 +6078,7 @@ bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, 
 			const auto& m = *(Shaders::PBFT::Method::ValidatorStatusUpdate*)args.p;
 
 			auto& msg = m_pMe->m_Assessment.m_Last;
-			auto it = msg.m_Reputation.find(m.m_Address);
+			auto it = msg.m_Reputation.find(Cast::Up<Block::Pbft::Address>(m.m_Address));
 			if (msg.m_Reputation.end() != it)
 			{
 				auto fMy = it->second;
