@@ -3037,9 +3037,10 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	const auto& r = Rules::get();
 	IPbftHandler* pPbft = nullptr;
 
+	Deserializer der;
+	der.reset(bufs.m_Perishable);
+
 	try {
-		Deserializer der;
-		der.reset(bufs.m_Perishable);
 		der & Cast::Down<Block::BodyBase>(block);
 		der & Cast::Down<TxVectors::Perishable>(block);
 
@@ -3050,65 +3051,12 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		{
 			Exc::CheckpointTxt cp("pbft block data");
 
-			const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
-
 			pPbft = get_PbftHandler();
 			if (!pPbft)
 				Exc::Fail();
 
-			Merkle::Hash hv;
-			pPbft->get_Validators().get_Hash(hv);
-
-			if (d.m_hvVsPrev != hv)
-				Exc::Fail();
-
 			if (bFirstTime)
-			{
-				if (m_Cursor.m_Full.m_Number.v)
-				{
-					auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
-					auto iSlot1 = r.m_Pbft.T2S_strict(s.get_Timestamp_ms());
-
-					if (iSlot1 <= iSlot0)
-						Exc::Fail("invalid slot");
-
-					if (iSlot1 - iSlot0 != (id.m_Height - m_Cursor.m_hh.m_Height))
-						Exc::Fail("invalid time/slot/difficulty");
-				}
-				else
-				{
-					if (d.m_Difficulty.m_Packed != r.DA.Difficulty0.m_Packed)
-						Exc::Fail("invalid 1st block height");
-
-					assert(id.m_Height == 1u);
-				}
-
-				if (bTestOnly || r.m_Pbft.m_Whitelist.m_NumRequired)
-				{
-					// during block test the QC isn't ready yet
-					// In whitelist mode the QC isn't appended to the block anyway
-				}
-				else
-				{
-					// Deserialize QC
-					Block::Pbft::Quorum qc;
-					der & qc;
-
-					if (!pPbft->get_Validators().CheckQuorum(id.m_Hash, qc))
-						Exc::Fail("QC");
-				}
-
-				// make sure nothing is appended instead of QC
-				if (der.bytes_left())
-					Exc::Fail("trailing junk");
-
-				uint8_t nFlags = 0;
-				if (block.IsEmpty() && m_Cursor.m_Full.m_Number.v)
-					nFlags = Block::Pbft::HdrData::Flags::Empty;
-
-				if (d.m_Flags1 != nFlags)
-					Exc::Fail("flags mismatch");
-			}
+				pPbft->TestBlock(s, id, block, true, bTestOnly, der);
 		}
 	}
 	catch (const std::exception& e) {
@@ -3255,17 +3203,15 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 			}
 		}
 
-		if (bOk && (Rules::Consensus::Pbft == r.m_Consensus))
-		{
-			Merkle::Hash hv;
-			pPbft->get_Validators().get_Hash(hv);
-
-			if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+		if (bOk && pPbft)
+			try
 			{
-				BEAM_LOG_WARNING() << id << " pbft vs mismatch";
+				pPbft->TestBlock(s, id, block, false, bTestOnly, der);
+			}
+			catch (const std::exception& e) {
+				BEAM_LOG_WARNING() << id << " " << e.what();
 				bOk = false;
 			}
-		}
 
 		if (!bOk || bTestOnly)
 		{

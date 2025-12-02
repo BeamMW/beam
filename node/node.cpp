@@ -6193,6 +6193,107 @@ TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar
 	return pKrn;
 }
 
+void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly, Deserializer& der)
+{
+	Merkle::Hash hv;
+	m_ValidatorSet.get_Hash(hv);
+
+	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
+
+	if (bStart)
+	{
+		if (d.m_hvVsPrev != hv)
+			Exc::Fail("vs.prev");
+
+		const Rules& r = Rules::get();
+		const auto& p = get_ParentObj().m_Processor;
+
+		if (p.m_Cursor.m_Full.m_Number.v)
+		{
+			auto iSlot0 = r.m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
+			auto iSlot1 = r.m_Pbft.T2S_strict(s.get_Timestamp_ms());
+
+			if (iSlot1 <= iSlot0)
+				Exc::Fail("invalid slot");
+
+			if (iSlot1 - iSlot0 != (id.m_Height - p.m_Cursor.m_hh.m_Height))
+				Exc::Fail("invalid time/slot/difficulty");
+		}
+		else
+		{
+			if (d.m_Difficulty.m_Packed != r.DA.Difficulty0.m_Packed)
+				Exc::Fail("invalid 1st block height");
+
+			assert(id.m_Height == 1u);
+		}
+
+		if (bTestOnly || r.m_Pbft.m_Whitelist.m_NumRequired)
+		{
+			// during block test the QC isn't ready yet
+			// In whitelist mode the QC isn't appended to the block anyway
+		}
+		else
+		{
+			// Deserialize QC
+			Block::Pbft::Quorum qc;
+			der & qc;
+
+			if (!m_ValidatorSet.CheckQuorum(id.m_Hash, qc))
+				Exc::Fail("QC");
+		}
+
+		// make sure nothing is appended instead of QC
+		if (der.bytes_left())
+			Exc::Fail("trailing junk");
+
+		uint8_t nFlags = 0;
+		if (block.IsEmpty() && p.m_Cursor.m_Full.m_Number.v)
+			nFlags = Block::Pbft::HdrData::Flags::Empty;
+
+		if (d.m_Flags1 != nFlags)
+			Exc::Fail("flags mismatch");
+	}
+	else
+	{
+		if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
+			Exc::Fail("vs.next");
+
+		// make sure all fees were added as a block reward
+		struct Walker
+			:public TxKernel::IWalker
+		{
+			const Validator& m_This;
+			Walker(Validator& x) :m_This(x) {}
+
+			Amount m_FeesDelta = 0; // ignore overflow. It's handled elsewhere
+
+			bool OnKrn(const TxKernel& krn) override
+			{
+				m_FeesDelta += krn.m_Fee;
+				if (TxKernel::Subtype::ContractInvoke == krn.get_Subtype())
+				{
+					auto& k2 = krn.CastTo_ContractInvoke();
+					if (m_This.m_cid && (k2.m_Cid == *m_This.m_cid) && (Shaders::PBFT::Method::AddReward::s_iMethod == k2.m_iMethod))
+					{
+						if (k2.m_Args.size() < sizeof(Shaders::PBFT::Method::AddReward))
+							Exc::Fail("AddReward malformed");
+
+						const auto& m = *(Shaders::PBFT::Method::AddReward*) &k2.m_Args.front();
+						m_FeesDelta -= m.m_Amount;
+					}
+				}
+
+				return true;
+			}
+		} wlk(*this);
+
+		wlk.Process(block.m_vKernels);
+		if (wlk.m_FeesDelta)
+			Exc::Fail("reward mismatch");
+	}
+}
+
+
 bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const
 {
 	for (const auto& v : m_mapValidators)
