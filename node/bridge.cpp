@@ -294,7 +294,7 @@ struct EventsExtractorForeign::Extractor
 			~Trigger()
 			{
 				if (m_Do)
-					m_This.m_pEvtData->post();
+					m_This.m_lstRcv.m_pEvt->post();
 			}
 		};
 
@@ -302,33 +302,22 @@ struct EventsExtractorForeign::Extractor
 		std::scoped_lock<std::mutex> m_Lock;
 
 		Scope(EventsExtractorForeign& x)
-			:m_Trigger(x, x.m_lstReady.empty())
+			:m_Trigger(x, x.m_lstRcv.empty())
 			,m_Lock(x.m_MutexRcv)
 		{
 		}
 
 		~Scope()
 		{
-			m_Trigger.m_Do = m_Trigger.m_Do && !m_Trigger.m_This.m_lstReady.empty();
+			m_Trigger.m_Do = m_Trigger.m_Do && !m_Trigger.m_This.m_lstRcv.empty();
 		}
 	};
 
-	struct BbsOutRequest
-		:public proto::FlyClient::RequestBbsMsg
-	{
-		struct Handler
-			:public proto::FlyClient::Request::IHandler
-		{
-			void OnComplete(Request&) override
-			{
-				// ignore
-			}
-		} m_Handler;
-	};
+	Event::List m_lstRequestsInProgress;
 
 	void CheckMaturing();
 	void Subscribe(BbsChannel);
-	void OnSendBbs();
+	void OnRequest();
 
 	// EventsExtractor2
 	void OnNewTip() override;
@@ -356,7 +345,7 @@ void EventsExtractorForeign::Extractor::CheckMaturing()
 			break;
 
 		m_lstMaturing.pop_front();
-		m_This.m_lstReady.push_back(x);
+		m_This.m_lstRcv.push_back(x);
 	}
 }
 
@@ -394,10 +383,10 @@ void EventsExtractorForeign::Extractor::OnRolledBack()
 		pEvt->m_Height = h;
 
 		Scope scope(m_This);
-		m_This.m_lstReady.push_back(*pEvt.release());
+		m_This.m_lstRcv.push_back(*pEvt.release());
 	}
 
-	m_This.m_pEvtData->post();
+	m_This.m_lstRcv.m_pEvt->post();
 }
 
 EventsExtractor2::Kind EventsExtractorForeign::Extractor::get_EventKind(const Blob& evt)
@@ -416,7 +405,7 @@ void EventsExtractorForeign::Extractor::BbsReceiver::OnMsg(proto::BbsMsg&& msg)
 		msgBody.Export(pEvt->m_Msg);
 
 		Scope scope(get_ParentObj().m_This);
-		get_ParentObj().m_This.m_lstReady.push_back(*std::move(pEvt.release()));
+		get_ParentObj().m_This.m_lstRcv.push_back(*std::move(pEvt.release()));
 	}
 }
 
@@ -426,25 +415,35 @@ void EventsExtractorForeign::Extractor::Subscribe(BbsChannel channel)
 		m_Network.BbsSubscribe(channel, getTimestamp() - 600, &m_BbsRcv);
 }
 
-void EventsExtractorForeign::Extractor::OnSendBbs()
+void EventsExtractorForeign::Extractor::OnRequest()
 {
-	BbsOut::List lst;
+	Event::List lst;
 	{
 		std::scoped_lock<std::mutex> scope(m_This.m_MutexSnd);
-		lst.swap(m_This.m_lstBbsOut);
+		lst.swap(m_This.m_lstSnd);
 	}
 
 	while (!lst.empty())
 	{
 		auto& x = lst.front();
 
-		boost::intrusive_ptr<BbsOutRequest> pReq(new BbsOutRequest);
-		pReq->m_Msg.m_Message = std::move(x.m_Msg);
-		pReq->m_Msg.m_Channel = x.m_Channel;
+		switch (x.get_Type())
+		{
+		default:
+			assert(false);
+			// no break
 
-		lst.Delete(x);
+		case Event::Type::Request:
+			{
+				auto& evt = Cast::Up<Event::Request>(x);
 
-		m_Network.PostRequest(*pReq, pReq->m_Handler);
+				lst.pop_front();
+				m_lstRequestsInProgress.push_back(evt);
+
+				evt.m_pCtx = this;
+				m_Network.PostRequest(*evt.m_pRequest, evt.m_InternalHandler);
+			}
+		}
 	}
 }
 
@@ -474,7 +473,7 @@ void EventsExtractorForeign::OnDataInternal()
 
 	{
 		std::scoped_lock<std::mutex> scope(m_MutexRcv);
-		lst.swap(m_lstReady);
+		lst.swap(m_lstRcv);
 	}
 
 	while (!lst.empty())
@@ -498,12 +497,11 @@ void EventsExtractorForeign::Stop()
 			m_Thread.join();
 		}
 
-		m_pEvtData.reset();
+		m_lstRcv.m_pEvt.reset();
 		m_pEvtStop.reset();
 
-		m_lstReady.Clear();
-
-		m_lstBbsOut.Clear();
+		m_lstRcv.Clear();
+		m_lstSnd.Clear();
 	}
 }
 
@@ -514,11 +512,27 @@ void EventsExtractorForeign::Start(Params&& pars)
 	m_pSkBbs = std::move(pars.m_pSkBbs);
 
 	auto pReactor = io::Reactor::create();
-	m_pEvtData = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnDataInternal(); });
 	m_pEvtStop = io::AsyncEvent::create(*pReactor, []() { io::Reactor::get_Current().stop(); });
-	m_pEvtBbs = io::AsyncEvent::create(*pReactor, [this]() { m_pCtx->OnSendBbs(); });
+	m_lstRcv.m_pEvt = io::AsyncEvent::create(io::Reactor::get_Current(), [this]() { OnDataInternal(); });
+	m_lstSnd.m_pEvt = io::AsyncEvent::create(*pReactor, [this]() { m_pCtx->OnRequest(); });
 
 	m_Thread = MyThread(&EventsExtractorForeign::RunThreadInternal, this, std::move(pars), std::move(pReactor));
+}
+
+void EventsExtractorForeign::PostForeignRequest(proto::FlyClient::Request::Ptr&& pRequest, proto::FlyClient::Request::IHandler* pHandler)
+{
+	assert(pRequest->get_RefCount() == 1);
+
+	auto pNode = std::make_unique<Event::Request>();
+	pNode->m_pFinalHandler = pHandler;
+	pNode->m_pRequest = std::move(pRequest);
+
+	{
+		std::scoped_lock<std::mutex> scope(m_MutexSnd);
+		m_lstSnd.push_back(*pNode.release());
+	}
+
+	m_lstSnd.m_pEvt->post();
 }
 
 void EventsExtractorForeign::SendBbs(const Blob& msg, BbsChannel channel, const PeerID& pid)
@@ -531,18 +545,30 @@ void EventsExtractorForeign::SendBbs(const Blob& msg, BbsChannel channel, const 
 		ByteBuffer res;
 		if (proto::Bbs::Encrypt(res, pid, nonce, msg.p, msg.n))
 		{
-			auto pNode = std::make_unique<BbsOut>();
-			pNode->m_Channel = channel;
-			pNode->m_Msg = std::move(res);
+			proto::FlyClient::RequestBbsMsg::Ptr pRequest = new proto::FlyClient::RequestBbsMsg;
+			pRequest->m_Msg.m_Channel = channel;
+			pRequest->m_Msg.m_Message = std::move(res);
 
-			{
-				std::scoped_lock<std::mutex> scope(m_MutexSnd);
-				m_lstBbsOut.push_back(*pNode.release());
-			}
-
-			m_pEvtBbs->post();
+			PostForeignRequest(std::move(pRequest), nullptr);
 
 		}
+	}
+}
+
+void EventsExtractorForeign::Event::Request::InternalHandler::OnComplete(proto::FlyClient::Request&)
+{
+	auto& evt = get_ParentObj(); // alias
+
+	std::unique_ptr<Event::Request> pGuard(&evt);
+	evt.m_pCtx->m_lstRequestsInProgress.erase(Event::List::s_iterator_to(evt));
+
+	if (evt.m_pFinalHandler)
+	{
+		auto& me = evt.m_pCtx->m_This;
+		Extractor::Scope scope(me);
+
+		me.m_lstRcv.push_back(evt);
+		pGuard.release();
 	}
 }
 
@@ -576,7 +602,7 @@ void L2Bridge::Init(Params&& pars)
 	const Rules& r = Rules::get(); // our (L2) rules
 	m_iWhiteValidator = std::numeric_limits<uint32_t>::max();
 	uint32_t nWhite = 0;
-	for (const auto& addr : r.m_Pbft.m_Whitelist.m_Addresses)
+	for (const auto& addr : r.m_Pbft.m_Whitelist.m_Addresses) // TODO read the L1 contract settings, to realize the bridge validators. It doesn't have to be equal to L2 validator whitelist
 	{
 		if (addr == m_Node.m_Keys.m_Validator.m_Addr)
 		{
@@ -658,6 +684,17 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 		{
 			auto& d = Cast::Up<Event::BbsMsg>(evt);
 			get_ParentObj().OnMsg(std::move(d.m_Msg));
+		}
+		break;
+
+	case Event::Type::Request:
+		{
+			auto& d = Cast::Up<Event::Request>(evt);
+			if (d.m_pFinalHandler)
+			{
+				d.m_pRequest->m_pTrg = d.m_pFinalHandler;
+				d.m_pFinalHandler->OnComplete(*d.m_pRequest);
+			}
 		}
 		break;
 	}
