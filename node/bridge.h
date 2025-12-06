@@ -296,14 +296,19 @@ namespace beam {
 
 		Entry::Owner::Map m_mapEntries;
 		Entry::Mru::List m_Mru;
-		ContractID m_cidBridgeL1;
-		uint32_t m_iWhiteValidator;
+
+		struct L1
+		{
+			ContractID m_Cid;
+			std::vector<ECC::Point> m_vValidators;
+		} m_L1;
 
 		void Delete(Entry&);
 		void ShrinkMru(uint32_t);
 		void SendOut(const PeerID&, const Blob&);
 
 		static BbsChannel ChannelFromPeerID(const PeerID&);
+		bool IsMyValidator(const ECC::Point&) const;
 
 		struct GetNonce;
 		struct GetSignature;
