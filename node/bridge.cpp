@@ -581,39 +581,29 @@ void L2Bridge::Init(Params&& pars)
 	p1.m_Pos0.m_Height++;
 	p1.m_Pos0.m_Pos = 0;
 
-	p1.m_pSkBbs = nullptr;
-	p1.m_Channel = 0;
+	p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
+	p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
+
+
+	auto pRequest = new proto::FlyClient::RequestContractVar;
 
 	{
 		Shaders::Env::Key_T<uint8_t> key;
-		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_BridgeExp;
 		key.m_Prefix.m_Cid = pars.m_cidBridgeL1;
 		key.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
 
+		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_BridgeExp;
 		Blob(&key, sizeof(key)).Export(p1.m_Key);
+
+		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_Validators;
+		Blob(&key, sizeof(key)).Export(pRequest->m_Msg.m_Key);
 	}
 
-	m_cidBridgeL1 = pars.m_cidBridgeL1;
-
-	const Rules& r = Rules::get(); // our (L2) rules
-	m_iWhiteValidator = std::numeric_limits<uint32_t>::max();
-	uint32_t nWhite = 0;
-	for (const auto& addr : r.m_Pbft.m_Whitelist.m_Addresses) // TODO read the L1 contract settings, to realize the bridge validators. It doesn't have to be equal to L2 validator whitelist
-	{
-		if (addr == m_Node.m_Keys.m_Validator.m_Addr)
-		{
-			m_iWhiteValidator = nWhite;
-
-			p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
-			p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
-
-			break;
-		}
-
-		nWhite++;
-	}
 	m_Extractor.Start(std::move(p1));
 
+	// query the current validator set of L1
+	m_L1.m_Cid = pars.m_cidBridgeL1;
+	m_Extractor.PostForeignRequest(std::move(pRequest));
 }
 
 L2Bridge::~L2Bridge()
@@ -689,6 +679,25 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 
 			switch (d.m_pRequest->get_Type())
 			{
+			case proto::FlyClient::Request::Type::ContractVar:
+				{
+					auto& r = Cast::Up<proto::FlyClient::RequestContractVar>(*d.m_pRequest);
+					// must the the validator set
+					auto& buf = r.m_Res.m_Value; // alias
+					auto& trg = get_ParentObj().m_L1.m_vValidators;
+
+					size_t nValidators = buf.size() / sizeof(Shaders::L2Tst1_L1::Validator);
+					trg.resize(nValidators);
+
+					if (nValidators)
+					{
+						const auto* pSrc = (const Shaders::L2Tst1_L1::Validator*) &buf.front();
+						for (uint32_t i = 0; i < nValidators; i++)
+							trg[i] = pSrc[i].m_pk;
+					}
+				}
+				break;
+
 			default:
 				// suppress warning
 				break;
@@ -698,11 +707,29 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 	}
 }
 
+bool L2Bridge::IsMyValidator(const ECC::Point& pt) const
+{
+	return
+		(m_Node.m_Keys.m_Validator.m_Addr == pt.m_X) &&
+		!pt.m_Y;
+}
+
+
 template <>
 void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
 {
 	if (msg.m_ProtoVer != Shaders::L2Tst1_L1::Msg::s_ProtoVer)
 		return;
+
+	Shaders::L2Tst1_L1::Msg::Nonce msgOut;
+	for (msgOut.m_iValidator = 0; ; msgOut.m_iValidator++)
+	{
+		if (m_L1.m_vValidators.size() == msgOut.m_iValidator)
+			return; // I'm not a validator on L1
+
+		if (IsMyValidator(m_L1.m_vValidators[msgOut.m_iValidator]))
+			break;
+	}
 
 	Entry* pE = nullptr;
 	auto it = m_mapEntries.find(msg.m_pkOwner, Entry::Owner::Comparator());
@@ -735,8 +762,6 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
 	pE->m_pkBbs = msg.m_pkBbs;
 	pE->m_skNonce.GenRandomNnz();
 
-	Shaders::L2Tst1_L1::Msg::Nonce msgOut;
-	msgOut.m_iValidator = m_iWhiteValidator;
 	msgOut.m_m_Nonce = ECC::Context::get().G * pE->m_skNonce;
 
 	SendOut(Cast::Up<PeerID>(msg.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
@@ -752,7 +777,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 	// re-create the kernel
 	TxKernelContractInvoke krn;
-	krn.m_Cid = m_cidBridgeL1;
+	krn.m_Cid = m_L1.m_Cid;
 
 	typedef Shaders::L2Tst1_L1::Method::BridgeImport Method;
 	krn.m_iMethod = Method::s_iMethod;
@@ -794,19 +819,15 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	uint32_t iChallenge = 1; // The 1st challenge is for pkOwner, then all the validators
 	uint32_t iMyChallenge = 0;
 
-	const Rules& r = Rules::get(); // our (L2) rules
-	for (uint32_t i = 0; i < r.m_Pbft.m_Whitelist.m_Addresses.size(); i++)
+	for (uint32_t i = 0; i < m_L1.m_vValidators.size(); i++)
 	{
-		const auto& addr = r.m_Pbft.m_Whitelist.m_Addresses[i];
+		const auto& pk = m_L1.m_vValidators[i];
 
 		if (1u & msk)
 		{
-			ECC::Point pk;
-			pk.m_X = Cast::Down<ECC::uintBig>(addr);
-			pk.m_Y = 0;
 			hp << pk;
 
-			if (i == m_iWhiteValidator)
+			if (IsMyValidator(pk))
 				iMyChallenge = iChallenge;
 
 			iChallenge++;
@@ -837,7 +858,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 
 	Shaders::L2Tst1_L1::Msg::Signature msgOut;
-	msgOut.m_iValidator = m_iWhiteValidator;
+	msgOut.m_iValidator = iMyChallenge - 1;
 	msgOut.m_k = x.m_skNonce;
 	SendOut(Cast::Up<PeerID>(x.m_pkBbs.m_X), Blob(&msgOut, sizeof(msgOut)));
 
