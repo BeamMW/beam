@@ -228,7 +228,6 @@ namespace beam {
 				Type get_Type() override { return Type::Request; }
 
 				proto::FlyClient::Request::Ptr m_pRequest;
-				proto::FlyClient::Request::IHandler* m_pFinalHandler;
 				Extractor* m_pCtx;
 
 				struct InternalHandler
@@ -241,7 +240,7 @@ namespace beam {
 
 		};
 
-		void PostForeignRequest(proto::FlyClient::Request::Ptr&&, proto::FlyClient::Request::IHandler*); // handler can be null
+		void PostForeignRequest(proto::FlyClient::Request::Ptr&&); // handler can be null
 
 		void SendBbs(const Blob& msg, BbsChannel, const PeerID&);
 

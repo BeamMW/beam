@@ -519,12 +519,11 @@ void EventsExtractorForeign::Start(Params&& pars)
 	m_Thread = MyThread(&EventsExtractorForeign::RunThreadInternal, this, std::move(pars), std::move(pReactor));
 }
 
-void EventsExtractorForeign::PostForeignRequest(proto::FlyClient::Request::Ptr&& pRequest, proto::FlyClient::Request::IHandler* pHandler)
+void EventsExtractorForeign::PostForeignRequest(proto::FlyClient::Request::Ptr&& pRequest)
 {
 	assert(pRequest->get_RefCount() == 1);
 
 	auto pNode = std::make_unique<Event::Request>();
-	pNode->m_pFinalHandler = pHandler;
 	pNode->m_pRequest = std::move(pRequest);
 
 	{
@@ -549,7 +548,7 @@ void EventsExtractorForeign::SendBbs(const Blob& msg, BbsChannel channel, const 
 			pRequest->m_Msg.m_Channel = channel;
 			pRequest->m_Msg.m_Message = std::move(res);
 
-			PostForeignRequest(std::move(pRequest), nullptr);
+			PostForeignRequest(std::move(pRequest));
 
 		}
 	}
@@ -562,14 +561,11 @@ void EventsExtractorForeign::Event::Request::InternalHandler::OnComplete(proto::
 	std::unique_ptr<Event::Request> pGuard(&evt);
 	evt.m_pCtx->m_lstRequestsInProgress.erase(Event::List::s_iterator_to(evt));
 
-	if (evt.m_pFinalHandler)
-	{
-		auto& me = evt.m_pCtx->m_This;
-		Extractor::Scope scope(me);
+	auto& me = evt.m_pCtx->m_This;
+	Extractor::Scope scope(me);
 
-		me.m_lstRcv.push_back(evt);
-		pGuard.release();
-	}
+	me.m_lstRcv.push_back(evt);
+	pGuard.release();
 }
 
 /////////////////////////////////
@@ -690,10 +686,12 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 	case Event::Type::Request:
 		{
 			auto& d = Cast::Up<Event::Request>(evt);
-			if (d.m_pFinalHandler)
+
+			switch (d.m_pRequest->get_Type())
 			{
-				d.m_pRequest->m_pTrg = d.m_pFinalHandler;
-				d.m_pFinalHandler->OnComplete(*d.m_pRequest);
+			default:
+				// suppress warning
+				break;
 			}
 		}
 		break;
