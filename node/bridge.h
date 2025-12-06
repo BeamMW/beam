@@ -136,8 +136,6 @@ namespace beam {
 		MyThread m_Thread;
 
 		io::AsyncEvent::Ptr m_pEvtStop;
-		io::AsyncEvent::Ptr m_pEvtBbs;
-		io::AsyncEvent::Ptr m_pEvtData;
 
 		std::mutex m_MutexRcv;
 		std::mutex m_MutexSnd;
@@ -179,6 +177,7 @@ namespace beam {
 				Data,
 				Rollback,
 				BbsMsg,
+				Request,
 			};
 
 			struct Base
@@ -189,6 +188,12 @@ namespace beam {
 			};
 
 			typedef intrusive::list_autoclear<Base> List;
+
+			struct ListPlusEvent
+				:public intrusive::list_autoclear<Base>
+			{
+				io::AsyncEvent::Ptr m_pEvt;
+			};
 
 			struct Data
 				:public Base
@@ -216,7 +221,27 @@ namespace beam {
 				ByteBuffer m_Msg;
 			};
 
+			struct Request
+				:public Base
+			{
+				~Request() override {}
+				Type get_Type() override { return Type::Request; }
+
+				proto::FlyClient::Request::Ptr m_pRequest;
+				proto::FlyClient::Request::IHandler* m_pFinalHandler;
+				Extractor* m_pCtx;
+
+				struct InternalHandler
+					:public proto::FlyClient::Request::IHandler
+				{
+					void OnComplete(proto::FlyClient::Request&) override;
+					IMPLEMENT_GET_PARENT_OBJ(Request, m_InternalHandler)
+				} m_InternalHandler;
+			};
+
 		};
+
+		void PostForeignRequest(proto::FlyClient::Request::Ptr&&, proto::FlyClient::Request::IHandler*); // handler can be null
 
 		void SendBbs(const Blob& msg, BbsChannel, const PeerID&);
 
@@ -226,18 +251,8 @@ namespace beam {
 
 	protected:
 
-		Event::List m_lstReady;
-
-		struct BbsOut
-			:public boost::intrusive::list_base_hook<>
-		{
-			BbsChannel m_Channel;
-			ByteBuffer m_Msg;
-
-			typedef intrusive::list_autoclear<BbsOut> List;
-		};
-
-		BbsOut::List m_lstBbsOut;
+		Event::ListPlusEvent m_lstRcv;
+		Event::ListPlusEvent m_lstSnd;
 	};
 
 	struct Node;

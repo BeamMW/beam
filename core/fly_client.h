@@ -76,6 +76,7 @@ namespace proto {
 
 			void AddRef() { m_Refs++; }
 			void Release() { if (!--m_Refs) delete this; }
+			int get_RefCount() const { return m_Refs; }
 
 			enum Type {
 #define THE_MACRO(type) type,
