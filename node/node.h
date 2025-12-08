@@ -958,6 +958,7 @@ private:
 			QuorumReached,
 		} m_State;
 
+		void RefreshValidatorSet();
 		void OnNewRound();
 		void OnNewStateInternal();
 		void GenerateProposal();
