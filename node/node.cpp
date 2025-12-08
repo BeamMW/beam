@@ -5799,10 +5799,17 @@ void Node::Validator::Initialize()
 
 	auto& p = get_ParentObj().m_Processor;
 
-	ContractID cid;
-	Blob blob = cid;
-	if (p.get_DB().ParamGet(NodeDB::ParamID::PbftCid, nullptr, &blob))
-		m_cid = cid;
+	// it could be set already, in case the Processor started in rubuild-nonstd mode. Then we can skip the next section
+	if (!m_cid)
+	{
+		ContractID cid;
+		Blob blob = cid;
+		if (p.get_DB().ParamGet(NodeDB::ParamID::PbftCid, nullptr, &blob))
+		{
+			m_cid = cid;
+			RefreshValidatorSet();
+		}
+	}
 
 	ByteBuffer buf;
 	p.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
@@ -6110,6 +6117,25 @@ uint64_t Node::Validator::ValidatorWithAssessment::get_EffectiveWeight() const
 	return m_Weight;
 }
 
+void Node::Validator::RefreshValidatorSet()
+{
+	assert(m_cid);
+
+	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
+
+	VKeyType k0;
+	k0.m_Prefix.m_Cid = *m_cid;
+	k0.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
+	k0.m_KeyInContract.m_Tag = Shaders::PBFT::State::Tag::s_Validator;
+	Cast::Down<ECC::uintBig>(k0.m_KeyInContract.m_Address) = Zero;
+	VKeyType k1 = k0;
+	memset(k1.m_KeyInContract.m_Address.m_pData, -1, ECC::uintBig::nBytes);
+
+	NodeDB::WalkerContractData wlk;
+	get_ParentObj().m_Processor.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1)));
+	while (wlk.MoveNext())
+		OnContractVarChange(wlk.m_Key, wlk.m_Val, false);
+}
 
 void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary)
 {
