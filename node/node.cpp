@@ -5773,8 +5773,6 @@ struct Node::Validator::Assessment::Settings
 		static const uint32_t Jail = 768;
 		static const uint32_t Unjail = 150;
 	};
-
-	static const uint32_t ConsecutiveRoundsToAssess = 3;
 };
 
 Node::Validator::Validator()
@@ -5974,9 +5972,6 @@ void Node::Validator::OnNewStateInternal()
 	auto& msg = m_pMe->m_Assessment.m_Last;
 	msg.m_Reputation.clear();
 	msg.m_Height = 0;
-
-	if (m_iSlotAssessmentLast - m_iSlotAssessment0 < Assessment::Settings::ConsecutiveRoundsToAssess)
-		return;
 
 	// update our assessment
 	for (auto& v : m_ValidatorSet.m_mapValidators)
@@ -7302,9 +7297,6 @@ void Node::Validator::FinalyzeRoundAssessment()
 
 	auto iSlot = m_iSlot0 + m_iRound;
 
-	if (m_iSlotAssessmentLast + 1 != iSlot)
-		m_iSlotAssessment0 = iSlot;
-	m_iSlotAssessmentLast = iSlot;
 
 }
 
