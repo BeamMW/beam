@@ -2240,6 +2240,7 @@ namespace beam
 		Magic.v2 = 2;
 
 		m_Pbft.m_Whitelist.m_NumRequired = 0;
+		m_Pbft.m_RoundUp_ms = 0;
 
 		// 1 eth == 10^18 wei
 		// 1 beam == 10^8 groth
@@ -2533,31 +2534,6 @@ namespace beam
 		//	(addr == m_Addresses[iPos]);
 	}
 
-	uint64_t Rules::Pbft::T2S(uint64_t t_ms) const
-	{
-		assert(Consensus::Pbft == get_ParentObj().m_Consensus);
-		auto tSlot_ms = get_ParentObj().DA.Target_ms;
-		if (!tSlot_ms)
-			return 0; // ?!
-
-		return t_ms / tSlot_ms;
-	}
-
-	uint64_t Rules::Pbft::T2S_strict(uint64_t t_ms) const
-	{
-		auto iSlot = T2S(t_ms);
-		if (iSlot * get_ParentObj().DA.Target_ms != t_ms)
-			return 0; // inaccurate timestamp
-
-		return iSlot;
-	}
-
-	uint64_t Rules::Pbft::S2T(uint64_t iSlot) const
-	{
-		assert(Consensus::Pbft == get_ParentObj().m_Consensus);
-		return iSlot * get_ParentObj().DA.Target_ms; // don't care about overflow
-	}
-
 	void Rules::UpdateChecksum()
 	{
 		Exc::CheckpointTxt cp("Rules");
@@ -2623,8 +2599,9 @@ namespace beam
 			std::sort(vec.begin(), vec.end());
 
 			oracle
-				<< "pbft.2"
+				<< "pbft.3"
 				<< DA.Target_ms
+				<< x.m_RoundUp_ms
 				<< x.m_Whitelist.m_NumRequired
 				<< vec.size();
 
@@ -2788,6 +2765,7 @@ namespace beam
 		m_Consensus = Consensus::Pbft;
 		DA.Target_ms = nTarget_ms;
 		DA.Difficulty0.m_Packed = 0;
+		m_Pbft.m_RoundUp_ms = nTarget_ms / 4;
 
 		ZeroObject(Emission);
 		Maturity.Coinbase = 0;

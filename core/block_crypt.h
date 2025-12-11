@@ -490,9 +490,7 @@ namespace beam
 
 			} m_Whitelist;
 
-			uint64_t T2S(uint64_t t_ms) const;
-			uint64_t T2S_strict(uint64_t t_ms) const; // returns 0 iff time is not a multiple of Target_ms
-			uint64_t S2T(uint64_t iSlot) const;
+			uint32_t m_RoundUp_ms; // how much longer each new round is supposed to be
 
 			IMPLEMENT_GET_PARENT_OBJ(Rules, m_Pbft)
 		} m_Pbft;

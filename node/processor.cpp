@@ -6700,14 +6700,18 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Invalid;
 	}
 
-	Timestamp ts = getTimestamp();
-	if (s.m_TimeStamp > ts)
+	const Rules& r = Rules::get();
+	if (Rules::Consensus::Pbft != r.m_Consensus)
 	{
-		ts = s.m_TimeStamp - ts; // dt
-		if (ts > Rules::get().DA.MaxAhead_s)
+		Timestamp ts = getTimestamp();
+		if (s.m_TimeStamp > ts)
 		{
-			BEAM_LOG_WARNING() << id << " Timestamp ahead by " << ts;
-			return DataStatus::Invalid;
+			ts = s.m_TimeStamp - ts; // dt
+			if (ts > r.DA.MaxAhead_s)
+			{
+				BEAM_LOG_WARNING() << id << " Timestamp ahead by " << ts;
+				return DataStatus::Invalid;
+			}
 		}
 	}
 
@@ -7491,27 +7495,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 
 	BlockInterpretCtx bic(m_Cursor.m_hh.m_Height + 1, true);
-
-	IPbftHandler* pPbft = nullptr;
-
-	const auto& r = Rules::get();
-	if (Rules::Consensus::Pbft == r.m_Consensus)
-	{
-		pPbft = get_PbftHandler();
-		if (!pPbft)
-			return false;
-
-		if (m_Cursor.m_Full.m_Number.v)
-		{
-			auto iSlot0 = r.m_Pbft.T2S(m_Cursor.m_Full.get_Timestamp_ms());
-			auto iSlot1 = r.m_Pbft.T2S_strict(bc.m_Hdr.get_Timestamp_ms());
-			assert(iSlot1 > iSlot0);
-
-			// next height in pbft is determined w.r.t. timestamp
-			bic.m_Height = m_Cursor.m_hh.m_Height + iSlot1 - iSlot0;
-		}
-	}
-
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
 	bic.SetAidMax(*this);
@@ -7548,8 +7531,15 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.m_AlreadyValidated = true;
 	bic.m_SkipDefinition = false;
 
+	IPbftHandler* pPbft = nullptr;
+
+	const auto& r = Rules::get();
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
+		pPbft = get_PbftHandler();
+		if (!pPbft)
+			return false;
+
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
 		pPbft->get_Validators().get_Hash(d.m_hvVsPrev);
 	}
@@ -7578,7 +7568,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		if (m_Cursor.m_hh.m_Height)
 		{
 			d.m_Flags1 = bc.m_Block.IsEmpty() ? Block::Pbft::HdrData::Flags::Empty : 0;
-			auto dh = static_cast<uint32_t>(bic.m_Height - m_Cursor.m_hh.m_Height);
+
+			assert(bic.m_Height == m_Cursor.m_hh.m_Height + 1);
+			uint32_t dh = 1;
 
 			auto& d0 = Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW);
 			if (Block::Pbft::HdrData::Flags::Empty & d0.m_Flags1)
@@ -7596,7 +7588,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		}
 		else
 		{
-			d.m_Flags1 = 0; // very 1st block, defines the slot-height relation
+			d.m_Flags1 = 0; // very 1st block
 			bc.m_Hdr.m_PoW.m_Difficulty = r.DA.Difficulty0;
 		}
 	}

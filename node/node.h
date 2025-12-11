@@ -876,6 +876,23 @@ private:
 
 	private:
 
+		struct RoundTimes
+		{
+			uint64_t m_iRound;
+			uint64_t m_t0; // round start time
+			uint64_t m_t1; // round end time
+			uint64_t m_ts; // expected timestamp of a block proposed in this round
+
+			void FromRound(const Rules&, const Block::SystemState::Full&);
+			void FromT0(const Rules&, const Block::SystemState::Full&);
+
+			//static void Test();
+
+		private:
+			void FromRoundProgressive(const Rules&, uint64_t tPrev_ms);
+			void FromRoundInitial(const Rules&);
+		};
+
 		struct VoteKind {
 			static const uint8_t PreVote = 0;
 			static const uint8_t Commit = 1;
@@ -945,12 +962,8 @@ private:
 		RoundDataBase m_FutureCandidate;
 
 		Block::Number m_hAnchor;
-		uint64_t m_iSlot0;
 		uint64_t m_iRound;
 		uint64_t m_wTotal;
-
-		uint64_t m_iSlotAssessment0;
-		uint64_t m_iSlotAssessmentLast;
 
 		enum struct State {
 			None,
@@ -975,6 +988,7 @@ private:
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
 		void SetNotCommittedHash(RoundData&, uint64_t iRound);
+		bool IsFirstRound() const { return m_iRound <= 1; }
 
 		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
@@ -998,8 +1012,7 @@ private:
 		io::Timer::Ptr m_pTimer;
 		bool m_bTimerPending = false;
 		void OnTimer();
-		void SetTimer(uint32_t timeout_ms);
-		void SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg);
+		void SetTimer(uint64_t tNow_ms, uint64_t tTrg_ms);
 		void KillTimer();
 
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_Validator)

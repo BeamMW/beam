@@ -5778,10 +5778,7 @@ struct Node::Validator::Assessment::Settings
 Node::Validator::Validator()
 {
 	m_hAnchor.v = MaxHeight;
-	m_iSlot0 = 0;
 	m_iRound = 0;
-	m_iSlotAssessment0 = 0;
-	m_iSlotAssessmentLast  = 0;
 }
 
 void Node::Validator::Initialize()
@@ -5835,7 +5832,6 @@ void Node::Validator::Initialize()
 void Node::Validator::OnRolledBack()
 {
 	m_hAnchor.v = MaxHeight;
-	m_iSlot0 = 0;
 	m_iRound = 0;
 	KillTimer();
 	// wait till the next state
@@ -5853,11 +5849,7 @@ void Node::Validator::OnNewState()
 		return;
 	}
 
-	if (!m_iSlot0)
-	{
-		m_iSlot0 = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
-		m_iRound = std::numeric_limits<uint64_t>::max();
-	}
+	m_iRound = 0;
 
 	KillTimer();
 	OnNewRound();
@@ -5868,42 +5860,39 @@ void Node::Validator::OnNewRound()
 	assert(!m_bTimerPending);
 
 	auto tNow_ms = get_RefTime_ms();
-	uint64_t iSlotNow = Rules::get().m_Pbft.T2S(tNow_ms);
+	auto& p = get_ParentObj().m_Processor; // alias
+	const Rules& r = Rules::get();
 
-	uint64_t iExpectedRound = m_iRound + 1;
-	uint64_t iExpectedSlot = m_iSlot0 + iExpectedRound + 1;
+	RoundTimes rt;
+	rt.m_t0 = tNow_ms;
+	rt.FromT0(r, p.m_Cursor.m_Full);
 
-	if (iSlotNow < iExpectedSlot)
+	if (rt.m_iRound <= m_iRound)
 	{
 		// set timer till the next relevant round start
-		SetTimerEx(tNow_ms, iExpectedSlot);
+		SetTimer(tNow_ms, rt.m_t1);
 		return;
 	}
 
-	if (iSlotNow == iExpectedSlot)
+	uint64_t iExpectedRound = m_iRound + 1;
+
+	if (rt.m_iRound == iExpectedRound)
 		FinalyzeRoundAssessment();
 
-	SetTimerEx(tNow_ms, iSlotNow + 1);
+	SetTimer(tNow_ms, rt.m_t1);
 
-	auto& p = get_ParentObj().m_Processor; // alias
 	if (m_hAnchor.v != p.m_Cursor.m_Full.m_Number.v)
 	{
-		auto iSlotLast = Rules::get().m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
-		if (iSlotLast >= iSlotNow)
-			return; // wait for the next slot
-
-		m_iSlot0 = iSlotLast;
 		OnNewStateInternal();
-
-		//PBFT_LOG(DEBUG, "tip=" << m_hAnchor << " iSlot0=" << m_iSlot0);
+		PBFT_LOG(DEBUG, "tip=" << m_hAnchor.v);
 	}
 
-	m_iRound = iSlotNow - m_iSlot0 - 1;
+	m_iRound = rt.m_iRound;
 
 	if (State::QuorumReached == m_State)
 		return; // ignore
 
-	PBFT_LOG(INFO, "round start");
+	PBFT_LOG(INFO, "round start dt=" << (rt.m_t1 - rt.m_t0));
 
 	// save last proposal, if it's superior so far
 	bool bSelectLast =
@@ -5923,7 +5912,7 @@ void Node::Validator::OnNewRound()
 	if (!m_Current.m_pLeader)
 		m_Current.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
 
-	if (m_iRound && (State::None == m_State))
+	if (!IsFirstRound() && (State::None == m_State))
 	{
 		SetNotCommittedHash(m_Current, m_iRound);
 		Vote_NotCommitted();
@@ -6207,7 +6196,7 @@ TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar
 	auto& r = *(Method::AddReward*) &pKrn->m_Args.front();
 	r.m_Amount = ByteOrder::to_le(fees);
 
-	pKrn->m_Height.m_Min = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height + m_iRound + 1;
+	pKrn->m_Height.m_Min = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height + 1;
 
 	ECC::Point::Native ptFunds = ECC::Context::get().H * fees;
 
@@ -6232,24 +6221,7 @@ void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightH
 		const Rules& r = Rules::get();
 		const auto& p = get_ParentObj().m_Processor;
 
-		if (p.m_Cursor.m_Full.m_Number.v)
-		{
-			auto iSlot0 = r.m_Pbft.T2S(p.m_Cursor.m_Full.get_Timestamp_ms());
-			auto iSlot1 = r.m_Pbft.T2S_strict(s.get_Timestamp_ms());
-
-			if (iSlot1 <= iSlot0)
-				Exc::Fail("invalid slot");
-
-			if (iSlot1 - iSlot0 != (id.m_Height - p.m_Cursor.m_hh.m_Height))
-				Exc::Fail("invalid time/slot/difficulty");
-		}
-		else
-		{
-			if (d.m_Difficulty.m_Packed != r.DA.Difficulty0.m_Packed)
-				Exc::Fail("invalid 1st block height");
-
-			assert(id.m_Height == 1u);
-		}
+		// Skip timestamp testing. During proposal testing it's checked anyway
 
 		if (bTestOnly || r.m_Pbft.m_Whitelist.m_NumRequired)
 		{
@@ -6476,7 +6448,7 @@ void Node::Validator::SignProposal()
 
 bool Node::Validator::ShouldAcceptProposal() const
 {
-	if (!m_iRound)
+	if (IsFirstRound())
 		return true;
 
 	Power pwr = m_Current.m_spNotCommitted.m_Power;
@@ -6740,18 +6712,6 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	if (!pRd)
 		return;
 
-	auto t_ms = msg.m_Hdr.get_Timestamp_ms();
-	auto iSlot = Rules::get().m_Pbft.T2S_strict(t_ms);
-	if (iSlot <= m_iSlot0)
-		src.ThrowUnexpected("invalid proposal slot");
-
-	auto iRound_by_ts = iSlot - m_iSlot0 - 1;
-
-	// msg round number can only be bigger, iff retransmitting older proposal
-	// check round number by msg not decreased, compared to proposal Hdr
-	if (static_cast<int32_t>(msg.m_iRound - static_cast<uint32_t>(iRound_by_ts)) < 0)
-		src.ThrowUnexpected("invalid round");
-
 	PBFT_LOG(DEBUG, "proposal current=" << bCurrent);
 
 	if (Proposal::State::None != pRd->m_Proposal.m_State)
@@ -6776,6 +6736,17 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	pRd->get_LeaderMsg(hv);
 	if (!pRd->m_pLeader->m_Key.CheckSignature(hv, pRd->m_Proposal.m_Msg.m_Signature))
 		src.ThrowUnexpected("invalid proposal sig");
+
+	auto tm_ms = pRd->m_Proposal.m_Msg.m_Hdr.get_Timestamp_ms();
+	RoundTimes rt;
+	rt.m_t0 = tm_ms;
+	rt.FromT0(Rules::get(), p.m_Cursor.m_Full);
+
+	if ((rt.m_ts != tm_ms) || (rt.m_iRound > msg.m_iRound))
+	{
+		PBFT_LOG(DEBUG, "invalid proposal ts");
+		return;
+	}
 
 	HeightHash id;
 	id.m_Hash = pRd->m_spCommitted.m_hv;
@@ -7079,7 +7050,7 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 		r.m_Status = (Shaders::PBFT::State::Validator::Status) ByteOrder::to_le(fMy);
 
 
-		pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + m_iRound + 1;
+		pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + 1;
 
 		ECC::Point::Native ptFunds(Zero);
 		pKrn->Sign(&get_ParentObj().m_Keys.m_Validator.m_sk, 1, ptFunds, nullptr);
@@ -7100,15 +7071,20 @@ bool Node::Validator::CreateProposal()
 	NodeProcessor::BlockContext bc(get_ParentObj().m_TxPool, 0, kdfDummy, kdfDummy);
 	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
-	auto t_ms = Rules::get().m_Pbft.S2T(m_iSlot0 + m_iRound + 1);
-	bc.m_Hdr.m_TimeStamp = static_cast<Timestamp>(t_ms / 1000);
+	auto& p = get_ParentObj().m_Processor;
+
+	RoundTimes rt;
+	rt.m_iRound = m_iRound;
+	rt.FromRound(Rules::get(), p.m_Cursor.m_Full);
+
+	bc.m_Hdr.m_TimeStamp = static_cast<Timestamp>(rt.m_ts / 1000);
 
 	auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-	d.m_Time_ms = static_cast<uint16_t>(t_ms % 1000);
+	d.m_Time_ms = static_cast<uint16_t>(rt.m_ts % 1000);
 
 	CreateProposalMd(bc);
 
-	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
+	bool bRes = p.GenerateNewBlock(bc);
 
 	if (bRes)
 	{
@@ -7142,20 +7118,14 @@ void Node::Validator::KillTimer()
 	}
 }
 
-void Node::Validator::SetTimerEx(uint64_t tNow_ms, uint64_t iSlotTrg)
+void Node::Validator::SetTimer(uint64_t tNow_ms, uint64_t tTrg_ms)
 {
-	uint64_t tEnd_ms = Rules::get().m_Pbft.S2T(iSlotTrg);
+	auto dt_ms = (tTrg_ms > tNow_ms) ? static_cast<uint32_t>(tTrg_ms - tNow_ms) : 0;
 
-	auto dt_ms = (tEnd_ms > tNow_ms) ? static_cast<uint32_t>(tEnd_ms - tNow_ms) : 0;
-	SetTimer(dt_ms);
-}
-
-void Node::Validator::SetTimer(uint32_t timeout_ms)
-{
 	if (!m_pTimer)
 		m_pTimer = io::Timer::create(io::Reactor::get_Current());
 
-	m_pTimer->start(timeout_ms, false, [this]() { OnTimer(); });
+	m_pTimer->start(dt_ms, false, [this]() { OnTimer(); });
 	m_bTimerPending = true;
 }
 
@@ -7219,7 +7189,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 	if (!rd.m_pLeader)
 		return;
 
-	bool bWasRound0 = !m_iRound;
+	bool bFirstRound = IsFirstRound();
 
 	PBFT_LOG(DEBUG, "Finalizing assessments");
 
@@ -7241,7 +7211,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 			// did the leader propose?
 			if (Proposal::State::None == rd.m_Proposal.m_State)
 			{
-				bool bHadToPropose = bWasRound0;
+				bool bHadToPropose = bFirstRound;
 				if (!bHadToPropose)
 				{
 					Power pwr = rd.m_spNotCommitted.m_Power;
@@ -7263,7 +7233,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 			if (vp.m_hvCommitted == Zero)
 			{
 				// did it vote?
-				if (!bWasRound0 && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Key)))
+				if (!bFirstRound && (rd.m_spNotCommitted.m_Sigs.end() == rd.m_spNotCommitted.m_Sigs.find(vp.m_Key)))
 				{
 					vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // didn't vote not-committed
 					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
@@ -7295,9 +7265,132 @@ void Node::Validator::FinalyzeRoundAssessment()
 
 	}
 
-	auto iSlot = m_iSlot0 + m_iRound;
-
-
 }
+
+void Node::Validator::RoundTimes::FromRound(const Rules& r, const Block::SystemState::Full& s0)
+{
+	if (s0.m_Number.v)
+		FromRoundProgressive(r, s0.get_Timestamp_ms());
+	else
+		FromRoundInitial(r);
+}
+
+void Node::Validator::RoundTimes::FromRoundProgressive(const Rules& r, const uint64_t tPrev_ms)
+{
+	auto extend_ms = (m_iRound > 1) ? (r.m_Pbft.m_RoundUp_ms * (m_iRound - 1)) : 0;
+	m_t0 = tPrev_ms + r.DA.Target_ms * m_iRound + extend_ms * (m_iRound - 2) / 2;
+	m_ts = m_t0 + extend_ms;
+	m_t1 = m_ts + r.DA.Target_ms;
+}
+
+void Node::Validator::RoundTimes::FromRoundInitial(const Rules& r)
+{
+	// no progression
+	m_t0 = r.DA.Target_ms * m_iRound;
+	m_ts = m_t0;
+	m_t1 = m_t0 + r.DA.Target_ms;
+}
+
+void Node::Validator::RoundTimes::FromT0(const Rules& r, const Block::SystemState::Full& s0)
+{
+	if (!s0.m_Number.v)
+	{
+		m_iRound = r.DA.Target_ms ? (m_t0 / r.DA.Target_ms) : 0;
+		FromRoundInitial(r);
+		return;
+	}
+
+	auto tPrev_ms = s0.get_Timestamp_ms();
+
+	// need to solve a quadratic equation to find the round number.
+	// Solve this iteratively, optimize for the case where t_ms is small (i.e. we're talking about the consequent round
+	auto t0 = m_t0;
+	if (!r.DA.Target_ms || (t0 < tPrev_ms))
+	{
+		// didn't reach 0th round
+		m_iRound = 0;
+		FromRoundProgressive(r, tPrev_ms);
+		return;
+	}
+
+	// init guess. The actual result is lower if round-up if nnz
+	uint64_t iMax = (t0 - tPrev_ms) / r.DA.Target_ms;
+	uint64_t iMin = 0;
+	m_iRound = iMax;
+
+	while (true)
+	{
+		FromRoundProgressive(r, tPrev_ms);
+
+		if (m_t0 > t0)
+		{
+			if (m_iRound == iMin)
+				break;
+
+			iMax = m_iRound - 1;
+		}
+		else
+		{
+			if (m_t1 > t0)
+				break;
+
+			if (m_iRound == iMax)
+				break;
+
+			iMin = m_iRound + 1;
+		}
+
+
+		m_iRound = (iMin + iMax) / 2;
+	}
+}
+
+//void Node::Validator::RoundTimes::Test()
+//{
+//	Rules r;
+//	r.DA.Target_ms = 1000;
+//	r.m_Pbft.m_RoundUp_ms = 165;
+//
+//	RoundTimes rt;
+//	uint64_t t0 = 0;
+//
+//	Block::SystemState::Full s0;
+//	ZeroObject(s0);
+//	s0.m_Number.v = 1;
+//	s0.m_TimeStamp = 0;
+//
+//	for (uint32_t iRound = 0; iRound < 25; iRound++)
+//	{
+//		rt.m_iRound = iRound;
+//		rt.FromRound(r, s0);
+//
+//		uint32_t nIncr = (iRound > 1) ? (iRound - 1) : 0;
+//		
+//		assert(rt.m_t0 == t0);
+//		assert(rt.m_t0 + r.DA.Target_ms + r.m_Pbft.m_RoundUp_ms * nIncr == rt.m_t1);
+//		assert(rt.m_ts + r.DA.Target_ms == rt.m_t1);
+//
+//		auto tNext = rt.m_t1;
+//
+//		if (iRound)
+//		{
+//			rt.m_t0 = t0 - 1;
+//			rt.FromT0(r, s0);
+//
+//			assert(iRound - 1 == rt.m_iRound);
+//			assert(rt.m_t1 == t0);
+//		}
+//
+//		rt.m_t0 = tNext - 1;
+//		rt.FromT0(r, s0);
+//		assert(rt.m_iRound == iRound);
+//
+//		rt.m_t0 = tNext;
+//		rt.FromT0(r, s0);
+//		assert(rt.m_iRound == iRound + 1);
+//
+//		t0 = tNext;
+//	}
+//}
 
 } // namespace beam
