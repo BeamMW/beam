@@ -520,6 +520,10 @@ private:
 		IMPLEMENT_GET_PARENT_OBJ(Node, m_PeerMan)
 	} m_PeerMan;
 
+#define BeamNodeMsg_PbftHandleAll(macro) \
+    macro(PbftProposal) \
+    macro(PbftVote) \
+    macro(PbftPeerAssessment) \
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
@@ -670,10 +674,11 @@ private:
 		void OnMsg(proto::GetShieldedOutputsAt&&) override;
 		void OnMsg(proto::SetDependentContext&&) override;
 		void OnMsg(proto::GetAssetsListAt&&) override;
-		void OnMsg(proto::PbftProposal&&) override;
-		void OnMsg(proto::PbftVote&&) override;
 		void OnMsg(proto::PbftStamp&&) override;
-		void OnMsg(proto::PbftPeerAssessment&&) override;
+
+#define THE_MACRO(msg) void OnMsg(proto::msg&&) override;
+		BeamNodeMsg_PbftHandleAll(THE_MACRO)
+#undef THE_MACRO
 	};
 
 	typedef boost::intrusive::list<Peer> PeerList;
@@ -803,9 +808,10 @@ private:
 		void OnNewState();
 		void OnRolledBack();
 
-		void OnMsg(proto::PbftProposal&&, const Peer&);
-		void OnMsg(proto::PbftVote&&, const Peer&);
-		void OnMsg(proto::PbftPeerAssessment&&, const Peer&);
+#define THE_MACRO(msg) void OnMsg(proto::msg&&, const Peer&);
+		BeamNodeMsg_PbftHandleAll(THE_MACRO)
+#undef THE_MACRO
+
 		void SendState(Peer&) const;
 
 		// IPbftHandler
