@@ -4547,15 +4547,16 @@ void Node::Peer::OnMsg(proto::SetDependentContext&& msg)
 	m_Dependent.m_pQuery = std::move(msg.m_Context);
 }
 
-void Node::Peer::OnMsg(proto::PbftProposal&& msg)
-{
-	m_This.m_Validator.OnMsg(std::move(msg), *this);
+#define THE_MACRO(msg) \
+void Node::Peer::OnMsg(proto::msg&& x) \
+{ \
+	if (Rules::Consensus::Pbft != Rules::get().m_Consensus) \
+		ThrowUnexpected("not pbft"); \
+	m_This.m_Validator.OnMsg(std::move(x), *this); \
 }
 
-void Node::Peer::OnMsg(proto::PbftVote&& msg)
-{
-	m_This.m_Validator.OnMsg(std::move(msg), *this);
-}
+BeamNodeMsg_PbftHandleAll(THE_MACRO)
+#undef THE_MACRO
 
 void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 {
@@ -4573,11 +4574,6 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 
 	OnNewTip2();
 	TakeTasks();
-}
-
-void Node::Peer::OnMsg(proto::PbftPeerAssessment&& msg)
-{
-	m_This.m_Validator.OnMsg(std::move(msg), *this);
 }
 
 NodeProcessor::IPbftHandler* Node::Processor::get_PbftHandler()
