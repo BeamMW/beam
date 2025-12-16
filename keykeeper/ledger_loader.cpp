@@ -374,7 +374,7 @@ void AppData::SetTargetNanoSPlus()
 	m_HidProductID = 0x5000;
 	m_TargetID = 0x33100004;
 	m_sTargetVer = "1.4.0";
-	m_ApiLevel = 24;
+	m_ApiLevel = 25;
 
 	
 	//static const char szIcon[] = "0E000E0000190000000000E00C80C20C68C6A462918A31A831A030803200380000";
