@@ -524,6 +524,8 @@ private:
     macro(PbftProposal) \
     macro(PbftVote) \
     macro(PbftPeerAssessment) \
+
+
 	struct Peer
 		:public proto::NodeConnection
 		,public boost::intrusive::list_base_hook<>
