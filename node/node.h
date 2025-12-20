@@ -846,12 +846,19 @@ private:
 			Height m_hShouldSlashAt = 0;
 		};
 
-		struct ValidatorWithAssessment
+		struct ValidatorPlus
 			:public intrusive::set_base_hook<Block::Pbft::Address>
 		{
-			typedef intrusive::multiset_autoclear<ValidatorWithAssessment> Map;
+			typedef intrusive::multiset_autoclear<ValidatorPlus> Map;
 
 			Merkle::Hash m_hvCommitted;
+
+			struct PerRound
+			{
+				std::optional<ECC::Signature> m_pVote[3];
+			};
+
+			PerRound m_pR[2]; // current and next
 
 			uint64_t m_Weight;
 			Assessment m_Assessment;
@@ -859,21 +866,22 @@ private:
 			uint8_t m_NumSlashed;
 			Height m_hSuspend;
 			bool m_Whitelisted;
+			bool m_Deleted;
 
 			uint64_t get_EffectiveWeight() const;
 		};
 
-		ValidatorWithAssessment* m_pMe; // refreshed after each block
+		ValidatorPlus* m_pMe; // refreshed after each block
 
 		struct ValidatorSet
 			:public Block::Pbft::IValidatorSet
 		{
-			ValidatorWithAssessment::Map m_mapValidators;
+			ValidatorPlus::Map m_mapValidators;
 
 			bool EnumValidators(ITarget&) const override;
 
-			ValidatorWithAssessment* Find(const Block::Pbft::Address&) const;
-			ValidatorWithAssessment* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const;
+			ValidatorPlus* Find(const Block::Pbft::Address&) const;
+			ValidatorPlus* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const;
 			void get_Hash(Merkle::Hash&) const override;
 
 			mutable std::optional<Merkle::Hash> m_hv;
@@ -912,25 +920,17 @@ private:
 			uint64_t m_wVoted = 0;
 			uint32_t m_nWhite = 0;
 
-			void Add(const ValidatorWithAssessment&);
+			void Add(const ValidatorPlus&);
+			void Add(const Power&);
 			bool IsMajorityReached(uint64_t wTotal) const;
 
 			void Reset() { *this = Power(); }
 		};
 
-		struct SigsAndPower
+		struct PowerAndHash
+			:public Power
 		{
-			std::map<Block::Pbft::Address, ECC::Signature> m_Sigs;
-			Power m_Power;
 			Merkle::Hash m_hv;
-
-			void Add(const ValidatorWithAssessment&, const ECC::Signature&);
-
-			void Reset()
-			{
-				m_Power.Reset();
-				m_Sigs.clear();
-			}
 		};
 
 		struct Proposal
@@ -944,30 +944,22 @@ private:
 			} m_State;
 		};
 
-		struct RoundDataBase
+		struct RoundData
 		{
 			Proposal m_Proposal;
-			SigsAndPower m_spPreVoted;
-			SigsAndPower m_spCommitted;
 
+			const ValidatorPlus* m_pLeader;
+			PowerAndHash m_pPwr[3];
+			bool m_bNotCommittedHashSet;
+
+			void get_LeaderMsg(Merkle::Hash&) const;
 			void Reset();
 			void SetHashes(const Block::SystemState::Full&);
-			void get_LeaderMsg(Merkle::Hash&) const;
-		};
-
-		struct RoundData
-			:public RoundDataBase
-		{
-			const ValidatorWithAssessment* m_pLeader;
-			SigsAndPower m_spNotCommitted; // at the round start
-			bool m_bNotCommittedHashSet;
-			void Reset();
 		};
 		
-		RoundData m_Current;
-		RoundData m_Next; // some peers may send data a little too early, we'll accumulate them before processing
+		RoundData m_pR[2]; // current + next, some peers may send data a little too early, we'll accumulate them before processing
 
-		RoundDataBase m_FutureCandidate;
+		Proposal m_FutureCandidate;
 
 		Block::Number m_hAnchor;
 		uint64_t m_iRound;
@@ -986,10 +978,9 @@ private:
 		void SignProposal();
 		void OnProposalReceived(const Peer*);
 		void CheckProposalCommit();
-		void SendVotes(Peer*) const;
 		void CheckState();
 		bool ShouldAcceptProposal() const;
-		void CheckQuorum(RoundData&);
+		void CheckQuorum(uint32_t iR);
 		bool CreateProposal();
 		void CreateProposalMd(NodeProcessor::BlockContext&);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
@@ -997,22 +988,16 @@ private:
 		bool ShouldSendTo(const Peer&) const;
 		void SetNotCommittedHash(RoundData&, uint64_t iRound);
 		bool IsFirstRound() const { return m_iRound <= 1; }
+		void Vote(uint8_t iKind);
+		void ShuffleRoundData(bool bConsequent);
 
 		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
 
 		void FinalyzeRoundAssessment();
-		void UpdateAssessment(const ValidatorWithAssessment&, uint8_t&);
+		void UpdateAssessment(const ValidatorPlus&, uint8_t&);
 
-		RoundData* get_PeerRound(const Peer&, uint32_t iRoundMsg, bool& bCurrent);
-
-		void Vote(uint8_t iKind, SigsAndPower&);
-		void Vote_NotCommitted() { Vote(VoteKind::NonCommitted, m_Current.m_spNotCommitted); }
-		void Vote_PreVote() { Vote(VoteKind::PreVote, m_Current.m_spPreVoted); }
-		void Vote_Commit() { Vote(VoteKind::Commit, m_Current.m_spCommitted); }
-
-		template <typename TMsg>
-		void SendSigs(Peer*, TMsg&, const SigsAndPower&) const;
+		uint32_t get_PeerRound(const Peer&, uint32_t iRoundMsg);
 
 		template <typename TMsg>
 		void Broadcast(const TMsg&, const Peer* pSrc) const;
