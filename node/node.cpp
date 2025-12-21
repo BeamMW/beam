@@ -5976,10 +5976,7 @@ void Node::Validator::OnNewStateInternal()
 		v.m_hvCommitted = Zero;
 	}
 
-	m_pMe = m_ValidatorSet.Find(get_ParentObj().m_Keys.m_Validator.m_Addr);
-	if (m_pMe && !m_pMe->get_EffectiveWeight())
-		m_pMe = nullptr; // no weight - not a validator
-
+	m_pMe = m_ValidatorSet.FindActive(get_ParentObj().m_Keys.m_Validator.m_Addr);
 	if (!m_pMe)
 		return;
 
@@ -6350,6 +6347,20 @@ Node::Validator::ValidatorPlus* Node::Validator::ValidatorSet::Find(const Block:
 	return (m_mapValidators.end() == it) ? nullptr : &Cast::NotConst(*it);
 }
 
+Node::Validator::ValidatorPlus* Node::Validator::ValidatorSet::FindActive(const Block::Pbft::Address& addr) const
+{
+	auto* pV = Find(addr);
+	return (pV && pV->get_EffectiveWeight()) ? pV : nullptr;
+}
+
+Node::Validator::ValidatorPlus& Node::Validator::ValidatorSet::FindActiveStrict(const Block::Pbft::Address& addr) const
+{
+	auto* pV = FindActive(addr);
+	if (!pV)
+		proto::NodeConnection::ThrowUnexpected("not an active validator");
+	return *pV;
+}
+
 Node::Validator::ValidatorPlus* Node::Validator::ValidatorSet::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const
 {
 	typedef Shaders::PBFT::State::Validator::Status Status;
@@ -6473,7 +6484,7 @@ void Node::Validator::SignProposal()
 	rdcurr.m_Proposal.m_Msg.m_iRound = static_cast<uint32_t>(m_iRound);
 
 	Merkle::Hash hv;
-	rdcurr.get_LeaderMsg(hv);
+	get_LeaderMsg(hv, rdcurr);
 	Sign(rdcurr.m_Proposal.m_Msg.m_Signature, hv);
 }
 
@@ -6570,6 +6581,7 @@ void Node::Validator::SendState(Peer& peer) const
 
 void Node::Validator::Power::Add(const ValidatorPlus& v)
 {
+	assert(v.m_Weight && (v.get_EffectiveWeight() == v.m_Weight)); 
 	m_wVoted += v.m_Weight;
 	if (v.m_Whitelisted)
 		m_nWhite++;
@@ -6638,6 +6650,12 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (msg.m_iKind >= _countof(rd.m_pPwr))
 		src.ThrowUnexpected("invalid vote kind");
 
+	auto& vp = m_ValidatorSet.FindActiveStrict(msg.m_Address);
+
+	auto& vsig = vp.m_pR[iR].m_pVote[msg.m_iKind];
+	if (vsig)
+		return; // already accounted
+
 	PBFT_LOG(DEBUG, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " iR=" << iR);
 
 	if (VoteKind::NonCommitted == msg.m_iKind)
@@ -6657,33 +6675,25 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 		// Note: we collect votes even BEFORE the proposal is accepted.
 	}
 
-	auto* pV = m_ValidatorSet.Find(msg.m_Address);
-	if (!pV)
-		src.ThrowUnexpected("not a validator vote");
-
-	auto& vsig = pV->m_pR[iR].m_pVote[msg.m_iKind];
-	if (vsig)
-		return; // already accounted
-
 	auto& pwr = rd.m_pPwr[msg.m_iKind];
 
 	if (!msg.m_Address.CheckSignature(pwr.m_hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
 
-	if ((VoteKind::Commit == msg.m_iKind) && (pV->m_hvCommitted != pwr.m_hv))
+	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_hvCommitted != pwr.m_hv))
 	{
-		if (pV->m_hvCommitted != Zero)
+		if (vp.m_hvCommitted != Zero)
 		{
-			PBFT_LOG(DEBUG, "\tV " << pV->m_Key << "double commit");
-			pV->m_Assessment.m_hShouldSlashAt = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height;
+			PBFT_LOG(DEBUG, "\tV " << vp.m_Key << "double commit");
+			vp.m_Assessment.m_hShouldSlashAt = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height;
 		}
 
-		pV->m_hvCommitted = pwr.m_hv;
+		vp.m_hvCommitted = pwr.m_hv;
 	}
 
 	// ok
 	vsig = msg.m_Signature;
-	pwr.Add(*pV);
+	pwr.Add(vp);
 
 	PBFT_LOG(DEBUG, "vote accepted");
 
@@ -6723,7 +6733,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	rd.SetHashes(s);
 
 	Merkle::Hash hv;
-	rd.get_LeaderMsg(hv);
+	get_LeaderMsg(hv, rd);
 	if (!rd.m_pLeader->m_Key.CheckSignature(hv, rd.m_Proposal.m_Msg.m_Signature))
 		src.ThrowUnexpected("invalid proposal sig");
 
@@ -6783,12 +6793,13 @@ void Node::Validator::CheckProposalCommit()
 	}
 }
 
-void Node::Validator::RoundData::get_LeaderMsg(Merkle::Hash& hv) const
+void Node::Validator::get_LeaderMsg(Merkle::Hash& hv, const RoundData& rd) const
 {
 	ECC::Hash::Processor()
+		<< m_hAnchor.v
 		<< "pbft.leader.1"
-		<< m_pPwr[VoteKind::Commit].m_hv
-		<< m_Proposal.m_Msg.m_iRound
+		<< rd.m_pPwr[VoteKind::Commit].m_hv
+		<< rd.m_Proposal.m_Msg.m_iRound
 		>> hv;
 }
 

@@ -881,6 +881,8 @@ private:
 			bool EnumValidators(ITarget&) const override;
 
 			ValidatorPlus* Find(const Block::Pbft::Address&) const;
+			ValidatorPlus* FindActive(const Block::Pbft::Address&) const;
+			ValidatorPlus& FindActiveStrict(const Block::Pbft::Address&) const;
 			ValidatorPlus* SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const;
 			void get_Hash(Merkle::Hash&) const override;
 
@@ -952,7 +954,6 @@ private:
 			PowerAndHash m_pPwr[3];
 			bool m_bNotCommittedHashSet;
 
-			void get_LeaderMsg(Merkle::Hash&) const;
 			void Reset();
 			void SetHashes(const Block::SystemState::Full&);
 		};
@@ -993,6 +994,7 @@ private:
 
 		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
+		void get_LeaderMsg(Merkle::Hash&, const RoundData&) const;
 
 		void FinalyzeRoundAssessment();
 		void UpdateAssessment(const ValidatorPlus&, uint8_t&);
