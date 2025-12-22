@@ -302,6 +302,12 @@ namespace proto {
 #define BeamNodeMsg_ContractLogProof(macro) \
     macro(Merkle::Proof, Proof)
 
+#define BeamNodeMsg_PbftRoundStart(macro) \
+    macro(uint32_t, iRound) \
+    macro(Block::Pbft::Address, Address) \
+    macro(ECC::Signature, Signature) \
+    macro(bool, IsCommitted)
+
 #define BeamNodeMsg_PbftProposal(macro) \
     macro(uint32_t, iRound) \
     macro(ECC::Signature, Signature) \
@@ -408,6 +414,7 @@ namespace proto {
     macro(0x4c, GetAssetsListAt) \
     macro(0x4d, AssetsListAt) \
     /* pbft-related */ \
+    macro(0x51, PbftRoundStart) \
     macro(0x55, PbftProposal) \
     macro(0x52, PbftVote) \
     macro(0x53, PbftStamp) \
