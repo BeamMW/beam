@@ -5757,7 +5757,7 @@ struct Node::Validator::Assessment::Settings
 	}
 
 	static const uint32_t NotProposed = 384;
-	static const uint32_t NotVotedNotCommit = 256;
+	static const uint32_t NotRoundStart = 256;
 	static const uint32_t NotVotedPre = 128;
 	static const uint32_t NotVotedCommit = 96;
 	static const uint32_t SuspendDh = 20;
@@ -5864,10 +5864,13 @@ void Node::Validator::ShuffleRoundData(bool bConsequent)
 	rdnext.Reset();
 
 	for (auto& v : m_ValidatorSet.m_mapValidators)
-		for (uint32_t iV = 0; iV < _countof(v.m_pR[0].m_pVote); iV++)
+	{
+		auto& pr0 = v.m_pR[0];
+		auto& pr1 = v.m_pR[1];
+		for (uint32_t iV = 0; iV < _countof(pr0.m_pVote); iV++)
 		{
-			auto& vc = v.m_pR[0].m_pVote[iV];
-			auto& vn = v.m_pR[1].m_pVote[iV];
+			auto& vc = pr0.m_pVote[iV];
+			auto& vn = pr1.m_pVote[iV];
 
 			if (bConsequent)
 				vc = std::move(vn);
@@ -5876,6 +5879,14 @@ void Node::Validator::ShuffleRoundData(bool bConsequent)
 
 			vn.reset();
 		}
+
+		if (bConsequent)
+			pr0.m_MsgRoundStart = std::move(pr1.m_MsgRoundStart);
+		else
+			pr0.m_MsgRoundStart.reset();
+
+		pr1.m_MsgRoundStart.reset();
+	}
 }
 
 
@@ -5934,29 +5945,47 @@ void Node::Validator::OnNewRound()
 	if (!rdcurr.m_pLeader)
 		rdcurr.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
 
-	if (!IsFirstRound() && (State::None == m_State))
+	if (m_pMe)
 	{
-		SetNotCommittedHash(rdcurr, m_iRound);
-		Vote(VoteKind::NonCommitted);
+		if (rdcurr.m_pLeader == m_pMe)
+		{
+			if ((Proposal::State::None == rdcurr.m_Proposal.m_State) && (Proposal::State::None != m_FutureCandidate.m_State))
+			{
+				PBFT_LOG(DEBUG, "reusing past proposal");
+
+				rdcurr.m_Proposal = std::move(m_FutureCandidate);
+				m_FutureCandidate.m_State = Proposal::State::None;
+
+				Block::SystemState::Full s;
+				MakeFullHdr(s, rdcurr.m_Proposal.m_Msg.m_Hdr);
+				rdcurr.SetHashes(s);
+
+				SignProposal();
+				OnProposalReceived(nullptr);
+				CheckProposalCommit();
+			}
+		}
+		else
+		{
+			proto::PbftRoundStart msg;
+			msg.m_Address = m_pMe->m_Key;
+			msg.m_iRound = static_cast<uint32_t>(m_iRound);
+
+			if (State::None == m_State)
+				rdcurr.m_pwrNotCommitted.Add(*m_pMe);
+			else
+				msg.m_IsCommitted = (State::None != m_State);
+
+			ECC::Hash::Value hv;
+			get_RoundStartMsg(hv, msg);
+			Sign(msg.m_Signature, hv);
+
+			Broadcast(msg, nullptr);
+
+		}
+
+		CheckState();
 	}
-
-	if ((Proposal::State::None == rdcurr.m_Proposal.m_State) && (Proposal::State::None != m_FutureCandidate.m_State) && (rdcurr.m_pLeader == m_pMe))
-	{
-		PBFT_LOG(DEBUG, "reusing past proposal");
-
-		rdcurr.m_Proposal = std::move(m_FutureCandidate);
-		m_FutureCandidate.m_State = Proposal::State::None;
-
-		Block::SystemState::Full s;
-		MakeFullHdr(s, rdcurr.m_Proposal.m_Msg.m_Hdr);
-		rdcurr.SetHashes(s);
-
-		SignProposal();
-		OnProposalReceived(nullptr);
-		CheckProposalCommit();
-	}
-
-	CheckState();
 }
 
 void Node::Validator::OnNewStateInternal()
@@ -6093,7 +6122,7 @@ bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, 
 				return false;
 			const auto& m = *(Shaders::PBFT::Method::ValidatorStatusUpdate*)args.p;
 
-			auto& msg = m_pMe->m_Assessment.m_Last;
+			const auto& msg = m_pMe->m_Assessment.m_Last;
 			auto it = msg.m_Reputation.find(Cast::Up<Block::Pbft::Address>(m.m_Address));
 			if (msg.m_Reputation.end() != it)
 			{
@@ -6422,20 +6451,6 @@ uint64_t Node::Validator::ValidatorSet::get_Random(ECC::Oracle& oracle, uint64_t
 	// unreachable
 }
 
-void Node::Validator::SetNotCommittedHash(RoundData& rd, uint64_t iRound)
-{
-	if (!rd.m_bNotCommittedHashSet)
-	{
-		ECC::Hash::Processor()
-			<< "pbft.roundstart.not-committed"
-			<< get_ParentObj().m_Processor.m_Cursor.m_hh.m_Hash
-			<< iRound
-			>> rd.m_pPwr[VoteKind::NonCommitted].m_hv;
-
-		rd.m_bNotCommittedHashSet = true;
-	}
-}
-
 void Node::Validator::RoundData::Reset()
 {
 	m_Proposal.m_State = Proposal::State::None;
@@ -6443,7 +6458,7 @@ void Node::Validator::RoundData::Reset()
 	for (uint32_t iK = 0; iK < _countof(m_pPwr); iK++)
 		m_pPwr[iK].Reset();
 
-	m_bNotCommittedHashSet = false;
+	m_pwrNotCommitted.Reset();
 	m_pLeader = nullptr;
 }
 
@@ -6493,9 +6508,14 @@ bool Node::Validator::ShouldAcceptProposal() const
 	if (IsFirstRound())
 		return true;
 
-	auto& rdcurr = m_pR[0];
-	Power pwr = rdcurr.m_pPwr[VoteKind::NonCommitted];
+	const uint32_t iR = 0;
+	auto& rdcurr = m_pR[iR];
+	Power pwr = rdcurr.m_pwrNotCommitted;
 	pwr.Add(rdcurr.m_pPwr[VoteKind::Commit]);
+
+	// always account for the leader.
+	if (rdcurr.m_pLeader && !rdcurr.m_pLeader->m_pR[iR].m_pVote[VoteKind::Commit])
+		pwr.Add(*rdcurr.m_pLeader); // if not explicitly committed - consider it as non-committed automatically
 
 	return pwr.IsMajorityReached(m_wTotal);
 }
@@ -6595,6 +6615,7 @@ void Node::Validator::Power::Add(const Power& pwr)
 
 bool Node::Validator::Power::IsMajorityReached(uint64_t wTotal) const
 {
+	assert(m_wVoted <= wTotal);
 	return Block::Pbft::State::IsMajorityReached(m_wVoted, wTotal, m_nWhite);
 }
 
@@ -6602,9 +6623,6 @@ void Node::Validator::Vote(uint8_t iKind)
 {
 	const uint32_t iR = 0;
 	auto& rd = m_pR[iR];
-
-	if (VoteKind::NonCommitted != iKind)
-		assert(Proposal::State::None != rd.m_Proposal.m_State);
 
 	if (!m_pMe)
 		return; // I'm not a validator
@@ -6658,22 +6676,11 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 
 	PBFT_LOG(DEBUG, "vote " << static_cast<uint32_t>(msg.m_iKind) << " from " << msg.m_Address << " iR=" << iR);
 
-	if (VoteKind::NonCommitted == msg.m_iKind)
-	{
-		uint64_t iRound = m_iRound + iR; // use non-truncated var (64 bit)
-		if (!iRound)
-			return; // non-commit for round 0 is implicit. Check non-truncated (64bit) var, not the msg field
+	// there must be a proposal
+	if (Proposal::State::None == rd.m_Proposal.m_State)
+		return;
 
-		SetNotCommittedHash(rd, iRound);
-	}
-	else
-	{
-		// there must be a proposal
-		if (Proposal::State::None == rd.m_Proposal.m_State)
-			return;
-
-		// Note: we collect votes even BEFORE the proposal is accepted.
-	}
+	// Note: we collect votes even BEFORE the proposal is accepted.
 
 	auto& pwr = rd.m_pPwr[msg.m_iKind];
 
@@ -6703,6 +6710,42 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 		CheckState();
 	else
 		CheckQuorum(iR);
+}
+
+void Node::Validator::OnMsg(proto::PbftRoundStart&& msg, const Peer& src)
+{
+	auto iR = get_PeerRound(src, msg.m_iRound);
+	if (iR >= _countof(m_pR))
+		return;
+
+	auto& vp = m_ValidatorSet.FindActiveStrict(msg.m_Address);
+	auto& pr = vp.m_pR[iR];
+	if (pr.m_MsgRoundStart)
+		return; // already received
+
+	ECC::Hash::Value hv;
+	get_RoundStartMsg(hv, msg);
+	if (!msg.m_Address.CheckSignature(hv, msg.m_Signature))
+		src.ThrowUnexpected("invalid validator sig");
+
+	pr.m_MsgRoundStart = std::move(msg);
+	PBFT_LOG(DEBUG, "round-start from " << msg.m_Address << " iR=" << iR << ", Committed=" << msg.m_IsCommitted);
+
+	Broadcast(*pr.m_MsgRoundStart, &src);
+
+	if (msg.m_IsCommitted)
+	{
+		if (!m_iRound)
+			src.ThrowUnexpected("commit on r0");
+	}
+	else
+		m_pR[iR].m_pwrNotCommitted.Add(vp);
+
+	if (!iR)
+		CheckState();
+	else
+		CheckQuorum(iR);
+
 }
 
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
@@ -7153,6 +7196,17 @@ void Node::Validator::get_AssessmentMsg(Merkle::Hash& hv, const proto::PbftPeerA
 	hp >> hv;
 }
 
+void Node::Validator::get_RoundStartMsg(Merkle::Hash& hv, const proto::PbftRoundStart& msg)
+{
+	ECC::Hash::Processor()
+		<< "pbft.2.rs"
+		<< m_hAnchor.v
+		<< msg.m_Address
+		<< msg.m_iRound
+		<< msg.m_IsCommitted
+		>> hv;
+}
+
 bool Node::Validator::IsAssessmentRelevant(const proto::PbftPeerAssessment& msg) const
 {
 	if (!msg.m_Height)
@@ -7219,7 +7273,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 			{
 				bool bHadToPropose = bFirstRound;
 				if (!bHadToPropose)
-					bHadToPropose = rd.m_pPwr[VoteKind::NonCommitted].IsMajorityReached(m_wTotal);
+					bHadToPropose = rd.m_pwrNotCommitted.IsMajorityReached(m_wTotal);
 
 				if (bHadToPropose)
 				{
@@ -7234,9 +7288,10 @@ void Node::Validator::FinalyzeRoundAssessment()
 			if (vp.m_hvCommitted == Zero)
 			{
 				// did it vote?
-				if (!bFirstRound && !vp.m_pR[iR].m_pVote[VoteKind::NonCommitted])
+				auto& oMsg = vp.m_pR[iR].m_MsgRoundStart;
+				if (!oMsg)
 				{
-					vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // didn't vote not-committed
+					vp.m_Assessment.m_Score += Assessment::Settings::NotRoundStart; // didn't send round-start msg
 					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
 				}
 				else
@@ -7244,7 +7299,7 @@ void Node::Validator::FinalyzeRoundAssessment()
 					if (Proposal::State::Accepted == rd.m_Proposal.m_State)
 					{
 						// did it pre-vote?
-						if (!vp.m_pR[iR].m_pVote[VoteKind::NonCommitted])
+						if (!oMsg->m_IsCommitted && !vp.m_pR[iR].m_pVote[VoteKind::PreVote])
 						{
 							vp.m_Assessment.m_Score += Assessment::Settings::NotVotedPre; // not pre-voted
 							PBFT_LOG(DEBUG, "\t\tnot voted pre");

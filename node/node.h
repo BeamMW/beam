@@ -521,6 +521,7 @@ private:
 	} m_PeerMan;
 
 #define BeamNodeMsg_PbftHandleAll(macro) \
+    macro(PbftRoundStart) \
     macro(PbftProposal) \
     macro(PbftVote) \
     macro(PbftPeerAssessment) \
@@ -855,7 +856,8 @@ private:
 
 			struct PerRound
 			{
-				std::optional<ECC::Signature> m_pVote[3];
+				std::optional<ECC::Signature> m_pVote[2];
+				std::optional<proto::PbftRoundStart> m_MsgRoundStart;
 			};
 
 			PerRound m_pR[2]; // current and next
@@ -914,7 +916,6 @@ private:
 		struct VoteKind {
 			static const uint8_t PreVote = 0;
 			static const uint8_t Commit = 1;
-			static const uint8_t NonCommitted = 2;
 		};
 
 		struct Power
@@ -951,8 +952,8 @@ private:
 			Proposal m_Proposal;
 
 			const ValidatorPlus* m_pLeader;
-			PowerAndHash m_pPwr[3];
-			bool m_bNotCommittedHashSet;
+			PowerAndHash m_pPwr[2];
+			Power m_pwrNotCommitted;
 
 			void Reset();
 			void SetHashes(const Block::SystemState::Full&);
@@ -987,13 +988,13 @@ private:
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
-		void SetNotCommittedHash(RoundData&, uint64_t iRound);
 		bool IsFirstRound() const { return m_iRound <= 1; }
 		void Vote(uint8_t iKind);
 		void ShuffleRoundData(bool bConsequent);
 
 		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
+		void get_RoundStartMsg(Merkle::Hash&, const proto::PbftRoundStart&);
 		void get_LeaderMsg(Merkle::Hash&, const RoundData&) const;
 
 		void FinalyzeRoundAssessment();
