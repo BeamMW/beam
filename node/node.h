@@ -977,12 +977,10 @@ private:
 		void OnNewRound();
 		void OnNewStateInternal();
 		void GenerateProposal();
-		void SignProposal();
-		void OnProposalReceived(const Peer*);
-		void CheckProposalCommit();
-		void CheckState();
+		void OnProposalReceived(uint32_t iR, const Peer*);
+		void CheckStateCurrent();
+		void CheckState(uint32_t iR);
 		bool ShouldAcceptProposal() const;
-		void CheckQuorum(uint32_t iR);
 		bool CreateProposal();
 		void CreateProposalMd(NodeProcessor::BlockContext&);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
@@ -995,7 +993,7 @@ private:
 		bool IsAssessmentRelevant(const proto::PbftPeerAssessment&) const;
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
 		void get_RoundStartMsg(Merkle::Hash&, const proto::PbftRoundStart&);
-		void get_LeaderMsg(Merkle::Hash&, const RoundData&) const;
+		void get_ProposalMsg(Merkle::Hash&, const RoundData&) const;
 
 		void FinalyzeRoundAssessment();
 		void UpdateAssessment(const ValidatorPlus&, uint8_t&);
