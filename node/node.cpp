@@ -5881,11 +5881,18 @@ void Node::Validator::ShuffleRoundData(bool bConsequent)
 		}
 
 		if (bConsequent)
+		{
 			pr0.m_MsgRoundStart = std::move(pr1.m_MsgRoundStart);
+			pr0.m_Sig = std::move(pr1.m_Sig);
+		}
 		else
+		{
 			pr0.m_MsgRoundStart.reset();
+			pr0.m_Sig.reset();
+		}
 
 		pr1.m_MsgRoundStart.reset();
+		pr1.m_Sig.reset();
 	}
 }
 
@@ -5946,16 +5953,19 @@ void Node::Validator::OnNewRound()
 
 	if (m_pMe)
 	{
+		m_skNonce.GenRandomNnz();
+
 		if (rdcurr.m_pLeader != m_pMe)
 		{
 			proto::PbftRoundStart msg;
 			msg.m_Address = m_pMe->m_Key;
 			msg.m_iRound = static_cast<uint32_t>(m_iRound);
+			msg.m_IsCommitted = (State::None != m_State);
 
-			if (State::None == m_State)
+			if (!msg.m_IsCommitted)
 				rdcurr.m_pwrNotCommitted.Add(*m_pMe);
-			else
-				msg.m_IsCommitted = (State::None != m_State);
+
+			msg.m_NoncePub = ECC::Context::get().G * m_skNonce;
 
 			ECC::Hash::Value hv;
 			get_RoundStartMsg(hv, msg);
@@ -6331,7 +6341,9 @@ bool Node::Validator::ValidatorSet::EnumValidators(ITarget& x) const
 	{
 		if (v.m_Deleted)
 			continue;
-		if (!x.OnValidator(v.m_Key, v.m_Weight))
+
+		auto w = v.get_EffectiveWeight();
+		if (w && !x.OnValidator(v.m_Key, w))
 			return false;
 	}
 
@@ -6438,6 +6450,7 @@ void Node::Validator::RoundData::Reset()
 		m_pPwr[iK].Reset();
 
 	m_pwrNotCommitted.Reset();
+	m_Multisig.reset();
 	m_pLeader = nullptr;
 }
 
@@ -6539,45 +6552,70 @@ void Node::Validator::SendState(Peer& peer) const
 	if (!ShouldSendTo(peer))
 		return;
 
-	// proposal
 	for (uint32_t iR = 0; iR < _countof(m_pR); iR++)
 	{
 		const auto& rd = m_pR[iR];
 
+		// order is important. First - the proposal.
 		if (Proposal::State::None != rd.m_Proposal.m_State)
 			peer.Send(rd.m_Proposal.m_Msg);
-	}
 
-	// votes
-	proto::PbftVote msg;
+		// now round-start and vote msgs
+		proto::PbftVote msgVote;
+		msgVote.m_iRound = static_cast<uint32_t>(m_iRound + iR);
 
-	for (const auto& v : m_ValidatorSet.m_mapValidators)
-	{
-		if (!v.m_Weight)
-			continue;
-
-		if (IsAssessmentRelevant(v.m_Assessment.m_Last))
-			peer.Send(v.m_Assessment.m_Last);
-
-		msg.m_iRound = static_cast<uint32_t>(m_iRound);
-		msg.m_Address = v.m_Key;
-
-		for (uint32_t iR = 0; iR < _countof(v.m_pR); iR++, msg.m_iRound++)
+		for (const auto& vp : m_ValidatorSet.m_mapValidators)
 		{
-			auto& pr = v.m_pR[iR];
+			if (!vp.get_EffectiveWeight())
+				continue;
+			auto& pr = vp.m_pR[iR];
 
-			for (msg.m_iKind = 0; msg.m_iKind < _countof(pr.m_pVote); msg.m_iKind++)
+			if (pr.m_MsgRoundStart)
+				peer.Send(*pr.m_MsgRoundStart);
+
+			msgVote.m_Address = vp.m_Key;
+			for (msgVote.m_iKind = 0; msgVote.m_iKind < _countof(pr.m_pVote); msgVote.m_iKind++)
 			{
-				const auto& sig = pr.m_pVote[msg.m_iKind];
+				const auto& sig = pr.m_pVote[msgVote.m_iKind];
 				if (sig)
 				{
-					msg.m_Signature = *sig;
-					peer.Send(msg);
+					msgVote.m_Signature = *sig;
+					peer.Send(msgVote);
+				}
+			}
+
+			// assessment
+			if (IsAssessmentRelevant(vp.m_Assessment.m_Last))
+				peer.Send(vp.m_Assessment.m_Last);
+		}
+
+		if (rd.m_Multisig)
+		{
+			auto& ms = *rd.m_Multisig;
+			peer.Send(ms.m_Msg);
+
+			// send partial sigs
+			proto::PbftSig msgSig;
+			msgSig.m_iRound = msgVote.m_iRound;
+
+			for (const auto& vp : m_ValidatorSet.m_mapValidators)
+			{
+				if (!vp.get_EffectiveWeight())
+					continue;
+				auto& pr = vp.m_pR[iR];
+				if (pr.m_Sig)
+				{
+					auto& sig = *pr.m_Sig;
+					if (sig.m_E == Zero)
+					{
+						msgSig.m_Address = msgVote.m_Address;
+						msgSig.m_Signature = sig.m_k;
+						peer.Send(msgSig);
+					}
 				}
 			}
 		}
 	}
-
 }
 
 void Node::Validator::Power::Add(const ValidatorPlus& v)
@@ -6726,6 +6764,182 @@ void Node::Validator::OnMsg(proto::PbftRoundStart&& msg, const Peer& src)
 	CheckState(iR);
 }
 
+void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
+{
+	auto iR = get_PeerRound(src, msg.m_iRound);
+	if (iR >= _countof(m_pR))
+		return;
+
+	auto& rd = m_pR[iR];
+	if (rd.m_Multisig)
+		return; // already received
+
+	if (!rd.m_pLeader)
+		return;
+
+	ECC::Hash::Value hv;
+	get_SigRequestMsg(hv, rd, msg);
+	if (!rd.m_pLeader->m_Key.CheckSignature(hv, msg.m_Signature))
+		src.ThrowUnexpected("invalid validator sig");
+
+	if (Proposal::State::None == rd.m_Proposal.m_State)
+		src.ThrowUnexpected("no proposal");
+
+	// check the mask is ok, and the selected voting power is enough
+	Power pwr;
+	uint32_t iWhitePos = 0;
+	uint32_t iIdx = 0;
+	for (const auto& vp : m_ValidatorSet.m_mapValidators)
+	{
+		auto w = vp.get_EffectiveWeight();
+		if (!w)
+			continue;
+		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, msg.m_Mask))
+			continue;
+
+		if (!vp.m_pR[iR].m_MsgRoundStart)
+			src.ThrowUnexpected("no rs");
+
+		pwr.m_wVoted += w;
+		if (Rules::get().m_Pbft.m_Whitelist.IsWhite(vp.m_Key, iWhitePos))
+			pwr.m_nWhite++;
+	}
+
+	if (!pwr.IsMajorityReached(m_wTotal) || (msg.m_Mask.size() > Block::Pbft::Quorum::get_MaxMaskSize(iIdx)))
+		src.ThrowUnexpected("sig-request invalid");
+
+	auto& ms = rd.m_Multisig.emplace();
+	ms.m_Msg = std::move(msg);
+
+	OnSigRequestReceived(iR, &src);
+	CheckState(iR);
+}
+
+void Node::Validator::OnSigRequestReceived(uint32_t iR, const Peer* pSrc)
+{
+	auto& rd = m_pR[iR];
+	assert(rd.m_Multisig);
+
+	auto& ms = *rd.m_Multisig;
+	ms.m_SigsRemaining = 0;
+
+	// 1st phase: calculate the nonce
+	ECC::Point::Native ptNoncePub;
+	uint32_t iIdx = 0;
+	for (auto& vp : m_ValidatorSet.m_mapValidators)
+	{
+		if (!vp.get_EffectiveWeight())
+			continue;
+		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, ms.m_Msg.m_Mask))
+			continue;
+
+		auto& pr = vp.m_pR[iR];
+		assert(pr.m_MsgRoundStart);
+
+		ECC::Point::Native pt;
+		pt.Import(pr.m_MsgRoundStart->m_NoncePub); // don't care if failed
+		ptNoncePub += pt;
+	}
+
+	ms.m_SigAggregate.m_NoncePub = ptNoncePub;
+	ms.m_SigAggregate.m_k = Zero;
+
+	// 2nd phase: derive the challenges
+	ECC::Oracle oracle;
+	iIdx = 0;
+	for (auto& vp : m_ValidatorSet.m_mapValidators)
+	{
+		if (!vp.get_EffectiveWeight())
+			continue;
+		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, ms.m_Msg.m_Mask))
+			continue;
+
+		ms.m_SigsRemaining++;
+
+		auto& pr = vp.m_pR[iR];
+		assert(!pr.m_Sig);
+
+		auto& sig = pr.m_Sig.emplace();
+		oracle >> sig.m_E;
+		sig.m_k = Zero;
+	}
+
+	PBFT_LOG(INFO, "sig-request, iR=" << iR << ", num=" << ms.m_SigsRemaining);
+	Broadcast(rd.m_Multisig->m_Msg, pSrc);
+}
+
+void Node::Validator::OnMsg(proto::PbftSig&& msg, const Peer& src)
+{
+	auto iR = get_PeerRound(src, msg.m_iRound);
+	if (iR >= _countof(m_pR))
+		return;
+
+	auto& vp = m_ValidatorSet.FindActiveStrict(msg.m_Address);
+	auto& pr = vp.m_pR[iR];
+
+	if (!pr.m_Sig)
+		src.ThrowUnexpected("not included");
+		
+	auto& sig = *pr.m_Sig;
+	if (sig.m_E == Zero)
+		return; // already signed
+
+	assert(pr.m_MsgRoundStart);
+
+	// check the partial signature: noncepub + G*sig + Pubkey*e == Zero
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Point::Native pt, pt2;
+		pt.Import(pr.m_MsgRoundStart->m_NoncePub);
+
+		pt2 = ECC::Context::get().G * msg.m_Signature;
+		pt += pt2;
+
+		pt2 = Zero;
+		vp.m_Key.ExportNnz(pt2);
+		pt2 = pt2 * sig.m_E;
+		pt += pt2;
+
+		if (pt != Zero)
+			src.ThrowUnexpected("invalid sig");
+	}
+	
+	sig.m_k = msg.m_Signature;
+	OnSigReceived(iR, vp, &src);
+
+	CheckState(iR);
+}
+
+void Node::Validator::OnSigReceived(uint32_t iR, ValidatorPlus& vp, const Peer* pPeer)
+{
+	auto& pr = vp.m_pR[iR];
+	assert(pr.m_Sig);
+	auto& sig = *pr.m_Sig;
+	assert(sig.m_E != Zero);
+
+	auto& rd = m_pR[iR];
+	assert(rd.m_Multisig);
+	auto& ms = *rd.m_Multisig;
+	assert(ms.m_SigsRemaining);
+
+	ECC::Scalar::Native sk = sig.m_k;
+	sk += ms.m_SigAggregate.m_k;
+	
+	ms.m_SigAggregate.m_k = sk;
+	ms.m_SigsRemaining--;
+	sig.m_E = Zero;
+
+	PBFT_LOG(DEBUG, "p-sig from " << vp.m_Key << " iR=" << iR);
+
+	proto::PbftSig msg;
+	msg.m_iRound = static_cast<uint32_t>(m_iRound + iR);
+	msg.m_Address = vp.m_Key;
+	msg.m_Signature = sig.m_k;
+
+	Broadcast(msg, pPeer);
+}
+
 void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 {
 	auto iR = get_PeerRound(src, msg.m_iRound);
@@ -6799,6 +7013,18 @@ void Node::Validator::get_ProposalMsg(Merkle::Hash& hv, const RoundData& rd) con
 		<< "pbft.propose.2"
 		<< rd.m_pPwr[VoteKind::Commit].m_hv
 		<< rd.m_Proposal.m_Msg.m_iRound
+		>> hv;
+}
+
+void Node::Validator::get_SigRequestMsg(Merkle::Hash& hv, const RoundData& rd, const proto::PbftSigRequest& msg) const
+{
+	ECC::Hash::Processor()
+		<< m_hAnchor.v
+		<< "pbft.sigreq.2"
+		<< rd.m_pPwr[VoteKind::Commit].m_hv
+		<< msg.m_iRound
+		<< msg.m_Mask.size()
+		<< Blob(msg.m_Mask)
 		>> hv;
 }
 
@@ -6944,6 +7170,8 @@ void Node::Validator::CheckState(uint32_t iR)
 
 void Node::Validator::CheckStateCurrent()
 {
+	assert(m_pMe);
+
 	const uint32_t iR = 0;
 	auto& rd = m_pR[iR];
 	if (!rd.m_pLeader)
@@ -6989,6 +7217,38 @@ void Node::Validator::CheckStateCurrent()
 		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
 		m_pMe->m_hvCommitted = rd.m_pPwr[VoteKind::Commit].m_hv;
+	}
+
+	if (!rd.m_Multisig)
+	{
+		if (m_pMe != rd.m_pLeader)
+			return;
+
+		// TODO: try to generate sig-request
+
+		if (!rd.m_Multisig)
+			return;
+	}
+
+	auto& ms = *rd.m_Multisig;
+
+	if (m_pMe->m_pR[iR].m_Sig)
+	{
+		auto& sig = *m_pMe->m_pR[iR].m_Sig;
+		if (sig.m_E != Zero)
+		{
+			// submit my signature
+			assert(ms.m_SigsRemaining);
+
+			// check the partial signature: skNonce + sig + skValidator*e == Zero
+
+			ECC::Scalar::Native k = get_ParentObj().m_Keys.m_Validator.m_sk * sig.m_E;
+			k += m_skNonce;
+			k = -k;
+
+			sig.m_k = k;
+			OnSigReceived(iR, *m_pMe, nullptr);
+		}
 	}
 }
 

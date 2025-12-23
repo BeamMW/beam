@@ -305,6 +305,7 @@ namespace proto {
 #define BeamNodeMsg_PbftRoundStart(macro) \
     macro(uint32_t, iRound) \
     macro(Block::Pbft::Address, Address) \
+    macro(ECC::Point, NoncePub) \
     macro(ECC::Signature, Signature) \
     macro(bool, IsCommitted)
 
@@ -328,6 +329,16 @@ namespace proto {
     macro(Height, Height) \
     macro(ECC::Signature, Signature) \
     macro(PbftReputationMap, Reputation)
+
+#define BeamNodeMsg_PbftSigRequest(macro) \
+    macro(uint32_t, iRound) \
+    macro(ByteBuffer, Mask) \
+    macro(ECC::Signature, Signature)
+
+#define BeamNodeMsg_PbftSig(macro) \
+    macro(uint32_t, iRound) \
+    macro(Block::Pbft::Address, Address) \
+    macro(ECC::Scalar, Signature)
 
 #define BeamNodeMsgsAll(macro) \
     /* general msgs */ \
@@ -415,10 +426,12 @@ namespace proto {
     macro(0x4d, AssetsListAt) \
     /* pbft-related */ \
     macro(0x51, PbftRoundStart) \
-    macro(0x55, PbftProposal) \
-    macro(0x52, PbftVote) \
-    macro(0x53, PbftStamp) \
-    macro(0x54, PbftPeerAssessment) \
+    macro(0x52, PbftProposal) \
+    macro(0x53, PbftVote) \
+    macro(0x54, PbftStamp) \
+    macro(0x55, PbftSigRequest) \
+    macro(0x56, PbftSig) \
+    macro(0x57, PbftPeerAssessment) \
 
     typedef std::map<Block::Pbft::Address, uint8_t>  PbftReputationMap;
 
@@ -611,6 +624,7 @@ namespace proto {
     inline void ZeroInit(Block::SystemState::Sequence::Element& x) { ZeroObject(x); }
     inline void ZeroInit(Block::ChainWorkProof& x) {}
     inline void ZeroInit(ECC::Point& x) { ZeroObject(x); }
+    inline void ZeroInit(ECC::Scalar& x) { ZeroObject(x); }
     inline void ZeroInit(ECC::Signature& x) { ZeroObject(x); }
     inline void ZeroInit(TxKernel::LongProof& x) { ZeroObject(x.m_State); }
 	inline void ZeroInit(BodyBuffers&) { }
