@@ -1745,6 +1745,11 @@ namespace beam
 				std::vector<uint8_t> m_vValidatorsMsk;
 				std::vector<ECC::Signature> m_vSigs; // TODO: compress sigs, sig.k can be aggregated (whereas sig.NoncePub can not)
 
+				static bool IsInMaskEx(uint32_t, const Blob& mask);
+				static uint32_t get_MaxMaskSize(uint32_t);
+
+				bool IsInMask(uint32_t i) const { return IsInMaskEx(i, m_vValidatorsMsk); }
+
 				template <typename Archive>
 				void serialize(Archive& ar)
 				{

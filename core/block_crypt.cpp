@@ -2913,6 +2913,21 @@ namespace beam
 		return (wVoted * 3 > wTotal * 2); // TODO: overflow test
 	}
 
+	bool Block::Pbft::Quorum::IsInMaskEx(uint32_t i, const Blob& mask)
+	{
+		auto iByte = i >> 3;
+		if (iByte >= mask.n)
+			return false;
+
+		uint8_t msk = 1 << (i & 7);
+		return !!(reinterpret_cast<const uint8_t*>(mask.p)[iByte] & msk);
+	}
+
+	uint32_t Block::Pbft::Quorum::get_MaxMaskSize(uint32_t n)
+	{
+		return (n + 7) >> 3;
+	}
+
 	bool Block::Pbft::IValidatorSet::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc) const
 	{
 		struct Target
@@ -2937,24 +2952,18 @@ namespace beam
 			{
 				m_wTotal += weight;
 
-				uint32_t iIdx = m_iIdx++;
-				uint32_t iByte = iIdx / 8;
-				if (iByte < m_qc.m_vValidatorsMsk.size())
+				if (m_qc.IsInMask(m_iIdx++))
 				{
-					uint8_t msk = 1 << (iIdx & 7);
-					if (m_qc.m_vValidatorsMsk[iByte] & msk)
-					{
-						if (m_iSig >= m_qc.m_vSigs.size())
-							return false;
+					if (m_iSig >= m_qc.m_vSigs.size())
+						return false;
 
-						if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[m_iSig++]))
-							return false;
+					if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[m_iSig++]))
+						return false;
 
-						m_wVoted += weight;
+					m_wVoted += weight;
 
-						if (Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, m_iWhitePos))
-							m_nWhite++;
-					}
+					if (Rules::get().m_Pbft.m_Whitelist.IsWhite(addr, m_iWhitePos))
+						m_nWhite++;
 				}
 
 				return true;
@@ -2968,6 +2977,9 @@ namespace beam
 
 		if (x.m_iSig != qc.m_vSigs.size())
 			return false; // not all sigs used
+
+		if (qc.m_vValidatorsMsk.size() > qc.get_MaxMaskSize(x.m_iIdx))
+			return false;
 
 		// is quorum reached?
 		return IsMajorityReached(x.m_wVoted, x.m_wTotal, x.m_nWhite);

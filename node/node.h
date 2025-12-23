@@ -525,6 +525,8 @@ private:
     macro(PbftProposal) \
     macro(PbftVote) \
     macro(PbftPeerAssessment) \
+    macro(PbftSigRequest) \
+    macro(PbftSig) \
 
 
 	struct Peer
@@ -858,6 +860,13 @@ private:
 			{
 				std::optional<ECC::Signature> m_pVote[2];
 				std::optional<proto::PbftRoundStart> m_MsgRoundStart;
+
+				struct Sig {
+					ECC::Scalar::Native m_E; // challenge
+					ECC::Scalar m_k; // response
+				};
+
+				std::optional<Sig> m_Sig;
 			};
 
 			PerRound m_pR[2]; // current and next
@@ -955,11 +964,20 @@ private:
 			PowerAndHash m_pPwr[2];
 			Power m_pwrNotCommitted;
 
+			struct Multisig {
+				proto::PbftSigRequest m_Msg;
+				uint32_t m_SigsRemaining;
+				ECC::Signature m_SigAggregate;
+			};
+
+			std::optional<Multisig> m_Multisig;
+
 			void Reset();
 			void SetHashes(const Block::SystemState::Full&);
 		};
 		
 		RoundData m_pR[2]; // current + next, some peers may send data a little too early, we'll accumulate them before processing
+		ECC::Scalar::Native m_skNonce; // for current round only
 
 		Proposal m_FutureCandidate;
 
@@ -978,6 +996,8 @@ private:
 		void OnNewStateInternal();
 		void GenerateProposal();
 		void OnProposalReceived(uint32_t iR, const Peer*);
+		void OnSigRequestReceived(uint32_t iR, const Peer*);
+		void OnSigReceived(uint32_t iR, ValidatorPlus&, const Peer*);
 		void CheckStateCurrent();
 		void CheckState(uint32_t iR);
 		bool ShouldAcceptProposal() const;
@@ -994,6 +1014,7 @@ private:
 		static void get_AssessmentMsg(Merkle::Hash&, const proto::PbftPeerAssessment&);
 		void get_RoundStartMsg(Merkle::Hash&, const proto::PbftRoundStart&);
 		void get_ProposalMsg(Merkle::Hash&, const RoundData&) const;
+		void get_SigRequestMsg(Merkle::Hash&, const RoundData&, const proto::PbftSigRequest&) const;
 
 		void FinalyzeRoundAssessment();
 		void UpdateAssessment(const ValidatorPlus&, uint8_t&);
