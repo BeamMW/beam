@@ -6245,7 +6245,7 @@ TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar
 	return pKrn;
 }
 
-void Node::Validator::TestBlock(const Block::SystemState::Full& s, const Block::Body& block, bool bStart, bool bTestOnly)
+void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly)
 {
 	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
@@ -6255,9 +6255,7 @@ void Node::Validator::TestBlock(const Block::SystemState::Full& s, const Block::
 
 		if (!bTestOnly) // during block test the QC isn't ready yet
 		{
-			Merkle::Hash hv;
-			s.get_HashForPoW(hv);
-			if (!m_ValidatorSet.CheckQuorum(hv, d.m_QC))
+			if (!m_ValidatorSet.CheckQuorum(id.m_Hash, d.m_QC))
 				Exc::Fail("QC");
 		}
 
@@ -6941,7 +6939,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
-	s.get_HashForPoW(rd.m_Proposal.m_hv);
+	s.get_Hash(rd.m_Proposal.m_hv);
 	rd.SetHashes();
 
 	Merkle::Hash hv;
@@ -7069,7 +7067,7 @@ void Node::Validator::CheckState(uint32_t iR)
 
 	Block::SystemState::ID id;
 	id.m_Number = s.m_Number;
-	s.get_Hash(id.m_Hash);
+	id.m_Hash = rd.m_Proposal.m_hv;
 
 	PBFT_LOG(INFO, "quorum reached " << id.m_Hash);
 
@@ -7386,7 +7384,7 @@ bool Node::Validator::CreateProposal()
 	if (bRes)
 	{
 		auto& rdcurr = m_pR[0];
-		bc.m_Hdr.get_HashForPoW(rdcurr.m_Proposal.m_hv);
+		bc.m_Hdr.get_Hash(rdcurr.m_Proposal.m_hv);
 		rdcurr.m_Proposal.m_Msg.m_Hdr = std::move(bc.m_Hdr);
 		rdcurr.m_Proposal.m_Msg.m_Body = std::move(bc.m_Body);
 		rdcurr.SetHashes();

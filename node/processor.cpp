@@ -3056,7 +3056,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 				Exc::Fail();
 
 			if (bFirstTime)
-				pPbft->TestBlock(s, block, true, bTestOnly);
+				pPbft->TestBlock(s, id, block, true, bTestOnly);
 		}
 	}
 	catch (const std::exception& e) {
@@ -3206,7 +3206,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (bOk && pPbft)
 			try
 			{
-				pPbft->TestBlock(s, block, false, bTestOnly);
+				pPbft->TestBlock(s, id, block, false, bTestOnly);
 			}
 			catch (const std::exception& e) {
 				BEAM_LOG_WARNING() << id << " " << e.what();

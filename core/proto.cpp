@@ -1045,7 +1045,7 @@ void NodeConnection::Test(const PbftStamp& msg, const Block::SystemState::Full& 
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
-    s.get_HashForPoW(hv);
+    s.get_Hash(hv);
     if (!state.CheckQuorum(hv, d.m_QC))
         ThrowUnexpected();
 }
