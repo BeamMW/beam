@@ -832,7 +832,7 @@ private:
 		struct Stamp
 		{
 			HeightHash m_ID;
-			ByteBuffer  m_vSer;
+			proto::PbftStamp m_Msg;
 		} m_Stamp;
 
 		std::optional<ContractID> m_cid;

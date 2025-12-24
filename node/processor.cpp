@@ -3036,6 +3036,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	const auto& r = Rules::get();
 	IPbftHandler* pPbft = nullptr;
+	Merkle::Hash hvVs;
 
 	Deserializer der;
 	der.reset(bufs.m_Perishable);
@@ -3057,6 +3058,8 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 			if (bFirstTime)
 				pPbft->TestBlock(s, id, block, true, bTestOnly);
+
+			pPbft->get_Validators().get_Hash(hvVs);
 		}
 	}
 	catch (const std::exception& e) {
@@ -3206,6 +3209,13 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (bOk && pPbft)
 			try
 			{
+				Merkle::Hash hvVsNext;
+				pPbft->get_Validators().get_Hash(hvVsNext);
+				Merkle::Interpret(hvVs, hvVsNext, true);
+
+				if (hvVs != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsBoth)
+					Exc::Fail("vs.both");
+
 				pPbft->TestBlock(s, id, block, false, bTestOnly);
 			}
 			catch (const std::exception& e) {
@@ -7539,6 +7549,9 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		pPbft = get_PbftHandler();
 		if (!pPbft)
 			return false;
+
+		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
+		pPbft->get_Validators().get_Hash(d.m_hvVsBoth);
 	}
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
@@ -7555,8 +7568,11 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
+		Merkle::Hash hvVsNext;
+		pPbft->get_Validators().get_Hash(hvVsNext);
+
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-		pPbft->get_Validators().get_Hash(d.m_hvVsNext);
+		Merkle::Interpret(d.m_hvVsBoth, hvVsNext, true);
 
 		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller
 

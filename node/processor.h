@@ -591,7 +591,7 @@ public:
 	// PBFT-specific
 	struct IPbftHandler
 	{
-		virtual const Block::Pbft::State::IValidatorSet& get_Validators() = 0;
+		virtual const Block::Pbft::IValidatorSet& get_Validators() = 0;
 		virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) = 0;
 		virtual void OnContractStoreReset() = 0;
 		virtual bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) = 0;
