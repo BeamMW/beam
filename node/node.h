@@ -825,7 +825,7 @@ private:
 		void OnContractStoreReset() override;
 		bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) override;
 		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
-		void TestBlock(const Block::SystemState::Full& s, const Block::Body&, bool bStart, bool bTestOnly) override;
+		void TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body&, bool bStart, bool bTestOnly) override;
 
 		uint64_t get_RefTime_ms() const;
 
@@ -948,7 +948,7 @@ private:
 		struct Proposal
 		{
 			proto::PbftProposal m_Msg;
-			Merkle::Hash m_hv; // the hash-for-pow, not the fian
+			Merkle::Hash m_hv;
 
 			enum struct State {
 				None,

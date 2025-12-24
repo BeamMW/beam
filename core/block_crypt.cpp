@@ -3047,8 +3047,8 @@ namespace beam
 				<< d.m_Time_ms
 				<< d.m_Flags1;
 
-			if (bTotal)
-				hp << Blob(&d.m_QC, sizeof(d.m_QC));
+			// Note: don't add QC-related fields to hash evaluation, not even for the 'final' hash. There may (theoretically) be differents variants of QC, 
+			// but there must be only a single hash of the agreed block
 		}
 		else
 			if (bTotal)
