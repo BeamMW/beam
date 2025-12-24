@@ -288,6 +288,43 @@ namespace beam
 
 	};
 
+	template <uint32_t N_>
+	struct Bitmask
+	{
+		static constexpr uint32_t N = N_;
+		static constexpr uint32_t nBytes = (N + 7) / 8;
+
+		uint8_t m_p[nBytes];
+
+		bool get(uint32_t i) const
+		{
+			assert(i < N);
+			return (m_p[i >> 3] >> (i & 7)) & 1u;
+		}
+
+		bool get_safe(uint32_t i) const
+		{
+			return (i < N) && get(i);
+		}
+
+		void set(uint32_t i, bool v = true)
+		{
+			assert(i < N);
+			auto& x = m_p[i >> 3];
+			uint8_t m = uint8_t(1u << (i & 7));
+			if (v)
+				x |= m;
+			else
+				x &= ~m;
+		}
+
+		template <typename Archive>
+		void serialize(Archive& ar)
+		{
+			ar & m_p;
+		}
+	};
+
 }
 
 namespace std
