@@ -3056,7 +3056,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 				Exc::Fail();
 
 			if (bFirstTime)
-				pPbft->TestBlock(s, id, block, true, bTestOnly, der);
+				pPbft->TestBlock(s, block, true, bTestOnly);
 		}
 	}
 	catch (const std::exception& e) {
@@ -3206,7 +3206,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (bOk && pPbft)
 			try
 			{
-				pPbft->TestBlock(s, id, block, false, bTestOnly, der);
+				pPbft->TestBlock(s, block, false, bTestOnly);
 			}
 			catch (const std::exception& e) {
 				BEAM_LOG_WARNING() << id << " " << e.what();
@@ -7539,9 +7539,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		pPbft = get_PbftHandler();
 		if (!pPbft)
 			return false;
-
-		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-		pPbft->get_Validators().get_Hash(d.m_hvVsPrev);
 	}
 
 	bool bOk = HandleValidatedTx(bc.m_Block, bic);
@@ -7559,8 +7556,6 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	if (Rules::Consensus::Pbft == r.m_Consensus)
 	{
 		auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(bc.m_Hdr.m_PoW);
-		ZeroObject(d.m_pPad0);
-
 		pPbft->get_Validators().get_Hash(d.m_hvVsNext);
 
 		// Assume d.m_Time_ms and the hdr timestamp are already assigned by the caller

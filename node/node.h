@@ -825,7 +825,7 @@ private:
 		void OnContractStoreReset() override;
 		bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) override;
 		TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) override;
-		void TestBlock(const Block::SystemState::Full& s, const HeightHash&, const Block::Body&, bool bStart, bool bTestOnly, Deserializer&) override;
+		void TestBlock(const Block::SystemState::Full& s, const Block::Body&, bool bStart, bool bTestOnly) override;
 
 		uint64_t get_RefTime_ms() const;
 
@@ -948,7 +948,7 @@ private:
 		struct Proposal
 		{
 			proto::PbftProposal m_Msg;
-			Merkle::Hash m_hv;
+			Merkle::Hash m_hv; // the hash-for-pow, not the fian
 
 			enum struct State {
 				None,
@@ -1002,7 +1002,7 @@ private:
 		void OnSigReceived(uint32_t iR, ValidatorPlus&, const Peer*);
 		void CheckStateCurrent();
 		void CheckState(uint32_t iR);
-		bool SelectMultisigValidators(ByteBuffer& msk);
+		bool SelectMultisigValidators(Bitmask<Block::Pbft::s_MaxValidators>& msk);
 		bool ShouldAcceptProposal() const;
 		bool CreateProposal();
 		void CreateProposalMd(NodeProcessor::BlockContext&);

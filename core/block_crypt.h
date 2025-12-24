@@ -1721,12 +1721,20 @@ namespace beam
 		struct Pbft
 		{
 #pragma pack (push, 1)
+
+			static const uint32_t s_MaxValidators = 96;
+
+			struct QC
+			{
+				ECC::Signature m_Signature;
+				Bitmask<s_MaxValidators> m_Mask;
+			};
+
 			struct HdrData {
-				ECC::Hash::Value m_hvVsPrev;
 				ECC::Hash::Value m_hvVsNext;
 				uintBigFor<uint16_t>::Type m_Time_ms;
+				QC m_QC;
 				uint8_t m_Flags1;
-				uint8_t m_pPad0[45];
 				Difficulty m_Difficulty;
 
 				struct Flags {
@@ -1740,25 +1748,6 @@ namespace beam
 
 			static void DeriveValidatorAddress(Key::IKdf&, Address&, ECC::Scalar::Native& sk);
 
-			struct Quorum
-			{
-				std::vector<uint8_t> m_vValidatorsMsk;
-				ECC::Signature m_Signature;
-
-				static bool IsInMaskEx(uint32_t, const Blob& mask);
-				static uint32_t get_MaxMaskSize(uint32_t);
-
-				bool IsInMask(uint32_t i) const { return IsInMaskEx(i, m_vValidatorsMsk); }
-
-				template <typename Archive>
-				void serialize(Archive& ar)
-				{
-					ar
-						& m_vValidatorsMsk
-						& m_Signature;
-				}
-			};
-
 			struct IValidatorSet
 			{
 				struct ITarget {
@@ -1769,7 +1758,7 @@ namespace beam
 				virtual void get_Hash(Merkle::Hash&) const; // def implementation recalculates
 
 				static bool IsMajorityReached(uint64_t wVoted, uint64_t wTotal, uint32_t nWhite);
-				bool CheckQuorum(const Merkle::Hash&, const Quorum&) const;
+				bool CheckQuorum(const Merkle::Hash&, const QC&) const;
 			};
 
 			struct State
