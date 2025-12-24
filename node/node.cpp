@@ -6464,9 +6464,7 @@ void Node::Validator::GenerateProposal()
 		rd.m_Proposal = std::move(m_FutureCandidate);
 		m_FutureCandidate.m_State = Proposal::State::None;
 
-		Block::SystemState::Full s;
-		MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
-		rd.SetHashes(s);
+		rd.SetHashes();
 	}
 	else
 	{
@@ -6709,7 +6707,7 @@ void Node::Validator::OnMsg(proto::PbftVote&& msg, const Peer& src)
 	if (!msg.m_Address.CheckSignature(pwr.m_hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
 
-	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_hvCommitted != pwr.m_hv))
+	if ((VoteKind::Commit == msg.m_iKind) && (vp.m_hvCommitted != rd.m_Proposal.m_hv))
 	{
 		if (vp.m_hvCommitted != Zero)
 		{
@@ -6846,6 +6844,8 @@ void Node::Validator::OnSigRequestReceived(uint32_t iR, const Peer* pSrc)
 
 	// 2nd phase: derive the challenges
 	ECC::Oracle oracle;
+	ms.m_SigAggregate.Expose(oracle, rd.m_Proposal.m_hv);
+
 	iIdx = 0;
 	for (auto& vp : m_ValidatorSet.m_mapValidators)
 	{
@@ -6961,7 +6961,8 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
-	rd.SetHashes(s);
+	s.get_Hash(rd.m_Proposal.m_hv);
+	rd.SetHashes();
 
 	Merkle::Hash hv;
 	get_ProposalMsg(hv, rd);
@@ -6980,7 +6981,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	}
 
 	HeightHash id;
-	id.m_Hash = rd.m_pPwr[VoteKind::Commit].m_hv;
+	id.m_Hash = rd.m_Proposal.m_hv;
 	id.m_Height = s.get_Height();
 
 	if (!p.TestBlock(id, s, rd.m_Proposal.m_Msg.m_Body))
@@ -7002,7 +7003,7 @@ void Node::Validator::OnProposalReceived(uint32_t iR, const Peer* pSrc)
 	auto& rd = m_pR[iR];
 	assert(Proposal::State::Received == rd.m_Proposal.m_State);
 
-	PBFT_LOG(INFO, "proposal received " << rd.m_pPwr[VoteKind::Commit].m_hv << ", iR=" << iR);
+	PBFT_LOG(INFO, "proposal received " << rd.m_Proposal.m_hv << ", iR=" << iR);
 	Broadcast(rd.m_Proposal.m_Msg, pSrc);
 }
 
@@ -7011,7 +7012,7 @@ void Node::Validator::get_ProposalMsg(Merkle::Hash& hv, const RoundData& rd) con
 	ECC::Hash::Processor()
 		<< m_hAnchor.v
 		<< "pbft.propose.2"
-		<< rd.m_pPwr[VoteKind::Commit].m_hv
+		<< rd.m_Proposal.m_hv
 		<< rd.m_Proposal.m_Msg.m_iRound
 		>> hv;
 }
@@ -7021,7 +7022,7 @@ void Node::Validator::get_SigRequestMsg(Merkle::Hash& hv, const RoundData& rd, c
 	ECC::Hash::Processor()
 		<< m_hAnchor.v
 		<< "pbft.sigreq.2"
-		<< rd.m_pPwr[VoteKind::Commit].m_hv
+		<< rd.m_Proposal.m_hv
 		<< msg.m_iRound
 		<< msg.m_Mask.size()
 		<< Blob(msg.m_Mask)
@@ -7051,14 +7052,14 @@ void Node::Validator::MakeFullHdr(Block::SystemState::Full& s, const Block::Syst
 	Cast::Down<Block::SystemState::Sequence::Element>(s) = el;
 }
 
-void Node::Validator::RoundData::SetHashes(const Block::SystemState::Full& s)
+void Node::Validator::RoundData::SetHashes()
 {
-	s.get_Hash(m_pPwr[VoteKind::Commit].m_hv);
-
-	ECC::Hash::Processor()
-		<< "pbft.vote.1"
-		<< m_pPwr[VoteKind::Commit].m_hv
-		>> m_pPwr[VoteKind::PreVote].m_hv;
+	for (uint32_t iKind = 0; iKind < _countof(m_pPwr); iKind++)
+		ECC::Hash::Processor()
+			<< "pbft.vote.2.kind"
+			<< m_Proposal.m_hv
+			<< iKind
+			>> m_pPwr[iKind].m_hv;
 }
 
 void Node::Validator::CheckState(uint32_t iR)
@@ -7070,7 +7071,10 @@ void Node::Validator::CheckState(uint32_t iR)
 		CheckStateCurrent();
 
 	auto& rd = m_pR[iR];
-	if (!rd.m_Multisig || rd.m_Multisig->m_SigsRemaining)
+	if (!rd.m_Multisig)
+		return;
+	auto& ms = *rd.m_Multisig;
+	if (ms.m_SigsRemaining)
 		return;
 
 	// We have the quorum
@@ -7079,23 +7083,8 @@ void Node::Validator::CheckState(uint32_t iR)
 
 	Block::Pbft::Quorum qc;
 	const Rules& r = Rules::get();
-
-	uint32_t iIdx = 0;
-	for (const auto& v : m_ValidatorSet.m_mapValidators)
-	{
-		const auto& sig = v.m_pR[iR].m_pVote[VoteKind::Commit];
-		if (sig)
-		{
-			qc.m_vSigs.push_back(*sig);
-
-			uint32_t iByte = iIdx >> 3;
-			if (qc.m_vValidatorsMsk.size() <= iByte)
-				qc.m_vValidatorsMsk.resize(iByte + 1);
-			qc.m_vValidatorsMsk[iByte] |= (1 << (7 & iIdx));
-		}
-
-		iIdx++;
-	}
+	qc.m_vValidatorsMsk = ms.m_Msg.m_Mask; // copy
+	qc.m_Signature = ms.m_SigAggregate;
 
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
@@ -7118,7 +7107,7 @@ void Node::Validator::CheckState(uint32_t iR)
 		ser.swap_buf(m_Stamp.m_vSer);
 
 		m_Stamp.m_ID.m_Height = s.get_Height();
-		m_Stamp.m_ID.m_Hash = rd.m_pPwr[VoteKind::Commit].m_hv;
+		m_Stamp.m_ID.m_Hash = rd.m_Proposal.m_hv;
 
 		SaveStamp();
 	}
@@ -7149,7 +7138,7 @@ void Node::Validator::CheckState(uint32_t iR)
 
 	Block::SystemState::ID id;
 	id.m_Number = s.m_Number;
-	id.m_Hash = rd.m_pPwr[VoteKind::Commit].m_hv;
+	id.m_Hash = rd.m_Proposal.m_hv;
 
 	eVal = p.OnBlock(id, rd.m_Proposal.m_Msg.m_Body.m_Perishable, rd.m_Proposal.m_Msg.m_Body.m_Eternal, Zero);
 
@@ -7191,7 +7180,7 @@ void Node::Validator::CheckStateCurrent()
 			OnProposalReceived(iR, nullptr);
 		}
 
-		bool bAlreadyCommitted = (m_pMe->m_hvCommitted == rd.m_pPwr[VoteKind::Commit].m_hv);
+		bool bAlreadyCommitted = (m_pMe->m_hvCommitted == rd.m_Proposal.m_hv);
 		if (!bAlreadyCommitted && !ShouldAcceptProposal())
 			return;
 
@@ -7215,7 +7204,7 @@ void Node::Validator::CheckStateCurrent()
 
 		PBFT_LOG(INFO, "committed");
 		m_State = State::Committed;
-		m_pMe->m_hvCommitted = rd.m_pPwr[VoteKind::Commit].m_hv;
+		m_pMe->m_hvCommitted = rd.m_Proposal.m_hv;
 	}
 
 	if (!rd.m_pPwr[VoteKind::Commit].IsMajorityReached(m_wTotal))
@@ -7433,9 +7422,10 @@ bool Node::Validator::CreateProposal()
 	if (bRes)
 	{
 		auto& rdcurr = m_pR[0];
-		rdcurr.SetHashes(bc.m_Hdr);
+		bc.m_Hdr.get_Hash(rdcurr.m_Proposal.m_hv);
 		rdcurr.m_Proposal.m_Msg.m_Hdr = std::move(bc.m_Hdr);
 		rdcurr.m_Proposal.m_Msg.m_Body = std::move(bc.m_Body);
+		rdcurr.SetHashes();
 	}
 
 	return bRes;

@@ -1743,7 +1743,7 @@ namespace beam
 			struct Quorum
 			{
 				std::vector<uint8_t> m_vValidatorsMsk;
-				std::vector<ECC::Signature> m_vSigs; // TODO: compress sigs, sig.k can be aggregated (whereas sig.NoncePub can not)
+				ECC::Signature m_Signature;
 
 				static bool IsInMaskEx(uint32_t, const Blob& mask);
 				static uint32_t get_MaxMaskSize(uint32_t);
@@ -1755,7 +1755,7 @@ namespace beam
 				{
 					ar
 						& m_vValidatorsMsk
-						& m_vSigs;
+						& m_Signature;
 				}
 			};
 

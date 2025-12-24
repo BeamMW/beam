@@ -948,6 +948,7 @@ private:
 		struct Proposal
 		{
 			proto::PbftProposal m_Msg;
+			Merkle::Hash m_hv;
 
 			enum struct State {
 				None,
@@ -973,7 +974,7 @@ private:
 			std::optional<Multisig> m_Multisig;
 
 			void Reset();
-			void SetHashes(const Block::SystemState::Full&);
+			void SetHashes();
 		};
 		
 		RoundData m_pR[2]; // current + next, some peers may send data a little too early, we'll accumulate them before processing
