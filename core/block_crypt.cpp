@@ -3043,7 +3043,7 @@ namespace beam
 			// add everything except the QC
 			auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_PoW);
 			hp
-				<< d.m_hvVsNext
+				<< d.m_hvVsBoth
 				<< d.m_Time_ms
 				<< d.m_Flags1;
 

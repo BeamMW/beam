@@ -1622,9 +1622,7 @@ void Node::Peer::PbftSendStamp()
 	if (m_Tip.m_hh == m_This.m_Processor.m_Cursor.m_hh)
 		return;
 
-	proto::PbftStamp msgStamp;
-	TemporarySwap ts(msgStamp.m_vSer, m_This.m_Validator.m_Stamp.m_vSer);
-	Send(msgStamp);
+	Send(m_This.m_Validator.m_Stamp.m_Msg);
 }
 
 Height Node::Peer::get_MinPeerFork()
@@ -4568,7 +4566,7 @@ void Node::Peer::OnMsg(proto::PbftStamp&& msg)
 
 	// all good
 	v.m_Stamp.m_ID = m_Tip.m_hh;
-	v.m_Stamp.m_vSer = std::move(msg.m_vSer);
+	v.m_Stamp.m_Msg = std::move(msg);
 
 	v.SaveStamp();
 
@@ -5807,17 +5805,11 @@ void Node::Validator::Initialize()
 	p.get_DB().ParamGet(NodeDB::ParamID::PbftStamp, nullptr, nullptr, &buf);
 	if (!buf.empty())
 	{
-		Block::Pbft::State state;
-
 		Deserializer der;
 		der.reset(buf);
-		der & state;
-
-		auto n = der.bytes_left();
-		der & m_Stamp.m_ID;
-
-		buf.resize(buf.size() - n);
-		m_Stamp.m_vSer = std::move(buf);
+		der
+			& m_Stamp.m_ID
+			& m_Stamp.m_Msg;
 	}
 	else
 		ZeroObject(m_Stamp.m_ID);
@@ -6265,15 +6257,11 @@ void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightH
 
 		if (d.m_Flags1 != nFlags)
 			Exc::Fail("flags mismatch");
+
+		// save the 
 	}
 	else
 	{
-		Merkle::Hash hv;
-		m_ValidatorSet.get_Hash(hv);
-
-		if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
-			Exc::Fail("vs.next");
-
 		// make sure all fees were added as a block reward
 		struct Walker
 			:public TxKernel::IWalker
@@ -7075,23 +7063,25 @@ void Node::Validator::CheckState(uint32_t iR)
 
 	if (r.m_Pbft.m_Whitelist.m_NumRequired)
 	{
-		Serializer ser;
-
-		// serialize it in a form compatible with basic set
-		ser & m_ValidatorSet.m_mapValidators.size();
-		for (const auto& v : m_ValidatorSet.m_mapValidators)
+		Height h = s.get_Height();
+		if (h > m_Stamp.m_ID.m_Height)
 		{
-			ser
-				& v.m_Key
-				& v.m_Weight;
+			m_ValidatorSet.get_Hash(m_Stamp.m_Msg.m_hvVsNext);
+
+			// export our validator set it in a form compatible with basic set
+			m_Stamp.m_Msg.m_ValidatorSet.m_map.clear();
+			for (const auto& vp : m_ValidatorSet.m_mapValidators)
+			{
+				auto w = vp.get_EffectiveWeight();
+				if (w)
+					m_Stamp.m_Msg.m_ValidatorSet.m_map[vp.m_Key] = w;
+			}
+
+			m_Stamp.m_ID.m_Height = h;
+			m_Stamp.m_ID.m_Hash = id.m_Hash;
+
+			SaveStamp();
 		}
-
-		ser.swap_buf(m_Stamp.m_vSer);
-
-		m_Stamp.m_ID.m_Height = s.get_Height();
-		m_Stamp.m_ID.m_Hash = id.m_Hash;
-
-		SaveStamp();
 	}
 
 	auto& p = get_ParentObj().m_Processor;
@@ -7271,19 +7261,13 @@ bool Node::Validator::SelectMultisigValidators(Bitmask<Block::Pbft::s_MaxValidat
 
 void Node::Validator::SaveStamp()
 {
-	auto n = m_Stamp.m_vSer.size();
+	Serializer ser;
+	ser
+		& m_Stamp.m_ID
+		& m_Stamp.m_Msg;
 
-	{
-		Serializer ser;
-		ser.swap_buf(m_Stamp.m_vSer);
-		ser & m_Stamp.m_ID;
-		ser.swap_buf(m_Stamp.m_vSer);
-	}
-
-	Blob blob(m_Stamp.m_vSer);
+	Blob blob(ser.buffer().first, (uint32_t) ser.buffer().second);
 	get_ParentObj().m_Processor.get_DB().ParamSet(NodeDB::ParamID::PbftStamp, nullptr, &blob);
-
-	m_Stamp.m_vSer.resize(n);
 }
 
 bool Node::Validator::ShouldSendStamp()

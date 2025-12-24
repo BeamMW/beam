@@ -322,7 +322,8 @@ namespace proto {
     macro(Block::Pbft::Address, Address)
 
 #define BeamNodeMsg_PbftStamp(macro) \
-    macro(ByteBuffer, vSer)
+    macro(Block::Pbft::ValidatorSet, ValidatorSet) \
+    macro(Merkle::Hash, hvVsNext)
 
 #define BeamNodeMsg_PbftPeerAssessment(macro) \
     macro(Block::Pbft::Address, From) \
@@ -634,6 +635,7 @@ namespace proto {
     inline void ZeroInit(Asset::Full& x) { x.Reset(); }
     inline void ZeroInit(HeightPos& x) { ZeroObject(x); }
     inline void ZeroInit(PbftReputationMap&) { }
+    inline void ZeroInit(Block::Pbft::ValidatorSet&) { }
 
     template <typename T> struct InitArg {
         typedef const T& TArg;

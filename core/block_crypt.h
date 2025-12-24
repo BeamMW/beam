@@ -1731,7 +1731,7 @@ namespace beam
 			};
 
 			struct HdrData {
-				ECC::Hash::Value m_hvVsNext;
+				ECC::Hash::Value m_hvVsBoth; // hash(prev|next)
 				uintBigFor<uint16_t>::Type m_Time_ms;
 				QC m_QC;
 				uint8_t m_Flags1;
