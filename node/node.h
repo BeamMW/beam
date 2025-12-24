@@ -995,18 +995,19 @@ private:
 		void OnNewRound();
 		void OnNewStateInternal();
 		void GenerateProposal();
+		void OnRoundStartReceived(uint32_t iR, ValidatorPlus&, const Peer*);
 		void OnProposalReceived(uint32_t iR, const Peer*);
 		void OnSigRequestReceived(uint32_t iR, const Peer*);
 		void OnSigReceived(uint32_t iR, ValidatorPlus&, const Peer*);
 		void CheckStateCurrent();
 		void CheckState(uint32_t iR);
+		bool SelectMultisigValidators(ByteBuffer& msk);
 		bool ShouldAcceptProposal() const;
 		bool CreateProposal();
 		void CreateProposalMd(NodeProcessor::BlockContext&);
 		void Sign(ECC::Signature&, const Merkle::Hash&);
 		void MakeFullHdr(Block::SystemState::Full&, const Block::SystemState::Sequence::Element&) const;
 		bool ShouldSendTo(const Peer&) const;
-		bool IsFirstRound() const { return m_iRound <= 1; }
 		void Vote(uint8_t iKind);
 		void ShuffleRoundData(bool bConsequent);
 
@@ -1017,6 +1018,7 @@ private:
 		void get_SigRequestMsg(Merkle::Hash&, const RoundData&, const proto::PbftSigRequest&) const;
 
 		void FinalyzeRoundAssessment();
+		uint32_t GetAssessment(const ValidatorPlus&);
 		void UpdateAssessment(const ValidatorPlus&, uint8_t&);
 
 		uint32_t get_PeerRound(const Peer&, uint32_t iRoundMsg);

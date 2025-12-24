@@ -5768,6 +5768,7 @@ struct Node::Validator::Assessment::Settings
 	{
 		static const uint32_t Jail = 768;
 		static const uint32_t Unjail = 150;
+		static const uint32_t AcceptForMultisig = 50;
 	};
 };
 
@@ -5953,27 +5954,23 @@ void Node::Validator::OnNewRound()
 
 	if (m_pMe)
 	{
+		if (m_pMe->m_hvCommitted != Zero)
+			PBFT_LOG(INFO, "committed to " << m_pMe->m_hvCommitted);
+
 		m_skNonce.GenRandomNnz();
 
-		if (rdcurr.m_pLeader != m_pMe)
-		{
-			proto::PbftRoundStart msg;
-			msg.m_Address = m_pMe->m_Key;
-			msg.m_iRound = static_cast<uint32_t>(m_iRound);
-			msg.m_IsCommitted = (State::None != m_State);
+		auto& msg = m_pMe->m_pR[0].m_MsgRoundStart.emplace();
+		msg.m_Address = m_pMe->m_Key;
+		msg.m_iRound = static_cast<uint32_t>(m_iRound);
+		msg.m_IsCommitted = (State::None != m_State);
 
-			if (!msg.m_IsCommitted)
-				rdcurr.m_pwrNotCommitted.Add(*m_pMe);
+		msg.m_NoncePub = ECC::Context::get().G * m_skNonce;
 
-			msg.m_NoncePub = ECC::Context::get().G * m_skNonce;
+		ECC::Hash::Value hv;
+		get_RoundStartMsg(hv, msg);
+		Sign(msg.m_Signature, hv);
 
-			ECC::Hash::Value hv;
-			get_RoundStartMsg(hv, msg);
-			Sign(msg.m_Signature, hv);
-
-			Broadcast(msg, nullptr);
-
-		}
+		OnRoundStartReceived(0, *m_pMe, nullptr);
 
 		CheckState(0);
 	}
@@ -6499,17 +6496,13 @@ void Node::Validator::GenerateProposal()
 
 bool Node::Validator::ShouldAcceptProposal() const
 {
-	if (IsFirstRound())
-		return true;
+	if (m_iRound <= 1)
+		return true; // 1st round, no need to wait for not-committed vote
 
 	const uint32_t iR = 0;
 	auto& rdcurr = m_pR[iR];
 	Power pwr = rdcurr.m_pwrNotCommitted;
 	pwr.Add(rdcurr.m_pPwr[VoteKind::Commit]);
-
-	// always account for the leader.
-	if (rdcurr.m_pLeader && !rdcurr.m_pLeader->m_pR[iR].m_pVote[VoteKind::Commit])
-		pwr.Add(*rdcurr.m_pLeader); // if not explicitly committed - consider it as non-committed automatically
 
 	return pwr.IsMajorityReached(m_wTotal);
 }
@@ -6756,13 +6749,23 @@ void Node::Validator::OnMsg(proto::PbftRoundStart&& msg, const Peer& src)
 		src.ThrowUnexpected("invalid validator sig");
 
 	pr.m_MsgRoundStart = std::move(msg);
-	if (!pr.m_MsgRoundStart->m_IsCommitted)
-		m_pR[iR].m_pwrNotCommitted.Add(vp);
 
-	PBFT_LOG(DEBUG, "round-start from " << msg.m_Address << " iR=" << iR << ", Committed=" << pr.m_MsgRoundStart->m_IsCommitted);
-	Broadcast(*pr.m_MsgRoundStart, &src);
+	OnRoundStartReceived(iR, vp, &src);
 	CheckState(iR);
 }
+
+void Node::Validator::OnRoundStartReceived(uint32_t iR, ValidatorPlus& vp, const Peer*)
+{
+	assert(vp.m_pR[iR].m_MsgRoundStart);
+	auto& msg = *vp.m_pR[iR].m_MsgRoundStart;
+
+	if (!msg.m_IsCommitted)
+		m_pR[iR].m_pwrNotCommitted.Add(vp);
+
+	PBFT_LOG(DEBUG, "round-start from " << msg.m_Address << " iR=" << iR << ", Committed=" << msg.m_IsCommitted);
+	Broadcast(msg, nullptr);
+}
+
 
 void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 {
@@ -6787,7 +6790,6 @@ void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 
 	// check the mask is ok, and the selected voting power is enough
 	Power pwr;
-	uint32_t iWhitePos = 0;
 	uint32_t iIdx = 0;
 	for (const auto& vp : m_ValidatorSet.m_mapValidators)
 	{
@@ -6800,9 +6802,7 @@ void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 		if (!vp.m_pR[iR].m_MsgRoundStart)
 			src.ThrowUnexpected("no rs");
 
-		pwr.m_wVoted += w;
-		if (Rules::get().m_Pbft.m_Whitelist.IsWhite(vp.m_Key, iWhitePos))
-			pwr.m_nWhite++;
+		pwr.Add(vp);
 	}
 
 	if (!pwr.IsMajorityReached(m_wTotal) || (msg.m_Mask.size() > Block::Pbft::Quorum::get_MaxMaskSize(iIdx)))
@@ -7070,7 +7070,7 @@ void Node::Validator::CheckState(uint32_t iR)
 		CheckStateCurrent();
 
 	auto& rd = m_pR[iR];
-	if (!rd.m_pPwr[VoteKind::Commit].IsMajorityReached(m_wTotal))
+	if (!rd.m_Multisig || rd.m_Multisig->m_SigsRemaining)
 		return;
 
 	// We have the quorum
@@ -7191,7 +7191,8 @@ void Node::Validator::CheckStateCurrent()
 			OnProposalReceived(iR, nullptr);
 		}
 
-		if (!ShouldAcceptProposal())
+		bool bAlreadyCommitted = (m_pMe->m_hvCommitted == rd.m_pPwr[VoteKind::Commit].m_hv);
+		if (!bAlreadyCommitted && !ShouldAcceptProposal())
 			return;
 
 		rd.m_Proposal.m_State = Proposal::State::Accepted;
@@ -7201,13 +7202,11 @@ void Node::Validator::CheckStateCurrent()
 		if (State::None == m_State)
 			Vote(VoteKind::PreVote);
 		else
-		{
-			if (m_pMe->m_hvCommitted == rd.m_pPwr[VoteKind::Commit].m_hv)
+			if (bAlreadyCommitted)
 			{
 				Vote(VoteKind::PreVote);
 				Vote(VoteKind::Commit);
 			}
-		}
 	}
 
 	if ((State::None == m_State) && m_pMe->m_pR[iR].m_pVote[VoteKind::PreVote] && rd.m_pPwr[VoteKind::PreVote].IsMajorityReached(m_wTotal))
@@ -7219,15 +7218,28 @@ void Node::Validator::CheckStateCurrent()
 		m_pMe->m_hvCommitted = rd.m_pPwr[VoteKind::Commit].m_hv;
 	}
 
+	if (!rd.m_pPwr[VoteKind::Commit].IsMajorityReached(m_wTotal))
+		return;
+
 	if (!rd.m_Multisig)
 	{
 		if (m_pMe != rd.m_pLeader)
 			return;
 
-		// TODO: try to generate sig-request
-
-		if (!rd.m_Multisig)
+		// try to select the peers for the multisig
+		ByteBuffer msk;
+		if (!SelectMultisigValidators(msk))
 			return;
+
+		auto& ms = rd.m_Multisig.emplace();
+		ms.m_Msg.m_iRound = static_cast<uint32_t>(m_iRound);
+		ms.m_Msg.m_Mask = std::move(msk);
+
+		ECC::Hash::Value hv;
+		get_SigRequestMsg(hv, rd, ms.m_Msg);
+		Sign(ms.m_Msg.m_Signature, hv);
+
+		OnSigRequestReceived(iR, nullptr);
 	}
 
 	auto& ms = *rd.m_Multisig;
@@ -7250,6 +7262,60 @@ void Node::Validator::CheckStateCurrent()
 			OnSigReceived(iR, *m_pMe, nullptr);
 		}
 	}
+}
+
+bool Node::Validator::SelectMultisigValidators(ByteBuffer& vMask)
+{
+	// select the validators for the multisig ceremony
+	// their current commitment is irrelevant: once they observe the quorum (supermajority) - each would participate
+	//
+	// we need to reach >2/3 (standard supermajority), but can select more. Attempt to select those with higher assessment (rating)
+
+	const uint32_t iR = 0;
+	std::vector<std::pair<uint32_t, const ValidatorPlus*> > vec;
+
+	uint32_t iIdx = 0;
+	for (const auto& vp : m_ValidatorSet.m_mapValidators)
+	{
+		if (!vp.get_EffectiveWeight())
+			continue;
+
+		auto& pr = vp.m_pR[iR];
+		if (pr.m_MsgRoundStart)
+			vec.push_back(std::make_pair(iIdx, &vp));
+
+		iIdx++;
+	}
+
+	std::stable_sort(vec.begin(), vec.end(),
+		[](const auto& a, const auto& b)
+		{
+			// higher score - worse validator
+			return a.second->m_Assessment.m_Score < b.second->m_Assessment.m_Score;
+		}
+	);
+
+	Power pwr;
+	for (const auto& x : vec)
+	{
+		iIdx = x.first;
+		const auto& vp = *x.second;
+
+		if ((vp.m_Assessment.m_Score > Assessment::Settings::Watermark::AcceptForMultisig) && pwr.IsMajorityReached(m_wTotal))
+			break;
+
+		uint32_t iByte = iIdx >> 3;
+		if (vMask.size() <= iByte)
+			vMask.resize(iByte + 1);
+
+		uint8_t msk = 1 << (iIdx & 7);
+		assert(!(vMask[iByte] & msk));
+		vMask[iByte] |= msk;
+
+		pwr.Add(vp);
+	}
+
+	return pwr.IsMajorityReached(m_wTotal);
 }
 
 void Node::Validator::SaveStamp()
@@ -7480,8 +7546,6 @@ void Node::Validator::FinalyzeRoundAssessment()
 	if (!rd.m_pLeader)
 		return;
 
-	bool bFirstRound = IsFirstRound();
-
 	PBFT_LOG(DEBUG, "Finalizing assessments");
 
 	for (auto& vp : m_ValidatorSet.m_mapValidators)
@@ -7497,61 +7561,71 @@ void Node::Validator::FinalyzeRoundAssessment()
 			continue; // don't assess self
 		}
 
-		if (rd.m_pLeader == &vp)
-		{
-			// did the leader propose?
-			if (Proposal::State::None == rd.m_Proposal.m_State)
-			{
-				bool bHadToPropose = bFirstRound;
-				if (!bHadToPropose)
-					bHadToPropose = rd.m_pwrNotCommitted.IsMajorityReached(m_wTotal);
-
-				if (bHadToPropose)
-				{
-					// not good
-					vp.m_Assessment.m_Score += Assessment::Settings::NotProposed;
-					PBFT_LOG(DEBUG, "\t\tnot proposed");
-				}
-			}
-		}
-		else
-		{
-			if (vp.m_hvCommitted == Zero)
-			{
-				// did it vote?
-				auto& oMsg = vp.m_pR[iR].m_MsgRoundStart;
-				if (!oMsg)
-				{
-					vp.m_Assessment.m_Score += Assessment::Settings::NotRoundStart; // didn't send round-start msg
-					PBFT_LOG(DEBUG, "\t\tnot voted not-commit");
-				}
-				else
-				{
-					if (Proposal::State::Accepted == rd.m_Proposal.m_State)
-					{
-						// did it pre-vote?
-						if (!oMsg->m_IsCommitted && !vp.m_pR[iR].m_pVote[VoteKind::PreVote])
-						{
-							vp.m_Assessment.m_Score += Assessment::Settings::NotVotedPre; // not pre-voted
-							PBFT_LOG(DEBUG, "\t\tnot voted pre");
-						}
-						else
-						{
-							if (rd.m_pPwr[VoteKind::PreVote].IsMajorityReached(m_wTotal))
-							{
-								vp.m_Assessment.m_Score += Assessment::Settings::NotVotedCommit; // should have committed
-								PBFT_LOG(DEBUG, "\t\tnot committed");
-							}
-						}
-					}
-				}
-			}
-		}
+		vp.m_Assessment.m_Score += GetAssessment(vp);
 
 		PBFT_LOG(DEBUG, "\tV " << vp.m_Key << " score=" << vp.m_Assessment.m_Score << ", status=" << static_cast<uint32_t>(vp.m_Status));
 
 	}
 
+}
+
+uint32_t Node::Validator::GetAssessment(const ValidatorPlus& vp)
+{
+	const uint32_t iR = 0; // round data to finalyze
+	const auto& rd = m_pR[iR];
+	auto& pr = vp.m_pR[iR];
+
+	if (!pr.m_MsgRoundStart)
+	{
+		PBFT_LOG(DEBUG, "\t\tno round-start");
+		return Assessment::Settings::NotRoundStart; // didn't send round-start msg
+	}
+
+	bool bWasLeader = (rd.m_pLeader == &vp);
+	if (bWasLeader)
+	{
+		// did the leader propose?
+		if ((Proposal::State::None == rd.m_Proposal.m_State) && ShouldAcceptProposal())
+		{
+			PBFT_LOG(DEBUG, "\t\tnot proposed");
+			return Assessment::Settings::NotProposed;
+		}
+
+		if (rd.m_pPwr[VoteKind::Commit].IsMajorityReached(m_wTotal) && !rd.m_Multisig)
+		{
+			PBFT_LOG(DEBUG, "\t\tnot sent sig-request");
+			return Assessment::Settings::NotProposed;
+		}
+	}
+
+	if (Proposal::State::Accepted != rd.m_Proposal.m_State)
+		return 0;
+
+	if (vp.m_hvCommitted == Zero)
+	{
+		// did it pre-vote?
+		bool bHadToPreVote = bWasLeader || !pr.m_MsgRoundStart->m_IsCommitted;
+
+		if (bHadToPreVote && !pr.m_pVote[VoteKind::PreVote])
+		{
+			PBFT_LOG(DEBUG, "\t\tnot voted pre");
+			return Assessment::Settings::NotVotedPre;
+		}
+
+		if (rd.m_pPwr[VoteKind::PreVote].IsMajorityReached(m_wTotal))
+		{
+			PBFT_LOG(DEBUG, "\t\tnot committed");
+			return Assessment::Settings::NotVotedCommit;
+		}
+	}
+
+	if (pr.m_Sig && (pr.m_Sig->m_E != Zero))
+	{
+		PBFT_LOG(DEBUG, "\t\tnot msig-signed");
+		return Assessment::Settings::NotVotedCommit;
+	}
+
+	return 0; // all good
 }
 
 void Node::Validator::RoundTimes::FromRound(const Rules& r, const Block::SystemState::Full& s0)
