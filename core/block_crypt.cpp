@@ -2937,11 +2937,12 @@ namespace beam
 			uint64_t m_wVoted = 0;
 			uint32_t m_nWhite = 0;
 			uint32_t m_iIdx = 0;
-			uint32_t m_iSig = 0;
 			uint32_t m_iWhitePos = 0;
 
 			const Merkle::Hash& m_msg;
 			const Quorum& m_qc;
+
+			std::vector<ECC::Point::Native> m_vPks;
 
 			Target(const Merkle::Hash& msg, const Quorum& qc)
 				:m_msg(msg)
@@ -2954,10 +2955,7 @@ namespace beam
 
 				if (m_qc.IsInMask(m_iIdx++))
 				{
-					if (m_iSig >= m_qc.m_vSigs.size())
-						return false;
-
-					if (!addr.CheckSignature(m_msg, m_qc.m_vSigs[m_iSig++]))
+					if (!addr.ExportNnz(m_vPks.emplace_back()))
 						return false;
 
 					m_wVoted += weight;
@@ -2975,10 +2973,13 @@ namespace beam
 		if (!EnumValidators(x))
 			return false;
 
-		if (x.m_iSig != qc.m_vSigs.size())
-			return false; // not all sigs used
-
 		if (qc.m_vValidatorsMsk.size() > qc.get_MaxMaskSize(x.m_iIdx))
+			return false;
+
+		ECC::Signature::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
+		cfg.m_nKeys = (uint32_t) x.m_vPks.size();
+
+		if (!Cast::Down<ECC::SignatureBase>(qc.m_Signature).IsValid(cfg, msg, &qc.m_Signature.m_k, x.m_vPks.empty() ? nullptr : &x.m_vPks.front()))
 			return false;
 
 		// is quorum reached?
