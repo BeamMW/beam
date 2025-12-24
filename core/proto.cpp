@@ -1034,14 +1034,14 @@ void NodeConnection::Test(const PbftStamp& msg, const Block::SystemState::Full& 
     if (!r.IsPbftWhitelistMode())
         ThrowUnexpected();
 
-    Block::Pbft::State state;
+    Block::Pbft::ValidatorSet vs;
 
     Deserializer der;
     der.reset(msg.m_vSer);
-    der & state;
+    der & vs;
 
     Merkle::Hash hv;
-    state.get_Hash(hv);
+    vs.get_Hash(hv);
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 

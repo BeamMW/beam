@@ -2870,9 +2870,9 @@ namespace beam
 
 	/////////////
 	// Pbft
-	bool Block::Pbft::State::EnumValidators(ITarget& x) const
+	bool Block::Pbft::ValidatorSet::EnumValidators(ITarget& x) const
 	{
-		for (const auto& kv : m_mapValidators)
+		for (const auto& kv : m_map)
 			if (!x.OnValidator(kv.first, kv.second))
 				return false;
 

@@ -6122,7 +6122,7 @@ bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, 
 	return true;
 }
 
-const Block::Pbft::State::IValidatorSet& Node::Validator::get_Validators()
+const Block::Pbft::IValidatorSet& Node::Validator::get_Validators()
 {
 	return m_ValidatorSet;
 }
@@ -6604,7 +6604,7 @@ void Node::Validator::Power::Add(const Power& pwr)
 bool Node::Validator::Power::IsMajorityReached(uint64_t wTotal) const
 {
 	assert(m_wVoted <= wTotal);
-	return Block::Pbft::State::IsMajorityReached(m_wVoted, wTotal, m_nWhite);
+	return Block::Pbft::IValidatorSet::IsMajorityReached(m_wVoted, wTotal, m_nWhite);
 }
 
 void Node::Validator::Vote(uint8_t iKind)

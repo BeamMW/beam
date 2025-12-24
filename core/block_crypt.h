@@ -1761,10 +1761,10 @@ namespace beam
 				bool CheckQuorum(const Merkle::Hash&, const QC&) const;
 			};
 
-			struct State
+			struct ValidatorSet
 				:public IValidatorSet
 			{
-				std::map<Address, uint64_t> m_mapValidators;
+				std::map<Address, uint64_t> m_map;
 
 				bool EnumValidators(ITarget&) const override;
 			};
