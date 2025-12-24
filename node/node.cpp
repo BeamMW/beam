@@ -6178,6 +6178,7 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 	{
 		// delete it
 		if (pV)
+		{
 			if (bTemporary)
 				pV->m_Deleted = true;
 			else
@@ -6185,6 +6186,7 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 				m_ValidatorSet.m_hv.reset();
 				m_ValidatorSet.m_mapValidators.Delete(*pV);
 			}
+		}
 
 		return;
 	}
@@ -7186,15 +7188,13 @@ void Node::Validator::CheckStateCurrent()
 		OnSigRequestReceived(iR, nullptr);
 	}
 
-	auto& ms = *rd.m_Multisig;
-
 	if (m_pMe->m_pR[iR].m_Sig)
 	{
 		auto& sig = *m_pMe->m_pR[iR].m_Sig;
 		if (sig.m_E != Zero)
 		{
 			// submit my signature
-			assert(ms.m_SigsRemaining);
+			assert(rd.m_Multisig->m_SigsRemaining);
 
 			// check the partial signature: skNonce + sig + skValidator*e == Zero
 
