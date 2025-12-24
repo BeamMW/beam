@@ -1898,18 +1898,18 @@ namespace detail
 		}
 
 		template<typename Archive>
-		Archive& save(Archive& ar, const beam::Block::Pbft::State& state)
+		Archive& save(Archive& ar, const beam::Block::Pbft::ValidatorSet& vs)
 		{
 			ar
-				& state.m_mapValidators;
+				& vs.m_map;
 			return ar;
 		}
 
 		template<typename Archive>
-		Archive& load(Archive& ar, beam::Block::Pbft::State& state)
+		Archive& load(Archive& ar, beam::Block::Pbft::ValidatorSet& vs)
 		{
 			ar
-				& state.m_mapValidators;
+				& vs.m_map;
 			return ar;
 		}
 
