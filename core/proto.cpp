@@ -1035,23 +1035,18 @@ void NodeConnection::Test(const PbftStamp& msg, const Block::SystemState::Full& 
         ThrowUnexpected();
 
     Block::Pbft::State state;
-    Block::Pbft::Quorum qc;
 
     Deserializer der;
     der.reset(msg.m_vSer);
-    der
-        & state
-        & qc;
+    der & state;
 
     Merkle::Hash hv;
     state.get_Hash(hv);
 
     const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
-    if (d.m_hvVsPrev != hv)
-        ThrowUnexpected();
 
-    s.get_Hash(hv);
-    if (!state.CheckQuorum(hv, qc))
+    s.get_HashForPoW(hv);
+    if (!state.CheckQuorum(hv, d.m_QC))
         ThrowUnexpected();
 }
 

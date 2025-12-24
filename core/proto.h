@@ -332,7 +332,7 @@ namespace proto {
 
 #define BeamNodeMsg_PbftSigRequest(macro) \
     macro(uint32_t, iRound) \
-    macro(ByteBuffer, Mask) \
+    macro(Bitmask<Block::Pbft::s_MaxValidators>, Mask) \
     macro(ECC::Signature, Signature)
 
 #define BeamNodeMsg_PbftSig(macro) \
@@ -613,6 +613,8 @@ namespace proto {
     inline void ZeroInit(std::unique_ptr<T>&) { }
     template <uint32_t nBytes_>
     inline void ZeroInit(uintBig_t<nBytes_>& x) { x = Zero; }
+    template <uint32_t n>
+    inline void ZeroInit(Bitmask<n>& x) { ZeroObject(x); }
     inline void ZeroInit(PeerID& x) { x = Zero; }
     inline void ZeroInit(io::Address& x) { }
     inline void ZeroInit(ByteBuffer&) { }

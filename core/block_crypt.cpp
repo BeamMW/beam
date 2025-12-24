@@ -2913,22 +2913,7 @@ namespace beam
 		return (wVoted * 3 > wTotal * 2); // TODO: overflow test
 	}
 
-	bool Block::Pbft::Quorum::IsInMaskEx(uint32_t i, const Blob& mask)
-	{
-		auto iByte = i >> 3;
-		if (iByte >= mask.n)
-			return false;
-
-		uint8_t msk = 1 << (i & 7);
-		return !!(reinterpret_cast<const uint8_t*>(mask.p)[iByte] & msk);
-	}
-
-	uint32_t Block::Pbft::Quorum::get_MaxMaskSize(uint32_t n)
-	{
-		return (n + 7) >> 3;
-	}
-
-	bool Block::Pbft::IValidatorSet::CheckQuorum(const Merkle::Hash& msg, const Quorum& qc) const
+	bool Block::Pbft::IValidatorSet::CheckQuorum(const Merkle::Hash& msg, const QC& qc) const
 	{
 		struct Target
 			:public ITarget
@@ -2940,11 +2925,11 @@ namespace beam
 			uint32_t m_iWhitePos = 0;
 
 			const Merkle::Hash& m_msg;
-			const Quorum& m_qc;
+			const QC& m_qc;
 
 			std::vector<ECC::Point::Native> m_vPks;
 
-			Target(const Merkle::Hash& msg, const Quorum& qc)
+			Target(const Merkle::Hash& msg, const QC& qc)
 				:m_msg(msg)
 				,m_qc(qc)
 			{}
@@ -2953,7 +2938,7 @@ namespace beam
 			{
 				m_wTotal += weight;
 
-				if (m_qc.IsInMask(m_iIdx++))
+				if (m_qc.m_Mask.get_safe(m_iIdx++))
 				{
 					if (!addr.ExportNnz(m_vPks.emplace_back()))
 						return false;
@@ -2971,9 +2956,6 @@ namespace beam
 		Target x(msg, qc);
 
 		if (!EnumValidators(x))
-			return false;
-
-		if (qc.m_vValidatorsMsk.size() > qc.get_MaxMaskSize(x.m_iIdx))
 			return false;
 
 		ECC::Signature::Config cfg = ECC::Context::get().m_Sig.m_CfgG1; // copy
@@ -3056,12 +3038,24 @@ namespace beam
 		if (iFork >= 2)
 			hp << r.pForks[iFork].m_Hash;
 
-		if (bTotal)
+		if (Rules::Consensus::Pbft == r.m_Consensus)
 		{
+			// add everything except the QC
+			auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(m_PoW);
 			hp
-				<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
-				<< m_PoW.m_Nonce;
+				<< d.m_hvVsNext
+				<< d.m_Time_ms
+				<< d.m_Flags1;
+
+			if (bTotal)
+				hp << Blob(&d.m_QC, sizeof(d.m_QC));
 		}
+		else
+			if (bTotal)
+				hp
+					<< Blob(&m_PoW.m_Indices.at(0), sizeof(m_PoW.m_Indices))
+					<< m_PoW.m_Nonce;
+
 
 		hp >> out;
 	}

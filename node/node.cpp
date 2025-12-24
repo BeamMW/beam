@@ -5808,13 +5808,10 @@ void Node::Validator::Initialize()
 	if (!buf.empty())
 	{
 		Block::Pbft::State state;
-		Block::Pbft::Quorum qc;
 
 		Deserializer der;
 		der.reset(buf);
-		der
-			& state
-			& qc;
+		der & state;
 
 		auto n = der.bytes_left();
 		der & m_Stamp.m_ID;
@@ -6248,44 +6245,24 @@ TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar
 	return pKrn;
 }
 
-void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly, Deserializer& der)
+void Node::Validator::TestBlock(const Block::SystemState::Full& s, const Block::Body& block, bool bStart, bool bTestOnly)
 {
-	Merkle::Hash hv;
-	m_ValidatorSet.get_Hash(hv);
-
 	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
 	if (bStart)
 	{
-		if (d.m_hvVsPrev != hv)
-			Exc::Fail("vs.prev");
-
-		const Rules& r = Rules::get();
-		const auto& p = get_ParentObj().m_Processor;
-
 		// Skip timestamp testing. During proposal testing it's checked anyway
 
-		if (bTestOnly || r.m_Pbft.m_Whitelist.m_NumRequired)
+		if (!bTestOnly) // during block test the QC isn't ready yet
 		{
-			// during block test the QC isn't ready yet
-			// In whitelist mode the QC isn't appended to the block anyway
-		}
-		else
-		{
-			// Deserialize QC
-			Block::Pbft::Quorum qc;
-			der & qc;
-
-			if (!m_ValidatorSet.CheckQuorum(id.m_Hash, qc))
+			Merkle::Hash hv;
+			s.get_HashForPoW(hv);
+			if (!m_ValidatorSet.CheckQuorum(hv, d.m_QC))
 				Exc::Fail("QC");
 		}
 
-		// make sure nothing is appended instead of QC
-		if (der.bytes_left())
-			Exc::Fail("trailing junk");
-
 		uint8_t nFlags = 0;
-		if (block.IsEmpty() && p.m_Cursor.m_Full.m_Number.v)
+		if (block.IsEmpty() && (s.m_Number.v > 1))
 			nFlags = Block::Pbft::HdrData::Flags::Empty;
 
 		if (d.m_Flags1 != nFlags)
@@ -6293,6 +6270,9 @@ void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightH
 	}
 	else
 	{
+		Merkle::Hash hv;
+		m_ValidatorSet.get_Hash(hv);
+
 		if (hv != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsNext)
 			Exc::Fail("vs.next");
 
@@ -6794,7 +6774,7 @@ void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 		auto w = vp.get_EffectiveWeight();
 		if (!w)
 			continue;
-		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, msg.m_Mask))
+		if (!msg.m_Mask.get_safe(iIdx++))
 			continue;
 
 		if (!vp.m_pR[iR].m_MsgRoundStart)
@@ -6803,7 +6783,7 @@ void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 		pwr.Add(vp);
 	}
 
-	if (!pwr.IsMajorityReached(m_wTotal) || (msg.m_Mask.size() > Block::Pbft::Quorum::get_MaxMaskSize(iIdx)))
+	if (!pwr.IsMajorityReached(m_wTotal))
 		src.ThrowUnexpected("sig-request invalid");
 
 	auto& ms = rd.m_Multisig.emplace();
@@ -6828,7 +6808,7 @@ void Node::Validator::OnSigRequestReceived(uint32_t iR, const Peer* pSrc)
 	{
 		if (!vp.get_EffectiveWeight())
 			continue;
-		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, ms.m_Msg.m_Mask))
+		if (!ms.m_Msg.m_Mask.get_safe(iIdx++))
 			continue;
 
 		auto& pr = vp.m_pR[iR];
@@ -6851,7 +6831,7 @@ void Node::Validator::OnSigRequestReceived(uint32_t iR, const Peer* pSrc)
 	{
 		if (!vp.get_EffectiveWeight())
 			continue;
-		if (!Block::Pbft::Quorum::IsInMaskEx(iIdx++, ms.m_Msg.m_Mask))
+		if (!ms.m_Msg.m_Mask.get_safe(iIdx++))
 			continue;
 
 		ms.m_SigsRemaining++;
@@ -6961,7 +6941,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
-	s.get_Hash(rd.m_Proposal.m_hv);
+	s.get_HashForPoW(rd.m_Proposal.m_hv);
 	rd.SetHashes();
 
 	Merkle::Hash hv;
@@ -6981,7 +6961,7 @@ void Node::Validator::OnMsg(proto::PbftProposal&& msg, const Peer& src)
 	}
 
 	HeightHash id;
-	id.m_Hash = rd.m_Proposal.m_hv;
+	id.m_Hash = rd.m_Proposal.m_hv; // not the final hash
 	id.m_Height = s.get_Height();
 
 	if (!p.TestBlock(id, s, rd.m_Proposal.m_Msg.m_Body))
@@ -7024,8 +7004,7 @@ void Node::Validator::get_SigRequestMsg(Merkle::Hash& hv, const RoundData& rd, c
 		<< "pbft.sigreq.2"
 		<< rd.m_Proposal.m_hv
 		<< msg.m_iRound
-		<< msg.m_Mask.size()
-		<< Blob(msg.m_Mask)
+		<< Blob(msg.m_Mask.m_p, msg.m_Mask.nBytes)
 		>> hv;
 }
 
@@ -7081,13 +7060,20 @@ void Node::Validator::CheckState(uint32_t iR)
 	m_State = State::QuorumReached;
 	PBFT_LOG(INFO, "quorum reached");
 
-	Block::Pbft::Quorum qc;
-	const Rules& r = Rules::get();
-	qc.m_vValidatorsMsk = ms.m_Msg.m_Mask; // copy
-	qc.m_Signature = ms.m_SigAggregate;
+	auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(rd.m_Proposal.m_Msg.m_Hdr.m_PoW);
+	d.m_QC.m_Signature = ms.m_SigAggregate;
+	d.m_QC.m_Mask = ms.m_Msg.m_Mask;
 
 	Block::SystemState::Full s;
 	MakeFullHdr(s, rd.m_Proposal.m_Msg.m_Hdr);
+
+	Block::SystemState::ID id;
+	id.m_Number = s.m_Number;
+	s.get_Hash(id.m_Hash);
+
+	PBFT_LOG(INFO, "quorum reached " << id.m_Hash);
+
+	const Rules& r = Rules::get();
 
 	if (r.m_Pbft.m_Whitelist.m_NumRequired)
 	{
@@ -7102,12 +7088,10 @@ void Node::Validator::CheckState(uint32_t iR)
 				& v.m_Weight;
 		}
 
-		ser & qc;
-
 		ser.swap_buf(m_Stamp.m_vSer);
 
 		m_Stamp.m_ID.m_Height = s.get_Height();
-		m_Stamp.m_ID.m_Hash = rd.m_Proposal.m_hv;
+		m_Stamp.m_ID.m_Hash = id.m_Hash;
 
 		SaveStamp();
 	}
@@ -7125,24 +7109,7 @@ void Node::Validator::CheckState(uint32_t iR)
 		return; // invalid or unreachable header?!
 	}
 
-	size_t n0 = rd.m_Proposal.m_Msg.m_Body.m_Eternal.size();
-
-	if (!r.m_Pbft.m_Whitelist.m_NumRequired)
-	{
-		// append QC to block body
-		Serializer ser;
-		ser.swap_buf(rd.m_Proposal.m_Msg.m_Body.m_Eternal);
-		ser & qc;
-		ser.swap_buf(rd.m_Proposal.m_Msg.m_Body.m_Eternal);
-	}
-
-	Block::SystemState::ID id;
-	id.m_Number = s.m_Number;
-	id.m_Hash = rd.m_Proposal.m_hv;
-
 	eVal = p.OnBlock(id, rd.m_Proposal.m_Msg.m_Body.m_Perishable, rd.m_Proposal.m_Msg.m_Body.m_Eternal, Zero);
-
-	rd.m_Proposal.m_Msg.m_Body.m_Eternal.resize(n0); // restore it (if appended QC)
 
 	switch (eVal)
 	{
@@ -7216,7 +7183,7 @@ void Node::Validator::CheckStateCurrent()
 			return;
 
 		// try to select the peers for the multisig
-		ByteBuffer msk;
+		Bitmask<Block::Pbft::s_MaxValidators> msk;
 		if (!SelectMultisigValidators(msk))
 			return;
 
@@ -7253,15 +7220,18 @@ void Node::Validator::CheckStateCurrent()
 	}
 }
 
-bool Node::Validator::SelectMultisigValidators(ByteBuffer& vMask)
+bool Node::Validator::SelectMultisigValidators(Bitmask<Block::Pbft::s_MaxValidators>& mask)
 {
 	// select the validators for the multisig ceremony
 	// their current commitment is irrelevant: once they observe the quorum (supermajority) - each would participate
 	//
 	// we need to reach >2/3 (standard supermajority), but can select more. Attempt to select those with higher assessment (rating)
 
+	ZeroObject(mask.m_p);
+
 	const uint32_t iR = 0;
-	std::vector<std::pair<uint32_t, const ValidatorPlus*> > vec;
+	std::pair<uint32_t, const ValidatorPlus*> pVec[Block::Pbft::s_MaxValidators];
+	uint32_t nCount = 0;
 
 	uint32_t iIdx = 0;
 	for (const auto& vp : m_ValidatorSet.m_mapValidators)
@@ -7271,12 +7241,13 @@ bool Node::Validator::SelectMultisigValidators(ByteBuffer& vMask)
 
 		auto& pr = vp.m_pR[iR];
 		if (pr.m_MsgRoundStart)
-			vec.push_back(std::make_pair(iIdx, &vp));
+			pVec[nCount++] = std::make_pair(iIdx, &vp);
 
-		iIdx++;
+		if (++iIdx == _countof(pVec))
+			break;
 	}
 
-	std::stable_sort(vec.begin(), vec.end(),
+	std::stable_sort(pVec, pVec + nCount,
 		[](const auto& a, const auto& b)
 		{
 			// higher score - worse validator
@@ -7285,22 +7256,15 @@ bool Node::Validator::SelectMultisigValidators(ByteBuffer& vMask)
 	);
 
 	Power pwr;
-	for (const auto& x : vec)
+	for (uint32_t i = 0; i < nCount; i++)
 	{
-		iIdx = x.first;
+		auto& x = pVec[i];
 		const auto& vp = *x.second;
 
 		if ((vp.m_Assessment.m_Score > Assessment::Settings::Watermark::AcceptForMultisig) && pwr.IsMajorityReached(m_wTotal))
 			break;
 
-		uint32_t iByte = iIdx >> 3;
-		if (vMask.size() <= iByte)
-			vMask.resize(iByte + 1);
-
-		uint8_t msk = 1 << (iIdx & 7);
-		assert(!(vMask[iByte] & msk));
-		vMask[iByte] |= msk;
-
+		mask.set(x.first);
 		pwr.Add(vp);
 	}
 
@@ -7422,7 +7386,7 @@ bool Node::Validator::CreateProposal()
 	if (bRes)
 	{
 		auto& rdcurr = m_pR[0];
-		bc.m_Hdr.get_Hash(rdcurr.m_Proposal.m_hv);
+		bc.m_Hdr.get_HashForPoW(rdcurr.m_Proposal.m_hv);
 		rdcurr.m_Proposal.m_Msg.m_Hdr = std::move(bc.m_Hdr);
 		rdcurr.m_Proposal.m_Msg.m_Body = std::move(bc.m_Body);
 		rdcurr.SetHashes();
