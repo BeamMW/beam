@@ -5938,8 +5938,8 @@ void Node::Validator::OnNewRound()
 	// save last proposal, if it's superior so far
 	bool bSelectLast =
 		!bNewState &&
-		(Proposal::State::Accepted == rdcurr.m_Proposal.m_State) ||
-		((Proposal::State::Received == rdcurr.m_Proposal.m_State) && (Proposal::State::Accepted != m_FutureCandidate.m_State));
+		((Proposal::State::Accepted == rdcurr.m_Proposal.m_State) ||
+		((Proposal::State::Received == rdcurr.m_Proposal.m_State) && (Proposal::State::Accepted != m_FutureCandidate.m_State)));
 
 	if (bSelectLast)
 		m_FutureCandidate = std::move(rdcurr.m_Proposal);
