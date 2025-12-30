@@ -2991,9 +2991,7 @@ namespace
             bvm2::get_Cid(m_Cid, pKrn->m_Data, pKrn->m_Args);
 
             m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-            sk = -sk;
-            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+            FixOffset(sk, true);
         }
 
         void AddValidator(const Block::Pbft::Address& addr, const ECC::Point& pkDelegator, Amount stake)
@@ -3019,11 +3017,16 @@ namespace
             pKrn->Sign(&sk, 1, ptFunds, nullptr);
 
             m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-            sk = -sk;
-            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+            FixOffset(sk, true);
 
             m_Tg.m_Value += MultiWord::From(stake);
+        }
+
+        void FixOffset(ECC::Scalar::Native& sk, bool isOutp)
+        {
+            if (isOutp)
+                sk = -sk;
+            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
         }
     };
 
@@ -3071,9 +3074,7 @@ namespace
                 pKrn->Sign(&sk, 1, ptFunds, nullptr);
 
                 tb.m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-                sk = -sk;
-                tb.m_Tg.m_Data.m_Offset = ECC::Scalar::Native(tb.m_Tg.m_Data.m_Offset) + sk;
+                tb.FixOffset(sk, true);
             }
 
             beam::Serializer ser;
@@ -5693,9 +5694,7 @@ void MakeTreasury_l2_test1()
     pKrn->Sign(&sk, 1, ptFunds, nullptr);
 
     tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-    sk = -sk;
-    tg.m_Data.m_Offset = sk;
+    tb.FixOffset(sk, true);
 
     beam::Serializer ser;
     ser & td;
