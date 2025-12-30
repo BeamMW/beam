@@ -296,7 +296,6 @@ int main(int argc, char* argv[])
 		catch (const po::error& e)
 		{
 			cout << e.what() << std::endl;
-			printHelp(visibleOptions);
 
 			return 0;
 		}
@@ -679,7 +678,6 @@ int main(int argc, char* argv[])
 		catch (const po::error& e)
 		{
 			BEAM_LOG_ERROR() << e.what();
-			printHelp(visibleOptions);
 		}
 		catch (const std::runtime_error& e)
 		{
