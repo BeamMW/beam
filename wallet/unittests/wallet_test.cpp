@@ -28,6 +28,7 @@
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
 #include "core/negotiator.h"
+#include "core/block_rw.h"
 #include "node/node.h"
 #include "node/bridge.h"
 #include "wallet/core/private_key_keeper.h"
@@ -5501,6 +5502,215 @@ void TestThreadPool()
     // Pool thread should be similar to std::thread and should pass the same test
     TestThread<PoolThread>();
     TestThread<std::thread>();
+}
+
+void MakeTreasury_dappnet2()
+{
+	static const char* ppPhrases[] = {
+		"drum;number;north;fly;silk;recall;execute;season;december;foot;spirit;tennis;",
+		"drill;that;swamp;garbage;forward;cargo;punch;dinner;crumble;credit;sample;hungry;",
+		"drama;toddler;end;wealth;foot;unique;shed;lunar;enter;nuclear;choose;music;",
+		"spare;cousin;soap;used;claw;pepper;silver;neutral;sword;open;print;picnic;",
+		"alien;sand;rocket;together;pyramid;rib;spice;spray;diesel;opinion;idea;snap;",
+		"happy;rely;throw;liar;robust;assume;industry;earth;fringe;ensure;possible;run;",
+		"essay;want;water;firm;affair;garment;rally;leaf;body;luggage;wheat;promote;",
+		"early;arena;door;admit;route;snow;forward;census;ramp;update;supreme;rough;",
+		"around;slender;post;cactus;finish;hard;drum;symptom;future;custom;pen;dune;",
+		"slogan;leg;sudden;gloom;excuse;evidence;surround;dismiss;onion;naive;gap;quality;",
+		"rebuild;stem;outside;chuckle;execute;vendor;member;video;cloth;deposit;mask;pumpkin;",
+		"tonight;ship;rule;brown;member;nose;desk;describe;island;cement;rubber;slab;"
+	};
+
+    static const char* pszName[] = {
+        "Anatol",
+        "Sergei",
+        "bigromanov",
+        "vain onnellinen",
+        "Vika",
+        "Artem",
+        "Vadim",
+        "Roman",
+        "Sasha",
+        "Alexander",
+        "Vladik",
+        "Denis"
+    };
+
+    Rules r;
+    Rules::Scope scope(r);
+    r.SetForksFrom(0, 0);
+
+    static_assert(_countof(ppPhrases) == _countof(pszName), "");
+
+    Treasury tres;
+    Treasury::Parameters pars;
+    pars.m_Bursts = 1;
+    pars.m_MaturityStep = 1;
+
+    KeyString ks;
+    ks.SetPassword("123");
+
+    struct MyMan
+        :public bvm2::ProcessorManager
+    {
+        static void get_DelegatorPreimage(ECC::Hash::Value& hv)
+        {
+            static const char sz[] = "pbft.delegator";
+            Blob blob(sz, sizeof(sz)); // including 0-term
+            DeriveKeyPreimage(hv, blob);
+        }
+    };
+
+    ECC::Hash::Value hvDelegator;
+    MyMan::get_DelegatorPreimage(hvDelegator);
+
+    Treasury::Data td;
+
+    PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+    tb.m_Tg.m_Value = Zero;
+    tb.m_Tg.m_Data.m_Offset = Zero;
+    tb.m_Settings.m_hUnbondLock = 10;
+    tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
+    tb.m_Settings.m_aidStake = 7;
+    tb.Init();
+
+	for (uint32_t i = 0; i < _countof(ppPhrases); i++)
+	{
+        WordList wl;
+
+		for (const char* szPhrase = ppPhrases[i]; ; )
+		{
+			const char* szPos = strchr(szPhrase, ';');
+			if (!szPos)
+				break;
+
+			wl.push_back(std::string(szPhrase, szPos));
+			szPhrase = szPos + 1;
+		}
+			
+		auto bb = decodeMnemonic(wl);
+
+        SecString seed;
+        seed.assign(&bb.front(), bb.size());
+
+        ECC::HKdf kdf;
+        kdf.Generate(seed.hash().V);
+
+        PeerID pid;
+        ECC::Scalar::Native sk;
+        Treasury::get_ID(kdf, pid, sk);
+
+        std::cout << pszName[i] << std::endl;
+        std::cout << "\t" << ppPhrases[i] << std::endl;
+
+        std::cout << "\tTr ID: " << pid.full() << std::endl;
+
+        const uint32_t iSubKey = 1;
+        Key::IKdf::Ptr pMiner = MasterKey::get_Child(kdf, iSubKey);
+
+        ks.m_sMeta = "0";
+        ks.ExportP(kdf);
+        std::cout << "\tOwner key: " << ks.m_sRes << std::endl;
+
+        ks.m_sMeta = std::to_string(iSubKey);
+        ks.ExportS(*pMiner);
+        std::cout << "\tMiner key: " << ks.m_sRes << std::endl;
+
+        PeerID addr;
+        Block::Pbft::DeriveValidatorAddress(*pMiner, addr, sk);
+        std::cout << "\tValidator: " << addr.full() << std::endl;
+
+        ECC::Point::Native ptN;
+        kdf.DerivePKeyG(ptN, hvDelegator);
+        ECC::Point ptD = ptN;
+
+        std::cout << "\tDelegator: " << Cast::Reinterpret<uintBig_t<ECC::uintBig::nBytes + 1>>(ptD).str() << std::endl;
+
+        Treasury::Entry* pE = tres.CreatePlan(pid, Rules::Coin * 500'000ull, pars);
+
+        pE->m_pResponse.reset(new Treasury::Response);
+        uint64_t nIndex = 1;
+        WALLET_CHECK(pE->m_pResponse->Create(pE->m_Request, kdf, nIndex));
+
+        if (i + 1 == _countof(ppPhrases))
+            tb.AddValidator(addr, ptD, Rules::Coin * 5000);
+	}
+
+    td.m_sCustomMsg = "dappnet2 treasury";
+    tres.Build(td);
+
+
+    beam::Serializer ser;
+    ser & td;
+
+    ByteBuffer bufTreasury;
+    ser.swap_buf(bufTreasury);
+
+    ECC::Hash::Value hvTreasury;
+    ECC::Hash::Processor() << Blob(bufTreasury) >> hvTreasury;
+
+    FStream fs;
+    fs.Open("dappnet2_treasury.bin", false, true);
+    fs.write(&bufTreasury.front(), bufTreasury.size());
+
+    std::cout << "dappnet2 treasury checksum: " << hvTreasury.full() << std::endl;
+
+}
+
+template <typename T>
+T FromScan(const char* sz)
+{
+    uintBig_t<sizeof(T)> val;
+    val.Scan(sz);
+    return Cast::Reinterpret<T>(val);
+}
+
+void MakeTreasury_l2_test1()
+{
+    Treasury::Data td;
+    auto& tg = td.m_vGroups.emplace_back();
+    tg.m_Value = Zero;
+
+    PbftTreasuryBuilder tb(tg);
+    tb.m_Tg.m_Value = Zero;
+    tb.m_Tg.m_Data.m_Offset = Zero;
+    tb.m_Settings.m_hUnbondLock = 10;
+    tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
+    tb.m_Settings.m_aidStake = 7;
+    tb.Init();
+    tb.AddValidator(FromScan<Block::Pbft::Address>("9b4cc0b1f42926ccbf51d64eec99d17fde79424904b26b32f053fe13fef5b022"), FromScan<ECC::Point>("0eb54122076c0aed4ed23b436bc37be27dd569dbbad33009f3150c630575cc0e01"), Rules::Coin * 5000);
+    tb.AddValidator(FromScan<Block::Pbft::Address>("de90c5e50153e6521be0346a81889c952d966147e8c5969b4b5ac4935c910376"), FromScan<ECC::Point>("4db627d564838490a1698069f1737ac82d9357d6a120a938e361b6a09e8ee7eb01"), Rules::Coin * 5000);
+    tb.AddValidator(FromScan<Block::Pbft::Address>("9e8859ddf452858e6cd04e4cb19c29a326107a533bf072fad3e17f1b41cacf4d"), FromScan<ECC::Point>("25cd3c63cefc5d3cccaf6cf5d708e1088c0302b7e23ae58b860c5ec5b3fcad3200"), Rules::Coin * 5000);
+    tb.AddValidator(FromScan<Block::Pbft::Address>("a6f090638851884075b9feabcd66c9d47d5511d821c8602f486b0a86feb54250"), FromScan<ECC::Point>("5494a86a93ef36b00dd85d4de750eca640181d8be10cfc749345d2f97bd9246200"), Rules::Coin * 5000);
+
+    auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+    MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+
+    ECC::Scalar::Native sk;
+    sk.GenRandomNnz();
+    ECC::Point::Native ptFunds(beam::Zero);
+
+    pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+    tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+
+    sk = -sk;
+    tg.m_Data.m_Offset = sk;
+
+    beam::Serializer ser;
+    ser & td;
+
+    ByteBuffer buf;
+    ser.swap_buf(buf);
+
+    ECC::Hash::Value hv;
+    ECC::Hash::Processor() << Blob(buf) >> hv;
+
+    FStream fs;
+    fs.Open("l2tst1_treasury.bin", false, true);
+    fs.write(&buf.front(), buf.size());
+
+    std::cout << "l2_test1 treasury checksum: " << hv.full() << std::endl;
 }
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
