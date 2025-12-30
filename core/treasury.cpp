@@ -461,15 +461,21 @@ namespace beam
 
 			ret.emplace_back();
 			Burst& b = ret.back();
+			b.m_Aid = g.m_Aid;
 
 			b.m_Value = AmountBig::get_Hi(g.m_Value) ?
 				Amount(-1) :
 				AmountBig::get_Lo(g.m_Value);
 
-			b.m_Height = MaxHeight;
+			if (g.m_Data.m_vOutputs.empty())
+				b.m_Height = 0; // allocated for the contract
+			else
+			{
+				b.m_Height = MaxHeight;
 
-			for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
-				std::setmin(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+				for (size_t i = 0; i < g.m_Data.m_vOutputs.size(); i++)
+					std::setmin(b.m_Height, g.m_Data.m_vOutputs[i]->m_Incubation);
+			}
 		}
 
 		return ret;

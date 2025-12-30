@@ -199,6 +199,7 @@ namespace beam
 			{
 				Height m_Height;
 				Amount m_Value; // rounded to max value in case of overflow
+				Asset::ID m_Aid;
 			};
 
 			std::vector<Burst> get_Bursts() const;
