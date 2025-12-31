@@ -1423,6 +1423,8 @@ private:
                     else
                     {
                         NodeProcessor::ContractInvokeExtraInfo info;
+                        info.m_NumNested = 0;
+                        info.m_iParent = 0;
                         info.m_Cid = krn.m_Cid;
                         info.SetUnk(krn.m_iMethod, krn.m_Args, nullptr);
                         OnContract(krn, info);

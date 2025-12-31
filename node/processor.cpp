@@ -5349,10 +5349,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 		}
 
 		if (m_Bic.m_pvC)
-		{
 			m_pFundsIO = &fundsIO;
-			m_iCurrentInvokeExtraInfo = (uint32_t) m_Bic.m_pvC->size();
-		}
 
 		CallFar(cid, iMethod, m_Stack.get_AlasSp(), (uint32_t)krn.m_Args.size(), 0);
 
@@ -6379,14 +6376,18 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::CallFar(const bvm2::Contrac
 	{
 		auto& vec = *m_Bic.m_pvC; // alias
 
-		if (!vec.empty())
+		uint32_t iParent = 0;
+		assert(!m_FarCalls.m_Stack.empty());
+		if (m_FarCalls.m_Stack.size() > 1)
+		{
+			iParent = m_iCurrentInvokeExtraInfo;
 			CopyExtraInfoSigs();
+		}
 
 		ContractInvokeExtraInfo& x = vec.emplace_back();
-
-		x.m_iParent = m_iCurrentInvokeExtraInfo;
-		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(vec.size());
+		x.m_iParent = iParent;
 		x.m_NumNested = 0;
+		m_iCurrentInvokeExtraInfo = static_cast<uint32_t>(vec.size());
 
 		assert(m_pFundsIO);
 		m_pFundsIO->m_Map.swap(x.m_FundsIO.m_Map);
