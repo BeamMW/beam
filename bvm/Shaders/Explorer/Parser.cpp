@@ -28,6 +28,7 @@ namespace Testnet {
 #include "../blackhole/contract.h"
 #include "../l2tst1/contract_l1.h"
 #include "../l2tst1/contract_l2.h"
+#include "../pbft/contract.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -224,6 +225,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Minter, Minter::s_SID) \
 	macro(BlackHole, BlackHole::s_SID) \
 	macro(L2Tst1_L2, L2Tst1_L2::s_SID) \
+	macro(PBFT, PBFT::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -454,6 +456,13 @@ struct ParserContext
 	void OnDaoAccumulator_UserWithdraw(uint8_t nType);
 	void OnState_DaoAccumulator_Pool(DaoAccumulator::Pool&, const char* szName);
 	void OnState_DaoAccumulator_Users(DaoAccumulator::Pool&, uint8_t type, const char* szName);
+
+	void On_PBFT_Settings(const PBFT::Settings&);
+	void On_PBFT_ValidatorAddr(const PBFT::Address&);
+	void On_PBFT_DelegatorAddr(const PubKey&);
+	void On_PBFT_Status(const char*, PBFT::State::Validator::Status);
+	void On_PBFT_Stake(Amount);
+	void On_PBFT_Commission(uint16_t, bool bIsTbl = false);
 
 };
 
@@ -998,6 +1007,198 @@ void ParserContext::OnMethod_VaultAnon()
 		// no need to include the account, it's visible in the sigs list
 		break;
 	}
+}
+
+void ParserContext::OnState_PBFT()
+{
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = PBFT::State::Tag::s_Global;
+
+	PBFT::State::Global g;
+	if (!Env::VarReader::Read_T(k, g))
+		return;
+
+	g.FlushRewardPending();
+
+	DocAddAmount("Total-non-jailed-stake", g.m_TotakStakeNonJailed);
+
+	{
+		Env::DocGroup gr("Settings");
+		On_PBFT_Settings(g.m_Settings);
+	}
+
+
+	{
+		Env::DocGroup gr2("Validators");
+
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Validator");
+			DocAddTableHeader("Status");
+			DocAddTableHeader("Commission");
+			DocAddTableHeader("Weight");
+		}
+
+		Env::Key_T<PBFT::State::Validator::Key> vk0, vk1;
+		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
+		_POD_(vk1.m_KeyInContract.m_Address).SetObject(0xff);
+
+		for (Env::VarReader r(vk0, vk1); ; )
+		{
+			PBFT::State::ValidatorPlus vp;
+			if (!r.MoveNext_T(vk0, vp))
+				break;
+
+			Env::DocArray gr4("");
+
+			Env::DocAddBlob_T("", vk0.m_KeyInContract.m_Address);
+			On_PBFT_Status("", vp.m_Status);
+			On_PBFT_Commission(vp.m_Commission_cpc, true);
+
+			DocAddAmount("", vp.m_Weight);
+		}
+
+	}
+}
+
+void ParserContext::OnMethod_PBFT()
+{
+	switch (m_iMethod)
+	{
+	case PBFT::Method::Create::s_iMethod:
+		{
+			auto pArg = get_ArgsAs<PBFT::Method::Create>();
+			if (pArg)
+			{
+				GroupArgs gr;
+				On_PBFT_Settings(pArg->m_Settings);
+			}
+		}
+		break;
+
+	case PBFT::Method::ValidatorStatusUpdate::s_iMethod:
+		OnMethod("ValidatorStatusUpdate");
+		{
+			auto pArg = get_ArgsAs<PBFT::Method::ValidatorStatusUpdate>();
+			if (pArg)
+			{
+				GroupArgs gr;
+				On_PBFT_ValidatorAddr(pArg->m_Address);
+				On_PBFT_Status("Status", pArg->m_Status);
+			}
+		}
+		break;
+
+	case PBFT::Method::AddReward::s_iMethod:
+		OnMethod("AddReward");
+		break;
+
+	case PBFT::Method::DelegatorUpdate::s_iMethod:
+		OnMethod("DelegatorUpdate");
+		{
+			auto pArg = get_ArgsAs<PBFT::Method::DelegatorUpdate>();
+			if (pArg)
+			{
+				GroupArgs gr;
+			}
+		}
+		break;
+
+	case PBFT::Method::ValidatorRegister::s_iMethod:
+		OnMethod("ValidatorRegister");
+		{
+			auto pArg = get_ArgsAs<PBFT::Method::ValidatorRegister>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				On_PBFT_ValidatorAddr(pArg->m_Validator);
+				On_PBFT_DelegatorAddr(pArg->m_Delegator);
+				On_PBFT_Stake(pArg->m_Stake);
+				On_PBFT_Commission(pArg->m_Commission_cpc);
+			}
+		}
+		break;
+
+	case PBFT::Method::ValidatorUpdate::s_iMethod:
+		OnMethod("ValidatorUpdate");
+		{
+			auto pArg = get_ArgsAs<PBFT::Method::ValidatorUpdate>();
+			if (pArg)
+			{
+				GroupArgs gr;
+
+				On_PBFT_ValidatorAddr(pArg->m_Validator);
+				if (PBFT::State::ValidatorPlus::s_CommissionTagTomb == pArg->m_Commission_cpc)
+					Env::DocAddText("Action", "Tomb");
+				else
+					On_PBFT_Commission(pArg->m_Commission_cpc);
+			}
+		}
+		break;
+	}
+}
+
+void ParserContext::On_PBFT_Settings(const PBFT::Settings& stg)
+{
+	DocAddAid("Stake-Aid", stg.m_aidStake);
+	Env::DocAddNum("Unbond lock", stg.m_hUnbondLock);
+	DocAddAmount("Min stake", stg.m_MinValidatorStake);
+}
+
+void ParserContext::On_PBFT_ValidatorAddr(const PBFT::Address& addr)
+{
+	Env::DocAddBlob_T("Address", addr);
+}
+
+void ParserContext::On_PBFT_DelegatorAddr(const PubKey& addr)
+{
+	Env::DocAddBlob_T("Delegator", addr);
+}
+
+void ParserContext::On_PBFT_Status(const char* szName, PBFT::State::Validator::Status status)
+{
+	const char* szStatus = nullptr;
+	switch (status)
+	{
+	case PBFT::State::Validator::Status::Active: szStatus = "Active"; break;
+	case PBFT::State::Validator::Status::Jailed: szStatus = "Jailed"; break;
+	case PBFT::State::Validator::Status::Suspended: szStatus = "Suspended"; break;
+	case PBFT::State::Validator::Status::Tombed: szStatus = "Tombed"; break;
+	case PBFT::State::Validator::Status::Slash: szStatus = "Slash"; break;
+
+	default:
+		Env::DocAddNum(szName, static_cast<uint32_t>(status));
+		return;
+	}
+
+	Env::DocAddText(szName, szStatus);
+}
+
+void ParserContext::On_PBFT_Stake(Amount val)
+{
+	DocAddAmount("Stake", val);
+}
+
+void ParserContext::On_PBFT_Commission(uint16_t commission_cpc, bool bIsTbl /* = false */)
+{
+	char szVal[Utils::String::Decimal::DigitsMax<uint16_t>::N + 2];
+	auto n1 = Utils::String::Decimal::Print(szVal, commission_cpc / 100);
+
+	auto resid = commission_cpc % 100;
+	//if (resid)
+	{
+		szVal[n1++] = '.';
+		Utils::String::Decimal::Print(szVal + n1, resid, 2);
+	}
+	
+	Env::DocAddText(bIsTbl ? "" : "Commission", szVal);
 }
 
 void ParserContext::OnState_VaultAnon()
