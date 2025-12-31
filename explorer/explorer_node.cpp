@@ -51,8 +51,6 @@ int main(int argc, char* argv[]) {
     beam::Rules r;
     beam::Rules::Scope scopeRules(r);
 
-    SetCurrentDirectoryW(L"C:\\Beam\\dappnet2");
-
     Options options;
     if (!parse_cmdline(argc, argv, options, r)) {
         return 1;
