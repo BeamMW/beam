@@ -4,15 +4,17 @@
   <meta charset="UTF-8">
 
   <!-- WELCOME TO BEAM SMART EXPLORER!
-  - This is an interactive web display of the data queried to a Beam explorer node.
+  - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.8.2
+  - Current version of the file: v0.8.3
 
   General rules for developement:
-  - Let's keep everything in one single standalone file, without external dependencies!
+  - Let's keep everything in one single standalone file, without external dependencies.
+  - No cookies, no trackers. Only local storage to remember user's preferences.
   - Vanilla HTML/JS/CSS compatible with Chrome 83 (to allow using it as a Beam Wallet DApp).
   - Quotes are double for HTML and single for JS (and backticks to allow using both, multilines and variable substitutions).
+  - Rule of thumb: 'undefined' is set by the computer (multiple causes) while 'null' is set by the developer (= no value by choice). We use 'value == null' to check both.
   - Graphics are Unicode symbols or embedded SVGs (Remark: inline SVGs in a file served as 'text/html' don't require 'xmlns' definition).
   - Except for filtering, sorting and charting, JS functions shall mainly modify classes while most display features are done by CSS.
   - That way, if we disable the main styling section, only the basic processing of the raw data will be visible.
@@ -52,9 +54,9 @@
   // The first one for each network will be the default one.
   const explorerNodes = {
     'mainnet': [
+      'https://BeamSmart.net:8000/',
       'https://explorer.0xmx.me/api/',
       'https://explorer-api.beamprivacy.community/',
-      'https://BeamSmart.net:8000/',
       //'http://localhost:8888/',
     ],
     'dappnet': [
@@ -221,8 +223,15 @@
     --color_graph_cursor_line: #666666;
     --color_graph_cursor_marker: #666666;
     --color_graph_cursor_marker_hover: #dbdb8a;
+    --color_graph_cursor_scale_background: #f0f0f0;
+    --color_graph_cursor_scale_shadow: grey;
     --color_graph_row_highlight: #dbdb8a;
     --color_graph_row_highlight_hover: #cdcd70;
+    --color_graph_option_text: var(--color_graph_legend_title);
+    --color_graph_option_text_dim: var(--color_graph_legend_subtitle);
+    --color_graph_option_text_dimer: #999;
+    --color_graph_option_background: var(--color_collapsible_content_background);
+    --color_graph_option_halo: var(--color_graph_legend_subtitle);
     --color_graph_legend_title: #323232;
     --color_graph_legend_subtitle: #777;
   }
@@ -364,8 +373,15 @@
     --color_graph_cursor_line: #666666;
     --color_graph_cursor_marker: #666666;
     --color_graph_cursor_marker_hover: #ffffa8;
+    --color_graph_cursor_scale_background: #fafafa;
+    --color_graph_cursor_scale_shadow: grey;
     --color_graph_row_highlight: #ffffa8;
     --color_graph_row_highlight_hover: #fcfc86;
+    --color_graph_option_text: var(--color_graph_legend_title);
+    --color_graph_option_text_dim: var(--color_graph_legend_subtitle);
+    --color_graph_option_text_dimer: #999;
+    --color_graph_option_background: var(--color_collapsible_content_background);
+    --color_graph_option_halo: var(--color_graph_legend_subtitle);
     --color_graph_legend_title: #323232;
     --color_graph_legend_subtitle: #777;
   }
@@ -643,23 +659,21 @@
   }
 
   /* FORMAT TABLES */
-  table, td, th {
+  .dataTable, .dataTable td, .dataTable th {
     color: var(--color_text); /* Default text color */
     font-size: 1.5rem; /* Default text size */
     border: 1px solid var(--color_table_border);
     border-collapse: collapse; /* Join table and cell borders as one single line */
     padding: 5px; /* Add a small padding */
   }
-  table thead > tr th {
+  .dataTable thead > tr th {
     color: var(--color_table_header_text);
     background-color: var(--color_table_header); /* Background color for table header cells declared as such ("thead" tag) */
   }
-  th {
+  .dataTable th {
     white-space: nowrap; /* Don't wrap header text */
   }
-  .tableGeneric {
-    /* Nothing special */
-  }
+  .tableGeneric { }
   .tableUTXO, .tableKernels {
     min-width: 50ch; /* Just to keep them visually balanced (inputs, outputs, kernels) */
     margin: 5px;
@@ -673,9 +687,7 @@
   .tableFunds_compact, .tableFunds_full {
     width: 100%; /* Occupy full width of the column they appear in */
   }
-  .tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory, .tableHistoricalBlocks {
-    /* Nothing special */
-  }
+  .tableContracts, .tableAssetHistory, .tableAssets, .tableCallHistory, .tableHistoricalBlocks { }
   .contractCall {
     border: 3px solid var(--color_table_rows_wrapper); /* Group multiple contract calls within a thick border */
   }
@@ -685,9 +697,9 @@
   .divTableStatus, #divTableBlocks {
     /* These div are just a dirty hack added to wrap and identify some special types of generic tables... */
   }
-  /* Alternate row colors (...although the colors get mixed up when the table is filtered!) */
-  table tbody > tr:nth-child(odd) { background-color: var(--color_table_row_odd); }
-  table tbody > tr:nth-child(even) { background-color: var(--color_table_row_even); }
+  /* Alternate row colors of data tables (...although the colors get mixed up when the table is filtered!) */
+  .dataTable tbody > tr:nth-child(odd) { background-color: var(--color_table_row_odd); }
+  .dataTable tbody > tr:nth-child(even) { background-color: var(--color_table_row_even); }
   /* Highlight when hover on main rows (for certain tables only) */
   .tableUTXO tbody > tr:hover, .tableKernels tbody > tr:hover,
   .tableOwned_full tbody > tr:hover, .tableFunds_full tbody > tr:hover,
@@ -695,13 +707,13 @@
   #divTableBlocks .tableGeneric tbody > tr:hover, .tableContracts tbody > tr:hover {
     background-color: var(--color_table_row_hover);
   }
-  tr.rowHighlight { /* Highlight a full row */
+  .dataTable tr.rowHighlight { /* Highlight a full row */
     background-color: var(--color_graph_row_highlight) !important; /* We use '!important' to override the alternate coloring of rows */
   }
-  tr.rowHighlight:hover {
+  .dataTable tr.rowHighlight:hover {
     background-color: var(--color_graph_row_highlight_hover) !important;
   }
-  .emptyTable { /* Hide empty tables */
+  .dataTable .emptyTable { /* Hide empty tables */
     display: none;
   }
 
@@ -734,6 +746,7 @@
   #BeamLogo:hover svg {
     filter: saturate(1.5) drop-shadow(0 0 5px var(--color_logo_shadow));
   }
+  #NetworkSelection { }
   #NetworkSelect {
     border: none;
     font-size: 1.2rem;
@@ -751,31 +764,57 @@
     background-color: var(--color_network_select_background_active); /* Change background */
     filter: drop-shadow(0 0 3px var(--color_network_select_shadow)); /* Add a halo */
   }
-  #nodeSelectionPopup { /* Dialog popup */
+  .popupDialog { /* Dialog popup */
     border: solid 5px var(--color_popup_border);
     border-radius: 1rem;
     box-shadow: 15px 15px 15px -10px #000;
     background-color: var(--color_popup_background);
     color: var(--color_popup_text);
   }
-  #nodeSelectionPopup::backdrop { /* A fun effect, just for backdrops! */
+  .popupDialog::backdrop { /* A fun effect, just for backdrops! */
     background: rgba(0,0,0,30%);
     backdrop-filter: blur(1px);
   }
-  #nodeSelectionForm {} /* Form */
-  .nodeSelectionTitle { /* Popup title */
+  .popupTitle { /* Popup title */
     font-size: 1.5rem;
     color: var(--color_popup_text);
-    padding: 0px 2px 0px 2px;
     text-align: center;
     font-weight: bold;
+    padding: 0px 2px 10px 2px;
   }
-  .nodeSelectionText { /* Popup text */
+  .popupSubtitle { /* Popup subtitle */
     font-size: 1.3rem;
     color: var(--color_popup_text);
-    padding: 15px 0 5px 0;
     text-align: left;
     font-weight: bold;
+    padding: 15px 2px 5px 2px;
+  }
+  .popupText { /* Popup text */
+    font-size: 1.3rem;
+    color: var(--color_popup_text);
+    text-align: left;
+    font-weight: normal;
+    padding: 5px 2px 5px 2px;
+  }
+  .popupButtons { /* Group of popup buttons */
+    padding: 5px 5px 5px 5px;
+    text-align: center;
+  }
+  .popupButton { /* Popup button */
+    cursor: pointer;
+    margin: 2px 2px 2px 2px;
+    padding: 5px 10px 5px 10px;
+    font-weight: bold;
+    color: var(--color_popup_button_text);
+    background-color: var(--color_popup_button_background);
+    border: solid 1px var(--color_popup_button_border);
+    border-radius: 0.35em; /* Slightly round corners */
+    vertical-align: middle;
+  }
+  .popupButton:hover, .popupButton:focus {
+    outline: none; /* Avoid the browser default focus outline */
+    background-color: var(--color_popup_button_background_hover);
+    filter: drop-shadow(0 0 1px var(--color_popup_button_border));
   }
   #NodeSelectionList { /* List of explorer nodes URLs */
     padding: 0px 5px 10px 5px;
@@ -791,26 +830,6 @@
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
-  }
-  .nodeSelectionButtons { /* List of explore nodes URLs */
-    padding: 5px 5px 5px 5px;
-    text-align: center;
-  }
-  .popupButton { /* Buttons */
-    cursor: pointer;
-    margin: 2px 2px 2px 2px;
-    padding: 5px 10px 5px 10px;
-    font-weight: bold;
-    color: var(--color_popup_button_text);
-    background-color: var(--color_popup_button_background);
-    border: solid 1px var(--color_popup_button_border);
-    border-radius: 0.35em; /* Slightly round corners */
-    vertical-align: middle;
-  }
-  .popupButton:hover, .popupButton:focus {
-    outline: none; /* Avoid the browser default focus outline */
-    background-color: var(--color_popup_button_background_hover);
-    filter: drop-shadow(0 0 1px var(--color_popup_button_border));
   }
   #BannerCenter{
     display: table-cell;
@@ -854,9 +873,7 @@
     display: block;
     padding: 8px 2px 0 2px;
   }
-  #SearchForm {
-    /* Nothing special */
-  }
+  #SearchForm { }
   #SearchField {
     display: inline-block;
     border-radius: 0.25em; /* Slightly round corners */
@@ -1138,9 +1155,7 @@
     padding: 2px 2px 2px 2px;
     margin: 2px 0 0 0;
   }
-  #tableOptionsForm { /* Form name */
-    /* Nothing Special */
-  }
+  #tableOptionsForm { } /* Form name */
   #selectionOptions { /* Row and Column selection options */
     display: flex; /* Flex-container to organize #rowSelectionOptions #columnSelectionOptions and #columnOptions (when defined)) */
     flex-direction: row;
@@ -1185,9 +1200,7 @@
     display: inline-block;
     padding: 0 5px 0 5px;
   }
-  .labelStep, .labelHeight { /* label */
-    /* Nothing special */
-  }
+  .labelStep, .labelHeight { } /* label */
   .labelRows, .labelColumns { /* label */
     font-weight: bold;
     margin: 0 0 0 4px;
@@ -1249,18 +1262,6 @@
   /* SPECIAL OPTIONS FOR BLOCK HEADERS TABLE */
   /* (the Block Headers table has hidden descriptions and drag and drop items) */
   #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #pasteColumns, #reorderAllColumns {} /* Columns selection links */
-  #pasteColumnsPopup { /* Dialog popup */
-    border: solid 5px var(--color_popup_border);
-    border-radius: 1rem;
-    box-shadow: 15px 15px 15px -10px #000;
-    background-color: var(--color_popup_background);
-    color: var(--color_popup_text);
-  }
-  #pasteColumnsPopup::backdrop { /* A fun effect, just for backdrops! */
-    background: rgba(0,0,0,30%);
-    backdrop-filter: blur(1px);
-  }
-  #pasteColumnsForm {} /* Form */
   #pasteColumnsInput { /* Input text */
     border: 1px solid var(--color_popup_input_border);
     border-radius: 0.25em; /* Slightly round corners */
@@ -1297,11 +1298,6 @@
     font-style: italic;
     color: var(--color_popup_input_placeholder);
     text-decoration: none;
-  }
-  .pasteColumnsText { /* Popup text */
-    font-size: 1.5rem;
-    color: var(--color_popup_text);
-    padding: 5px 2px 10px 2px;
   }
   .pasteColumnsList { /* List of codes: Diplayed as auto-adjusting columns */
     display: block;
@@ -1371,9 +1367,7 @@
   .columnOptionCheckbox { /* Normal checkboxes */
     cursor: pointer;
   }
-  .columnOptionCheckboxDisabled { /* Disabled checkboxes */
-    /* Nothing special */
-  }
+  .columnOptionCheckboxDisabled { } /* Disabled checkboxes */
   .columnOptionText { /* Container for the text next to each checkbox */
     display: table-cell;
     width: 100%;
@@ -1566,10 +1560,6 @@
     margin: 0;
     padding: 0;
   }
-  #graphCollapsible {
-    width: 100%;
-    max-width: 1200px; /* Just for elegance, in case the screen width is very wide */
-  }
   #graphCollapsible .collapsible-label, #optionsCollapsible .collapsible-label {
     display: inline;
     white-space: nowrap; /* Don't wrap labels */
@@ -1590,71 +1580,112 @@
   }
   #graphCollapsible[open] .collapsible-content {
     margin: 5px 0 10px 0; /* For some reason I have to increase the margin-bottom of the second collapsible... */
-    padding: 5px 0 5px 0;
   }
   #graphCollapsible .collapsible-content {
-    width: 100%;
-    height: 300px;
-    display: flex; /* This will allow the graph to occupy all the available vertical space */
-    flex-direction: column;
+    width: 800px;
+    height: 300px; /* This gives an initial reference height for all its children */
     resize: both; /* Make it resizable with mouse */
     overflow: hidden; /* Avoid scrollbars appearing */
     min-width: 400px;
     min-height: 200px;
   }
-  #resetColors {
-    display: block;
-    margin: 0 5px 0 8px;
-  }
-  #resetColors a {
-    font-size: 0.8rem;
-    color: var(--color_graph_legend_title);
-    vertical-align: middle;
-  }
   #graphContainer {
-    display: flex; /* This will allow the graph to occupy all the available horizontal space (minus axis when displayed) */
-    flex-direction: row;
-    flex: 1 1 auto; /* This element will extend to use all the available vertical space */
-    width: auto;
-    height: auto;
-    min-height: 0; /* We set this value to avoid the default 'auto' (where flex items cannot be smaller than their content). Otherwise the legend below the canvas can disapear when we shrink the container! */
+    width: 100%;
+    height: 100%; /* Needed for height inheritance */
   }
-  #graphSVGContainer {
-    display: inline-block;
-    flex: 1 1 auto; /* This element will extend to use all the available horizontal space */
-    width: auto; /* Will use the maximum horizontal space available */
-    height: 100%; /* Use all the available space in the container */
+  #graphContainer table, #graphContainer td {
+    height: 100%; /* Needed for height inheritance */
   }
-  #axisSVGContainer {
-    display: inline-block;
-    flex: 0 0 auto; /* This element will use a constant horizontal space */
-    width: max-content; /* Adapt width to its content (i.e. the SVG width) */
-    height: 100%; /* Use all the available space in the container */
-    white-space: nowrap;
+  #graphSVGContainer, .yAxisSVGContainer {
+    height: 100%; /* Needed for height inheritance */
   }
-  .axisContainer {
-    cursor: default;
+  #graph-main-plot {
+    width:100%;
   }
   #graphSVG {
-    display: block;
-    outline: none;
-    border: none;
     width: 100%; /* Use all the available space in its container */
-    height: 100%; /* Use all the available space in its container */
+    height: 100% !important; /* Overtake the initial inline definition */
+  }
+  #graph-vertical-scale { }
+  .yAxisContainer {
+    cursor: default;
+    margin: 0 3px 0 0;
+  }
+  #graph-horizontal-scale { }
+  #xAxisSVGContainer {
+    cursor: default;
+    width: 100%; /* Use all the available space in its container */
+  }
+  #graph-options {
+    vertical-align: top;
+  }
+  #xAxisSelection {
+    vertical-align: top;
+  }
+  #xAxisSelect {
+    border: none;
+    appearance: none; /* Hide the dropdown arrow */
+    -moz-appearance: none; /* Needed on older Firefox */
+    -webkit-appearance: none; /* Needed in Chrome 83 */
+    width: 1.2em; /* Display only the first character of the selected option */
+    font-size: 1.4rem;
+    line-height: 1.3;
+    font-weight: bold;
+    text-align: left;
+    color: var(--color_graph_option_text_dim);
+    background-color: var(--color_graph_option_background);
+    border: none;
+    outline: none;
+    border-radius: 0.2em; /* Slightly round corners */
+    margin: 0;
+    padding: 0 3px 0 3px;
+  }
+  #xAxisSelect:hover, #xAxisSelect:focus {
+    cursor: pointer;
+    filter: drop-shadow(0 0 2px var(--color_graph_option_halo)); /* Add a halo */
+  }
+  #xAxisSelect option {
+    color: var(--color_graph_option_text);
+    font-weight: normal; /* Remove the bold in the dropdown list */
+  }
+  #xAxisSelect option:checked { /* Doesn't seem to work on Firefox... */
+    font-weight: bold;
+  }
+  #xAxisSelect option:disabled {
+    color: var(--color_graph_option_text_dimer); /* Dim disabled options */
+  }
+  #resetColors {
+    margin: 0 5px 0 0;
+    cursor: pointer;
+    vertical-align: top;
+    text-align: left;
+  }
+  #resetColors * {
+    filter: grayscale(30%); /* Decolor SVG elements */
+  }
+  #resetColors svg {
+    vertical-align: middle;
+  }
+  #resetColors:hover * {
+    filter: grayscale(0); /* Recolor SVG elements on hover */
+  }
+  #resetColors:hover svg {
+    filter: drop-shadow(0 0 2px grey); /* Add shadow to SVG icon on hover */
   }
   #plotSVG {
     display: block;
-    outline: none;
-    border: none;
     width: 100%; /* Use all the available space in its container */
     height: 100%; /* Use all the available space in its container */
   }
-  .axisSVG {
+  .yAxisSVG {
     display: inline-block;
-    outline: none;
-    border: none;
     /*width: max-content /* 'max-content' does not work on SVGs, so the width will be set by JS (to adapt it the SVG content) */
-    height: 100%; /* Use all the available space in its container */
+    height: 100% !important; /* Overtake the initial inline definition */
+  }
+  #xAxisSVG {
+    display: block;
+    width: 100%;
+    /*height: max-content /* 'max-content' does not work on SVGs, so the height will be set by JS (to adapt it the SVG content) */
   }
   .scaleLine .scalePrimaryTick {
     stroke-width: 2px;
@@ -1665,11 +1696,23 @@
   .scaleValue {
     font-size: 1rem;
   }
-  .scaleCursor { 
-    /* Nothing special */
+  .scaleCursorY, #scaleCursorX { } /* SVG container elements */
+  .scaleCursorYMarker, #scaleCursorXMarker { } /* Colors of fill and stroke of Markers are defined by JS */
+  .scaleCursorYValue, #scaleCursorXValue {
+    /* Colors of text are defined by JS */
+    font-size: 1rem !important; /* To supersed inline style */
+    font-weight: bold !important; /* To supersed inline style */
+    border-radius: 3px; /* Slightly round corners */
+    background: var(--color_graph_cursor_scale_background);
+    filter: drop-shadow(0 0 2px var(--color_graph_cursor_scale_shadow));
+    padding: 2px;
+    margin: 2px;
   }
-  .scaleCursorMarker {
-    /* Fill and stroke colors are defined by JS */
+  .yAxisContainer:hover .scaleCursorYMarker,
+  #xAxisSVGContainer:hover #scaleCursorXMarker { } /* Any good hover effect to add here? */
+  .yAxisContainer:hover .scaleCursorYValue,
+  #xAxisSVGContainer:hover #scaleCursorXValue {
+    filter: drop-shadow(0 0 3px var(--color_graph_cursor_scale_shadow));
   }
   #graphBox {
     fill: var(--color_graph_area);
@@ -1698,11 +1741,8 @@
   .graphPolyline {
     stroke-width: 1.5px;
   }
+  #graph-legend { }
   #graphLegend {
-    display: block;
-    flex: 0 0 auto; /* This element will keep its size (i.e. it won't grow more than it needs) */
-    width: auto;
-    height: auto;
     margin: 5px 10px 5px 10px;
     font-size: 1.3rem;
     line-height: 1.8rem;
@@ -1716,56 +1756,47 @@
     font-weight: normal;
     font-style: italic;
   }
-  .graphLegendItem { /* The colors of these items will be step by a javascript function */
+  .graphLegendItem { /* The colors of these items will be set by a javascript function */
     display: inline-block;
-    cursor: default;
     margin: 0 5px 0 5px;
+  }
+  .graphColorPickerLabel {
+    cursor: pointer;
   }
   .graphColorPicker { /* Hide the default color picker... */
     display: none;
   }
-  .graphColorPickerLabel::after { /* ...and use another symbol instead */
+  .graphColorPickerLabel::before { /* ...and use another symbol instead */
     content: "\002B24";
     font-size: 1.5rem;
-    cursor: pointer; /* Special pointer for color picker */
     vertical-align: middle; /* To align it nicely with the legend text */
   }
-  .graphColorPickerLabel:hover::after {
+  .graphColorPickerLabel:hover::before {
     text-shadow: 0 0 0.4em;
   }
   .graphLegendText {
     display: inline-block;
     vertical-align: middle; /* To align it nicely with the color picker symbol */
-    min-width: 18.5em; /* Fix width with some space reserved for the graph values */
-    padding: 0 0 0 2px;
-  }
-  .graphLegendName {
     font-weight: bold;
   }
-  .graphLegendValue {
-    font-weight: normal;
+  .graphLegendItem.graph-highlight .graphLegendText { /* Highlight legend label (JS sets the highlighting classes) */
+    text-decoration: underline;
   }
-  .graphLegendItem.graph-highlight .graphLegendName { /* Highlight legend label (JS sets the highlighting classes) */
-    font-weight: 900; /* Boldest */
-  }
-  .graphLegendItem.graph-highlight .graphLegendValue { /* Highlight legend values */
-    font-weight: bold;
-  }
-  #axisContainer {
+  #yAxisContainer {
     fill: var(--color_graph_area);
     stroke: var(--color_graph_border);
     stroke-width: 1px;
   }
-  .axisContainer.graph-highlight svg .scaleLine { /* Highlight axis line */
+  .yAxisContainer.graph-highlight svg .scaleLine { /* Highlight axis line */
     stroke-width: 5px;
   }
-  .axisContainer.graph-highlight svg .scalePrimaryTick { /* Highlight axis ticks */
+  .yAxisContainer.graph-highlight svg .scalePrimaryTick { /* Highlight axis ticks */
     stroke-width: 3px;
   }
-  .axisContainer.graph-highlight svg .scaleSecondaryTick { /* Highlight axis ticks */
+  .yAxisContainer.graph-highlight svg .scaleSecondaryTick { /* Highlight axis ticks */
     stroke-width: 2px;
   }
-  .axisContainer.graph-highlight svg .scaleValue { /* Highlight axis values */
+  .yAxisContainer.graph-highlight svg .scaleValue { /* Highlight axis values */
     font-weight: bold;
   }
   #graphArea.graph-highlight .graphPolyline { /* To better highlight one graph, dim all of them... */
@@ -1815,6 +1846,9 @@
   <svg style="display:none"><symbol id="double_left_icon" fill="none" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 11 9 L 8 12 L 11 15"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M 15 9 L 12 12 L 15 15"/></symbol></svg>
   <svg style="display:none"><symbol id="list_icon" viewBox="0 -3 10 14"><path d="M4 0h7a1 1 0 1 1 0 2H4a1 1 0 0 1 0-2zM1 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 4h7a1 1 0 1 1 0 2H4a1 1 0 1 1 0-2zM1 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></symbol></svg>
   <svg style="display:none"><symbol id="mode_icon" viewBox="0 0 512 512"><path d="M448 256c0-106-86-192-192-192V448c106 0 192-86 192-192zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256z"/></symbol></svg>
+  <svg style="display:none"><symbol id="reload_icon" viewBox="2 0 120 120"><path d="M 91 42 A 36 36 0 1 0 87 84 L 101 98 A 56 56 0 1 1 108 32 Z"/><polygon points="120,25 120,69 76,50"/></symbol></svg>
+  <svg style="display:none"><symbol id="back_icon" viewBox="3 1 60 34"><path d="M3 18L19 2v10h42v12H19v10z"/></symbol></svg>
+  <svg style="display:none"><symbol id="palette_icon" viewBox="0 0 500 500"><path fill="#00b0dd" d="M250 490c-44 0-85-12-120-32l120-208v240"/><path fill="#19a090" d="M370 458a239 239 0 0 1-120 32V250l120 208"/><path fill="#e9d019" d="M481 185c6 21 9 42 9 65H250l208-120c10 17 17 36 23 55"/><path fill="#a1c048" d="M490 250c0 43-12 84-32 120L250 250h240"/><path fill="#3b5da1" d="M42 370a239 239 0 0 1-32-120h240L42 370"/><path fill="#db7f31" d="M250 10a239 239 0 0 1 120 32L250 250V10"/><path fill="#008cca" d="M130 458a241 241 0 0 1-88-88l208-120-120 208"/><path fill="#00ad6e" d="M458 370a240 240 0 0 1-88 88L250 250l208 120"/><path fill="#eead1b" d="M370 42c36 21 66 51 88 88L250 250 370 42"/><path fill="#ce3974" d="M42 130c21-37 51-67 88-88l120 208L42 130"/><path fill="#dc545b" d="M130 42a239 239 0 0 1 120-32v240L130 42"/><path fill="#a05094" d="M10 250a240 240 0 0 1 32-120l208 120H10"/></symbol></svg>
 
   <!-- Wrappers (added just to keep footer at the bottom) -->
   <div id="Page-container">
@@ -1830,27 +1864,26 @@
               <svg height="6em" width="6em" viewBox="42 42 460 460"><defs><linearGradient id="Gradient1" x1="-24.6" y1="683.51" x2="-23.57" y2="683.51" gradientTransform="matrix(98, 0, 0, -47, 2497.75, 32364.11)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient><linearGradient id="Gradient2" x1="-28.7" y1="703.17" x2="-27.72" y2="703.17" gradientTransform="matrix(-98, 0, 0, 26, -2353.25, -18019.72)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9d6eff" stop-opacity="0"/><stop offset="1" stop-color="#a18cff"/></linearGradient><linearGradient id="Gradient3" x1="-28.69" y1="682.8" x2="-27.57" y2="682.8" gradientTransform="translate(-2353.25 29603.78) rotate(180) scale(98 43)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ae60d6" stop-opacity="0"/><stop offset="1" stop-color="#ab38e6"/></linearGradient><linearGradient id="Gradient4" x1="-28.68" y1="685.09" x2="-27.47" y2="685.09" gradientTransform="translate(-2353.25 41328.94) rotate(180) scale(98 60)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fd76fd" stop-opacity="0"/><stop offset="1" stop-color="#ff51ff"/></linearGradient></defs><circle id="circle" fill="#0b1624" cx="272" cy="272" r="230"/><g id="logo"><path id="Triangle-left" fill="#24c1ff" d="M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z"/><path id="Triangle-right" fill="#0b76ff" d="M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z"/><polygon id="Triangle-small-left" fill="#39fff2" points="272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3"/><polygon id="Triangle-small-right" fill="#00e2c2" points="272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3"/><polygon id="Ray1-left" fill="url(#Gradient1)" points="86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81"/><polygon id="Ray2-right-low" fill="url(#Gradient2)" points="458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33"/><polygon id="Ray3-right-mid" fill="url(#Gradient3)" points="458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67"/><polygon id="Ray4-right-top" fill="url(#Gradient4)" points="458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83"/></g></svg>
             </a>
           </div>
-          <div id="Network">
+          <div id="NetworkSelection">
             <!-- Network selection dropdown (the options will be added by JS) -->
             <select id="NetworkSelect" title="Change network" name="network"></select>
             <!-- Popup for selecting the network (will be activated by a link in the About section) -->
             <!-- Remark: We use 'dialog' because 'popover' does not work on Chrome 83. -->
-            <dialog id="nodeSelectionPopup">
+            <dialog class="popupDialog" id="nodeSelectionPopup">
               <form id="nodeSelectionForm" name="nodeSelectionForm" method="dialog" onsubmit="applyNodeSelection();">
-                <div class="nodeSelectionTitle">- Explorer nodes -</div>
-                <!-- Display a list of explorer nodes URLs (the list will be added by JS) -->
-                <div id="NodeSelectionList"></div>
-                <div class="nodeSelectionButtons">
+                <div class="popupTitle">- Explorer nodes -</div>
+                <div id="NodeSelectionList"></div> <!-- The list of explorer nodes URLs will be added by JS -->
+                <div class="popupButtons">
                   <button type="submit" class="popupButton" id="nodeSelectionApply" title="Save prefered explorer nodes">Apply</button>
                   <button type="button" class="popupButton" id="nodeSelectionDefault" title="Select default explorer nodes" onclick="defaultNodeSelection();">Default</button>
-                  <button type="button" class="popupButton" id="nodeSelectionCancel" title="Cancel" onclick="closeNodeSelection();">Cancel</button>
+                  <button type="button" class="popupButton" id="nodeSelectionCancel" title="Cancel" onclick="closeDialog('nodeSelectionPopup');">Cancel</button>
                 </div>
               </form>
             </dialog>
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.2</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.3</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -1872,8 +1905,8 @@
         <!-- Banner symbols for navigation and special functions -->
         <div id="Navigation">
           <div class="NavRow">
-            <a id="Back" href="javascript:history.back();" title="Back"><svg width="1.2em" height="1.2em" viewBox="3 1 60 34"><path d="M3 18L19 2v10h42v12H19v10z"/></svg></a>
-            <a id="Reload" href="" title="Reload"><svg width="1.2em" height="1.2em" viewBox="-5 -10 140 140"><path d="M60,95.5c-19.575,0-35.5-15.926-35.5-35.5c0-19.575,15.925-35.5,35.5-35.5c13.62,0,25.467,7.714,31.418,19h22.627 C106.984,20.347,85.462,3.5,60,3.5C28.796,3.5,3.5,28.796,3.5,60c0,31.203,25.296,56.5,56.5,56.5 c16.264,0,30.911-6.882,41.221-17.88L85.889,84.255C79.406,91.168,70.201,95.5,60,95.5z"/><polygon points="120,21.832 119.992,68.842 74.827,55.811"/></svg></a>
+            <a id="Back" href="javascript:history.back();" title="Back"><svg width="1.2em" height="1.2em"><use href="#back_icon"/></svg></a>
+            <a id="Reload" href="" title="Reload"><svg width="1.1em" height="1.1em"><use href="#reload_icon"/></svg></a>
           </div>
           <div class="NavRow">
             <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></a>
@@ -1970,10 +2003,10 @@
     // Make collapsible and add some headers if more than a few rows
     let maxRows = 5;
     if (jFunds.length < maxRows) {
-      text += '<table class="tableFunds_compact" border="1" cellspacing="0">';
+      text += '<table class="dataTable tableFunds_compact" border="1" cellspacing="0">';
     } else {
       text += MakeCollapsibleBegin(jFunds.length + '&nbsp;assets', 'small', 'close');
-      text +=`<table class="tableFunds_full" border="1" cellspacing="0">
+      text +=`<table class="dataTable tableFunds_full" border="1" cellspacing="0">
                 <thead><tr>
                   <th><span class="th">Asset</span></th>
                   <th><span class="th">Amount</span></th>
@@ -2027,7 +2060,7 @@
 
     if (obj.type == 'table') {
       const jTbl = obj.value;
-      let text = '<table class="tableGeneric" border="1" cellspacing="0">';
+      let text = '<table class="dataTable tableGeneric" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(jTbl);
       text += '</table>';
       return text;
@@ -2041,15 +2074,21 @@
 
     if (obj.type == 'bool') { return obj.value > 0 ? AddClass('yes', 'bool yes') : AddClass('no', 'bool no') }
 
-    if (obj.type == 'time') {
-      let d = new Date();
-      let diff = d.getTimezoneOffset();
-      d = new Date((obj.value - diff * 60) * 1000);
-      let txt = d.toISOString().split('T');
-      return AddClass(txt[0] + ' ' + txt[1].split('.')[0], 'time');
-    }
+    if (obj.type == 'time') { return AddClass(formatTimestamp(obj.value, 'local'), 'time', 'data-raw="' + obj.value + '" title="UTC: ' + formatTimestamp(obj.value) + '"'); }
+    // Remark: We keep as 'data-raw' the raw timestamp (given in seconds since 01/01/1970 00:00 UTC)
 
     return '';
+  }
+
+  function formatTimestamp(time, zone) { // Human readable format of timestamps (given in seconds since 01/01/1970 00:00 UTC)
+    // If 'zone' is 'local', we will convert to the browser local timezone, otherwise we'll keep timestamp's UTC
+    let d = new Date(); // Get current local date and time
+    const diff = (zone == 'local') ? d.getTimezoneOffset() : 0 ; // If needed, get difference between local time and UTC
+    d = new Date((time - diff * 60) * 1000); // Get date object from miliseconds
+    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ
+    const txt = iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
+    // Alternative: The 'Intl.DateTimeFormat' with 'sv-SE' also happens to match this format...
+    return txt;
   }
 
   function Obj2Html(obj) {
@@ -2087,8 +2126,8 @@
       if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
       // For the table of block headers, we also replace some default labels and add the corresponding codes and descriptions
       if (g_type == 'hdrs') {
-        for (let item of columnHeaders) {
-          if (obj == item.original) { return '<span title="' + item.description + '" data-code="' + item.code + '">' + item.title + '</span>' }
+        for (let code of Object.keys(columnHeaders)) {
+          if (obj == columnHeaders[code].original) { return '<span title="' + columnHeaders[code].description + '" data-code="' + code + '">' + columnHeaders[code].title + '</span>' }
         }
       }
     }
@@ -2110,7 +2149,7 @@
 
   function DisplayContracts() {
     let text = `<h2 class="title">Deployed Smart Contracts</h2>
-                <table class="tableContracts" border="1" cellspacing="0">
+                <table class="dataTable tableContracts" border="1" cellspacing="0">
                   <thead><tr>
                     <th><span class="th">Cid</span></th>
                     <th><span class="th">Kind</span></th>
@@ -2140,10 +2179,10 @@
         // Make collapsible and add some headers if more than a few rows
         let maxRows = 5;
         if (jOwned.length < maxRows) {
-          text += '<table class="tableOwned_compact" border="1" cellspacing="0">';
+          text += '<table class="dataTable tableOwned_compact" border="1" cellspacing="0">';
         } else {
           text += MakeCollapsibleBegin(jOwned.length + '&nbsp;owned', 'small', 'close');
-          text += `<table class="tableOwned_full" border="1" cellspacing="0">
+          text += `<table class="dataTable tableOwned_full" border="1" cellspacing="0">
                     <thead><tr>
                       <th><span class="th">Asset</span></th>
                       <th><span class="th">Description</span></th>
@@ -2186,7 +2225,7 @@
     text += DisplayAssetOptions();
 
     // Display table
-    text += `<table class='tableAssetHistory' border='1' cellspacing='0'>
+    text += `<table class='dataTable tableAssetHistory' border='1' cellspacing='0'>
               <thead><tr>
                 <th><span class='th'>Height</span></th>
                 <th><span class='th'>Event</span></th>
@@ -2223,7 +2262,7 @@
   }
 
   function MakeTableTxos(jTbl, isInp) {
-    let text = `<table class='tableUTXO' border='1' cellspacing='0'>
+    let text = `<table class='dataTable tableUTXO' border='1' cellspacing='0'>
                   <thead><tr>
                     <th><span class='th'>Commitment</span></th>`;
 
@@ -2287,7 +2326,7 @@
   }
 
   function MakeTblAssets(j) {
-    let text = `<table class="tableAssets" border="1" cellspacing="0">
+    let text = `<table class="dataTable tableAssets" border="1" cellspacing="0">
                   <thead><tr>
                     <th><span class="th">Id</span></th>
                     <th><span class="th">Owner</span></th>
@@ -2326,7 +2365,7 @@
 
     // Display error message if no block was found
     // Remark: The explorer node returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
-    if (jData['found']===false || (jData['info']===undefined && g_height!='0')) { // Remark: Only the Treasury lacks the 'info' field
+    if (jData['found'] === false || (jData['info'] === undefined && g_height != '0')) { // Remark: Only the Treasury lacks the 'info' field
       text += '<h2 class="title errorMessage">Block not found.</h2>';
       SetContent(text);
       return;
@@ -2362,7 +2401,7 @@
 
     if (j) {
       text += MakeCollapsibleBegin('Block Summary');
-      text += '<table class="tableSummary" border="1" cellspacing="0">';
+      text += '<table class="dataTable tableSummary" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2385,7 +2424,7 @@
     let jTbl = jData['kernels'];
     if (jTbl) {
       text += '<h3 class="sub">Kernels (' + jTbl.length + ')</h3>';
-      text += `<table class="tableKernels" border="1" cellspacing="0">
+      text += `<table class="dataTable tableKernels" border="1" cellspacing="0">
                 <thead><tr>
                   <th><span class="th">ID</span></th>
                   <th><span class="th">Fee</span></th>
@@ -2437,7 +2476,7 @@
     j = jData['totals'];
     if (j) {
       text += MakeCollapsibleBegin('Totals');
-      text += '<table class="tableTotals" border="1" cellspacing="0">';
+      text += '<table class="dataTable tableTotals" border="1" cellspacing="0">';
       text += Obj2Html_TableRows(j['value']);
       text += '</table>';
       text += MakeCollapsibleEnd();
@@ -2565,7 +2604,7 @@
     text += DisplayContractOptions();
 
     // Display table
-    text += `<table class="tableCallHistory" border="1" cellspacing="0">
+    text += `<table class="dataTable tableCallHistory" border="1" cellspacing="0">
               <thead><tr>
                 <th><span class="th">Height</span></th>
                 <th><span class="th">Cid</span></th>
@@ -2668,7 +2707,7 @@
                     Beam's native <b>Confidential Assets</b> (or "privacy tokens") are also listed, with their complete mint and burn history. The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).
                   </p>
                   <p class="aboutText">
-                    This app is an interactive web display of the data queried to a Beam explorer node (selected from a <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">predefined list</a>). The whole thing is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and with no external dependencies. You can see and save the <a href="view-source:${window.location.href.split('?')[0]}" target="_blank">source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href="https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm" target="_blank">Github</a>.
+                    This app is an interactive portable display of the data queried to a Beam explorer node (selected from a <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">predefined list</a>). The whole thing is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and without any external dependencies, cookies, or trackers. You can see and save the <a href="view-source:${window.location.href.split('?')[0]}" target="_blank">source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href="https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm" target="_blank">Github</a>.
                   </p>
                   <p class="aboutDisclaimer">
                     Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.
@@ -2720,7 +2759,7 @@
 
   function DisplayHistoricalBlocks() {
     let text = `<h2 class="title">Special historical blocks in Beam's mainnet</h2>`;
-    text += `<table class="tableHistoricalBlocks" border="1" cellspacing="0">
+    text += `<table class="dataTable tableHistoricalBlocks" border="1" cellspacing="0">
                <thead><tr>
                  <th><span class="th">Height</span></th>
                  <th><span class="th">Description</span></th>
@@ -2761,42 +2800,42 @@
 <script> // ADDITIONAL GLOBAL VARIABLES
 
   // Array of codes, graph colors, old/new names and descriptions for the Block Header columns
-  // (columns with 'undefined' color won't be displayable as graphs)
+  // (columns with 'null' color won't be displayable as graphs)
   const columnDefaultOrder = 'NTHgGdDfFkKiIoOuUyYzZbBpPcCaA'; // Without 't' (which is redundant with 'g')
   const columnDefaultDisplay = 'THdfkioyzp';
-  const columnHeaders = [
-    { code: 'h', color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
-    { code: 'H', color: undefined, original: 'Hash', title: 'Hash', description: 'Block hash' },
-    { code: 'N', color: '#7d7d7d', original: 'Number', title: 'Number', description: 'Block number (in pBFT chains)' }, // Only available for pBFT chains
-    //{ code: 't', color: '#bf3c3c', original: 'd.Time', title: 'Time', description: 'Block duration (in seconds)' }, // Redundant with 'g'
-    { code: 'T', color: undefined, original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp (UTC)' },
-    { code: 'g', color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Block duration (in seconds)' },
-    { code: 'G', color: '#d67a7a', original: 'Age', title: 'Age', description: 'Block age since genesis (in seconds)' },
-    { code: 'd', color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)' },
-    { code: 'D', color: '#00bdbd', original: 'Chainwork', title: 'Chainwork', description: 'Total difficulty since genesis' },
-    { code: 'f', color: '#7b00b0', original: 'Fee', title: 'Fees', description: 'Block fees (in Beams)' },
-    { code: 'F', color: '#8660d7', original: 'T.Fee', title: 'Total fees', description: 'Total fees since genesis (in Beams)' },
-    { code: 'k', color: '#ff0080', original: 'Txs', title: 'Txs', description: 'Number of transactions (kernels) in the block' },
-    { code: 'K', color: '#ff79bc', original: 'T.Txs', title: 'Total txs', description: 'Total number of transactions (kernels) since genesis' },
-    { code: 'i', color: '#006400', original: 'MW.Inputs', title: 'MW in', description: 'Number of Mimblewimble inputs in the block' },
-    { code: 'I', color: '#00bb00', original: 'T.MW.Inputs', title: 'Total MW in', description: 'Total number of Mimblewimble inputs since genesis' },
-    { code: 'o', color: '#ff0006', original: 'MW.Outputs', title: 'MW out', description: 'Number of Mimblewimble outputs in the block' },
-    { code: 'O', color: '#ff5e5e', original: 'T.MW.Outputs', title: 'Total MW out', description: 'Total number of Mimblewimble outputs since genesis' },
-    { code: 'u', color: '#808000', original: 'MW.Utxos', title: 'MW UTXOs', description: 'Change in the number of unspent Mimblewimble UTXOs (i.e. block outputs minus inputs)' },
-    { code: 'U', color: '#bdb76b', original: 'T.MW.Utxos', title: 'Total MW UTXOs', description: 'Total number of unspent Mimblewimble UTXOs in the blockchain' },
-    { code: 'y', color: '#0000e3', original: 'SH.Inputs', title: 'SH in', description: 'Number of block inputs from the Lelantus Shielded Pool' },
-    { code: 'Y', color: '#4f4fff', original: 'T.SH.Inputs', title: 'Total SH inputs', description: 'Total number of inputs from the Lelantus Shielded Pool since genesis' },
-    { code: 'z', color: '#804040', original: 'SH.Outputs', title: 'SH out', description: 'Number of block outputs sent to the Lelantus Shielded Pool' },
-    { code: 'Z', color: '#b87272', original: 'T.SH.Outputs', title: 'Total SH out', description: 'Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)' },
-    { code: 'b', color: '#5a3362', original: 'Contracts', title: 'New contracts', description: 'Number of Smart Contracts deployed in the block' },
-    { code: 'B', color: '#a66ab3', original: 'T.Contracts', title: 'Total contracts', description: 'Total number of Smart Contracts deployed since genesis' },
-    { code: 'p', color: '#ce00ce', original: 'ContractCalls', title: 'Contract calls', description: 'Number of Smart Contract calls in the block' },
-    { code: 'P', color: '#ff53ff', original: 'T.ContractCalls', title: 'Total contract calls', description: 'Total number of Smart Contract calls since genesis' },
-    { code: 'c', color: '#004080', original: 'D.Size.Compressed', title: 'Size variation', description: 'Blockchain size increase or decrease (in bytes)' },
-    { code: 'C', color: '#6d92c2', original: 'Size.Compressed', title: 'Total size', description: 'Total blockchain size (in bytes)' },
-    { code: 'a', color: '#009d27', original: 'D.Size.Archive', title: 'Archive size', description: 'Block size (in bytes) if its spent Mimblewimble UTXOs were kept' },
-    { code: 'A', color: '#00d535', original: 'Size.Archive', title: 'Total archive size', description: 'Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept' }
-  ];
+  const columnHeaders = {
+    'h': { color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
+    'H': { color: null, original: 'Hash', title: 'Hash', description: 'Block hash' },
+    'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (in pBFT chains)' }, // Only available for pBFT chains
+    //'t': { color: '#bf3c3c', original: 'd.Time', title: 'Time', description: 'Block duration (in seconds)' }, // Redundant with 'g'
+    'T': { color: '#808080', original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp' },
+    'g': { color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Block duration (in seconds)' },
+    'G': { color: '#d67a7a', original: 'Age', title: 'Age', description: 'Block age since genesis (in seconds)' },
+    'd': { color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)' },
+    'D': { color: '#00bdbd', original: 'Chainwork', title: 'Chainwork', description: 'Total difficulty since genesis' },
+    'f': { color: '#7b00b0', original: 'Fee', title: 'Fees', description: 'Block fees (in Beams)' },
+    'F': { color: '#8660d7', original: 'T.Fee', title: 'Total fees', description: 'Total fees since genesis (in Beams)' },
+    'k': { color: '#ff0080', original: 'Txs', title: 'Txs', description: 'Number of transactions (kernels) in the block' },
+    'K': { color: '#ff79bc', original: 'T.Txs', title: 'Total txs', description: 'Total number of transactions (kernels) since genesis' },
+    'i': { color: '#006400', original: 'MW.Inputs', title: 'MW in', description: 'Number of Mimblewimble inputs in the block' },
+    'I': { color: '#00bb00', original: 'T.MW.Inputs', title: 'Total MW in', description: 'Total number of Mimblewimble inputs since genesis' },
+    'o': { color: '#ff0006', original: 'MW.Outputs', title: 'MW out', description: 'Number of Mimblewimble outputs in the block' },
+    'O': { color: '#ff5e5e', original: 'T.MW.Outputs', title: 'Total MW out', description: 'Total number of Mimblewimble outputs since genesis' },
+    'u': { color: '#808000', original: 'MW.Utxos', title: 'MW UTXOs', description: 'Change in the number of unspent Mimblewimble UTXOs (i.e. block outputs minus inputs)' },
+    'U': { color: '#bdb76b', original: 'T.MW.Utxos', title: 'Total MW UTXOs', description: 'Total number of unspent Mimblewimble UTXOs in the blockchain' },
+    'y': { color: '#0000e3', original: 'SH.Inputs', title: 'SH in', description: 'Number of block inputs from the Lelantus Shielded Pool' },
+    'Y': { color: '#4f4fff', original: 'T.SH.Inputs', title: 'Total SH inputs', description: 'Total number of inputs from the Lelantus Shielded Pool since genesis' },
+    'z': { color: '#804040', original: 'SH.Outputs', title: 'SH out', description: 'Number of block outputs sent to the Lelantus Shielded Pool' },
+    'Z': { color: '#b87272', original: 'T.SH.Outputs', title: 'Total SH out', description: 'Total number of outputs sent to the Lelantus Shielded Pool since genesis (i.e. total number of Shielded UTXOs)' },
+    'b': { color: '#5a3362', original: 'Contracts', title: 'New contracts', description: 'Number of Smart Contracts deployed in the block' },
+    'B': { color: '#a66ab3', original: 'T.Contracts', title: 'Total contracts', description: 'Total number of Smart Contracts deployed since genesis' },
+    'p': { color: '#ce00ce', original: 'ContractCalls', title: 'Contract calls', description: 'Number of Smart Contract calls in the block' },
+    'P': { color: '#ff53ff', original: 'T.ContractCalls', title: 'Total contract calls', description: 'Total number of Smart Contract calls since genesis' },
+    'c': { color: '#004080', original: 'D.Size.Compressed', title: 'Size variation', description: 'Blockchain size increase or decrease (in bytes)' },
+    'C': { color: '#6d92c2', original: 'Size.Compressed', title: 'Total size', description: 'Total blockchain size (in bytes)' },
+    'a': { color: '#009d27', original: 'D.Size.Archive', title: 'Archive size', description: 'Block size (in bytes) if its spent Mimblewimble UTXOs were kept' },
+    'A': { color: '#00d535', original: 'Size.Archive', title: 'Total archive size', description: 'Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept' }
+  };
 
   // Array of objects listing the special historical blocks.
   // Remarks:
@@ -3031,7 +3070,7 @@
     // Create new option for the dropdown
     networkOptions += '<option value="' + network + '">' + network + '</option>';
     // Add nodes to the popup list
-    nodesList += '<div class="nodeSelectionText">' + network + ' :</div>';
+    nodesList += '<div class="popupSubtitle">' + network + ' :</div>';
     let nodes = explorerNodes[network];
     for (let i = 0; i < nodes.length; i++) {
       let node = nodes[i];
@@ -3077,7 +3116,7 @@
 
 <script> // QUERY EXPLORER NODE
 
-  // Request 'nice' formatting from the node (timestamps as YYYYY-MM-DD, amounts as XXX,XXX,XXX.YYYYYYYY, etc.)
+  // Request 'nice' formatting from the node (amounts as XXX,XXX,XXX.YYYYYYYY)
   let urlSuffix = '?exp_am=1';
 
   // Case of static page
@@ -3152,6 +3191,17 @@
 <!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
 <script> // MANAGE POPUP FOR EXPLORER NODE SELECTION
 
+  function openDialog(id) { // Open popup
+    const popup = document.getElementById(id);
+    popup.showModal(); // Display popup
+    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
+    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+  }
+
+  function closeDialog(id) { // Close popup
+    document.getElementById(id).close();
+  }
+
   function checkNodeSelection() { // Check radios of default nodes (and uncheck the others)
     for (let network in explorerNodes) {
       let nodes = explorerNodes[network];
@@ -3163,18 +3213,9 @@
     }
   }
 
-  function openNodeSelection() { // Open popup for Explorer Node Selection
-    let popup = document.getElementById('nodeSelectionPopup');
-    // Check radios of default nodes
-    checkNodeSelection();
-    // Display popup
-    popup.showModal();
-    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
-    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
-  }
-
-  function closeNodeSelection() { // Close popup
-    document.getElementById('nodeSelectionPopup').close();
+  function openNodeSelection() {
+    openDialog('nodeSelectionPopup'); // Open popup
+    checkNodeSelection(); // Check radios of default nodes
   }
 
   function defaultNodeSelection() { // Reset selection to default nodes
@@ -3196,7 +3237,6 @@
     }
     // Save in local storage
     localStorage.setItem('g_defaultNodes',JSON.stringify(g_defaultNodes));
-    // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
     // Reload the page
     location.reload();
   }
@@ -3430,7 +3470,7 @@
     text += `  <div class="selectRows"><label title="Number of contract calls to display (2000 max)">
                  <span class="labelRows">Max rows: </span>
                  <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMaxTxs}">
-                 <datalist id="nbrOfRows">
+                 <datalist id="nbrOfRows"> <!-- Does not seem to work in Chrome 83 -->
                    <option value="100">100 (default)</option>
                    <option value="200">200</option>
                    <option value="500">500</option>
@@ -3489,7 +3529,7 @@
     text += `  <div class="selectRows"><label title="Number of events to display (2000 max)">
                  <span class="labelRows">Max rows: </span>
                  <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMaxOps}">
-                 <datalist id="nbrOfRows">
+                 <datalist id="nbrOfRows"> <!-- Does not seem to work in Chrome 83 -->
                    <option value="100">100 (default)</option>
                    <option value="200">200</option>
                    <option value="500">500</option>
@@ -3574,13 +3614,17 @@
   // For x and y data (as well as ticks and colors), each key is a column code (usually one letter) and its value is the corresponding array of data.
   // Example: { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], etc.}
   const g_graph = {
-    rows: [], // List of visible rows
-    x: {}, // Data for each possible x coordinates (identical for all graphs, and without empty values)
+    rows: [], // List of the visible rows
+    xcodes_valid: ['row', 'h', 'N', 'T'], // Codes for all possible data for the X coordinates ('row' table rows, 'h' blockheights, 'N' block numbers, 'T' timestamps)
+    xcodes: {}, // Available codes (and column numbers) for the X coordinates (Remark: rows and blockheight are always available)
+    xcode: '', // Code currently used for the X axis
+    x: {}, // Data for each available x coordinates (always increasing, and without empty values)
     xsvg: {}, // Proportional x coordinates over the SVG width
-    xcode: 'row', // Current code for the X axis (might allow other options in the future: 'h' blockheight, 'N' block number and 'T' timestamp)
+    xTicks: {}, // Nice ticks for the horizontal scale of each available x coordinates
     y: {}, // Data for y coordinates of each displayed graph
     ysvg: {}, // Proportional y coordinates over the SVG height
-    ticks: {}, // Nice ticks for the vertical scale of each displayed graph
+    timeText: [], // If available, the human-readable timestamps will be saved here (as plotting will use the raw data instead)
+    yTicks: {}, // Nice ticks for the vertical scale of each displayed graph
     color: {}, // CSS color of each graph
     width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
     height: 600, // Arbitrary SVG height
@@ -3589,7 +3633,7 @@
     area: {}, // Other measures of the graph area (values are computed here below)
     axis: {}, // Other measures of the axis area (values are computed here below)
     hover: true, // Indicates if the hovering effect is active (the cursor position follows the mouse)
-    index: undefined, // Index in the x coordinates array for the cursor position
+    index: null // Index in the x coordinates array for the cursor position
   };
 
   // Setup the whole graph environment
@@ -3604,12 +3648,15 @@
     g_graph.area.ymax = g_graph.height - g_graph.margin;
     g_graph.area.width = g_graph.area.xmax - g_graph.area.xmin;
     g_graph.area.height = g_graph.area.ymax - g_graph.area.ymin;
-    g_graph.axis.min = g_graph.area.ymin + g_graph.padding;
-    g_graph.axis.max = g_graph.area.ymax - g_graph.padding;
-    g_graph.axis.height = g_graph.axis.max - g_graph.axis.min;
+    g_graph.axis.ymin = g_graph.area.ymin + g_graph.padding;
+    g_graph.axis.ymax = g_graph.area.ymax - g_graph.padding;
+    g_graph.axis.xmin = g_graph.area.xmin + g_graph.padding;
+    g_graph.axis.xmax = g_graph.area.xmax - g_graph.padding;
+    g_graph.axis.width = g_graph.axis.xmax - g_graph.axis.xmin;
+    g_graph.axis.height = g_graph.axis.ymax - g_graph.axis.ymin;
 
     // Fill the global variable with the default colors
-    for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
+    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
     // Get locally saved colors, if any
     try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
       g_graph_colors = JSON.parse(localStorage.getItem('g_graph_colors'));
@@ -3623,41 +3670,75 @@
 
     // A neat trick to systematically update the graphs every time the table is filtered or sorted:
     // Wrap the original filterTable() and sortTable() functions into new versions... with added function calls!
-    const originalSortTable = sortTable; // Save the orignal function
-    sortTable = function(...args) { // Wrap the function into a new one, with the same name.
-      originalSortTable.apply(this, args); // Call the original function first.
+    const originalFilterTable = filterTable; // Save the orignal function
+    filterTable = function(...args) { // Wrap the function into a new one, with the same name
+      originalFilterTable.apply(this, args); // Call the original function first
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
+      drawXAxis(); // Redraw X axis
       drawGraph(); // Redraw all graphs
       graphUpdateCursor(); // Update or reset cursor
     };
-    const originalFilterTable = filterTable; // Save the orignal function
-    filterTable = function(...args) { // Wrap the function into a new one, with the same name.
-      originalFilterTable.apply(this, args); // Call the original function first.
+    const originalSortTable = sortTable; // Save the orignal function
+    sortTable = function(...args) { // Wrap the function into a new one, with the same name
+      const col = originalSortTable.apply(this, args); // Call the original function first
+      // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
+      g_graph.xcode = 'row';
+      const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
+      const headerCode = headers[col].firstChild.dataset.code; // Get the code of the sorted column from the <span> in its header
+      const isValid = headerCode in g_graph.xcodes; // Check if the sorted column is an X axis option
+      // Disable all alternative X axis options if the sorted column is NOT one of them
+      for (let code of Object.keys(g_graph.xcodes)) {
+        const properties = { selected: (code == 'row'), disabled: (code == 'row') ? false : !isValid };
+        Object.assign(document.getElementById('xAxisOption_' + code), properties); // Apply properties to the '<option>' element
+      }
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
+      drawXAxis(); // Redraw X axis
       drawGraph(); // Redraw all graphs
       graphUpdateCursor(); // Update or reset cursor
     };
 
-    // Add checkboxes for selecting columns to display as graphs
-    let headerTitles = document.querySelectorAll('#divTableBlocks .th');
+    // Add checkboxes for selecting columns to display as graphs (and identify data usable as X coordinates)
+    const headers = document.querySelectorAll('#divTableBlocks .th');
+    g_graph.xcodes['row'] = null ; // 'row' is always usable as X coordinate (without any data column)
+    g_graph.xcode = 'row'; // And it's the default option
     // Loop on each header cell of the table
-    for (let n = 0; n < headerTitles.length; n++) {
-      let headerTitle = headerTitles[n];
-      let headerText = headerTitle.firstChild.textContent;
+    for (let col = 0; col < headers.length; col++) {
+      const header = headers[col];
+      const title = header.firstChild.textContent;
+      const code = header.firstChild.dataset.code; // Get the column code from the <span>
       // All columns for which a color has been defined in the global variable 'columnHeaders' can be displayed as graphs
-      let add = true;
-      for (let item of columnHeaders) { if (item.title == headerText && item.color === undefined) { add = false; } }
-      if (add) {
+      if (columnHeaders[code].color !== null) {
         // Add a checkbox to the right of the header title
-        let checkboxText = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + n + '" data-column="' + n + '" autocomplete="off" onclick="checkboxGraph(event);">';
-        headerTitle.insertAdjacentHTML('beforeend', checkboxText);
+        const checkboxHTML = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + col + '" data-column="' + col + '" autocomplete="off" onclick="checkboxGraph(event);">';
+        header.insertAdjacentHTML('beforeend', checkboxHTML);
+        // If the data can be used as X coordinates, add its code and column to the list
+        if (g_graph.xcodes_valid.includes(code)) { g_graph.xcodes[code] = col; }
       }
     }
 
-    // Extract now the x coordinates from the table (they will serve for all graphs)
-    updateGraphDataX();
+    // Fill dropdown menu options with all codes usable as X coordinates
+    let xAxisOptions = '';
+    for (let code of g_graph.xcodes_valid) {
+      if (code == 'row') { // Special case for 'row' (always enabled, and selected by default)
+        xAxisOptions += '<option class="xAxisOption" id="xAxisOption_row" value="row" selected>R - Table row</option><hr />';
+      } else { // Other possible codes (disabled if unavailable)
+        const name = columnHeaders[code].title; // Get corresponding name
+        const state = (code in g_graph.xcodes) ? '' : 'disabled'; // Only enable the ones with data
+        xAxisOptions += `<option class="xAxisOption" id="xAxisOption_${code}" value="${code}" ${state}>${code} - ${name}</option>`;
+      }
+    }
+    // Add all the options to the dropdown menu
+    const xAxisSelect = document.getElementById('xAxisSelect');
+    xAxisSelect.innerHTML = xAxisOptions;
+    // Add event to redraw graph on selection change
+    xAxisSelect.addEventListener("change", function(){
+      g_graph.xcode = xAxisSelect.value; // Save selected option
+      drawXAxis(g_graph.xcode); // Redraw X axis
+      drawGraph(); // Redraw graph
+      graphDisplayCursor(); // Redraw cursor (if needed)
+    })
 
     // Prepare the basic SVG content for the graph area
     const graphSVG = document.getElementById('graphSVG');
@@ -3669,20 +3750,24 @@
     text += `<g id="graphArea" transform="translate(0,${g_graph.height}) scale(1,-1)" >`;
     // Draw a rectangle for the graph area, and some reference grid lines
     text += `<rect id="graphBox" width="${g_graph.area.width}" height="${g_graph.area.height}" x="${g_graph.area.xmin}" y="${g_graph.area.ymin}" fill="none" stroke-width="1" stroke="black" vector-effect="non-scaling-stroke" />`;
-    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 1 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 1 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
-    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 2 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 2 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
-    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.area.ymin + g_graph.area.height * 3 / 4}" x2="${g_graph.area.xmax}" y2="${g_graph.area.ymin + g_graph.area.height * 3 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.axis.ymin + g_graph.axis.height * 1 / 4}" x2="${g_graph.axis.xmax}" y2="${g_graph.axis.ymin + g_graph.axis.height * 1 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.axis.ymin + g_graph.axis.height * 2 / 4}" x2="${g_graph.axis.xmax}" y2="${g_graph.axis.ymin + g_graph.axis.height * 2 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
+    text += `<line class="graphGridLine" x1="${g_graph.area.xmin}" y1="${g_graph.axis.ymin + g_graph.axis.height * 3 / 4}" x2="${g_graph.axis.xmax}" y2="${g_graph.axis.ymin + g_graph.axis.height * 3 / 4}" stroke="lightgrey" stroke-width="1" vector-effect="non-scaling-stroke" />`;
     // Close group and embedded SVG
     text += '</g></svg>';
+
     // Draw the cursor line (it starts out of view at x=-100 and will only appear on hover)
-    // It's embedded in a different SVG, so that its X position can easily be changed and its sizes can be both absolute ('px') and relative ('%')
-    // A small translation allows centering all its elements without using a 'viewBox' (which would make all shapes to scale with the SVG)
-    text += `<svg id="graphCursor" x="-100" y="0" width="20" height="100%" transform="translate(-8 0)">
-               <line id="graphCursorLine" x1="8" y1="0" x2="8" y2="${100 - 100 * g_graph.area.xmin / g_graph.height}%" stroke="black" stroke-width="2" vector-effect="non-scaling-stroke" />
-               <polygon id="graphCursorMarker" points="0 0, 16 0, 8 16" fill="black" vector-effect="non-scaling-stroke">
-                 <title>Go to this row</title>
-               </polygon>
-             </svg>`;
+    // Remark: We put everything in an embedded SVG, so that all X positions can be changed at once (and its sizes can be both absolute 'px' and relative '%')
+    // However, Chrome 83 does not allow using 'transform' on the SVG element itself (to center its elements without 'viewBox', which would make all shapes to scale with the SVG).
+    // So we embed the SVG in a 'foreignObject'... to which we apply the transform!
+    text += `<foreignObject id="graphCursor" x="-100" y="0" width="20" height="100%" transform="translate(-8 0)">
+               <svg x="0" y="0" width="20" height="100%">
+                 <line id="graphCursorLine" x1="8" y1="0" x2="8" y2="${100 - 100 * g_graph.area.xmin / g_graph.height}%" stroke="black" stroke-width="2" vector-effect="non-scaling-stroke" />
+                 <polygon id="graphCursorMarker" points="0 0, 16 0, 8 16" fill="black" vector-effect="non-scaling-stroke">
+                   <title>Go to this row</title>
+                 </polygon>
+               </svg>
+             </foreignObject>`;
     // Apply the content of SVG
     graphSVG.innerHTML = text;
     // Add event listeners for the hovering effects (the cursor will follow the mouse, showing graph values)
@@ -3695,6 +3780,13 @@
       g_graph.hover = false; // Ensure the cursor now remains fixed
       scrollTo('.rowHighlight','center'); // Scroll to the highlighted table row
     });
+
+    // Display empty Y axis, just for decoration
+    drawYAxis();
+    // Extract now the data for all possible X coordinates
+    updateGraphDataX();
+    // Display X axis with default data
+    drawXAxis(g_graph.xcode);
   }
 
   // Toggle class to show/hide checkboxes in table header when the graph's collapsible if opened/closed
@@ -3702,26 +3794,30 @@
     for (let checkbox of document.querySelectorAll('.tableGraphCheckbox')) {
       checkbox.parentElement.classList.toggle('graphable'); // The class is added to the <span> above, to also show/hide the '::after' symbol
     }
+    // In Chrome 83, the 'getBBox().height' used in 'drawXAxis()' returns '0' if the SVG is not visible!
+    // As a dirty workaround, we call 'drawXAxis()' again each time we toggle the Graph collapsible...
+    drawXAxis();
+    graphUpdateCursor();
   }
 
   // Draw/Delete graph when a checkbox is checked/unchecked
   function checkboxGraph(event) {
     event.stopPropagation(); // Avoid also triggering other events of the header cell (like sorting, etc)
     // Get context information
-    let checkbox = event.target;
-    let col = checkbox.dataset.column; // Get the column number
-    let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
-    let header = checkbox.closest('th').textContent; // Get header text
-    let description = ''; // Get description
-    for (let item of columnHeaders) { if (item.code == code) { description = item.description; } }
+    const checkbox = event.target;
+    const col = checkbox.dataset.column; // Get the column number
+    const code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+    const header = checkbox.closest('th').textContent; // Get header text
+    const description = columnHeaders[code].description; // Get description
 
     // Add or remove data series for the graphs
     if (checkbox.checked == false) {
       delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
-      delete g_graph.ticks[code]; // Remove ticks data for the selected column
+      delete g_graph.yTicks[code]; // Remove ticks data for the selected column
       delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
       document.getElementById('polyline_' + code).remove(); // Remove graph from SVG
-      document.getElementById('axisContainer_' + code).remove(); // Remove graph axis
+      document.getElementById('yAxisContainer_' + code).remove(); // Remove graph axis
+      drawYAxis(); // Redraw the empty axis if needed
       document.getElementById('graphLegendItem_' + code).remove(); // Remove graph name from legend
     } else {
       // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
@@ -3732,14 +3828,11 @@
       const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
       let legend_item = `<span class="graphLegendItem" id="${legend_id}" style="color:${color}; white-space:nowrap;"
                          onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
-      // Add color picker with events ('oninput' will preview any new color, 'onchange' will apply the final valid one)
+      // Add legend name (with description) and color picker (with events: 'oninput' to preview a new color and 'onchange' to apply the final one)
       legend_item += `<label class="graphColorPickerLabel" autocomplete="on" title="Click to change color">
                         <input type="color" class="graphColorPicker" id="${colorpicker_id}" name="${colorpicker_id}" value="${hex_color}" oninput="changeGraphColor('${code}')" onchange="changeGraphColor('${code}')">
+                        &nbsp;<span class="graphLegendText" title="${description}">${header}</span>&nbsp;
                       </label>`;
-      // Add legend name (and description), with a placeholder for values
-      legend_item += `&nbsp;<span class="graphLegendText" title="${description}">
-                        <span class="graphLegendName">${header}<span class="graphLegendValue" id="graphLegendValue_${code}"></span></span>
-                      &nbsp;</span>`;
       legend_item += `</span>`;
       // Append the new item to the legend area
       document.getElementById('graphLegend').insertAdjacentHTML('beforeend', legend_item);
@@ -3751,22 +3844,26 @@
     // Extract graph data for the selected column and draw the corresponding graph
     updateGraphDataY(col);
     drawGraph(code);
-    // If the cursor is active, display the axis cursor and the value in legend
-    graphDisplayCursorValues(code);
+    // If the graph is new and the cursor is active, display the axis cursor and the corresponding values
+    if (checkbox.checked == true) { graphDisplayCursorYValues(code); }
   }
 
   // Set classes for hovering effects (highlight graphs, names and scales)
   function graphHighlightOn(code) {
-    document.getElementById('graphArea').classList.add('graph-highlight');
-    document.getElementById('polyline_' + code).classList.add('graph-highlight');
-    document.getElementById('axisContainer_' + code).classList.add('graph-highlight');
-    document.getElementById('graphLegendItem_' + code).classList.add('graph-highlight');
+    if (document.getElementsByClassName('graphPolyline').length > 0) { // Proceed only if some graphs are displayed
+      document.getElementById('graphArea').classList.add('graph-highlight');
+      document.getElementById('polyline_' + code).classList.add('graph-highlight');
+      document.getElementById('yAxisContainer_' + code).classList.add('graph-highlight');
+      document.getElementById('graphLegendItem_' + code).classList.add('graph-highlight');
+    }
   }
   function graphHighlightOff(code) {
-    document.getElementById('graphArea').classList.remove('graph-highlight');
-    document.getElementById('polyline_' + code).classList.remove('graph-highlight');
-    document.getElementById('axisContainer_' + code).classList.remove('graph-highlight');
-    document.getElementById('graphLegendItem_' + code).classList.remove('graph-highlight');
+    if (document.getElementsByClassName('graphPolyline').length > 0) { // Proceed only if some graphs are displayed
+      document.getElementById('graphArea').classList.remove('graph-highlight');
+      document.getElementById('polyline_' + code).classList.remove('graph-highlight');
+      document.getElementById('yAxisContainer_' + code).classList.remove('graph-highlight');
+      document.getElementById('graphLegendItem_' + code).classList.remove('graph-highlight');
+    }
   }
 
   // Smart trick to convert any CSS color value (name, rgb, hsl...) into its HEX value
@@ -3788,18 +3885,20 @@
   function resetGraphColors() {
     localStorage.removeItem('g_graph_colors'); // Remove locally saved colors
     g_graph.color = {}; // Reset the global variable and fill it with the default colors
-    for (let item of columnHeaders) { if (item.color !== undefined) { g_graph.color[item.code] = item.color; } }
-    for (let code in g_graph.y) { applyGraphColor(code, g_graph.color[code]); } // Apply updated colors to Apply color to graphs, legends and axis
+    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
+    for (let code in g_graph.y) { applyGraphColor(code, g_graph.color[code]); } // Apply updated colors to graphs, legends and axis
   }
 
   // Apply a color to a graph (including its legend and axis)
   function applyGraphColor(code, color) {
     document.getElementById('graphColorPicker_' + code).value = color; // Update color picker
     document.getElementById('graphLegendItem_' + code).style.color = color; // Apply color to legend item
-    document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
-    document.querySelector('#axisSVG_' + code + ' polygon').style.fill = color; // Apply color to scale cursor
-    for (let line of document.querySelectorAll('#axisSVG_' + code + ' line')) { line.style.stroke = color; } // Apply color to axis line and ticks
-    for (let text of document.querySelectorAll('#axisSVG_' + code + ' text')) { text.style.fill = color; } // Apply color to axis values
+    if (document.getElementsByClassName('graphPolyline').length > 0) { // Proceed only if some graphs are displayed (cf. special case where filter hides all rows)
+      document.getElementById('polyline_' + code).style.stroke = color; // Apply color to polyline
+      document.querySelector('#yAxisSVG_' + code + ' polygon').style.fill = color; // Apply color to scale cursor
+      for (let line of document.querySelectorAll('#yAxisSVG_' + code + ' line')) { line.style.stroke = color; } // Apply color to axis line and ticks
+      for (let text of document.querySelectorAll('#yAxisSVG_' + code + ' text')) { text.style.fill = color; } // Apply color to axis values
+    }
   }
 
   // Recompute the X graph data arrays, common to all graphs (e.g. at start, or after sorting or filtering the table)
@@ -3809,27 +3908,51 @@
     // Use the spread operator to make an array, and the filter method to keep (as a global variable) only the visible rows
     g_graph.rows = [...allRows].filter(row => (row.style.visibility == '' || row.style.visibility == 'visible'));
 
-    // Use the map method to extract arrays with the cell values for the x coordinates
-    g_graph.x.row = g_graph.rows.map((row, index) => g_graph.rows.length - index); // Array of the row number (bottom to top)
-    // In the future, we could also add the block height (h), and -if available- the block number (N) or the timestamp (T)
-    //g_graph.x.h = g_graph.rows.map(row => g_graph.row.cells[0].innerText); // Array of the cells in first column (which is always blockheight).
+     // Initialize X-coordinates data
+    g_graph.x = {};
+    g_graph.xTicks = {};
+    g_graph.xsvg = {};
+    g_graph.timeText = [];
+    // Get all the available data usable as X coordinates
+    for (let code of Object.keys(g_graph.xcodes)) {
+      if (code == 'row') {
+        // Use the map method to extract from the visible rows an array with the row number (bottom to top)
+        g_graph.x[code] = g_graph.rows.map((row, index) => g_graph.rows.length - index);
+      } else {
+        // Use the map method to extract from the visible rows an array with the cell values of the column (without comas)
+        let col = g_graph.xcodes[code];
+        g_graph.x[code] = g_graph.rows.map(row => row.cells[col].innerText.replace(/,/g,''));
+        // Special case for timestamps: The plotted values are not the same as the displayed ones
+        if (code == 'T') {
+          g_graph.timeText = g_graph.x[code]; // Store the human-readable values
+          g_graph.x[code] = g_graph.rows.map(row => row.cells[col].firstElementChild.dataset.raw); // Get the raw data from the first <span> in the cell
+        }
+      }
+      // Get min and max values (the spread operator '...' expands the array elements)
+      let min = Math.min(...g_graph.x[code]); // Compute the min (the spread operator '...' expands the array elements)
+      let max = Math.max(...g_graph.x[code]); // Compute the max (the spread operator '...' expands the array elements)
+      if (!Number.isFinite(min)) { min = -1; } // Special case: No rows -> Empty array -> min is 'Infinity'
+      if (!Number.isFinite(max)) { max = 1; } // Special case: No rows -> Empty array -> max is 'Infinity'
+      // Get arrays of nicely defined ticks ('primary', 'secondary', and nice 'min' and 'max')
+      g_graph.xTicks[code] = (code == 'T') ?
+        defineNiceTimeTicks(min, max, 5) : // Special case for timestamps
+        defineNiceTicks(min, max, 5); // General case for numbers
 
-    // Map the x values into the equivalent x coordinates over the width of the SVG graph area
-    let [xMin, xMax] = [Math.min(...g_graph.x.row), Math.max(...g_graph.x.row)]; // We use the spread operator '...' to expand the array elements
-    g_graph.xsvg.row = g_graph.x.row.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - xMin) / (xMax - xMin));
-    //[xMin, xMax] = [Math.min(...g_graph.x.h), Math.max(...g_graph.x.h)]; // We use the spread operator '...' to expand the array elements
-    //g_graph.xsvg.h = g_graph.x.h.map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - xMin) / (xMax - xMin));
+      // For the X axis, we force the use of real min & max values, instead of the nice ones (except if min = max)
+      if (min != max) { [g_graph.xTicks[code].min, g_graph.xTicks[code].max] = [min, max] }
+    }
+    // Map all the x values into their equivalent SVG x coordinates within the width of min/max ticks
+    for (let code of Object.keys(g_graph.xcodes)) {
+      g_graph.xsvg[code] = g_graph.x[code].map(x => g_graph.padding + g_graph.area.xmin + (g_graph.area.width - 2*g_graph.padding) * (x - g_graph.xTicks[code].min) / (g_graph.xTicks[code].max - g_graph.xTicks[code].min));
+    }
   }
 
   // Recompute one or all the Y graph data arrays (e.g. after checking a checkbox, or after sorting or filtering the table)
   function updateGraphDataY(column) { // If no 'column' parameter is given, then all columns with checkboxes will be considered
     // Check if data should be updated for one or all graphs
-    let checkboxes;
-    if (column !== undefined) { // Get only the one requested checkbox
-      checkboxes = document.querySelectorAll('#checkbox_column_' + column);
-    } else { // Gat all the checkboxes
-      checkboxes = document.querySelectorAll('.tableGraphCheckbox');
-    }
+    let checkboxes = (column !== undefined) ?
+      document.querySelectorAll('#checkbox_column_' + column) : // Get only the one requested checkbox
+      document.querySelectorAll('.tableGraphCheckbox'); // Get all the checkboxes
 
     // Update Y-coordinates for all selected checked checkboxes
     for (let checkbox of checkboxes) {
@@ -3838,27 +3961,35 @@
       // Add/update or remove data series for the graph
       if (checkbox.checked == false) { // Remove data series (this shouldn't be needed, but we do it just in case)
         delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
-        delete g_graph.ticks[code]; // Remove ticks data for the selected column
+        delete g_graph.yTicks[code]; // Remove ticks data for the selected column
         delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
       } else { // Add/update data series
-        // Use the map method to extract from the visible rows an array with the cell values of the column
-        g_graph.y[code] = g_graph.rows.map(function(row) {
-          let val = row.cells[col].innerText; // Return the content of the cell in a given column
-          val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
-          if (val == '') { val = '0' }; // Replace empty values with 0
-          return val;
-        });
+        // Special case for timestamps: Get the plottable raw data, not the displayed one (which is already saved in 'g_graph.timeText')
+        if (code == 'T') {
+          g_graph.y[code] = g_graph.rows.map(row => row.cells[col].firstElementChild.dataset.raw); // Get the raw data from the first <span> in the cell
+        } else {
+          // Use the map method to extract from the visible rows an array with the cell values of the column
+          g_graph.y[code] = g_graph.rows.map(function(row) {
+            let val = row.cells[col].innerText; // Return the content of the cell in a given column
+            val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
+            if (val == '') { val = '0' }; // Replace empty values with 0
+            return val;
+          });
+        }
         // Compute and store nice axis ticks (including nice min and max values)
-        const min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
-        const max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
-        g_graph.ticks[code] = defineNiceTicks(min, max, 5); // Get arrays of nicely defined ticks ('primary', 'secondary', and nice 'min' and 'max')
+        let min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
+        let max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
+        // Get arrays of nicely defined ticks ('primary', 'secondary', and nice 'min' and 'max')
+        g_graph.yTicks[code] = (code == 'T') ?
+          defineNiceTimeTicks(min, max, 5) : // Special case for timestamps
+          defineNiceTicks(min, max, 5); // General case for numbers
         // Map the y values into the equivalent SVG y coordinates within the height of min/max ticks
-        g_graph.ysvg[code] = g_graph.y[code].map(val => g_graph.padding + g_graph.area.ymin + (g_graph.area.height - 2*g_graph.padding) * (val - g_graph.ticks[code].min) / (g_graph.ticks[code].max - g_graph.ticks[code].min));
+        g_graph.ysvg[code] = g_graph.y[code].map(val => g_graph.padding + g_graph.area.ymin + (g_graph.area.height - 2*g_graph.padding) * (val - g_graph.yTicks[code].min) / (g_graph.yTicks[code].max - g_graph.yTicks[code].min));
       }
     }
   }
 
-  // Define an array of nicely defined ticks for any given array for values
+  // Define an array of nicely defined ticks within a certain range of values
   function defineNiceTicks(min, max, targetTicks = 5) {
     // Special cases
     if (min == max) { [min, max] = [min - 1, max + 1]; }
@@ -3877,20 +4008,107 @@
     // Define 'nice' primary and secondary steps
     const primaryStep = primaryFraction * magnitude;
     const secondaryStep = secondaryFraction * magnitude;
-    // Round min/max values to step increments
-    const niceMin = Math.floor(min / primaryStep) * primaryStep;
-    const niceMax = Math.ceil(max / primaryStep) * primaryStep;
-    // Generate ticks
+    // Round min/max values to step increments (and avoid floating point errors)
+    let niceMin = Math.floor(min / primaryStep) * primaryStep;
+    let niceMax = Math.ceil(max / primaryStep) * primaryStep;
+    niceMin = Number(niceMin.toFixed(10));
+    niceMax = Number(niceMax.toFixed(10));
+    // Generate ticks ()
     const primaryTicks = [];
     const secondaryTicks = [];
-    for (let value1 = niceMin; value1 <= niceMax; value1 += primaryStep) {
+    for (let value1 = niceMin; Number(value1.toFixed(10)) <= niceMax; value1 += primaryStep) {
       // Add primary ticks
       primaryTicks.push(Number(value1.toFixed(10))); // Avoid floating point errors
       // Add secondary ticks (until the next primary tick)
       if (value1 < niceMax) { // Not above the max tick
-        for (let offset = 1; offset * secondaryStep < primaryStep; offset++) {
-          const value2 = value1 + offset * secondaryStep;
+        for (let offset = secondaryStep; offset < primaryStep; offset += secondaryStep) {
+          const value2 = value1 + offset;
           secondaryTicks.push(Number(value2.toFixed(10))); // Avoid floating point errors
+        }
+      }
+    }
+    // Return all ticks
+    return { primary: primaryTicks, secondary: secondaryTicks, min: niceMin, max: niceMax };
+  }
+
+  // Define an array of nicely defined ticks within a certain range of timestamps (in seconds since epoch)
+  function defineNiceTimeTicks(min, max, targetTicks = 5) {
+    // Special cases
+    if (min == max) { [min, max] = [min - 60, max + 60]; } // Force a 2-minute range around the constant value
+    if (min > max) { [min, max] = [max, min]; }
+    // Reference intervals for main units
+    const secondsPerMinute = 60;
+    const secondsPerHour = 3600;
+    const secondsPerDay = 86400;
+    const secondsPerWeek = 604800;
+    const secondsPerMonth = 2629746; // Average (30.44 days)
+    const secondsPerYear = 31556952; // Average (365.24 days)
+    // Determine appropriate time unit and intervals
+    const range = max - min;
+    let unit, primaryStep, secondaryStep;
+    if (range < secondsPerHour) {
+      unit = 'minute';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerMinute) * secondsPerMinute;
+      secondaryStep = primaryStep / 5; // Default for minutes
+    } else if (range < secondsPerDay) {
+      unit = 'hour';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerHour) * secondsPerHour;
+      secondaryStep = primaryStep / 4; // 15 min
+    } else if (range < secondsPerWeek * 2) { // For up to ~2 weeks, daily ticks are good
+      unit = 'day';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerDay) * secondsPerDay;
+      secondaryStep = secondsPerHour * 6; // 6 hours
+    } else if (range < secondsPerMonth * 2) { // For up to ~2 months, weekly ticks are good
+      unit = 'week';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerWeek) * secondsPerWeek;
+      secondaryStep = secondsPerDay; // 1 day
+    } else if (range < secondsPerYear) {
+      unit = 'month';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerMonth) * secondsPerMonth;
+      secondaryStep = secondsPerWeek; // 1 week
+    } else {
+      unit = 'year';
+      primaryStep = Math.ceil(range / targetTicks / secondsPerYear) * secondsPerYear;
+      secondaryStep = secondsPerMonth; // 1 month
+    }
+    // Round min value down to the boundary of the chosen unit
+    let niceMin;
+    const d = new Date(min * 1000); // Create a date object from the min timestamp
+    switch (unit) {
+      case 'minute': // Remove seconds
+        niceMin = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()).getTime() / 1000;
+        break;
+      case 'hour': // Remove minutes
+        niceMin = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()).getTime() / 1000;
+        break;
+      case 'day': // Remove hours
+        niceMin = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 1000;
+        break;
+      case 'week': // Round down to start of the week (Monday)
+        niceMin = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay() + 1).getTime() / 1000;
+        break;
+      case 'month': // Round down to first day of month
+        niceMin = new Date(d.getFullYear(), d.getMonth(), 1).getTime() / 1000;
+        break;
+      case 'year': // Round down to first day of year
+        niceMin = new Date(d.getFullYear(), 0, 1).getTime() / 1000;
+        break;
+      default: // Fallback to the original min
+        niceMin = min;
+    }
+    // Round max value up by adding intervals until we exceed the original max
+    let niceMax = niceMin;
+    while (niceMax <= max) { niceMax += primaryStep; }
+    // Generate ticks
+    const primaryTicks = [];
+    const secondaryTicks = [];
+    for (let value = niceMin; value <= niceMax; value += primaryStep) {
+      // Add primary ticks
+      primaryTicks.push(value);
+      // Add secondary ticks (until the next primary tick)
+      if (value < niceMax) { // Not above the max tick
+        for (let offset = secondaryStep; offset < primaryStep; offset += secondaryStep) {
+          secondaryTicks.push(value + offset);
         }
       }
     }
@@ -3906,28 +4124,23 @@
       codes = [code];
       // Delete that previous graph (using the 'for...of' format does not give an error if the element doesn't exist)
       for (let graph of document.querySelectorAll('#polyline_' + code)) { graph.remove(); };
-      for (let axis of document.querySelectorAll('#axisContainer_' + code)) { axis.remove(); };
+      for (let axis of document.querySelectorAll('#yAxisContainer_' + code)) { axis.remove(); };
     } else {
       codes = Object.keys(g_graph.y);
       // Delete ALL previous graphs and their axis
       for (let graph of document.querySelectorAll('.graphPolyline')) { graph.remove(); };
-      for (let axis of document.querySelectorAll('.axisContainer')) { axis.remove(); };
+      for (let axis of document.querySelectorAll('.yAxisContainer')) { axis.remove(); };
     }
+    drawYAxis(); // Redraw the empty axis, if needed
 
-    // Get containers
+    // Get container
     const graphArea = document.getElementById('graphArea'); // SVG group where the graphs are displayed
-    const axisSVGContainer = document.getElementById('axisSVGContainer'); // Container for all the axis SVGs
     // Loop through the requested graph data
     for (let code of codes) {
       // Verify there is enough data for the graph (i.e. more than 2 samples)
       if (code in g_graph.y && g_graph.y[code].length > 1) {
-
-        // Retrieve graph color and name
+        // Retrieve graph color
         const color = g_graph.color[code];
-        let name = '';
-        for (let item of columnHeaders) { if (item.code == code) { name = item.title; } };
-        if (name === '') { continue; } // Skip this iteration if 'code' does not correspond to a known code
-
         // Create a new polyline for the graph SVG
         let text1 = `<polyline class="graphPolyline" id="polyline_${code}" points="`;
         // Add all the x,y points to the polyline
@@ -3936,51 +4149,138 @@
         text1 += `" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke" fill="none" stroke-linecap="round" stroke-linejoin="round" />`;
         // Add the polyline to the graph SVG
         graphArea.insertAdjacentHTML('beforeend', text1);
-
-        // Create a new SVG for the vertical axis
-        // Remark: We don't define a 'viewBox', so that the text size remains constant when resizing the SVG
-        // Remark: Contrary to the plot's SVG, here we don't change the origin of coordinates, so that the text is not flipped (we thus adjust the ticks and axis values accordingly)
-        // Remark: The width of the SVG will be redefined at the end, to fit all its content
-        let text2 = `<span class="axisContainer" id="axisContainer_${code}" title="${name}"
-                     onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
-        text2 += `<svg class="axisSVG" id="axisSVG_${code}" width="15px" height="100%">`;
-        text2 += `<g id="boundingBox">`; // This group will allow measuring the bounding box of the whole thing (axis + text)
-        // Convert ticks to a percentage of the whole SVG height (using percentages allows scaling when resizing the SVG, even without 'viewBox')
-        // We also invert direction, and min and max (since graphs were plotted with vertical origin at bottom)
-        const ticks = g_graph.ticks[code]; // Get arrays of nicely defined ticks ('primary', 'secondary', with nice 'min' and 'max')
-        const primaryTicks = ticks.primary.map(val => 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
-        const secondaryTicks = ticks.secondary.map(val => 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
-        const ticksMin = primaryTicks[primaryTicks.length - 1];
-        const ticksMax = primaryTicks[0];
-        // Format nicely the values of the primary ticks
-        const ticksValues = ticks.primary.map(val => Intl.NumberFormat('en-US').format(val));
-        // Draw the axis line
-        text2 += `  <line class="scaleLine" x1="0" y1="${ticksMin}%" x2="0" y2="${ticksMax}%" stroke="${color}" stroke-width="2" />`;
-        // Draw primary ticks and values
-        for (let i = 0; i < primaryTicks.length; i++) {
-          text2 += `  <line class="scalePrimaryTick" x1="0" y1="${primaryTicks[i]}%" x2="10" y2="${primaryTicks[i]}%" stroke="${color}" stroke-width="2" />`;
-          text2 += `  <text class="scaleValue" x="15" y="${primaryTicks[i]}%" fill="${color}" font-size="1rem" dominant-baseline="middle">${ticksValues[i]}</text>`;
-        }
-        // Draw secondary ticks (smaller and without values)
-        for (let i = 0; i < secondaryTicks.length; i++) {
-          text2 += `  <line class="scaleSecondaryTick" x1="0" y1="${secondaryTicks[i]}%" x2="5" y2="${secondaryTicks[i]}%" stroke="${color}" stroke-width="1" />`;
-        }
-        // Draw value indicator (it starts out of view at y=-100 and will only appear with the graph cursor)
-        // Remark: We embed it in a SVG, so that its Y position can easily be changed
-        // Remark: We add a small translation to center all its elements on Y position (without using a 'viewBox')
-        text2 += `<svg class="scaleCursor" id="scaleCursor_${code}" x="0" y="-100" width="10" height="10" transform="translate(0 -5)">
-                   <polygon class="scaleCursorMarker" points="10 0, 0 5, 10 10" fill="${color}" stroke="none" stroke-width="1" vector-effect="non-scaling-stroke" />
-                 </svg>`;
-        // Close bounding box group, svg and container
-        text2 += '</g></svg></span>';
-        // Add the axis SVG to the container
-        axisSVGContainer.insertAdjacentHTML('beforeend', text2);
-        // Now, set the axis SVG width equal to the width of its content (this simulates 'max-content' in the case of a SVG!)
-        const axisSVG = document.getElementById('axisSVG_' + code); // Get the above created SVG
-        const axisWidth = axisSVG.getElementById('boundingBox').getBBox().width + 5; // Get the width from its bounding box (plus a small margin)
-        axisSVG.setAttribute('width', axisWidth + 'px'); // Apply width to the SVG attribute
+        // Draw the corresponding vertical axis
+        drawYAxis(code);
       }
     }
+  }
+
+  // Draw horizontal axis for all graphs
+  function drawXAxis(code = g_graph.xcode) { // If no parameter is given, use the global variable
+    // Stop if 'code' does not correspond to a valid code
+    if (!(code in g_graph.xcodes)) { return; }
+    // Define graph color and name
+    const color = 'grey';
+    const name = (code == 'row') ? 'Table row' : columnHeaders[code].title;
+    // Create a new SVG for the horizontal axis
+    // Remark: We don't define a 'viewBox', so that the text size remains constant when resizing the SVG.
+    // Remark: The height of the SVG will be redefined at the end, to fit all its content (including text).
+    // Remark: The title will be updated to give all the x axis values at cursor position.
+    let text = `<div id="xAxisContainer" title="${name}">`;
+    text += `<svg id="xAxisSVG" width="100%" height="20px" style="display:block;">`; // We set 'display:block;' to ensure top vertical alignement in Chrome 83
+    text += `<g id="boundingBox" style="display:block;">`; // This group will allow measuring the bounding box of the whole thing (axis + text)
+    // Get arrays of nicely defined ticks ('primary', 'secondary', with nice 'min' and 'max')
+    const ticks = g_graph.xTicks[code];
+    // Convert ticks to a percentage of the whole SVG width (using percentages allows scaling when resizing the SVG, even without 'viewBox')
+    const primaryTicks = ticks.primary.map(val => 100 * (g_graph.axis.xmin + g_graph.axis.width * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.width);
+    const secondaryTicks = ticks.secondary.map(val => 100 * (g_graph.axis.xmin + g_graph.axis.width * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.width);
+    const ticksMin = primaryTicks[0];
+    const ticksMax = primaryTicks[primaryTicks.length - 1];
+    // Format nicely the values of the primary ticks
+    const ticksValues = ticks.primary.map(val => (code == 'T') ? formatTimestamp(val, 'local') : Intl.NumberFormat('en-US').format(val));
+    // Draw the axis line
+    text += `<line class="scaleLine" x1="${ticksMin}%" y1="0" x2="${ticksMax}%" y2="0" stroke="${color}" stroke-width="2" />`;
+    // Draw primary ticks and values
+    for (let i = 0; i < primaryTicks.length; i++) {
+      text += `<line class="scalePrimaryTick" x1="${primaryTicks[i]}%" y1="0" x2="${primaryTicks[i]}%" y2="10" stroke="${color}" stroke-width="2" />`;
+      if (primaryTicks[i] > 0 && primaryTicks[i] < 100) { // To avoid overflow, only display tick labels wthin the visible range
+        text += `<text class="scaleValue" x="${primaryTicks[i]}%" y="15" fill="${color}" font-size="1rem" text-anchor="middle" dominant-baseline="hanging">${ticksValues[i]}</text>`;
+      }
+    }
+    // Draw secondary ticks (smaller and without values)
+    for (let i = 0; i < secondaryTicks.length; i++) {
+      text += `<line class="scaleSecondaryTick" x1="${secondaryTicks[i]}%" y1="0" x2="${secondaryTicks[i]}%" y2="5" stroke="${color}" stroke-width="1" />`;
+    }
+    // Draw value indicator (it starts out of view at x=-300 and will only appear with the graph cursor)
+    // Remark: We put everything in an embedded SVG, so that all X positions can be changed at once.
+    // However, Chrome 83 does not allow using 'transform' on the SVG element itself.
+    // So we embed the SVG in a 'foreignObject'... to which we apply the transform!
+    // We also use 'foreignObject' to handle the text as HTML, because it's much easier to style...
+    text += `<foreignObject id="scaleCursorX" x="-300" y="0" width="200" height="1" style="overflow:visible;" transform="translate(-100 0)">
+               <svg x="0" y="0" width="200" height="100">
+                 <polygon id="scaleCursorXMarker" points="95 10, 100 0, 105 10" fill="${color}" stroke="none" vector-effect="non-scaling-stroke" />
+                 <foreignObject x="0" y="10" width="200" height="1" style="overflow:visible;">
+                   <div style="text-align:center;"><span id="scaleCursorXValue" style="font-size:1rem;font-weight:bold;color:${color};white-space:nowrap;"></span></div>
+                 </foreignObject>
+               </svg>
+             </foreignObject>`;
+    // Close bounding box group, svg and container
+    text += '</g></svg></div>';
+    // Put the SVG in the container of the axis
+    document.getElementById('xAxisSVGContainer').innerHTML = text;
+    // Now, set the axis SVG height equal to the height of its content (this simulates 'max-content' in the case of a SVG!)
+    const xAxisSVG = document.getElementById('xAxisSVG'); // Get the above created SVG
+    const xAxisHeight = xAxisSVG.getElementById('boundingBox').getBBox().height + 5; // Get the height from its bounding box (plus a small margin)
+    xAxisSVG.setAttribute('height', xAxisHeight + 'px'); // Apply height to the SVG attribute
+  }
+
+  // Draw vertical axis for one given graph
+  function drawYAxis(code) {
+    // When no parameter is given, an 'empty' axis is drawn (no data, no values... just for decoration!)
+    const empty = (code === undefined);
+    if (empty) { code = 'empty'; }
+    if (empty && (document.querySelectorAll('.yAxisContainer').length > 0)) { return; } // Stop if an axis is already drawn
+    // Delete the empty axis if it exists (using the 'for...of' format does not give an error if the element doesn't exist)
+    for (let axis of document.querySelectorAll('#yAxisContainer_empty')) { axis.remove(); };
+    // Retrieve graph color and name
+    const color = (empty) ? 'grey' : g_graph.color[code];
+    const name = (empty) ? '' : columnHeaders[code].title;
+    // Create a new SVG for the vertical axis
+    // Remark: We don't define a 'viewBox', so that the text size remains constant when resizing the SVG.
+    // Remark: Contrary to the plot's SVG, here we don't change the origin of coordinates, so that the text is not flipped (we thus adjust the ticks and axis values accordingly).
+    // Remark: The width of the SVG will be redefined at the end, to fit all its content (including text).
+    // Remark: The newline at the end of the tooltip will allow adding to it the graph values at cursor position.
+    let options = (empty) ? `` : `onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')"`;
+    let text = `<span class="yAxisContainer" id="yAxisContainer_${code}" title="${name}\n" ${options}>`;
+    // We do here the same trick as for the main graph area: Define a small initial height then scale it up right away.
+    text += `<svg class="yAxisSVG" id="yAxisSVG_${code}" width="15px" height="1px" style="height:250px;">`;
+    text += `<g id="boundingBox">`; // This group will allow measuring the bounding box of the whole thing (axis + text)
+    // Get arrays of nicely defined ticks ('primary', 'secondary', with nice 'min' and 'max')
+    const ticks = (empty) ? defineNiceTicks(0, 4, 5) : g_graph.yTicks[code];
+    // Convert ticks to a percentage of the whole SVG height (using percentages allows scaling when resizing the SVG, even without 'viewBox')
+    // We also invert direction, and min and max (since graphs were plotted with vertical origin at bottom)
+    const primaryTicks = ticks.primary.map(val => 100 - 100 * (g_graph.axis.ymin + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
+    const secondaryTicks = ticks.secondary.map(val => 100 - 100 * (g_graph.axis.ymin + g_graph.axis.height * (val - ticks.min) / (ticks.max - ticks.min)) / g_graph.height);
+    const ticksMin = primaryTicks[primaryTicks.length - 1];
+    const ticksMax = primaryTicks[0];
+    // Format nicely the values of the primary ticks (or keep them empty for decoration)
+    const ticksValues = (empty) ?
+      ticks.primary.map(val => '') :
+      ticks.primary.map(val => (code == 'T') ? formatTimestamp(val, 'local') : Intl.NumberFormat('en-US').format(val));
+    // Draw the axis line
+    text += `<line class="scaleLine" x1="0" y1="${ticksMin}%" x2="0" y2="${ticksMax}%" stroke="${color}" stroke-width="2" />`;
+    // Draw primary ticks and values
+    for (let i = 0; i < primaryTicks.length; i++) {
+      text += `<line class="scalePrimaryTick" x1="0" y1="${primaryTicks[i]}%" x2="10" y2="${primaryTicks[i]}%" stroke="${color}" stroke-width="2" />`;
+      text += `<text class="scaleValue" x="15" y="${primaryTicks[i]}%" fill="${color}" font-size="1rem" text-anchor="start" dominant-baseline="middle">${ticksValues[i]}</text>`;
+    }
+    // Draw secondary ticks (smaller and without values)
+    for (let i = 0; i < secondaryTicks.length; i++) {
+      text += `<line class="scaleSecondaryTick" x1="0" y1="${secondaryTicks[i]}%" x2="5" y2="${secondaryTicks[i]}%" stroke="${color}" stroke-width="1" />`;
+    }
+    // Draw value indicator (it starts out of view at y=-100 and will only appear with the graph cursor)
+    // Remark: We put everything in an embedded SVG, so that all Y positions can be changed at once.
+    // However, Chrome 83 does not allow using 'transform' on the SVG element itself.
+    // So we embed the SVG in a 'foreignObject'... to which we apply the transform!
+    // We also use 'foreignObject' to handle the text as HTML, because it's much easier to style...
+    if (!empty) {
+      text += `<foreignObject class="scaleCursorY" id="scaleCursorY_${code}" x="0" y="-100" width="100%" height="30" transform="translate(0 -15)">
+                 <svg x="0" y="0" width="100%" height="30">
+                   <polygon class="scaleCursorYMarker" points="10 10, 0 15, 10 20" fill="${color}" stroke="none" vector-effect="non-scaling-stroke" />
+                   <foreignObject x="10" y="10" width="1" height="1" style="overflow:visible;">
+                     <div><span class="scaleCursorYValue" id="scaleCursorYValue_${code}" style="vertical-align:top;font-size:1rem;font-weight:bold;color:${color};white-space:nowrap;"></span></div>
+                   </foreignObject>
+                 </svg>
+               </foreignObject>`;
+    }
+    // Close bounding box group, svg and container
+    text += '</g></svg></span>';
+    // Add the SVG to the container of all axis
+    document.getElementById('yAxisSVGContainer').insertAdjacentHTML('beforeend', text);
+    // Now, set the axis SVG width equal to the width of its content (this simulates 'max-content' in the case of a SVG!)
+    const yAxisSVG = document.getElementById('yAxisSVG_' + code); // Get the above created SVG
+    const yAxisWidth = yAxisSVG.getElementById('boundingBox').getBBox().width + 6; // Get the width from its bounding box (plus a small margin)
+    yAxisSVG.setAttribute('width', yAxisWidth + 'px'); // Apply width to the SVG attribute
   }
 
   // The SVG cursor follows the mouse when hovering over the graph
@@ -4005,15 +4305,15 @@
       // Move the SVG cursor out of view (and have it forget its index)
       document.getElementById('graphCursor').setAttribute('x', '-100');
       // Hide all scale cursors in axis
-      for (let cursor of document.querySelectorAll('.scaleCursor')) { cursor.setAttribute('y', '-100'); }
+      for (let cursor of document.querySelectorAll('.scaleCursorY')) { cursor.setAttribute('y', '-100'); }
+      document.getElementById('scaleCursorX').setAttribute('x', '-300');
       // Remove values from axis tooltips (just leave the newline)
-      for (let container of document.querySelectorAll('.axisContainer')) { container.title = container.title.replace(/[ :]*\n.*/, '\n'); }
-      // Empty all graph values in legend
-      for (let value of document.querySelectorAll('.graphLegendValue')) { value.innerHTML = ''; }
+      for (let container of document.querySelectorAll('.yAxisContainer')) { container.title = container.title.replace(/[ :]*\n.*/, '\n'); }
+      document.getElementById('xAxisContainer').title = (g_graph.xcode == 'row') ? 'Table row' : columnHeaders[g_graph.xcode].title;
       // Remove all row highlighting (if any)
       g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
       // Reset cursor index and ensure the hovering effect is now active
-      g_graph.index = undefined;
+      g_graph.index = null;
       g_graph.hover = true;
     }
   }
@@ -4021,7 +4321,7 @@
     g_graph.hover = !g_graph.hover // Elegant way to toggle a boolean! :-)
   }
   function graphDisplayCursor() { // Display graph cursor (and all the corresponding values)
-    if (g_graph.index !== undefined) {
+    if (g_graph.index !== null) {
       // Get the X coordinate of the sample (we use % because the cursor is not in the same embedded SVG as the graphs)
       const x = 100 * g_graph.xsvg[g_graph.xcode][g_graph.index] / g_graph.width;
       // Move the SVG cursor to that position
@@ -4029,25 +4329,50 @@
       // Highlight the corresponding row in the table
       g_graph.rows.forEach(row => row.classList.remove('rowHighlight'));
       g_graph.rows[g_graph.index].classList.add('rowHighlight');
-      // Display the axis cursors and the graph values, in legend and on axis
-      for (let code in g_graph.y) { graphDisplayCursorValues(code); }
+      // Display the axis cursors and the graph values on axis
+      for (let code in g_graph.y) { graphDisplayCursorYValues(code); }
+      graphDisplayCursorXValues(g_graph.xcode);
     }
   }
-  function graphDisplayCursorValues(code) { // Display axis cursor and graph value, in legend and on axis
-    if (g_graph.index !== undefined) {
+  function graphDisplayCursorXValues(code = g_graph.xcode) { // Display axis cursor and graph value on X axis
+    // Stop if cursor is hidden or 'code' does not correspond to a valid code
+    if ((g_graph.index !== null) && (code in g_graph.xcodes)) {
+      // Get graph values at cursor position
+      const x = g_graph.x[code][g_graph.index];
+      // Use nice number format (or human-readable timestamps)
+      const xNice = (code == 'T') ? g_graph.timeText[g_graph.index] : Intl.NumberFormat('en-US').format(x);
+      // Get the X coordinate in % of the whole SVG width
+      const xPercentage = 100 * g_graph.xsvg[code][g_graph.index] / g_graph.width;
+      // Move scale cursor to the corresponding axis position
+      document.getElementById('scaleCursorX').setAttribute('x', xPercentage + '%');
+      document.getElementById('scaleCursorXValue').innerHTML = xNice;
+      // Update the axis tooltip to give the value for all the available x coordinates
+      let text = '';
+      for (code in g_graph.xcodes) {
+        if (code != 'row') {
+          // Use nice number format (or human-readable timestamps)
+          const xNice = (code == 'T') ? g_graph.timeText[g_graph.index] : Intl.NumberFormat('en-US').format(g_graph.x[code][g_graph.index]);
+          text += `${columnHeaders[code].title}: ${xNice}\n`;
+        }
+      }
+      document.getElementById('xAxisContainer').title = text;
+    }
+  }
+  function graphDisplayCursorYValues(code) { // Display axis cursor and graph value on Y axis
+    if (g_graph.index !== null) {
       // Get graph values at cursor position
       const y = g_graph.y[code][g_graph.index];
-      const yNice = Intl.NumberFormat('en-US').format(y); // Make a nice number format
-      // Convert value to a percentage of the whole SVG height (inverted because graphs were plotted with vertical origin at bottom, but not the axis)
-      const [min, max] = [g_graph.ticks[code].min, g_graph.ticks[code].max];
-      const yPercentage = 100 - 100 * (g_graph.axis.min + g_graph.axis.height * (y - min) / (max - min)) / g_graph.height;
+      const yNice = (code == 'T') ?
+        g_graph.timeText[g_graph.index] : // For timestamps, use the human-readable format
+        Intl.NumberFormat('en-US').format(y); // For other values, simply make a nicer number format
+      // Get the Y coordinate in % of the whole SVG height (inverted because graphs were plotted with vertical origin at bottom, but not the axis)
+      const yPercentage = 100 - 100 * g_graph.ysvg[code][g_graph.index] / g_graph.height;
       // Move scale cursor to the corresponding axis position
-      document.getElementById('scaleCursor_' + code).setAttribute('y', yPercentage + '%');
+      document.getElementById('scaleCursorY_' + code).setAttribute('y', yPercentage + '%');
+      document.getElementById('scaleCursorYValue_' + code).innerHTML = yNice;
       // Add/replace the value in the second line of its tooltip
-      const container = document.getElementById('axisContainer_' + code);
+      const container = document.getElementById('yAxisContainer_' + code);
       container.title = container.title.replace(/[ : ]*\n.*/, ' : \n' + yNice); // Everything after the new line becomes the new value
-      // Display graph values in legend
-      document.getElementById('graphLegendValue_' + code).innerHTML = ' : ' + yNice;
     }
   }
   function graphUpdateCursor() { // Update or reset cursor when table rows have changed
@@ -4056,16 +4381,15 @@
     // Remove highlighting marks in rows not visible anymore
     for (let row of allRows) { if (!g_graph.rows.includes(row)) { row.classList.remove('rowHighlight'); }};
     // Get the index of the first visible highlighted row (if any)
-    g_graph.index = undefined;
+    g_graph.index = null;
     for (let i = 0; i < g_graph.rows.length; i++) { if (g_graph.rows[i].classList.contains('rowHighlight')) { g_graph.index = i; break; }};
     // If an highlighted row is still visible, redraw the cursor
-    if (g_graph.index !== undefined) {
+    if (g_graph.index !== null) {
       graphDisplayCursor(); // Redraw the cursor at its new position
     } else {
       graphHoverOff(); // Or hide it and activate the hover mode
     }
   }
-
 
 </script>
 
@@ -4085,7 +4409,7 @@
     text += `  <div class="selectRows"><label title="Number of rows to display (2000 max)">
                  <span class="labelRows">Rows: </span>
                  <input type="number" class="nbrRows" id="nbrRows" list="nbrOfRows" autocomplete="off" min="1" max="2000" step="1" size="4" value="" placeholder="${g_nMax}">
-                 <datalist id="nbrOfRows">
+                 <datalist id="nbrOfRows"> <!-- Does not seem to work in Chrome 83 -->
                    <option value="100">100 (default)</option>
                    <option value="200">200</option>
                    <option value="500">500</option>
@@ -4097,7 +4421,7 @@
     text += `  <div class="selectStep"><label title="Blockheight interval between two rows">
                  <span class="labelStep">Interval: </span>
                  <input type="number" class="nbrStep" id="nbrStep" list="nbrOfSteps" autocomplete="off" min="1" value="" step="1" size="4" placeholder="${g_dh}">
-                 <datalist id="nbrOfSteps">
+                 <datalist id="nbrOfSteps"> <!-- Does not seem to work in Chrome 83 -->
                    <option value="1">1 (default)</option>
                    <option value="60">60 (~hour)</option>
                    <option value="1440">1,440 (~day)</option>
@@ -4130,42 +4454,41 @@
     text += '<div id="columnOptions">';
     // Make list of all checkboxes
     let nbr = 0;
-    for (let item of columnHeaders) {
+    for (let code of Object.keys(columnHeaders)) {
       nbr++;
       // Put each checkbox and its text into a div
-      text += '<div class="columnOption" id="Option_' + item.code + '"><label title="' + item.description + '">';
-      if (item.code == 'h') {
+      text += '<div class="columnOption" id="Option_' + code + '"><label title="' + columnHeaders[code].description + '">';
+      if (code == 'h') {
         // First column (the block height) is mandatory: the checkbox is checked and disabled
-        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckboxDisabled" title="Always displayed" id="check_' + item.code + '" data-code="' + item.code + '" checked disabled></span>';
+        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckboxDisabled" title="Always displayed" id="check_' + code + '" data-code="' + code + '" checked disabled></span>';
       } else {
-        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckbox" title="URL code: ' + item.code + '" id="check_' + item.code + '" data-code="' + item.code + '"></span>';
+        text += '<span class="columnOptionCheck"><input type="checkbox" class="columnOptionCheckbox" title="URL code: ' + code + '" id="check_' + code + '" data-code="' + code + '"></span>';
       }
       text += '<span class="columnOptionText">';
       text += '<span class="columnOptionNumber">' + nbr.toString().padStart(2,'0') + '. </span>';
-      text += '<span class="columnOptionLabel">' + item.title + '</span>';
-      text += '<span class="columnOptionDescription hidden"> ' + item.description + '.</span>';
+      text += '<span class="columnOptionLabel">' + columnHeaders[code].title + '</span>';
+      text += '<span class="columnOptionDescription hidden"> ' + columnHeaders[code].description + '.</span>';
       text += '</span>';
       text += '</label></div>';
     }
     text += '</div>';
     text += '</form>';
 
-    // Popup for pasting column codes
-    // Remark: We use 'dialog' because 'popover' does not work on Chrome 83.
+    // Popup for pasting column codes (we use 'dialog' because 'popover' does not work on Chrome 83)
     // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
-    text += '<dialog id="pasteColumnsPopup">';
-    text += `  <form id="pasteColumnsForm" name="pasteColumnsForm" method="dialog" onsubmit="applyPasteColumns();">
-                  <div class="pasteColumnsText">Copy/Paste codes for columns:</div>
-                  <input type="text" id="pasteColumnsInput" value="${columnDefaultDisplay}" autocomplete="off" size="30" pattern="^(?:([${columnDefaultOrder}])(?!.*\\1))*$" placeholder="Enter column codes here" title="Valid codes are ${columnDefaultOrder} (without repetition)" autofocus>
-                  <button type="submit" class="popupButton" id="pasteColumnsApply" title="Apply column codes">Ok</button>
-                  <button type="button" class="popupButton" id="pasteColumnsCancel" title="Cancel" onclick="closePasteColumns();">Cancel</button>
-               </form>`;
+    text += '<dialog class="popupDialog" id="pasteColumnsPopup">';
+    text += `<form id="pasteColumnsForm" name="pasteColumnsForm" method="dialog" onsubmit="applyPasteColumns();">
+               <div class="popupText">Copy/Paste codes for columns:</div>
+               <input type="text" id="pasteColumnsInput" value="${columnDefaultDisplay}" autocomplete="off" size="30" pattern="^(?:([${columnDefaultOrder}])(?!.*\\1))*$" placeholder="Enter column codes here" title="Valid codes are ${columnDefaultOrder} (without repetition)" autofocus>
+               <button type="submit" class="popupButton" id="pasteColumnsApply" title="Apply column codes">Ok</button>
+               <button type="button" class="popupButton" id="pasteColumnsCancel" title="Cancel" onclick="closeDialog('pasteColumnsPopup');">Cancel</button>
+             </form>`;
     // Display a list of all column codes
     text += '<div class="pasteColumnsList">';
-    for (let item of columnHeaders) {
-        text += '<div class="pasteColumnsListItem" title="' + item.description + '">';
-        text += '<span class="pasteColumnsListCode">' + item.code + ' </span>';
-        text += '<span class="pasteColumnsListTitle">' + item.title + '</span>';
+    for (let code of Object.keys(columnHeaders)) {
+        text += '<div class="pasteColumnsListItem" title="' + columnHeaders[code].description + '">';
+        text += '<span class="pasteColumnsListCode">' + code + ' </span>';
+        text += '<span class="pasteColumnsListTitle">' + columnHeaders[code].title + '</span>';
         text += '</div>';
     }
     text += '</div>';
@@ -4173,18 +4496,54 @@
 
     text += MakeCollapsibleEnd();
 
-    // Display graph area
+    // Display graph options
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
-    text += '<div id="resetColors"><a href="javascript:resetGraphColors();" title="Reset graph colors to default">Reset colors</a></div>';
-    text += '<div id="graphContainer" style="white-space:nowrap">'; // 'nowrap' added just for the CSS-less display
-    // Add empty SVG elements for the graphs and their axis (the width here is just a default for the CSS-less display)
-    text += '  <span id="graphSVGContainer"><svg id="graphSVG" width="80%" height="100%">Sorry, your browser does not support inline SVG.</svg></span>';
-    text += '  <span id="axisSVGContainer"></span>';
-    text += '</div>';
-    text += '<div id="graphLegend"><div id="graphLegendTitle">Select in the table below the columns to display <span id="graphLegendSubtitle">(the rows will be read from bottom to top)</span></div>';
+    // Remark: The 800px width and 250px height are given just for the initial CSS-less layout. CSS will make them resizable.
+    // Weird trick: To allow CSS to shrink the table cell of the SVG below its default 'height', we set it to 1px, then scale it up to 250px ('width' does not have this problem)!
+    text += ` <div id="graphContainer">
+                <table cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td id="graph-main-plot" width="800px">
+                      <div id="graphSVGContainer"><svg id="graphSVG" width="100%" height="1px" style="height:250px;">Sorry, your browser does not support inline SVG.</svg></div>
+                    </td>
+                    <td id="graph-vertical-scale" style="white-space:nowrap;">
+                      <span id="yAxisSVGContainer"></span>
+                    </td>
+                  </tr><tr>
+                    <td id="graph-horizontal-scale" valign="top">
+                      <div id="xAxisSVGContainer"></div>
+                    </td>
+                    <td id="graph-options" style="white-space:nowrap;">
+                      <span id="xAxisSelection">
+                        <!-- X axis selection dropdown (the options will be added by JS) -->
+                        <select id="xAxisSelect" title="Change data of horizontal scale" name="xAxis" autocomplete="off">
+                        </select>
+                      </span>
+                      <span id="resetColors"><a href="javascript:openDialog('resetGraphColorsPopup');" title="Reset all graph colors"><svg width="1.5rem" height="1.5rem"><use href="#palette_icon"/></svg></a></span>
+                      <!-- Confirmation popup (we use 'dialog' because 'popover' does not work on Chrome 83) -->
+                      <dialog class="popupDialog" id="resetGraphColorsPopup">
+                        <form id="resetGraphColorsForm" name="resetGraphColorsForm" method="dialog" onsubmit="resetGraphColors();">
+                          <div class="popupTitle">Reset all graph colors to defaults?</div>
+                          <div class="popupButtons">
+                            <!-- Remark: Submitting a form with a 'dialog' method automatically closes the dialog -->
+                            <button type="submit" class="popupButton" id="resetGraphColorsOk" title="Reset graph colors">Ok</button>
+                            <button type="button" class="popupButton" id="resetGraphColorsCancel" title="Cancel" onclick="closeDialog('resetGraphColorsPopup');">Cancel</button>
+                          </div>
+                        </form>
+                      </dialog>
+                    </td>
+                  </tr><tr>
+                    <td id="graph-legend" colspan="2">
+                      <div id="graphLegend">
+                        <div id="graphLegendTitle">Select in the table below the columns to display <span id="graphLegendSubtitle">(the rows will be read from bottom to top)</span></div>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </div>`;
     text += MakeCollapsibleEnd();
 
-    text += '</div>';
+    text += '</div>'; // Closing 'tableOptionsContainer'
 
     return text;
   }
@@ -4250,7 +4609,7 @@
 
     // Check selected checkboxes
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
-      item.checked = (string.includes(item.dataset.code)) ? true : false; 
+      item.checked = string.includes(item.dataset.code); // True or false
     }
   }
 
@@ -4298,23 +4657,14 @@
     renumberColumnOptions();
   }
 
-  function openPasteColumns() { // Open popup
-    let popup = document.getElementById('pasteColumnsPopup');
+  function openPasteColumns() {
+    openDialog('pasteColumnsPopup'); // Open popup
     // Get codes for selected checkboxes (they will be automatically listed in their current order)
     let params = '';
     for (let item of document.querySelectorAll('.columnOptionCheckbox')) {
       if (item.checked == true) { params += item.dataset.code }; // String of codes with the selected checkboxes (in the same order)
     }
-    // Set form input value to those codes
-    document.getElementById('pasteColumnsInput').value = params;
-    // Display popup
-    popup.showModal();
-    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
-    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
-  }
-
-  function closePasteColumns() { // Close popup
-    document.getElementById('pasteColumnsPopup').close();
+    document.getElementById('pasteColumnsInput').value = params; // Set form input value to those codes
   }
 
   function applyPasteColumns() { // Apply popup selection
@@ -4580,7 +4930,10 @@
 
     // Update class and title in header by adding the sorting direction
     input.classList.add(dir);
-    input.title = dir == 'desc' ? 'Sort ascending' : 'Sort descending';
+    input.title = (dir == 'desc') ? 'Sort ascending' : 'Sort descending';
+
+    // Return the column number (just in case it might be useful)
+    return col;
   }
 
   // FILTER ROWS (OR GROUPS OF ROWS)
