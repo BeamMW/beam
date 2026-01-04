@@ -2846,6 +2846,15 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	BlockInterpretCtx bic(0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
 	bic.SetAidMax(*this);
+
+	std::ostringstream osErr;
+	bic.m_pTxErrorInfo = &osErr;
+
+	std::vector<ContractInvokeExtraInfo> vC;
+	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
+		bic.m_pvC = &vC;
+
+
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
 		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
@@ -2864,6 +2873,12 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	}
 
 	cf.Do(*this, 0);
+
+	if (bic.m_pvC)
+	{
+		Serializer ser;
+		bic.AddKrnInfo(ser, m_DB);
+	}
 
 	Serializer ser;
 	TxoID id0 = 0;
