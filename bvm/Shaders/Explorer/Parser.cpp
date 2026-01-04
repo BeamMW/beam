@@ -29,6 +29,7 @@ namespace Testnet {
 #include "../l2tst1/contract_l1.h"
 #include "../l2tst1/contract_l2.h"
 #include "../pbft/pbft_dpos.h"
+#include "../pbft/pbft_stat.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -226,6 +227,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(BlackHole, BlackHole::s_SID) \
 	macro(L2Tst1_L2, L2Tst1_L2::s_SID) \
 	macro(PBFT_DPOS, PBFT_DPOS::s_SID) \
+	macro(PBFT_STAT, PBFT_STAT::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -1199,6 +1201,67 @@ void ParserContext::On_PBFT_Commission(uint16_t commission_cpc, bool bIsTbl /* =
 	}
 	
 	Env::DocAddText(bIsTbl ? "" : "Commission", szVal);
+}
+
+void ParserContext::OnState_PBFT_STAT()
+{
+	{
+		Env::DocGroup gr2("Validators");
+
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Validator");
+			DocAddTableHeader("Status");
+			DocAddTableHeader("Weight");
+		}
+
+		Env::Key_T<I_PBFT::State::Validator::Key> vk0, vk1;
+		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
+		_POD_(vk1.m_KeyInContract.m_Address).SetObject(0xff);
+
+		for (Env::VarReader r(vk0, vk1); ; )
+		{
+			I_PBFT::State::Validator vp;
+			if (!r.MoveNext_T(vk0, vp))
+				break;
+
+			Env::DocArray gr4("");
+
+			Env::DocAddBlob_T("", vk0.m_KeyInContract.m_Address);
+			On_PBFT_Status("", vp.m_Status);
+
+			DocAddAmount("", vp.m_Weight);
+		}
+
+	}
+}
+
+void ParserContext::OnMethod_PBFT_STAT()
+{
+	switch (m_iMethod)
+	{
+	case I_PBFT::Method::ValidatorStatusUpdate::s_iMethod:
+		OnMethod("ValidatorStatusUpdate");
+		{
+			auto pArg = get_ArgsAs<I_PBFT::Method::ValidatorStatusUpdate>();
+			if (pArg)
+			{
+				GroupArgs gr;
+				On_PBFT_ValidatorAddr(pArg->m_Address);
+				On_PBFT_Status("Status", pArg->m_Status);
+			}
+		}
+		break;
+
+	case PBFT_DPOS::Method::AddReward::s_iMethod:
+		OnMethod("AddReward");
+		break;
+	}
 }
 
 void ParserContext::OnState_VaultAnon()
