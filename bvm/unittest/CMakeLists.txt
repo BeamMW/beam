@@ -28,3 +28,4 @@ configure_file("../Shaders/amm/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/c
 configure_file("../Shaders/amm/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/amm/app.wasm" COPYONLY)
 configure_file("../Shaders/minter/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/minter/contract.wasm" COPYONLY)
 configure_file("../Shaders/pbft/pbft_dpos.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pbft/pbft_dpos.wasm" COPYONLY)
+configure_file("../Shaders/pbft/pbft_stat.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pbft/pbft_stat.wasm" COPYONLY)

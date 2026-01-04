@@ -40,6 +40,7 @@ namespace Shaders {
 #	include "../bvm/Shaders/common.h"
 #	include "../bvm/Shaders/l2tst1/contract_l2.h"
 #	include "../bvm/Shaders/pbft/pbft_dpos.h"
+#	include "../bvm/Shaders/pbft/pbft_stat.h"
 } // namespace Shaders
 
 namespace ECC {
@@ -1795,15 +1796,31 @@ namespace beam
 
 	}
 
+	struct PbftTreasuryBuilderBase
+	{
+		Treasury::Data::Group& m_Tg;
+		PbftTreasuryBuilderBase(Treasury::Data::Group& tg)
+			:m_Tg(tg)
+		{
+		}
 
-    struct PbftTreasuryBuilder
+		void FixOffset(ECC::Scalar::Native& sk, bool isOutp)
+		{
+			if (isOutp)
+				sk = -sk;
+			m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+		}
+	};
+
+
+    struct PbftTreasuryBuilder_Dpos
+		:public PbftTreasuryBuilderBase
     {
-        Treasury::Data::Group& m_Tg;
         ContractID m_Cid;
         Shaders::PBFT_DPOS::Settings m_Settings;
 
-        PbftTreasuryBuilder(Treasury::Data::Group& tg)
-            :m_Tg(tg)
+        PbftTreasuryBuilder_Dpos(Treasury::Data::Group& tg)
+			:PbftTreasuryBuilderBase(tg)
         {
             ZeroObject(m_Settings);
         }
@@ -1831,9 +1848,7 @@ namespace beam
             bvm2::get_Cid(m_Cid, pKrn->m_Data, pKrn->m_Args);
 
             m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-            sk = -sk;
-            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+            FixOffset(sk, true);
         }
 
         void AddValidator(const Block::Pbft::Address& addr, const ECC::Point& pkDelegator, Amount stake)
@@ -1859,14 +1874,63 @@ namespace beam
             pKrn->Sign(&sk, 1, ptFunds, nullptr);
 
             m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
-
-            sk = -sk;
-            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+            FixOffset(sk, true);
 
             m_Tg.m_Value += MultiWord::From(stake);
         }
     };
 
+    struct PbftTreasuryBuilder_Stat
+		:public PbftTreasuryBuilderBase
+    {
+		typedef Shaders::PBFT_STAT::Method::Create::ValidatorInit ValidatorInit;
+		std::vector<ValidatorInit> m_vInit;
+
+		using PbftTreasuryBuilderBase::PbftTreasuryBuilderBase;
+
+		void AddValidator(const Block::Pbft::Address& addr, const ECC::Point& /* pkDelegator */, Amount stake)
+		{
+			AddValidator(addr, stake);
+		}
+
+		void AddValidator(const Block::Pbft::Address& addr, Amount stake)
+		{
+			auto& x = m_vInit.emplace_back();
+			x.m_Address = Cast::Down<ECC::uintBig>(addr);
+			x.m_Weight = stake;
+		}
+
+        void Export()
+        {
+			verify_test(!m_vInit.empty());
+
+            auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+			beam::bvm2::Compile(pKrn->m_Data, "pbft/pbft_stat.wasm", beam::bvm2::Processor::Kind::Contract);
+
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT_STAT::Method::Create) + sizeof(ValidatorInit) * m_vInit.size());
+            auto& args = *(Shaders::PBFT_STAT::Method::Create*) &pKrn->m_Args.front();
+            ZeroObject(args);
+			args.m_Count = ByteOrder::to_le(static_cast<uint32_t>(m_vInit.size()));
+
+			for (uint32_t i = 0; i < m_vInit.size(); i++)
+			{
+				const auto& src = m_vInit[i];
+				auto& dst = args.get_VI()[i];
+
+				dst.m_Address = src.m_Address;
+				dst.m_Weight = ByteOrder::to_le(src.m_Weight);
+			}
+
+            ECC::Scalar::Native sk;
+            sk.GenRandomNnz();
+            ECC::Point::Native ptFunds(beam::Zero);
+            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+            m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+            FixOffset(sk, true);
+        }
+
+    };
 	void TestNodeClientProto(Rules& r, bool bTestPbft, bool bTestBridge)
 	{
 		auto logger = beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG);
@@ -1930,14 +1994,15 @@ namespace beam
 			{
 				r.SetParamsPbft(576);
 
-				PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+				//PbftTreasuryBuilder_Dpos tb(td.m_vGroups.emplace_back());
+				PbftTreasuryBuilder_Stat tb(td.m_vGroups.emplace_back());
 				tb.m_Tg.m_Value = Zero;
 				tb.m_Tg.m_Data.m_Offset = Zero;
 
-				tb.m_Settings.m_hUnbondLock = 10;
-				tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
-				tb.m_Settings.m_aidStake = 7;
-				tb.Init();
+				//tb.m_Settings.m_hUnbondLock = 10;
+				//tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
+				//tb.m_Settings.m_aidStake = 7;
+				//tb.Init();
 
 				ECC::Scalar::Native sk;
 				Block::Pbft::Address addr;
@@ -1948,6 +2013,8 @@ namespace beam
 
 				Block::Pbft::DeriveValidatorAddress(*node2.m_Keys.m_pMiner, addr, sk);
 				tb.AddValidator(addr, ptDelegator, Rules::Coin * 600);
+
+				tb.Export();
 			}
 
 			if (bTestBridge)

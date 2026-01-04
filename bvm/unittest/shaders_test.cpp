@@ -71,6 +71,7 @@ namespace Shaders {
 #include "../Shaders/amm/contract.h"
 #include "../Shaders/minter/contract.h"
 #include "../Shaders/pbft/pbft_dpos.h"
+#include "../Shaders/pbft/pbft_stat.h"
 
 	template <bool bToShader> void Convert(Vault::Request& x) {
 		ConvertOrd<bToShader>(x.m_Aid);
@@ -616,7 +617,8 @@ namespace bvm2 {
 		ContractWrap m_Nephrite;
 		ContractWrap m_Minter;
 		ContractWrap m_Amm;
-		ContractWrap m_Pbft;
+		ContractWrap m_Pbft_Dpos;
+		ContractWrap m_Pbft_Stat;
 
 		std::map<ShaderID, const Wasm::Compiler::DebugInfo*> m_mapDbgInfo;
 
@@ -868,7 +870,7 @@ namespace bvm2 {
 */
 
 /*
-			if (cid == m_Pbft.m_Cid)
+			if (cid == m_Pbft_Dpos.m_Cid)
 			{
 				TempFrame f(*this, cid);
 				switch (iMethod)
@@ -1157,7 +1159,8 @@ namespace bvm2 {
 		AddCode(m_Nephrite, "nephrite/contract.wasm");
 		AddCode(m_Minter, "minter/contract.wasm");
 		AddCode(m_Amm, "amm/contract.wasm");
-		AddCode(m_Pbft, "pbft/pbft_dpos.wasm");
+		AddCode(m_Pbft_Dpos, "pbft/pbft_dpos.wasm");
+		AddCode(m_Pbft_Stat, "pbft/pbft_stat.wasm");
 
 		m_FarCalls.m_SaveLocal = true;
 
@@ -2233,7 +2236,8 @@ namespace bvm2 {
 
 	void MyProcessor::TestPbft()
 	{
-		VERIFY_ID(Shaders::PBFT_DPOS::s_SID, m_Pbft.m_Sid);
+		VERIFY_ID(Shaders::PBFT_DPOS::s_SID, m_Pbft_Dpos.m_Sid);
+		VERIFY_ID(Shaders::PBFT_STAT::s_SID, m_Pbft_Stat.m_Sid);
 
 		static const uint32_t nValidators = 6;
 		const uint32_t nDelegators = 14;
@@ -2263,7 +2267,7 @@ namespace bvm2 {
 			args.m_Settings.m_aidStake = 77;
 			args.m_Settings.m_hUnbondLock = 100;
 			args.m_Settings.m_MinValidatorStake = nMinValidatorStake;
-			verify_test(ContractCreate_T(m_Pbft.m_Cid, m_Pbft.m_Code, args));
+			verify_test(ContractCreate_T(m_Pbft_Dpos.m_Cid, m_Pbft_Dpos.m_Code, args));
 		}
 
 		for (uint32_t i = 0; i < nValidators; i++)
@@ -2284,7 +2288,7 @@ namespace bvm2 {
 			args.m_Commission_cpc = 500;
 
 			args.m_Stake = bTestUpd ? nMinValidatorStake : d.m_Stake;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 
 			if (bTestUpd)
 			{
@@ -2294,7 +2298,7 @@ namespace bvm2 {
 				args2.m_Delegator = args.m_Delegator;
 				args2.m_StakeBond = d.m_Stake - nMinValidatorStake;
 				args2.m_StakeDeposit = args2.m_StakeBond;
-				verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+				verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args2.s_iMethod, args2));
 			}
 
 			std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
@@ -2305,7 +2309,7 @@ namespace bvm2 {
 		{
 			Shaders::PBFT_DPOS::Method::AddReward args;
 			args.m_Amount = Rules::Coin * 40000;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
 		}
 
@@ -2326,20 +2330,20 @@ namespace bvm2 {
 
 			if (bExtraTest)
 			{
-				verify_test(!RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
+				verify_test(!RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
 			}
 
 			args.m_StakeDeposit = args.m_StakeBond;
 			if (bExtraTest)
 				args.m_StakeDeposit *= 2; // deposit more, should be avail for withdrawing immediately
 
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args)); // not enough funds, must deposit
 
 			if (bExtraTest)
 			{
 				args.m_StakeDeposit = -args.m_StakeBond;
 				args.m_StakeBond = 0;
-				verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args)); // withdraw extra
+				verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args)); // withdraw extra
 			}
 
 			std::cout << "D-" << i << ", Stake=" << AmountBig::Printable(d.m_Stake) << std::endl;
@@ -2350,7 +2354,7 @@ namespace bvm2 {
 			Shaders::PBFT_DPOS::Method::ValidatorStatusUpdate args;
 			args.m_Address = pValidatorAddr[0];
 			args.m_Status = Shaders::PBFT_DPOS::State::Validator::Status::Jailed;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "V-" << 0 << ", Jailed" << std::endl;
 		}
 
@@ -2361,14 +2365,14 @@ namespace bvm2 {
 			Shaders::PBFT_DPOS::Method::ValidatorStatusUpdate args;
 			args.m_Address = pValidatorAddr[iValidatorSlash];
 			args.m_Status = Shaders::PBFT_DPOS::State::Validator::Status::Slash;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "V-" << iValidatorSlash << ", Jailed + Slashed" << std::endl;
 		}
 
 		{
 			Shaders::PBFT_DPOS::Method::AddReward args;
 			args.m_Amount = Rules::Coin * 14000;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
 		}
 
@@ -2376,14 +2380,14 @@ namespace bvm2 {
 			Shaders::PBFT_DPOS::Method::ValidatorStatusUpdate args;
 			args.m_Address = pValidatorAddr[iValidatorSlash];
 			args.m_Status = Shaders::PBFT_DPOS::State::Validator::Status::Active; // unjail
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "V-" << iValidatorSlash << ", Unjailed" << std::endl;
 		}
 
 		{
 			Shaders::PBFT_DPOS::Method::AddReward args;
 			args.m_Amount = Rules::Coin * 9000;
-			verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+			verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			std::cout << "+Reward " << AmountBig::Printable(args.m_Amount) << std::endl;
 		}
 
@@ -2404,7 +2408,7 @@ namespace bvm2 {
 
 			args.m_StakeBond = -(int64_t) d.m_Stake;
 
-			bool bRes = RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args);
+			bool bRes = RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args);
 			if (i >= nValidators)
 				verify_test(bRes);
 			else
@@ -2415,9 +2419,9 @@ namespace bvm2 {
 				ZeroObject(args2);
 				args2.m_Validator = args.m_Validator;
 				args2.m_Commission_cpc = Shaders::PBFT_DPOS::State::ValidatorPlus::s_CommissionTagTomb;
-				verify_test(RunGuarded_T(m_Pbft.m_Cid, args2.s_iMethod, args2));
+				verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args2.s_iMethod, args2));
 
-				verify_test(RunGuarded_T(m_Pbft.m_Cid, args.s_iMethod, args));
+				verify_test(RunGuarded_T(m_Pbft_Dpos.m_Cid, args.s_iMethod, args));
 			}
 		}
 
@@ -2429,7 +2433,7 @@ namespace bvm2 {
 		Shaders::PBFT_DPOS::State::Global g;
 		{
 			Shaders::Env::Key_T<uint8_t> key;
-			key.m_Prefix.m_Cid = m_Pbft.m_Cid;
+			key.m_Prefix.m_Cid = m_Pbft_Dpos.m_Cid;
 			key.m_KeyInContract = Shaders::PBFT_DPOS::State::Tag::s_Global;
 
 			Blob b;
@@ -2446,7 +2450,7 @@ namespace bvm2 {
 			auto& d = pDelegator[i];
 
 			Shaders::Env::Key_T<Shaders::PBFT_DPOS::State::Delegator::Key> dk;
-			dk.m_Prefix.m_Cid = m_Pbft.m_Cid;
+			dk.m_Prefix.m_Cid = m_Pbft_Dpos.m_Cid;
 			dk.m_KeyInContract.m_Delegator = d.m_Pk;
 			dk.m_KeyInContract.m_Validator = pValidatorAddr[d.m_iValidator];
 
