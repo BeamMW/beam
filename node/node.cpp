@@ -36,7 +36,7 @@
 namespace Shaders {
 #	define HOST_BUILD
 #	include "../bvm/Shaders/common.h"
-#	include "../bvm/Shaders/pbft/contract.h"
+#	include "../bvm/Shaders/pbft/i_pbft.h"
 } // namespace Shaders
 
 namespace beam {
@@ -6017,7 +6017,7 @@ void Node::Validator::OnNewStateInternal()
 void Node::Validator::UpdateAssessment(const ValidatorPlus& v, uint8_t& nStatus)
 {
 	assert(nStatus == v.m_Status);
-	typedef Shaders::PBFT::State::Validator::Status Status;
+	typedef Shaders::I_PBFT::State::Validator::Status Status;
 
 	if ((v.m_Assessment.m_hShouldSlashAt > v.m_hSuspend) &&
 		(v.m_Assessment.m_hShouldSlashAt + Assessment::Settings::SlashMaxLatency <= get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height))
@@ -6088,14 +6088,14 @@ bool Node::Validator::OnContractInvoke(const ContractID& cid, uint32_t iMethod, 
 
 	switch (iMethod)
 	{
-	case Shaders::PBFT::Method::ValidatorStatusUpdate::s_iMethod:
+	case Shaders::I_PBFT::Method::ValidatorStatusUpdate::s_iMethod:
 		if (bTemporary && m_pMe)
 		{
 			// I'm a validator, and the block isn't finalized yet.
 			// check if my assessment is consistent with this action
-			if (args.n < sizeof(Shaders::PBFT::Method::ValidatorStatusUpdate))
+			if (args.n < sizeof(Shaders::I_PBFT::Method::ValidatorStatusUpdate))
 				return false;
-			const auto& m = *(Shaders::PBFT::Method::ValidatorStatusUpdate*)args.p;
+			const auto& m = *(Shaders::I_PBFT::Method::ValidatorStatusUpdate*) args.p;
 
 			const auto& msg = m_pMe->m_Assessment.m_Last;
 			auto it = msg.m_Reputation.find(Cast::Up<Block::Pbft::Address>(m.m_Address));
@@ -6121,7 +6121,7 @@ const Block::Pbft::IValidatorSet& Node::Validator::get_Validators()
 
 uint64_t Node::Validator::ValidatorPlus::get_EffectiveWeight() const
 {
-	if (m_Status >= (uint8_t)Shaders::PBFT::State::Validator::Status::Suspended)
+	if (m_Status >= (uint8_t)Shaders::I_PBFT::State::Validator::Status::Suspended)
 		return 0;
 
 	return m_Weight;
@@ -6131,12 +6131,12 @@ void Node::Validator::RefreshValidatorSet()
 {
 	assert(m_cid);
 
-	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
+	typedef Shaders::Env::Key_T< Shaders::I_PBFT::State::Validator::Key> VKeyType;
 
 	VKeyType k0;
 	k0.m_Prefix.m_Cid = *m_cid;
 	k0.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
-	k0.m_KeyInContract.m_Tag = Shaders::PBFT::State::Tag::s_Validator;
+	k0.m_KeyInContract.m_Tag = Shaders::I_PBFT::State::Tag::s_Validator;
 	Cast::Down<ECC::uintBig>(k0.m_KeyInContract.m_Address) = Zero;
 	VKeyType k1 = k0;
 	memset(k1.m_KeyInContract.m_Address.m_pData, -1, ECC::uintBig::nBytes);
@@ -6153,20 +6153,20 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		return;
 
 	// track validator changes
-	typedef Shaders::Env::Key_T< Shaders::PBFT::State::Validator::Key> VKeyType;
+	typedef Shaders::Env::Key_T< Shaders::I_PBFT::State::Validator::Key> VKeyType;
 
 	// check sizes first (cheap) before checking cid
 	if (key.n != sizeof(VKeyType))
 		return;
 
-	if (val.n && (val.n < sizeof(Shaders::PBFT::State::Validator)))
+	if (val.n && (val.n < sizeof(Shaders::I_PBFT::State::Validator)))
 		return;
 
 	const auto& vk = *(const VKeyType*) key.p;
 
 	if ((vk.m_Prefix.m_Cid != *m_cid) ||
 		(vk.m_Prefix.m_Tag != Shaders::KeyTag::Internal) ||
-		(vk.m_KeyInContract.m_Tag != Shaders::PBFT::State::Tag::s_Validator))
+		(vk.m_KeyInContract.m_Tag != Shaders::I_PBFT::State::Tag::s_Validator))
 		return;
 
 	// It's indeed a validator update action
@@ -6191,7 +6191,7 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		return;
 	}
 
-	const auto& vd = *(const Shaders::PBFT::State::Validator*) val.p;
+	const auto& vd = *(const Shaders::I_PBFT::State::Validator*) val.p;
 
 	if (!pV)
 	{
@@ -6219,7 +6219,7 @@ TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar
 	if (!m_cid)
 		return nullptr; // shouldn't happen though
 
-	using namespace Shaders::PBFT;
+	using namespace Shaders::I_PBFT;
 
 	auto pKrn = std::make_unique<TxKernelContractInvoke>();
 	pKrn->m_Cid = *m_cid;
@@ -6279,12 +6279,12 @@ void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightH
 				if (TxKernel::Subtype::ContractInvoke == krn.get_Subtype())
 				{
 					auto& k2 = krn.CastTo_ContractInvoke();
-					if (m_This.m_cid && (k2.m_Cid == *m_This.m_cid) && (Shaders::PBFT::Method::AddReward::s_iMethod == k2.m_iMethod))
+					if (m_This.m_cid && (k2.m_Cid == *m_This.m_cid) && (Shaders::I_PBFT::Method::AddReward::s_iMethod == k2.m_iMethod))
 					{
-						if (k2.m_Args.size() < sizeof(Shaders::PBFT::Method::AddReward))
+						if (k2.m_Args.size() < sizeof(Shaders::I_PBFT::Method::AddReward))
 							Exc::Fail("AddReward malformed");
 
-						const auto& m = *(Shaders::PBFT::Method::AddReward*) &k2.m_Args.front();
+						const auto& m = *(Shaders::I_PBFT::Method::AddReward*) &k2.m_Args.front();
 						m_FeesDelta -= m.m_Amount;
 					}
 				}
@@ -6348,7 +6348,7 @@ Node::Validator::ValidatorPlus& Node::Validator::ValidatorSet::FindActiveStrict(
 
 Node::Validator::ValidatorPlus* Node::Validator::ValidatorSet::SelectLeader(const Merkle::Hash& hvInp, uint32_t iRound) const
 {
-	typedef Shaders::PBFT::State::Validator::Status Status;
+	typedef Shaders::I_PBFT::State::Validator::Status Status;
 
 	uint64_t wUnjailed = 0;
 	for (const auto& v : m_mapValidators)
@@ -7316,7 +7316,7 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 		if (!pwr.IsMajorityReached(m_wTotal))
 			continue;
 
-		using namespace Shaders::PBFT;
+		using namespace Shaders::I_PBFT;
 
 
 		auto pKrn = std::make_unique<TxKernelContractInvoke>();
@@ -7326,7 +7326,7 @@ void Node::Validator::CreateProposalMd(NodeProcessor::BlockContext& bc)
 		pKrn->m_Args.resize(sizeof(Method::ValidatorStatusUpdate));
 		auto& r = *(Method::ValidatorStatusUpdate*) &pKrn->m_Args.front();
 		r.m_Address = Cast::Down<Address>(x.first);
-		r.m_Status = (Shaders::PBFT::State::Validator::Status) ByteOrder::to_le(fMy);
+		r.m_Status = (Shaders::I_PBFT::State::Validator::Status) ByteOrder::to_le(fMy);
 
 
 		pKrn->m_Height.m_Min = p.m_Cursor.m_hh.m_Height + 1;

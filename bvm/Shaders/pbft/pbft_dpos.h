@@ -1,8 +1,9 @@
 #pragma once
+#include "i_pbft.h"
 #include "../Math.h"
 #include "../Float.h"
 
-namespace PBFT
+namespace PBFT_DPOS
 {
 #pragma pack (push, 1)
 
@@ -15,22 +16,10 @@ namespace PBFT
         Amount m_MinValidatorStake;
     };
 
-    typedef HashValue Address;
+    typedef I_PBFT::Address Address;
 
-    // The contract implements the following logic:
+    // The contract extends the PBFT logic, with dynamic validator set and dPOS.
     //
-    // 1. At each block the node needs the current validator set. The info node needs is:
-    //  - Validator address
-    //  - Weight
-    //  - isJailed flag
-    //
-    // based on this, the node implements the PBFT logic. Those are reflected directly by the contract variables, and mirrored in the node memory. All other things are implementation-specific
-    //
-    // 2. In addition the node interacts with the contract (in terms of tx kernels) to call those methods:
-    //  - AddReward, for each block to collect the fees. Theoreticall consensus parameters may include more rewards fro the validators
-    //  - ValidatorStatusUpdate, this is to trigger validator Jail/Unjail, or Slashing
-    //
-    // 3. The rest functionality is intended for users. This is the intended behavior:
     //  - Each user can delegate its stake to a selected validator, or run its own validator
     //  - The reward is distributed among active (non-jailed) validators proportional to their statke
     //      - For loose behavior validators can be jailed. Such validators don't  get the reward, until unjailed (once their behavoir becomes responsive)
@@ -46,9 +35,9 @@ namespace PBFT
     namespace State
     {
         struct Tag
+            :public I_PBFT::State::Tag
         {
             static const uint8_t s_Global = 1;
-            static const uint8_t s_Validator = 2;
             static const uint8_t s_Delegator = 3;
             static const uint8_t s_Unbonded = 4;
         };
@@ -134,28 +123,7 @@ namespace PBFT
             }
         };
 
-        struct Validator
-        {
-            struct Key
-            {
-                uint8_t m_Tag = Tag::s_Validator;
-                Address m_Address;
-            };
-
-            enum class Status : uint8_t {
-                Active = 0,
-                Jailed = 1, // Won't receive reward, can't be a leader. But preserves the voting power, and votes normally
-                Suspended = 2, // Looses voting power. Temporary in case of Slash, or Permanent if Tombed
-                Tombed = 3, // disabled permanently. Either by the validator itself, or by the validators
-                Slash = 4, //  Slash, not a permanent state
-            };
-
-            // this is the part of interest to the node.
-            uint64_t m_Weight;
-            Status m_Status;
-            uint8_t m_NumSlashed;
-            Height m_hSuspend; //  when was suspended
-        };
+        typedef I_PBFT::State::Validator Validator;
 
         struct ValidatorPlus
             :public Validator
@@ -362,4 +330,4 @@ namespace PBFT
 
 #pragma pack (pop)
 
-} // namespace PBFT
+} // namespace PBFT_DPOS

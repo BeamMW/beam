@@ -39,7 +39,7 @@ namespace Shaders {
 #	define HOST_BUILD
 #	include "../bvm/Shaders/common.h"
 #	include "../bvm/Shaders/l2tst1/contract_l2.h"
-#	include "../bvm/Shaders/pbft/contract.h"
+#	include "../bvm/Shaders/pbft/pbft_dpos.h"
 } // namespace Shaders
 
 namespace ECC {
@@ -1800,7 +1800,7 @@ namespace beam
     {
         Treasury::Data::Group& m_Tg;
         ContractID m_Cid;
-        Shaders::PBFT::Settings m_Settings;
+        Shaders::PBFT_DPOS::Settings m_Settings;
 
         PbftTreasuryBuilder(Treasury::Data::Group& tg)
             :m_Tg(tg)
@@ -1813,10 +1813,10 @@ namespace beam
 			m_Tg.m_Aid = m_Settings.m_aidStake;
 
             auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-			beam::bvm2::Compile(pKrn->m_Data, "pbft/contract.wasm", beam::bvm2::Processor::Kind::Contract);
+			beam::bvm2::Compile(pKrn->m_Data, "pbft/pbft_dpos.wasm", beam::bvm2::Processor::Kind::Contract);
 
-            pKrn->m_Args.resize(sizeof(Shaders::PBFT::Method::Create));
-            auto& args = *(Shaders::PBFT::Method::Create*) &pKrn->m_Args.front();
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT_DPOS::Method::Create));
+            auto& args = *(Shaders::PBFT_DPOS::Method::Create*) &pKrn->m_Args.front();
             ZeroObject(args);
 
             args.m_Settings.m_aidStake = ByteOrder::to_le(m_Settings.m_aidStake);
@@ -1841,8 +1841,8 @@ namespace beam
             auto pKrn = std::make_unique<beam::TxKernelContractInvoke>();
             pKrn->m_Cid = m_Cid;
 
-            pKrn->m_Args.resize(sizeof(Shaders::PBFT::Method::ValidatorRegister));
-            auto& args = *(Shaders::PBFT::Method::ValidatorRegister*)&pKrn->m_Args.front();
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT_DPOS::Method::ValidatorRegister));
+            auto& args = *(Shaders::PBFT_DPOS::Method::ValidatorRegister*)&pKrn->m_Args.front();
             pKrn->m_iMethod = args.s_iMethod;
 
             ZeroObject(args);

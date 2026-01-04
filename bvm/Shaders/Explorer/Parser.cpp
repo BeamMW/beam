@@ -28,7 +28,7 @@ namespace Testnet {
 #include "../blackhole/contract.h"
 #include "../l2tst1/contract_l1.h"
 #include "../l2tst1/contract_l2.h"
-#include "../pbft/contract.h"
+#include "../pbft/pbft_dpos.h"
 
 template <uint32_t nMaxLen>
 void DocAddTextLen(const char* szID, const void* szValue, uint32_t nLen)
@@ -225,7 +225,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Minter, Minter::s_SID) \
 	macro(BlackHole, BlackHole::s_SID) \
 	macro(L2Tst1_L2, L2Tst1_L2::s_SID) \
-	macro(PBFT, PBFT::s_SID) \
+	macro(PBFT_DPOS, PBFT_DPOS::s_SID) \
 
 #define HandleContractsVer(macro) \
 	macro(Oracle2, Oracle2::s_pSID) \
@@ -457,10 +457,10 @@ struct ParserContext
 	void OnState_DaoAccumulator_Pool(DaoAccumulator::Pool&, const char* szName);
 	void OnState_DaoAccumulator_Users(DaoAccumulator::Pool&, uint8_t type, const char* szName);
 
-	void On_PBFT_Settings(const PBFT::Settings&);
-	void On_PBFT_ValidatorAddr(const PBFT::Address&);
+	void On_PBFT_Settings(const PBFT_DPOS::Settings&);
+	void On_PBFT_ValidatorAddr(const PBFT_DPOS::Address&);
 	void On_PBFT_DelegatorAddr(const PubKey&);
-	void On_PBFT_Status(const char*, PBFT::State::Validator::Status);
+	void On_PBFT_Status(const char*, I_PBFT::State::Validator::Status);
 	void On_PBFT_Stake(Amount);
 	void On_PBFT_Commission(uint16_t, bool bIsTbl = false);
 
@@ -1009,13 +1009,13 @@ void ParserContext::OnMethod_VaultAnon()
 	}
 }
 
-void ParserContext::OnState_PBFT()
+void ParserContext::OnState_PBFT_DPOS()
 {
 	Env::Key_T<uint8_t> k;
 	_POD_(k.m_Prefix.m_Cid) = m_Cid;
-	k.m_KeyInContract = PBFT::State::Tag::s_Global;
+	k.m_KeyInContract = PBFT_DPOS::State::Tag::s_Global;
 
-	PBFT::State::Global g;
+	PBFT_DPOS::State::Global g;
 	if (!Env::VarReader::Read_T(k, g))
 		return;
 
@@ -1043,7 +1043,7 @@ void ParserContext::OnState_PBFT()
 			DocAddTableHeader("Weight");
 		}
 
-		Env::Key_T<PBFT::State::Validator::Key> vk0, vk1;
+		Env::Key_T<PBFT_DPOS::State::Validator::Key> vk0, vk1;
 		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
 		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
 		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
@@ -1051,7 +1051,7 @@ void ParserContext::OnState_PBFT()
 
 		for (Env::VarReader r(vk0, vk1); ; )
 		{
-			PBFT::State::ValidatorPlus vp;
+			PBFT_DPOS::State::ValidatorPlus vp;
 			if (!r.MoveNext_T(vk0, vp))
 				break;
 
@@ -1067,13 +1067,13 @@ void ParserContext::OnState_PBFT()
 	}
 }
 
-void ParserContext::OnMethod_PBFT()
+void ParserContext::OnMethod_PBFT_DPOS()
 {
 	switch (m_iMethod)
 	{
-	case PBFT::Method::Create::s_iMethod:
+	case PBFT_DPOS::Method::Create::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<PBFT::Method::Create>();
+			auto pArg = get_ArgsAs<PBFT_DPOS::Method::Create>();
 			if (pArg)
 			{
 				GroupArgs gr;
@@ -1082,10 +1082,10 @@ void ParserContext::OnMethod_PBFT()
 		}
 		break;
 
-	case PBFT::Method::ValidatorStatusUpdate::s_iMethod:
+	case PBFT_DPOS::Method::ValidatorStatusUpdate::s_iMethod:
 		OnMethod("ValidatorStatusUpdate");
 		{
-			auto pArg = get_ArgsAs<PBFT::Method::ValidatorStatusUpdate>();
+			auto pArg = get_ArgsAs<PBFT_DPOS::Method::ValidatorStatusUpdate>();
 			if (pArg)
 			{
 				GroupArgs gr;
@@ -1095,14 +1095,14 @@ void ParserContext::OnMethod_PBFT()
 		}
 		break;
 
-	case PBFT::Method::AddReward::s_iMethod:
+	case PBFT_DPOS::Method::AddReward::s_iMethod:
 		OnMethod("AddReward");
 		break;
 
-	case PBFT::Method::DelegatorUpdate::s_iMethod:
+	case PBFT_DPOS::Method::DelegatorUpdate::s_iMethod:
 		OnMethod("DelegatorUpdate");
 		{
-			auto pArg = get_ArgsAs<PBFT::Method::DelegatorUpdate>();
+			auto pArg = get_ArgsAs<PBFT_DPOS::Method::DelegatorUpdate>();
 			if (pArg)
 			{
 				GroupArgs gr;
@@ -1110,10 +1110,10 @@ void ParserContext::OnMethod_PBFT()
 		}
 		break;
 
-	case PBFT::Method::ValidatorRegister::s_iMethod:
+	case PBFT_DPOS::Method::ValidatorRegister::s_iMethod:
 		OnMethod("ValidatorRegister");
 		{
-			auto pArg = get_ArgsAs<PBFT::Method::ValidatorRegister>();
+			auto pArg = get_ArgsAs<PBFT_DPOS::Method::ValidatorRegister>();
 			if (pArg)
 			{
 				GroupArgs gr;
@@ -1126,16 +1126,16 @@ void ParserContext::OnMethod_PBFT()
 		}
 		break;
 
-	case PBFT::Method::ValidatorUpdate::s_iMethod:
+	case PBFT_DPOS::Method::ValidatorUpdate::s_iMethod:
 		OnMethod("ValidatorUpdate");
 		{
-			auto pArg = get_ArgsAs<PBFT::Method::ValidatorUpdate>();
+			auto pArg = get_ArgsAs<PBFT_DPOS::Method::ValidatorUpdate>();
 			if (pArg)
 			{
 				GroupArgs gr;
 
 				On_PBFT_ValidatorAddr(pArg->m_Validator);
-				if (PBFT::State::ValidatorPlus::s_CommissionTagTomb == pArg->m_Commission_cpc)
+				if (PBFT_DPOS::State::ValidatorPlus::s_CommissionTagTomb == pArg->m_Commission_cpc)
 					Env::DocAddText("Action", "Tomb");
 				else
 					On_PBFT_Commission(pArg->m_Commission_cpc);
@@ -1145,14 +1145,14 @@ void ParserContext::OnMethod_PBFT()
 	}
 }
 
-void ParserContext::On_PBFT_Settings(const PBFT::Settings& stg)
+void ParserContext::On_PBFT_Settings(const PBFT_DPOS::Settings& stg)
 {
 	DocAddAid("Stake-Aid", stg.m_aidStake);
 	Env::DocAddNum("Unbond lock", stg.m_hUnbondLock);
 	DocAddAmount("Min stake", stg.m_MinValidatorStake);
 }
 
-void ParserContext::On_PBFT_ValidatorAddr(const PBFT::Address& addr)
+void ParserContext::On_PBFT_ValidatorAddr(const PBFT_DPOS::Address& addr)
 {
 	Env::DocAddBlob_T("Address", addr);
 }
@@ -1162,16 +1162,16 @@ void ParserContext::On_PBFT_DelegatorAddr(const PubKey& addr)
 	Env::DocAddBlob_T("Delegator", addr);
 }
 
-void ParserContext::On_PBFT_Status(const char* szName, PBFT::State::Validator::Status status)
+void ParserContext::On_PBFT_Status(const char* szName, I_PBFT::State::Validator::Status status)
 {
 	const char* szStatus = nullptr;
 	switch (status)
 	{
-	case PBFT::State::Validator::Status::Active: szStatus = "Active"; break;
-	case PBFT::State::Validator::Status::Jailed: szStatus = "Jailed"; break;
-	case PBFT::State::Validator::Status::Suspended: szStatus = "Suspended"; break;
-	case PBFT::State::Validator::Status::Tombed: szStatus = "Tombed"; break;
-	case PBFT::State::Validator::Status::Slash: szStatus = "Slash"; break;
+	case I_PBFT::State::Validator::Status::Active: szStatus = "Active"; break;
+	case I_PBFT::State::Validator::Status::Jailed: szStatus = "Jailed"; break;
+	case I_PBFT::State::Validator::Status::Suspended: szStatus = "Suspended"; break;
+	case I_PBFT::State::Validator::Status::Tombed: szStatus = "Tombed"; break;
+	case I_PBFT::State::Validator::Status::Slash: szStatus = "Slash"; break;
 
 	default:
 		Env::DocAddNum(szName, static_cast<uint32_t>(status));

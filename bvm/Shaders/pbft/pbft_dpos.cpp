@@ -1,8 +1,7 @@
 ////////////////////////
-#include "../common.h"
-#include "contract.h"
+#include "pbft_dpos.h"
 
-namespace PBFT {
+namespace PBFT_DPOS {
 
 void EraseUnbonded(Amount amount, const PubKey& pkDelegator, Height hMax)
 {
@@ -378,4 +377,5 @@ BEAM_EXPORT void Method_7(const Method::ValidatorUpdate& r)
 }
 
 
-} // namespace PBFT
+} // namespace PBFT_DPOS
+
