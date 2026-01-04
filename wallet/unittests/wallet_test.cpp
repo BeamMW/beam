@@ -70,6 +70,7 @@ namespace Shaders {
 #	define HOST_BUILD
 #	include "../bvm/Shaders/common.h"
 #	include "../bvm/Shaders/pbft/pbft_dpos.h"
+#	include "../bvm/Shaders/pbft/pbft_stat.h"
 } // namespace Shaders
 
 namespace
@@ -2956,14 +2957,31 @@ namespace
     };
 
 
-    struct PbftTreasuryBuilder
+	struct PbftTreasuryBuilderBase
+	{
+		Treasury::Data::Group& m_Tg;
+		PbftTreasuryBuilderBase(Treasury::Data::Group& tg)
+			:m_Tg(tg)
+		{
+		}
+
+		void FixOffset(ECC::Scalar::Native& sk, bool isOutp)
+		{
+			if (isOutp)
+				sk = -sk;
+			m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+		}
+	};
+
+
+    struct PbftTreasuryBuilder_Dpos
+		:public PbftTreasuryBuilderBase
     {
-        Treasury::Data::Group& m_Tg;
         ContractID m_Cid;
         Shaders::PBFT_DPOS::Settings m_Settings;
 
-        PbftTreasuryBuilder(Treasury::Data::Group& tg)
-            :m_Tg(tg)
+        PbftTreasuryBuilder_Dpos(Treasury::Data::Group& tg)
+			:PbftTreasuryBuilderBase(tg)
         {
             ZeroObject(m_Settings);
         }
@@ -2973,7 +2991,7 @@ namespace
 			m_Tg.m_Aid = m_Settings.m_aidStake;
 
             auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-			MyManager::Compile(pKrn->m_Data, "pbft/pbft_dpos.wasm", beam::bvm2::Processor::Kind::Contract);
+            MyManager::Compile(pKrn->m_Data, "pbft/pbft_dpos.wasm", beam::bvm2::Processor::Kind::Contract);
 
             pKrn->m_Args.resize(sizeof(Shaders::PBFT_DPOS::Method::Create));
             auto& args = *(Shaders::PBFT_DPOS::Method::Create*) &pKrn->m_Args.front();
@@ -3021,13 +3039,58 @@ namespace
 
             m_Tg.m_Value += MultiWord::From(stake);
         }
+    };
 
-        void FixOffset(ECC::Scalar::Native& sk, bool isOutp)
+    struct PbftTreasuryBuilder_Stat
+		:public PbftTreasuryBuilderBase
+    {
+		typedef Shaders::PBFT_STAT::Method::Create::ValidatorInit ValidatorInit;
+		std::vector<ValidatorInit> m_vInit;
+
+		using PbftTreasuryBuilderBase::PbftTreasuryBuilderBase;
+
+		void AddValidator(const Block::Pbft::Address& addr, const ECC::Point& /* pkDelegator */, Amount stake)
+		{
+			AddValidator(addr, stake);
+		}
+
+		void AddValidator(const Block::Pbft::Address& addr, Amount stake)
+		{
+			auto& x = m_vInit.emplace_back();
+			x.m_Address = Cast::Down<ECC::uintBig>(addr);
+			x.m_Weight = stake;
+		}
+
+        void Export()
         {
-            if (isOutp)
-                sk = -sk;
-            m_Tg.m_Data.m_Offset = ECC::Scalar::Native(m_Tg.m_Data.m_Offset) + sk;
+			WALLET_CHECK(!m_vInit.empty());
+
+            auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
+			MyManager::Compile(pKrn->m_Data, "pbft/pbft_stat.wasm", beam::bvm2::Processor::Kind::Contract);
+
+            pKrn->m_Args.resize(sizeof(Shaders::PBFT_STAT::Method::Create) + sizeof(ValidatorInit) * m_vInit.size());
+            auto& args = *(Shaders::PBFT_STAT::Method::Create*) &pKrn->m_Args.front();
+            ZeroObject(args);
+			args.m_Count = ByteOrder::to_le(static_cast<uint32_t>(m_vInit.size()));
+
+			for (uint32_t i = 0; i < m_vInit.size(); i++)
+			{
+				const auto& src = m_vInit[i];
+				auto& dst = args.get_VI()[i];
+
+				dst.m_Address = src.m_Address;
+				dst.m_Weight = ByteOrder::to_le(src.m_Weight);
+			}
+
+            ECC::Scalar::Native sk;
+            sk.GenRandomNnz();
+            ECC::Point::Native ptFunds(beam::Zero);
+            pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+            m_Tg.m_Data.m_vKernels.push_back(std::move(pKrn));
+            FixOffset(sk, true);
         }
+
     };
 
     void L2Params::RunInThread()
@@ -3046,7 +3109,7 @@ namespace
         // add PBFT and bridge L2 contract deployment
         {
             Treasury::Data td;
-            PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+            PbftTreasuryBuilder_Dpos tb(td.m_vGroups.emplace_back());
             tb.m_Tg.m_Value = Zero;
             tb.m_Tg.m_Data.m_Offset = Zero;
 
@@ -5567,13 +5630,9 @@ void MakeTreasury_dappnet2()
 
     Treasury::Data td;
 
-    PbftTreasuryBuilder tb(td.m_vGroups.emplace_back());
+    PbftTreasuryBuilder_Stat tb(td.m_vGroups.emplace_back());
     tb.m_Tg.m_Value = Zero;
     tb.m_Tg.m_Data.m_Offset = Zero;
-    tb.m_Settings.m_hUnbondLock = 10;
-    tb.m_Settings.m_MinValidatorStake = Rules::Coin * 100;
-    tb.m_Settings.m_aidStake = 7;
-    tb.Init();
 
 	for (uint32_t i = 0; i < _countof(ppPhrases); i++)
 	{
@@ -5637,6 +5696,8 @@ void MakeTreasury_dappnet2()
             tb.AddValidator(addr, ptD, Rules::Coin * 5000);
 	}
 
+    tb.Export();
+
     td.m_sCustomMsg = "dappnet2 treasury";
     tres.Build(td);
 
@@ -5672,7 +5733,7 @@ void MakeTreasury_l2_test1()
     auto& tg = td.m_vGroups.emplace_back();
     tg.m_Value = Zero;
 
-    PbftTreasuryBuilder tb(tg);
+    PbftTreasuryBuilder_Dpos tb(tg);
     tb.m_Tg.m_Value = Zero;
     tb.m_Tg.m_Data.m_Offset = Zero;
     tb.m_Settings.m_hUnbondLock = 10;
