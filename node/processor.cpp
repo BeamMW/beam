@@ -6509,120 +6509,134 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 	assert(num.v >= m_Extra.m_Fossil.v);
 
-	TxoID id0 = get_TxosBefore(Block::Number(num.v + 1));
-
-	// undo outputs
-	struct MyWalker
-		:public ITxoWalker_UnspentNaked
-	{
-		NodeProcessor* m_pThis;
-
-		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
-		{
-			BlockInterpretCtx bic(hCreate, false);
-			if (!m_pThis->HandleBlockElement(outp, bic))
-				OnCorrupted();
-			return true;
-		}
-	};
-
-	MyWalker wlk2;
-	wlk2.m_pThis = this;
-
-	Block::NumberRange nr;
-	nr.m_Min = Block::Number(num.v + 1);
-	nr.m_Max = m_Cursor.m_Full.m_Number;
-	EnumTxos(wlk2, nr);
-
-	m_DB.TxoDelFrom(id0);
-
-	// undo inputs, Kernels, shielded elements, and cursor
-	ByteBuffer bbE, bbR;
-	TxVectors::Eternal txve;
-
-	BlockInterpretCtx::ChangesFlushGlobal cf(*this);
+	bool bFictive =
+		(Rules::Consensus::Pbft == Rules::get().m_Consensus) &&
+		(num.v + 1 == m_Cursor.m_Full.m_Number.v) &&
+		(Block::Pbft::HdrData::Flags::Empty & Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW).m_Flags1);
 
 	NodeDB::StateID sid = m_Cursor.get_Sid();
-	while (sid.m_Number.v > num.v)
+
+	if (!bFictive)
 	{
-		// inputs
-		std::vector<NodeDB::StateInput> v;
-		m_DB.get_StateInputs(sid.m_Row, v);
+		TxoID id0 = get_TxosBefore(Block::Number(num.v + 1));
 
-		for (size_t i = 0; i < v.size(); i++)
+		// undo outputs
+		struct MyWalker
+			:public ITxoWalker_UnspentNaked
 		{
-			const auto& src = v[i];
-			TxoID id = src.get_ID();
-			if (id >= id0)
-				continue; // created and spent within this range - skip it (already deleted actually)
+			NodeProcessor* m_pThis;
 
-			Input inp;
-			src.Get(inp.m_Commitment);
+			bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
+			{
+				BlockInterpretCtx bic(hCreate, false);
+				if (!m_pThis->HandleBlockElement(outp, bic))
+					OnCorrupted();
+				return true;
+			}
+		};
 
-			InputAux inpAux;
-			inpAux.m_ID = id;
-			inpAux.m_Maturity = GetInputMaturity(id);
+		MyWalker wlk2;
+		wlk2.m_pThis = this;
 
-			UndoInput(inp, inpAux);
+		Block::NumberRange nr;
+		nr.m_Min = Block::Number(num.v + 1);
+		nr.m_Max = m_Cursor.m_Full.m_Number;
+		EnumTxos(wlk2, nr);
 
-			m_DB.TxoSetSpent(id, MaxHeight);
+		m_DB.TxoDelFrom(id0);
+
+		// undo inputs, Kernels, shielded elements, and cursor
+		ByteBuffer bbE, bbR;
+		TxVectors::Eternal txve;
+
+		BlockInterpretCtx::ChangesFlushGlobal cf(*this);
+
+		while (sid.m_Number.v > num.v)
+		{
+			// inputs
+			std::vector<NodeDB::StateInput> v;
+			m_DB.get_StateInputs(sid.m_Row, v);
+
+			for (size_t i = 0; i < v.size(); i++)
+			{
+				const auto& src = v[i];
+				TxoID id = src.get_ID();
+				if (id >= id0)
+					continue; // created and spent within this range - skip it (already deleted actually)
+
+				Input inp;
+				src.Get(inp.m_Commitment);
+
+				InputAux inpAux;
+				inpAux.m_ID = id;
+				inpAux.m_Maturity = GetInputMaturity(id);
+
+				UndoInput(inp, inpAux);
+
+				m_DB.TxoSetSpent(id, MaxHeight);
+			}
+
+			m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
+
+			// kernels
+			txve.m_vKernels.clear();
+			bbE.clear();
+			bbR.clear();
+			m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, &bbR);
+
+			Deserializer der;
+			der.reset(bbE);
+			der& Cast::Down<TxVectors::Eternal>(txve);
+
+			Height h = Num2Height(sid);
+
+			BlockInterpretCtx bic(h, false);
+			bic.m_Rollback.swap(bbR);
+			bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
+			bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
+			bic.m_nKrnIdx = static_cast<uint32_t>(-1);
+
+			HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
+
+			bic.m_Rollback.swap(bbR);
+			assert(bbR.empty());
+
+			m_DB.MoveBack(sid);
 		}
 
-		m_DB.set_StateInputs(sid.m_Row, nullptr, 0);
+		cf.Do(*this);
 
-		// kernels
-		txve.m_vKernels.clear();
-		bbE.clear();
-		bbR.clear();
-		m_DB.GetStateBlock(sid.m_Row, nullptr, &bbE, &bbR);
-
-		Deserializer der;
-		der.reset(bbE);
-		der & Cast::Down<TxVectors::Eternal>(txve);
-
-		Height h = Num2Height(sid);
-
-		BlockInterpretCtx bic(h, false);
-		bic.m_Rollback.swap(bbR);
-		bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
-		bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
-		bic.m_nKrnIdx = static_cast<uint32_t>(-1);
-
-		HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
-
-		bic.m_Rollback.swap(bbR);
-		assert(bbR.empty());
-
-		m_DB.MoveBack(sid);
+		m_Extra.m_Txos = id0;
+		m_ValCache.OnShLo(m_Extra.m_ShieldedOutputs);
 	}
+	else
+		m_DB.MoveBack(sid);
 
 	// other stuff
 
-	cf.Do(*this);
 
 	m_RecentStates.RollbackTo(num);
-	m_ValCache.OnShLo(m_Extra.m_ShieldedOutputs);
-
 	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.N2I(sid.m_Number));
-
-	m_Extra.m_Txos = id0;
 
 	InitCursor(false, sid);
 
-	// height-dependent events
-	Height h = m_Cursor.m_hh.m_Height;
+	if (!bFictive)
+	{
+		// height-dependent events
+		Height h = m_Cursor.m_hh.m_Height;
 
-	for (const auto& acc : m_vAccounts)
-		m_DB.DeleteEventsFrom(acc.m_iAccount, h + 1);
+		for (const auto& acc : m_vAccounts)
+			m_DB.DeleteEventsFrom(acc.m_iAccount, h + 1);
 
-	m_DB.AssetEvtsDeleteFrom(h + 1);
-	m_DB.ShieldedOutpDelFrom(h + 1);
-	m_DB.KrnInfoDelFrom(h + 1);
+		m_DB.AssetEvtsDeleteFrom(h + 1);
+		m_DB.ShieldedOutpDelFrom(h + 1);
+		m_DB.KrnInfoDelFrom(h + 1);
 
-	if (!TestDefinition())
-		OnCorrupted();
+		if (!TestDefinition())
+			OnCorrupted();
 
-	OnRolledBack();
+		OnRolledBack();
+	}
 }
 
 void NodeProcessor::AdjustManualRollbackNumber(Block::Number& num)
