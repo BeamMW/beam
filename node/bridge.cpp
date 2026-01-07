@@ -820,20 +820,17 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	uint32_t iMyChallenge = 0;
 
 	Shaders::L2Tst1_L1::Msg::Signature msgOut;
-	for (msgOut.m_iValidator = 0; ; msgOut.m_iValidator++)
+	for (uint32_t i = 0; i < m_L1.m_vValidators.size(); i++)
 	{
-		if (msgOut.m_iValidator == m_L1.m_vValidators.size())
-			return;
-
 		if (1u & msk)
 		{
-			const auto& pk = m_L1.m_vValidators[msgOut.m_iValidator];
+			const auto& pk = m_L1.m_vValidators[i];
 			hp << pk;
 
 			if (IsMyValidator(pk))
 			{
+				msgOut.m_iValidator = i;
 				iMyChallenge = iChallenge;
-				break;
 			}
 
 			iChallenge++;
@@ -842,6 +839,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 		msk >>= 1;
 	}
 
+	if (iMyChallenge)
 	{
 		ECC::Hash::Value hv;
 		hp
