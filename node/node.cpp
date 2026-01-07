@@ -2786,7 +2786,9 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 		return proto::TxStatus::TooSmall;
 	}
 
-	if ((s.m_InputsShielded > Rules::get().Shielded.MaxIns) || (s.m_OutputsShielded > Rules::get().Shielded.MaxOuts)) {
+	const auto& r = Rules::get();
+
+	if ((s.m_InputsShielded > r.Shielded.MaxIns) || (s.m_OutputsShielded > r.Shielded.MaxOuts)) {
 		return proto::TxStatus::LimitExceeded;
 	}
 
@@ -2836,7 +2838,8 @@ uint8_t Node::OnTransactionStem(Transaction::Ptr&& ptx, std::ostream* pExtraInfo
 		bDontAggregate =
 			(ptx->m_vOutputs.size() >= m_Cfg.m_Dandelion.m_OutputsMax) || // already big enough
 			s.m_KernelsNonStd || // contains non-std elements
-			!m_Keys.m_pMiner; // can't manage decoys
+			!m_Keys.m_pMiner || // can't manage decoys
+			(Rules::Consensus::Pbft == r.m_Consensus);  // PBFT is built for speed
 
 		// add it to wait-fluff list BEFORE we modify it
 		Transaction::Ptr pTxOrig;
