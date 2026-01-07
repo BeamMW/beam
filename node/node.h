@@ -982,7 +982,7 @@ private:
 
 		Proposal m_FutureCandidate;
 
-		Block::Number m_hAnchor;
+		Height m_hAnchor;
 		uint64_t m_iRound;
 		uint64_t m_wTotal;
 

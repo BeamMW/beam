@@ -5775,7 +5775,7 @@ struct Node::Validator::Assessment::Settings
 
 Node::Validator::Validator()
 {
-	m_hAnchor.v = MaxHeight;
+	m_hAnchor = MaxHeight;
 	m_iRound = 0;
 }
 
@@ -5820,7 +5820,7 @@ void Node::Validator::Initialize()
 
 void Node::Validator::OnRolledBack()
 {
-	m_hAnchor.v = MaxHeight;
+	m_hAnchor = MaxHeight;
 	m_iRound = 0;
 	KillTimer();
 	// wait till the next state
@@ -5917,11 +5917,11 @@ void Node::Validator::OnNewRound()
 
 	SetTimer(tNow_ms, rt.m_t1);
 
-	bool bNewState = (m_hAnchor.v != p.m_Cursor.m_Full.m_Number.v);
+	bool bNewState = (m_hAnchor != p.m_Cursor.m_hh.m_Height);
 	if (bNewState)
 	{
 		OnNewStateInternal();
-		PBFT_LOG(DEBUG, "tip=" << m_hAnchor.v);
+		PBFT_LOG(DEBUG, "tip=" << m_hAnchor);
 	}
 
 	m_iRound = rt.m_iRound;
@@ -5971,7 +5971,7 @@ void Node::Validator::OnNewRound()
 void Node::Validator::OnNewStateInternal()
 {
 	auto& p = get_ParentObj().m_Processor; // alias
-	m_hAnchor = p.m_Cursor.m_Full.m_Number;
+	m_hAnchor = p.m_Cursor.m_hh.m_Height;
 
 	m_FutureCandidate.m_State = Proposal::State::None;
 	m_State = State::None;
@@ -6508,7 +6508,7 @@ bool Node::Validator::ShouldSendTo(const Peer& peer) const
 void Node::Validator::SendState(Peer& peer) const
 {
 	auto& p = get_ParentObj().m_Processor;
-	if (p.m_Cursor.m_Full.m_Number.v != m_hAnchor.v)
+	if (p.m_Cursor.m_hh.m_Height != m_hAnchor)
 		return;
 
 	if (!ShouldSendTo(peer))
@@ -6630,7 +6630,7 @@ void Node::Validator::Vote(uint8_t iKind)
 uint32_t Node::Validator::get_PeerRound(const Peer& src, uint32_t iRoundMsg)
 {
 	auto& p = get_ParentObj().m_Processor; // alias
-	if (p.m_Cursor.m_Full.m_Number.v != m_hAnchor.v)
+	if (p.m_Cursor.m_hh.m_Height != m_hAnchor)
 		return _countof(m_pR); // I'm inactive
 
 	if (src.m_Tip.m_hh != p.m_Cursor.m_hh)
@@ -6981,7 +6981,7 @@ void Node::Validator::OnProposalReceived(uint32_t iR, const Peer* pSrc)
 void Node::Validator::get_ProposalMsg(Merkle::Hash& hv, const RoundData& rd) const
 {
 	ECC::Hash::Processor()
-		<< m_hAnchor.v
+		<< m_hAnchor
 		<< "pbft.propose.2"
 		<< rd.m_Proposal.m_hv
 		<< rd.m_Proposal.m_Msg.m_iRound
@@ -6991,7 +6991,7 @@ void Node::Validator::get_ProposalMsg(Merkle::Hash& hv, const RoundData& rd) con
 void Node::Validator::get_SigRequestMsg(Merkle::Hash& hv, const RoundData& rd, const proto::PbftSigRequest& msg) const
 {
 	ECC::Hash::Processor()
-		<< m_hAnchor.v
+		<< m_hAnchor
 		<< "pbft.sigreq.2"
 		<< rd.m_Proposal.m_hv
 		<< msg.m_iRound
@@ -7436,7 +7436,7 @@ void Node::Validator::get_RoundStartMsg(Merkle::Hash& hv, const proto::PbftRound
 {
 	ECC::Hash::Processor()
 		<< "pbft.2.rs"
-		<< m_hAnchor.v
+		<< m_hAnchor
 		<< msg.m_Address
 		<< msg.m_iRound
 		<< msg.m_IsCommitted
