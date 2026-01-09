@@ -225,7 +225,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(Faucet2, Faucet2::s_SID) \
 	macro(Minter, Minter::s_SID) \
 	macro(BlackHole, BlackHole::s_SID) \
-	macro(L2Tst1_L2, L2Tst1_L2::s_SID) \
+	macro(Bridge_L2, L2Tst1_L2::s_SID) \
 	macro(PBFT_DPOS, PBFT_DPOS::s_SID) \
 	macro(PBFT_STAT, PBFT_STAT::s_SID) \
 
@@ -238,7 +238,7 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	macro(DaoCore2, DaoCore2::s_pSID) \
 	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
 	macro(DaoVote, DaoVote::s_pSID) \
-	macro(L2Tst1_L1, L2Tst1_L1::s_pSID) \
+	macro(Bridge_L1, L2Tst1_L1::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -766,7 +766,7 @@ void ParserContext::WriteUpgradeAdminsMask(uint32_t nApproveMask)
 		if (!(nApproveMask & msk))
 			continue;
 
-		Env::DocAddNum("", i + 1);
+		Env::DocAddNum("", i); 
 	}
 }
 
@@ -2017,7 +2017,7 @@ void ParserContext::WriteL2Tst1_L1_Validators(const L2Tst1_L1::Validator* pV, ui
 	}
 }
 
-void ParserContext::OnMethod_L2Tst1_L1(uint32_t /* iVer */)
+void ParserContext::OnMethod_Bridge_L1(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
@@ -2090,7 +2090,7 @@ void ParserContext::OnL2tsts1_BridgeOp(const L2Tst1_L1::Method::BridgeOp& op)
 	DocAddPk("pk", op.m_pk);
 }
 
-void ParserContext::OnState_L2Tst1_L1(uint32_t /* iVer */)
+void ParserContext::OnState_Bridge_L1(uint32_t /* iVer */)
 {
 	WriteUpgrade3State();
 
@@ -2121,7 +2121,7 @@ void ParserContext::OnState_L2Tst1_L1(uint32_t /* iVer */)
 	}
 }
 
-void ParserContext::OnMethod_L2Tst1_L2()
+void ParserContext::OnMethod_Bridge_L2()
 {
 	switch (m_iMethod)
 	{
@@ -2153,7 +2153,7 @@ void ParserContext::OnMethod_L2Tst1_L2()
 }
 
 
-void ParserContext::OnState_L2Tst1_L2()
+void ParserContext::OnState_Bridge_L2()
 {
 	// no state
 }
