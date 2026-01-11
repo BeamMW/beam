@@ -161,38 +161,15 @@ class NodeProcessor
 
 	bool get_HdrAt(Block::SystemState::Full&, Height);
 
-	template <typename T>
-	bool HandleElementVecFwd(const T& vec, BlockInterpretCtx&, size_t& n);
-	template <typename T>
-	void HandleElementVecBwd(const T& vec, BlockInterpretCtx&, size_t n);
-
 	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
-	bool HandleValidatedTx(const TxVectors::Full&, BlockInterpretCtx&);
-	bool HandleValidatedBlock(const Block::Body&, BlockInterpretCtx&);
-	bool HandleBlockElement(const Input&, BlockInterpretCtx&);
-	bool HandleBlockElement(const Output&, BlockInterpretCtx&);
-	bool HandleBlockElement(const TxKernel&, BlockInterpretCtx&);
+
 	void UndoInput(const Input&, const InputAux&);
 
 	struct DependentContextSwitch;
 
 	bool InternalAssetAdd(Asset::Full&, bool bMmr);
 	void InternalAssetDel(Asset::ID, bool bMmr);
-
-	bool HandleAssetCreate(const PeerID&, const ContractID*, const Asset::Metadata&, BlockInterpretCtx&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
-	bool HandleAssetEmit(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx = 0);
-	bool HandleAssetEmitLocal(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx);
-	bool HandleAssetEmitForeign(const PeerID&, BlockInterpretCtx&, Asset::ID, AmountSigned, uint32_t nSubIdx);
-	bool HandleAssetDestroy(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
-	bool HandleAssetDestroy2(const PeerID&, const ContractID*, BlockInterpretCtx&, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx);
-
-	bool HandleKernel(const TxKernel&, BlockInterpretCtx&);
-	bool HandleKernelTypeAny(const TxKernel&, BlockInterpretCtx&);
-
-#define THE_MACRO(id, name) bool HandleKernelType(const TxKernel##name&, BlockInterpretCtx&);
-	BeamKernelsAll(THE_MACRO)
-#undef THE_MACRO
 
 	struct KrnFlyMmr;
 
@@ -646,12 +623,8 @@ public:
 	Block::Number FindAtivePastHeight(Height);
 	void FindAtivePastHeight(NodeDB::StateID&, Height);
 
-	Height FindVisibleKernel(const Merkle::Hash&, const BlockInterpretCtx&);
-
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew); // assuming context-free validation is already performed, but 
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
-	bool ValidateUniqueNoDup(BlockInterpretCtx&, const Blob& key, const Blob* pVal);
-	void ManageKrnID(BlockInterpretCtx&, const TxKernel&);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
@@ -979,8 +952,6 @@ public:
 	bool FindExternalAssetEmit(const PeerID&, bool bEmit, ForeignDetailsPacked&);
 
 private:
-	size_t GenerateNewBlockInternal(BlockContext&, BlockInterpretCtx&);
-	void GenerateNewHdr(BlockContext&, BlockInterpretCtx&);
 	DataStatus::Enum OnStateInternal(const Block::SystemState::Full&, Block::SystemState::ID&, bool bAlreadyChecked);
 };
 

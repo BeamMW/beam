@@ -2565,6 +2565,7 @@ bool NodeProcessor::get_ProofContractLog(Merkle::Proof& proof, const HeightPos& 
 
 struct NodeProcessor::BlockInterpretCtx
 {
+	NodeProcessor& m_Proc;
 	Height m_Height;
 	uint32_t m_nKrnIdx = 0;
 	bool m_Fwd;
@@ -2620,9 +2621,8 @@ struct NodeProcessor::BlockInterpretCtx
 	struct VmProcessorBase
 	{
 		BlockInterpretCtx& m_Bic;
-		NodeProcessor& m_Proc;
 
-		VmProcessorBase(BlockInterpretCtx& bic, NodeProcessor& db);
+		VmProcessorBase(BlockInterpretCtx&);
 
 		struct RecoveryTag {
 			typedef uint8_t Type;
@@ -2727,19 +2727,16 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
 	BlobMap::Set m_ContractVars;
-	BlobMap::Entry& get_ContractVar(const Blob& key, NodeDB& db);
+	BlobMap::Entry& get_ContractVar(const Blob& key);
 
 	std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
 
-	BlockInterpretCtx(Height h, bool bFwd)
-		:m_Height(h)
+	BlockInterpretCtx(NodeProcessor& proc, Height h, bool bFwd)
+		:m_Proc(proc)
+		,m_Height(h)
 		,m_Fwd(bFwd)
 	{
-	}
-
-	void SetAidMax(const NodeProcessor& np)
-	{
-		m_AidMax = np.get_AidMax();
+		m_AidMax = m_Proc.get_AidMax();
 	}
 
 	bool ValidateAssetRange(const Asset::Proof::Ptr& p) const
@@ -2754,13 +2751,13 @@ struct NodeProcessor::BlockInterpretCtx
 
 	}
 
-	void AddKrnInfo(Serializer&, NodeDB& db);
+	void AddKrnInfo(Serializer&);
 
 	static uint64_t get_AssetEvtIdx(uint32_t nKrnIdx, uint32_t nSubIdx) {
 		return (static_cast<uint64_t>(nKrnIdx) << 32) | nSubIdx;
 	}
 
-	void AssetEvtInsert(NodeDB&, NodeDB::AssetEvt&, uint32_t nSubIdx);
+	void AssetEvtInsert(NodeDB::AssetEvt&, uint32_t nSubIdx);
 
 	struct ChangesFlushGlobal
 	{
@@ -2796,6 +2793,57 @@ struct NodeProcessor::BlockInterpretCtx
 			ChangesFlushGlobal::Do(p);
 		}
 	};
+
+	template <typename T>
+	bool HandleElementVecFwd(const T& vec, size_t& n)
+	{
+		assert(m_Fwd);
+
+		for (; n < vec.size(); n++)
+			if (!HandleBlockElement(*vec[n]))
+				return false;
+
+		return true;
+	}
+
+	template <typename T>
+	void HandleElementVecBwd(const T& vec, size_t n)
+	{
+		assert(!m_Fwd);
+
+		while (n--)
+			if (!HandleBlockElement(*vec[n]))
+				OnCorrupted();
+	}
+
+	bool HandleBlockElement(const Input&);
+	bool HandleBlockElement(const Output&);
+	bool HandleBlockElement(const TxKernel&);
+
+	Height FindVisibleKernel(const Merkle::Hash& id);
+	void ManageKrnID(const TxKernel&);
+
+	bool HandleKernel(const TxKernel&);
+	bool HandleKernelTypeAny(const TxKernel&);
+
+#define THE_MACRO(id, name) bool HandleKernelType(const TxKernel##name&);
+	BeamKernelsAll(THE_MACRO)
+#undef THE_MACRO
+
+	bool ValidateUniqueNoDup(const Blob& key, const Blob* pVal);
+
+	bool HandleAssetCreate(const PeerID&, const ContractID*, const Asset::Metadata&, Asset::ID&, Amount& valDeposit, uint32_t nSubIdx = 0);
+	bool HandleAssetEmit(const PeerID&, Asset::ID, AmountSigned, uint32_t nSubIdx = 0);
+	bool HandleAssetEmitLocal(const PeerID&, Asset::ID, AmountSigned, uint32_t nSubIdx);
+	bool HandleAssetEmitForeign(const PeerID&, Asset::ID, AmountSigned, uint32_t nSubIdx);
+	bool HandleAssetDestroy(const PeerID&, const ContractID*, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx = 0);
+	bool HandleAssetDestroy2(const PeerID&, const ContractID*, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx);
+
+	bool HandleValidatedTx(const TxVectors::Full&);
+	bool HandleValidatedBlock(const Block::Body&);
+
+	size_t GenerateNewBlockInternal(BlockContext&);
+	void GenerateNewHdr(BlockContext&);
 };
 
 bool NodeProcessor::ExtractTreasury(const Blob& blob, Treasury::Data& td)
@@ -2843,9 +2891,8 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 		BEAM_LOG_INFO() << os.str();
 	}
 
-	BlockInterpretCtx bic(0, true);
+	BlockInterpretCtx bic(*this, 0, true);
 	BlockInterpretCtx::ChangesFlush cf(*this);
-	bic.SetAidMax(*this);
 
 	std::ostringstream osErr;
 	bic.m_pTxErrorInfo = &osErr;
@@ -2857,13 +2904,13 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 
 	for (size_t iG = 0; iG < td.m_vGroups.size(); iG++)
 	{
-		if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
+		if (!bic.HandleValidatedTx(td.m_vGroups[iG].m_Data))
 		{
 			// undo partial changes
 			bic.m_Fwd = false;
 			while (iG--)
 			{
-				if (!HandleValidatedTx(td.m_vGroups[iG].m_Data, bic))
+				if (!bic.HandleValidatedTx(td.m_vGroups[iG].m_Data))
 					OnCorrupted(); // although should not happen anyway
 			}
 
@@ -2877,7 +2924,7 @@ bool NodeProcessor::HandleTreasury(const Blob& blob)
 	if (bic.m_pvC)
 	{
 		Serializer ser;
-		bic.AddKrnInfo(ser, m_DB);
+		bic.AddKrnInfo(ser);
 	}
 
 	Serializer ser;
@@ -3128,12 +3175,11 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	TxoID id0 = m_Extra.m_Txos;
 
-	BlockInterpretCtx bic(id.m_Height, true);
+	BlockInterpretCtx bic(*this, id.m_Height, true);
 	if (bTestOnly)
 		bic.m_Temporary = true;
 
 	BlockInterpretCtx::ChangesFlush cf(*this);
-	bic.SetAidMax(*this);
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
@@ -3144,7 +3190,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
 		bic.m_pvC = &vC;
 
-	bool bOk = HandleValidatedBlock(block, bic);
+	bool bOk = bic.HandleValidatedBlock(block);
 	if (!bOk)
 	{
 		assert(bFirstTime);
@@ -3241,7 +3287,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (!bOk || bTestOnly)
 		{
 			bic.m_Fwd = false;
-			BEAM_VERIFY(HandleValidatedBlock(block, bic));
+			BEAM_VERIFY(bic.HandleValidatedBlock(block));
 		}
 	}
 
@@ -3325,7 +3371,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		cf.Do(*this, id.m_Height);
 
 		if (bic.m_pvC)
-			bic.AddKrnInfo(ser, m_DB);
+			bic.AddKrnInfo(ser);
 	}
 	else
 	{
@@ -3706,27 +3752,27 @@ void NodeProcessor::Recognizer::Recognize(const TxKernelAssetDestroy& v, uint32_
 	AddEvent(evt);
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelContractCreate& krn)
 {
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
 		bvm2::ShaderID sid;
 		bvm2::get_ShaderID(sid, krn.m_Data);
 		bvm2::ContractID cid;
 		bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
-		auto& e = bic.get_ContractVar(cid, m_DB);
+		auto& e = get_ContractVar(cid);
 		if (!e.m_Data.empty())
 		{
-			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+			m_TxStatus = proto::TxStatus::ContractFailNode;
 
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Contract " << cid << " already exists";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Contract " << cid << " already exists";
 
 			return false; // contract already exists
 		}
 
-		BlockInterpretCtx::BvmProcessor proc(bic, *this);
+		BlockInterpretCtx::BvmProcessor proc(*this);
 
 		Blob blob = krn.m_Data;
 		proc.AddRemoveShader(cid, &blob);
@@ -3737,28 +3783,28 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractCreate& krn, BlockInt
 	}
 	else
 	{
-		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
+		BlockInterpretCtx::VmProcessorBase proc(*this);
 		proc.UndoVars();
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelContractInvoke& krn)
 {
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
 		if (!krn.m_iMethod)
 		{
-			bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+			m_TxStatus = proto::TxStatus::ContractFailNode;
 
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " c'tor call attempt";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Contract " << krn.m_Cid << " c'tor call attempt";
 
 			return false; // c'tor call attempt
 		}
 
-		BlockInterpretCtx::BvmProcessor proc(bic, *this);
+		BlockInterpretCtx::BvmProcessor proc(*this);
 		if (!proc.Invoke(krn.m_Cid, krn.m_iMethod, krn))
 			return false;
 
@@ -3769,10 +3815,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 
 			if (!proc.EnsureNoVars(krn.m_Cid))
 			{
-				bic.m_TxStatus = proto::TxStatus::ContractFailNode;
+				m_TxStatus = proto::TxStatus::ContractFailNode;
 
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Contract " << krn.m_Cid << " d'tor not fully clean";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Contract " << krn.m_Cid << " d'tor not fully clean";
 
 				proc.UndoVars();
 				return false;
@@ -3781,18 +3827,18 @@ bool NodeProcessor::HandleKernelType(const TxKernelContractInvoke& krn, BlockInt
 	}
 	else
 	{
-		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
+		BlockInterpretCtx::VmProcessorBase proc(*this);
 		proc.UndoVars();
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelEvmInvoke& krn)
 {
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		BlockInterpretCtx::MyEvmProcessor proc(bic, *this);
+		BlockInterpretCtx::MyEvmProcessor proc(*this);
 
 		try
 		{
@@ -3801,10 +3847,10 @@ bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpre
 		}
 		catch (const std::exception& e)
 		{
-			bic.m_TxStatus = proto::TxStatus::ContractFailFirst;
+			m_TxStatus = proto::TxStatus::ContractFailFirst;
 
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << e.what();
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << e.what();
 		}
 		
 		proc.UndoVars();
@@ -3812,7 +3858,7 @@ bool NodeProcessor::HandleKernelType(const TxKernelEvmInvoke& krn, BlockInterpre
 	}
 	else
 	{
-		BlockInterpretCtx::VmProcessorBase proc(bic, *this);
+		BlockInterpretCtx::VmProcessorBase proc(*this);
 		proc.UndoVars();
 	}
 
@@ -3973,24 +4019,24 @@ void NodeProcessor::RescanAccounts(uint32_t nRecent)
 	}
 }
 
-Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInterpretCtx& bic)
+Height NodeProcessor::BlockInterpretCtx::FindVisibleKernel(const Merkle::Hash& id)
 {
-	assert(!bic.m_AlreadyValidated);
+	assert(!m_AlreadyValidated);
 
-	if (bic.m_Temporary)
+	if (m_Temporary)
 	{
-		auto it = bic.m_KrnIDs.find(id);
-		if (bic.m_KrnIDs.end() != it)
-			return bic.m_Height;
+		auto it = m_KrnIDs.find(id);
+		if (m_KrnIDs.end() != it)
+			return m_Height;
 	}
 
-	Height h = m_DB.FindKernel(id);
+	Height h = m_Proc.m_DB.FindKernel(id);
 	if (h)
 	{
-		assert(h <= bic.m_Height);
+		assert(h <= m_Height);
 
 		const Rules& r = Rules::get();
-		if (r.IsPastFork_<2>(bic.m_Height) && (bic.m_Height - h > r.MaxKernelValidityDH))
+		if (r.IsPastFork_<2>(m_Height) && (m_Height - h > r.MaxKernelValidityDH))
 			return 0; // Starting from Fork2 - visibility horizon is limited
 	}
 
@@ -3998,26 +4044,26 @@ Height NodeProcessor::FindVisibleKernel(const Merkle::Hash& id, const BlockInter
 }
 
 
-bool NodeProcessor::HandleKernelType(const TxKernelStd& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelStd& krn)
 {
-	if (bic.m_Fwd && krn.m_pRelativeLock && !bic.m_AlreadyValidated)
+	if (m_Fwd && krn.m_pRelativeLock && !m_AlreadyValidated)
 	{
 		const TxKernelStd::RelativeLock& x = *krn.m_pRelativeLock;
 
-		Height h0 = FindVisibleKernel(x.m_ID, bic);
+		Height h0 = FindVisibleKernel(x.m_ID);
 		if (!h0)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "RelLock not found " << x.m_ID;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "RelLock not found " << x.m_ID;
 
 			return false;
 		}
 
 		HeightAdd(h0, x.m_LockHeight);
-		if (h0 > bic.m_Height)
+		if (h0 > m_Height)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "RelLock too early " << x.m_ID << ", dH=" << x.m_LockHeight;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "RelLock too early " << x.m_ID << ", dH=" << x.m_LockHeight;
 
 			return false;
 		}
@@ -4069,47 +4115,47 @@ void NodeProcessor::InternalAssetDel(Asset::ID nAssetID, bool bMmr)
 	}
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelAssetCreate& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelAssetCreate& krn)
 {
 	Asset::ID aid;
 	Amount valDeposit;
-	return HandleAssetCreate(krn.m_Owner, nullptr, krn.m_MetaData, bic, aid, valDeposit);
+	return HandleAssetCreate(krn.m_Owner, nullptr, krn.m_MetaData, aid, valDeposit);
 }
 
-bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* pCid, const Asset::Metadata& md, BlockInterpretCtx& bic, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetCreate(const PeerID& pidOwner, const ContractID* pCid, const Asset::Metadata& md, Asset::ID& aid, Amount& valDeposit, uint32_t nSubIdx)
 {
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		if (!bic.m_AlreadyValidated && m_DB.AssetFindByOwner(pidOwner))
+		if (!m_AlreadyValidated && m_Proc.m_DB.AssetFindByOwner(pidOwner))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "duplicate asset owner: " << pidOwner;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "duplicate asset owner: " << pidOwner;
 			return false;
 		}
 
 		Asset::Full ai;
 		ai.m_ID = 0; // auto
 		ai.m_Owner = pidOwner;
-		ai.m_LockHeight = bic.m_Height;
-		ai.m_Deposit = valDeposit = Rules::get().get_DepositForCA(bic.m_Height);
+		ai.m_LockHeight = m_Height;
+		ai.m_Deposit = valDeposit = Rules::get().get_DepositForCA(m_Height);
 		ai.SetCid(pCid);
 		ai.m_Metadata.m_Hash = md.m_Hash;
 
 		{
 			TemporarySwap<ByteBuffer> ts(Cast::NotConst(md).m_Value, ai.m_Metadata.m_Value);
 
-			if (!InternalAssetAdd(ai, !bic.m_SkipDefinition))
+			if (!m_Proc.InternalAssetAdd(ai, !m_SkipDefinition))
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "assets overflow";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "assets overflow";
 				return false;
 			}
 		}
 
-		BlockInterpretCtx::Ser ser(bic);
+		BlockInterpretCtx::Ser ser(*this);
 		ser & ai.m_ID;
 
-		if (!bic.m_Temporary)
+		if (!m_Temporary)
 		{
 			NodeDB::AssetEvt evt;
 			evt.m_ID = ai.m_ID + Asset::s_MaxCount;
@@ -4125,109 +4171,109 @@ bool NodeProcessor::HandleAssetCreate(const PeerID& pidOwner, const ContractID* 
 
 			evt.m_Body = bufBlob;
 
-			bic.AssetEvtInsert(m_DB, evt, nSubIdx);
+			AssetEvtInsert(evt, nSubIdx);
 		}
 
 		aid = ai.m_ID;
 	}
 	else
 	{
-		BlockInterpretCtx::Der der(bic);
+		BlockInterpretCtx::Der der(*this);
 
 		der & aid;
 
-		InternalAssetDel(aid, !bic.m_SkipDefinition);
+		m_Proc.InternalAssetDel(aid, !m_SkipDefinition);
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelAssetDestroy& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelAssetDestroy& krn)
 {
 	Amount valDeposit = krn.get_Deposit();
-	if (!HandleAssetDestroy(krn.m_Owner, nullptr, bic, krn.m_AssetID, valDeposit, true))
+	if (!HandleAssetDestroy(krn.m_Owner, nullptr, krn.m_AssetID, valDeposit, true))
 		return false;
 
 	return true;
 }
 
-bool NodeProcessor::HandleAssetDestroy(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetDestroy(const PeerID& pidOwner, const ContractID* pCid, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
-	if (HandleAssetDestroy2(pidOwner, pCid, bic, aid, valDeposit, bDepositCheck, nSubIdx))
+	if (HandleAssetDestroy2(pidOwner, pCid, aid, valDeposit, bDepositCheck, nSubIdx))
 		return true;
 
-	if (bic.m_pTxErrorInfo)
-		*bic.m_pTxErrorInfo << ", AssetID=" << aid;
+	if (m_pTxErrorInfo)
+		*m_pTxErrorInfo << ", AssetID=" << aid;
 
 	return false;
 }
 
-bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID* pCid, BlockInterpretCtx& bic, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID* pCid, Asset::ID aid, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx)
 {
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
 		Asset::Full ai;
 		ai.m_ID = aid;
-		if (!m_DB.AssetGetSafe(ai))
+		if (!m_Proc.m_DB.AssetGetSafe(ai))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "not found";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "not found";
 			return false;
 		}
 
-		if (!bic.m_AlreadyValidated)
+		if (!m_AlreadyValidated)
 		{
 			if (ai.m_Owner != pidOwner)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Not owned";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Not owned";
 				return false;
 			}
 
 			if (ai.m_Value != Zero)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Value=" << AmountBig::Printable(ai.m_Value);
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Value=" << AmountBig::Printable(ai.m_Value);
 				return false;
 			}
 
-			if (ai.m_LockHeight + Rules::get().CA.LockPeriod > bic.m_Height)
+			if (ai.m_LockHeight + Rules::get().CA.LockPeriod > m_Height)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "LockHeight=" << ai.m_LockHeight;
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "LockHeight=" << ai.m_LockHeight;
 
 				return false;
 			}
 
 			if (bDepositCheck && (valDeposit != ai.m_Deposit))
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Deposit expected=" << ai.m_Deposit << ", actual=" << valDeposit;
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Deposit expected=" << ai.m_Deposit << ", actual=" << valDeposit;
 				return false;
 			}
 		}
 
 		// looks good
-		InternalAssetDel(aid, !bic.m_SkipDefinition);
+		m_Proc.InternalAssetDel(aid, !m_SkipDefinition);
 
-		BlockInterpretCtx::Ser ser(bic);
+		BlockInterpretCtx::Ser ser(*this);
 		ser
 			& ai.m_Metadata
 			& ai.m_LockHeight;
 
-		if (Rules::get().IsPastFork_<5>(bic.m_Height))
+		if (Rules::get().IsPastFork_<5>(m_Height))
 			ser & ai.m_Deposit;
 		else
 			assert(Rules::get().CA.DepositForList2 == ai.m_Deposit);
 
 		valDeposit = ai.m_Deposit;
 
-		if (!bic.m_Temporary)
+		if (!m_Temporary)
 		{
 			NodeDB::AssetEvt evt;
 			evt.m_ID = aid + Asset::s_MaxCount;
 			ZeroObject(evt.m_Body);
-			bic.AssetEvtInsert(m_DB, evt, nSubIdx);
+			AssetEvtInsert(evt, nSubIdx);
 		}
 	}
 	else
@@ -4236,7 +4282,7 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 		ai.m_ID = aid;
 		ai.SetCid(pCid);
 
-		BlockInterpretCtx::Der der(bic);
+		BlockInterpretCtx::Der der(*this);
 		der
 			& ai.m_Metadata
 			& ai.m_LockHeight;
@@ -4246,12 +4292,12 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 		else
 			ai.m_Owner = pidOwner;
 
-		if (Rules::get().IsPastFork_<5>(bic.m_Height))
+		if (Rules::get().IsPastFork_<5>(m_Height))
 			der & ai.m_Deposit;
 		else
 			ai.m_Deposit = Rules::get().CA.DepositForList2;
 
-		if (!InternalAssetAdd(ai, !bic.m_SkipDefinition))
+		if (!m_Proc.InternalAssetAdd(ai, !m_SkipDefinition))
 			OnCorrupted();
 
 		if (ai.m_ID != aid)
@@ -4261,46 +4307,46 @@ bool NodeProcessor::HandleAssetDestroy2(const PeerID& pidOwner, const ContractID
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelAssetEmit& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelAssetEmit& krn)
 {
-	return HandleAssetEmit(krn.m_Owner, bic, krn.m_AssetID, krn.m_Value);
+	return HandleAssetEmit(krn.m_Owner, krn.m_AssetID, krn.m_Value);
 }
 
-bool NodeProcessor::HandleAssetEmit(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetEmit(const PeerID& pidOwner, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	bool bRes = Rules::get().CA.IsForeign(aid) ?
-		HandleAssetEmitForeign(pidOwner, bic, aid, val, nSubIdx) :
-		HandleAssetEmitLocal(pidOwner, bic, aid, val, nSubIdx);
+		HandleAssetEmitForeign(pidOwner, aid, val, nSubIdx) :
+		HandleAssetEmitLocal(pidOwner, aid, val, nSubIdx);
 
 	if (bRes)
 		return true;
 
-	if (bic.m_pTxErrorInfo)
-		*bic.m_pTxErrorInfo << ", AssetID=" << aid;
+	if (m_pTxErrorInfo)
+		*m_pTxErrorInfo << ", AssetID=" << aid;
 
 	return false;
 }
 
-bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetEmitLocal(const PeerID& pidOwner, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	Asset::Full ai;
 	ai.m_ID = aid;
-	if (!m_DB.AssetGetSafe(ai))
+	if (!m_Proc.m_DB.AssetGetSafe(ai))
 	{
-		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << "not found";
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "not found";
 		return false;
 	}
 
 	bool bAdd;
 	Amount valUns = SplitAmountSigned(val, bAdd);
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		if (!bic.m_AlreadyValidated && (ai.m_Owner != pidOwner))
+		if (!m_AlreadyValidated && (ai.m_Owner != pidOwner))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "not owned";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "not owned";
 			return false; // as well
 		}
 	}
@@ -4317,8 +4363,8 @@ bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretC
 		val0 += valDelta;
 		if (val0 < valDelta)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "too large";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "too large";
 
 			return false; // overflow (?!)
 		}
@@ -4327,8 +4373,8 @@ bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretC
 	{
 		if (val0 < valDelta)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "too low";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "too low";
 
 			return false; // not enough to burn
 		}
@@ -4341,31 +4387,31 @@ bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretC
 	bool bZero = (val0 == Zero);
 	if (bZero != bWasZero)
 	{
-		if (bic.m_Fwd)
+		if (m_Fwd)
 		{
-			BlockInterpretCtx::Ser ser(bic);
+			BlockInterpretCtx::Ser ser(*this);
 			ser & ai.m_LockHeight;
 
-			ai.m_LockHeight = bic.m_Height;
+			ai.m_LockHeight = m_Height;
 		}
 		else
 		{
-			BlockInterpretCtx::Der der(bic);
+			BlockInterpretCtx::Der der(*this);
 			der & ai.m_LockHeight;
 		}
 	}
 
-	m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
+	m_Proc.m_DB.AssetSetValue(ai.m_ID, ai.m_Value, ai.m_LockHeight);
 
-	if (!bic.m_SkipDefinition)
+	if (!m_SkipDefinition)
 	{
 		Merkle::Hash hv;
 		ai.get_Hash(hv);
 
-		m_Mmr.m_Assets.Replace(ai.m_ID - (Rules::get().CA.ForeignEnd + 1), hv);
+		m_Proc.m_Mmr.m_Assets.Replace(ai.m_ID - (Rules::get().CA.ForeignEnd + 1), hv);
 	}
 
-	if (bic.m_Fwd && !bic.m_Temporary)
+	if (m_Fwd && !m_Temporary)
 	{
 		AssetDataPacked adp;
 		adp.m_Amount = ai.m_Value;
@@ -4376,7 +4422,7 @@ bool NodeProcessor::HandleAssetEmitLocal(const PeerID& pidOwner, BlockInterpretC
 		evt.m_Body.p = &adp;
 		evt.m_Body.n = sizeof(adp);
 
-		bic.AssetEvtInsert(m_DB, evt, nSubIdx);
+		AssetEvtInsert(evt, nSubIdx);
 	}
 
 	return true;
@@ -4412,7 +4458,7 @@ bool NodeProcessor::FindExternalAssetEmit(const PeerID& pidOwner, bool bEmit, Fo
 	return true;
 }
 
-bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpretCtx& bic, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
+bool NodeProcessor::BlockInterpretCtx::HandleAssetEmitForeign(const PeerID& pidOwner, Asset::ID aid, AmountSigned val, uint32_t nSubIdx)
 {
 	ECC::Point key;
 	key.m_X = Cast::Down<ECC::uintBig>(pidOwner);
@@ -4429,41 +4475,41 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 	fep.m_Details.m_Aid = aid;
 	fep.m_Details.m_Amount = valUns;
 
-	if (bic.m_Fwd && !bic.m_AlreadyValidated && bAdd && bic.m_Temporary) // verify bridge ONLY when checking txs and blocks. But not when interpeting already signed blocks
+	if (m_Fwd && !m_AlreadyValidated && bAdd && m_Temporary) // verify bridge ONLY when checking txs and blocks. But not when interpeting already signed blocks
 	{
 		NodeDB::Recordset rs;
 		Blob blobDetails;
 
-		m_DB.BridgeFind(pidOwner, blobDetails, rs);
+		m_Proc.m_DB.BridgeFind(pidOwner, blobDetails, rs);
 		if (sizeof(ForeignDetailsPacked) != blobDetails.n)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "bridge no key";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "bridge no key";
 			return false;
 		}
 
 		const auto& fdp = *reinterpret_cast<const ForeignDetailsPacked*>(blobDetails.p);
 		if ((fdp.m_Aid != fep.m_Details.m_Aid) || (fdp.m_Amount != fep.m_Details.m_Amount))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "bridge details mismatch";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "bridge details mismatch";
 			return false;
 		}
 	}
 
-	fep.m_Height = bic.m_Height;
-	fep.m_nIdx = bic.m_nKrnIdx;
+	fep.m_Height = m_Height;
+	fep.m_nIdx = m_nKrnIdx;
 
 	Blob blobVal(&fep, sizeof(fep));
 
-	if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+	if (!ValidateUniqueNoDup(blobKey, &blobVal))
 	{
-		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << "double-emit";
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "double-emit";
 		return false;
 	}
 
-	if (bic.m_Fwd && !bic.m_Temporary)
+	if (m_Fwd && !m_Temporary)
 	{
 		// register the emission in evts
 		AssetDataPacked adp;
@@ -4475,7 +4521,7 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 
 		{
 			NodeDB::WalkerAssetEvt wlk;
-			m_DB.AssetEvtsEnumBwd(wlk, aid, bic.m_Height);
+			m_Proc.m_DB.AssetEvtsEnumBwd(wlk, aid, m_Height);
 			if (wlk.MoveNext())
 			{
 				AssetDataPacked adp0;
@@ -4489,51 +4535,51 @@ bool NodeProcessor::HandleAssetEmitForeign(const PeerID& pidOwner, BlockInterpre
 		evt.m_Body.p = &adp;
 		evt.m_Body.n = sizeof(adp);
 
-		bic.AssetEvtInsert(m_DB, evt, 0); // will include height+krnIdx
+		AssetEvtInsert(evt, 0); // will include height+krnIdx
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedOutput& krn)
 {
 	const ECC::Point& key = krn.m_Txo.m_Ticket.m_SerialPub;
 	Blob blobKey(&key, sizeof(key));
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		if (!bic.m_AlreadyValidated)
+		if (!m_AlreadyValidated)
 		{
-			if (bic.m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
+			if (m_ShieldedOuts >= Rules::get().Shielded.MaxOuts)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Shielded outp limit exceeded";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Shielded outp limit exceeded";
 
-				bic.m_LimitExceeded = true;
+				m_LimitExceeded = true;
 				return false;
 			}
 
-			if (!bic.ValidateAssetRange(krn.m_Txo.m_pAsset))
+			if (!ValidateAssetRange(krn.m_Txo.m_pAsset))
 				return false;
 		}
 
 		ShieldedOutpPacked sop;
-		sop.m_Height = bic.m_Height;
-		sop.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
-		sop.m_TxoID = m_Extra.m_ShieldedOutputs;
+		sop.m_Height = m_Height;
+		sop.m_MmrIndex = m_Proc.m_Mmr.m_Shielded.m_Count;
+		sop.m_TxoID = m_Proc.m_Extra.m_ShieldedOutputs;
 		sop.m_Commitment = krn.m_Txo.m_Commitment;
 
 		Blob blobVal(&sop, sizeof(sop));
 
-		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+		if (!ValidateUniqueNoDup(blobKey, &blobVal))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Shielded outp duplicate";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Shielded outp duplicate";
 
 			return false;
 		}
 
-		if (!bic.m_Temporary)
+		if (!m_Temporary)
 		{
 			ECC::Point::Native pt, pt2;
 			pt.Import(krn.m_Txo.m_Commitment); // don't care if Import fails (kernels are not necessarily tested at this stage)
@@ -4544,176 +4590,155 @@ bool NodeProcessor::HandleKernelType(const TxKernelShieldedOutput& krn, BlockInt
 			pt.Export(pt_s);
 
 			// Append to cmList
-			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
-			m_DB.ShieldedWrite(m_Extra.m_ShieldedOutputs, &pt_s, 1);
+			m_Proc.m_DB.ShieldedResize(m_Proc.m_Extra.m_ShieldedOutputs + 1, m_Proc.m_Extra.m_ShieldedOutputs);
+			m_Proc.m_DB.ShieldedWrite(m_Proc.m_Extra.m_ShieldedOutputs, &pt_s, 1);
 
 			// Append state hash
 			ECC::Hash::Value hvState;
-			if (m_Extra.m_ShieldedOutputs)
-				m_DB.ShieldedStateRead(m_Extra.m_ShieldedOutputs - 1, &hvState, 1);
+			if (m_Proc.m_Extra.m_ShieldedOutputs)
+				m_Proc.m_DB.ShieldedStateRead(m_Proc.m_Extra.m_ShieldedOutputs - 1, &hvState, 1);
 			else
 				hvState = Zero;
 
 			ShieldedTxo::UpdateState(hvState, pt_s);
 
-			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs + 1, m_Extra.m_ShieldedOutputs);
-			m_DB.ShieldedStateWrite(m_Extra.m_ShieldedOutputs, &hvState, 1);
+			m_Proc.m_DB.ShieldedStateResize(m_Proc.m_Extra.m_ShieldedOutputs + 1, m_Proc.m_Extra.m_ShieldedOutputs);
+			m_Proc.m_DB.ShieldedStateWrite(m_Proc.m_Extra.m_ShieldedOutputs, &hvState, 1);
 		}
 
-		if (!bic.m_SkipDefinition)
+		if (!m_SkipDefinition)
 		{
 			ShieldedTxo::DescriptionOutp d;
 			d.m_SerialPub = krn.m_Txo.m_Ticket.m_SerialPub;
 			d.m_Commitment = krn.m_Txo.m_Commitment;
-			d.m_ID = m_Extra.m_ShieldedOutputs;
-			d.m_Height = bic.m_Height;
+			d.m_ID = m_Proc.m_Extra.m_ShieldedOutputs;
+			d.m_Height = m_Height;
 
 			Merkle::Hash hv;
 			d.get_Hash(hv);
-			m_Mmr.m_Shielded.Append(hv);
+			m_Proc.m_Mmr.m_Shielded.Append(hv);
 		}
 
-		m_Extra.m_ShieldedOutputs++;
+		m_Proc.m_Extra.m_ShieldedOutputs++;
 
-		bic.m_ShieldedOuts++; // ok
+		m_ShieldedOuts++; // ok
 
 	}
 	else
 	{
-		ValidateUniqueNoDup(bic, blobKey, nullptr);
+		ValidateUniqueNoDup(blobKey, nullptr);
 
-		if (!bic.m_Temporary)
+		if (!m_Temporary)
 		{
-			m_DB.ShieldedResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
-			m_DB.ShieldedStateResize(m_Extra.m_ShieldedOutputs - 1, m_Extra.m_ShieldedOutputs);
+			m_Proc.m_DB.ShieldedResize(m_Proc.m_Extra.m_ShieldedOutputs - 1, m_Proc.m_Extra.m_ShieldedOutputs);
+			m_Proc.m_DB.ShieldedStateResize(m_Proc.m_Extra.m_ShieldedOutputs - 1, m_Proc.m_Extra.m_ShieldedOutputs);
 		}
 
-		if (!bic.m_SkipDefinition)
-			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
+		if (!m_SkipDefinition)
+			m_Proc.m_Mmr.m_Shielded.ShrinkTo(m_Proc.m_Mmr.m_Shielded.m_Count - 1);
 		
 
-		assert(bic.m_ShieldedOuts);
-		bic.m_ShieldedOuts--;
+		assert(m_ShieldedOuts);
+		m_ShieldedOuts--;
 
-		assert(m_Extra.m_ShieldedOutputs);
-		m_Extra.m_ShieldedOutputs--;
+		assert(m_Proc.m_Extra.m_ShieldedOutputs);
+		m_Proc.m_Extra.m_ShieldedOutputs--;
 	}
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernelType(const TxKernelShieldedInput& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedInput& krn)
 {
 	ECC::Point key = krn.m_SpendProof.m_SpendPk;
 	key.m_Y |= 2;
 	Blob blobKey(&key, sizeof(key));
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		if (!bic.m_AlreadyValidated)
+		if (!m_AlreadyValidated)
 		{
-			if (!bic.ValidateAssetRange(krn.m_pAsset))
+			if (!ValidateAssetRange(krn.m_pAsset))
 				return false;
 
-			if (bic.m_ShieldedIns >= Rules::get().Shielded.MaxIns)
+			if (m_ShieldedIns >= Rules::get().Shielded.MaxIns)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Shielded inp limit exceeded";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Shielded inp limit exceeded";
 
-				bic.m_LimitExceeded = true;
+				m_LimitExceeded = true;
 				return false;
 			}
 
-			if (!IsShieldedInPool(krn))
+			if (!m_Proc.IsShieldedInPool(krn))
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "Shielded inp oob";
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Shielded inp oob";
 
 				return false; // references invalid pool window
 			}
 		}
  
 		ShieldedInpPacked sip;
-		sip.m_Height = bic.m_Height;
-		sip.m_MmrIndex = m_Mmr.m_Shielded.m_Count;
+		sip.m_Height = m_Height;
+		sip.m_MmrIndex = m_Proc.m_Mmr.m_Shielded.m_Count;
 
 		Blob blobVal(&sip, sizeof(sip));
-		if (!ValidateUniqueNoDup(bic, blobKey, &blobVal))
+		if (!ValidateUniqueNoDup(blobKey, &blobVal))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Shielded inp duplicate";
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Shielded inp duplicate";
 			return false;
 		}
 
-		if (!bic.m_SkipDefinition)
+		if (!m_SkipDefinition)
 		{
 			ShieldedTxo::DescriptionInp d;
 			d.m_SpendPk = krn.m_SpendProof.m_SpendPk;
-			d.m_Height = bic.m_Height;
+			d.m_Height = m_Height;
 
 			Merkle::Hash hv;
 			d.get_Hash(hv);
-			m_Mmr.m_Shielded.Append(hv);
+			m_Proc.m_Mmr.m_Shielded.Append(hv);
 		}
 
-		bic.m_ShieldedIns++; // ok
+		m_ShieldedIns++; // ok
 
 	}
 	else
 	{
-		ValidateUniqueNoDup(bic, blobKey, nullptr);
+		ValidateUniqueNoDup(blobKey, nullptr);
 
-		if (!bic.m_SkipDefinition)
-			m_Mmr.m_Shielded.ShrinkTo(m_Mmr.m_Shielded.m_Count - 1);
+		if (!m_SkipDefinition)
+			m_Proc.m_Mmr.m_Shielded.ShrinkTo(m_Proc.m_Mmr.m_Shielded.m_Count - 1);
 
-		assert(bic.m_ShieldedIns);
-		bic.m_ShieldedIns--;
+		assert(m_ShieldedIns);
+		m_ShieldedIns--;
 	}
 
 	return true;
 }
 
-template <typename T>
-bool NodeProcessor::HandleElementVecFwd(const T& vec, BlockInterpretCtx& bic, size_t& n)
-{
-	assert(bic.m_Fwd);
 
-	for (; n < vec.size(); n++)
-		if (!HandleBlockElement(*vec[n], bic))
-			return false;
-
-	return true;
-}
-
-template <typename T>
-void NodeProcessor::HandleElementVecBwd(const T& vec, BlockInterpretCtx& bic, size_t n)
-{
-	assert(!bic.m_Fwd);
-
-	while (n--)
-		if (!HandleBlockElement(*vec[n], bic))
-			OnCorrupted();
-}
-
-bool NodeProcessor::HandleValidatedTx(const TxVectors::Full& txv, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleValidatedTx(const TxVectors::Full& txv)
 {
 	size_t pN[3];
 
 	bool bOk = true;
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		bic.m_vInpAux.reserve(bic.m_vInpAux.size() + txv.m_vInputs.size());
+		m_vInpAux.reserve(m_vInpAux.size() + txv.m_vInputs.size());
 
 		ZeroObject(pN);
 		bOk =
-			HandleElementVecFwd(txv.m_vInputs, bic, pN[0]) &&
-			HandleElementVecFwd(txv.m_vOutputs, bic, pN[1]) &&
-			HandleElementVecFwd(txv.m_vKernels, bic, pN[2]);
+			HandleElementVecFwd(txv.m_vInputs, pN[0]) &&
+			HandleElementVecFwd(txv.m_vOutputs, pN[1]) &&
+			HandleElementVecFwd(txv.m_vKernels, pN[2]);
 
 		if (bOk)
 			return true;
 
-		bic.m_Fwd = false; // rollback partial changes
+		m_Fwd = false; // rollback partial changes
 	}
 	else
 	{
@@ -4723,32 +4748,32 @@ bool NodeProcessor::HandleValidatedTx(const TxVectors::Full& txv, BlockInterpret
 		pN[2] = txv.m_vKernels.size();
 	}
 
-	HandleElementVecBwd(txv.m_vKernels, bic, pN[2]);
-	HandleElementVecBwd(txv.m_vOutputs, bic, pN[1]);
-	HandleElementVecBwd(txv.m_vInputs, bic, pN[0]);
+	HandleElementVecBwd(txv.m_vKernels, pN[2]);
+	HandleElementVecBwd(txv.m_vOutputs, pN[1]);
+	HandleElementVecBwd(txv.m_vInputs, pN[0]);
 
 	if (!bOk)
-		bic.m_Fwd = true; // restore it to prevent confuse
+		m_Fwd = true; // restore it to prevent confuse
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleValidatedBlock(const Block::Body& block, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleValidatedBlock(const Block::Body& block)
 {
 	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
-	if (!bic.m_Fwd)
+	if (!m_Fwd)
 	{
-		assert(m_Extra.m_Txos);
-		m_Extra.m_Txos--;
+		assert(m_Proc.m_Extra.m_Txos);
+		m_Proc.m_Extra.m_Txos--;
 	}
 
-	if (!HandleValidatedTx(block, bic))
+	if (!HandleValidatedTx(block))
 		return false;
 
 	// currently there's no extra info in the block that's needed
 
-	if (bic.m_Fwd)
-		m_Extra.m_Txos++;
+	if (m_Fwd)
+		m_Proc.m_Extra.m_Txos++;
 
 	return true;
 }
@@ -4757,14 +4782,12 @@ struct NodeProcessor::DependentContextSwitch
 {
 	typedef std::vector<const TxPool::Dependent::Element*> Vec;
 
-	NodeProcessor& m_This;
 	BlockInterpretCtx& m_Bic;
 	Vec m_vec;
 	uint32_t m_Applied;
 
-	DependentContextSwitch(NodeProcessor& np, BlockInterpretCtx& bic)
-		:m_This(np)
-		,m_Bic(bic)
+	DependentContextSwitch(BlockInterpretCtx& bic)
+		:m_Bic(bic)
 		,m_Applied(0)
 	{
 	}
@@ -4773,7 +4796,7 @@ struct NodeProcessor::DependentContextSwitch
 	{
 		m_Bic.m_Fwd = false;
 		while (m_Applied)
-			m_This.HandleValidatedTx(*m_vec[--m_Applied]->m_pValue, m_Bic);
+			m_Bic.HandleValidatedTx(*m_vec[--m_Applied]->m_pValue);
 	}
 
 	static void Convert(Vec& vec, const TxPool::Dependent::Element* pTop)
@@ -4794,7 +4817,7 @@ struct NodeProcessor::DependentContextSwitch
 		assert(m_Bic.m_Fwd && !m_Applied);
 
 		for (; m_Applied < m_vec.size(); m_Applied++)
-			if (!m_This.HandleValidatedTx(*m_vec[m_Applied]->m_pValue, m_Bic))
+			if (!m_Bic.HandleValidatedTx(*m_vec[m_Applied]->m_pValue))
 				return false;
 
 		return true;
@@ -4815,15 +4838,14 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			if (txp.m_setContexts.end() == itCtx)
 				return false;
 
-			BlockInterpretCtx bic(m_Cursor.m_hh.m_Height + 1, true);
-			bic.SetAidMax(*this);
+			BlockInterpretCtx bic(*this, m_Cursor.m_hh.m_Height + 1, true);
 			bic.m_Temporary = true;
 			bic.m_TxValidation = true;
 			bic.m_SkipDefinition = true;
 			bic.m_AlreadyValidated = true;
 			bic.m_SkipInOuts = true;
 
-			DependentContextSwitch dcs(*this, bic);
+			DependentContextSwitch dcs(bic);
 			if (!dcs.Apply(&itCtx->get_ParentObj()))
 				return false;
 
@@ -4834,12 +4856,12 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 	return true;
 }
 
-bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 {
-	if (bic.m_SkipInOuts)
+	if (m_SkipInOuts)
 		return true;
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
 		struct Traveler :public UtxoTree::ITraveler {
 			bool OnLeaf(const RadixTree::Leaf& x) override {
@@ -4854,7 +4876,7 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		d.m_Commitment = v.m_Commitment;
 		d.m_Maturity = 0;
 		kMin = d;
-		d.m_Maturity = bic.m_Height - 1;
+		d.m_Maturity = m_Height - 1;
 		kMax = d;
 
 		UtxoTree::Cursor cu;
@@ -4862,10 +4884,10 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 		t.m_pBound[0] = kMin.V.m_pData;
 		t.m_pBound[1] = kMax.V.m_pData;
 
-		if (m_Mapped.m_Utxo.Traverse(t))
+		if (m_Proc.m_Mapped.m_Utxo.Traverse(t))
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "not found Input " << v.m_Commitment;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "not found Input " << v.m_Commitment;
 			return false;
 		}
 
@@ -4873,30 +4895,30 @@ bool NodeProcessor::HandleBlockElement(const Input& v, BlockInterpretCtx& bic)
 
 		d = p->m_Key;
 		assert(d.m_Commitment == v.m_Commitment);
-		assert(d.m_Maturity < bic.m_Height);
+		assert(d.m_Maturity < m_Height);
 
 		TxoID nID = p->m_ID;
 
 		if (!p->IsExt())
-			m_Mapped.m_Utxo.Delete(cu);
+			m_Proc.m_Mapped.m_Utxo.Delete(cu);
 		else
 		{
-			nID = m_Mapped.m_Utxo.PopID(*p);
+			nID = m_Proc.m_Mapped.m_Utxo.PopID(*p);
 			cu.InvalidateElement();
-			m_Mapped.m_Utxo.OnDirty();
+			m_Proc.m_Mapped.m_Utxo.OnDirty();
 		}
 
-		auto& aux = bic.m_vInpAux.emplace_back();
+		auto& aux = m_vInpAux.emplace_back();
 		aux.m_Maturity = d.m_Maturity;
 		aux.m_ID = nID;
 
 	} else
 	{
-		assert(!bic.m_vInpAux.empty());
-		auto aux = std::move(bic.m_vInpAux.back());
-		bic.m_vInpAux.pop_back();
+		assert(!m_vInpAux.empty());
+		auto aux = std::move(m_vInpAux.back());
+		m_vInpAux.pop_back();
 
-		UndoInput(v, aux);
+		m_Proc.UndoInput(v, aux);
 	}
 
 	return true;
@@ -4928,35 +4950,35 @@ void NodeProcessor::UndoInput(const Input& v, const InputAux& aux)
 
 }
 
-bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Output& v)
 {
-	if (bic.m_SkipInOuts)
+	if (m_SkipInOuts)
 		return true;
 
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
-	d.m_Maturity = bic.m_SkipDefinition ?
-		(bic.m_Height - 1) : // allow this output to be spent in exactly this block. Won't happen in normal blocks (matching in/outs are not allowed), but ok when assembling a block, before cut-through
-		v.get_MinMaturity(bic.m_Height);
+	d.m_Maturity = m_SkipDefinition ?
+		(m_Height - 1) : // allow this output to be spent in exactly this block. Won't happen in normal blocks (matching in/outs are not allowed), but ok when assembling a block, before cut-through
+		v.get_MinMaturity(m_Height);
 
 	UtxoTree::Key key;
 	key = d;
 
-	m_Mapped.m_Utxo.EnsureReserve();
+	m_Proc.m_Mapped.m_Utxo.EnsureReserve();
 
 	UtxoTree::Cursor cu;
 	bool bCreate = true;
-	UtxoTree::MyLeaf* p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Proc.m_Mapped.m_Utxo.Find(cu, key, bCreate);
 
 	cu.InvalidateElement();
-	m_Mapped.m_Utxo.OnDirty();
+	m_Proc.m_Mapped.m_Utxo.OnDirty();
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
-		if (!bic.ValidateAssetRange(v.m_pAsset))
+		if (!ValidateAssetRange(v.m_pAsset))
 			return false;
 
-		TxoID nID = m_Extra.m_Txos;
+		TxoID nID = m_Proc.m_Extra.m_Txos;
 
 		if (bCreate)
 			p->m_ID = nID;
@@ -4966,109 +4988,109 @@ bool NodeProcessor::HandleBlockElement(const Output& v, BlockInterpretCtx& bic)
 			Input::Count nCountInc = p->get_Count() + 1;
 			if (!nCountInc)
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << "overflow output " << v.m_Commitment;
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "overflow output " << v.m_Commitment;
 				return false;
 			}
 
-			m_Mapped.m_Utxo.PushID(nID, *p);
+			m_Proc.m_Mapped.m_Utxo.PushID(nID, *p);
 		}
 
-		m_Extra.m_Txos++;
+		m_Proc.m_Extra.m_Txos++;
 
 	} else
 	{
-		assert(m_Extra.m_Txos);
-		m_Extra.m_Txos--;
+		assert(m_Proc.m_Extra.m_Txos);
+		m_Proc.m_Extra.m_Txos--;
 
 		if (!p->IsExt())
-			m_Mapped.m_Utxo.Delete(cu);
+			m_Proc.m_Mapped.m_Utxo.Delete(cu);
 		else
-			m_Mapped.m_Utxo.PopID(*p);
+			m_Proc.m_Mapped.m_Utxo.PopID(*p);
 	}
 
 	return true;
 }
 
-void NodeProcessor::ManageKrnID(BlockInterpretCtx& bic, const TxKernel& krn)
+void NodeProcessor::BlockInterpretCtx::ManageKrnID(const TxKernel& krn)
 {
-	if (!bic.m_Height)
+	if (!m_Height)
 		return; // for historical reasons treasury kernels are ignored
 
 	const auto& key = krn.get_ID();
 
-	if (bic.m_Temporary)
+	if (m_Temporary)
 	{
-		if (bic.m_AlreadyValidated)
+		if (m_AlreadyValidated)
 			return;
 
-		if (bic.m_Fwd)
-			bic.m_KrnIDs.insert(key);
+		if (m_Fwd)
+			m_KrnIDs.insert(key);
 		else
 		{
-			auto it = bic.m_KrnIDs.find(key);
-			assert(bic.m_KrnIDs.end() != it);
-			bic.m_KrnIDs.erase(it);
+			auto it = m_KrnIDs.find(key);
+			assert(m_KrnIDs.end() != it);
+			m_KrnIDs.erase(it);
 		}
 	}
 	else
 	{
-		if (bic.m_Fwd)
-			m_DB.InsertKernel(key, bic.m_Height);
+		if (m_Fwd)
+			m_Proc.m_DB.InsertKernel(key, m_Height);
 		else
-			m_DB.DeleteKernel(key, bic.m_Height);
+			m_Proc.m_DB.DeleteKernel(key, m_Height);
 	}
 
 }
 
-bool NodeProcessor::HandleBlockElement(const TxKernel& v, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const TxKernel& v)
 {
 	const Rules& r = Rules::get();
-	if (bic.m_Fwd && r.IsPastFork_<2>(bic.m_Height) && !bic.m_AlreadyValidated)
+	if (m_Fwd && r.IsPastFork_<2>(m_Height) && !m_AlreadyValidated)
 	{
-		Height hPrev = FindVisibleKernel(v.get_ID(), bic);
+		Height hPrev = FindVisibleKernel(v.get_ID());
 		if (hPrev)
 		{
-			if (bic.m_pTxErrorInfo)
-				*bic.m_pTxErrorInfo << "Kernel ID=" << v.get_ID() << " duplicated at " << hPrev;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Kernel ID=" << v.get_ID() << " duplicated at " << hPrev;
 
 			return false; // duplicated
 		}
 	}
 
-	if (!bic.m_Fwd)
-		ManageKrnID(bic, v);
+	if (!m_Fwd)
+		ManageKrnID(v);
 
-	if (!HandleKernel(v, bic))
+	if (!HandleKernel(v))
 	{
-		if (bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << " <- Kernel ID=" << v.get_ID();
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << " <- Kernel ID=" << v.get_ID();
 
-		if (!bic.m_Fwd)
+		if (!m_Fwd)
 			OnCorrupted();
 		return false;
 	}
 
-	if (bic.m_Fwd)
-		ManageKrnID(bic, v);
+	if (m_Fwd)
+		ManageKrnID(v);
 
 	return true;
 }
 
-bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernel(const TxKernel& v)
 {
 	size_t n = 0;
 	bool bOk = true;
 
-	if (bic.m_Fwd)
+	if (m_Fwd)
 	{
 		// nested
 		for (; n < v.m_vNested.size(); n++)
 		{
-			if (!HandleKernel(*v.m_vNested[n], bic))
+			if (!HandleKernel(*v.m_vNested[n]))
 			{
-				if (bic.m_pTxErrorInfo)
-					*bic.m_pTxErrorInfo << " <- Nested Kernel " << n;
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << " <- Nested Kernel " << n;
 
 				bOk = false;
 				break;
@@ -5079,60 +5101,60 @@ bool NodeProcessor::HandleKernel(const TxKernel& v, BlockInterpretCtx& bic)
 	{
 		n = v.m_vNested.size();
 
-		assert(bic.m_nKrnIdx);
-		bic.m_nKrnIdx--;
+		assert(m_nKrnIdx);
+		m_nKrnIdx--;
 	}
 
 	if (bOk)
 	{
-		bOk = HandleKernelTypeAny(v, bic);
+		bOk = HandleKernelTypeAny(v);
 
-		if (!bOk && bic.m_pTxErrorInfo)
-			*bic.m_pTxErrorInfo << " <- Kernel Type " << (uint32_t) v.get_Subtype();
+		if (!bOk && m_pTxErrorInfo)
+			*m_pTxErrorInfo << " <- Kernel Type " << (uint32_t) v.get_Subtype();
 	}
 
 	if (bOk)
 	{
-		if (bic.m_Fwd)
-			bic.m_nKrnIdx++;
+		if (m_Fwd)
+			m_nKrnIdx++;
 	}
 	else
 	{
-		if (!bic.m_Fwd)
+		if (!m_Fwd)
 			OnCorrupted();
-		bic.m_Fwd = false;
+		m_Fwd = false;
 	}
 
-	if (!bic.m_Fwd)
+	if (!m_Fwd)
 	{
 		// nested
 		while (n--)
-			if (!HandleKernel(*v.m_vNested[n], bic))
+			if (!HandleKernel(*v.m_vNested[n]))
 				OnCorrupted();
 	}
 
 	if (!bOk)
-		bic.m_Fwd = true; // restore it back
+		m_Fwd = true; // restore it back
 
 	return bOk;
 }
 
-bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& bic)
+bool NodeProcessor::BlockInterpretCtx::HandleKernelTypeAny(const TxKernel& krn)
 {
 	auto eType = krn.get_Subtype();
 
 	bool bContextChange = !krn.m_CanEmbed && (TxKernel::Subtype::Std != eType);
-	if (bContextChange && !bic.m_Fwd && bic.m_Temporary)
+	if (bContextChange && !m_Fwd && m_Temporary)
 	{
-		BlockInterpretCtx::Der der(bic);
-		der & bic.m_hvDependentCtx;
+		BlockInterpretCtx::Der der(*this);
+		der & m_hvDependentCtx;
 	}
 
 	switch (eType)
 	{
 #define THE_MACRO(id, name) \
 	case TxKernel::Subtype::name: \
-		if (!HandleKernelType(Cast::Up<TxKernel##name>(krn), bic)) \
+		if (!HandleKernelType(Cast::Up<TxKernel##name>(krn))) \
 			return false; \
 		break; 
 
@@ -5143,17 +5165,17 @@ bool NodeProcessor::HandleKernelTypeAny(const TxKernel& krn, BlockInterpretCtx& 
 		assert(false); // should not happen!
 	}
 
-	if (bContextChange && bic.m_Fwd)
+	if (bContextChange && m_Fwd)
 	{
-		const auto& hvPrev = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
-		if (bic.m_Temporary)
+		const auto& hvPrev = m_DependentCtxSet ? m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+		if (m_Temporary)
 		{
-			BlockInterpretCtx::Ser ser(bic);
+			BlockInterpretCtx::Ser ser(*this);
 			ser & hvPrev;
 		}
 
-		DependentContext::get_Ancestor(bic.m_hvDependentCtx, hvPrev, krn.get_ID());
-		bic.m_DependentCtxSet = true;
+		DependentContext::get_Ancestor(m_hvDependentCtx, hvPrev, krn.get_ID());
+		m_DependentCtxSet = true;
 	}
 
 	return true;
@@ -5199,7 +5221,7 @@ bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn)
 	return true;
 }
 
-void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db)
+void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser)
 {
 	assert(m_pvC);
 	auto& vC = *m_pvC;
@@ -5219,15 +5241,15 @@ void NodeProcessor::BlockInterpretCtx::AddKrnInfo(Serializer& ser, NodeDB& db)
 		SerializeBuffer sb = ser.buffer();
 		x.m_Val = Blob(sb.first, static_cast<uint32_t>(sb.second));
 
-		db.KrnInfoInsert(x);
+		m_Proc.m_DB.KrnInfoInsert(x);
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB& db, NodeDB::AssetEvt& evt, uint32_t nSubIdx)
+void NodeProcessor::BlockInterpretCtx::AssetEvtInsert(NodeDB::AssetEvt& evt, uint32_t nSubIdx)
 {
 	evt.m_Height = m_Height;
 	evt.m_Index = get_AssetEvtIdx(m_nKrnIdx, nSubIdx);
-	db.AssetEvtsInsert(evt);
+	m_Proc.m_DB.AssetEvtsInsert(evt);
 }
 
 NodeProcessor::BlockInterpretCtx::Ser::Ser(BlockInterpretCtx& bic)
@@ -5272,48 +5294,47 @@ void NodeProcessor::BlockInterpretCtx::Der::SetBwd(ByteBuffer& buf, uint32_t nPo
 		buf.resize(nVal); // it's safe to call resize() while the buffer is being used, coz std::vector does NOT reallocate on shrink
 }
 
-bool NodeProcessor::ValidateUniqueNoDup(BlockInterpretCtx& bic, const Blob& key, const Blob* pVal)
+bool NodeProcessor::BlockInterpretCtx::ValidateUniqueNoDup(const Blob& key, const Blob* pVal)
 {
-	if (bic.m_Temporary)
+	if (m_Temporary)
 	{
-		if (bic.m_AlreadyValidated)
+		if (m_AlreadyValidated)
 			return true;
 
-		auto* pE = bic.m_Dups.Find(key);
-		if (bic.m_Fwd)
+		auto* pE = m_Dups.Find(key);
+		if (m_Fwd)
 		{
 			if (pE)
 				return false; // duplicated
 
 			NodeDB::Recordset rs;
-			if (m_DB.UniqueFind(key, rs))
+			if (m_Proc.m_DB.UniqueFind(key, rs))
 				return false; // duplicated
 
-			pE = bic.m_Dups.Create(key);
+			pE = m_Dups.Create(key);
 		}
 		else
 		{
 			assert(pE);
-			bic.m_Dups.Delete(*pE);
+			m_Dups.Delete(*pE);
 		}
 	}
 	else
 	{
-		if (bic.m_Fwd)
+		if (m_Fwd)
 		{
-			if (!m_DB.UniqueInsertSafe(key, pVal))
+			if (!m_Proc.m_DB.UniqueInsertSafe(key, pVal))
 				return false; // duplicated
 		}
 		else
-			m_DB.UniqueDeleteStrict(key);
+			m_Proc.m_DB.UniqueDeleteStrict(key);
 	}
 
 	return true;
 }
 
-NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpretCtx& bic, NodeProcessor& proc)
+NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpretCtx& bic)
 	:m_Bic(bic)
-	,m_Proc(proc)
 {
 	if (bic.m_Fwd)
 	{
@@ -5328,7 +5349,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 {
 	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 	{
-		auto* pPbft = m_Proc.get_PbftHandler();
+		auto* pPbft = m_Bic.m_Proc.get_PbftHandler();
 		if (pPbft && !pPbft->OnContractInvoke(cid, iMethod, krn.m_Args, m_Bic.m_Temporary))
 			return  false;
 	}
@@ -5356,7 +5377,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 
 		if (!m_Bic.m_AlreadyValidated)
 		{
-			const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
+			const auto& hvCtx = m_Bic.m_DependentCtxSet ? m_Bic.m_hvDependentCtx : m_Bic.m_Proc.m_Cursor.m_Full.m_Prev;
 			krn.Prepare(hp, &hvCtx);
 
 			m_pSigValidate = &hp;
@@ -5531,7 +5552,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 						ak.m_Addr = ad.m_Key;
 						ak.m_Var = ca.m_CodeHash;
 
-						auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)), m_Proc.m_DB);
+						auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
 						ContractDataSaveWithRecovery(e, ad.m_Code.m_Value);
 					}
 					else
@@ -5596,7 +5617,7 @@ NodeProcessor::BlockInterpretCtx::MyEvmProcessor::AccountWrap& NodeProcessor::Bl
 	p->m_Key = addr;
 	m_Accounts.insert(*p);
 
-	auto& e = m_Bic.get_ContractVar(addr, m_Proc.m_DB);
+	auto& e = m_Bic.get_ContractVar(addr);
 	p->m_pEntry = &e;
 
 	p->m_pContractCode = nullptr;
@@ -5631,7 +5652,7 @@ NodeProcessor::BlockInterpretCtx::MyEvmProcessor::AccountWrap& NodeProcessor::Bl
 			ak.m_Addr = addr;
 			ak.m_Var = x.m_CodeHash;
 
-			p->m_pContractCode = &m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)), m_Proc.m_DB);
+			p->m_pContractCode = &m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
 
 			p->m_Code.m_Value = p->m_pContractCode->m_Data;
 		}
@@ -5650,7 +5671,7 @@ Evm::Processor::Account::Slot& NodeProcessor::BlockInterpretCtx::MyEvmProcessor:
 	ak.m_Addr = acc.m_Key;
 	ak.m_Var = key;
 
-	auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)), m_Proc.m_DB);
+	auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
 	p->m_pEntry = &e;
 
 	if (e.m_Data.empty())
@@ -5674,7 +5695,7 @@ Height NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_Height()
 bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_BlockHeader(BlockHeader& res, Height h)
 {
 	Block::SystemState::Full s;
-	if (!m_Proc.get_HdrAt(s, h))
+	if (!m_Bic.m_Proc.get_HdrAt(s, h))
 		return false;
 
 	s.get_Hash(res.m_Hash);
@@ -5842,7 +5863,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(ContractInvo
 {
 	try
 	{
-		ProcessorInfoParser proc(m_Proc);
+		ProcessorInfoParser proc(m_Bic.m_Proc);
 		proc.m_Height = m_Bic.m_Height - 1;
 
 		if (!proc.Init(m_Stack.AlignUp(args.n)))
@@ -5888,7 +5909,7 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	}
 }
 
-BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key, NodeDB& db)
+BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key)
 {
 	auto* pE = m_ContractVars.Find(key);
 	if (!pE)
@@ -5897,7 +5918,7 @@ BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& ke
 
 		Blob data;
 		NodeDB::Recordset rs;
-		if (db.ContractDataFind(key, data, rs))
+		if (m_Proc.m_DB.ContractDataFind(key, data, rs))
 			data.Export(pE->m_Data);
 	}
 	return *pE;
@@ -5905,13 +5926,13 @@ BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& ke
 
 void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Blob& res)
 {
-	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	auto& e = m_Bic.get_ContractVar(key);
 	res = e.m_Data;
 }
 
 BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const Blob& key, bool bExact, bool bBigger)
 {
-	auto* pE = &m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	auto* pE = &m_Bic.get_ContractVar(key);
 	if (pE->m_Data.empty() || !bExact)
 	{
 		while (true)
@@ -5919,11 +5940,11 @@ BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const 
 			NodeDB::Recordset rs;
 			Blob keyDB = pE->ToBlob();
 			bool bNextDB = bBigger ?
-				m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
-				m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
+				m_Bic.m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
+				m_Bic.m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
 
 			if (bNextDB)
-				m_Bic.get_ContractVar(keyDB, m_Proc.m_DB);
+				m_Bic.get_ContractVar(keyDB);
 
 			auto it = BlobMap::Set::s_iterator_to(*pE);
 			if (bBigger)
@@ -5964,12 +5985,12 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& 
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
 {
-	auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
+	auto& e = m_Bic.get_ContractVar(key);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
 	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 	{
-		auto* pPbft = m_Proc.get_PbftHandler();
+		auto* pPbft = m_Bic.m_Proc.get_PbftHandler();
 		if (pPbft)
 			pPbft->OnContractVarChange(key, data, m_Bic.m_Temporary);
 	}
@@ -6036,7 +6057,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataInsert(const
 {
 	ContractDataToggleTree(key, data, true);
 	if (!m_Bic.m_Temporary)
-		m_Proc.m_DB.ContractDataInsert(key, data);
+		m_Bic.m_Proc.m_DB.ContractDataInsert(key, data);
 }
 
 void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
@@ -6044,14 +6065,14 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataUpdate(const
 	ContractDataToggleTree(key, val, true);
 	ContractDataToggleTree(key, valOld, false);
 	if (!m_Bic.m_Temporary)
-		m_Proc.m_DB.ContractDataUpdate(key, val);
+		m_Bic.m_Proc.m_DB.ContractDataUpdate(key, val);
 }
 
 void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataDel(const Blob& key, const Blob& valOld)
 {
 	ContractDataToggleTree(key, valOld, false);
 	if (!m_Bic.m_Temporary)
-		m_Proc.m_DB.ContractDataDel(key);
+		m_Bic.m_Proc.m_DB.ContractDataDel(key);
 }
 
 bool NodeProcessor::Mapped::Contract::IsStored(const Blob& key)
@@ -6098,7 +6119,7 @@ void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, 
 void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
 {
 	if (!m_Bic.m_SkipDefinition)
-		m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
+		m_Bic.m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
 uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
@@ -6112,7 +6133,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
 		x.m_Key = key;
 		x.m_Val = val;
-		m_Proc.m_DB.ContractLogInsert(x);
+		m_Bic.m_Proc.m_DB.ContractLogInsert(x);
 	}
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -6134,7 +6155,7 @@ uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, 
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_AssetInfo(Asset::Full& ai)
 {
-	return m_Proc.get_DB().AssetGetSafe(ai);
+	return m_Bic.m_Proc.get_DB().AssetGetSafe(ai);
 }
 
 Height NodeProcessor::BlockInterpretCtx::BvmProcessor::get_Height()
@@ -6147,7 +6168,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_HdrAt(Block::SystemStat
 	if (h > m_Bic.m_Height - 1)
 		return false;
 
-	return m_Proc.get_HdrAt(s, h);
+	return m_Bic.m_Proc.get_HdrAt(s, h);
 }
 
 bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s, Height h)
@@ -6172,7 +6193,7 @@ bool NodeProcessor::get_HdrAt(Block::SystemState::Full& s, Height h)
 Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asset::Metadata& md, const PeerID& pidOwner, Amount& valDeposit)
 {
 	Asset::ID aid = 0;
-	if (!m_Proc.HandleAssetCreate(pidOwner, &m_FarCalls.m_Stack.back().m_Cid, md, m_Bic, aid, valDeposit, m_AssetEvtSubIdx))
+	if (!m_Bic.HandleAssetCreate(pidOwner, &m_FarCalls.m_Stack.back().m_Cid, md, aid, valDeposit, m_AssetEvtSubIdx))
 		return 0;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -6187,7 +6208,7 @@ Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asse
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, const PeerID& pidOwner, AmountSigned val)
 {
-	if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val, m_AssetEvtSubIdx))
+	if (!m_Bic.HandleAssetEmit(pidOwner, aid, val, m_AssetEvtSubIdx))
 		return false;
 
 	if (m_Bic.m_pvC)
@@ -6219,7 +6240,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 {
 	const ContractID& cid = m_FarCalls.m_Stack.back().m_Cid;
 
-	if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false, m_AssetEvtSubIdx))
+	if (!m_Bic.HandleAssetDestroy(pidOwner, &cid, aid, valDeposit, false, m_AssetEvtSubIdx))
 		return false;
 
 	BlockInterpretCtx::Ser ser(m_Bic);
@@ -6255,7 +6276,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 				Asset::Metadata md;
 				Amount valDeposit;
 
-				if (!m_Proc.HandleAssetCreate(pidOwner, nullptr, md, m_Bic, aid, valDeposit))
+				if (!m_Bic.HandleAssetCreate(pidOwner, nullptr, md, aid, valDeposit))
 					return OnCorrupted();
 			}
 			break;
@@ -6274,7 +6295,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			if (Rules::get().CA.IsForeign(aid))
 				der & pidOwner;
 
-			if (!m_Proc.HandleAssetEmit(pidOwner, m_Bic, aid, val))
+			if (!m_Bic.HandleAssetEmit(pidOwner, aid, val))
 				return OnCorrupted();
 		}
 		break;
@@ -6291,7 +6312,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			der & cid;
 
 			Amount valDeposit;
-			if (!m_Proc.HandleAssetDestroy(pidOwner, &cid, m_Bic, aid, valDeposit, false))
+			if (!m_Bic.HandleAssetDestroy(pidOwner, &cid, aid, valDeposit, false))
 				return OnCorrupted();
 		}
 		break;
@@ -6303,8 +6324,8 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			if (!m_Bic.m_Temporary)
 			{
 				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
-				m_Proc.m_DB.ContractLogDel(pos, pos);
-				m_Proc.m_DB.TestChanged1Row();
+				m_Bic.m_Proc.m_DB.ContractLogDel(pos, pos);
+				m_Bic.m_Proc.m_DB.TestChanged1Row();
 			}
 
 			if (!m_Bic.m_SkipDefinition)
@@ -6329,9 +6350,9 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 		default:
 			{
 				der & key;
-				auto& e = m_Bic.get_ContractVar(key, m_Proc.m_DB);
+				auto& e = m_Bic.get_ContractVar(key);
 
-				IPbftHandler* pPbft = (Rules::Consensus::Pbft == Rules::get().m_Consensus) ? m_Proc.get_PbftHandler() : nullptr;
+				IPbftHandler* pPbft = (Rules::Consensus::Pbft == Rules::get().m_Consensus) ? m_Bic.m_Proc.get_PbftHandler() : nullptr;
 
 				if (RecoveryTag::Delete == nTag)
 				{
@@ -6528,8 +6549,8 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 			bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 			{
-				BlockInterpretCtx bic(hCreate, false);
-				if (!m_pThis->HandleBlockElement(outp, bic))
+				BlockInterpretCtx bic(*m_pThis, hCreate, false);
+				if (!bic.HandleBlockElement(outp))
 					OnCorrupted();
 				return true;
 			}
@@ -6590,13 +6611,13 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 			Height h = Num2Height(sid);
 
-			BlockInterpretCtx bic(h, false);
+			BlockInterpretCtx bic(*this, h, false);
 			bic.m_Rollback.swap(bbR);
 			bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 			bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 			bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 
-			HandleElementVecBwd(txve.m_vKernels, bic, txve.m_vKernels.size());
+			bic.HandleElementVecBwd(txve.m_vKernels, txve.m_vKernels.size());
 
 			bic.m_Rollback.swap(bbR);
 			assert(bbR.empty());
@@ -7106,8 +7127,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		return proto::TxStatus::InvalidContext;
 	}
 
-	BlockInterpretCtx bic(h, true);
-	bic.SetAidMax(*this);
+	BlockInterpretCtx bic(*this, h, true);
 
 	bic.m_Temporary = true;
 	bic.m_TxValidation = true;
@@ -7115,7 +7135,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	bic.m_pTxErrorInfo = pExtraInfo;
 	bic.m_AlreadyValidated = true;
 
-	DependentContextSwitch dcs(*this, bic);
+	DependentContextSwitch dcs(bic);
 	if (!dcs.Apply(pParent))
 	{
 		BEAM_LOG_WARNING() << "can't switch dependent context"; // normally should not happen
@@ -7149,7 +7169,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	nBvmCharge = bic.m_ChargePerBlock;
 
 	size_t n = 0;
-	bool bOk = HandleElementVecFwd(tx.m_vKernels, bic, n);
+	bool bOk = bic.HandleElementVecFwd(tx.m_vKernels, n);
 
 	if (bOk && pCtxNew)
 		*pCtxNew = bic.m_DependentCtxSet ? bic.m_hvDependentCtx : m_Cursor.m_Full.m_Prev;
@@ -7160,7 +7180,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		bShieldedTested = true;
 
 	bic.m_Fwd = false;
-	HandleElementVecBwd(tx.m_vKernels, bic, n);
+	bic.HandleElementVecBwd(tx.m_vKernels, n);
 
 	if (!bOk)
 	{
@@ -7242,12 +7262,9 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	return !m_Mapped.m_Utxo.Traverse(t);
 }
 
-size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretCtx& bic)
+size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& bc)
 {
-	Height h = m_Cursor.m_hh.m_Height + 1;
-	const auto& r = Rules::get();
-
-	if (!HandleValidatedTx(bc.m_Block, bic)) // pre-added elements
+	if (!HandleValidatedTx(bc.m_Block)) // pre-added elements
 	{
 		bc.m_Block.m_vInputs.clear();
 		bc.m_Block.m_vOutputs.clear();
@@ -7261,11 +7278,12 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	SerializerSizeCounter ssc;
 	ssc & bc.m_Block;
 
-	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, h);
+	Block::Builder bb(bc.m_SubIdx, bc.m_Coin, bc.m_Tag, m_Height);
 
 	Output::Ptr pOutp;
 	TxKernel::Ptr pKrn;
 
+	const auto& r = Rules::get();
 	if (Rules::Consensus::Pbft != r.m_Consensus)
 	{
 		bb.AddCoinbaseAndKrn(pOutp, pKrn);
@@ -7280,7 +7298,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	{
 		if (pOutp)
 		{
-			if (!HandleBlockElement(*pOutp, bic))
+			if (!HandleBlockElement(*pOutp))
 				return 0;
 
 			bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
@@ -7288,14 +7306,14 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		if (pKrn)
 		{
-			if (!HandleBlockElement(*pKrn, bic))
+			if (!HandleBlockElement(*pKrn))
 				return 0;
 
 			bc.m_Block.m_vKernels.push_back(std::move(pKrn));
 		}
 	}
 
-	if (!m_nReserveBlockSizeForFees)
+	if (!m_Proc.m_nReserveBlockSizeForFees)
 	{
 		SerializerSizeCounter ssc2;
 
@@ -7324,11 +7342,11 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			ssc2 & krn;
 		}
 
-		m_nReserveBlockSizeForFees = ssc2.m_Counter.m_Value;
+		m_Proc.m_nReserveBlockSizeForFees = ssc2.m_Counter.m_Value;
 	}
 
 	if (bc.m_Fees)
-		ssc.m_Counter.m_Value += m_nReserveBlockSizeForFees;
+		ssc.m_Counter.m_Value += m_Proc.m_nReserveBlockSizeForFees;
 
 	const size_t nSizeMax = r.MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
@@ -7364,17 +7382,17 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + nSize;
 		if (!bc.m_Fees && feesNext)
-			nSizeNext += m_nReserveBlockSizeForFees;
+			nSizeNext += m_Proc.m_nReserveBlockSizeForFees;
 
 		if (nSizeNext > nSizeMax)
 			break;
 
 		Transaction& tx = *x.m_pValue;
 
-		assert(!bic.m_LimitExceeded);
-		if (!HandleValidatedTx(tx, bic))
+		assert(!m_LimitExceeded);
+		if (!HandleValidatedTx(tx))
 		{
-			bic.m_LimitExceeded = false;
+			m_LimitExceeded = false;
 			break;
 		}
 
@@ -7396,7 +7414,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		size_t nSizeNext = ssc.m_Counter.m_Value + x.m_Profit.m_Stats.m_Size;
 		if (!bc.m_Fees && feesNext)
-			nSizeNext += m_nReserveBlockSizeForFees;
+			nSizeNext += m_Proc.m_nReserveBlockSizeForFees;
 
 		if (nSizeNext > nSizeMax)
 		{
@@ -7413,11 +7431,11 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		Transaction& tx = *x.m_pValue;
 
-		bool bDelete = !x.m_Profit.m_Stats.m_Hr.IsInRange(bic.m_Height);
+		bool bDelete = !x.m_Profit.m_Stats.m_Hr.IsInRange(m_Height);
 		if (!bDelete)
 		{
-			assert(!bic.m_LimitExceeded);
-			if (HandleValidatedTx(tx, bic))
+			assert(!m_LimitExceeded);
+			if (HandleValidatedTx(tx))
 			{
 				TxVectors::Writer(bc.m_Block, bc.m_Block).Dump(tx.get_Reader());
 
@@ -7428,8 +7446,8 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			}
 			else
 			{
-				if (bic.m_LimitExceeded)
-					bic.m_LimitExceeded = false; // don't delete it, leave it for the next block
+				if (m_LimitExceeded)
+					m_LimitExceeded = false; // don't delete it, leave it for the next block
 				else
 					bDelete = true;
 			}
@@ -7437,7 +7455,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 
 		if (bDelete)
 		{
-			x.m_Hist.m_Height = m_Cursor.m_hh.m_Height;
+			x.m_Hist.m_Height = m_Proc.m_Cursor.m_hh.m_Height;
 			bc.m_TxPool.SetState(x, TxPool::Fluff::State::Outdated); // isn't available in this context
 		}
 	}
@@ -7450,16 +7468,16 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 		{
 			// make size estimation more precise
 			size_t n0 = ssc.m_Counter.m_Value;
-			ssc.m_Counter.m_Value -= m_nReserveBlockSizeForFees;
+			ssc.m_Counter.m_Value -= m_Proc.m_nReserveBlockSizeForFees;
 
 			if (Rules::Consensus::Pbft != r.m_Consensus)
 			{
 				{
-					Asset::Proof::Params::Override po(get_AidMax());
+					Asset::Proof::Params::Override po(m_Proc.get_AidMax());
 					bb.AddFees(bc.m_Fees, pOutp);
 				}
 
-				if (!HandleBlockElement(*pOutp, bic))
+				if (!HandleBlockElement(*pOutp))
 					return 0;
 
 				ssc & (*pOutp);
@@ -7467,11 +7485,11 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 			}
 			else
 			{
-				pKrn = get_PbftHandler()->GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
+				pKrn = m_Proc.get_PbftHandler()->GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
 				if (!pKrn)
 					return 0;
 
-				if (!HandleBlockElement(*pKrn, bic))
+				if (!HandleBlockElement(*pKrn))
 					return 0;
 
 				yas::detail::SaveKrn(ssc, *pKrn, false);
@@ -7493,7 +7511,7 @@ size_t NodeProcessor::GenerateNewBlockInternal(BlockContext& bc, BlockInterpretC
 	return ssc.m_Counter.m_Value;
 }
 
-void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
+void NodeProcessor::BlockInterpretCtx::GenerateNewHdr(BlockContext& bc)
 {
 #ifndef NDEBUG
 	// kernels must be sorted already
@@ -7505,16 +7523,16 @@ void NodeProcessor::GenerateNewHdr(BlockContext& bc, BlockInterpretCtx& bic)
 	}
 #endif // NDEBUG
 
-	EvaluatorEx ev(*this);
+	EvaluatorEx ev(m_Proc);
 	ev.m_Number = bc.m_Hdr.m_Number;
-	ev.m_Height = bc.m_Hdr.get_Height();
+	ev.m_Height = m_Height;
 	ev.set_Kernels(bc.m_Block);
-	ev.set_Logs(bic.m_vLogs);
+	ev.set_Logs(m_vLogs);
 
 	ev.get_Definition(bc.m_Hdr.m_Definition);
 
 	if (Rules::get().IsPastFork_<3>(ev.m_Height))
-		get_Utxos().get_Hash(bc.m_Hdr.m_Kernels);
+		m_Proc.get_Utxos().get_Hash(bc.m_Hdr.m_Kernels);
 	else
 		bc.m_Hdr.m_Kernels = ev.m_hvKernels;
 }
@@ -7534,23 +7552,22 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 {
 	bc.m_Hdr.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
 
-	BlockInterpretCtx bic(m_Cursor.m_hh.m_Height + 1, true);
+	BlockInterpretCtx bic(*this, m_Cursor.m_hh.m_Height + 1, true);
 	bic.m_Temporary = true;
 	bic.m_SkipDefinition = true;
-	bic.SetAidMax(*this);
 
 	size_t nSizeEstimated = 1;
 
 	if (BlockContext::Mode::Finalize == bc.m_Mode)
 	{
-		if (!HandleValidatedTx(bc.m_Block, bic))
+		if (!bic.HandleValidatedTx(bc.m_Block))
 			return false;
 	}
 	else
-		nSizeEstimated = GenerateNewBlockInternal(bc, bic);
+		nSizeEstimated = bic.GenerateNewBlockInternal(bc);
 
 	bic.m_Fwd = false;
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
+    BEAM_VERIFY(bic.HandleValidatedTx(bc.m_Block)); // undo changes
 	assert(bic.m_Rollback.empty());
 	assert(bic.m_vInpAux.empty());
 
@@ -7584,7 +7601,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		pPbft->get_Validators().get_Hash(d.m_hvVsBoth);
 	}
 
-	bool bOk = HandleValidatedTx(bc.m_Block, bic);
+	bool bOk = bic.HandleValidatedTx(bc.m_Block);
 	if (!bOk)
 	{
 		BEAM_LOG_WARNING() << "couldn't apply block after cut-through!";
@@ -7645,10 +7662,10 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 
 	bc.m_Hdr.m_ChainWork += bc.m_Hdr.m_PoW.m_Difficulty; // always, in either mode
 
-	GenerateNewHdr(bc, bic);
+	bic.GenerateNewHdr(bc);
 
 	bic.m_Fwd = false;
-    BEAM_VERIFY(HandleValidatedTx(bc.m_Block, bic)); // undo changes
+    BEAM_VERIFY(bic.HandleValidatedTx(bc.m_Block)); // undo changes
 	assert(bic.m_Rollback.empty());
 
 	Serializer ser;
@@ -8127,8 +8144,8 @@ void NodeProcessor::InitializeUtxos()
 		bool OnTxo(const NodeDB::WalkerTxo& wlk, Height hCreate, Output& outp) override
 		{
 			m_This.m_Extra.m_Txos = wlk.m_ID;
-			BlockInterpretCtx bic(hCreate, true);
-			if (!m_This.HandleBlockElement(outp, bic))
+			BlockInterpretCtx bic(m_This, hCreate, true);
+			if (!bic.HandleBlockElement(outp))
 				OnCorrupted();
 
 			return true;
@@ -8389,13 +8406,12 @@ void NodeProcessor::RebuildNonStd()
 
 		bool ProcessBlock(const NodeDB::StateID& sid, const std::vector<TxKernel::Ptr>& v) override
 		{
-			BlockInterpretCtx bic(m_Height, true);
+			BlockInterpretCtx bic(m_This, m_Height, true);
 			m_pBic = &bic;
 			BlockInterpretCtx::ChangesFlush cf(m_This);
 
 			m_pBic->m_pvC = m_pvC;
 			bic.m_AlreadyValidated = true;
-			bic.SetAidMax(m_This);
 			bic.m_Rollback.swap(m_Rollback); // optimization
 
 			Process(v);
@@ -8418,7 +8434,7 @@ void NodeProcessor::RebuildNonStd()
 				Serializer ser;
 				ser.swap_buf(m_Rollback);
 
-				bic.AddKrnInfo(ser, m_This.m_DB);
+				bic.AddKrnInfo(ser);
 
 				ser.swap_buf(m_Rollback);
 
@@ -8433,7 +8449,7 @@ void NodeProcessor::RebuildNonStd()
 		{
 			m_pBic->m_nKrnIdx = m_nKrnIdx;
 
-			if (!m_This.HandleKernelTypeAny(krn, *m_pBic))
+			if (!m_pBic->HandleKernelTypeAny(krn))
 				OnCorrupted();
 
 			return true;
