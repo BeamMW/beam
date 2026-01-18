@@ -1065,20 +1065,36 @@ void ParserContext::OnState_PBFT_DPOS()
 
 			vp.FlushRewardPending(g);
 
+			_POD_(dk0.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+			_POD_(dk0.m_KeyInContract.m_Delegator) = vp.m_Self.m_Delegator;
+
+			// self delegator
+			PBFT_DPOS::State::Delegator dp;
+			Amount dpStake = 0;
+
+			bool bFoundSelf = Env::VarReader::Read_T(dk0, dp);
+			if (bFoundSelf)
+			{
+				dpStake = dp.Pop(vp, g);
+				dp.m_RewardRemaining += vp.m_Self.m_Commission;
+			}
+			else
+				_POD_(dp).SetZero();
+
 			{
 				Env::DocArray gr4("");
 
 				DocAddMonoblob("", vk0.m_KeyInContract.m_Address);
-				Env::DocAddText("", "");
+				DocAddMonoblob("", vp.m_Self.m_Delegator);
 
 				On_PBFT_Status("", vp.m_Status);
 				On_PBFT_Commission(vp.m_Commission_cpc, true);
 
-				DocAddAmount("", vp.m_Weight);
-				Env::DocAddText("", "");
+				DocAddAmount("", dpStake);
+				DocAddAmount("", dp.m_RewardRemaining);
 			}
 
-			_POD_(dk0.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+			// other delegators
 			_POD_(dk1.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
 
 			_POD_(dk0.m_KeyInContract.m_Delegator).SetZero();
@@ -1086,22 +1102,21 @@ void ParserContext::OnState_PBFT_DPOS()
 
 			for (Env::VarReader r2(dk0, dk1); ; )
 			{
-				PBFT_DPOS::State::Delegator dp;
 				if (!r2.MoveNext_T(dk0, dp))
 					break;
 
-				Amount stake = dp.Pop(vp, g);
+				if (_POD_(vp.m_Self.m_Delegator) == dk0.m_KeyInContract.m_Delegator)
+					continue; // already handled
 
-				bool bSelf = (_POD_(vp.m_Self.m_Delegator) == dk0.m_KeyInContract.m_Delegator);
-				if (bSelf)
-					dp.m_RewardRemaining += vp.m_Self.m_Commission;
 
-				Env::DocArray gr5("");
+				dpStake = dp.Pop(vp, g);
+
+				Env::DocArray gr4("");
 				Env::DocAddText("", "");
 				DocAddMonoblob("", dk0.m_KeyInContract.m_Delegator);
-				Env::DocAddText("", bSelf ? "self" : "");
 				Env::DocAddText("", "");
-				DocAddAmount("", stake);
+				Env::DocAddText("", "");
+				DocAddAmount("", dpStake);
 				DocAddAmount("", dp.m_RewardRemaining);
 			}
 
