@@ -1032,7 +1032,7 @@ void ParserContext::OnState_PBFT_DPOS()
 
 
 	{
-		Env::DocGroup gr2("Validators");
+		Env::DocGroup gr2("Validators/Delegators");
 
 		DocSetType("table");
 		Env::DocArray gr3("value");
@@ -1040,9 +1040,11 @@ void ParserContext::OnState_PBFT_DPOS()
 		{
 			Env::DocArray gr4("");
 			DocAddTableHeader("Validator");
+			DocAddTableHeader("Delegator");
 			DocAddTableHeader("Status");
 			DocAddTableHeader("Commission");
-			DocAddTableHeader("Weight");
+			DocAddTableHeader("Stake");
+			DocAddTableHeader("Reward");
 		}
 
 		Env::Key_T<PBFT_DPOS::State::Validator::Key> vk0, vk1;
@@ -1051,19 +1053,58 @@ void ParserContext::OnState_PBFT_DPOS()
 		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
 		_POD_(vk1.m_KeyInContract.m_Address).SetObject(0xff);
 
+		Env::Key_T<PBFT_DPOS::State::Delegator::Key> dk0, dk1;
+		_POD_(dk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(dk1.m_Prefix.m_Cid) = m_Cid;
+
 		for (Env::VarReader r(vk0, vk1); ; )
 		{
 			PBFT_DPOS::State::ValidatorPlus vp;
 			if (!r.MoveNext_T(vk0, vp))
 				break;
 
-			Env::DocArray gr4("");
+			vp.FlushRewardPending(g);
 
-			Env::DocAddBlob_T("", vk0.m_KeyInContract.m_Address);
-			On_PBFT_Status("", vp.m_Status);
-			On_PBFT_Commission(vp.m_Commission_cpc, true);
+			{
+				Env::DocArray gr4("");
 
-			DocAddAmount("", vp.m_Weight);
+				DocAddMonoblob("", vk0.m_KeyInContract.m_Address);
+				Env::DocAddText("", "");
+
+				On_PBFT_Status("", vp.m_Status);
+				On_PBFT_Commission(vp.m_Commission_cpc, true);
+
+				DocAddAmount("", vp.m_Weight);
+				Env::DocAddText("", "");
+			}
+
+			_POD_(dk0.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+			_POD_(dk1.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+
+			_POD_(dk0.m_KeyInContract.m_Delegator).SetZero();
+			_POD_(dk1.m_KeyInContract.m_Delegator).SetObject(0xff);
+
+			for (Env::VarReader r2(dk0, dk1); ; )
+			{
+				PBFT_DPOS::State::Delegator dp;
+				if (!r2.MoveNext_T(dk0, dp))
+					break;
+
+				Amount stake = dp.Pop(vp, g);
+
+				bool bSelf = (_POD_(vp.m_Self.m_Delegator) == dk0.m_KeyInContract.m_Delegator);
+				if (bSelf)
+					dp.m_RewardRemaining += vp.m_Self.m_Commission;
+
+				Env::DocArray gr5("");
+				Env::DocAddText("", "");
+				DocAddMonoblob("", dk0.m_KeyInContract.m_Delegator);
+				Env::DocAddText("", bSelf ? "self" : "");
+				Env::DocAddText("", "");
+				DocAddAmount("", stake);
+				DocAddAmount("", dp.m_RewardRemaining);
+			}
+
 		}
 
 	}
