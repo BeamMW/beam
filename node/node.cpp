@@ -5902,6 +5902,14 @@ void Node::Validator::OnNewRound()
 	rt.m_t0 = tNow_ms;
 	rt.FromT0(r, p.m_Cursor.m_Full);
 
+	bool bNewState = (m_hAnchor != p.m_Cursor.m_hh.m_Height);
+	if (bNewState)
+	{
+		OnNewStateInternal();
+		ShuffleRoundData(false);
+		PBFT_LOG(DEBUG, "tip=" << m_hAnchor);
+	}
+
 	if (rt.m_iRound <= m_iRound)
 	{
 		// set timer till the next relevant round start
@@ -5912,17 +5920,10 @@ void Node::Validator::OnNewRound()
 	uint64_t iExpectedRound = m_iRound + 1;
 	bool bConsequentRound = (rt.m_iRound == iExpectedRound);
 
-	if (bConsequentRound)
+	if (m_iRound && bConsequentRound)
 		FinalyzeRoundAssessment();
 
 	SetTimer(tNow_ms, rt.m_t1);
-
-	bool bNewState = (m_hAnchor != p.m_Cursor.m_hh.m_Height);
-	if (bNewState)
-	{
-		OnNewStateInternal();
-		PBFT_LOG(DEBUG, "tip=" << m_hAnchor);
-	}
 
 	m_iRound = rt.m_iRound;
 
@@ -5932,14 +5933,14 @@ void Node::Validator::OnNewRound()
 
 	// save last proposal, if it's superior so far
 	bool bSelectLast =
-		!bNewState &&
 		((Proposal::State::Accepted == rdcurr.m_Proposal.m_State) ||
 		((Proposal::State::Received == rdcurr.m_Proposal.m_State) && (Proposal::State::Accepted != m_FutureCandidate.m_State)));
 
 	if (bSelectLast)
 		m_FutureCandidate = std::move(rdcurr.m_Proposal);
 
-	ShuffleRoundData(bConsequentRound && !bNewState);
+	if (!bNewState)
+		ShuffleRoundData(bConsequentRound);
 
 	if (!rdcurr.m_pLeader)
 		rdcurr.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
@@ -6641,7 +6642,7 @@ uint32_t Node::Validator::get_PeerRound(const Peer& src, uint32_t iRoundMsg)
 	{
 		auto& rd = m_pR[iR];
 		if (!rd.m_pLeader)
-			rd.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound));
+			rd.m_pLeader = m_ValidatorSet.SelectLeader(p.m_Cursor.m_hh.m_Hash, static_cast<uint32_t>(m_iRound + iR));
 	}
 
 
@@ -6749,13 +6750,13 @@ void Node::Validator::OnMsg(proto::PbftSigRequest&& msg, const Peer& src)
 	if (!rd.m_pLeader)
 		return;
 
+	if (Proposal::State::None == rd.m_Proposal.m_State)
+		src.ThrowUnexpected("no proposal");
+
 	ECC::Hash::Value hv;
 	get_SigRequestMsg(hv, rd, msg);
 	if (!rd.m_pLeader->m_Key.CheckSignature(hv, msg.m_Signature))
 		src.ThrowUnexpected("invalid validator sig");
-
-	if (Proposal::State::None == rd.m_Proposal.m_State)
-		src.ThrowUnexpected("no proposal");
 
 	// check the mask is ok, and the selected voting power is enough
 	Power pwr;
