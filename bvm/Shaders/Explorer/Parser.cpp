@@ -217,6 +217,20 @@ void DocAddPerc(const char* sz, MultiPrecision::Float x, uint32_t nDigsAfterDot 
 	Env::DocAddText(sz, szBuf);
 }
 
+void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigsAfterDot)
+{
+	char szVal[Utils::String::Decimal::DigitsMax<uint64_t>::N + 10];
+	auto n1 = Utils::String::Decimal::Print(szVal, val / one);
+
+	auto resid = val % one;
+	//if (resid)
+	{
+		szVal[n1++] = '.';
+		Utils::String::Decimal::Print(szVal + n1, resid, nDigsAfterDot);
+	}
+	Env::DocAddText(sz, szVal);
+}
+
 
 #define HandleContractsStd(macro) \
 	macro(Vault, Vault::s_SID) \
@@ -1023,6 +1037,13 @@ void ParserContext::OnState_PBFT_DPOS()
 
 	g.FlushRewardPending();
 
+	const Amount nProbeOnePercent = 100000000;
+
+	PBFT_DPOS::State::Global g2;
+	_POD_(g2) = g;
+	g2.m_RewardPending = nProbeOnePercent * 100;
+	g2.FlushRewardPending();
+
 	DocAddAmount("Total-non-jailed-stake", g.m_TotakStakeNonJailed);
 
 	{
@@ -1045,6 +1066,7 @@ void ParserContext::OnState_PBFT_DPOS()
 			DocAddTableHeader("Commission");
 			DocAddTableHeader("Stake");
 			DocAddTableHeader("Reward");
+			DocAddTableHeader("%");
 		}
 
 		Env::Key_T<PBFT_DPOS::State::Validator::Key> vk0, vk1;
@@ -1059,27 +1081,36 @@ void ParserContext::OnState_PBFT_DPOS()
 
 		for (Env::VarReader r(vk0, vk1); ; )
 		{
-			PBFT_DPOS::State::ValidatorPlus vp;
+			PBFT_DPOS::State::ValidatorPlus vp, vp2;
 			if (!r.MoveNext_T(vk0, vp))
 				break;
 
+			_POD_(vp2) = vp;
+			vp2.FlushRewardPending(g2);
 			vp.FlushRewardPending(g);
 
 			_POD_(dk0.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
 			_POD_(dk0.m_KeyInContract.m_Delegator) = vp.m_Self.m_Delegator;
 
 			// self delegator
-			PBFT_DPOS::State::Delegator dp;
+			PBFT_DPOS::State::Delegator dp, dp2;
 			Amount dpStake = 0;
 
 			bool bFoundSelf = Env::VarReader::Read_T(dk0, dp);
 			if (bFoundSelf)
 			{
+				_POD_(dp2) = dp;
+				dp2.Pop(vp2, g2);
+				dp2.m_RewardRemaining += vp2.m_Self.m_Commission;
+
 				dpStake = dp.Pop(vp, g);
 				dp.m_RewardRemaining += vp.m_Self.m_Commission;
 			}
 			else
+			{
 				_POD_(dp).SetZero();
+				_POD_(dp2).SetZero();
+			}
 
 			{
 				Env::DocArray gr4("");
@@ -1092,6 +1123,7 @@ void ParserContext::OnState_PBFT_DPOS()
 
 				DocAddAmount("", dpStake);
 				DocAddAmount("", dp.m_RewardRemaining);
+				DocAddFixedPoint("", dp2.m_RewardRemaining - dp.m_RewardRemaining, nProbeOnePercent, 4);
 			}
 
 			// other delegators
@@ -1108,6 +1140,8 @@ void ParserContext::OnState_PBFT_DPOS()
 				if (_POD_(vp.m_Self.m_Delegator) == dk0.m_KeyInContract.m_Delegator)
 					continue; // already handled
 
+				_POD_(dp2) = dp;
+				dp2.Pop(vp2, g2);
 
 				dpStake = dp.Pop(vp, g);
 
@@ -1118,6 +1152,7 @@ void ParserContext::OnState_PBFT_DPOS()
 				Env::DocAddText("", "");
 				DocAddAmount("", dpStake);
 				DocAddAmount("", dp.m_RewardRemaining);
+				DocAddFixedPoint("", dp2.m_RewardRemaining - dp.m_RewardRemaining, nProbeOnePercent, 4);
 			}
 
 		}
@@ -1246,17 +1281,7 @@ void ParserContext::On_PBFT_Stake(Amount val)
 
 void ParserContext::On_PBFT_Commission(uint16_t commission_cpc, bool bIsTbl /* = false */)
 {
-	char szVal[Utils::String::Decimal::DigitsMax<uint16_t>::N + 2];
-	auto n1 = Utils::String::Decimal::Print(szVal, commission_cpc / 100);
-
-	auto resid = commission_cpc % 100;
-	//if (resid)
-	{
-		szVal[n1++] = '.';
-		Utils::String::Decimal::Print(szVal + n1, resid, 2);
-	}
-	
-	Env::DocAddText(bIsTbl ? "" : "Commission", szVal);
+	DocAddFixedPoint(bIsTbl ? "" : "Commission", commission_cpc, 100, 2);
 }
 
 void ParserContext::OnState_PBFT_STAT()
