@@ -38,7 +38,7 @@
 namespace Shaders {
 #	define HOST_BUILD
 #	include "../bvm/Shaders/common.h"
-#	include "../bvm/Shaders/l2tst1/contract_l2.h"
+#	include "../bvm/Shaders/sidechain_pos/contract_l2.h"
 #	include "../bvm/Shaders/pbft/pbft_dpos.h"
 #	include "../bvm/Shaders/pbft/pbft_stat.h"
 } // namespace Shaders
@@ -2023,7 +2023,7 @@ namespace beam
 
 				// add L2 bridge
 				auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-				beam::bvm2::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
+				beam::bvm2::Compile(pKrn->m_Data, "sidechain_pos/contract_l2.wasm", beam::bvm2::Processor::Kind::Contract);
 
 				beam::bvm2::get_Cid(g_cidBridge, pKrn->m_Data, pKrn->m_Args);
 
@@ -2816,7 +2816,7 @@ namespace beam
 				ECC::SetRandom(pSkKrn[1]);
 
 #pragma pack (push, 1)
-				// copied from L2tsts1/contract_l2.h
+				// copied from sidechain_pos/contract_l2.h
 				struct BridgeOp
 				{
 					Asset::ID m_Aid;

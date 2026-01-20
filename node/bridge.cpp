@@ -22,7 +22,7 @@
 namespace Shaders {
 #	define HOST_BUILD
 #	include "../bvm/Shaders/common.h"
-#	include "../bvm/Shaders/l2tst1/contract_l1.h"
+#	include "../bvm/Shaders/sidechain_pos/contract_l1.h"
 } // namespace Shaders
 
 namespace beam {
@@ -592,10 +592,10 @@ void L2Bridge::Init(Params&& pars)
 		key.m_Prefix.m_Cid = pars.m_cidBridgeL1;
 		key.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
 
-		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_BridgeExp;
+		key.m_KeyInContract = Shaders::SidechainPos::L1::Tags::s_BridgeExp;
 		Blob(&key, sizeof(key)).Export(p1.m_Key);
 
-		key.m_KeyInContract = Shaders::L2Tst1_L1::Tags::s_Validators;
+		key.m_KeyInContract = Shaders::SidechainPos::L1::Tags::s_Validators;
 		Blob(&key, sizeof(key)).Export(pRequest->m_Msg.m_Key);
 	}
 
@@ -636,14 +636,14 @@ void L2Bridge::Delete(Entry& e)
 
 EventsExtractor2::Kind L2Bridge::Extractor::get_EventKind(const Blob& b)
 {
-	return (sizeof(Shaders::L2Tst1_L1::Method::BridgeOp) == b.n) ?
+	return (sizeof(Shaders::SidechainPos::L1::Method::BridgeOp) == b.n) ?
 		EventsExtractor2::Kind::ProofNeeded :
 		EventsExtractor2::Kind::Drop;
 }
 
 void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 {
-	using namespace Shaders::L2Tst1_L1;
+	using namespace Shaders::SidechainPos::L1;
 
 	switch (evt.get_Type())
 	{
@@ -686,12 +686,12 @@ void L2Bridge::Extractor::OnEvent(Event::Base&& evt)
 					auto& buf = r.m_Res.m_Value; // alias
 					auto& trg = get_ParentObj().m_L1.m_vValidators;
 
-					size_t nValidators = buf.size() / sizeof(Shaders::L2Tst1_L1::Validator);
+					size_t nValidators = buf.size() / sizeof(Shaders::SidechainPos::L1::Validator);
 					trg.resize(nValidators);
 
 					if (nValidators)
 					{
-						const auto* pSrc = (const Shaders::L2Tst1_L1::Validator*) &buf.front();
+						const auto* pSrc = (const Shaders::SidechainPos::L1::Validator*) &buf.front();
 						for (uint32_t i = 0; i < nValidators; i++)
 							trg[i] = pSrc[i].m_pk;
 					}
@@ -716,12 +716,12 @@ bool L2Bridge::IsMyValidator(const ECC::Point& pt) const
 
 
 template <>
-void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
+void L2Bridge::OnMsgEx(Shaders::SidechainPos::L1::Msg::GetNonce& msg)
 {
-	if (msg.m_ProtoVer != Shaders::L2Tst1_L1::Msg::s_ProtoVer)
+	if (msg.m_ProtoVer != Shaders::SidechainPos::L1::Msg::s_ProtoVer)
 		return;
 
-	Shaders::L2Tst1_L1::Msg::Nonce msgOut;
+	Shaders::SidechainPos::L1::Msg::Nonce msgOut;
 	for (msgOut.m_iValidator = 0; ; msgOut.m_iValidator++)
 	{
 		if (m_L1.m_vValidators.size() == msgOut.m_iValidator)
@@ -768,7 +768,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetNonce& msg)
 }
 
 template <>
-void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
+void L2Bridge::OnMsgEx(Shaders::SidechainPos::L1::Msg::GetSignature& msg)
 {
 	auto it = m_mapEntries.find(msg.m_pkOwner, Entry::Owner::Comparator());
 	if (m_mapEntries.end() == it)
@@ -779,7 +779,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	TxKernelContractInvoke krn;
 	krn.m_Cid = m_L1.m_Cid;
 
-	typedef Shaders::L2Tst1_L1::Method::BridgeImport Method;
+	typedef Shaders::SidechainPos::L1::Method::BridgeImport Method;
 	krn.m_iMethod = Method::s_iMethod;
 
 	krn.m_Args.resize(sizeof(Method));
@@ -794,7 +794,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	m.m_ApproveMask = msg.m_nApproveMask;
 
 	krn.m_Height.m_Min = msg.m_hMin;
-	krn.m_Height.m_Max = msg.m_hMin + Shaders::L2Tst1_L1::Msg::s_dh;
+	krn.m_Height.m_Max = msg.m_hMin + Shaders::SidechainPos::L1::Msg::s_dh;
 
 	TxStats s;
 	krn.AddStats(s);
@@ -819,7 +819,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 	uint32_t iChallenge = 1; // The 1st challenge is for pkOwner, then all the validators
 	uint32_t iMyChallenge = 0;
 
-	Shaders::L2Tst1_L1::Msg::Signature msgOut;
+	Shaders::SidechainPos::L1::Msg::Signature msgOut;
 	for (uint32_t i = 0; i < m_L1.m_vValidators.size(); i++)
 	{
 		if (1u & msk)
@@ -867,7 +867,7 @@ void L2Bridge::OnMsgEx(Shaders::L2Tst1_L1::Msg::GetSignature& msg)
 
 void L2Bridge::OnMsg(ByteBuffer&& buf)
 {
-	using namespace Shaders::L2Tst1_L1;
+	using namespace Shaders::SidechainPos::L1;
 
 	if (buf.size() < sizeof(Msg::Base))
 		return;
@@ -884,7 +884,7 @@ void L2Bridge::OnMsg(ByteBuffer&& buf)
 		} \
 		break;
 
-	L2Tst1_Msgs_ToValidator(THE_MACRO)
+	SidechainPos_Msgs_ToValidator(THE_MACRO)
 
 #undef THE_MACRO
 	}

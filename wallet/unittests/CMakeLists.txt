@@ -21,9 +21,9 @@ configure_file("../../bvm/Shaders/upgradable3/Test/test_v1.wasm" "${CMAKE_CURREN
 configure_file("../../bvm/Shaders/upgradable3/Test/test_app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/upgradable3/Test/test_app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/dao-vault/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/dao-vault/contract.wasm" "${CMAKE_CURRENT_BINARY_DIR}/dao-vault/contract.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/l2tst1/contract_l1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/contract_l1.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/l2tst1/contract_l2.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/contract_l2.wasm" COPYONLY)
-configure_file("../../bvm/Shaders/l2tst1/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/l2tst1/app.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/sidechain_pos/contract_l1.wasm" "${CMAKE_CURRENT_BINARY_DIR}/sidechain_pos/contract_l1.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/sidechain_pos/contract_l2.wasm" "${CMAKE_CURRENT_BINARY_DIR}/sidechain_pos/contract_l2.wasm" COPYONLY)
+configure_file("../../bvm/Shaders/sidechain_pos/app.wasm" "${CMAKE_CURRENT_BINARY_DIR}/sidechain_pos/app.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/pbft/pbft_dpos.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pbft/pbft_dpos.wasm" COPYONLY)
 configure_file("../../bvm/Shaders/pbft/pbft_stat.wasm" "${CMAKE_CURRENT_BINARY_DIR}/pbft/pbft_stat.wasm" COPYONLY)
 

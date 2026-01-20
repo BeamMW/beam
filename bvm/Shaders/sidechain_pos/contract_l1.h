@@ -2,8 +2,9 @@
 #include "../upgradable3/contract.h"
 #include "contract_l2.h"
 
-namespace L2Tst1_L1
-{
+namespace SidechainPos {
+namespace L1 {
+
     static const ShaderID s_pSID[] = {
         { 0x34,0x35,0x0c,0x15,0xa4,0x4c,0xf9,0xbf,0xb6,0x17,0xa0,0xf6,0x52,0x35,0xff,0x7d,0x9d,0x4a,0x8b,0x5e,0xae,0x61,0x4b,0x8e,0xce,0xa9,0xe9,0xdc,0x34,0x36,0xe6,0xbb },
     };
@@ -66,7 +67,7 @@ namespace L2Tst1_L1
         Height m_Height;
     };
 
-    typedef L2Tst1_L2::Cookie Cookie;
+    typedef L2::Cookie Cookie;
 
     namespace Method
     {
@@ -89,7 +90,7 @@ namespace L2Tst1_L1
             Amount m_Amount;
         };
 
-        typedef L2Tst1_L2::Method::BridgeOp BridgeOp;
+        typedef L2::Method::BridgeOp BridgeOp;
 
         struct BridgeExport
             :public BridgeOp
@@ -117,16 +118,16 @@ namespace L2Tst1_L1
             uint8_t m_OpCode;
         };
 
-#define L2Tst1_Msg_GetNonce(macro) \
+#define SidechainPos_Msg_GetNonce(macro) \
             macro(uint8_t, ProtoVer) \
             macro(PubKey, pkOwner) \
             macro(PubKey, pkBbs)
 
-#define L2Tst1_Msg_Nonce(macro) \
+#define SidechainPos_Msg_Nonce(macro) \
             macro(uint32_t, iValidator) \
             macro(Secp_point_data, m_Nonce)
 
-#define L2Tst1_Msg_GetSignature(macro) \
+#define SidechainPos_Msg_GetSignature(macro) \
             macro(PubKey, pkOwner) \
             macro(Cookie, Cookie) \
             macro(uint32_t, nApproveMask) \
@@ -135,15 +136,15 @@ namespace L2Tst1_L1
             macro(Height, hMin) \
             macro(uint32_t, nCharge)
 
-#define L2Tst1_Msg_Signature(macro) \
+#define SidechainPos_Msg_Signature(macro) \
             macro(uint32_t, iValidator) \
             macro(Secp_scalar_data, k)
 
-#define L2Tst1_Msgs_ToValidator(macro) \
+#define SidechainPos_Msgs_ToValidator(macro) \
             macro(1, GetNonce) \
             macro(3, GetSignature) \
 
-#define L2Tst1_Msgs_FromValidator(macro) \
+#define SidechainPos_Msgs_FromValidator(macro) \
             macro(2, Nonce) \
             macro(4, Signature)
 
@@ -154,11 +155,11 @@ namespace L2Tst1_L1
         { \
             static const uint8_t s_OpCode = opcode; \
             name() { m_OpCode = s_OpCode; } \
-            L2Tst1_Msg_##name(MACRO_PARDECL) \
+            SidechainPos_Msg_##name(MACRO_PARDECL) \
         };
 
-        L2Tst1_Msgs_ToValidator(THE_MACRO)
-        L2Tst1_Msgs_FromValidator(THE_MACRO)
+        SidechainPos_Msgs_ToValidator(THE_MACRO)
+        SidechainPos_Msgs_FromValidator(THE_MACRO)
 
 #undef MACRO_PARDECL
 #undef THE_MACRO
@@ -166,4 +167,5 @@ namespace L2Tst1_L1
 
 #pragma pack (pop)
 
-} // namespace L2Tst1_L1
+} // namespace L1
+} // namespace SidechainPos

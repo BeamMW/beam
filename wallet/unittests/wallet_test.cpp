@@ -3128,7 +3128,7 @@ namespace
 
             {
                 auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-                MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+                MyManager::Compile(pKrn->m_Data, "sidechain_pos/contract_l2.wasm", MyManager::Kind::Contract);
 
                 ECC::Scalar::Native sk;
                 sk.GenRandomNnz();
@@ -3234,7 +3234,7 @@ namespace
         MyManager manSender(*sender.m_Wallet);
 
         manSender.set_Privilege(2);
-        MyManager::Compile(manSender.m_BodyManager, "l2tst1/app.wasm", MyManager::Kind::Manager);
+        MyManager::Compile(manSender.m_BodyManager, "sidechain_pos/app.wasm", MyManager::Kind::Manager);
 
         printf("Querying bridge L2...\n");
 
@@ -3367,8 +3367,8 @@ namespace
         MyManager manSender(*sender.m_Wallet);
 
         manSender.set_Privilege(2);
-        MyManager::Compile(manSender.m_BodyManager, "l2tst1/app.wasm", MyManager::Kind::Manager);
-        MyManager::Compile(manSender.m_BodyContract, "l2tst1/contract_l1.wasm", MyManager::Kind::Contract);
+        MyManager::Compile(manSender.m_BodyManager, "sidechain_pos/app.wasm", MyManager::Kind::Manager);
+        MyManager::Compile(manSender.m_BodyContract, "sidechain_pos/contract_l1.wasm", MyManager::Kind::Contract);
 
         printf("Deploying bridge L1...\n");
 
@@ -5746,7 +5746,7 @@ void MakeTreasury_l2_test1()
     tb.AddValidator(FromScan<Block::Pbft::Address>("a6f090638851884075b9feabcd66c9d47d5511d821c8602f486b0a86feb54250"), FromScan<ECC::Point>("5494a86a93ef36b00dd85d4de750eca640181d8be10cfc749345d2f97bd9246200"), Rules::Coin * 5000);
 
     auto pKrn = std::make_unique<beam::TxKernelContractCreate>();
-    MyManager::Compile(pKrn->m_Data, "l2tst1/contract_l2.wasm", MyManager::Kind::Contract);
+    MyManager::Compile(pKrn->m_Data, "sidechain_pos/contract_l2.wasm", MyManager::Kind::Contract);
 
     ECC::Scalar::Native sk;
     sk.GenRandomNnz();

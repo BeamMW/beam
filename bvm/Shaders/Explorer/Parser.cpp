@@ -26,8 +26,8 @@ namespace Testnet {
 }
 #include "../minter/contract.h"
 #include "../blackhole/contract.h"
-#include "../l2tst1/contract_l1.h"
-#include "../l2tst1/contract_l2.h"
+#include "../sidechain_pos/contract_l1.h"
+#include "../sidechain_pos/contract_l2.h"
 #include "../pbft/pbft_dpos.h"
 #include "../pbft/pbft_stat.h"
 
@@ -239,7 +239,7 @@ void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigs
 	macro(Faucet2, Faucet2::s_SID) \
 	macro(Minter, Minter::s_SID) \
 	macro(BlackHole, BlackHole::s_SID) \
-	macro(Bridge_L2, L2Tst1_L2::s_SID) \
+	macro(Bridge_L2, SidechainPos::L2::s_SID) \
 	macro(PBFT_DPOS, PBFT_DPOS::s_SID) \
 	macro(PBFT_STAT, PBFT_STAT::s_SID) \
 
@@ -252,7 +252,7 @@ void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigs
 	macro(DaoCore2, DaoCore2::s_pSID) \
 	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
 	macro(DaoVote, DaoVote::s_pSID) \
-	macro(Bridge_L1, L2Tst1_L1::s_pSID) \
+	macro(Bridge_L1, SidechainPos::L1::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -423,9 +423,9 @@ struct ParserContext
 	static void WriteUpgradeAdminsMask(uint32_t nApproveMask);
 	static void WriteNephriteSettings(const Nephrite::Settings&);
 	void DumpNephriteDbgStatus();
-	static void WriteL2Tst1_L1_Settings(const L2Tst1_L1::Settings&);
-	static void WriteL2Tst1_L1_Validators(const L2Tst1_L1::Validator*, uint32_t);
-	void OnL2tsts1_BridgeOp(const L2Tst1_L1::Method::BridgeOp&);
+	static void WriteSposSettings(const SidechainPos::L1::Settings&);
+	static void WriteSposValidators(const SidechainPos::L1::Validator*, uint32_t);
+	void OnSposBridgeOp(const SidechainPos::L1::Method::BridgeOp&);
 	static void WriteOracle2Settings(const Oracle2::Settings&);
 	static bool get_Oracle2Median(MultiPrecision::Float&, const ContractID& cid);
 	static void WriteBansSettings(const NameService::Settings&);
@@ -2069,14 +2069,14 @@ void ParserContext::DumpNephriteDbgStatus()
 */
 }
 
-void ParserContext::WriteL2Tst1_L1_Settings(const L2Tst1_L1::Settings& stg)
+void ParserContext::WriteSposSettings(const SidechainPos::L1::Settings& stg)
 {
 	DocAddAid("Staking Token", stg.m_aidStaking);
 	DocAddAid("Liquidity Token", stg.m_aidLiquidity);
 	DocAddHeight("Per-phase End", stg.m_hPreEnd);
 }
 
-void ParserContext::WriteL2Tst1_L1_Validators(const L2Tst1_L1::Validator* pV, uint32_t nV)
+void ParserContext::WriteSposValidators(const SidechainPos::L1::Validator* pV, uint32_t nV)
 {
 	Env::DocGroup gr1("Validators");
 	DocSetType("table");
@@ -2102,18 +2102,18 @@ void ParserContext::OnMethod_Bridge_L1(uint32_t /* iVer */)
 {
 	switch (m_iMethod)
 	{
-	case L2Tst1_L1::Method::Create::s_iMethod:
+	case SidechainPos::L1::Method::Create::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L1::Method::Create>();
+			auto pArg = get_ArgsAs<SidechainPos::L1::Method::Create>();
 			if (pArg)
 			{
 				GroupArgs gr;
 
-				WriteL2Tst1_L1_Settings(pArg->m_Settings);
+				WriteSposSettings(pArg->m_Settings);
 				WriteUpgradeSettings(pArg->m_Upgradable);
 
-				if (m_nArg >= sizeof(*pArg) + sizeof(L2Tst1_L1::Validator) * pArg->m_Validators)
-					WriteL2Tst1_L1_Validators((const L2Tst1_L1::Validator*) (pArg + 1), pArg->m_Validators);
+				if (m_nArg >= sizeof(*pArg) + sizeof(SidechainPos::L1::Validator) * pArg->m_Validators)
+					WriteSposValidators((const SidechainPos::L1::Validator*) (pArg + 1), pArg->m_Validators);
 			}
 		}
 		break;
@@ -2122,9 +2122,9 @@ void ParserContext::OnMethod_Bridge_L1(uint32_t /* iVer */)
 		OnUpgrade3Method();
 		break;
 
-	case L2Tst1_L1::Method::UserStake::s_iMethod:
+	case SidechainPos::L1::Method::UserStake::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L1::Method::UserStake>();
+			auto pArg = get_ArgsAs<SidechainPos::L1::Method::UserStake>();
 			if (pArg)
 			{
 				OnMethod("User stake");
@@ -2136,26 +2136,26 @@ void ParserContext::OnMethod_Bridge_L1(uint32_t /* iVer */)
 		}
 		break;
 		
-	case L2Tst1_L1::Method::BridgeExport::s_iMethod:
+	case SidechainPos::L1::Method::BridgeExport::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L1::Method::BridgeExport>();
+			auto pArg = get_ArgsAs<SidechainPos::L1::Method::BridgeExport>();
 			if (pArg)
 			{
 				OnMethod("Bridge Export");
 				GroupArgs gr;
-				OnL2tsts1_BridgeOp(*pArg);
+				OnSposBridgeOp(*pArg);
 			}
 		}
 		break;
 
-	case L2Tst1_L1::Method::BridgeImport::s_iMethod:
+	case SidechainPos::L1::Method::BridgeImport::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L1::Method::BridgeImport>();
+			auto pArg = get_ArgsAs<SidechainPos::L1::Method::BridgeImport>();
 			if (pArg)
 			{
 				OnMethod("Bridge Import");
 				GroupArgs gr;
-				OnL2tsts1_BridgeOp(*pArg);
+				OnSposBridgeOp(*pArg);
 				WriteUpgradeAdminsMask(pArg->m_ApproveMask);
 			}
 		}
@@ -2164,7 +2164,7 @@ void ParserContext::OnMethod_Bridge_L1(uint32_t /* iVer */)
 
 }
 
-void ParserContext::OnL2tsts1_BridgeOp(const L2Tst1_L1::Method::BridgeOp& op)
+void ParserContext::OnSposBridgeOp(const SidechainPos::L1::Method::BridgeOp& op)
 {
 	DocAddAidAmount("Value", op.m_Aid, op.m_Amount);
 	DocAddMonoblob("cookie", op.m_Cookie);
@@ -2177,27 +2177,27 @@ void ParserContext::OnState_Bridge_L1(uint32_t /* iVer */)
 
 	Env::Key_T<uint8_t> k;
 	_POD_(k.m_Prefix.m_Cid) = m_Cid;
-	k.m_KeyInContract = L2Tst1_L1::Tags::s_State;
+	k.m_KeyInContract = SidechainPos::L1::Tags::s_State;
 
-	L2Tst1_L1::State s;
+	SidechainPos::L1::State s;
 	if (!Env::VarReader::Read_T(k, s))
 		return;
 
 	{
 		Env::DocGroup gr2("Settings");
-		WriteL2Tst1_L1_Settings(s.m_Settings);
+		WriteSposSettings(s.m_Settings);
 	}
 
 
 	{
-		k.m_KeyInContract = L2Tst1_L1::Tags::s_Validators;
+		k.m_KeyInContract = SidechainPos::L1::Tags::s_Validators;
 		Env::VarReader r(k, k);
 
-		L2Tst1_L1::Validator pV[L2Tst1_L1::Validator::s_Max];
+		SidechainPos::L1::Validator pV[SidechainPos::L1::Validator::s_Max];
 		uint32_t nKey = 0, nVal = sizeof(pV);
 
-		if (r.MoveNext(nullptr, nKey, pV, nVal, 0) && (nVal >= sizeof(L2Tst1_L1::Validator)) && (nVal <= sizeof(pV)))
-			WriteL2Tst1_L1_Validators(pV, nVal / sizeof(L2Tst1_L1::Validator));
+		if (r.MoveNext(nullptr, nKey, pV, nVal, 0) && (nVal >= sizeof(SidechainPos::L1::Validator)) && (nVal <= sizeof(pV)))
+			WriteSposValidators(pV, nVal / sizeof(SidechainPos::L1::Validator));
 
 	}
 }
@@ -2206,26 +2206,26 @@ void ParserContext::OnMethod_Bridge_L2()
 {
 	switch (m_iMethod)
 	{
-	case L2Tst1_L2::Method::BridgeEmit::s_iMethod:
+	case SidechainPos::L2::Method::BridgeEmit::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L2::Method::BridgeEmit>();
+			auto pArg = get_ArgsAs<SidechainPos::L2::Method::BridgeEmit>();
 			if (pArg)
 			{
 				OnMethod("Mint");
 				GroupArgs gr;
-				OnL2tsts1_BridgeOp(*pArg);
+				OnSposBridgeOp(*pArg);
 			}
 		}
 		break;
 
-	case L2Tst1_L2::Method::BridgeBurn::s_iMethod:
+	case SidechainPos::L2::Method::BridgeBurn::s_iMethod:
 		{
-			auto pArg = get_ArgsAs<L2Tst1_L2::Method::BridgeBurn>();
+			auto pArg = get_ArgsAs<SidechainPos::L2::Method::BridgeBurn>();
 			if (pArg)
 			{
 				OnMethod("Burn");
 				GroupArgs gr;
-				OnL2tsts1_BridgeOp(*pArg);
+				OnSposBridgeOp(*pArg);
 			}
 		}
 		break;

@@ -2,7 +2,8 @@
 #include "../common.h"
 #include "contract_l2.h"
 
-namespace L2Tst1_L2 {
+namespace SidechainPos {
+namespace L2 {
 
 
 BEAM_EXPORT void Ctor(void*)
@@ -38,4 +39,5 @@ BEAM_EXPORT void Method_3(const Method::BridgeBurn& r)
     OnBridgeOp(r, 0);
 }
 
-} // namespace L2Tst1
+} // namespace L2
+} // namespace SidechainPos

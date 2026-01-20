@@ -4,7 +4,8 @@
 #include "contract_l1.h"
 #include "../upgradable3/contract_impl.h"
 
-namespace L2Tst1_L1 {
+namespace SidechainPos {
+namespace L1 {
 
 #pragma pack (push, 1)
     struct MyState_NoLoad :public State
@@ -143,11 +144,12 @@ BEAM_EXPORT void Method_5(const Method::BridgeImport& r)
     vals.Test(r.m_ApproveMask);
 }
 
-} // namespace L2Tst1_L1
+} // namespace L1
+} // namespace SidechainPos
 
 namespace Upgradable3 {
 
-    const uint32_t g_CurrentVersion = _countof(L2Tst1_L1::s_pSID) - 1;
+    const uint32_t g_CurrentVersion = _countof(SidechainPos::L1::s_pSID) - 1;
 
     uint32_t get_CurrentVersion()
     {

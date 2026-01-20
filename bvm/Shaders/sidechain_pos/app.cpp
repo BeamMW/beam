@@ -3,54 +3,54 @@
 #include "../upgradable3/app_common_impl.h"
 #include "contract_l1.h"
 
-#define L2Tst1_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
-#define L2Tst1_replace_admin(macro) Upgradable3_replace_admin(macro)
-#define L2Tst1_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
-#define L2Tst1_explicit_upgrade(macro) macro(ContractID, cid)
+#define SidechainPos_schedule_upgrade(macro) Upgradable3_schedule_upgrade(macro)
+#define SidechainPos_replace_admin(macro) Upgradable3_replace_admin(macro)
+#define SidechainPos_set_min_approvers(macro) Upgradable3_set_min_approvers(macro)
+#define SidechainPos_explicit_upgrade(macro) macro(ContractID, cid)
 
-#define L2Tst1_my_admin_key(macro)
+#define SidechainPos_my_admin_key(macro)
 
-#define L2Tst1_deploy(macro) \
+#define SidechainPos_deploy(macro) \
     Upgradable3_deploy(macro) \
     macro(Height, hPrePhaseEnd) \
     macro(AssetID, aidStaking) \
     macro(AssetID, aidLiquidity)
 
-#define L2Tst1_view_deployed(macro)
-#define L2Tst1_view_params(macro) macro(ContractID, cid)
-#define L2Tst1_user_view(macro) macro(ContractID, cid)
-#define L2Tst1_users_view_all(macro) macro(ContractID, cid)
+#define SidechainPos_view_deployed(macro)
+#define SidechainPos_view_params(macro) macro(ContractID, cid)
+#define SidechainPos_user_view(macro) macro(ContractID, cid)
+#define SidechainPos_users_view_all(macro) macro(ContractID, cid)
 
-#define L2Tst1_user_stake(macro) \
+#define SidechainPos_user_stake(macro) \
     macro(ContractID, cid) \
     macro(Amount, amount)
 
-#define L2Tst1_bridge_view_base(macro) \
+#define SidechainPos_bridge_view_base(macro) \
     macro(Height, h0) \
     macro(uint32_t, owned_only)
 
-#define L2Tst1_bridge_view(macro) \
+#define SidechainPos_bridge_view(macro) \
     macro(ContractID, cid) \
-    L2Tst1_bridge_view_base(macro)
+    SidechainPos_bridge_view_base(macro)
 
-#define L2Tst1_bridge_view_l2(macro) L2Tst1_bridge_view_base(macro)
+#define SidechainPos_bridge_view_l2(macro) SidechainPos_bridge_view_base(macro)
 
-#define L2Tst1_bridge_op_base(macro) \
+#define SidechainPos_bridge_op_base(macro) \
     macro(Amount, amount) \
     macro(AssetID, aid) \
     macro(Cookie, cookie)
 
-#define L2Tst1_bridge_op_l1(macro) \
+#define SidechainPos_bridge_op_l1(macro) \
     macro(ContractID, cid) \
-    L2Tst1_bridge_op_base(macro)
+    SidechainPos_bridge_op_base(macro)
 
-#define L2Tst1_bridge_export(macro) L2Tst1_bridge_op_l1(macro)
-#define L2Tst1_bridge_import(macro) L2Tst1_bridge_op_l1(macro)
+#define SidechainPos_bridge_export(macro) SidechainPos_bridge_op_l1(macro)
+#define SidechainPos_bridge_import(macro) SidechainPos_bridge_op_l1(macro)
 
-#define L2Tst1_bridge_export_l2(macro) L2Tst1_bridge_op_base(macro)
-#define L2Tst1_bridge_import_l2(macro) L2Tst1_bridge_op_base(macro)
+#define SidechainPos_bridge_export_l2(macro) SidechainPos_bridge_op_base(macro)
+#define SidechainPos_bridge_import_l2(macro) SidechainPos_bridge_op_base(macro)
 
-#define L2Tst1Actions_All(macro) \
+#define SidechainPosActions_All(macro) \
     macro(my_admin_key) \
     macro(view_deployed) \
     macro(view_params) \
@@ -71,7 +71,7 @@
 
 
 namespace Env {
-    void DocGet(const char* szID, L2Tst1_L1::Cookie& val)
+    void DocGet(const char* szID, SidechainPos::L1::Cookie& val)
     {
         auto ret = DocGetBlob(szID, val.m_p, sizeof(val.m_p));
         if (ret < sizeof(val.m_p))
@@ -79,7 +79,8 @@ namespace Env {
     }
 }
 
-namespace L2Tst1_L1 {
+namespace SidechainPos {
+namespace L1 {
 
 BEAM_EXPORT void Method_0()
 {
@@ -89,23 +90,23 @@ BEAM_EXPORT void Method_0()
     {   Env::DocGroup gr("actions");
 
 #define THE_FIELD(type, name) Env::DocAddText(#name, #type);
-#define THE_ACTION(name) { Env::DocGroup gr(#name);  L2Tst1_##name(THE_FIELD) }
+#define THE_ACTION(name) { Env::DocGroup gr(#name);  SidechainPos_##name(THE_FIELD) }
         
-        L2Tst1Actions_All(THE_ACTION)
+        SidechainPosActions_All(THE_ACTION)
 #undef THE_ACTION
 #undef THE_FIELD
     }
 }
 
 #define THE_FIELD(type, name) const type& name,
-#define ON_METHOD(name) void On_##name(L2Tst1_##name(THE_FIELD) int unused = 0)
+#define ON_METHOD(name) void On_##name(SidechainPos_##name(THE_FIELD) int unused = 0)
 
 void OnError(const char* sz)
 {
     Env::DocAddText("error", sz);
 }
 
-const char g_szAdminSeed[] = "upgr3-l2tst1";
+const char g_szAdminSeed[] = "upgr3-SidechainPos";
 
 struct AdminKeyID :public Env::KeyID {
     AdminKeyID() :Env::KeyID(g_szAdminSeed, sizeof(g_szAdminSeed)) {}
@@ -171,7 +172,7 @@ ON_METHOD(deploy)
         Env::Cost::SaveVar_For(sizeof(Validator) * arg.m_Validators) +
         Env::Cost::Cycle * 100;
 
-    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(Method::Create) + sizeof(Validator) * arg.m_Validators, nullptr, 0, nullptr, 0, "Deploy L2Tst1 contract", nCharge);
+    Env::GenerateKernel(nullptr, arg.s_iMethod, &arg, sizeof(Method::Create) + sizeof(Validator) * arg.m_Validators, nullptr, 0, nullptr, 0, "Deploy Sidechain-Pos L1 contract", nCharge);
 }
 
 ON_METHOD(schedule_upgrade)
@@ -361,10 +362,10 @@ ON_METHOD(user_stake)
     arg.m_Amount = amount;
     MyUser::KeyID(cid).get_Pk(arg.m_pkUser);
 
-    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "L2Tst1 user stake", nCharge);
+    Env::GenerateKernel(&cid, arg.s_iMethod, &arg, sizeof(arg), &fc, 1, nullptr, 0, "Sidechain-Pos user stake", nCharge);
 }
 
-typedef L2Tst1_L2::Method::BridgeOpBase BridgeOpBase;
+typedef L2::Method::BridgeOpBase BridgeOpBase;
 
 void ScanBridge(Env::Key_T<uint8_t>& key, Height h0, uint32_t owned_only)
 {
@@ -420,7 +421,7 @@ ON_METHOD(bridge_view)
 
 ON_METHOD(bridge_view_l2)
 {
-    ScanBridge(L2Tst1_L2::s_CID, h0, owned_only, 0, 1);
+    ScanBridge(L2::s_CID, h0, owned_only, 0, 1);
 }
 
 struct BridgeOpL1Context
@@ -428,7 +429,7 @@ struct BridgeOpL1Context
     Env::KeyID m_kid;
     FundsChange m_fc;
 
-    bool Init(L2Tst1_bridge_op_l1(THE_FIELD) Method::BridgeOp& arg, uint8_t tag)
+    bool Init(SidechainPos_bridge_op_l1(THE_FIELD) Method::BridgeOp& arg, uint8_t tag)
     {
         if (!amount)
         {
@@ -658,7 +659,7 @@ ON_METHOD(bridge_import)
     Env::GenerateKernelAdvanced(&cid, arg.s_iMethod, &arg, sizeof(arg), &ctx.m_fc, 1, pSigs, nSigs, "bridge import", nCharge, msg2.m_hMin, msg2.m_hMin + Msg::s_dh, pkBlind, msg2.m_TotalNonce, pE[0], iSlotKrnBlind, iSlotKrnNonce, nullptr);
 }
 
-void OnBridgeL2(L2Tst1_bridge_op_base(THE_FIELD) uint32_t iMethod, uint8_t consume, const char* szComment)
+void OnBridgeL2(SidechainPos_bridge_op_base(THE_FIELD) uint32_t iMethod, uint8_t consume, const char* szComment)
 {
     if (!amount)
         return OnError("amount not specified");
@@ -684,18 +685,18 @@ void OnBridgeL2(L2Tst1_bridge_op_base(THE_FIELD) uint32_t iMethod, uint8_t consu
         Env::Cost::AddSig +
         Env::Cost::Cycle * 100;
 
-    Env::GenerateKernel(&L2Tst1_L2::s_CID, iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "bridge export", nCharge);
+    Env::GenerateKernel(&L2::s_CID, iMethod, &arg, sizeof(arg), &fc, 1, &kid, 1, "bridge export", nCharge);
 }
 
 ON_METHOD(bridge_export_l2)
 {
     AutoFixCookie(Cast::NotConst(cookie));
-    OnBridgeL2(amount, aid, cookie, L2Tst1_L2::Method::BridgeBurn::s_iMethod, 1, "bridge L2 export");
+    OnBridgeL2(amount, aid, cookie, L2::Method::BridgeBurn::s_iMethod, 1, "bridge L2 export");
 }
 
 ON_METHOD(bridge_import_l2)
 {
-    OnBridgeL2(amount, aid, cookie, L2Tst1_L2::Method::BridgeEmit::s_iMethod, 0, "bridge L2 import");
+    OnBridgeL2(amount, aid, cookie, L2::Method::BridgeEmit::s_iMethod, 0, "bridge L2 import");
 }
 
 #undef ON_METHOD
@@ -716,12 +717,12 @@ BEAM_EXPORT void Method_1()
 #define THE_METHOD(name) \
         static_assert(sizeof(szAction) >= sizeof(#name)); \
         if (!Env::Strcmp(szAction, #name)) { \
-            L2Tst1_##name(PAR_READ) \
-            On_##name(L2Tst1_##name(PAR_PASS) 0); \
+            SidechainPos_##name(PAR_READ) \
+            On_##name(SidechainPos_##name(PAR_PASS) 0); \
             return; \
         }
 
-    L2Tst1Actions_All(THE_METHOD)
+    SidechainPosActions_All(THE_METHOD)
 
 #undef THE_METHOD
 #undef PAR_PASS
@@ -730,4 +731,5 @@ BEAM_EXPORT void Method_1()
     OnError("unknown action");
 }
 
-} // namespace L2Tst1
+} // namespace L1
+} // namespace SidechainPos
