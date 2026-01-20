@@ -104,10 +104,41 @@ namespace bvm2 {
 	void get_Cid(ContractID&, const Blob& data, const Blob& args);
 	void get_CidViaSid(ContractID&, const ShaderID&, const Blob& args);
 
+	namespace Storage
+	{
+		struct IBase
+		{
+			virtual void LoadVar(const Blob&, Blob& res) = 0;
+			virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) = 0;
+			virtual uint32_t SaveVar(const Blob&, const Blob& val) = 0;
+			virtual uint32_t OnLog(const Blob&, const Blob& val) = 0;
+		};
+
+		struct Dummy
+			:public IBase
+		{
+			void LoadVar(const Blob&, Blob& res) override {
+				res.n = 0;
+			}
+			void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override {
+				key.n = 0;
+				res.n = 0;
+			}
+			uint32_t SaveVar(const Blob&, const Blob& val) override {
+				return 0;
+			}
+			uint32_t OnLog(const Blob&, const Blob& val) override {
+				return 0;
+			}
+		};
+
+	}
+
 	class ProcessorContract;
 
 	class Processor
 		:public Wasm::Processor
+		,public Storage::Dummy
 	{
 	protected:
 
@@ -295,13 +326,6 @@ namespace bvm2 {
 			return Rules::get().IsPastFork_<iFork>(get_Height() + 1);
 		}
 
-		virtual void LoadVar(const Blob&, Blob& res) { res.n = 0; } // res is temporary
-		virtual void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) {
-			key.n = 0;
-			res.n = 0;
-		}
-		virtual uint32_t SaveVar(const Blob&, const Blob& val) { return 0; }
-
 	public:
 
 		enum struct Kind {
@@ -313,6 +337,11 @@ namespace bvm2 {
 
 		virtual Kind get_Kind() = 0;
 		virtual bool IsSuspended() { return false; }
+
+		// easy way to redirect all storage calls to other object. Either implement storage methods (replace DummyStorage methods), or redirect to another obj
+		virtual Storage::IBase& get_Storage() {
+			return *this;
+		}
 
 		struct Compiler
 		{
@@ -420,9 +449,6 @@ namespace bvm2 {
 		uint32_t get_HeapLimit() override;
 		void DischargeUnits(uint32_t size) override;
 		uint32_t get_WasmVersion() override;
-
-		virtual uint32_t OnLog(const Blob&, const Blob& val) { return 0; }
-
 
 		virtual Asset::ID AssetCreate(const Asset::Metadata&, const PeerID&, Amount& valDeposit) { return 0; }
 		virtual bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) { return false; }

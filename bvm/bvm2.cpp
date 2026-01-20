@@ -292,7 +292,7 @@ namespace bvm2 {
 		x.m_StackPosMin = m_Stack.m_PosMin;
 		m_Stack.m_PosMin = m_Stack.m_Pos;
 
-		LoadVar(cid, m_Code);
+		get_Storage().LoadVar(cid, m_Code);
 		m_Code.Export(x.m_Body);
 		m_Code = x.m_Body; // important! Use our local copy to access the code
 
@@ -1357,7 +1357,7 @@ namespace bvm2 {
 		}
 
 		Blob res;
-		LoadVar(key, res);
+		get_Storage().LoadVar(key, res);
 
 		memcpy(pVal, res.p, std::min(nVal, res.n));
 		return res.n;
@@ -1402,7 +1402,7 @@ namespace bvm2 {
 		}
 
 		Blob res;
-		LoadVarEx(key, res,
+		get_Storage().LoadVarEx(key, res,
 			!!(Shaders::KeySearchFlags::Exact & nSearchFlag),
 			!!(Shaders::KeySearchFlags::Bigger & nSearchFlag));
 
@@ -1463,7 +1463,7 @@ namespace bvm2 {
 			Exc::Test(nVal <= Limits::VarSize_4);
 		}
 
-		return SaveVar(key, Blob(pVal, nVal));
+		return get_Storage().SaveVar(key, Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(EmitLog)
@@ -1478,7 +1478,7 @@ namespace bvm2 {
 		VarKey vk;
 		SetVarKeyFromShader(vk, nType, Blob(pKey, nKey), true);
 
-		return OnLog(vk.ToBlob(), Blob(pVal, nVal));
+		return get_Storage().OnLog(vk.ToBlob(), Blob(pVal, nVal));
 	}
 
 	BVM_METHOD(CallFar)
@@ -1719,7 +1719,7 @@ namespace bvm2 {
 		SetAssetKey(av, aid);
 
 		Blob res;
-		LoadVar(av.m_vk.ToBlob(), res);
+		get_Storage().LoadVar(av.m_vk.ToBlob(), res);
 
 		Exc::Test(av.m_Owner.nBytes == res.n);
 		memcpy(av.m_Owner.m_pData, res.p, res.n);
@@ -3720,7 +3720,7 @@ namespace bvm2 {
 	bool ProcessorContract::LoadFixedOrZero(const VarKey& vk, uint8_t* pVal, uint32_t n)
 	{
 		Blob res;
-		LoadVar(vk.ToBlob(), res);
+		get_Storage().LoadVar(vk.ToBlob(), res);
 
 		if (n == res.n)
 		{
@@ -3745,7 +3745,7 @@ namespace bvm2 {
 	uint32_t ProcessorContract::SaveVarInternal(const Blob& key, const Blob& val)
 	{
 		TestCanWrite();
-		return SaveVar(key, val);
+		return get_Storage().SaveVar(key, val);
 	}
 
 	uint32_t ProcessorContract::SaveNnz(const VarKey& vk, const uint8_t* pVal, uint32_t n)
@@ -3843,7 +3843,7 @@ namespace bvm2 {
 			{
 				// make sure the target contract exists
 				Blob res;
-				LoadVar(vk2.ToBlob(), res);
+				get_Storage().LoadVar(vk2.ToBlob(), res);
 
 				if (!res.n)
 				{
@@ -3954,18 +3954,19 @@ namespace bvm2 {
 	{
 		ShaderID sid;
 
+		auto& s = get_Storage();
 		if (pCode)
 		{
-			SaveVar(cid, *pCode);
+			s.SaveVar(cid, *pCode);
 			get_ShaderID(sid, *pCode);
 		}
 		else
 		{
 			Blob res;
-			LoadVar(cid, res);
+			s.LoadVar(cid, res);
 
 			get_ShaderID(sid, res);
-			SaveVar(cid, Blob(nullptr, 0));
+			s.SaveVar(cid, Blob(nullptr, 0));
 		}
 
 		ToggleSidEntry(sid, cid, !!pCode);
@@ -3976,7 +3977,7 @@ namespace bvm2 {
 			vk.Set(cid);
 
 			vk.Append(VarKey::Tag::ShaderChange, Blob(nullptr, 0));
-			OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
+			get_Storage().OnLog(vk.ToBlob(), pCode ? Blob(sid) : Blob(nullptr, 0));
 		}
 	}
 
@@ -3990,13 +3991,14 @@ namespace bvm2 {
 
 		Blob blob(pKey, ContractID::nBytes * 2 + bvm2::ShaderID::nBytes + 1);
 
+		auto& s = get_Storage();
 		if (bSet)
 		{
 			auto h = uintBigFrom(get_Height() + 1);
-			SaveVar(blob, h);
+			s.SaveVar(blob, h);
 		}
 		else
-			SaveVar(blob, Blob(nullptr, 0));
+			s.SaveVar(blob, Blob(nullptr, 0));
 	}
 
 	/////////////////////////////////////////////

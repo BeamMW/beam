@@ -2622,17 +2622,7 @@ struct NodeProcessor::BlockInterpretCtx
 			static const Type Recharge = 8;
 		};
 
-		void ContractDataInsert(const Blob& key, const Blob&);
-		void ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
-		void ContractDataDel(const Blob& key, const Blob& valOld);
-
-		void ContractDataToggleTree(const Blob& key, const Blob&, bool bAdd);
-
-		void ContractDataSaveWithRecovery(BlobMap::Entry&, const Blob&);
-
 		void UpdChargeWithRecovery(uint32_t);
-
-		void UndoVars();
 	};
 
 	struct BvmProcessor
@@ -2644,11 +2634,10 @@ struct NodeProcessor::BlockInterpretCtx
 
 		using VmProcessorBase::VmProcessorBase;
 
+		bvm2::Storage::IBase& get_Storage() override {
+			return m_Bic.m_Storage;
+		}
 
-		void LoadVar(const Blob& key, Blob& res) override;
-		void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
-		uint32_t SaveVar(const Blob& key, const Blob&) override;
-		uint32_t OnLog(const Blob& key, const Blob& val) override;
 		bool get_AssetInfo(Asset::Full&) override;
 
 		Height get_Height() override;
@@ -2658,7 +2647,6 @@ struct NodeProcessor::BlockInterpretCtx
 		bool AssetEmit(Asset::ID, const PeerID&, AmountSigned) override;
 		bool AssetDestroy(Asset::ID, const PeerID&, Amount& valDeposit) override;
 
-		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
 		bool EnsureNoVars(const bvm2::ContractID&);
 		static bool IsOwnedVar(const bvm2::ContractID&, const Blob& key);
 
@@ -2711,8 +2699,31 @@ struct NodeProcessor::BlockInterpretCtx
 
 	uint32_t m_ChargePerBlock = bvm2::Limits::BlockCharge;
 
-	BlobMap::Set m_ContractVars;
-	BlobMap::Entry& get_ContractVar(const Blob& key);
+	struct Storage
+		:public bvm2::Storage::IBase
+	{
+		BlobMap::Set m_Vars;
+		BlobMap::Entry& get_Var(const Blob& key);
+
+		void LoadVar(const Blob&, Blob& res) override;
+		void LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger) override;
+		uint32_t SaveVar(const Blob&, const Blob& val) override;
+		uint32_t OnLog(const Blob&, const Blob& val) override;
+
+		BlobMap::Entry* FindVarEx(const Blob& key, bool bExact, bool bBigger);
+
+		void DataInsert(const Blob& key, const Blob&);
+		void DataUpdate(const Blob& key, const Blob& val, const Blob& valOld);
+		void DataDel(const Blob& key, const Blob& valOld);
+
+		void DataToggleTree(const Blob& key, const Blob&, bool bAdd);
+		void DataSaveWithRecovery(BlobMap::Entry&, const Blob&);
+
+		void UndoVars();
+
+		IMPLEMENT_GET_PARENT_OBJ(BlockInterpretCtx, m_Storage)
+	} m_Storage;
+
 
 	std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
 
@@ -3746,7 +3757,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelContractCr
 		bvm2::ContractID cid;
 		bvm2::get_CidViaSid(cid, sid, krn.m_Args);
 
-		auto& e = get_ContractVar(cid);
+		auto& e = m_Storage.get_Var(cid);
 		if (!e.m_Data.empty())
 		{
 			m_TxStatus = proto::TxStatus::ContractFailNode;
@@ -3767,10 +3778,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelContractCr
 
 	}
 	else
-	{
-		BlockInterpretCtx::VmProcessorBase proc(*this);
-		proc.UndoVars();
-	}
+		m_Storage.UndoVars();
 
 	return true;
 }
@@ -3805,16 +3813,13 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelContractIn
 				if (m_pTxErrorInfo)
 					*m_pTxErrorInfo << "Contract " << krn.m_Cid << " d'tor not fully clean";
 
-				proc.UndoVars();
+				m_Storage.UndoVars();
 				return false;
 			}
 		}
 	}
 	else
-	{
-		BlockInterpretCtx::VmProcessorBase proc(*this);
-		proc.UndoVars();
-	}
+		m_Storage.UndoVars();
 
 	return true;
 }
@@ -3838,14 +3843,11 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelEvmInvoke&
 				*m_pTxErrorInfo << e.what();
 		}
 		
-		proc.UndoVars();
+		m_Storage.UndoVars();
 		return false;
 	}
 	else
-	{
-		BlockInterpretCtx::VmProcessorBase proc(*this);
-		proc.UndoVars();
-	}
+		m_Storage.UndoVars();
 
 	return true;
 }
@@ -3855,7 +3857,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::EnsureNoVars(const bvm2::Co
 {
 	Blob key(cid);
 
-	auto* pE = FindVarEx(key, true, true);
+	auto* pE = m_Bic.m_Storage.FindVarEx(key, true, true);
 	return !(pE && IsOwnedVar(cid, pE->ToBlob()));
 }
 
@@ -4137,7 +4139,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetCreate(const PeerID& pidOwner,
 			}
 		}
 
-		BlockInterpretCtx::Ser ser(*this);
+		Ser ser(*this);
 		ser & ai.m_ID;
 
 		if (!m_Temporary)
@@ -4163,7 +4165,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetCreate(const PeerID& pidOwner,
 	}
 	else
 	{
-		BlockInterpretCtx::Der der(*this);
+		Der der(*this);
 
 		der & aid;
 
@@ -4241,7 +4243,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetDestroy2(const PeerID& pidOwne
 		// looks good
 		m_Proc.InternalAssetDel(aid, !m_SkipDefinition);
 
-		BlockInterpretCtx::Ser ser(*this);
+		Ser ser(*this);
 		ser
 			& ai.m_Metadata
 			& ai.m_LockHeight;
@@ -4267,7 +4269,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetDestroy2(const PeerID& pidOwne
 		ai.m_ID = aid;
 		ai.SetCid(pCid);
 
-		BlockInterpretCtx::Der der(*this);
+		Der der(*this);
 		der
 			& ai.m_Metadata
 			& ai.m_LockHeight;
@@ -4374,14 +4376,14 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetEmitLocal(const PeerID& pidOwn
 	{
 		if (m_Fwd)
 		{
-			BlockInterpretCtx::Ser ser(*this);
+			Ser ser(*this);
 			ser & ai.m_LockHeight;
 
 			ai.m_LockHeight = m_Height;
 		}
 		else
 		{
-			BlockInterpretCtx::Der der(*this);
+			Der der(*this);
 			der & ai.m_LockHeight;
 		}
 	}
@@ -5131,7 +5133,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelTypeAny(const TxKernel& krn)
 	bool bContextChange = !krn.m_CanEmbed && (TxKernel::Subtype::Std != eType);
 	if (bContextChange && !m_Fwd && m_Temporary)
 	{
-		BlockInterpretCtx::Der der(*this);
+		Der der(*this);
 		der & m_hvDependentCtx;
 	}
 
@@ -5155,7 +5157,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelTypeAny(const TxKernel& krn)
 		const auto& hvPrev = m_DependentCtxSet ? m_hvDependentCtx : m_Proc.m_Cursor.m_Full.m_Prev;
 		if (m_Temporary)
 		{
-			BlockInterpretCtx::Ser ser(*this);
+			Ser ser(*this);
 			ser & hvPrev;
 		}
 
@@ -5321,13 +5323,12 @@ bool NodeProcessor::BlockInterpretCtx::ValidateUniqueNoDup(const Blob& key, cons
 NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpretCtx& bic)
 	:m_Bic(bic)
 {
-	if (bic.m_Fwd)
-	{
-		BlockInterpretCtx::Ser ser(bic);
+	assert(bic.m_Fwd);
 
-		RecoveryTag::Type n = RecoveryTag::Terminator;
-		ser & n;
-	}
+	Ser ser(bic);
+
+	RecoveryTag::Type n = RecoveryTag::Terminator;
+	ser & n;
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
@@ -5415,7 +5416,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::Contract
 			*m_Bic.m_pTxErrorInfo << " <- cid=" << cid << " method=" << iMethod;
 		}
 
-		UndoVars();
+		m_Bic.m_Storage.UndoVars();
 	}
 
 	if (m_Instruction.m_ModeTriggered) {
@@ -5529,7 +5530,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 					if (ad.m_Code.m_Modified)
 					{
 						if (ad.m_pContractCode)
-							ContractDataSaveWithRecovery(*ad.m_pContractCode, Blob(nullptr, 0));
+							m_Bic.m_Storage.DataSaveWithRecovery(*ad.m_pContractCode, Blob(nullptr, 0));
 
 						HashOf(ca.m_CodeHash, ad.m_Code.m_Value);
 
@@ -5537,8 +5538,8 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 						ak.m_Addr = ad.m_Key;
 						ak.m_Var = ca.m_CodeHash;
 
-						auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
-						ContractDataSaveWithRecovery(e, ad.m_Code.m_Value);
+						auto& e = m_Bic.m_Storage.get_Var(Blob(&ak, sizeof(ak)));
+						m_Bic.m_Storage.DataSaveWithRecovery(e, ad.m_Code.m_Value);
 					}
 					else
 					{
@@ -5549,7 +5550,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 							ca.m_CodeHash = Zero;
 					}
 
-					ContractDataSaveWithRecovery(*ad.m_pEntry, Blob(&ca, sizeof(ca)));
+					m_Bic.m_Storage.DataSaveWithRecovery(*ad.m_pEntry, Blob(&ca, sizeof(ca)));
 				}
 				else
 				{
@@ -5557,17 +5558,17 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 					ua.m_Balance_Wei = ad.m_Balance.m_Value;
 					ua.m_Nonce = ad.m_Nonce;
 
-					ContractDataSaveWithRecovery(*ad.m_pEntry, Blob(&ua, sizeof(ua)));
+					m_Bic.m_Storage.DataSaveWithRecovery(*ad.m_pEntry, Blob(&ua, sizeof(ua)));
 				}
 
 			}
 			else
 			{
 				// account was erased
-				ContractDataSaveWithRecovery(*ad.m_pEntry, Blob(nullptr, 0));
+				m_Bic.m_Storage.DataSaveWithRecovery(*ad.m_pEntry, Blob(nullptr, 0));
 
 				if (ad.m_pContractCode)
-					ContractDataSaveWithRecovery(*ad.m_pContractCode, Blob(nullptr, 0));
+					m_Bic.m_Storage.DataSaveWithRecovery(*ad.m_pContractCode, Blob(nullptr, 0));
 			}
 		}
 
@@ -5583,7 +5584,7 @@ void NodeProcessor::BlockInterpretCtx::MyEvmProcessor::CommitChanges()
 				if (sd.m_Data.m_Value == Zero)
 					newVal.n = 0;
 
-				ContractDataSaveWithRecovery(*sd.m_pEntry, newVal);
+				m_Bic.m_Storage.DataSaveWithRecovery(*sd.m_pEntry, newVal);
 			}
 		}
 		
@@ -5602,7 +5603,7 @@ NodeProcessor::BlockInterpretCtx::MyEvmProcessor::AccountWrap& NodeProcessor::Bl
 	p->m_Key = addr;
 	m_Accounts.insert(*p);
 
-	auto& e = m_Bic.get_ContractVar(addr);
+	auto& e = m_Bic.m_Storage.get_Var(addr);
 	p->m_pEntry = &e;
 
 	p->m_pContractCode = nullptr;
@@ -5637,7 +5638,7 @@ NodeProcessor::BlockInterpretCtx::MyEvmProcessor::AccountWrap& NodeProcessor::Bl
 			ak.m_Addr = addr;
 			ak.m_Var = x.m_CodeHash;
 
-			p->m_pContractCode = &m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
+			p->m_pContractCode = &m_Bic.m_Storage.get_Var(Blob(&ak, sizeof(ak)));
 
 			p->m_Code.m_Value = p->m_pContractCode->m_Data;
 		}
@@ -5656,7 +5657,7 @@ Evm::Processor::Account::Slot& NodeProcessor::BlockInterpretCtx::MyEvmProcessor:
 	ak.m_Addr = acc.m_Key;
 	ak.m_Var = key;
 
-	auto& e = m_Bic.get_ContractVar(Blob(&ak, sizeof(ak)));
+	auto& e = m_Bic.m_Storage.get_Var(Blob(&ak, sizeof(ak)));
 	p->m_pEntry = &e;
 
 	if (e.m_Data.empty())
@@ -5894,30 +5895,30 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	}
 }
 
-BlobMap::Entry& NodeProcessor::BlockInterpretCtx::get_ContractVar(const Blob& key)
+BlobMap::Entry& NodeProcessor::BlockInterpretCtx::Storage::get_Var(const Blob& key)
 {
-	auto* pE = m_ContractVars.Find(key);
+	auto* pE = m_Vars.Find(key);
 	if (!pE)
 	{
-		pE = m_ContractVars.Create(key);
+		pE = m_Vars.Create(key);
 
 		Blob data;
 		NodeDB::Recordset rs;
-		if (m_Proc.m_DB.ContractDataFind(key, data, rs))
+		if (get_ParentObj().m_Proc.m_DB.ContractDataFind(key, data, rs))
 			data.Export(pE->m_Data);
 	}
 	return *pE;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVar(const Blob& key, Blob& res)
+void NodeProcessor::BlockInterpretCtx::Storage::LoadVar(const Blob& key, Blob& res)
 {
-	auto& e = m_Bic.get_ContractVar(key);
+	auto& e = get_Var(key);
 	res = e.m_Data;
 }
 
-BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const Blob& key, bool bExact, bool bBigger)
+BlobMap::Entry* NodeProcessor::BlockInterpretCtx::Storage::FindVarEx(const Blob& key, bool bExact, bool bBigger)
 {
-	auto* pE = &m_Bic.get_ContractVar(key);
+	auto* pE = &get_Var(key);
 	if (pE->m_Data.empty() || !bExact)
 	{
 		while (true)
@@ -5925,22 +5926,22 @@ BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const 
 			NodeDB::Recordset rs;
 			Blob keyDB = pE->ToBlob();
 			bool bNextDB = bBigger ?
-				m_Bic.m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
-				m_Bic.m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
+				get_ParentObj().m_Proc.m_DB.ContractDataFindNext(keyDB, rs) :
+				get_ParentObj().m_Proc.m_DB.ContractDataFindPrev(keyDB, rs);
 
 			if (bNextDB)
-				m_Bic.get_ContractVar(keyDB);
+				get_Var(keyDB);
 
 			auto it = BlobMap::Set::s_iterator_to(*pE);
 			if (bBigger)
 			{
 				++it;
-				if (m_Bic.m_ContractVars.end() == it)
+				if (m_Vars.end() == it)
 					return nullptr;
 			}
 			else
 			{
-				if (m_Bic.m_ContractVars.begin() == it)
+				if (m_Vars.begin() == it)
 					return nullptr;
 				--it;
 			}
@@ -5953,7 +5954,7 @@ BlobMap::Entry* NodeProcessor::BlockInterpretCtx::BvmProcessor::FindVarEx(const 
 	return pE;
 }
 
-void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger)
+void NodeProcessor::BlockInterpretCtx::Storage::LoadVarEx(Blob& key, Blob& res, bool bExact, bool bBigger)
 {
 	auto* pE = FindVarEx(key, bExact, bBigger);
 	if (pE)
@@ -5968,29 +5969,30 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::LoadVarEx(Blob& key, Blob& 
 	}
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::SaveVar(const Blob& key, const Blob& data)
+uint32_t NodeProcessor::BlockInterpretCtx::Storage::SaveVar(const Blob& key, const Blob& data)
 {
-	auto& e = m_Bic.get_ContractVar(key);
+	auto& e = get_Var(key);
 	auto nOldSize = static_cast<uint32_t>(e.m_Data.size());
 
 	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
 	{
-		auto* pPbft = m_Bic.m_Proc.get_PbftHandler();
+		auto* pPbft = get_ParentObj().m_Proc.get_PbftHandler();
 		if (pPbft)
-			pPbft->OnContractVarChange(key, data, m_Bic.m_Temporary);
+			pPbft->OnContractVarChange(key, data, get_ParentObj().m_Temporary);
 	}
 
-	ContractDataSaveWithRecovery(e, data);
+	DataSaveWithRecovery(e, data);
 
 	return nOldSize;
 }
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataSaveWithRecovery(BlobMap::Entry& e, const Blob& data)
+void NodeProcessor::BlockInterpretCtx::Storage::DataSaveWithRecovery(BlobMap::Entry& e, const Blob& data)
 {
 	if (Blob(e.m_Data) != data)
 	{
 		auto key = e.ToBlob();
 
+		typedef VmProcessorBase::RecoveryTag RecoveryTag;
 		RecoveryTag::Type nTag = RecoveryTag::Insert;
 
 		if (data.n)
@@ -5998,21 +6000,21 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataSaveWithReco
 			if (e.m_Data.size())
 			{
 				nTag = RecoveryTag::Update;
-				ContractDataUpdate(key, data, e.m_Data);
+				DataUpdate(key, data, e.m_Data);
 			}
 			else
 			{
 				nTag = RecoveryTag::Delete;
-				ContractDataInsert(key, data);
+				DataInsert(key, data);
 			}
 		}
 		else
 		{
 			assert(e.m_Data.size());
-			ContractDataDel(key, e.m_Data);
+			DataDel(key, e.m_Data);
 		}
 
-		BlockInterpretCtx::Ser ser(m_Bic);
+		Ser ser(get_ParentObj());
 		ser & nTag;
 		ser & key.n;
 		ser.WriteRaw(key.p, key.n);
@@ -6027,7 +6029,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UpdChargeWithRecovery(ui
 {
 	if (m_Bic.m_Temporary)
 	{
-		BlockInterpretCtx::Ser ser(m_Bic);
+		Ser ser(m_Bic);
 		RecoveryTag::Type nTag = RecoveryTag::Recharge;
 		ser & nTag;
 		ser & m_Bic.m_ChargePerBlock;
@@ -6038,26 +6040,26 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UpdChargeWithRecovery(ui
 }
 
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataInsert(const Blob& key, const Blob& data)
+void NodeProcessor::BlockInterpretCtx::Storage::DataInsert(const Blob& key, const Blob& data)
 {
-	ContractDataToggleTree(key, data, true);
-	if (!m_Bic.m_Temporary)
-		m_Bic.m_Proc.m_DB.ContractDataInsert(key, data);
+	DataToggleTree(key, data, true);
+	if (!get_ParentObj().m_Temporary)
+		get_ParentObj().m_Proc.m_DB.ContractDataInsert(key, data);
 }
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
+void NodeProcessor::BlockInterpretCtx::Storage::DataUpdate(const Blob& key, const Blob& val, const Blob& valOld)
 {
-	ContractDataToggleTree(key, val, true);
-	ContractDataToggleTree(key, valOld, false);
-	if (!m_Bic.m_Temporary)
-		m_Bic.m_Proc.m_DB.ContractDataUpdate(key, val);
+	DataToggleTree(key, val, true);
+	DataToggleTree(key, valOld, false);
+	if (!get_ParentObj().m_Temporary)
+		get_ParentObj().m_Proc.m_DB.ContractDataUpdate(key, val);
 }
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataDel(const Blob& key, const Blob& valOld)
+void NodeProcessor::BlockInterpretCtx::Storage::DataDel(const Blob& key, const Blob& valOld)
 {
-	ContractDataToggleTree(key, valOld, false);
-	if (!m_Bic.m_Temporary)
-		m_Bic.m_Proc.m_DB.ContractDataDel(key);
+	DataToggleTree(key, valOld, false);
+	if (!get_ParentObj().m_Temporary)
+		get_ParentObj().m_Proc.m_DB.ContractDataDel(key);
 }
 
 bool NodeProcessor::Mapped::Contract::IsStored(const Blob& key)
@@ -6101,41 +6103,44 @@ void NodeProcessor::Mapped::Contract::Toggle(const Blob& key, const Blob& data, 
 	}
 }
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::ContractDataToggleTree(const Blob& key, const Blob& data, bool bAdd)
+void NodeProcessor::BlockInterpretCtx::Storage::DataToggleTree(const Blob& key, const Blob& data, bool bAdd)
 {
-	if (!m_Bic.m_SkipDefinition)
-		m_Bic.m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
+	if (!get_ParentObj().m_SkipDefinition)
+		get_ParentObj().m_Proc.m_Mapped.m_Contract.Toggle(key, data, bAdd);
 }
 
-uint32_t NodeProcessor::BlockInterpretCtx::BvmProcessor::OnLog(const Blob& key, const Blob& val)
+uint32_t NodeProcessor::BlockInterpretCtx::Storage::OnLog(const Blob& key, const Blob& val)
 {
-	assert(m_Bic.m_Fwd);
-	if (!m_Bic.m_Temporary)
+	typedef VmProcessorBase::RecoveryTag RecoveryTag;
+
+	auto& bic = get_ParentObj(); // alias
+	assert(bic.m_Fwd);
+	if (!bic.m_Temporary)
 	{
 
 		NodeDB::ContractLog::Entry x;
-		x.m_Pos.m_Height = m_Bic.m_Height;
-		x.m_Pos.m_Pos = m_Bic.m_ContractLogs;
+		x.m_Pos.m_Height = bic.m_Height;
+		x.m_Pos.m_Pos = bic.m_ContractLogs;
 		x.m_Key = key;
 		x.m_Val = val;
-		m_Bic.m_Proc.m_DB.ContractLogInsert(x);
+		bic.m_Proc.m_DB.ContractLogInsert(x);
 	}
 
-	BlockInterpretCtx::Ser ser(m_Bic);
+	Ser ser(bic);
 	RecoveryTag::Type nTag = RecoveryTag::Log;
 	ser & nTag;
-	ser & m_Bic.m_ContractLogs;
+	ser & bic.m_ContractLogs;
 
-	if (!m_Bic.m_SkipDefinition)
+	if (!bic.m_SkipDefinition)
 	{
 		bool bMmr = IsContractVarStoredInMmr(key);
 		ser & bMmr;
 
 		if (bMmr)
-			Block::get_HashContractLog(m_Bic.m_vLogs.emplace_back(), key, val, m_Bic.m_ContractLogs);
+			Block::get_HashContractLog(bic.m_vLogs.emplace_back(), key, val, bic.m_ContractLogs);
 	}
 
-	return m_Bic.m_ContractLogs++;
+	return bic.m_ContractLogs++;
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::get_AssetInfo(Asset::Full& ai)
@@ -6181,7 +6186,7 @@ Asset::ID NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetCreate(const Asse
 	if (!m_Bic.HandleAssetCreate(pidOwner, &m_FarCalls.m_Stack.back().m_Cid, md, aid, valDeposit, m_AssetEvtSubIdx))
 		return 0;
 
-	BlockInterpretCtx::Ser ser(m_Bic);
+	Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetCreate;
 	ser & nTag;
 
@@ -6208,7 +6213,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetEmit(Asset::ID aid, co
 		x.m_Emission.Add(valUns, aid, bAdd);
 	}
 
-	BlockInterpretCtx::Ser ser(m_Bic);
+	Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetEmit;
 	ser & nTag;
 	ser & aid;
@@ -6228,7 +6233,7 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	if (!m_Bic.HandleAssetDestroy(pidOwner, &cid, aid, valDeposit, false, m_AssetEvtSubIdx))
 		return false;
 
-	BlockInterpretCtx::Ser ser(m_Bic);
+	Ser ser(m_Bic);
 	RecoveryTag::Type nTag = RecoveryTag::AssetDestroy;
 	ser & nTag;
 	ser & aid;
@@ -6238,12 +6243,15 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	return true;
 }
 
-void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
+void NodeProcessor::BlockInterpretCtx::Storage::UndoVars()
 {
+	typedef VmProcessorBase::RecoveryTag RecoveryTag;
+	auto& bic = get_ParentObj(); // alias
+
 	ByteBuffer key;
 	for (RecoveryTag::Type nTag = 0; ; )
 	{
-		BlockInterpretCtx::Der der(m_Bic);
+		Der der(bic);
 		der & nTag;
 
 		switch (nTag)
@@ -6254,14 +6262,14 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 		case RecoveryTag::AssetCreate:
 			{
 				bool bFwd = false;
-				TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+				TemporarySwap swp(bFwd, bic.m_Fwd);
 
 				Asset::ID aid = 0;
 				PeerID pidOwner;
 				Asset::Metadata md;
 				Amount valDeposit;
 
-				if (!m_Bic.HandleAssetCreate(pidOwner, nullptr, md, aid, valDeposit))
+				if (!bic.HandleAssetCreate(pidOwner, nullptr, md, aid, valDeposit))
 					return OnCorrupted();
 			}
 			break;
@@ -6269,7 +6277,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 		case RecoveryTag::AssetEmit:
 		{
 			bool bFwd = false;
-			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+			TemporarySwap swp(bFwd, bic.m_Fwd);
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
@@ -6280,7 +6288,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			if (Rules::get().CA.IsForeign(aid))
 				der & pidOwner;
 
-			if (!m_Bic.HandleAssetEmit(pidOwner, aid, val))
+			if (!bic.HandleAssetEmit(pidOwner, aid, val))
 				return OnCorrupted();
 		}
 		break;
@@ -6288,7 +6296,7 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 		case RecoveryTag::AssetDestroy:
 		{
 			bool bFwd = false;
-			TemporarySwap swp(bFwd, m_Bic.m_Fwd);
+			TemporarySwap swp(bFwd, bic.m_Fwd);
 
 			Asset::ID aid = 0;
 			PeerID pidOwner;
@@ -6297,54 +6305,54 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 			der & cid;
 
 			Amount valDeposit;
-			if (!m_Bic.HandleAssetDestroy(pidOwner, &cid, aid, valDeposit, false))
+			if (!bic.HandleAssetDestroy(pidOwner, &cid, aid, valDeposit, false))
 				return OnCorrupted();
 		}
 		break;
 
 		case RecoveryTag::Log:
 		{
-			der & m_Bic.m_ContractLogs;
+			der & bic.m_ContractLogs;
 
-			if (!m_Bic.m_Temporary)
+			if (!bic.m_Temporary)
 			{
-				HeightPos pos(m_Bic.m_Height, m_Bic.m_ContractLogs);
-				m_Bic.m_Proc.m_DB.ContractLogDel(pos, pos);
-				m_Bic.m_Proc.m_DB.TestChanged1Row();
+				HeightPos pos(bic.m_Height, bic.m_ContractLogs);
+				bic.m_Proc.m_DB.ContractLogDel(pos, pos);
+				bic.m_Proc.m_DB.TestChanged1Row();
 			}
 
-			if (!m_Bic.m_SkipDefinition)
+			if (!bic.m_SkipDefinition)
 			{
 				bool bMmr = false;
 				der & bMmr;
 
 				// Note: during reorg (i.e. proper rollback, not just tx undo) the logs array will be empty. Ignore this.
-				if (bMmr && !m_Bic.m_vLogs.empty())
-					m_Bic.m_vLogs.pop_back();
+				if (bMmr && !bic.m_vLogs.empty())
+					bic.m_vLogs.pop_back();
 			}
 		}
 		break;
 
 		case RecoveryTag::Recharge:
 		{
-			assert(m_Bic.m_Temporary);
-			der & m_Bic.m_ChargePerBlock;
+			assert(bic.m_Temporary);
+			der & bic.m_ChargePerBlock;
 		}
 		break;
 
 		default:
 			{
 				der & key;
-				auto& e = m_Bic.get_ContractVar(key);
+				auto& e = bic.m_Storage.get_Var(key);
 
-				IPbftHandler* pPbft = (Rules::Consensus::Pbft == Rules::get().m_Consensus) ? m_Bic.m_Proc.get_PbftHandler() : nullptr;
+				IPbftHandler* pPbft = (Rules::Consensus::Pbft == Rules::get().m_Consensus) ? bic.m_Proc.get_PbftHandler() : nullptr;
 
 				if (RecoveryTag::Delete == nTag)
 				{
 					if (pPbft)
 						pPbft->OnContractVarChange(key, Blob(), false);
 
-					ContractDataDel(key, e.m_Data);
+					bic.m_Storage.DataDel(key, e.m_Data);
 					e.m_Data.clear();
 				}
 				else
@@ -6356,12 +6364,12 @@ void NodeProcessor::BlockInterpretCtx::VmProcessorBase::UndoVars()
 						pPbft->OnContractVarChange(key, data, false);
 
 					if (RecoveryTag::Insert == nTag)
-						ContractDataInsert(key, data);
+						bic.m_Storage.DataInsert(key, data);
 					else
 					{
 						if (RecoveryTag::Update != nTag)
 							OnCorrupted();
-						ContractDataUpdate(key, data, e.m_Data);
+						bic.m_Storage.DataUpdate(key, data, e.m_Data);
 					}
 
 					e.m_Data.swap(data);
