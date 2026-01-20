@@ -412,7 +412,7 @@ namespace beam
 		macro(testnet) \
 		macro(dappnet) \
 		macro(dappnet2) \
-		macro(l2_test1) \
+		macro(warp_dev3) \
 
 		enum struct Network
 		{
