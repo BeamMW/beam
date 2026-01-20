@@ -1247,12 +1247,12 @@ void ParserContext::On_PBFT_Settings(const PBFT_DPOS::Settings& stg)
 
 void ParserContext::On_PBFT_ValidatorAddr(const PBFT_DPOS::Address& addr)
 {
-	Env::DocAddBlob_T("Address", addr);
+	DocAddMonoblob("Address", addr);
 }
 
 void ParserContext::On_PBFT_DelegatorAddr(const PubKey& addr)
 {
-	Env::DocAddBlob_T("Delegator", addr);
+	DocAddMonoblob("Delegator", addr);
 }
 
 void ParserContext::On_PBFT_Status(const char* szName, I_PBFT::State::Validator::Status status)
@@ -1313,7 +1313,7 @@ void ParserContext::OnState_PBFT_STAT()
 
 			Env::DocArray gr4("");
 
-			Env::DocAddBlob_T("", vk0.m_KeyInContract.m_Address);
+			DocAddMonoblob("", vk0.m_KeyInContract.m_Address);
 			On_PBFT_Status("", vp.m_Status);
 
 			DocAddAmount("", vp.m_Weight);
