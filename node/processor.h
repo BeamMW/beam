@@ -26,6 +26,12 @@
 
 namespace beam {
 
+	namespace bvm2 {
+		namespace Storage {
+			struct IBase;
+		}
+	}
+
 class NodeProcessor
 {
 	struct DB
@@ -572,8 +578,8 @@ public:
 		virtual void OnContractVarChange(const Blob& key, const Blob& val, bool bTemporary) = 0;
 		virtual void OnContractStoreReset() = 0;
 		virtual bool OnContractInvoke(const ContractID&, uint32_t iMethod, const Blob& args, bool bTemporary) = 0;
-		virtual TxKernel::Ptr GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk) = 0;
-		virtual void TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly) = 0;
+		virtual void TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bTestOnly) = 0;
+		virtual bool AddReward(AmountBig::Number, bvm2::Storage::IBase&) = 0;
 	};
 
 	virtual IPbftHandler* get_PbftHandler();

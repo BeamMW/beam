@@ -6213,89 +6213,82 @@ void Node::Validator::OnContractVarChange(const Blob& key, const Blob& val, bool
 		m_ValidatorSet.m_hv.reset();
 }
 
-TxKernel::Ptr Node::Validator::GeneratePbftRewardKernel(Amount fees, ECC::Scalar::Native& sk)
+bool Node::Validator::AddReward(AmountBig::Number fees, bvm2::Storage::IBase& s)
 {
+	// emulate what AddReward is supposed to do
+
 	if (!m_cid)
-		return nullptr; // shouldn't happen though
+		return false;
+	if (fees.get_Element<Amount, 1>())
+		return false; // fee overflow?
 
-	using namespace Shaders::I_PBFT;
+	Shaders::Env::Key_T<uint8_t> kg;
+	kg.m_Prefix.m_Cid = *m_cid;
+	kg.m_KeyInContract = Shaders::I_PBFT::State::Tag::s_Global;
 
-	auto pKrn = std::make_unique<TxKernelContractInvoke>();
-	pKrn->m_Cid = *m_cid;
-	pKrn->m_iMethod = Method::AddReward::s_iMethod;
+	Blob blob;
+	s.LoadVar(Blob(&kg, sizeof(kg)), blob);
 
-	pKrn->m_Args.resize(sizeof(Method::AddReward));
-	auto& r = *(Method::AddReward*) &pKrn->m_Args.front();
-	r.m_Amount = ByteOrder::to_le(fees);
+	typedef Shaders::I_PBFT::State::Global Global;
 
-	pKrn->m_Height.m_Min = get_ParentObj().m_Processor.m_Cursor.m_hh.m_Height + 1;
+	if (blob.n < sizeof(Global))
+		return false;
 
-	ECC::Point::Native ptFunds = ECC::Context::get().H * fees;
+	ByteBuffer buf;
+	blob.Export(buf);
+	auto& g = *(Global*) &buf.front();
 
-	sk = get_ParentObj().m_Keys.m_Validator.m_sk;
-	pKrn->Sign(&sk, 1, ptFunds, nullptr);
+	Amount rews = ByteOrder::from_le(g.m_RewardPending);
 
-	return pKrn;
+	auto feesLo = fees.get_Element<Amount, 0>();
+	rews += feesLo;
+	if (rews < feesLo)
+		return false; // overflow
+
+	g.m_RewardPending = ByteOrder::to_le(rews);
+
+	Shaders::Env::Key_T<Asset::ID> kl;
+	kl.m_Prefix.m_Cid = *m_cid;
+	kl.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
+	kl.m_KeyInContract = 0;
+
+	AmountBig::Type valLocked;
+	s.LoadVar(Blob(&kl, sizeof(kl)), blob);
+	if (valLocked.nBytes == blob.n)
+		valLocked = *(AmountBig::Type*) blob.p;
+	else
+		valLocked = Zero;
+
+	AmountBig::Type valLockedNew = valLocked;
+	valLockedNew  += uintBigFrom(feesLo);
+	if (valLockedNew < valLocked)
+		return false; // overflow
+
+	// all good, modify state
+	s.SaveVar(Blob(&kg, sizeof(kg)), buf);
+	s.SaveVar(Blob(&kl, sizeof(kl)), valLockedNew);
+
+	return true;
 }
 
-void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bStart, bool bTestOnly)
+void Node::Validator::TestBlock(const Block::SystemState::Full& s, const HeightHash& id, const Block::Body& block, bool bTestOnly)
 {
 	const auto& d = Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW);
 
-	if (bStart)
+	// Skip timestamp testing. During proposal testing it's checked anyway
+
+	if (!bTestOnly) // during block test the QC isn't ready yet
 	{
-		// Skip timestamp testing. During proposal testing it's checked anyway
-
-		if (!bTestOnly) // during block test the QC isn't ready yet
-		{
-			if (!m_ValidatorSet.CheckQuorum(id.m_Hash, d.m_QC))
-				Exc::Fail("QC");
-		}
-
-		uint8_t nFlags = 0;
-		if (block.IsEmpty() && (s.m_Number.v > 1))
-			nFlags = Block::Pbft::HdrData::Flags::Empty;
-
-		if (d.m_Flags1 != nFlags)
-			Exc::Fail("flags mismatch");
-
-		// save the 
+		if (!m_ValidatorSet.CheckQuorum(id.m_Hash, d.m_QC))
+			Exc::Fail("QC");
 	}
-	else
-	{
-		// make sure all fees were added as a block reward
-		struct Walker
-			:public TxKernel::IWalker
-		{
-			const Validator& m_This;
-			Walker(Validator& x) :m_This(x) {}
 
-			Amount m_FeesDelta = 0; // ignore overflow. It's handled elsewhere
+	uint8_t nFlags = 0;
+	if (block.IsEmpty() && (s.m_Number.v > 1))
+		nFlags = Block::Pbft::HdrData::Flags::Empty;
 
-			bool OnKrn(const TxKernel& krn) override
-			{
-				m_FeesDelta += krn.m_Fee;
-				if (TxKernel::Subtype::ContractInvoke == krn.get_Subtype())
-				{
-					auto& k2 = krn.CastTo_ContractInvoke();
-					if (m_This.m_cid && (k2.m_Cid == *m_This.m_cid) && (Shaders::I_PBFT::Method::AddReward::s_iMethod == k2.m_iMethod))
-					{
-						if (k2.m_Args.size() < sizeof(Shaders::I_PBFT::Method::AddReward))
-							Exc::Fail("AddReward malformed");
-
-						const auto& m = *(Shaders::I_PBFT::Method::AddReward*) &k2.m_Args.front();
-						m_FeesDelta -= m.m_Amount;
-					}
-				}
-
-				return true;
-			}
-		} wlk(*this);
-
-		wlk.Process(block.m_vKernels);
-		if (wlk.m_FeesDelta)
-			Exc::Fail("reward mismatch");
-	}
+	if (d.m_Flags1 != nFlags)
+		Exc::Fail("flags mismatch");
 }
 
 

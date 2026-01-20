@@ -218,7 +218,7 @@ namespace beam
 		}
 
 		AmountBig::Number valFees = Zero;
-		bool bFeesToSigma = !m_Params.m_bBlock && ShouldVerify(iV);
+		bool bFeesToSigma = (!m_Params.m_bBlock || (Rules::Consensus::Pbft == rules.m_Consensus)) && ShouldVerify(iV);
 
 		for (const TxKernel* pPrev = NULL; r.m_pKernel; pPrev = r.m_pKernel, r.NextKernel())
 		{

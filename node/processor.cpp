@@ -2719,6 +2719,7 @@ struct NodeProcessor::BlockInterpretCtx
 		void DataToggleTree(const Blob& key, const Blob&, bool bAdd);
 		void DataSaveWithRecovery(BlobMap::Entry&, const Blob&);
 
+		void PutVarsTerminator();
 		void UndoVars();
 
 		IMPLEMENT_GET_PARENT_OBJ(BlockInterpretCtx, m_Storage)
@@ -2836,7 +2837,8 @@ struct NodeProcessor::BlockInterpretCtx
 	bool HandleAssetDestroy2(const PeerID&, const ContractID*, Asset::ID, Amount& valDeposit, bool bDepositCheck, uint32_t nSubIdx);
 
 	bool HandleValidatedTx(const TxVectors::Full&);
-	bool HandleValidatedBlock(const Block::Body&);
+	bool HandleValidatedBlock(const Block::Body&, IPbftHandler*);
+	bool HandlePbftReward(const std::vector<TxKernel::Ptr>& v, IPbftHandler*);
 
 	size_t GenerateNewBlockInternal(BlockContext&);
 	void GenerateNewHdr(BlockContext&);
@@ -3115,7 +3117,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 				Exc::Fail();
 
 			if (bFirstTime)
-				pPbft->TestBlock(s, id, block, true, bTestOnly);
+				pPbft->TestBlock(s, id, block, bTestOnly);
 
 			pPbft->get_Validators().get_Hash(hvVs);
 		}
@@ -3186,7 +3188,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
 		bic.m_pvC = &vC;
 
-	bool bOk = bic.HandleValidatedBlock(block);
+	bool bOk = bic.HandleValidatedBlock(block, pPbft);
 	if (!bOk)
 	{
 		assert(bFirstTime);
@@ -3272,8 +3274,6 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 				if (hvVs != Cast::Reinterpret<Block::Pbft::HdrData>(s.m_PoW).m_hvVsBoth)
 					Exc::Fail("vs.both");
-
-				pPbft->TestBlock(s, id, block, false, bTestOnly);
 			}
 			catch (const std::exception& e) {
 				BEAM_LOG_WARNING() << id << " " << e.what();
@@ -3283,7 +3283,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		if (!bOk || bTestOnly)
 		{
 			bic.m_Fwd = false;
-			BEAM_VERIFY(bic.HandleValidatedBlock(block));
+			BEAM_VERIFY(bic.HandleValidatedBlock(block, pPbft));
 		}
 	}
 
@@ -4745,13 +4745,39 @@ bool NodeProcessor::BlockInterpretCtx::HandleValidatedTx(const TxVectors::Full& 
 	return bOk;
 }
 
-bool NodeProcessor::BlockInterpretCtx::HandleValidatedBlock(const Block::Body& block)
+bool NodeProcessor::BlockInterpretCtx::HandlePbftReward(const std::vector<TxKernel::Ptr>& v, IPbftHandler* pPbft)
+{
+	if (pPbft)
+	{
+		AmountBig::Number fees = Zero;
+		TxKernel::AddFees(fees, v);
+
+		if (fees != Zero)
+		{
+			if (m_Fwd)
+			{
+				m_Storage.PutVarsTerminator();
+
+				if (!pPbft->AddReward(fees, m_Storage))
+					return false;
+			}
+			else
+				m_Storage.UndoVars();
+		}
+	}
+
+	return true;
+}
+
+bool NodeProcessor::BlockInterpretCtx::HandleValidatedBlock(const Block::Body& block, IPbftHandler* pPbft)
 {
 	// make sure we adjust txo count, to prevent the same Txos for consecutive blocks after cut-through
 	if (!m_Fwd)
 	{
 		assert(m_Proc.m_Extra.m_Txos);
 		m_Proc.m_Extra.m_Txos--;
+
+		HandlePbftReward(block.m_vKernels, pPbft);
 	}
 
 	if (!HandleValidatedTx(block))
@@ -4760,7 +4786,19 @@ bool NodeProcessor::BlockInterpretCtx::HandleValidatedBlock(const Block::Body& b
 	// currently there's no extra info in the block that's needed
 
 	if (m_Fwd)
+	{
+		if (!HandlePbftReward(block.m_vKernels, pPbft))
+		{
+			bool bFwd = false;
+			TemporarySwap swp(bFwd, m_Fwd);
+			if (!HandleValidatedTx(block))
+				OnCorrupted();
+
+			return false;
+		}
+
 		m_Proc.m_Extra.m_Txos++;
+	}
 
 	return true;
 }
@@ -5324,11 +5362,7 @@ NodeProcessor::BlockInterpretCtx::VmProcessorBase::VmProcessorBase(BlockInterpre
 	:m_Bic(bic)
 {
 	assert(bic.m_Fwd);
-
-	Ser ser(bic);
-
-	RecoveryTag::Type n = RecoveryTag::Terminator;
-	ser & n;
+	m_Bic.m_Storage.PutVarsTerminator();
 }
 
 bool NodeProcessor::BlockInterpretCtx::BvmProcessor::Invoke(const bvm2::ContractID& cid, uint32_t iMethod, const TxKernelContractControl& krn)
@@ -6243,6 +6277,14 @@ bool NodeProcessor::BlockInterpretCtx::BvmProcessor::AssetDestroy(Asset::ID aid,
 	return true;
 }
 
+void NodeProcessor::BlockInterpretCtx::Storage::PutVarsTerminator()
+{
+	Ser ser(get_ParentObj());
+
+	auto n = VmProcessorBase::RecoveryTag::Terminator;
+	ser & n;
+}
+
 void NodeProcessor::BlockInterpretCtx::Storage::UndoVars()
 {
 	typedef VmProcessorBase::RecoveryTag RecoveryTag;
@@ -6523,10 +6565,17 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 	assert(num.v >= m_Extra.m_Fossil.v);
 
-	bool bFictive =
-		(Rules::Consensus::Pbft == Rules::get().m_Consensus) &&
-		(num.v + 1 == m_Cursor.m_Full.m_Number.v) &&
-		(Block::Pbft::HdrData::Flags::Empty & Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW).m_Flags1);
+	IPbftHandler* pPbft = nullptr;
+	bool bFictive = false;
+
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		pPbft = get_PbftHandler();
+
+		bFictive =
+			(num.v + 1 == m_Cursor.m_Full.m_Number.v) &&
+			(Block::Pbft::HdrData::Flags::Empty & Cast::Reinterpret<Block::Pbft::HdrData>(m_Cursor.m_Full.m_PoW).m_Flags1);
+	}
 
 	NodeDB::StateID sid = m_Cursor.get_Sid();
 
@@ -6600,7 +6649,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 			Deserializer der;
 			der.reset(bbE);
-			der& Cast::Down<TxVectors::Eternal>(txve);
+			der & Cast::Down<TxVectors::Eternal>(txve);
 
 			Height h = Num2Height(sid);
 
@@ -6610,6 +6659,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 			bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
 			bic.m_nKrnIdx = static_cast<uint32_t>(-1);
 
+			bic.HandlePbftReward(txve.m_vKernels, pPbft);
 			bic.HandleElementVecBwd(txve.m_vKernels, txve.m_vKernels.size());
 
 			bic.m_Rollback.swap(bbR);
@@ -7306,7 +7356,7 @@ size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& 
 		}
 	}
 
-	if (!m_Proc.m_nReserveBlockSizeForFees)
+	if (!m_Proc.m_nReserveBlockSizeForFees && (Rules::Consensus::Pbft != r.m_Consensus))
 	{
 		SerializerSizeCounter ssc2;
 
@@ -7476,19 +7526,6 @@ size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& 
 				ssc & (*pOutp);
 				bc.m_Block.m_vOutputs.push_back(std::move(pOutp));
 			}
-			else
-			{
-				pKrn = m_Proc.get_PbftHandler()->GeneratePbftRewardKernel(bc.m_Fees, bb.m_Offset);
-				if (!pKrn)
-					return 0;
-
-				if (!HandleBlockElement(*pKrn))
-					return 0;
-
-				yas::detail::SaveKrn(ssc, *pKrn, false);
-
-				bc.m_Block.m_vKernels.push_back(std::move(pKrn));
-			}
 
 			assert(ssc.m_Counter.m_Value <= n0);
 			(n0); // suppress 'unused' warning in release build
@@ -7594,7 +7631,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 		pPbft->get_Validators().get_Hash(d.m_hvVsBoth);
 	}
 
-	bool bOk = bic.HandleValidatedTx(bc.m_Block);
+	bool bOk = bic.HandleValidatedBlock(bc.m_Block, pPbft);
 	if (!bOk)
 	{
 		BEAM_LOG_WARNING() << "couldn't apply block after cut-through!";
@@ -7658,7 +7695,7 @@ bool NodeProcessor::GenerateNewBlock(BlockContext& bc)
 	bic.GenerateNewHdr(bc);
 
 	bic.m_Fwd = false;
-    BEAM_VERIFY(bic.HandleValidatedTx(bc.m_Block)); // undo changes
+    BEAM_VERIFY(bic.HandleValidatedBlock(bc.m_Block, pPbft)); // undo changes
 	assert(bic.m_Rollback.empty());
 
 	Serializer ser;
@@ -8380,18 +8417,12 @@ void NodeProcessor::RebuildNonStd()
 	static_assert(NodeDB::StreamType::StatesMmr == 0);
 	m_DB.StreamsDelAll(static_cast<NodeDB::StreamType::Enum>(1), NodeDB::StreamType::count);
 
-	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
-	{
-		IPbftHandler* pPbft = get_PbftHandler();
-		if (pPbft)
-			pPbft->OnContractStoreReset();
-	}
-
 	struct KrnWalkerRebuild
 		:public IKrnWalker
 	{
 		NodeProcessor& m_This;
 		BlockInterpretCtx* m_pBic = nullptr;
+		IPbftHandler* m_pPbft = nullptr;
 		std::vector<ContractInvokeExtraInfo>* m_pvC = nullptr;
 		KrnWalkerRebuild(NodeProcessor& p) :m_This(p) {}
 
@@ -8408,6 +8439,7 @@ void NodeProcessor::RebuildNonStd()
 			bic.m_Rollback.swap(m_Rollback); // optimization
 
 			Process(v);
+			bic.HandlePbftReward(v, m_pPbft);
 		
 			if (sid.m_Number.v > m_This.m_Extra.m_Fossil.v)
 			{
@@ -8449,6 +8481,15 @@ void NodeProcessor::RebuildNonStd()
 		}
 
 	} wlk(*this);
+
+	if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+	{
+		wlk.m_pPbft = get_PbftHandler();
+		if (!wlk.m_pPbft)
+			OnCorrupted();
+
+		wlk.m_pPbft->OnContractStoreReset();
+	}
 
 	std::vector<ContractInvokeExtraInfo> vC;
 	wlk.m_pvC = m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo) ? &vC : nullptr;
