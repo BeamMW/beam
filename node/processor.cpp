@@ -4462,7 +4462,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleAssetEmitForeign(const PeerID& pidO
 	fep.m_Details.m_Aid = aid;
 	fep.m_Details.m_Amount = valUns;
 
-	if (m_Fwd && !m_AlreadyValidated && bAdd && m_Temporary) // verify bridge ONLY when checking txs and blocks. But not when interpeting already signed blocks
+	if (m_Fwd && !m_AlreadyValidated && bAdd && !m_TxValidation && m_Temporary) // verify bridge ONLY when checking block proposals. But not when interpeting already signed blocks, or broadcasting txs
 	{
 		NodeDB::Recordset rs;
 		Blob blobDetails;
