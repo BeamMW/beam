@@ -7,7 +7,7 @@ namespace PBFT_DPOS
 {
 #pragma pack (push, 1)
 
-    static const ShaderID s_SID = { 0x49,0xe6,0x78,0x74,0xd3,0x2e,0xe9,0xf7,0x62,0x2b,0x04,0x6b,0xef,0x68,0xb2,0xf5,0xe0,0x7a,0x5d,0x8c,0xe1,0x43,0x09,0x2d,0xca,0x85,0xa2,0xdd,0x61,0xd7,0x0b,0x50 };
+    static const ShaderID s_SID = { 0x63,0xf0,0x27,0x04,0x4b,0xb9,0xb9,0xf9,0x8b,0x51,0x9c,0x80,0xa7,0x4a,0x88,0xc7,0x8a,0x92,0x74,0xba,0x1d,0x10,0x7b,0x3d,0x7d,0x88,0xd1,0xcc,0x35,0x39,0x61,0x45 };
 
     struct Settings
     {
@@ -37,7 +37,6 @@ namespace PBFT_DPOS
         struct Tag
             :public I_PBFT::State::Tag
         {
-            static const uint8_t s_Global = 1;
             static const uint8_t s_Delegator = 3;
             static const uint8_t s_Unbonded = 4;
         };
@@ -93,11 +92,11 @@ namespace PBFT_DPOS
         typedef MultiPrecision::Float Float;
 
         struct Global
+            :public I_PBFT::State::Global
         {
             Settings m_Settings;
 
             Amount m_TotakStakeNonJailed;
-            Amount m_RewardPending; // not yet accounted in summa. Defer heavy calculation until needed.
             Amount m_RewardInPoolRemaining;
             Accumulator m_accReward;
 
@@ -136,8 +135,6 @@ namespace PBFT_DPOS
             static const uint16_t s_CommissionMax = 8000; // 80%
             static const uint16_t s_CommissionTagTomb = 12000; // 80%
 
-
-            //void Init(const Global&);
 
             void FlushRewardPending(Global& g)
             {

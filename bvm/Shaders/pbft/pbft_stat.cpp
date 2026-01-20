@@ -1,5 +1,6 @@
 ////////////////////////
 #include "pbft_stat.h"
+#include "../Math.h" // Strict
 
 namespace PBFT_STAT {
 
@@ -45,6 +46,12 @@ struct ValidatorCtx
 
 BEAM_EXPORT void Ctor(const Method::Create& r)
 {
+    State::Global g;
+    g.m_RewardPending = 0;
+
+    uint8_t gk = State::Tag::s_Global;
+    Env::SaveVar_T(gk, g);
+
     for (uint32_t i = 0; i < r.m_Count; i++)
     {
         const auto& vi = r.get_VI()[i];
@@ -120,6 +127,14 @@ BEAM_EXPORT void Method_3(const I_PBFT::Method::ValidatorStatusUpdate& r)
 
 BEAM_EXPORT void Method_4(const I_PBFT::Method::AddReward& r)
 {
+    uint8_t gk = State::Tag::s_Global;
+    State::Global g;
+    Env::LoadVar_T(gk, g);
+
+    Strict::Add(g.m_RewardPending, r.m_Amount);
+
+    Env::SaveVar_T(gk, g);
+
     Env::FundsLock(0, r.m_Amount);
 }
 

@@ -26,7 +26,13 @@ namespace I_PBFT
     {
         struct Tag
         {
+            static const uint8_t s_Global = 1;
             static const uint8_t s_Validator = 2;
+        };
+
+        struct Global
+        {
+            Amount m_RewardPending;
         };
 
         struct Validator
