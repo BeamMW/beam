@@ -2626,7 +2626,7 @@ uint8_t Node::ValidateTx2(Transaction::Context& ctx, const Transaction& tx, uint
 	if (bValid)
 	{
 		try {
-			ctx.TestValidTransaction();
+			ctx.TestSigma();
 		} catch (const std::exception& e) {
 			bValid = false;
 			sErr = e.what();
@@ -4253,19 +4253,14 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		// and do the overall validation
 		TxBase::Context ctx;
 		ctx.m_Height = m_This.m_Processor.m_Cursor.m_hh.m_Height + 1;
+		ctx.m_Params.m_bBlock = true; // the following also ensures the coinbase value corresponds to the subsidy
 		std::string sErr;
 		if (!m_This.m_Processor.ValidateAndSummarize(ctx, *msg.m_Value, msg.m_Value->get_Reader(), sErr))
 			ThrowUnexpected(sErr.c_str());
 
-		if (ctx.m_Stats.m_Coinbase != AmountBig::Number(Rules::get().get_Emission(m_This.m_Processor.m_Cursor.m_hh.m_Height + 1)))
-			ThrowUnexpected();
-
 		ctx.m_Sigma = -ctx.m_Sigma;
-		ctx.m_Stats.m_Coinbase += AmountBig::Number(x.m_Fees);
-		AmountBig::AddTo(ctx.m_Sigma, ctx.m_Stats.m_Coinbase);
-
-		if (!(ctx.m_Sigma == Zero))
-			ThrowUnexpected();
+		AmountBig::AddTo(ctx.m_Sigma, AmountBig::Number(x.m_Fees));
+		ctx.TestSigma();
 
 		if (!tx.m_vInputs.empty())
 			ThrowUnexpected();

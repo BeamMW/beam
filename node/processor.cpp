@@ -1419,6 +1419,7 @@ struct NodeProcessor::MultiblockContext
 				:Shared(mbc)
 				,m_Number(num)
 			{
+				m_Ctx.m_Params.m_bBlock = true;
 			}
 
 			virtual ~SharedBlock() {} // auto
@@ -1502,30 +1503,14 @@ struct NodeProcessor::MultiblockContext
 			{
 				BEAM_LOG_INFO() << "TxoLo reached. Finalyzing multi-block balance";
 
-				Exc::CheckpointTxt cp("multi-block finalization"); // finalize multi-block arithmetics
-				
-				TxBase::Context ctx;
-				ctx.m_Params.m_bAllowUnsignedOutputs = true; // ignore verification of locked coinbase
-
-				// The following assmes PoW network, block number is height, and the height range is needed to calculate the reward
-				// Otherise this has no effect
-				ctx.m_Height.m_Min = m_This.m_SyncData.m_n0.v + 1;
-				ctx.m_Height.m_Max = m_This.m_SyncData.m_TxoLo.v;
-
-				ctx.m_Sigma = m_Sigma;
-
-				try {
-					ctx.TestValidBlock();
-				} catch (const std::exception& e) {
-
+				if (m_Sigma != Zero)
+				{
 					m_bFail = true;
-					m_sErr = e.what();
+					m_sErr = "multi-block Sigma nnz";
 					OnFastSyncFailedOnLo();
 
 					return;
 				}
-
-				m_Sigma = Zero;
 			}
 
 			m_Sigma.Export(m_This.m_SyncData.m_Sigma);
@@ -1715,7 +1700,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 				if (bLast)
 				{
 					if (!bSparse)
-						m_Ctx.TestValidBlock();
+						m_Ctx.TestSigma();
 					else
 					{
 						m_Mbc.m_Offset += m_Body.m_Offset;

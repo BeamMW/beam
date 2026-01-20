@@ -152,6 +152,9 @@ namespace beam
 
 		m_Sigma = -m_Sigma;
 
+		bool bHandleCoinbase = !m_Params.m_bAllowUnsignedOutputs && ShouldVerify(iV);
+		AmountBig::Number valCoinbase = Zero;
+
 		// Outputs
 		r.Reset();
 
@@ -199,7 +202,23 @@ namespace beam
 				r.m_pUtxoOut->AddStats(m_Stats);
 				m_Sigma += pt;
 			}
+
+			if (bHandleCoinbase && r.m_pUtxoOut->m_Coinbase)
+			{
+				if (!m_Params.m_bBlock)
+					Exc::Fail("Coinbase in tx");
+
+				if (Rules::Consensus::Pbft == rules.m_Consensus)
+					Exc::Fail("Coinbase in pbft");
+
+				if (r.m_pUtxoOut->m_pPublic)
+					valCoinbase += AmountBig::Number(r.m_pUtxoOut->m_pPublic->m_Value);
+
+			}
 		}
+
+		AmountBig::Number valFees = Zero;
+		bool bFeesToSigma = !m_Params.m_bBlock && ShouldVerify(iV);
 
 		for (const TxKernel* pPrev = NULL; r.m_pKernel; pPrev = r.m_pKernel, r.NextKernel())
 		{
@@ -218,75 +237,50 @@ namespace beam
 
 				r.m_pKernel->AddStats(m_Stats);
 			}
+
+			if (bFeesToSigma)
+				r.m_pKernel->AddFees(valFees);
 		}
+
+		assert(!m_Height.IsEmpty());
 
 		if (ShouldVerify(iV) && !(txb.m_Offset.m_Value == Zero))
 			m_Sigma += ECC::Context::get().G * txb.m_Offset;
 
-		assert(!m_Height.IsEmpty());
+		if (bFeesToSigma)
+			AmountBig::AddTo(m_Sigma, valFees);
+
+		if (m_Params.m_bBlock)
+		{
+			assert(m_Height.m_Min == m_Height.m_Max);
+
+			bool bAddSubsidy =
+				(Rules::Consensus::Pbft != rules.m_Consensus) &&
+				ShouldVerify(iV);
+
+			Amount subsidy = 0;
+
+			if (bAddSubsidy || bHandleCoinbase)
+				subsidy = rules.get_Emission(m_Height.m_Min);
+
+			if (bHandleCoinbase && (AmountBig::Number(subsidy) != valCoinbase))
+				Exc::Fail("Coinbase value mismatch");
+
+			if (bAddSubsidy)
+			{
+				m_Sigma = -m_Sigma;
+				AmountBig::AddTo(m_Sigma, subsidy);
+				m_Sigma = -m_Sigma;
+			}
+
+		}
 	}
 
-	void TxBase::Context::TestSigma()
+	void TxBase::Context::TestSigma() const
 	{
 		if (m_Sigma != Zero)
 			Exc::Fail("Sigma nnz");
 	}
 
-	void TxBase::Context::TestValidTransaction()
-	{
-		if (m_Stats.m_Coinbase != Zero)
-			// PoW mode: regular transactions should not produce coinbase outputs, only the miner should do this.
-			// Pbt mode: m_Coinbase is the diff between supposed and actual coinbase value. Hence it should be 0
-			Exc::Fail("Coinbase in tx");
-
-		AmountBig::AddTo(m_Sigma, m_Stats.m_Fee);
-		TestSigma();
-	}
-
-	void TxBase::Context::TestValidBlock()
-	{
-		const auto& r = Rules::get();
-
-		AmountBig::Number subsidy = Zero;
-
-		bool bPbft = (Rules::Consensus::Pbft == r.m_Consensus);
-		if (bPbft)
-		{
-			if (m_Stats.m_Coinbase != Zero)
-				Exc::Fail("Coinbase in pbft");
-		}
-		else
-		{
-			r.get_Emission(subsidy, m_Height);
-			m_Sigma = -m_Sigma;
-
-			AmountBig::AddTo(m_Sigma, subsidy);
-		}
-
-		TestSigma();
-
-		if (!m_Params.m_bAllowUnsignedOutputs && !bPbft)
-		{
-			bool bHasEnoughLocked = true;
-			bool bShortRange = (m_Height.m_Max - m_Height.m_Min < r.Maturity.Coinbase); // All the supposed coinbase UTXOs must be included (i.e. couldn't be spent and cut-through)
-
-			if (bShortRange)
-				bHasEnoughLocked = (m_Stats.m_Coinbase == subsidy);
-			else
-			{
-				// calculate the minimum coinbase value that's supposed still to be locked
-				HeightRange hr;
-				hr.m_Min = m_Height.m_Max - r.Maturity.Coinbase;
-				hr.m_Max = m_Height.m_Max;
-				r.get_Emission(subsidy, hr);
-
-				bHasEnoughLocked = (m_Stats.m_Coinbase >= subsidy);
-			}
-
-			if (!bHasEnoughLocked)
-				Exc::Fail("Coinbase value mismatch");
-
-		}
-	}
 
 } // namespace beam

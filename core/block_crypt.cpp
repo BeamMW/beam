@@ -199,7 +199,6 @@ namespace beam
 	void TxStats::operator += (const TxStats& s)
 	{
 		m_Fee				+= s.m_Fee;
-		m_Coinbase			+= s.m_Coinbase;
 
 		m_Kernels			+= s.m_Kernels;
 		m_KernelsNonStd		+= s.m_KernelsNonStd;
@@ -518,9 +517,6 @@ namespace beam
 	void Output::AddStats(TxStats& s) const
 	{
 		s.m_Outputs++;
-
-		if (m_Coinbase && m_pPublic)
-			s.m_Coinbase += MultiWord::From(m_pPublic->m_Value);
 	}
 
 #pragma pack (push, 1)
@@ -839,6 +835,18 @@ namespace beam
 		}
 
 		return hr;
+	}
+
+	void TxKernel::AddFees(AmountBig::Number& res) const
+	{
+		res += AmountBig::Number(m_Fee);
+		AddFees(res, m_vNested);
+	}
+
+	void TxKernel::AddFees(AmountBig::Number& res, const std::vector<Ptr>& v)
+	{
+		for (auto it = v.begin(); v.end() != it; ++it)
+			 (*it)->AddFees(res);
 	}
 
 	void TxKernel::TestValidBase(Height hScheme, ECC::Point::Native& exc, const TxKernel* pParent, ECC::Point::Native* pComm) const
@@ -1901,8 +1909,9 @@ namespace beam
 
 	void Transaction::TestValid(Context& ctx) const
 	{
+		assert(!ctx.m_Params.m_bBlock);
 		ctx.ValidateAndSummarizeStrict(*this, get_Reader());
-		ctx.TestValidTransaction();
+		ctx.TestSigma();
 	}
 
 	bool Transaction::IsValid(Context& ctx, std::string* psErr /* = nullptr */) const

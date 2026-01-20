@@ -752,7 +752,6 @@ namespace beam
 	struct TxStats
 	{
 		AmountBig::Number m_Fee;
-		AmountBig::Number m_Coinbase;
 
 		uint32_t m_Kernels;
 		uint32_t m_KernelsNonStd;
@@ -1195,6 +1194,10 @@ namespace beam
 		bool IsValid(Height hScheme, std::string* psErr = nullptr) const;
 
 		HeightRange get_EffectiveHeightRange() const;
+
+		// simplified version AddStats()
+		void AddFees(AmountBig::Number&) const;
+		static void AddFees(AmountBig::Number&, const std::vector<Ptr>&);
 
 		struct LongProof; // legacy
 
@@ -2024,6 +2027,7 @@ namespace beam
 		struct Params
 		{
 			bool m_bAllowUnsignedOutputs; // allow outputs without signature (commitment only). Applicable for cut-through blocks only, outputs that are supposed to be consumed in the later block.
+			bool m_bBlock; // block or tx?
 
 			// for multi-tasking, parallel verification
 			uint32_t m_nVerifiers;
@@ -2052,9 +2056,7 @@ namespace beam
 		void MergeStrict(const Context&);
 
 		// hi-level functions, should be used after all parts were validated and merged
-		void TestValidTransaction();
-		void TestSigma();
-		void TestValidBlock();
+		void TestSigma() const;
 	};
 
 	struct Block::ChainWorkProof
