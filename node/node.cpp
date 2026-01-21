@@ -473,6 +473,7 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 
 	assert(!t.m_pOwner);
 	t.m_pOwner = &p;
+	t.m_sidTrgRequested = t.m_sidTrg;
 
 	m_lstTasksUnassigned.erase(TaskList::s_iterator_to(t));
 	p.m_lstTasks.push_back(t);
@@ -543,13 +544,11 @@ void Node::Processor::RequestData(const Block::SystemState::ID& id, bool bBlock,
 		Node::Task& t = *it;
 		t.m_bNeeded = true;
 
-		if (!t.m_pOwner)
-		{
-			if (t.m_sidTrg.m_Number.v < sidTrg.m_Number.v)
-				t.m_sidTrg = sidTrg;
+		if (t.m_sidTrg.m_Number.v <= sidTrg.m_Number.v)
+			t.m_sidTrg = sidTrg;
 
+		if (!t.m_pOwner)
 			get_ParentObj().TryAssignTask(t);
-		}
 	}
 }
 
@@ -2442,8 +2441,8 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 	const Block::SystemState::ID& id = t.m_Key.first;
 	Processor& p = m_This.m_Processor;
 
-	assert(t.m_sidTrg.m_Number.v >= id.m_Number.v);
-	uint64_t hCountExtra = t.m_sidTrg.m_Number.v - id.m_Number.v;
+	assert(t.m_sidTrgRequested.m_Number.v >= id.m_Number.v);
+	uint64_t hCountExtra = t.m_sidTrgRequested.m_Number.v - id.m_Number.v;
 
 	if (msg.m_Bodies.size() > hCountExtra + 1)
 		ThrowUnexpected();
@@ -2460,7 +2459,7 @@ void Node::Peer::OnMsg(proto::BodyPack&& msg)
 	NodeProcessor::DataStatus::Enum eStatus = NodeProcessor::DataStatus::Rejected;
 	if (!msg.m_Bodies.empty() && ShouldAcceptBodyPack())
 	{
-		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrg, hCountExtra);
+		const uint64_t* pPtr = p.get_CachedRows(t.m_sidTrgRequested, hCountExtra);
 		if (pPtr)
 		{
 			BEAM_LOG_INFO() << id << " Block pack received " << id.m_Number.v << "-" << (id.m_Number.v + msg.m_Bodies.size() - 1);

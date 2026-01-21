@@ -314,6 +314,7 @@ private:
 		uint32_t m_nCount;
 		uint32_t m_TimeAssigned_ms;
 		NodeDB::StateID m_sidTrg;
+		NodeDB::StateID m_sidTrgRequested;
 		Block::Number m_n0; // those 2 are fast-sync params at the moment of task assignment
 		Block::Number m_nTxoLo;
 		Peer* m_pOwner;
