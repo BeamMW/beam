@@ -3155,7 +3155,7 @@ bool NodeDB::ContractDataFind(const Blob& key, Blob& data, Recordset& rs)
 
 bool NodeDB::ContractDataFindNext(Blob& key, Recordset& rs)
 {
-	rs.Reset(*this, Query::ContractDataFindNext, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">?");
+	rs.Reset(*this, Query::ContractDataFindNext, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key ">? ORDER BY " TblContracts_Key " ASC LIMIT 1");
 	rs.put(0, key);
 	if (!rs.Step())
 		return false;
@@ -3166,7 +3166,7 @@ bool NodeDB::ContractDataFindNext(Blob& key, Recordset& rs)
 
 bool NodeDB::ContractDataFindPrev(Blob& key, Recordset& rs)
 {
-	rs.Reset(*this, Query::ContractDataFindPrev, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key "<?");
+	rs.Reset(*this, Query::ContractDataFindPrev, "SELECT " TblContracts_Key " FROM " TblContracts " WHERE " TblContracts_Key "<? ORDER BY " TblContracts_Key " DESC LIMIT 1");
 	rs.put(0, key);
 	if (!rs.Step())
 		return false;
