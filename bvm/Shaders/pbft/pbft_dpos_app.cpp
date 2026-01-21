@@ -391,7 +391,29 @@ ON_METHOD(update_delegator)
             nCountAvail++;
     }
 
-    args.m_StakeDeposit = args.m_StakeBond;
+    const uint32_t nConstUnbondOp =
+        Env::Cost::LoadVar_For(sizeof(Amount)) +
+        Env::Cost::SaveVar_For(sizeof(Amount)) +
+        Env::Cost::Cycle * 100;
+
+    if (args.m_StakeBond > 0)
+        args.m_StakeDeposit = args.m_StakeBond;
+    else
+    {
+        // if we're reducing stake - we can't withdraw it immediately, instead it's transferred to unbonded
+        args.m_StakeDeposit = 0;
+        if (args.m_StakeBond < 0)
+        {
+            vUnbonded.emplace_back() = -args.m_StakeBond;
+            if (!g.m_Settings.m_hUnbondLock)
+                nCountAvail++;
+
+            nCost +=
+                Env::Cost::LoadVar_For(sizeof(Amount)) +
+                Env::Cost::SaveVar_For(sizeof(Amount)) +
+                Env::Cost::Cycle * 100;
+        }
+    }
 
     for (uint32_t iEntry = vUnbonded.m_Count; iEntry--; )
     {
