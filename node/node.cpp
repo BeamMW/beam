@@ -377,7 +377,14 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		}
 	}
 
-	if (p.m_setRejected.end() != p.m_setRejected.find(t.m_Key))
+	std::pair<Task::Key, uint64_t> kRej;
+	kRej.first = t.m_Key;
+	if (t.m_Key.second)
+		kRej.second = t.m_sidTrg.m_Row;
+	else
+		kRej.second = 0;
+
+	if (p.m_setRejected.end() != p.m_setRejected.find(kRej))
 	{
 		BEAM_LOG_VERBOSE() << "task already rejected";
 		return false;
@@ -2115,7 +2122,15 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 void Node::Peer::OnMsg(proto::DataMissing&&)
 {
 	Task& t = get_FirstTask();
-	m_setRejected.insert(t.m_Key);
+
+	std::pair<Task::Key, uint64_t> kRej;
+	kRej.first = t.m_Key;
+	if (t.m_Key.second)
+		kRej.second = t.m_sidTrgRequested.m_Row;
+	else
+		kRej.second = 0;
+
+	m_setRejected.insert(kRej);
 
 	OnFirstTaskDone();
 }

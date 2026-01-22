@@ -571,7 +571,7 @@ private:
 		const NodeProcessor::Account* m_pAccount = nullptr;
 
 		TaskList m_lstTasks;
-		std::set<Task::Key> m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
+		std::set<std::pair<Task::Key, uint64_t> > m_setRejected; // data that shouldn't be requested from this peer. Reset after reconnection or on receiving NewTip
 
 		Bbs::Subscription::PeerSet m_Subscriptions;
 
