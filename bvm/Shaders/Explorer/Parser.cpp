@@ -62,6 +62,29 @@ void DocAddAmount(const char* sz, Amount x)
 	Env::DocAddNum("value", x);
 }
 
+void DocAddAmountSigned(const char* sz, Amount val, bool bPos)
+{
+	Env::DocGroup gr(sz);
+	DocSetType("amount");
+
+	char szBuf[Utils::String::Decimal::DigitsMax<Amount>::N + 2];
+	szBuf[0] = bPos ? '+' : '-';
+	Utils::String::Decimal::Print(szBuf + 1, val);
+
+	Env::DocAddText("value", szBuf);
+}
+
+void DocAddAmountSigned(const char* sz, int64_t x)
+{
+	if (x > 0)
+		DocAddAmountSigned(sz, x, true);
+	else
+		if (x < 0)
+			DocAddAmountSigned(sz, -x, false);
+		else
+			DocAddAmount(sz, 0);
+}
+
 void DocAddHeight(const char* sz, Height h)
 {
 	Env::DocGroup gr(sz);
@@ -222,12 +245,23 @@ void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigs
 	char szVal[Utils::String::Decimal::DigitsMax<uint64_t>::N + 10];
 	auto n1 = Utils::String::Decimal::Print(szVal, val / one);
 
-	auto resid = val % one;
-	//if (resid)
+	if (nDigsAfterDot)
 	{
 		szVal[n1++] = '.';
-		Utils::String::Decimal::Print(szVal + n1, resid, nDigsAfterDot);
+
+		while (true)
+		{
+			val %= one;
+			val *= 10;
+			szVal[n1++] = Utils::String::Decimal::ToChar(val / one);
+
+			if (!--nDigsAfterDot)
+				break;
+		}
+
+		szVal[n1] = 0;
 	}
+
 	Env::DocAddText(sz, szVal);
 }
 
@@ -477,7 +511,6 @@ struct ParserContext
 	void On_PBFT_ValidatorAddr(const PBFT_DPOS::Address&);
 	void On_PBFT_DelegatorAddr(const PubKey&);
 	void On_PBFT_Status(const char*, I_PBFT::State::Validator::Status);
-	void On_PBFT_Stake(Amount);
 	void On_PBFT_Commission(uint16_t, bool bIsTbl = false);
 
 };
@@ -1044,13 +1077,114 @@ void ParserContext::OnState_PBFT_DPOS()
 	g2.m_RewardPending = nProbeOnePercent * 100;
 	g2.FlushRewardPending();
 
-	DocAddAmount("Total-non-jailed-stake", g.m_TotakStakeNonJailed);
+	struct ValidatorPlus
+	{
+		PBFT_DPOS::State::ValidatorPlus m_Validador;
+		PBFT_DPOS::Address m_Address;
+
+		bool HasVotingPower() const {
+			return m_Validador.m_Status < I_PBFT::State::Validator::Status::Suspended;
+		}
+
+		void operator = (const ValidatorPlus& x) {
+			_POD_(*this) = x;
+		}
+
+		bool operator < (const ValidatorPlus& x) const {
+			// 1. stake. The more - the better
+			if (m_Validador.m_Weight > x.m_Validador.m_Weight)
+				return true;
+			if (m_Validador.m_Weight < x.m_Validador.m_Weight)
+				return false;
+
+			// 2. status. The less - the better
+			if (m_Validador.m_Status < x.m_Validador.m_Status)
+				return true;
+			if (m_Validador.m_Status > x.m_Validador.m_Status)
+				return false;
+
+			// 3. Address
+			return _POD_(m_Address).Cmp(x.m_Address) < 0;
+		}
+	};
+
+	Utils::Vector<ValidatorPlus> vVals;
+	Amount totalStake = 0;
+	uint64_t totalPower = 0;
+	//uint32_t nCountWithPower = 0;
+
+	{
+		Env::Key_T<PBFT_DPOS::State::Validator::Key> vk0, vk1;
+		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
+		_POD_(vk1.m_KeyInContract.m_Address).SetObject(0xff);
+
+		for (Env::VarReader r(vk0, vk1); ; )
+		{
+			auto& x = vVals.emplace_back();
+			if (!r.MoveNext_T(vk0, x.m_Validador))
+			{
+				vVals.m_Count--;
+				break;
+			}
+
+			_POD_(x.m_Address) = vk0.m_KeyInContract.m_Address;
+			totalStake += x.m_Validador.m_Weight;
+
+			if (x.HasVotingPower())
+			{
+				totalPower += x.m_Validador.m_Weight;
+				//nCountWithPower++;
+			}
+		}
+	}
 
 	{
 		Env::DocGroup gr("Settings");
 		On_PBFT_Settings(g.m_Settings);
 	}
 
+	DocAddAmount("Total stake", totalStake);
+
+	vVals.Prepare(vVals.m_Count * 2);
+	auto* pVals = MergeSort<ValidatorPlus>::Do(vVals.m_p, vVals.m_p + vVals.m_Count, vVals.m_Count);
+
+/*
+	{
+		Env::DocGroup gr2("Validators");
+
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Address");
+			DocAddTableHeader("Status");
+			DocAddTableHeader("Stake");
+			DocAddTableHeader("Voting Power %");
+			DocAddTableHeader("Commission");
+		}
+
+		for (uint32_t i = 0; i < vVals.m_Count; i++)
+		{
+			auto& x = pVals[i];
+			Env::DocArray gr5("");
+
+			DocAddMonoblob("", x.m_Address);
+			On_PBFT_Status("", x.m_Validador.m_Status);
+			DocAddAmount("", x.m_Validador.m_Weight);
+
+			if (x.HasVotingPower())
+				DocAddFixedPoint("", x.m_Validador.m_Weight * 100, totalPower, 4);
+			else
+				Env::DocAddNum32("", 0);
+
+			On_PBFT_Commission(x.m_Validador.m_Commission_cpc, true);
+		}
+
+	}
+*/
 
 	{
 		Env::DocGroup gr2("Validators/Delegators");
@@ -1064,33 +1198,30 @@ void ParserContext::OnState_PBFT_DPOS()
 			DocAddTableHeader("Delegator");
 			DocAddTableHeader("Status");
 			DocAddTableHeader("Commission");
+			DocAddTableHeader("Voting Power %");
 			DocAddTableHeader("Stake");
-			DocAddTableHeader("Reward");
-			DocAddTableHeader("%");
+			DocAddTableHeader("Reward Pending");
+			DocAddTableHeader("Reward %");
 		}
-
-		Env::Key_T<PBFT_DPOS::State::Validator::Key> vk0, vk1;
-		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
-		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
-		_POD_(vk0.m_KeyInContract.m_Address).SetZero();
-		_POD_(vk1.m_KeyInContract.m_Address).SetObject(0xff);
 
 		Env::Key_T<PBFT_DPOS::State::Delegator::Key> dk0, dk1;
 		_POD_(dk0.m_Prefix.m_Cid) = m_Cid;
 		_POD_(dk1.m_Prefix.m_Cid) = m_Cid;
 
-		for (Env::VarReader r(vk0, vk1); ; )
+		for (uint32_t iV = 0; iV < vVals.m_Count; iV++)
 		{
-			PBFT_DPOS::State::ValidatorPlus vp, vp2;
-			if (!r.MoveNext_T(vk0, vp))
-				break;
+			auto& x = pVals[iV];
+			auto& vp = x.m_Validador;
 
+			PBFT_DPOS::State::ValidatorPlus vp2;
 			_POD_(vp2) = vp;
 			vp2.FlushRewardPending(g2);
 			vp.FlushRewardPending(g);
 
-			_POD_(dk0.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+			_POD_(dk0.m_KeyInContract.m_Validator) = x.m_Address;
 			_POD_(dk0.m_KeyInContract.m_Delegator) = vp.m_Self.m_Delegator;
+
+			auto weight = x.HasVotingPower() ? vp.m_Weight : 0;
 
 			// self delegator
 			PBFT_DPOS::State::Delegator dp, dp2;
@@ -1115,11 +1246,13 @@ void ParserContext::OnState_PBFT_DPOS()
 			{
 				Env::DocArray gr4("");
 
-				DocAddMonoblob("", vk0.m_KeyInContract.m_Address);
+				DocAddMonoblob("", x.m_Address);
 				DocAddMonoblob("", vp.m_Self.m_Delegator);
 
 				On_PBFT_Status("", vp.m_Status);
 				On_PBFT_Commission(vp.m_Commission_cpc, true);
+
+				DocAddFixedPoint("", weight * 100, totalPower, 4);
 
 				DocAddAmount("", dpStake);
 				DocAddAmount("", dp.m_RewardRemaining);
@@ -1127,7 +1260,7 @@ void ParserContext::OnState_PBFT_DPOS()
 			}
 
 			// other delegators
-			_POD_(dk1.m_KeyInContract.m_Validator) = vk0.m_KeyInContract.m_Address;
+			_POD_(dk1.m_KeyInContract.m_Validator) = x.m_Address;
 
 			_POD_(dk0.m_KeyInContract.m_Delegator).SetZero();
 			_POD_(dk1.m_KeyInContract.m_Delegator).SetObject(0xff);
@@ -1148,6 +1281,7 @@ void ParserContext::OnState_PBFT_DPOS()
 				Env::DocArray gr4("");
 				Env::DocAddText("", "");
 				DocAddMonoblob("", dk0.m_KeyInContract.m_Delegator);
+				Env::DocAddText("", "");
 				Env::DocAddText("", "");
 				Env::DocAddText("", "");
 				DocAddAmount("", dpStake);
@@ -1199,6 +1333,13 @@ void ParserContext::OnMethod_PBFT_DPOS()
 			if (pArg)
 			{
 				GroupArgs gr;
+				DocAddMonoblob("Delegator", pArg->m_Delegator);
+
+				if (pArg->m_RewardClaim || pArg->m_StakeBond)
+				{
+					DocAddMonoblob("Validator", pArg->m_Validator);
+					DocAddAmountSigned("Bond_change", pArg->m_StakeBond);
+				}
 			}
 		}
 		break;
@@ -1213,7 +1354,7 @@ void ParserContext::OnMethod_PBFT_DPOS()
 
 				On_PBFT_ValidatorAddr(pArg->m_Validator);
 				On_PBFT_DelegatorAddr(pArg->m_Delegator);
-				On_PBFT_Stake(pArg->m_Stake);
+				DocAddAmountSigned("Stake", pArg->m_Stake, true);
 				On_PBFT_Commission(pArg->m_Commission_cpc);
 			}
 		}
@@ -1272,11 +1413,6 @@ void ParserContext::On_PBFT_Status(const char* szName, I_PBFT::State::Validator:
 	}
 
 	Env::DocAddText(szName, szStatus);
-}
-
-void ParserContext::On_PBFT_Stake(Amount val)
-{
-	DocAddAmount("Stake", val);
 }
 
 void ParserContext::On_PBFT_Commission(uint16_t commission_cpc, bool bIsTbl /* = false */)
@@ -2778,7 +2914,53 @@ void ParserContext::OnState_Minter()
 		WriteMinterSettings(s);
 	}
 
-	// TODO - tokens list
+	{
+		Env::DocGroup gr2("Tokens");
+		DocSetType("table");
+		Env::DocArray gr3("value");
+
+		{
+			Env::DocArray gr4("");
+			DocAddTableHeader("Aid");
+			DocAddTableHeader("Metadata");
+			DocAddTableHeader("Owner");
+			DocAddTableHeader("Minted");
+			DocAddTableHeader("Limit");
+		}
+
+		Env::Key_T<Minter::Token::Key> k0, k1;
+		_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+		k0.m_KeyInContract.m_Aid = 0;
+		k1.m_KeyInContract.m_Aid = (AssetID) -1;
+
+		for (Env::VarReader r(k0, k1); ; )
+		{
+			Minter::Token mt;
+			if (!r.MoveNext_T(k0, mt))
+				break;
+
+			Env::DocArray gr4("");
+
+			DocAddAid("", k0.m_KeyInContract.m_Aid);
+
+			char szMetadata[1024 * 16 + 1]; // max metadata size is 16K
+			AssetInfo ai;
+			auto nMetadata = Env::get_AssetInfo(k0.m_KeyInContract.m_Aid, ai, szMetadata, sizeof(szMetadata) - 1);
+			szMetadata[nMetadata] = 0;
+
+			Env::DocAddText("", szMetadata);
+
+			if (Minter::PubKeyFlag::s_Cid & mt.m_pkOwner.m_Y)
+				DocAddCid("", mt.m_pkOwner.m_X);
+			else
+				DocAddMonoblob("", mt.m_pkOwner);
+
+
+			DocAddAmountBig("", mt.m_Minted.m_Lo, mt.m_Minted.m_Hi);
+			DocAddAmountBig("", mt.m_Limit.m_Lo, mt.m_Limit.m_Hi);
+		}
+	}
 }
 
 void ParserContext::OnMethod_BlackHole()
