@@ -5832,6 +5832,12 @@ struct NodeProcessor::ProcessorInfoParser
 		return false;
 	}
 */
+
+	bool get_AssetInfo(Asset::Full& ai) override
+	{
+		return m_Proc.get_DB().AssetGetSafe(ai);
+	}
+
 	ProcessorInfoParser(NodeProcessor& p)
 		:m_Proc(p)
 	{
