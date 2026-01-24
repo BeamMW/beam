@@ -50,22 +50,19 @@
   let mode = localStorage.getItem('mode');
   if (mode) { document.querySelector(':root').classList.add(mode) }
 
-  // List of authorized explorer nodes (URLs must end with '/').
-  // The first one for each network will be the default one.
+  // List of authorized explorer nodes.
+  // Type ('PoW' or 'PoS') will change the displayed name of certain parameters.
+  // URLs must end with '/'. The first one will be the default for each network.
   const explorerNodes = {
-    'mainnet': [
+    'mainnet': { type: 'PoW', url: [
       'https://BeamSmart.net:8000/',
-      'https://explorer.0xmx.me/api/',
+      'https://explorer.0xmx.net/api/',
       'https://explorer-api.beamprivacy.community/',
       //'http://localhost:8888/',
-    ],
-    'dappnet': [
+    ]},
+    'dappnet': { type: 'PoW', url: [
       'https://BeamSmart.net:8001/',
-    ],
-    'dappnet2': [
-      'https://BeamSmart.net:8002/',
-      'https://explorer.0xmx.me/api/dappnet2/',
-    ],
+    ]},
   };
 
 </script>
@@ -2699,16 +2696,19 @@
     let text = `<div class="about">
                   <h2 class="title">About</h2>
                   <p class="aboutText">
+                    This app is an interactive portable display of the data queried to a <b>Beam explorer node</b> (<a href="javascript:openNodeSelection();" title="Show list of explorer nodes">see predefined list of nodes</a>).<br>The network and node currently queried are: <b>${g_network}</b> on <span class="nodeSelectionURL">${g_defaultNodesURL[g_network]}</span>
+                  </p>
+                  <p class="aboutText">
                     <b>Beam</b> (<a href="https://beam.mw" target="_blank">beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts. It's powered by the innovative <b>Mimblewimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain. It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.
                   </p>
                   <p class="aboutText">
-                    Although amounts are concealed and addresses are not stored onchain, the blockchain explorer shows the <b>"commitments"</b> of all <b>inputs & outputs</b> (UTXOs) of each block. They are dissociated of the individual transactions, whose <b>"kernels"</b> can also be seen within each block.
+                    Although amounts are concealed and addresses are not stored onchain, the blockchain explorer shows the <b>"commitments"</b> of all <b>inputs & outputs</b> (TXOs) of each block. They are dissociated of the individual transactions, whose <b>"kernels"</b> can also be seen within each block.
                   </p>
                   <p class="aboutText">
                     Beam's native <b>Confidential Assets</b> (or "privacy tokens") are also listed, with their complete mint and burn history. The <b>Smart Contracts</b> history is available too, with details of all their calls (although their users remain confidential).
                   </p>
                   <p class="aboutText">
-                    This app is an interactive portable display of the data queried to a Beam explorer node (selected from a <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">predefined list</a>). The whole thing is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and without any external dependencies, cookies, or trackers. You can see and save the <a href="view-source:${window.location.href.split('?')[0]}" target="_blank">source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href="https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm" target="_blank">Github</a>.
+                    This whole app is held in <b>one single HTML file</b>, written in vanilla HTML/JS/CSS and without any external dependencies, cookies, or trackers. You can see and save the <a href="view-source:${window.location.href.split('?')[0]}" target="_blank">source HTML</a> file using CTRL-U or CMD-U, and then simply open it locally with any modern browser. The source code is also available on <a href="https://github.com/BeamMW/beam/blob/master/explorer/htm/BeamExplorer.htm" target="_blank">Github</a>.
                   </p>
                   <p class="aboutDisclaimer">
                     Disclaimer: This is an experimental work-in-progress. It is provided AS-IS, with no warranties whatsoever.
@@ -2804,15 +2804,15 @@
   // (columns with 'null' color won't be displayable as graphs)
   const columnDefaultOrder = 'NTHgGdDfFkKiIoOuUyYzZbBpPcCaA'; // Without 't' (which is redundant with 'g')
   const columnDefaultDisplay = 'THdfkioyzp';
-  const columnHeaders = {
+  let columnHeaders = {
     'h': { color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
     'H': { color: null, original: 'Hash', title: 'Hash', description: 'Block hash' },
-    'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (in pBFT chains)' }, // Only available for pBFT chains
+    'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (identical to Block height)' },
     //'t': { color: '#bf3c3c', original: 'd.Time', title: 'Time', description: 'Block duration (in seconds)' }, // Redundant with 'g'
     'T': { color: '#808080', original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp' },
     'g': { color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Block duration (in seconds)' },
     'G': { color: '#d67a7a', original: 'Age', title: 'Age', description: 'Block age since genesis (in seconds)' },
-    'd': { color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty in PoW chains (or dynamic trimming of empty blocks in pBFT chains)' },
+    'd': { color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty' },
     'D': { color: '#00bdbd', original: 'Chainwork', title: 'Chainwork', description: 'Total difficulty since genesis' },
     'f': { color: '#7b00b0', original: 'Fee', title: 'Fees', description: 'Block fees (in Beams)' },
     'F': { color: '#8660d7', original: 'T.Fee', title: 'Total fees', description: 'Total fees since genesis (in Beams)' },
@@ -2836,6 +2836,14 @@
     'C': { color: '#6d92c2', original: 'Size.Compressed', title: 'Total size', description: 'Total blockchain size (in bytes)' },
     'a': { color: '#009d27', original: 'D.Size.Archive', title: 'Archive size', description: 'Block size (in bytes) if its spent Mimblewimble UTXOs were kept' },
     'A': { color: '#00d535', original: 'Size.Archive', title: 'Total archive size', description: 'Total blockchain size (in bytes) if all its spent Mimblewimble UTXOs were kept' }
+  };
+  // Variations for PoS sidechains
+  const columnHeaders_pos = {
+    'h': { color: '#000000', original: 'Height', title: 'Height', description: 'Block height (considering all blocks)' },
+    'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (considering only non-empty blocks)' },
+    'g': { color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Duration since previous non-empty block (in seconds)' },
+    'd': { color: '#008484', original: 'Difficulty', title: 'Span', description: 'Block span since previous non-empty block' },
+    'D': { color: '#00bdbd', original: 'Chainwork', title: 'Total span', description: 'Total block span (identical to Block height)' },
   };
 
   // Array of objects listing the special historical blocks.
@@ -3033,49 +3041,49 @@
 
 <script> // UPDATE DISPLAY WITH AVAILABLE NETWORKS AND EXPLORER NODES
 
-  // Define default explorer nodes to query
-  let g_defaultNodes;
+  // Define default explorer node URLs to query
+  let g_defaultNodesURL;
   try { // Try to read list from local storage (getItem returns 'null' if the variable doesn't exist)
-    g_defaultNodes = JSON.parse(localStorage.getItem('g_defaultNodes'));
+    g_defaultNodesURL = JSON.parse(localStorage.getItem('g_defaultNodesURL'));
   } catch (error) { // In case of any parsing error, also set the variable to 'null'
-    g_defaultNodes = null;
+    g_defaultNodesURL = null;
   }
   // If the variable doesn't exist or is not a literal object, then we set it with the default nodes
-  if (g_defaultNodes === null || g_defaultNodes.constructor !== Object) {
-    g_defaultNodes = {};
+  if (g_defaultNodesURL === null || g_defaultNodesURL.constructor !== Object) {
+    g_defaultNodesURL = {};
     for (let network in explorerNodes) {
-      g_defaultNodes[network] = explorerNodes[network][0]; // First node is used as default one
+      g_defaultNodesURL[network] = explorerNodes[network].url[0]; // First node is used as default one
     }
   // If the variable exists, then we thoroughly verify that its content is valid (authorized networks and nodes)
   } else {
     // First we remove any network that is not authorized
-    for (let network in g_defaultNodes) {
+    for (let network in g_defaultNodesURL) {
       if (explorerNodes[network] === undefined) {
-        delete g_defaultNodes[network]; 
+        delete g_defaultNodesURL[network]; 
       }
     }
     // If a network is missing, or if the node given for it is unknown, then we set the network with its default node
     for (let network in explorerNodes) {
-      if (g_defaultNodes[network] === undefined || !explorerNodes[network].includes(g_defaultNodes[network])) {
-        g_defaultNodes[network] = explorerNodes[network][0]; // First node is used as default one
+      if (g_defaultNodesURL[network] === undefined || !explorerNodes[network].url.includes(g_defaultNodesURL[network])) {
+        g_defaultNodesURL[network] = explorerNodes[network].url[0]; // First node is used as default one
       }
     }
   }
   // Save in local storage
-  localStorage.setItem('g_defaultNodes',JSON.stringify(g_defaultNodes));
+  localStorage.setItem('g_defaultNodesURL',JSON.stringify(g_defaultNodesURL));
 
   // Fill the network selection dropdown and the popup network list
   let nodesList = '';
   let networkOptions = '';
   for (let network in explorerNodes) {
-    // Create new option for the dropdown
+    // Create new option for the dropdown menu
     networkOptions += '<option value="' + network + '">' + network + '</option>';
     // Add nodes to the popup list
-    nodesList += '<div class="popupSubtitle">' + network + ' :</div>';
-    let nodes = explorerNodes[network];
+    nodesList += '<div class="popupSubtitle">' + network + ' (' + explorerNodes[network].type + '):</div>';
+    const nodes = explorerNodes[network].url;
     for (let i = 0; i < nodes.length; i++) {
-      let node = nodes[i];
-      let id = network + ' node ' + i;
+      const node = nodes[i];
+      const id = network + ' node ' + i;
       nodesList += '<input type="radio" id="' + id + '" class="nodeSelectionRadio" name="' + network + '" value="' + node + '">';
       nodesList += '<label for="' + id + '" class="nodeSelectionURL">' + node + '</label><br>';
       // Remark: All radios start unchecked. Radios of default nodes will be checked at popup opening.
@@ -3086,11 +3094,11 @@
   document.getElementById('NetworkSelect').innerHTML = networkOptions;
 
   // Get the node URL to query for the requested network
-  let urlPrefix = g_defaultNodes[g_network];
+  let urlPrefix = g_defaultNodesURL[g_network];
   // If the requested network in the URL was not found, then default to 'mainnet'
   if (urlPrefix === undefined) {
     g_network = 'mainnet';
-    urlPrefix = g_defaultNodes['mainnet'];
+    urlPrefix = g_defaultNodesURL['mainnet'];
   }
 
   // Put the current network in all links
@@ -3112,6 +3120,11 @@
   document.getElementById('NetworkSelect').addEventListener('change', function() {
     window.location.search = '?network=' + encodeURIComponent(this.value);
   });
+
+  // Use variations of data names and descriptions if the current network is PoS
+  if (explorerNodes[g_network].type == 'PoS') {
+    for (let code of Object.keys(columnHeaders_pos)) { columnHeaders[code] = columnHeaders_pos[code]; }
+  }
 
 </script>
 
@@ -3205,10 +3218,10 @@
 
   function checkNodeSelection() { // Check radios of default nodes (and uncheck the others)
     for (let network in explorerNodes) {
-      let nodes = explorerNodes[network];
+      const nodes = explorerNodes[network].url;
       for (let i = 0; i < nodes.length; i++) {
-        let id = network + ' node ' + i;
-        let check = (nodes[i] == g_defaultNodes[network]);
+        const id = network + ' node ' + i;
+        const check = (nodes[i] == g_defaultNodesURL[network]);
         document.getElementById(id).checked = check;
       }
     }
@@ -3222,7 +3235,7 @@
   function defaultNodeSelection() { // Reset selection to default nodes
     // Check radios of default nodes (i.e. the first for each network)
     for (let network in explorerNodes) {
-      let id = network + ' node ' + 0;
+      const id = network + ' node ' + 0;
       document.getElementById(id).checked = true;
     }
   }
@@ -3230,14 +3243,14 @@
   function applyNodeSelection() { // Apply popup selection
     // Update global variable with selected nodes
     for (let network in explorerNodes) {
-      let nodes = explorerNodes[network];
+      const nodes = explorerNodes[network].url;
       for (let i = 0; i < nodes.length; i++) {
-        let id = network + ' node ' + i;
-        if (document.getElementById(id).checked) { g_defaultNodes[network] = nodes[i]; };
+        const id = network + ' node ' + i;
+        if (document.getElementById(id).checked) { g_defaultNodesURL[network] = nodes[i]; };
       }
     }
     // Save in local storage
-    localStorage.setItem('g_defaultNodes',JSON.stringify(g_defaultNodes));
+    localStorage.setItem('g_defaultNodesURL',JSON.stringify(g_defaultNodesURL));
     // Reload the page
     location.reload();
   }
