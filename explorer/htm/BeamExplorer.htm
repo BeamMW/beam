@@ -2731,6 +2731,9 @@
     text += Obj2Html(jData);
     text += '</div>';
 
+    // Add link to connected peers
+    text += '<h3>' + MakeRef(UrlSelf('peers'), 'Connected Peers') + '</h3>';
+
     // Add an 'About' text below the Blockchain Status table
     text += AboutSection();
 
@@ -2761,6 +2764,35 @@
     // Display table
     text += MakeTblAssets(jData);
 
+    SetContent(text);
+  }
+
+  function DisplayPeers() {
+    const peers = JSON.parse(this.responseText);
+
+    let text = '<h2 class="title">Connected Peers (' + peers.length + ')</h2>';
+    
+    text += '<p class="aboutText">The network and node currently queried are: <b>' + g_network + '</b> on <span class="nodeURL">' + g_defaultNodesURL[g_network] + '</span></p>';
+
+    text += `<table class="dataTable tablePeers" border="1" cellspacing="0">
+               <thead><tr>
+                 <th><span class="th">#</span></th>
+                 <th><span class="th">Peer IP</span></th>
+               </tr></thead>`;
+
+    if (peers.length === 0) {
+      text += '<tr><td colspan="2">No peers connected</td></tr>';
+    } else {
+      for (let i = 0; i < peers.length; i++) {
+        const peer = peers[i];
+        text += '<tr>';
+        text += MakeCellRA(i + 1);
+        text += MakeCell(peer.ip || (typeof peer === 'string' ? peer : String(peer)));
+        text += '</tr>';
+      }
+    }
+
+    text += '</table>';
     SetContent(text);
   }
 
@@ -3196,6 +3228,9 @@
       if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = '' } // For inexistant blocks, display current assets 
       urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayAssets;
+
+    } else if (g_type == 'peers') { // Arguments for 'peers': (none)
+      xmlhttp.onload = DisplayPeers;
 
     } else {
       g_type = 'status'; // Arguments for 'status': (none)
