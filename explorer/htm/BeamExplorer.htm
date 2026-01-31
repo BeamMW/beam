@@ -16,6 +16,7 @@
   - Quotes are double for HTML and single for JS (and backticks to allow using both, multilines and variable substitutions).
   - Rule of thumb: 'undefined' is set by the computer (multiple causes) while 'null' is set by the developer (= no value by choice). We use 'value == null' to check both.
   - Graphics are Unicode symbols or embedded SVGs (Remark: inline SVGs in a file served as 'text/html' don't require 'xmlns' definition).
+  - Core JS should be able to parse and display ANY data provided by the explorer node. Customizations are then made ON TOP of that.
   - Except for filtering, sorting and charting, JS functions shall mainly modify classes while most display features are done by CSS.
   - That way, if we disable the main styling section, only the basic processing of the raw data will be visible.
 
@@ -54,13 +55,13 @@
   // Type ('PoW' or 'PoS') will change the displayed name of certain parameters.
   // URLs must end with '/'. The first one will be the default for each network.
   const explorerNodes = {
-    'mainnet': { type: 'PoW', url: [
+    'mainnet': { type: 'PoW', description: 'PoW, ~1-min blocks', url: [
       'https://BeamSmart.net:8000/',
       'https://explorer.0xmx.net/api/',
       'https://explorer-api.beamprivacy.community/',
       //'http://localhost:8888/',
     ]},
-    'dappnet': { type: 'PoW', url: [
+    'dappnet': { type: 'PoW', description: 'FakePoW, ~15-sec blocks', url: [
       'https://BeamSmart.net:8001/',
     ]},
   };
@@ -141,8 +142,8 @@
     --color_config_collapsible_button_border: #1e4c71;
     --color_popup_border: #ddd;
     --color_popup_background: #042548;
-    --color_popup_text : #ddd;
-    --color_popup_url : var(--color-green);
+    --color_popup_text: #ddd;
+    --color_popup_note: #adadad;
     --color_popup_input_placeholder: #aaa;
     --color_popup_input_text: #eee;
     --color_popup_input_text_invalid: #ff8686;
@@ -291,8 +292,8 @@
     --color_config_collapsible_button_border: #9ca2d2;
     --color_popup_border: #17204e;
     --color_popup_background: #d0daff;
-    --color_popup_text : black;
-    --color_popup_url : #2d3799;
+    --color_popup_text: black;
+    --color_popup_note: black;
     --color_popup_input_placeholder: #606060;
     --color_popup_input_text: #525252;
     --color_popup_input_text_invalid: #805353;
@@ -787,6 +788,11 @@
     font-weight: bold;
     padding: 15px 2px 5px 2px;
   }
+  .popupNote { /* Popup note */
+    font-size: 1.2rem;
+    color: var(--color_popup_note);
+    font-weight: normal;
+  }
   .popupText { /* Popup text */
     font-size: 1.3rem;
     color: var(--color_popup_text);
@@ -821,12 +827,15 @@
     vertical-align: bottom;
     margin: 5px 10px 0px 0px;
   }
-  .nodeSelectionURL {
+  .nodeURL { /* General style for URLs */
     font-family: "Lucida Console", ui-monospace, monospace;
     font-size: 1.2rem;
-    color: var(--color_popup_url);
+    color: var(--color_node_url);
     text-align: left;
     white-space: nowrap;
+    cursor: text;
+  }
+  label.nodeURL { /* To show it's clickable */
     cursor: pointer;
   }
   #BannerCenter{
@@ -1043,12 +1052,6 @@
   }
   .queried-network {
     font-weight: bold;
-  }
-  .queried-node {
-    font-family: "Lucida Console", ui-monospace, monospace;
-    font-size: 1.1rem;
-    color: var(--color_node_url);
-    white-space: nowrap;
   }
 
   /* GENERAL COLLAPSIBLE BLOCKS */
@@ -1921,7 +1924,7 @@
       <div id="MainContent">
         <!-- Dots are isolated, for CSS animation... -->
         <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
-        <p class="querying">Querying explorer node for <span class="queried-network"></span>: <span class="queried-node"></span></p>
+        <p class="querying">Querying explorer node for <span class="queried-network"></span> on <span class="nodeURL queried-node"></span></p>
         <p class="querying">&#9656; <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">List of available nodes.</a></p>
       </div>
 
@@ -2696,7 +2699,7 @@
     let text = `<div class="about">
                   <h2 class="title">About</h2>
                   <p class="aboutText">
-                    This app is an interactive portable display of the data queried to a <b>Beam explorer node</b> (<a href="javascript:openNodeSelection();" title="Show list of explorer nodes">see predefined list of nodes</a>).<br>The network and node currently queried are: <b>${g_network}</b> on <span class="nodeSelectionURL">${g_defaultNodesURL[g_network]}</span>
+                    This app is an interactive portable display of the data queried to a <b>Beam explorer node</b> (<a href="javascript:openNodeSelection();" title="Show list of explorer nodes">see predefined list of nodes</a>).<br>The network and node currently queried are: <b>${g_network}</b> (${explorerNodes[g_network].description}) on <span class="nodeURL">${g_defaultNodesURL[g_network]}</span>
                   </p>
                   <p class="aboutText">
                     <b>Beam</b> (<a href="https://beam.mw" target="_blank">beam.mw</a>) is a privacy-centric blockchain with native confidential assets and smart contracts. It's powered by the innovative <b>Mimblewimble</b> and <b>Lelantus</b> protocols, allowing the creation of a private, yet flexible and scalable blockchain. It's a proof-of-work blockchain, with one-minute blocks, a capped supply of coins and a Bitcoin-like emission schedule.
@@ -3079,13 +3082,13 @@
     // Create new option for the dropdown menu
     networkOptions += '<option value="' + network + '">' + network + '</option>';
     // Add nodes to the popup list
-    nodesList += '<div class="popupSubtitle">' + network + ' (' + explorerNodes[network].type + '):</div>';
+    nodesList += `<div class="popupSubtitle">${network} <span class="popupNote">(${explorerNodes[network].description})</span></div>`;
     const nodes = explorerNodes[network].url;
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
       const id = network + ' node ' + i;
       nodesList += '<input type="radio" id="' + id + '" class="nodeSelectionRadio" name="' + network + '" value="' + node + '">';
-      nodesList += '<label for="' + id + '" class="nodeSelectionURL">' + node + '</label><br>';
+      nodesList += '<label for="' + id + '" class="nodeURL">' + node + '</label><br>';
       // Remark: All radios start unchecked. Radios of default nodes will be checked at popup opening.
     }
   }
