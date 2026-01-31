@@ -1561,6 +1561,9 @@
     margin: 0;
     padding: 0;
   }
+  #graphCollapsible {
+    width: 80%; /* Initial width of the graph */
+  }
   #graphCollapsible .collapsible-label, #optionsCollapsible .collapsible-label {
     display: inline;
     white-space: nowrap; /* Don't wrap labels */
@@ -1583,7 +1586,7 @@
     margin: 5px 0 10px 0; /* For some reason I have to increase the margin-bottom of the second collapsible... */
   }
   #graphCollapsible .collapsible-content {
-    width: 800px;
+    width: 100%;
     height: 300px; /* This gives an initial reference height for all its children */
     resize: both; /* Make it resizable with mouse */
     overflow: hidden; /* Avoid scrollbars appearing */
