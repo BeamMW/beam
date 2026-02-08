@@ -64,6 +64,13 @@
     'dappnet': { type: 'PoW', description: 'FakePoW, ~15-sec blocks', url: [
       'https://BeamSmart.net:8001/',
     ]},
+    'dappnet2': { type: 'PoS', description: 'Single validator, 15-sec blocks', url: [
+      'https://BeamSmart.net:8002/',
+      'https://explorer.0xmx.me/api/dappnet2/',
+    ]},
+    'warp_dev3': { type: 'PoS', description: '3-sec blocks', url: [
+      'https://explorer.0xmx.me/api/warp_dev3/',
+    ]},
   };
 
 </script>
@@ -2089,8 +2096,11 @@
     let d = new Date(); // Get current local date and time
     const diff = (zone == 'local') ? d.getTimezoneOffset() : 0 ; // If needed, get difference between local time and UTC
     d = new Date((time - diff * 60) * 1000); // Get date object from miliseconds
-    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ
-    const txt = iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
+    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ 
+    const txt = g_IsPos ?
+        iso.replace(/(.*)T(.*)\.([0-9]+)Z/, '$1 $2.$3') : // Convert to simple format YYYY-MM-DD HH:MM:SS.ZZZ
+        iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
+
     // Alternative: The 'Intl.DateTimeFormat' with 'sv-SE' also happens to match this format...
     return txt;
   }
@@ -3042,6 +3052,7 @@
 
   // Get URL parameters
   const URLparams = new URL(document.location).searchParams;
+  let g_IsPos = false;
   let g_network = URLparams.get('network'); // Should be one of those defined in global variable 'explorerNodes'
   let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ('historical' and 'treasury')
   let g_id = URLparams.get('id'); // Used for type=asset & contract
@@ -3160,7 +3171,8 @@
   });
 
   // Use variations of data names and descriptions if the current network is PoS
-  if (explorerNodes[g_network].type == 'PoS') {
+  g_IsPos = explorerNodes[g_network].type == 'PoS';
+  if (g_IsPos) {
     for (let code of Object.keys(columnHeaders_pos)) { columnHeaders[code] = columnHeaders_pos[code]; }
   }
 

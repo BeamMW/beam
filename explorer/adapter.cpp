@@ -430,20 +430,26 @@ private:
             get_TreasuryTotals(sd.m_Totals);
     }
 
-    Timestamp m_tsBlock1 = 0;
-
-    Timestamp get_TimeStampGenesis()
+    static double get_Timestamp_s(const Block::SystemState::Full& s)
     {
-        if (!m_tsBlock1 && _nodeBackend.m_Cursor.m_Full.m_Number.v)
+        auto ts_ms = s.get_Timestamp_ms();
+        return ((double)ts_ms) / 1000.;
+    }
+
+    uint64_t m_tsBlock1_ms = 0;
+
+    uint64_t get_TimeStampGenesis_ms()
+    {
+        if (!m_tsBlock1_ms && _nodeBackend.m_Cursor.m_Full.m_Number.v)
         {
             Block::SystemState::Full s;
             auto row = _nodeBackend.FindActiveAtStrict(Block::Number(1));
             _nodeBackend.get_DB().get_State(row, s);
 
-            m_tsBlock1 = s.m_TimeStamp;
+            m_tsBlock1_ms = s.get_Timestamp_ms();
         }
 
-        return m_tsBlock1;
+        return m_tsBlock1_ms;
     }
 
     void EnsureHaveCumulativeStats(bool bForceReset = false)
@@ -705,9 +711,10 @@ private:
         return NiceDecimal::Make(x, get_ExpandWithCommas());
     }
 
-    NiceDecimal::Str<sizeof(int64_t) + 1> MakeDecimalDelta(int64_t x) const
+    template <uint32_t nFracDigits = 0>
+    NiceDecimal::Str<sizeof(int64_t) + 2> MakeDecimalDelta(int64_t x) const
     {
-        NiceDecimal::Str<sizeof(int64_t) + 1> ret;
+        NiceDecimal::Str<sizeof(int64_t) + 2> ret;
         if (x)
         {
             uint32_t nLen = 0;
@@ -717,15 +724,35 @@ private:
                 ret.m_sz[nLen++] = '-';
             }
 
-            uint32_t nLenUns = NiceDecimal::Print(ret.m_sz + nLen, ret.s_MaxLen - nLen, static_cast<uint64_t>(x), get_ExpandWithCommas());
+            const uint64_t one = NumericUtils::PowerOf<10, nFracDigits>::N;
+            uint32_t nLenUns = NiceDecimal::Print(ret.m_sz + nLen, ret.s_MaxLen - nLen, static_cast<uint64_t>(x) / one, get_ExpandWithCommas());
 
             nLen += nLenUns;
             assert(nLen < _countof(ret.m_sz));
+
+            if constexpr (nFracDigits > 0)
+            {
+                ret.m_sz[nLen++] = '.';
+
+                auto out = MultiWord::Factorization::MakePrintOut<10>(ret.m_sz + nLen, nFracDigits);
+                MultiWord::From(x % one).DecomposeEx<10>(out, false);
+
+                nLen += nFracDigits;
+                assert(nLen < _countof(ret.m_sz));
+                ret.m_sz[nLen] = 0;
+            }
         }
         else
             ret.m_sz[0] = 0;
 
         return ret;
+    }
+
+    NiceDecimal::Str<sizeof(int64_t) + 2> MakeDecimalTimeDelta(int64_t t_ms) const
+    {
+        return (Rules::Consensus::Pbft == Rules::get().m_Consensus) ?
+            MakeDecimalDelta<3>(t_ms) :
+            MakeDecimal(static_cast<int64_t>(t_ms / 1000));
     }
 
     json get_status() override {
@@ -753,7 +780,7 @@ private:
 
             char buf[80];
             json j{
-                    { "timestamp", c.m_Full.m_TimeStamp },
+                    { "timestamp", get_Timestamp_s(c.m_Full) },
                     { "height", c.m_hh.m_Height },
                     { "low_horizon", _nodeBackend.m_Extra.m_TxoHi.v },
                     { "hash", hash_to_hex(buf, c.m_hh.m_Hash) },
@@ -771,7 +798,7 @@ private:
         json jInfo_L = json::array();
 
         jInfo_L.push_back({ MakeTableHdr("Height"), MakeObjHeight(c.m_hh.m_Height)  });
-        jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", c.m_Full.m_TimeStamp) });
+        jInfo_L.push_back({ MakeTableHdr("Last block Timestamp"), MakeTypeObj("time", get_Timestamp_s(c.m_Full)) });
         if (Rules::Consensus::Pbft != r.m_Consensus)
             jInfo_L.push_back({ MakeTableHdr("Next block Difficulty"), NiceDecimal::MakeDifficulty(_nodeBackend.m_Cursor.m_DifficultyNext).m_sz });
 
@@ -2330,12 +2357,12 @@ private:
 
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
-        void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", m_pThis->m_Hdr.m_TimeStamp)); }
-        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_pPrev->m_Hdr.m_TimeStamp).m_sz); }
+        void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", get_Timestamp_s(m_pThis->m_Hdr))); }
+        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_pPrev->m_Hdr.get_Timestamp_ms()).m_sz); }
 
         void OnName_Age_Abs() { m_json.push_back(MakeTableHdr("Age")); }
         void OnName_Age_Rel() { m_json.push_back(MakeTableHdr("d.Age")); }
-        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalDelta(m_pThis->m_Hdr.m_TimeStamp - m_This.get_TimeStampGenesis()).m_sz); }
+        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_This.get_TimeStampGenesis_ms()).m_sz); }
         void OnData_Age_Rel() { OnData_Time_Rel(); }
 
         void OnName_Difficulty_Abs() { m_json.push_back(MakeTableHdr("Chainwork")); }
@@ -2671,7 +2698,7 @@ private:
 
             out = json{
                 {"found",      true},
-                {"timestamp",  s.m_TimeStamp},
+                {"timestamp",  get_Timestamp_s(s)},
                 {"height",     height},
                 {"hash",       hash_to_hex(buf, hv)},
                 {"prev",       hash_to_hex(buf, s.m_Prev)},
@@ -2694,7 +2721,7 @@ private:
             json jInfo = json::array();
 
             jInfo.push_back({ MakeTableHdr("Height"), MakeObjHeight(height) });
-            jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", s.m_TimeStamp) });
+            jInfo.push_back({ MakeTableHdr("Timestamp"),MakeTypeObj("time", get_Timestamp_s(s)) });
             jInfo.push_back({ MakeTableHdr("Hash"), MakeObjBlob(hv) });
             if (Rules::Consensus::Pbft != r.m_Consensus)
             {
