@@ -105,6 +105,16 @@ namespace NumericUtils
 
 		};
 
+		template <>
+		struct Power<0>
+		{
+			template <uint64_t x>
+			struct Of
+			{
+				static const uint64_t N = 1;
+			};
+		};
+
 		template <uint64_t n>
 		struct Log
 		{
