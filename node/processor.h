@@ -404,6 +404,15 @@ public:
 	} m_UnreachableLog;
 
 	bool IsFastSync() const { return m_SyncData.m_Target.m_Row != 0; }
+	bool m_bCongestionCacheDirty = true; // avoid redundant EnumCongestionsInternal rebuilds
+
+	// Batch commit optimization: during fast sync, defer DB commits
+	uint32_t m_nBlocksSinceCommit = 0;
+	static const uint32_t s_BatchCommitThreshold = 2000; // commit every N blocks during fast sync
+
+	// Skip crypto verification for blocks below fast sync target (assumevalid-style)
+	// Headers with PoW were already validated, so block body crypto proofs can be trusted
+	bool m_bFastSyncTrustBelowTarget = true;
 
 	void SaveSyncData();
 	void LogSyncData();

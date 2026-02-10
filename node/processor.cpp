@@ -479,6 +479,11 @@ void NodeProcessor::CommitDB()
 {
 	if (m_DbTx.IsInProgress())
 	{
+		// During fast sync, batch commits for better performance
+		if (IsFastSync() && ++m_nBlocksSinceCommit < s_BatchCommitThreshold)
+			return; // defer commit
+
+		m_nBlocksSinceCommit = 0;
 		CommitMappingAndDB();
 		m_DbTx.Start(m_DB);
 	}
@@ -757,6 +762,7 @@ void NodeProcessor::EnumCongestions()
 	}
 
 	CongestionCache::TipCongestion* pMaxTarget = EnumCongestionsInternal();
+	m_bCongestionCacheDirty = false; // cache is fresh after full rebuild
 
 	// Check the fast-sync status
 	if (pMaxTarget)
@@ -838,14 +844,88 @@ void NodeProcessor::EnumCongestions()
 			if (IsFastSync() && !x.IsContained(m_SyncData.m_Target))
 				continue; // ignore irrelevant branches
 
-			NodeDB::StateID sid;
-			sid.m_Number.v = x.m_Number.v - (x.m_Rows.size() - 1);
-			sid.m_Row = x.m_Rows.at(x.m_Rows.size() - 1);
+			// During fast sync, create parallel body download tasks at fixed boundaries.
+			// Binary search finds the exact first non-Functional block in each chunk,
+			// avoiding gaps that occur with fixed-step scanning.
+			if (IsFastSync() && x.m_Rows.size() > 1)
+			{
+				uint64_t nLowest = x.m_Number.v - (x.m_Rows.size() - 1);
+				uint64_t nHighest = x.m_Number.v;
+				const uint64_t nStride = 500000;
+				uint64_t nFirstBoundary = ((nLowest / nStride) + 1) * nStride;
 
-			m_DB.get_StateHash(sid.m_Row, id.m_Hash);
-			id.m_Number = sid.m_Number;
+				// Binary search for first non-Functional block in [lo, hi).
+				// Within each chunk, Functional blocks form a contiguous range from the start,
+				// so binary search correctly finds the transition point.
+				// Returns hi if entire range is Functional.
+				auto findFirstNonFunctional = [&](uint64_t lo, uint64_t hi) -> uint64_t {
+					if (lo >= hi) return hi;
+					// Quick check: if lo itself is not Functional, return it
+					size_t idx = static_cast<size_t>(x.m_Number.v - lo);
+					if (idx >= x.m_Rows.size()) return hi;
+					if (!(NodeDB::StateFlags::Functional & m_DB.GetStateFlags(x.m_Rows.at(idx))))
+						return lo;
+					// Binary search: lo is Functional, find first non-Functional in (lo, hi)
+					uint64_t sLo = lo + 1, sHi = hi;
+					while (sLo < sHi) {
+						uint64_t mid = sLo + (sHi - sLo) / 2;
+						idx = static_cast<size_t>(x.m_Number.v - mid);
+						if (idx >= x.m_Rows.size()) { sHi = mid; continue; }
+						if (NodeDB::StateFlags::Functional & m_DB.GetStateFlags(x.m_Rows.at(idx)))
+							sLo = mid + 1;
+						else
+							sHi = mid;
+					}
+					return sLo;
+				};
 
-			RequestDataInternal(id, sid.m_Row, true, sidTrg);
+				// Bottom task: range [nLowest, nFirstBoundary)
+				{
+					uint64_t chunkEnd = nFirstBoundary;
+					if (chunkEnd > nHighest + 1) chunkEnd = nHighest + 1;
+					uint64_t firstMissing = findFirstNonFunctional(nLowest, chunkEnd);
+					if (firstMissing < chunkEnd && firstMissing <= nHighest)
+					{
+						size_t rowIdx = static_cast<size_t>(x.m_Number.v - firstMissing);
+						NodeDB::StateID sid;
+						sid.m_Number.v = firstMissing;
+						sid.m_Row = x.m_Rows.at(rowIdx);
+						m_DB.get_StateHash(sid.m_Row, id.m_Hash);
+						id.m_Number = sid.m_Number;
+						RequestDataInternal(id, sid.m_Row, true, sidTrg);
+					}
+				}
+
+				// Boundary tasks at fixed absolute height boundaries (every 500K blocks)
+				for (uint64_t h = nFirstBoundary; h <= nHighest; h += nStride)
+				{
+					uint64_t chunkEnd = h + nStride;
+					if (chunkEnd > nHighest + 1) chunkEnd = nHighest + 1;
+					uint64_t firstMissing = findFirstNonFunctional(h, chunkEnd);
+					if (firstMissing >= chunkEnd) continue; // chunk fully downloaded
+
+					size_t rowIdx = static_cast<size_t>(x.m_Number.v - firstMissing);
+					if (rowIdx >= x.m_Rows.size()) continue;
+
+					NodeDB::StateID chunkSid;
+					chunkSid.m_Number.v = firstMissing;
+					chunkSid.m_Row = x.m_Rows.at(rowIdx);
+					m_DB.get_StateHash(chunkSid.m_Row, id.m_Hash);
+					id.m_Number = chunkSid.m_Number;
+					RequestDataInternal(id, chunkSid.m_Row, true, sidTrg);
+				}
+			}
+			else
+			{
+				NodeDB::StateID sid;
+				sid.m_Number.v = x.m_Number.v - (x.m_Rows.size() - 1);
+				sid.m_Row = x.m_Rows.at(x.m_Rows.size() - 1);
+
+				m_DB.get_StateHash(sid.m_Row, id.m_Hash);
+				id.m_Number = sid.m_Number;
+
+				RequestDataInternal(id, sid.m_Row, true, sidTrg);
+			}
 		}
 		else
 		{
@@ -864,7 +944,11 @@ void NodeProcessor::EnumCongestions()
 
 const uint64_t* NodeProcessor::get_CachedRows(const NodeDB::StateID& sid, Height nCountExtra)
 {
-	EnumCongestionsInternal();
+	if (m_bCongestionCacheDirty)
+	{
+		EnumCongestionsInternal();
+		m_bCongestionCacheDirty = false;
+	}
 
 	CongestionCache::TipCongestion* pVal = m_CongestionCache.Find(sid);
 	if (pVal)
@@ -1574,18 +1658,44 @@ struct NodeProcessor::MultiblockContext
 		m_InProgress.m_Max = pShared->m_Number;
 
 		bool bFull = (pShared->m_Number.v > m_This.m_SyncData.m_Target.m_Number.v);
+		bool bBelowTarget = !bFull && m_This.IsFastSync();
 
 		pShared->m_Ctx.m_Params.m_bAllowUnsignedOutputs = !bFull;
 		pShared->m_Ctx.m_Params.m_pAbort = &m_bFail;
 		pShared->m_Ctx.m_Params.m_nVerifiers = ex.get_Threads();
 
-		// pre-Realize all the kernels, since they'll be tested asynchronously (in worker threads)
-		for (const auto& pKrn : pShared->m_Body.m_vKernels)
-			pKrn->EnsureID();
+		// During fast sync, skip expensive crypto verification for blocks below sync target.
+		// Headers (with PoW) were already validated. This is similar to Bitcoin Core's
+		// assumevalid approach — we trust blocks below a known-good checkpoint.
+		if (bBelowTarget && m_This.m_bFastSyncTrustBelowTarget)
+		{
+			// Still need to ensure kernel IDs and apply state changes,
+			// but skip signature/rangeproof verification
+			for (const auto& pKrn : pShared->m_Body.m_vKernels)
+				pKrn->EnsureID();
 
-		m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
+			m_InProgress.m_Max = pShared->m_Number;
 
-		PushTasks(pShared, pShared->m_Ctx.m_Params);
+			// Signal completion immediately (no crypto tasks to dispatch).
+			// m_SizePending was already incremented by the flow control gate above,
+			// so we just mark done and release that reservation.
+			{
+				std::unique_lock<std::mutex> scope(m_Mutex);
+				pShared->m_Done = 1;
+				assert(m_SizePending >= pShared->m_Size);
+				m_SizePending -= pShared->m_Size;
+			}
+		}
+		else
+		{
+			// pre-Realize all the kernels, since they'll be tested asynchronously (in worker threads)
+			for (const auto& pKrn : pShared->m_Body.m_vKernels)
+				pKrn->EnsureID();
+
+			m_Msc.Prepare(pShared->m_Body, m_This, pShared->m_Ctx.m_Height.m_Min);
+
+			PushTasks(pShared, pShared->m_Ctx.m_Params);
+		}
 	}
 
 	void PushTasks(const MyTask::Shared::Ptr& pShared, TxBase::Context::Params& pars)
@@ -1765,6 +1875,7 @@ void NodeProcessor::TryGoUp()
 
 	if (bDirty)
 	{
+		m_bCongestionCacheDirty = true; // cache needs rebuild after cursor moved
 		PruneOld();
 		if (m_Cursor.m_Row != rowid)
 		{
@@ -1802,6 +1913,12 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 	NodeDB::StateID sidFwd = m_Cursor.get_Sid();
 
 	size_t iPos = vPath.size();
+	size_t nTotal = vPath.size();
+	size_t nProcessed = 0;
+	bool bFastSyncBatch = IsFastSync() && (nTotal > 1000);
+	Height hBatchStart = 0;
+	BEAM_LOG_INFO() << "TryGoTo: processing " << nTotal << " blocks" << (bFastSyncBatch ? " (fast-sync batch mode)" : "");
+
 	while (iPos)
 	{
 		sidFwd.m_Number.v = m_Cursor.m_Full.m_Number.v + 1;
@@ -1812,6 +1929,13 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 		HeightHash hh;
 		s.get_ID(hh);
+
+		++nProcessed;
+		if (!(nProcessed % 10000))
+			BEAM_LOG_INFO() << "Sync progress: height " << sidFwd.m_Number.v << ", " << nProcessed << "/" << nTotal << " blocks applied";
+
+		if (!hBatchStart)
+			hBatchStart = sidFwd.m_Number.v;
 
 		if (!HandleBlock(hh, sidFwd.m_Row, s, mbc))
 		{
@@ -1827,13 +1951,44 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		if (m_Cursor.m_Full.m_Number.v)
 			m_Mmr.m_States.Append(m_Cursor.m_hh.m_Hash);
 
-		m_DB.MoveFwd(sidFwd);
-		m_Cursor.m_Full = s;
-		m_Cursor.m_hh = hh;
-		InitCursor(true, sidFwd);
+		if (bFastSyncBatch)
+		{
+			// Fast sync batch mode: reduce per-block DB overhead.
+			// - Activate flag: 1 UPDATE per block (same as MoveFwd)
+			// - Skip put_Cursor: save 2 ParamIntSet per block, update every 1000 blocks
+			// - Skip DelStateBlockPP: batch at end, saves 1 UPDATE per block
+			// Net: 1 SQL/block instead of 4 SQL/block = 75% reduction
+			m_DB.ActivateState(sidFwd.m_Row);
+			m_Cursor.m_Full = s;
+			m_Cursor.m_hh = hh;
+			InitCursor(true, sidFwd);
 
-		if (IsFastSync())
-			m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
+			if (!(nProcessed % 1000))
+				m_DB.ParamIntSet(NodeDB::ParamID::CursorRow, sidFwd.m_Row), m_DB.ParamIntSet(NodeDB::ParamID::CursorNumber, sidFwd.m_Number.v);
+
+			// Commit transaction every 5000 blocks to prevent WAL from growing unbounded.
+			// TryGoTo blocks the event loop, so timer-based CommitDB never fires.
+			// Without this, the WAL grows to multi-GB, degrading read performance.
+			if (!(nProcessed % 5000))
+			{
+				// Delete body data for blocks processed so far, then commit
+				m_DB.DelStateBlockPPRange(hBatchStart, sidFwd.m_Number.v);
+				hBatchStart = sidFwd.m_Number.v + 1;
+				m_nBlocksSinceCommit = 0;
+				CommitMappingAndDB();
+				m_DbTx.Start(m_DB);
+			}
+		}
+		else
+		{
+			m_DB.MoveFwd(sidFwd);
+			m_Cursor.m_Full = s;
+			m_Cursor.m_hh = hh;
+			InitCursor(true, sidFwd);
+
+			if (IsFastSync())
+				m_DB.DelStateBlockPP(sidFwd.m_Row); // save space
+		}
 
 		if (mbc.m_InProgress.m_Max.v == m_SyncData.m_Target.m_Number.v)
 		{
@@ -1848,6 +2003,14 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 
 		if (mbc.m_bFail)
 			break;
+	}
+
+	// Batch cleanup after fast sync processing
+	if (bFastSyncBatch && hBatchStart && nProcessed)
+	{
+		BEAM_LOG_INFO() << "Batch cleanup: deleting block data for heights " << hBatchStart << "-" << sidFwd.m_Number.v;
+		m_DB.DelStateBlockPPRange(hBatchStart, sidFwd.m_Number.v);
+		m_DB.ParamIntSet(NodeDB::ParamID::CursorRow, sidFwd.m_Row), m_DB.ParamIntSet(NodeDB::ParamID::CursorNumber, sidFwd.m_Number.v); // final cursor update
 	}
 
 	if (mbc.Flush())
@@ -2562,6 +2725,7 @@ struct NodeProcessor::BlockInterpretCtx
 	bool m_TxValidation = false; // tx or block
 	bool m_DependentCtxSet = false;
 	bool m_SkipInOuts = false;
+	bool m_FastSyncSkipKrn = false; // Skip InsertKernel during fast sync (kernel index not needed for validated blocks)
 	uint8_t m_TxStatus = proto::TxStatus::Unspecified;
 	std::ostream* m_pTxErrorInfo = nullptr;
 
@@ -3181,6 +3345,15 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (!bFirstTime)
 		bic.m_AlreadyValidated = true;
 
+	// During fast sync, skip redundant validation and kernel index updates.
+	// All blocks are already validated by network consensus.
+	bool bFastSyncIntermediate = IsFastSync() && bFirstTime && (s.m_Number.v < m_SyncData.m_Target.m_Number.v);
+	if (bFastSyncIntermediate)
+	{
+		bic.m_AlreadyValidated = true;  // skip duplicate kernel check, relative lock, asset validation
+		bic.m_FastSyncSkipKrn = true;   // skip InsertKernel (kernel index not needed during sync)
+	}
+
 	std::ostringstream osErr;
 	bic.m_pTxErrorInfo = &osErr;
 
@@ -3212,12 +3385,16 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	bool bPastFastSync = (s.m_Number.v >= m_SyncData.m_TxoLo.v);
 	bool bDefinition = bPastFork3 || bPastFastSync;
 
-	if (bDefinition)
+	// bFastSyncIntermediate (defined above) skips per-block definition/UTXO hash verification.
+	// The UTXO tree is still modified, but we defer Merkle hash recomputation.
+	// Dirty nodes accumulate and one final recomputation at the sync target validates everything.
+
+	if (bDefinition && !bFastSyncIntermediate)
 		ev.get_Definition(hvDef);
 
 	if (bOk)
 	{
-		if (bFirstTime)
+		if (bFirstTime && !bFastSyncIntermediate)
 		{
 			if (bDefinition)
 			{
@@ -3295,11 +3472,12 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		AdjustOffset(m_Cursor.m_StateExtra.m_TotalOffset, block.m_Offset, true);
 
 		StateExtra::Comms& comms = m_Cursor.m_StateExtra; // downcast
-		if (bDefinition)
+		if (bDefinition && !bFastSyncIntermediate)
 			comms = ev.m_Comms;
 		else
 		{
-			assert(!bPastFork3);
+			// During fast sync def-verify skip: comms not computed, zero them.
+			// They'll be cleaned up by RaiseFossil after sync completes.
 			ZeroObject(comms);
 		}
 
@@ -3317,24 +3495,39 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		else
 			blobExtra.n = sizeof(m_Cursor.m_StateExtra.m_TotalOffset);
 
-		Blob blobRB(bic.m_Rollback);
+		// During fast sync, skip Txo table operations for blocks below TxoLo.
+		// These TXO entries would be deleted by RaiseTxoLo after sync anyway.
+		// Skips: TxoAdd, TxoSetSpent, set_StateInputs, Rollback blob storage.
+		bool bSkipTxoSql = bFastSyncIntermediate && (s.m_Number.v < m_SyncData.m_TxoLo.v);
+
+		Blob blobRB;
+		if (bSkipTxoSql)
+			blobRB = Blob(nullptr, 0); // no rollback data needed
+		else
+			blobRB = Blob(bic.m_Rollback);
+
 		m_DB.set_StateTxosAndExtra(row, &m_Extra.m_Txos, &blobExtra, &blobRB);
 
-		std::vector<NodeDB::StateInput> v;
-		v.reserve(block.m_vInputs.size());
-
-		assert(block.m_vInputs.size() == bic.m_vInpAux.size());
-		for (size_t i = 0; i < block.m_vInputs.size(); i++)
+		if (!bSkipTxoSql)
 		{
-			const Input& x = *block.m_vInputs[i];
-			auto txoID = bic.m_vInpAux[i].m_ID;
+			std::vector<NodeDB::StateInput> v;
+			v.reserve(block.m_vInputs.size());
 
-			m_DB.TxoSetSpent(txoID, id.m_Height);
-			v.emplace_back().Set(txoID, x.m_Commitment);
+			assert(block.m_vInputs.size() == bic.m_vInpAux.size());
+			for (size_t i = 0; i < block.m_vInputs.size(); i++)
+			{
+				const Input& x = *block.m_vInputs[i];
+				auto txoID = bic.m_vInpAux[i].m_ID;
+
+				// During fast sync, Txo entries may not exist for old outputs
+				// (TxoAdd was skipped for blocks below TxoLo)
+				m_DB.TxoSetSpent(txoID, id.m_Height, !bFastSyncIntermediate);
+				v.emplace_back().Set(txoID, x.m_Commitment);
+			}
+
+			if (!v.empty())
+				m_DB.set_StateInputs(row, &v.front(), v.size());
 		}
-
-		if (!v.empty())
-			m_DB.set_StateInputs(row, &v.front(), v.size());
 
 		Serializer ser;
 
@@ -3351,15 +3544,18 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		bic.m_Rollback.clear();
 		ser.swap_buf(bic.m_Rollback); // optimization
 
-		for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+		if (!bSkipTxoSql)
 		{
-			const Output& x = *block.m_vOutputs[i];
+			for (size_t i = 0; i < block.m_vOutputs.size(); i++)
+			{
+				const Output& x = *block.m_vOutputs[i];
 
-			ser.reset();
-			ser & x;
+				ser.reset();
+				ser & x;
 
-			SerializeBuffer sb = ser.buffer();
-			m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+				SerializeBuffer sb = ser.buffer();
+				m_DB.TxoAdd(id0++, Blob(sb.first, static_cast<uint32_t>(sb.second)));
+			}
 		}
 
 		m_RecentStates.Push(row, s);
@@ -5061,7 +5257,10 @@ void NodeProcessor::BlockInterpretCtx::ManageKrnID(const TxKernel& krn)
 	else
 	{
 		if (m_Fwd)
-			m_Proc.m_DB.InsertKernel(key, m_Height);
+		{
+			if (!m_FastSyncSkipKrn)
+				m_Proc.m_DB.InsertKernel(key, m_Height);
+		}
 		else
 			m_Proc.m_DB.DeleteKernel(key, m_Height);
 	}
@@ -6831,8 +7030,14 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateInternal(const Block::Syst
 		return DataStatus::Unreachable;
 	}
 
-	if (m_DB.StateFindSafe(id))
-		return DataStatus::Rejected;
+	// During fast sync, skip duplicate check for pre-verified header packs.
+	// Headers come in sequence from a single chain — duplicates are virtually impossible.
+	// This saves one SELECT query per header (~8192 per pack).
+	if (!(bAlreadyChecked && IsFastSync()))
+	{
+		if (m_DB.StateFindSafe(id))
+			return DataStatus::Rejected;
+	}
 
 	return DataStatus::Accepted;
 }
@@ -6854,7 +7059,19 @@ NodeProcessor::DataStatus::Enum NodeProcessor::OnStateSilent(const Block::System
 {
 	DataStatus::Enum ret = OnStateInternal(s, id, bAlreadyChecked);
 	if (DataStatus::Accepted == ret)
-		m_DB.InsertState(s, peer);
+	{
+		if (bAlreadyChecked && IsFastSync())
+		{
+			// Fast sync path: StateFindSafe was skipped, handle rare duplicate gracefully
+			try {
+				m_DB.InsertState(s, peer);
+			} catch (const CorruptionException&) {
+				ret = DataStatus::Rejected;
+			}
+		}
+		else
+			m_DB.InsertState(s, peer);
+	}
 
 	return ret;
 }

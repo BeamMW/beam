@@ -480,7 +480,7 @@ namespace proto {
         static const uint8_t Viewer        = 'V';
     };
 
-	static const uint32_t g_HdrPackMaxSize = 2048; // about 400K
+	static const uint32_t g_HdrPackMaxSize = 8192; // 8x original for faster sync
 
     struct Event
     {
