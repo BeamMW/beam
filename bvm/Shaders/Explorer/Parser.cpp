@@ -265,6 +265,23 @@ void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigs
 	Env::DocAddText(sz, szVal);
 }
 
+void DocAddFloatFlex(const char* sz, MultiPrecision::Float x, uint32_t nPrecision)
+{
+	auto df = x.get_Decimal();
+
+	// print the ratio nicely. Limit to 8 precision digits, prefer std notation
+	df.LimitPrecision(nPrecision);
+
+	MultiPrecision::Float::DecimalForm::PrintOptions po;
+	char szBuf[MultiPrecision::Float::DecimalForm::s_LenScientificMax + 1];
+
+	if (df.get_TextLenStd(po) <= nPrecision + 2)
+		df.PrintStd(szBuf, po);
+	else
+		df.PrintScientific(szBuf, po);
+
+	Env::DocAddText(sz, szBuf);
+}
 
 #define HandleContractsStd(macro) \
 	macro(Vault, Vault::s_SID) \
@@ -472,6 +489,7 @@ struct ParserContext
 
 	static void WriteAmmSettings(const Amm::Settings&);
 	static void DocSetAmmPool(const Amm::Pool::ID&);
+	static void DocSetAmmPoolVolatility(const Amm::Pool::ID&);
 	static const char* get_AmmKind(const Amm::Pool::ID&);
 
 	void AddNephiriteTroveNumber(const Nephrite::Method::BaseTxTrove*);
@@ -2986,6 +3004,11 @@ void ParserContext::DocSetAmmPool(const Amm::Pool::ID& pid)
 {
 	DocAddAid("Aid1", pid.m_Aid1);
 	DocAddAid("Aid2", pid.m_Aid2);
+	DocSetAmmPoolVolatility(pid);
+}
+
+void ParserContext::DocSetAmmPoolVolatility(const Amm::Pool::ID& pid)
+{
 	Env::DocAddText("Volatility", get_AmmKind(pid));
 }
 
@@ -3079,7 +3102,10 @@ void ParserContext::OnMethod_DEX(uint32_t /* iVer */)
 			{
 				OnMethod("Trade");
 				GroupArgs gr;
-				DocSetAmmPool(pArg->m_Pid);
+
+				DocAddAid("Buy", pArg->m_Pid.m_Aid1);
+				DocAddAid("Sell", pArg->m_Pid.m_Aid2);
+				DocSetAmmPoolVolatility(pArg->m_Pid);
 			}
 		}
 		break;
@@ -3118,7 +3144,9 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 			DocAddTableHeader("Amount2");
 			DocAddTableHeader("Amount-LP-Token");
 			DocAddTableHeader("Rate 1:2");
-			DocAddTableHeader("Rate 2:2");
+			DocAddTableHeader("Rate 2:1");
+			DocAddTableHeader("LP:1");
+			DocAddTableHeader("LP:2");
 		}
 
 		Env::Key_T<Amm::Pool::Key> k0, k1;
@@ -3149,29 +3177,20 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 
 				MultiPrecision::Float f1(p.m_Totals.m_Tok1);
 				MultiPrecision::Float f2(p.m_Totals.m_Tok2);
+				MultiPrecision::Float flp(p.m_Totals.m_Ctl);
 
-				for (uint32_t i = 0; i < 2; i++)
-				{
-					auto k = i ? (f2 / f1) : (f1 / f2);
-					auto df = k.get_Decimal();
+				// print the ratio nicely. Limit to 8 precision digits, prefer std notation
+				const uint32_t nPrecision = 8;
 
-					// print the ratio nicely. Limit to 8 precision digits, prefer std notation
-					const uint32_t nPrecision = 8;
-					df.LimitPrecision(nPrecision);
-
-					MultiPrecision::Float::DecimalForm::PrintOptions po;
-
-					if (df.get_TextLenStd(po) <= nPrecision + 2)
-						df.PrintStd(szBuf, po);
-					else
-						df.PrintScientific(szBuf, po);
-
-					Env::DocAddText("", szBuf);
-				}
-
+				DocAddFloatFlex("", f2 / f1, nPrecision);
+				DocAddFloatFlex("", f1 / f2, nPrecision);
+				DocAddFloatFlex("", f1 / flp, nPrecision);
+				DocAddFloatFlex("", f2 / flp, nPrecision);
 			}
 			else
 			{
+				Env::DocAddText("", "");
+				Env::DocAddText("", "");
 				Env::DocAddText("", "");
 				Env::DocAddText("", "");
 			}
