@@ -1899,6 +1899,8 @@
             <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
+            <span class="menuItem"><a href="?network=$network&type=swap_offers" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
+            <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
@@ -2802,6 +2804,38 @@
     SetContent(text);
   }
 
+  function DisplayAtomicSwaps() {
+    const jData = JSON.parse(this.responseText);
+
+    let text = '<h2 class="title">Atomic Swaps</h2>';
+    if (jData.length === 0) {
+      text += '<p class="aboutDisclaimer">There are currently no offers for Atomic Swaps.</p>';
+    } else {
+      text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
+      text += '<div class="divSwapOffers">' + Obj2Html(jData) + '</div>';
+      text += MakeCollapsibleEnd();
+      text += MakeCollapsibleBegin('Totals');
+      text += '<div id="divSwapTotals"><p>Loading...</p></div>';
+      text += MakeCollapsibleEnd();
+    }
+
+    SetContent(text);
+
+    // Get Atomic Swap totals (new node request)
+    if (jData.length !== 0) {
+      const xmlhttp = new XMLHttpRequest();
+      xmlhttp.onload = DisplayAtomicSwapTotals;
+      xmlhttp.open('GET', urlPrefix + 'swap_totals' + '?exp_am=1');
+      xmlhttp.send();
+    }
+  }
+
+  function DisplayAtomicSwapTotals() { // Query node for Atomic Swap totals and display them in existing 'div'
+    const jData = JSON.parse(this.responseText);
+    let text = Obj2Html(jData);
+    document.getElementById('divSwapTotals').innerHTML = text;
+  }
+
   function DisplayHistoricalBlocks() {
     let text = `<h2 class="title">Special historical blocks in Beam's mainnet</h2>`;
     text += `<table class="dataTable tableHistoricalBlocks" border="1" cellspacing="0">
@@ -3209,15 +3243,14 @@
       g_height = 0;
       urlSuffix += '&height=' + g_height;
       xmlhttp.onload = DisplayBlock;
-    }
+
     // Option to query and display the details of multiple blocks (NOT USED HERE)
-    // else if (g_type == 'blocks') // Arguments for 'blocks': height, n
-    // {
-    //   if (!g_n) { g_n = 5 }
-    //   urlSuffix += '&height=' + g_height + '&n=' + g_n;
-    //   xmlhttp.onload = DisplayBlocks; // Display function to be done...
-    // }
-    else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
+    //} else if (g_type == 'blocks') { // Arguments for 'blocks': height, n
+    //  if (!g_n) { g_n = 5 }
+    //  urlSuffix += '&height=' + g_height + '&n=' + g_n;
+    //  xmlhttp.onload = DisplayBlocks; // Display function to be done...
+
+    } else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
       urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMaxTxs;
       if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
       if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
@@ -3239,6 +3272,10 @@
 
     } else if (g_type == 'peers') { // Arguments for 'peers': (none)
       xmlhttp.onload = DisplayPeers;
+
+    } else if (g_type == 'swap_offers') { // Arguments for 'swap_offers': (none)
+      xmlhttp.onload = DisplayAtomicSwaps;
+    // Remark: The query for 'swap_totals' is made from within the 'DisplayAtomicSwaps' function.
 
     } else {
       g_type = 'status'; // Arguments for 'status': (none)
