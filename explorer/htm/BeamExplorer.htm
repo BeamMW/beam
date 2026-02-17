@@ -7,7 +7,7 @@
   - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.8.3
+  - Current version of the file: v0.8.4 (beta)
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies.
@@ -827,13 +827,16 @@
     vertical-align: bottom;
     margin: 5px 10px 0px 0px;
   }
-  .nodeURL { /* General style for URLs */
+  .nodeURL { /* General style for node URLs */
     font-family: "Lucida Console", ui-monospace, monospace;
     font-size: 1.2rem;
     color: var(--color_node_url);
     text-align: left;
     white-space: nowrap;
     cursor: text;
+  }
+  .dataTable .nodeURL { /* Special case of node URLs in tables */
+    color: unset;
   }
   label.nodeURL { /* To show it's clickable */
     cursor: pointer;
@@ -1887,7 +1890,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.3</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.4 (beta)</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -2089,7 +2092,7 @@
     let d = new Date(); // Get current local date and time
     const diff = (zone == 'local') ? d.getTimezoneOffset() : 0 ; // If needed, get difference between local time and UTC
     d = new Date((time - diff * 60) * 1000); // Get date object from miliseconds
-    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ 
+    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ
     const txt = g_IsPos ?
         iso.replace(/(.*)T(.*)\.([0-9]+)Z/, '$1 $2.$3') : // Convert to simple format YYYY-MM-DD HH:MM:SS.ZZZ
         iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
@@ -2790,7 +2793,7 @@
         const peer = peers[i];
         text += '<tr>';
         text += MakeCellRA(i + 1);
-        text += MakeCell(peer.ip || (typeof peer === 'string' ? peer : String(peer)));
+        text += MakeCell(AddClass(peer.ip || (typeof peer === 'string' ? peer : String(peer)), "nodeURL"));
         text += '</tr>';
       }
     }
