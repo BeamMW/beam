@@ -298,6 +298,7 @@ else()
         if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 15 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 15)
             add_compile_definitions(_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION) #boost@1.76/1.76.0_4/include/boost/container_hash/hash.hpp:131:33
         endif()
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion")
     endif()
     # Temporal solution
     if(ANDROID AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")

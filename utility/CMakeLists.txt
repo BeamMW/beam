@@ -51,6 +51,7 @@ endif()
 
 if (MSVC)
     set_source_files_properties(logger.cpp PROPERTIES COMPILE_FLAGS "/wd4996") # 'std::fpos<_Mbstatet>::seekpos': warning STL4019: The member std::fpos::seekpos() is non-Standard
+    add_compile_options(/wd4702)
 endif()
 
 add_library(utility STATIC ${UTILITY_SRC} ${IO_SRC})

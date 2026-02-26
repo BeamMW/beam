@@ -5311,9 +5311,12 @@ namespace beam::wallet
         stm.bind(6, isRead);
         stm.step();
 
-        for (const auto sub : m_subscribers)
+        if (sqlite3_changes(_db) > 0)
         {
-            sub->onIMSaved(time, counterpart, message, isIncome);
+            for (const auto sub : m_subscribers)
+            {
+                sub->onIMSaved(time, counterpart, message, isIncome);
+            }
         }
     }
 

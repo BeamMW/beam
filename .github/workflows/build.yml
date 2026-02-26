@@ -419,7 +419,7 @@ jobs:
       - name: Configure CMake
         run: |
           export PATH=${{env.ANDROID_NDK_HOME}}:$PATH
-          cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DBEAM_IPFS_SUPPORT=Off -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} .
+          cmake -DCMAKE_TOOLCHAIN_FILE=${{env.ANDROID_NDK_HOME}}/build/cmake/android.toolchain.cmake -DANDROID_NATIVE_API_LEVEL=${{env.ANDROID_SDK_VERSION}} -DANDROID_ABI=${{env.ANDROID_ABI}} -DBEAM_IPFS_SUPPORT=Off -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-literal-operator -Wno-deprecated-literal-operator" .
 
       ###############################################################################
       # Build

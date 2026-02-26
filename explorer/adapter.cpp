@@ -752,7 +752,7 @@ private:
     {
         return (Rules::Consensus::Pbft == Rules::get().m_Consensus) ?
             MakeDecimalDelta<3>(t_ms) :
-            MakeDecimal(static_cast<int64_t>(t_ms / 1000));
+            MakeDecimalDelta<0>(static_cast<int64_t>(t_ms / 1000));
     }
 
     json get_status() override {
