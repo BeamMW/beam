@@ -390,6 +390,13 @@ void NodeDB::Open(const char* szPath)
 	sqlite3_busy_timeout(m_pDb, 5000);
 
 	ExecTextOut("PRAGMA locking_mode = EXCLUSIVE");
+	ExecTextOut("PRAGMA journal_mode = WAL"); // Write-Ahead Logging for better concurrent read/write performance
+	ExecTextOut("PRAGMA synchronous = NORMAL"); // Safe with WAL, avoids fsync on every commit
+	ExecTextOut("PRAGMA cache_size = -131072"); // 128MB page cache (vs default ~2MB)
+	ExecTextOut("PRAGMA mmap_size = 268435456"); // 256MB memory-mapped I/O
+	ExecTextOut("PRAGMA temp_store = MEMORY"); // In-memory temp tables
+	ExecTextOut("PRAGMA wal_autocheckpoint = 2000"); // Moderate checkpoint frequency (default 1000, ~8MB WAL threshold)
+	ExecTextOut("PRAGMA page_size = 4096"); // Optimal page size
 	ExecTextOut("PRAGMA journal_size_limit=1048576"); // limit journal file, otherwise it may remain huge even after tx commit, until the app is closed
 
 	bool bCreate;
@@ -1675,6 +1682,23 @@ void NodeDB::DelStateBlockPP(uint64_t rowid)
 	TestChanged1Row();
 }
 
+void NodeDB::ActivateState(uint64_t rowid)
+{
+	Recordset rs(*this, Query::StateActivateOnly, "UPDATE " TblStates " SET " TblStates_Flags "=" TblStates_Flags " | ? WHERE rowid=?");
+	rs.put(0, StateFlags::Active);
+	rs.put(1, rowid);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::DelStateBlockPPRange(uint64_t hMin, uint64_t hMax)
+{
+	Recordset rs(*this, Query::StateDelBlockPPRange, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Peer "=NULL WHERE " TblStates_Number ">=? AND " TblStates_Number "<=? AND " TblStates_BodyP " IS NOT NULL");
+	rs.put(0, hMin);
+	rs.put(1, hMax);
+	rs.Step();
+}
+
 void NodeDB::DelStateBlockPPR(uint64_t rowid)
 {
 	Recordset rs(*this, Query::StateDelBlockPPR, "UPDATE " TblStates " SET " TblStates_BodyP "=NULL," TblStates_Rollback "=NULL," TblStates_Peer "=NULL WHERE rowid=?");
@@ -2404,7 +2428,7 @@ void NodeDB::TxoDelFrom(TxoID id)
 	rs.Step();
 }
 
-void NodeDB::TxoSetSpent(TxoID id, Height h)
+void NodeDB::TxoSetSpent(TxoID id, Height h, bool bMustExist)
 {
 	Recordset rs(*this, Query::TxoSetSpent, "UPDATE " TblTxo " SET " TblTxo_SpendHeight "=? WHERE " TblTxo_ID "=?");
 	if (MaxHeight != h)
@@ -2412,7 +2436,8 @@ void NodeDB::TxoSetSpent(TxoID id, Height h)
 	rs.put(1, id);
 
 	rs.Step();
-	TestChanged1Row();
+	if (bMustExist)
+		TestChanged1Row();
 }
 
 void NodeDB::EnumTxos(WalkerTxo& wlk, TxoID id0)

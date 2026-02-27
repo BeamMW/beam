@@ -72,7 +72,7 @@ struct Node
 			uint32_t m_PeersDbFlush_ms = 1000 * 60; // 1 minute
 		} m_Timeout;
 
-		uint32_t m_MaxConcurrentBlocksRequest = 18;
+		uint32_t m_MaxConcurrentBlocksRequest = 200000; // high limit to allow parallel body downloads during fast sync
 		uint32_t m_MaxPoolTransactions = 100 * 1000;
 		uint32_t m_MaxDeferredTransactions = 100 * 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
@@ -87,7 +87,7 @@ struct Node
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.
-		int m_VerificationThreads = 0;
+		int m_VerificationThreads = -1; // use all available cores for verification
 
 		struct RollbackLimit
 		{
@@ -123,8 +123,8 @@ struct Node
 			size_t m_Chocking = 1024 * 1024;
 			size_t m_Drown    = 1024*1024 * 20;
 
-			size_t m_MaxBodyPackSize = 1024 * 1024 * 5;
-			uint32_t m_MaxBodyPackCount = 3000;
+			size_t m_MaxBodyPackSize = 1024 * 1024 * 50; // 50MB for faster sync
+			uint32_t m_MaxBodyPackCount = 16000; // increased pack count
 
 		} m_BandwidthCtl;
 
@@ -577,6 +577,12 @@ private:
 
 		io::Timer::Ptr m_pTimerRequest;
 		io::Timer::Ptr m_pTimerPeers;
+
+		// Adaptive timeout tracking
+		uint32_t m_AvgResponseTime_ms = 0;
+		uint32_t m_nResponseSamples = 0;
+		void UpdateResponseTime(uint32_t elapsed_ms);
+		uint32_t GetAdaptiveTimeout(bool bBlock) const;
 
 		Peer(Node& n) :m_This(n) {}
 
