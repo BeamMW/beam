@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #pragma once
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <type_traits>
