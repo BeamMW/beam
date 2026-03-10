@@ -14,6 +14,7 @@
 #pragma once
 
 #ifdef BEAM_IPFS_SUPPORT
+#include <cstdint>
 #include <memory>
 #include <vector>
 #include <string>

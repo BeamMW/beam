@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <cstdint>
 #include "ipfs.h"
 #include "ipfs_async.h"
 #include <asio-ipfs/include/asio_ipfs.h>
