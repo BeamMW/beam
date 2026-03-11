@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Kindly follow guidelines when submitting a bug report
+about: Please follow guidelines when submitting a bug report
 
 ---
 
@@ -16,10 +16,10 @@ Steps to reproduce the behaviour:
 2. Do '....'
 3. Do '....'
 
-**Current behaviour**
+**Current behavior**
 A clear and concise description of the erroneous behaviour which currently happens.
 
-**Expected behaviour**
+**Expected behavior**
 A clear and concise description of what you expected to happen.
 
 **Platform and build**
