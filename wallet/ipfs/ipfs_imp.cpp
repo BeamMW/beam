@@ -77,7 +77,7 @@ namespace beam::wallet::imp
         //
         {
             std::string error;
-            (void)asio::spawn(_ios, [&](boost::asio::yield_context yield) {
+            asio::spawn(_ios.get_executor(), [&](boost::asio::yield_context yield) {
                 try
                 {
                     if (config.bootstrap.empty())
@@ -196,7 +196,15 @@ namespace beam::wallet::imp
                 {
                     error = err2str(err);
                 }
-            });
+                catch (const std::exception &ex)
+                {
+                    error = ex.what();
+                }
+                catch (...)
+                {
+                    error = "IPFS node initialization failed with unknown exception";
+                }
+            }, boost::asio::detached);
             _ios.run();
 
             if (!error.empty())

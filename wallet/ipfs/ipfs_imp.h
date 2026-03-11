@@ -19,6 +19,7 @@
 #include "ipfs_async.h"
 #include <asio-ipfs/include/asio_ipfs.h>
 #include "utility/logger.h"
+#include <boost/asio/detached.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <chrono>
@@ -85,7 +86,7 @@ namespace beam::wallet::imp
                 );
             }
 
-            (void)boost::asio::spawn(_ios, [this,
+            boost::asio::spawn(_ios.get_executor(), [this,
                                        err = std::move(err),
                                        deadline = std::move(deadline),
                                        action = std::forward<TA>(action),
@@ -120,7 +121,8 @@ namespace beam::wallet::imp
                     {
                         AnyThreaad_retErr(std::move(err), err2str(se));
                     }
-                }
+                },
+                boost::asio::detached
             );
         }
 

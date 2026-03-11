@@ -8,6 +8,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/spawn.hpp>
 #include <cstdlib>
 #include <iostream>
@@ -443,14 +444,15 @@ namespace
 
             for (size_t i = 0; i < connectionNum; ++i)
             {
-                (void)boost::asio::spawn(ioc, std::bind(
+                boost::asio::spawn(ioc.get_executor(), std::bind(
                     &do_session,
                     std::string(host),
                     std::string(port),
                     std::string(text),
                     std::ref(ioc),
                     std::ref(ctx),
-                    std::placeholders::_1));
+                    std::placeholders::_1),
+                    boost::asio::detached);
             }
             ioc.run();
         }
