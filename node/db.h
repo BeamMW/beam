@@ -230,6 +230,9 @@ public:
 			Dbg3,
 			Dbg4,
 
+			StateActivateOnly,
+			StateDelBlockPPRange,
+
 			count
 		};
 	};
@@ -380,6 +383,8 @@ public:
 	void DelStateBlockPP(uint64_t rowid); // delete perishable, peer. Keep eternal, extra, txos, rollback
 	void DelStateBlockPPR(uint64_t rowid); // delete perishable, rollback, peer. Keep eternal, extra, txos
 	void DelStateBlockAll(uint64_t rowid); // delete perishable, peer, eternal, extra, txos, rollback
+	void DelStateBlockPPRange(uint64_t hMin, uint64_t hMax); // batch delete perishable+peer for height range
+	void ActivateState(uint64_t rowid); // set Active flag without cursor update
 
 	TxoID FindStateByTxoID(StateID&, TxoID); // returns the Txos at state end
 
@@ -583,7 +588,7 @@ public:
 	void TxoAdd(TxoID, const Blob&);
 	void TxoDel(TxoID);
 	void TxoDelFrom(TxoID);
-	void TxoSetSpent(TxoID, Height);
+	void TxoSetSpent(TxoID, Height, bool bMustExist = true);
 
 	struct WalkerTxo
 	{

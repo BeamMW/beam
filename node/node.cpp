@@ -334,7 +334,23 @@ void Node::Wanted::OnTimer()
 
 void Node::TryAssignTask(Task& t)
 {
-	// Prioritize w.r.t. rating!
+	// For body tasks, first try peers that don't already have body tasks (distribute across peers)
+	if (t.m_Key.second)
+	{
+		for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; ++it)
+		{
+			Peer& p = *it->m_p;
+			bool bHasBody = false;
+			for (TaskList::iterator jt = p.m_lstTasks.begin(); p.m_lstTasks.end() != jt; ++jt)
+			{
+				if (jt->m_Key.second) { bHasBody = true; break; }
+			}
+			if (!bHasBody && TryAssignTask(t, p))
+				return;
+		}
+	}
+
+	// Fall through: try any peer by rating (original behavior)
 	for (PeerMan::LiveSet::iterator it = m_PeerMan.m_LiveSet.begin(); m_PeerMan.m_LiveSet.end() != it; ++it)
 	{
 		Peer& p = *it->m_p;
@@ -414,12 +430,16 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 		if (t.m_Key.first.m_Number.v <= m_Processor.m_SyncData.m_Target.m_Number.v)
 		{
 			// fast-sync mode, diluted blocks request.
+			// m_Top must always be the sync target for protocol compatibility.
+			// The peer sends blocks starting from (m_Top - m_CountExtra).
 			msg.m_Top.m_Number = m_Processor.m_SyncData.m_Target.m_Number;
 			if (m_Processor.IsFastSync())
 				m_Processor.get_DB().get_StateHash(m_Processor.m_SyncData.m_Target.m_Row, msg.m_Top.m_Hash);
 			else
 				msg.m_Top.m_Hash = Zero; // treasury
 
+			// CountExtra = distance from task start to sync target.
+			// This tells the peer where to begin sending blocks.
 			msg.m_CountExtra.v = m_Processor.m_SyncData.m_Target.m_Number.v - t.m_Key.first.m_Number.v;
 			msg.m_Block0 = m_Processor.m_SyncData.m_n0;
 			msg.m_HorizonLo1 = m_Processor.m_SyncData.m_TxoLo;
@@ -443,18 +463,15 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	}
 	else
 	{
-		const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 2;
+		const uint32_t nMaxHdrRequests = proto::g_HdrPackMaxSize * 4;
 		if (m_nTasksPackHdr >= nMaxHdrRequests)
 		{
 			BEAM_LOG_VERBOSE() << "too many hdrs requested";
 			return false; // too many hdrs requested
 		}
 
-		if (nBlocks)
-		{
-			BEAM_LOG_VERBOSE() << "peer busy";
-			return false; // don't requests headers from the peer that transfers a block
-		}
+		// Removed "peer busy" check: allow header + block downloads simultaneously
+		// during fast sync, headers and blocks are independent data
 
 		uint32_t nPackSize = std::min(proto::g_HdrPackMaxSize, nMaxHdrRequests - m_nTasksPackHdr);
 
@@ -500,6 +517,34 @@ bool Node::TryAssignTask(Task& t, Peer& p)
 	return true;
 }
 
+void Node::Peer::UpdateResponseTime(uint32_t elapsed_ms)
+{
+	if (m_nResponseSamples < 100)
+		m_nResponseSamples++;
+	// Exponential moving average
+	m_AvgResponseTime_ms = (m_AvgResponseTime_ms * (m_nResponseSamples - 1) + elapsed_ms) / m_nResponseSamples;
+}
+
+uint32_t Node::Peer::GetAdaptiveTimeout(bool bBlock) const
+{
+	uint32_t base_ms = bBlock ?
+		m_This.m_Cfg.m_Timeout.m_GetBlock_ms :
+		m_This.m_Cfg.m_Timeout.m_GetState_ms;
+
+	if (m_nResponseSamples < 3)
+		return base_ms; // not enough data yet
+
+	// Adaptive: 3x average response time, clamped between 5s and base timeout
+	uint32_t adaptive_ms = m_AvgResponseTime_ms * 3;
+	const uint32_t min_ms = 5000;
+	if (adaptive_ms < min_ms)
+		adaptive_ms = min_ms;
+	if (adaptive_ms > base_ms)
+		adaptive_ms = base_ms;
+
+	return adaptive_ms;
+}
+
 void Node::Peer::SetTimerWrtFirstTask()
 {
 	if (m_lstTasks.empty())
@@ -509,11 +554,8 @@ void Node::Peer::SetTimerWrtFirstTask()
 	}
 	else
 	{
-		// TODO - timer w.r.t. rating, i.e. should not exceed much the best avail peer rating
-
-		uint32_t timeout_ms = m_lstTasks.front().m_Key.second ?
-			m_This.m_Cfg.m_Timeout.m_GetBlock_ms :
-			m_This.m_Cfg.m_Timeout.m_GetState_ms;
+		bool bBlock = m_lstTasks.front().m_Key.second;
+		uint32_t timeout_ms = GetAdaptiveTimeout(bBlock);
 
 		if (!m_pTimerRequest)
 			m_pTimerRequest = io::Timer::create(io::Reactor::get_Current());
@@ -923,7 +965,11 @@ void Node::Processor::OnGoUpTimer()
 {
 	m_bGoUpPending = false;
 	TryGoUp();
-	get_ParentObj().RefreshCongestions();
+	if (m_bCongestionCacheDirty)
+	{
+		// Only refresh if TryGoUp made progress (changed cursor/reachability)
+		get_ParentObj().RefreshCongestions();
+	}
 	get_ParentObj().UpdateSyncStatus();
 }
 
@@ -2097,6 +2143,9 @@ void Node::Peer::ModifyRatingWrtData(size_t nSize)
 	PeerManager::TimePoint tp;
 	uint32_t dt_ms = tp.get() - get_FirstTask().m_TimeAssigned_ms;
 
+	// Update adaptive timeout tracking
+	UpdateResponseTime(dt_ms);
+
 	// Calculate the weighted average of the effective bandwidth.
 	// We assume the "previous" bandwidth bw0 was calculated within "previous" window t0, and the total download amount was v0 = t0 * bw0.
 	// Hence, after accounting for newly-downloaded data, the average bandwidth becomes:
@@ -2246,22 +2295,48 @@ void Node::Peer::OnMsg(proto::HdrPack&& msg)
 	if (!(idLast == t.m_Key.first))
 		ThrowUnexpected();
 
-	for (size_t i = 0; i < v.size(); i++)
+	// Process headers HIGH-to-LOW (reverse order) during fast sync.
+	// This eliminates tip table churn: each header finds its child (already inserted)
+	// rather than its prev, avoiding ~16K TipAdd/TipDel SQL ops per pack.
+	// v.back() = highest height, v[0] = lowest height.
+	if (m_This.m_Processor.IsFastSync())
 	{
-		NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
-		switch (eStatus)
+		for (size_t i = v.size(); i > 0; i--)
 		{
-		case NodeProcessor::DataStatus::Invalid:
-			// though PoW was already tested, header can still be invalid. For instance, due to improper Timestamp
-			ThrowUnexpected();
-			break;
-
-		case NodeProcessor::DataStatus::Accepted:
-			// no break;
-
-		default:
-			break; // suppress warning
+			NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i-1], m_pInfo->m_ID.m_Key, idLast, true);
+			if (NodeProcessor::DataStatus::Invalid == eStatus)
+				ThrowUnexpected();
 		}
+	}
+	else
+	{
+		for (size_t i = 0; i < v.size(); i++)
+		{
+			NodeProcessor::DataStatus::Enum eStatus = m_This.m_Processor.OnStateSilent(v[i], m_pInfo->m_ID.m_Key, idLast, true);
+			switch (eStatus)
+			{
+			case NodeProcessor::DataStatus::Invalid:
+				ThrowUnexpected();
+				break;
+
+			case NodeProcessor::DataStatus::Accepted:
+				// no break;
+
+			default:
+				break; // suppress warning
+			}
+		}
+	}
+
+	// Proactive next-header request: create task for next batch BEFORE releasing current task.
+	// This overlaps the network round-trip with RefreshCongestions processing.
+	// The task key will match what EnumCongestions creates, so it survives RefreshCongestions.
+	if (m_This.m_Processor.IsFastSync() && !v.empty() && v[0].m_Number.v > 1)
+	{
+		Block::SystemState::ID nextId;
+		nextId.m_Number.v = v[0].m_Number.v - 1;
+		nextId.m_Hash = v[0].m_Prev;
+		m_This.m_Processor.RequestData(nextId, false, t.m_sidTrg);
 	}
 
 	BEAM_LOG_INFO() << "Hdr pack received " << msg.m_Prefix.m_Number.v << "-" << idLast;
