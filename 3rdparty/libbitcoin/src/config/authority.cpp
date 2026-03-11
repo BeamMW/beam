@@ -67,7 +67,7 @@ static asio::ipv6 to_ipv6(const asio::ipv4& ipv4_address)
 {
     // Create an IPv6 mapped IPv4 address via serialization.
     const auto ipv6 = to_ipv6(ipv4_address.to_string());
-    return asio::ipv6::from_string(ipv6);
+    return boost::asio::ip::make_address_v6(ipv6);
 }
 
 static asio::ipv6 to_ipv6(const asio::address& ip_address)
@@ -241,7 +241,7 @@ std::istream& operator>>(std::istream& input, authority& argument)
 
     try
     {
-        argument.ip_ = asio::ipv6::from_string(ip_address);
+        argument.ip_ = boost::asio::ip::make_address_v6(ip_address);
         argument.port_ = port.empty() ? 0 : lexical_cast<uint16_t>(port);
     }
     catch (const boost::exception&)

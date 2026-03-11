@@ -77,7 +77,7 @@ namespace beam::wallet::imp
         //
         {
             std::string error;
-            asio::spawn(_ios, [&](boost::asio::yield_context yield) {
+            (void)asio::spawn(_ios, [&](boost::asio::yield_context yield) {
                 try
                 {
                     if (config.bootstrap.empty())
@@ -212,7 +212,7 @@ namespace beam::wallet::imp
             }
 
             // since it has been running need to reset context
-            _ios.reset();
+            _ios.restart();
         }
 
         //
@@ -246,7 +246,7 @@ namespace beam::wallet::imp
 
         assert(_thread.joinable());
         _thread.join();
-        _ios.reset();
+        _ios.restart();
         BEAM_LOG_INFO() << "IPFS Services stopped";
     }
 

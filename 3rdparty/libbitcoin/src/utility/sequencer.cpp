@@ -57,7 +57,7 @@ void sequencer::lock(action&& handler)
     ///////////////////////////////////////////////////////////////////////
 
     if (post)
-        service_.post(std::move(handler));
+        boost::asio::post(service_, std::move(handler));
 }
 
 void sequencer::unlock()
@@ -85,7 +85,7 @@ void sequencer::unlock()
     ///////////////////////////////////////////////////////////////////////
 
     if (handler)
-        service_.post(std::move(handler));
+        boost::asio::post(service_, std::move(handler));
 }
 
 } // namespace libbitcoin

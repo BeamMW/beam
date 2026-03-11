@@ -443,7 +443,7 @@ namespace
 
             for (size_t i = 0; i < connectionNum; ++i)
             {
-                boost::asio::spawn(ioc, std::bind(
+                (void)boost::asio::spawn(ioc, std::bind(
                     &do_session,
                     std::string(host),
                     std::string(port),

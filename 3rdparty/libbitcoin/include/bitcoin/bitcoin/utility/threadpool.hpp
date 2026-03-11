@@ -108,7 +108,7 @@ private:
     std::vector<asio::thread> threads_;
     mutable upgrade_mutex threads_mutex_;
 
-    std::shared_ptr<asio::service::work> work_;
+    std::shared_ptr<asio::work> work_;
     mutable upgrade_mutex work_mutex_;
 };
 

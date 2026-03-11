@@ -9,7 +9,7 @@
 	url = https://github.com/BeamMW/trezor-cpp-client.git
 [submodule "3rdparty/asio-ipfs"]
 	path = 3rdparty/asio-ipfs
-	url = https://github.com/chapati/asio-ipfs
+	url = https://github.com/BeamMW/asio-ipfs.git
 [submodule "3rdparty/re2"]
 	path = 3rdparty/re2
 	url = https://github.com/BeamMW/re2

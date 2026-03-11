@@ -356,12 +356,25 @@ void file_collector::store_file(filesystem::path const& src_path)
 }
 
 
-//! Scans the target directory for the files that have already been stored
-uintmax_t file_collector::scan_for_files(
-    boost::log::sinks::file::scan_method method,
-    filesystem::path const& pattern, unsigned int* counter)
+//! The function checks if the specified path refers to a file in the storage
+bool file_collector::is_in_storage(filesystem::path const& path) const
 {
-    uintmax_t file_count = 0;
+    filesystem::path normalized = filesystem::absolute(path, base_path_);
+    BOOST_LOG_EXPR_IF_MT(boost::lock_guard<boost::mutex> lock(mutex_);)
+    for (file_list::const_iterator it = files_.begin(), end = files_.end(); it != end; ++it)
+    {
+        if (filesystem::equivalent(it->path, normalized))
+            return true;
+    }
+    return false;
+}
+
+//! Scans the target directory for the files that have already been stored
+boost::log::sinks::file::scan_result file_collector::scan_for_files(
+    boost::log::sinks::file::scan_method method,
+    filesystem::path const& pattern)
+{
+    boost::log::sinks::file::scan_result result;
     if (method != boost::log::sinks::file::no_scan)
     {
         filesystem::path dir = storage_dir_;
@@ -372,17 +385,10 @@ uintmax_t file_collector::scan_for_files(
             if (pattern.has_parent_path())
                 dir = make_absolute(pattern.parent_path());
         }
-        else
-        {
-            counter = NULL;
-        }
 
         if (filesystem::exists(dir) && filesystem::is_directory(dir))
         {
             BOOST_LOG_EXPR_IF_MT(boost::lock_guard<boost::mutex> lock(mutex_);)
-
-            if (counter)
-                *counter = 0;
 
             file_list files;
             filesystem::directory_iterator it(dir), end;
@@ -414,10 +420,11 @@ uintmax_t file_collector::scan_for_files(
                             total_size += info.size;
                             info.timestamp = filesystem::last_write_time(info.path);
                             files.push_back(info);
-                            ++file_count;
+                            ++result.found_count;
 
-                            if (counter && file_number >= *counter)
-                                *counter = file_number + 1;
+                            if (method == boost::log::sinks::file::scan_matching &&
+                                (!result.last_file_counter || file_number > *result.last_file_counter))
+                                result.last_file_counter = file_number;
                         }
                     }
                 }
@@ -430,7 +437,7 @@ uintmax_t file_collector::scan_for_files(
         }
     }
 
-    return file_count;
+    return result;
 }
 
 

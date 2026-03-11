@@ -48,7 +48,6 @@ endif()
 
 target_link_libraries(${TARGET_NAME}
     Boost::boost 
-    Boost::system 
     Boost::thread 
     Boost::regex 
     Boost::filesystem 

@@ -68,8 +68,11 @@ public:
     void store_file(boost::filesystem::path const& src_path) override;
 
     //! Scans the target directory for the files that have already been stored
-    uintmax_t scan_for_files(boost::log::sinks::file::scan_method method,
-        boost::filesystem::path const& pattern, unsigned int* counter) override;
+    boost::log::sinks::file::scan_result scan_for_files(boost::log::sinks::file::scan_method method,
+        boost::filesystem::path const& pattern = boost::filesystem::path()) override;
+
+    //! The function checks if the specified path refers to a file in the storage
+    bool is_in_storage(boost::filesystem::path const& path) const override;
 
     //! The function updates storage restrictions
     void update(size_t max_size, size_t min_free_space, size_t max_files);
@@ -102,7 +105,7 @@ private:
 
 #if !defined(BOOST_LOG_NO_THREADS)
     //! Synchronization mutex
-    boost::mutex mutex_;
+    mutable boost::mutex mutex_;
 #endif // !defined(BOOST_LOG_NO_THREADS)
 
     //! Total file size upper limit

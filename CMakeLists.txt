@@ -321,7 +321,7 @@ endif()
 
 #Boost
 if (NOT EMSCRIPTEN)
-    set(BEAM_BOOST_COMPONENTS system filesystem program_options thread regex log locale date_time coroutine)
+    set(BEAM_BOOST_COMPONENTS filesystem program_options thread regex log locale date_time coroutine)
 endif()
 function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     add_library(Boost::boost INTERFACE IMPORTED)

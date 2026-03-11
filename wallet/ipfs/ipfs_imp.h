@@ -14,13 +14,14 @@
 #pragma once
 
 #include <cstdint>
+#include <sstream>
 #include "ipfs.h"
 #include "ipfs_async.h"
 #include <asio-ipfs/include/asio_ipfs.h>
 #include "utility/logger.h"
 #include <boost/asio/spawn.hpp>
-#include <boost/asio/deadline_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <chrono>
 #include <shared_mutex>
 
 namespace beam::wallet::imp
@@ -76,15 +77,15 @@ namespace beam::wallet::imp
                 return;
             }
 
-            std::shared_ptr<boost::asio::deadline_timer> deadline;
+            std::shared_ptr<boost::asio::steady_timer> deadline;
             if (timeout)
             {
-                deadline = std::make_shared<boost::asio::deadline_timer>(
-                        _ios, boost::posix_time::milliseconds(timeout)
+                deadline = std::make_shared<boost::asio::steady_timer>(
+                        _ios, std::chrono::milliseconds(timeout)
                 );
             }
 
-            boost::asio::spawn(_ios, [this,
+            (void)boost::asio::spawn(_ios, [this,
                                        err = std::move(err),
                                        deadline = std::move(deadline),
                                        action = std::forward<TA>(action),
