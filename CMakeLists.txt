@@ -230,8 +230,9 @@ if(MSVC)
     SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /INCREMENTAL:NO")
     SET(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} /OPT:REF /INCREMENTAL:NO")
 
-    target_compile_definitions(beam INTERFACE -D_WIN32_WINNT=0x0600)
-    add_definitions(-D_WIN32_WINNT=0x0600)
+    # >= Windows 8
+    target_compile_definitions(beam INTERFACE -D_WIN32_WINNT=0x0602)
+    add_definitions(-D_WIN32_WINNT=0x0602)
 
     if(BEAM_USE_STATIC_RUNTIME)
         #target_compile_options(beam INTERFACE $<IF:$<CONFIG:Debug>,/MTd, /MT>)

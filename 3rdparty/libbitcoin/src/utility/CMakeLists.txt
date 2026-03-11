@@ -1,6 +1,10 @@
 set(TARGET_NAME libbitcoin_utility)
 
 file(GLOB SOURCES "*.cpp")
+# for boost 1.90
+list(REMOVE_ITEM SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/work.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/dispatcher.cpp")
 file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/utility/*.hpp")
 
 add_library(${TARGET_NAME} OBJECT ${SOURCES} ${HEADERS})
