@@ -15,11 +15,9 @@ add_library(${TARGET_NAME} STATIC
     $<TARGET_OBJECTS:libbitcoin_chain>
 	$<TARGET_OBJECTS:libbitcoin_config>
 	$<TARGET_OBJECTS:libbitcoin_formats>
-	$<TARGET_OBJECTS:libbitcoin_log>
 	$<TARGET_OBJECTS:libbitcoin_machine>
 	$<TARGET_OBJECTS:libbitcoin_math>
 	$<TARGET_OBJECTS:libbitcoin_message>
-	$<TARGET_OBJECTS:libbitcoin_unicode>
 	$<TARGET_OBJECTS:libbitcoin_utility>
 	$<TARGET_OBJECTS:libbitcoin_wallet>)
 

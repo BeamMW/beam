@@ -1,6 +1,20 @@
 set(TARGET_NAME libbitcoin_config)
 
 file(GLOB SOURCES "*.cpp")
+list(REMOVE_ITEM SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/authority.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/base16.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/base2.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/base58.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/base64.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/directory.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/endpoint.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/hash160.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/hash256.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/parameter.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/parser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/printer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sodium.cpp")
 file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/config/*.hpp")
 
 add_library(${TARGET_NAME} OBJECT ${SOURCES} ${HEADERS})

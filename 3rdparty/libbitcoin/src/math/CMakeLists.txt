@@ -1,6 +1,9 @@
 set(TARGET_NAME libbitcoin_math)
 
 file(GLOB SOURCES "*.cpp")
+list(REMOVE_ITEM SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/crypto.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/stealth.cpp")
 file(GLOB EXTERNAL_SOURCES "external/*.c")
 file(GLOB EXTERNAL_HEADERS "external/*.h")
 file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/math/*.hpp")

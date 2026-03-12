@@ -1,6 +1,8 @@
 set(TARGET_NAME libbitcoin_formats)
 
 file(GLOB SOURCES "*.cpp")
+list(REMOVE_ITEM SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/base_85.cpp")
 file(GLOB HEADERS "${LIBBITCOIN_INCLUDE_DIR}/formats/*.hpp")
 
 add_library(${TARGET_NAME} OBJECT ${SOURCES} ${HEADERS})
