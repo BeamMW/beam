@@ -8,11 +8,17 @@ add_library(wallet_ipfs STATIC
 target_link_libraries(wallet_ipfs
     PUBLIC
         Boost::boost
-        Boost::coroutine
+        Boost::context
     PRIVATE
         utility
         asio-ipfs
 )
+
+# boost::asio::spawn used Boost.Coroutine until Boost 1.86;
+# since Boost 1.87 it works only with Boost.Context fibers.
+if (Boost_VERSION VERSION_LESS 108700)
+    target_link_libraries(wallet_ipfs PUBLIC Boost::coroutine)
+endif()
 
 target_include_directories(wallet_ipfs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(wallet_ipfs PUBLIC BEAM_IPFS_SUPPORT)
