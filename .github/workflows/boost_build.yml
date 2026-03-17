@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - boost_prebuild*
+  workflow_dispatch:
 
 jobs:
   build_windows:
@@ -16,23 +17,23 @@ jobs:
       - name: Download
         shell: powershell
         run: |
-          $Url = "https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.zip"
-          (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_75_0.zip")
-          Expand-Archive -Path "$env:TEMP\boost_1_75_0.zip" -DestinationPath ${{runner.workspace}}/boost
+          $Url = "https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.zip"
+          (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_90_0.zip")
+          Expand-Archive -Path "$env:TEMP\boost_1_90_0.zip" -DestinationPath ${{runner.workspace}}/boost
 
       - name: Bootstrap
         shell: cmd
         run: |
-          cd ${{runner.workspace}}\boost\boost_1_75_0
+          cd ${{runner.workspace}}\boost\boost_1_90_0
           .\bootstrap.bat
 
       - name: Build and install
         shell: cmd
         run: |
-          cd ${{runner.workspace}}\boost\boost_1_75_0
-          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale --with-coroutine --with-date_time --with-json --with-container
+          cd ${{runner.workspace}}\boost\boost_1_90_0
+          .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale --with-context --with-date_time --with-json --with-container
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: boost_prebuild_windows-2022
           path: ${{runner.workspace}}\boost_prebuild
@@ -54,9 +55,9 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.75.0/source/boost_1_75_0.tar.gz
-          tar -xvf boost_1_75_0.tar.gz > /dev/null
-          mv ./boost_1_75_0 ${{runner.workspace}}/boost
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.tar.gz
+          tar -xvf boost_1_90_0.tar.gz > /dev/null
+          mv ./boost_1_90_0 ${{runner.workspace}}/boost
 
       - name: Bootstrap
         shell: bash
@@ -76,14 +77,14 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: boost_prebuild_${{matrix.os}}
           path: ${{runner.workspace}}/boost_prebuild
           if-no-files-found: error
 
   build_osx:
-    runs-on: macos-11
+    runs-on: macos-15
     steps:
       - name: Create Build Environment
         shell: bash
@@ -93,10 +94,10 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
-          tar -xvf boost_1_78_0.tar.gz > /dev/null
-          # cp -R ./boost_1_78_0 ${{runner.workspace}}/boost_arm
-          mv ./boost_1_78_0 ${{runner.workspace}}/boost
+          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.tar.gz
+          tar -xvf boost_1_90_0.tar.gz > /dev/null
+          # cp -R ./boost_1_90_0 ${{runner.workspace}}/boost_arm
+          mv ./boost_1_90_0 ${{runner.workspace}}/boost
 
       - name: Bootstrap
         shell: bash
@@ -110,19 +111,19 @@ jobs:
         shell: bash
         run: |
           # cd ${{runner.workspace}}/boost_arm
-          # ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=arm abi=aapcs cxxflags="-arch arm64" cflags="-arch arm64" linkflags="-arch arm64" --target=static --without-iostreams
+          # ./b2 cxxstd=17 toolset=clang-darwin target-os=darwin architecture=arm abi=aapcs cxxflags="-arch arm64" cflags="-arch arm64" linkflags="-arch arm64" --target=static --without-iostreams
           # mkdir -p arm64 && cp stage/lib/*.a arm64 && cp stage/lib/*.dylib arm64
           cd ${{runner.workspace}}/boost
-          ./b2 cxxstd=14 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
+          ./b2 cxxstd=17 toolset=clang-darwin target-os=darwin architecture=x86 cxxflags="-arch x86_64" cflags="-arch x86_64" linkflags="-arch x86_64" abi=sysv binary-format=mach-o --target=static --without-iostreams
           # mkdir x86_64 && cp stage/lib/*.a x86_64 && cp stage/lib/*.dylib x86_64
 
       - name: Install
         shell: bash
         run: |
           # cd ${{runner.workspace}}/boost_arm
-          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm cxxstd=14
+          # ./b2 install --prefix=${{runner.workspace}}/boost_prebuild_arm cxxstd=17
           cd ${{runner.workspace}}/boost
-          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=14
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild cxxstd=17
           # mkdir ${{runner.workspace}}/boost_prebuild/include/
           # mkdir ${{runner.workspace}}/boost_prebuild/lib/
           # cp -R ./boost ${{runner.workspace}}/boost_prebuild/include/
@@ -132,8 +133,8 @@ jobs:
         shell: bash
         run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
-          name: boost_prebuild_macos-11
+          name: boost_prebuild_macos-15
           path: boost_prebuild.tar.gz
           if-no-files-found: error
