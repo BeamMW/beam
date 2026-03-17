@@ -17,7 +17,7 @@ jobs:
       - name: Download
         shell: powershell
         run: |
-          $Url = "https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.zip"
+          $Url = "https://archives.boost.io/release/1.90.0/source/boost_1_90_0.zip"
           (New-Object System.Net.WebClient).DownloadFile($Url, "$env:TEMP\boost_1_90_0.zip")
           Expand-Archive -Path "$env:TEMP\boost_1_90_0.zip" -DestinationPath ${{runner.workspace}}/boost
 
@@ -55,7 +55,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.tar.gz
+          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
           tar -xvf boost_1_90_0.tar.gz > /dev/null
           mv ./boost_1_90_0 ${{runner.workspace}}/boost
 
@@ -94,7 +94,7 @@ jobs:
       - name: Download
         shell: bash
         run: |
-          wget -q https://boostorg.jfrog.io/artifactory/main/release/1.90.0/source/boost_1_90_0.tar.gz
+          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
           tar -xvf boost_1_90_0.tar.gz > /dev/null
           # cp -R ./boost_1_90_0 ${{runner.workspace}}/boost_arm
           mv ./boost_1_90_0 ${{runner.workspace}}/boost
