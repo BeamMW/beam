@@ -32,6 +32,7 @@
 #include <bitcoin/bitcoin/chain/witness.hpp>
 #include <bitcoin/bitcoin/formats/base_10.hpp>
 #include <bitcoin/bitcoin/formats/base_16.hpp>
+#include <bitcoin/bitcoin/formats/base_58.hpp>
 #include <bitcoin/bitcoin/formats/base_64.hpp>
 #include <bitcoin/bitcoin/machine/opcode.hpp>
 #include <bitcoin/bitcoin/machine/operation.hpp>
