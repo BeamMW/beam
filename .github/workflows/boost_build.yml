@@ -138,3 +138,68 @@ jobs:
           name: boost_prebuild_macos-15
           path: boost_prebuild.tar.gz
           if-no-files-found: error
+
+  build_android:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        abi: [x86, x86_64, armeabi-v7a, arm64-v8a]
+        include:
+          - abi: armeabi-v7a
+            ndk_triple: armv7a-linux-androideabi21
+          - abi: arm64-v8a
+            ndk_triple: aarch64-linux-android21
+          - abi: x86
+            ndk_triple: i686-linux-android21
+          - abi: x86_64
+            ndk_triple: x86_64-linux-android21
+
+    steps:
+      - name: Create Build Environment
+        shell: bash
+        run: |
+          mkdir -p ${{runner.workspace}}/boost_prebuild/libs/${{matrix.abi}}
+
+      - name: Download
+        shell: bash
+        run: |
+          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
+          tar -xvf boost_1_90_0.tar.gz > /dev/null
+          mv ./boost_1_90_0 ${{runner.workspace}}/boost
+
+      - name: Bootstrap
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./bootstrap.sh
+
+      - name: Write user-config.jam
+        shell: bash
+        run: |
+          NDK=$ANDROID_NDK_LATEST_HOME
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          cat > ${{runner.workspace}}/boost/user-config.jam <<EOF
+          using clang : android : $TOOLCHAIN/bin/clang++ --target=${{matrix.ndk_triple}} --sysroot=$TOOLCHAIN/sysroot ;
+          EOF
+
+      - name: Build
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./b2 toolset=clang-android target-os=android link=static variant=release threading=multi --layout=system \
+            --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale \
+            --with-context --with-date_time --with-json --with-container --with-coroutine \
+            --user-config=${{runner.workspace}}/boost/user-config.jam \
+            -j$(nproc)
+
+      - name: Collect
+        shell: bash
+        run: |
+          cp ${{runner.workspace}}/boost/stage/lib/*.a ${{runner.workspace}}/boost_prebuild/libs/${{matrix.abi}}/
+          cp -R ${{runner.workspace}}/boost/boost ${{runner.workspace}}/boost_prebuild/include
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boost_prebuild_android_${{matrix.abi}}
+          path: ${{runner.workspace}}/boost_prebuild
+          if-no-files-found: error
