@@ -139,6 +139,65 @@ jobs:
           path: boost_prebuild.tar.gz
           if-no-files-found: error
 
+  build_ios:
+    runs-on: macos-15
+    strategy:
+      matrix:
+        include:
+          - sdk: iphoneos
+            arch: arm64
+            artifact: boost_prebuild_ios
+            version_flags: -miphoneos-version-min=11.0
+          - sdk: iphonesimulator
+            arch: x86_64
+            artifact: boost_prebuild_ios-simulator
+            version_flags: -mios-simulator-version-min=11.0
+
+    steps:
+      - name: Create Build Environment
+        shell: bash
+        run: |
+          mkdir ${{runner.workspace}}/boost_prebuild
+
+      - name: Download
+        shell: bash
+        run: |
+          wget -q https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
+          tar -xvf boost_1_90_0.tar.gz > /dev/null
+          mv ./boost_1_90_0 ${{runner.workspace}}/boost
+
+      - name: Bootstrap
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./bootstrap.sh
+
+      - name: Write user-config.jam
+        shell: bash
+        run: |
+          SDKROOT=$(xcrun --sdk ${{matrix.sdk}} --show-sdk-path)
+          cat > ${{runner.workspace}}/boost/user-config.jam <<EOF
+          using darwin : ios : clang++ -arch ${{matrix.arch}} -isysroot ${SDKROOT} ${{matrix.version_flags}} ;
+          EOF
+
+      - name: Build and install
+        shell: bash
+        run: |
+          cd ${{runner.workspace}}/boost
+          ./b2 install --prefix=${{runner.workspace}}/boost_prebuild \
+            toolset=darwin-ios target-os=iphone link=static variant=release threading=multi \
+            --layout=system cxxstd=17 \
+            --with-filesystem --with-program_options --with-thread --with-regex --with-log \
+            --with-locale --with-context --with-date_time --with-json --with-container --with-coroutine \
+            --user-config=${{runner.workspace}}/boost/user-config.jam \
+            -j$(sysctl -n hw.ncpu)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{matrix.artifact}}
+          path: ${{runner.workspace}}/boost_prebuild
+          if-no-files-found: error
+
   build_android:
     runs-on: ubuntu-22.04
     strategy:
