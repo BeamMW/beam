@@ -190,6 +190,7 @@ jobs:
             --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale \
             --with-context --with-date_time --with-json --with-container --with-coroutine \
             --user-config=${{runner.workspace}}/boost/user-config.jam \
+            cxxflags="-DBOOST_ASIO_DISABLE_STD_ALIGNED_ALLOC" \
             -j$(nproc)
 
       - name: Collect
