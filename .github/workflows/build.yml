@@ -308,8 +308,8 @@ jobs:
 
       - name: Create Build Environment
         run: |
-          git clone --depth=1 https://github.com/BeamMW/boost-ios.git ${{runner.workspace}}/dependencies/boost-ios
-          git clone --depth=1 https://github.com/BeamMW/boost-ios-simulator.git ${{runner.workspace}}/dependencies/boost-ios-simulator
+          git clone --depth=1 -b boost-1.90 https://github.com/BeamMW/boost-ios.git ${{runner.workspace}}/dependencies/boost-ios
+          git clone --depth=1 -b boost-1.90 https://github.com/BeamMW/boost-ios-simulator.git ${{runner.workspace}}/dependencies/boost-ios-simulator
           git clone --depth=1 https://github.com/BeamMW/openssl-ios.git ${{runner.workspace}}/dependencies/openssl-ios
           git clone --depth=1 https://github.com/leetal/ios-cmake.git ${{runner.workspace}}/dependencies/toolchain-ios
           # echo "BUILD_TYPE=Release" >> $GITHUB_ENV
@@ -406,7 +406,7 @@ jobs:
       ###############################################################################
       - name: Create Build Environment
         run: |
-          git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_90-android
+          git clone --depth=1 -b boost-1.90 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_90-android
           git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
           ls /usr/local/lib/android/sdk
