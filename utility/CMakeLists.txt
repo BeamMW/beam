@@ -87,7 +87,7 @@ if (IOS)
     )
 elseif(ANDROID)
     target_link_libraries(utility 
-        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem
+        $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem.a
     )
 endif()
 

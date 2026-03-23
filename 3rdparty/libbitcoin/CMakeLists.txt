@@ -35,11 +35,11 @@ if(IOS)
             $ENV{BOOST_ROOT_IOS}/lib/libboost_log.a)
 elseif(ANDROID)
     target_link_libraries(${TARGET_NAME} 
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex
-            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_program_options.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_filesystem.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_thread.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_regex.a
+            $ENV{BOOST_ROOT_ANDROID}/libs/${ANDROID_ABI}/libboost_log.a
 )
 endif()
 
