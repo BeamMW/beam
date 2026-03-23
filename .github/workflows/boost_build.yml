@@ -33,7 +33,7 @@ jobs:
           cd ${{runner.workspace}}\boost\boost_1_90_0
           .\b2 install --prefix=${{runner.workspace}}\boost_prebuild address-model=64 variant=release threading=multi link=static runtime-link=static,shared --with-headers --with-filesystem --with-program_options --with-thread --with-regex --with-log --with-locale --with-context --with-date_time --with-json --with-container
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: boost_prebuild_windows-2022
           path: ${{runner.workspace}}\boost_prebuild
@@ -77,7 +77,7 @@ jobs:
           cd ${{runner.workspace}}/boost
           ./b2 install --prefix=${{runner.workspace}}/boost_prebuild
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: boost_prebuild_${{matrix.os}}
           path: ${{runner.workspace}}/boost_prebuild
@@ -133,7 +133,7 @@ jobs:
         shell: bash
         run: tar -zcvf boost_prebuild.tar.gz ${{runner.workspace}}/boost_prebuild
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: boost_prebuild_macos-15
           path: boost_prebuild.tar.gz
@@ -192,7 +192,7 @@ jobs:
             --user-config=${{runner.workspace}}/boost/user-config.jam \
             -j$(sysctl -n hw.ncpu)
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{matrix.artifact}}
           path: ${{runner.workspace}}/boost_prebuild
@@ -258,7 +258,7 @@ jobs:
           cp ${{runner.workspace}}/boost/stage/lib/*.a ${{runner.workspace}}/boost_prebuild/libs/${{matrix.abi}}/
           cp -R ${{runner.workspace}}/boost/boost ${{runner.workspace}}/boost_prebuild/include
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: boost_prebuild_android_${{matrix.abi}}
           path: ${{runner.workspace}}/boost_prebuild

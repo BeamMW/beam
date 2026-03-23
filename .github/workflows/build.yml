@@ -18,7 +18,7 @@ jobs:
 
     steps:  
       - name: Checkout 
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0      
 
@@ -37,7 +37,7 @@ jobs:
           echo $GITHUB_WORKSPACE
           echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1" >> $GITHUB_ENV
 
-      - name: Create Build Environment [ununtu all]
+      - name: Create Build Environment [ubuntu all]
         shell: bash
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: |
@@ -70,7 +70,7 @@ jobs:
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
 
-      - name: Configure CMake [ununtu all]
+      - name: Configure CMake [ubuntu all]
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBEAM_LINK_TYPE=Static -DBEAM_USE_STATIC_RUNTIME=ON -DBRANCH_NAME=${GITHUB_REF##*/} -DBEAM_HW_WALLET=Off .
@@ -95,7 +95,7 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: cmake --build . --parallel --config $BUILD_TYPE
 
-      - name: Build [ununtu all]
+      - name: Build [ubuntu all]
         shell: bash
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: make -j$(nproc)
@@ -113,7 +113,7 @@ jobs:
         continue-on-error: false
         run: ctest -C $BUILD_TYPE --verbose
 
-      - name: Test [ununtu all]
+      - name: Test [ubuntu all]
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         continue-on-error: false
         shell: bash
@@ -130,7 +130,7 @@ jobs:
       ###############################################################################
       - name: Import Code-Signing Certificates [macos]
         if: startsWith(matrix.os, 'macos')
-        uses: Apple-Actions/import-codesign-certs@v3
+        uses: Apple-Actions/import-codesign-certs@v6
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -166,7 +166,7 @@ jobs:
           shasum -a 256 wallet/broadcaster/broadcaster > wallet/broadcaster/broadcaster-checksum.txt
           shasum -a 256 bvm/ethash_service/ethash-service > bvm/ethash_service/ethash-service-checksum.txt
 
-      - name: Collect [macos && ununtu all]
+      - name: Collect [macos && ubuntu all]
         shell: bash
         if: matrix.os != 'windows-2022'
         run: |
@@ -224,7 +224,7 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: echo "PLATFORM_NAME=mac" >> $GITHUB_ENV
 
-      - name: OS name [ununtu all]
+      - name: OS name [ubuntu all]
         shell: bash
         if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-22.04'
         run: echo "PLATFORM_NAME=linux" >> $GITHUB_ENV
@@ -237,19 +237,19 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-beam-node-${{env.BEAM_VERSION}}
           path: artifacts/beam-node*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-beam-wallet-cli-${{env.BEAM_VERSION}}
           path: artifacts/beam-wallet*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-wallet-api-${{env.BEAM_VERSION}}
           path: |
@@ -257,19 +257,19 @@ jobs:
             artifacts/ipfs-bindings*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-explorer-node-${{env.BEAM_VERSION}}
           path: artifacts/explorer-node*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-broadcaster-${{env.BEAM_VERSION}}
           path: artifacts/broadcaster*
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{env.PLATFORM_NAME}}-ethash-service-${{env.BEAM_VERSION}}
           path: artifacts/ethash-service*
@@ -278,7 +278,7 @@ jobs:
       ###############################################################################
       # Upload windows pdb
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: matrix.os == 'windows-2022'
         with:
           name: pdb-${{env.BEAM_VERSION}}
@@ -293,7 +293,7 @@ jobs:
     #if: ${{false}}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -360,19 +360,19 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: beam-ios-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: beam-ios-simulator-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-simulator
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: beam-ios-combined-${{env.BEAM_VERSION}}
           path: ${{runner.workspace}}/results/beam-ios-combined
@@ -392,7 +392,7 @@ jobs:
       ANDROID_SDK_VERSION: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -406,11 +406,11 @@ jobs:
       ###############################################################################
       - name: Create Build Environment
         run: |
-          git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_68-android
+          git clone --depth=1 https://github.com/BeamMW/boost-android.git ${{runner.workspace}}/dependencies/boost_1_90-android
           git clone --depth=1 https://github.com/BeamMW/openssl-android.git ${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
           ls /usr/local/lib/android/sdk
-          echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_68-android" >> $GITHUB_ENV
+          echo "BOOST_ROOT_ANDROID=${{runner.workspace}}/dependencies/boost_1_90-android" >> $GITHUB_ENV
           echo "OPENSSL_ROOT_DIR_ANDROID=${{runner.workspace}}/dependencies/Prebuilt-OpenSSL-Android" >> $GITHUB_ENV
 
       ###############################################################################
@@ -437,7 +437,7 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: libwallet-jni-${{env.ANDROID_ABI}}-${{env.BEAM_VERSION}}
           path: |
@@ -453,7 +453,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -497,7 +497,7 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wasm-key-keeper
           path: |
@@ -512,7 +512,7 @@ jobs:
     #if: ${{false}}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -535,7 +535,7 @@ jobs:
       - name: Download boost
         shell: bash
         run: |
-          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_ubuntu-20.04.git ${{runner.workspace}}/boost_prebuild
+          git clone --depth=1 https://github.com/BeamMW/boost_prebuild_ubuntu-22.04.git ${{runner.workspace}}/boost_prebuild
           echo "BOOST_INCLUDEDIR=${{runner.workspace}}/boost_prebuild/include" >> $GITHUB_ENV
           echo "BOOST_LIBRARYDIR=${{runner.workspace}}/boost_prebuild/lib/" >> $GITHUB_ENV
 
@@ -561,14 +561,14 @@ jobs:
       ###############################################################################
       # Upload
       ###############################################################################
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: beam-wasm-${{env.BEAM_VERSION}}
           path: |
             ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
           if-no-files-found: error
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           registry-url: "https://registry.npmjs.org"
       - run: npm publish ${{runner.workspace}}/build_wasm/wasmclient/
