@@ -2,6 +2,9 @@ name: Build
 
 on: [push]
 
+permissions:
+  id-token: write  # Required for OIDC
+
 env:
   BUILD_TYPE: Release
   BUILD_CONFIG: RelWithDebInfo
@@ -572,5 +575,3 @@ jobs:
         with:
           registry-url: "https://registry.npmjs.org"
       - run: npm publish ${{runner.workspace}}/build_wasm/wasmclient/
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
