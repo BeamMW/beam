@@ -3,7 +3,7 @@ name: Build
 on: [push]
 
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write
 
 env:
   BUILD_TYPE: Release
@@ -568,10 +568,5 @@ jobs:
         with:
           name: beam-wasm-${{env.BEAM_VERSION}}
           path: |
-            ${{runner.workspace}}/build_wasm/wasmclient/wasm-client.*
+            ${{runner.workspace}}/build_wasm/wasmclient/*
           if-no-files-found: error
-
-      - uses: actions/setup-node@v6
-        with:
-          registry-url: "https://registry.npmjs.org"
-      - run: npm publish ${{runner.workspace}}/build_wasm/wasmclient/

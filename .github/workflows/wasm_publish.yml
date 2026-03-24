@@ -1,0 +1,148 @@
+name: Publish npm Package
+
+on:
+  push:
+    tags:
+      - wasm_publish*
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty for package.json version)'
+        required: false
+        type: string
+      artifact_name:
+        description: 'Build artifact name (e.g., beam-wasm-7.5.14455)'
+        required: false
+        type: string
+      build_run_id:
+        description: 'Optional Build workflow run id that produced the artifact'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  actions: read
+  contents: read
+
+jobs:
+  publish-wasm:
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${{ github.event.release.tag_name }}" != "" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG=""
+          fi
+
+          if [[ -n "$TAG" ]]; then
+            if [[ "$TAG" == beam-* ]]; then
+              VERSION="${TAG#beam-}"
+              echo "Version extracted from beam tag: $VERSION"
+            elif [[ "$TAG" == wasm_publish ]]; then
+              VERSION=""
+              echo "Manual publish tag detected: $TAG"
+            elif [[ "$TAG" == wasm_publish_* ]]; then
+              VERSION="${TAG#wasm_publish_}"
+              VERSION="${VERSION#v}"
+              echo "Version extracted from wasm_publish tag: $VERSION"
+            elif [[ "$TAG" == wasm_publish-* ]]; then
+              VERSION="${TAG#wasm_publish-}"
+              VERSION="${VERSION#v}"
+              echo "Version extracted from wasm_publish tag: $VERSION"
+            else
+              echo "Unsupported tag '$TAG'. Use beam-x.y.z or wasm_publish[[_|-]v]x.y.z"
+              exit 1
+            fi
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve Build workflow run id
+        id: build_run
+        if: ${{ !github.event.inputs.build_run_id }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in {1..30}; do
+            RUN_ID=$(gh api \
+              "/repos/${{ github.repository }}/actions/workflows/build.yml/runs?event=push&head_sha=${{ github.sha }}&status=completed&per_page=20" \
+              --jq '.workflow_runs[] | select(.conclusion == "success") | .id' | head -n1)
+
+            if [[ -n "$RUN_ID" ]]; then
+              echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+              echo "Resolved Build workflow run id: $RUN_ID"
+              exit 0
+            fi
+
+            echo "Waiting for successful Build workflow run for sha ${{ github.sha }} (attempt $i/30)"
+            sleep 60
+          done
+
+          echo "No successful Build workflow run found for sha ${{ github.sha }}"
+          exit 1
+
+      - name: Resolve artifact name
+        id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          INPUT_ARTIFACT="${{ github.event.inputs.artifact_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          RUN_ID="${{ github.event.inputs.build_run_id || steps.build_run.outputs.run_id }}"
+
+          if [[ -n "$INPUT_ARTIFACT" ]]; then
+            ARTIFACT_NAME="$INPUT_ARTIFACT"
+          elif [[ -n "$VERSION" ]]; then
+            ARTIFACT_NAME="beam-wasm-$VERSION"
+          else
+            if [[ -z "$RUN_ID" ]]; then
+              echo "Unable to resolve artifact: missing build run id and version"
+              exit 1
+            fi
+
+            ARTIFACT_NAME=$(gh api \
+              "/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts?per_page=100" \
+              --jq '.artifacts[] | select(.expired == false and (.name | startswith("beam-wasm-"))) | .name' | head -n1)
+
+            if [[ -z "$ARTIFACT_NAME" ]]; then
+              echo "No non-expired beam-wasm-* artifact found for run id $RUN_ID"
+              exit 1
+            fi
+          fi
+
+          echo "name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+          echo "Using artifact: $ARTIFACT_NAME"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ./wasmclient
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.inputs.build_run_id || steps.build_run.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update package version
+        if: github.event.inputs.version
+        run: |
+          cd ./wasmclient
+          npm version "${{ github.event.inputs.version }}" --no-git-tag-version
+
+      - name: Publish to npm
+        run: |
+          cd ./wasmclient
+          npm publish
