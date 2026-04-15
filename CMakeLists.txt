@@ -295,7 +295,7 @@ else()
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unqualified-std-cast-call") # osx 13.3 clang 14 3rdparty/libbitcoin
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable") # osx 13.3 clang 14 core/merkle.cpp
         endif()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion -Wno-vla-cxx-extension")
     endif()
 endif()
 
