@@ -2882,6 +2882,19 @@ private:
         return get_block_not_found(h);
     }
 
+    json get_block_by_hash(const Blob& key) override
+    {
+        Height h = _nodeBackend.get_DB().FindBlockByHash(key);
+        if (h)
+        {
+            NodeDB::StateID sid;
+            Block::SystemState::Full s;
+            if (FindBlockByHeight(sid, s, h))
+                return extract_block_from_row(sid, s, h);
+        }
+        return get_block_not_found(0);
+    }
+
     json get_blocks(Height startHeight, uint64_t n) override {
 
         json result = json::array();
