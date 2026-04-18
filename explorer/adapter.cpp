@@ -2237,6 +2237,11 @@ private:
 
     json get_assets_at(Height h) override
     {
+        Height currentHeight = _nodeBackend.m_Cursor.m_hh.m_Height;
+
+        if (h != MaxHeight && h > currentHeight)
+            return get_block_not_found(h);
+
         json jAssets = json::array();
         jAssets.push_back(json::array({
             MakeTableHdr("Aid"),
@@ -2248,7 +2253,7 @@ private:
             }));
 
 
-        bool bCurrent = (h >= _nodeBackend.m_Cursor.m_hh.m_Height);
+        bool bCurrent = (h >= currentHeight);
 
         Asset::Full ai;
         for (ai.m_ID = 0; ; )
