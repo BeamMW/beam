@@ -2859,6 +2859,13 @@ private:
                 // ignore other cases
             }
         }
+        else
+        {
+            // No height specified — return the current (latest) block
+            sid = _nodeBackend.m_Cursor.get_Sid();
+            s = _nodeBackend.m_Cursor.m_Full;
+            h = _nodeBackend.m_Cursor.m_hh.m_Height;
+        }
 
         if (h)
             return extract_block_from_row(sid, s, h);
