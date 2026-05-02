@@ -267,10 +267,8 @@ public:
 		struct RichInfo {
 			static const uint8_t Off = 1;
 			static const uint8_t On = 2;
-			static const uint8_t UpdShader = 4;
 		};
 		uint8_t m_RichInfoFlags = 0;
-		Blob m_RichParser = Blob(nullptr, 0);
 	};
 
 	void Initialize(const char* szPath);
@@ -454,6 +452,17 @@ public:
 	void ExtractBlockWithExtra(const NodeDB::StateID&, Height, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
 	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
+
+	// Per-SID parser modules. Loaded from --contract_rich_parser_folder before
+	// Initialize() is called. When a SID is not in this map, parsing is skipped.
+	std::map<ECC::uintBig, ByteBuffer> m_RichParserModules;
+
+	// Ask a parser module for the list of SIDs it handles via Method_3
+	// (two-call protocol). moduleBytes MUST be already-compiled BVM bytecode
+	// (the form produced by bvm2::Processor::Compile), not raw wasm. On success
+	// appends every reported SID to outSids and returns true. On any wasm error
+	// returns false.
+	bool ParserModule_GetSupportedSids(const Blob& moduleBytes, std::vector<ECC::uintBig>& outSids);
 
 	int get_AssetAt(Asset::Full&, Height, bool bFindAid); // Must set ID. Returns -1 if asset is destroyed, 0 if never existed.
 	// if never existed and bFindAid - try to find next that ever existed
