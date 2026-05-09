@@ -48,7 +48,7 @@ target_link_libraries(wallet_core
 target_compile_features(wallet_core PUBLIC ${BEAM_INTERFACE_STANDARD})
 
 
-if (NOT ANDROID AND NOT IOS)
+if (NOT ANDROID)
 
     if(BEAM_HW_WALLET)
         target_compile_definitions(wallet_core PUBLIC BEAM_HW_WALLET)
