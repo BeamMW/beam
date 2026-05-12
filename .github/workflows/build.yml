@@ -347,12 +347,14 @@ jobs:
           echo BEAM_VERSION = $BEAM_VERSION
           mkdir -p ${{runner.workspace}}/results/beam-ios/include
           mkdir -p ${{runner.workspace}}/results/beam-ios/lib
-          find ./build -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios/lib/ \;
+          # Skip Go-internal package archives left under asio-ipfs's go-workspace —
+          # they aren't Mach-O and would break the lipo step below.
+          find ./build -name \*.a -type f -not -path '*/go-workspace/*' -exec cp {} ${{runner.workspace}}/results/beam-ios/lib/ \;
           rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios/include/
           cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios/include/core/
           mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/include
           mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/lib
-          find ./build-simulator -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios-simulator/lib/ \;
+          find ./build-simulator -name \*.a -type f -not -path '*/go-workspace/*' -exec cp {} ${{runner.workspace}}/results/beam-ios-simulator/lib/ \;
           rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-simulator/include/
           cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios-simulator/include/core/
           mkdir -p ${{runner.workspace}}/results/beam-ios-combined/include
