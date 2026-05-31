@@ -462,6 +462,8 @@
   }
   h2.title .scrollToSearchResult { /* Addition to the title in case of a search result */
     padding: 0 0 0 4rem;
+    font-size: 1.5rem;
+    font-style: italic;
     color: var(--color_search_result_link);
   }
   h2.title .scrollToSearchResult a {
@@ -470,7 +472,7 @@
   h2.title .scrollToSearchResult a::after { /* Add a decorative arrow */
     content: "\00a0 \002BAF";
     display: inline-block;
-    vertical-align: bottom;
+    vertical-align: middle;
     text-decoration: none;
   }
   .listOfBlockHeaders {
@@ -2410,7 +2412,7 @@
     }
     text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     // If a search was made, add a link to scroll down to the result
-    if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');' title="Scroll down to the kernel">Kernel found!</a>`,'scrollToSearchResult'); }
+    if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');" title='Scroll down to the searched kernel'>Kernel found!</a>`,'scrollToSearchResult'); }
     text += '</h2>';
 
     if (j) {
