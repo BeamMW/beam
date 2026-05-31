@@ -409,7 +409,7 @@
     text-align: left;
   }
   div > ul {
-    padding: 0 10px 0 35px;  /* Wide first bullet point level when not in table cells */
+    padding: 0 10px 0 35px; /* Wide first bullet point level when not in table cells */
   }
   td ul {
     padding: 0 10px 0 15px; /* Tight bullet points when inside table cells */
@@ -1217,7 +1217,7 @@
     border-width: 1px;
     border-color: var(--color_config_collapsible_description);
     border-radius: 0.2em; /* Slightly round corners */
-    -moz-appearance: textfield; /* Hide arrows on Firefox */
+    appearance: textfield; /* Hide arrows (not compatible with Chrome 83) */
   }
   .nbrRows, .nbrStep { /* Input numbers */
     width: 6rem;
@@ -1908,7 +1908,7 @@
           <div id="SearchArea">
             <!-- Search field -->
             <form id="SearchForm" name="SearchForm" action="javascript:submitSearch();">
-              <input id="SearchField" type="text" required value="" size="20" pattern="[0-9a-fA-F]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
+              <input id="SearchField" type="text" required value="" size="20" pattern="[0-9a-fA-F ,.]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
               <button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
             </form>
           </div>
@@ -3429,8 +3429,8 @@
 
   // Process a block/kernel search request
   function submitSearch() {
-    // Get search string
-    let query = document.getElementById('SearchField').value;
+    // Get search string (and remove spaces, dots and commas)
+    let query = document.getElementById('SearchField').value.replace(/[ ,.]/g,'');
     // Simplistic test to check if search string is rather block height or kernel id
     let key = query.length < 10 ? '&height=' : '&kernel=';
     // Load the corresponding URL
