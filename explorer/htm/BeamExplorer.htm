@@ -445,11 +445,14 @@
     color: var(--color_h3);
     margin: 15px 0 10px 0;
   }
-  h3.sub { /* For the h3 within collapsibles */
+  h3.sub { /* For the h3 inside collapsibles */
     color: var(--color_h3_sub);
   }
   h3::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
+  }
+  .collapsible-label > h3::before {
+    content: ""; /* No decoration when in a collapsible summary */
   }
   .blockHeight, .blockHeight a {
     font-family: "Lucida Console", ui-monospace, monospace;
@@ -1103,8 +1106,7 @@
     background-color: var(--color_collapsible_hover);
   }
   .collapsible-label.small { /* Smaller compact collapsible header */
-    display: block;
-    min-width: unset; /* no min width for small collapsible labels */
+    min-width: unset; /* No min width for small collapsible labels */
     font-size: 1.2rem;
     color: var(--color_small_collapsible_text);
     background-color: var(--color_small_collapsible);
@@ -1115,12 +1117,18 @@
   .collapsible-label.small:hover {
     background-color: var(--color_small_collapsible_hover);
   }
+  .collapsible-label.discreet { /* Discreet collapsible header */
+    min-width: unset; /* No min width for discreet collapsible labels */
+    font-size: unset;
+    color: unset;
+    background-color: unset;
+    margin: 5px 0 0 0;
+  }
   .collapsible[open] > .collapsible-label {
     border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
     border-bottom-left-radius: 0; /* ...just because it's nice! :-) */
   }
-  .collapsible-label::-webkit-details-marker { /* Collapsible symbols */
-    /* On Chrome 83, this is needed to hide the default triangle */
+  .collapsible-label::-webkit-details-marker { /* Needed on Chrome 83 to hide the default triangle */
     display: none;
   }
   .collapsible-label::before {
@@ -1141,9 +1149,12 @@
     border-bottom-right-radius: var(--round-corner-radius);
     border-top-right-radius: var(--round-corner-radius);
   }
-  .collapsible-content.small {
-    background-color: unset; /* No specific background color for small collapsibles */
-    border: none; /* No border for small collapsibles */
+  .collapsible-content.small, .collapsible-content.discreet {
+    background-color: unset; /* No specific background color for special collapsibles */
+    border: none; /* No border for special collapsibles */
+  }
+  .collapsible.discreet[open] > .collapsible-label {
+    padding: 10px 10px 5px 10px;
   }
   .collapsible[open] > .collapsible-content {
     animation: smooth-opening 0.5s ease-in-out;  /* Just a small animation ;-) */
@@ -2449,19 +2460,21 @@
 
     j = jData['inputs'];
     if (j) {
-      text += '<h3 class="sub">Inputs (' + j.length + ')</h3>';
+      text += MakeCollapsibleBegin('<h3 class="sub">Inputs (' + j.length + ')</h3>', 'discreet', 'open');
       text += MakeTableTxos(j, true);
+      text += MakeCollapsibleEnd();
     }
 
     j = jData['outputs'];
     if (j) {
-      text += '<h3 class="sub">Outputs (' + j.length + ')</h3>';
+      text += MakeCollapsibleBegin('<h3 class="sub">Outputs (' + j.length + ')</h3>', 'discreet', 'open');
       text += MakeTableTxos(j, false);
+      text += MakeCollapsibleEnd();
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += '<h3 class="sub">Kernels (' + jTbl.length + ')</h3>';
+      text += MakeCollapsibleBegin('<h3 class="sub">Kernels (' + jTbl.length + ')</h3>', 'discreet', 'open');
       text += `<table class="dataTable tableKernels" border="1" cellspacing="0">
                 <thead><tr>
                   <th><span class="th">ID</span></th>
@@ -2507,6 +2520,7 @@
         text += '</tr>';
       }
       text += '</table>';
+      text += MakeCollapsibleEnd();
     }
 
     text += MakeCollapsibleEnd();
