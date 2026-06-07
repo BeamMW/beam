@@ -7,7 +7,7 @@
   - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.8.3
+  - Current version of the file: v0.8.4 (dev)
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies.
@@ -85,6 +85,10 @@
   }
   body:has(dialog:modal) { overflow: hidden; } /* Blocks scrolling when dialog is on (but doesn't work in Chrome 83) */
   :root {
+    /* Round corners */
+    --round-corner-radius: 5px;
+    --round-corner-radius-small: 3px;
+    --round-corner-radius-large: 10px;
     /* BEAM reference colors */
     --color-mauve: #9d6eff;
     --color-violet: #ab37e6;
@@ -660,12 +664,27 @@
   }
 
   /* FORMAT TABLES */
-  .dataTable, .dataTable td, .dataTable th {
+  .dataTable {
     color: var(--color_text); /* Default text color */
     font-size: 1.5rem; /* Default text size */
+    border-collapse: separate; /* Differentiate table and cell borders */
+    border-spacing: 0;
+    padding: 0;
     border: 1px solid var(--color_table_border);
-    border-collapse: collapse; /* Join table and cell borders as one single line */
-    padding: 5px; /* Add a small padding */
+    border-radius: var(--round-corner-radius); /* Round corners */
+    overflow: hidden; /* Force the round corners over the content */
+  }
+  .dataTable td, .dataTable th {
+    padding: 5px; /* Add a small padding to cells */
+    border-style: none; /* Remove cell borders to avoid double thickness */
+    border-bottom: 1px solid var(--color_table_border); /* Add border only on one side */
+    border-right: 1px solid var(--color_table_border); /* Add border only on one side */
+  }
+  .dataTable tr:last-child td, .dataTable tr:last-child th {
+    border-bottom: none; /* Remove last border */
+  }
+  .dataTable tr td:last-child, .dataTable tr th:last-child {
+    border-right: none; /* Remove last border */
   }
   .dataTable thead > tr th {
     color: var(--color_table_header_text);
@@ -732,7 +751,7 @@
     display: table; /* Display as table to organize its content */
     width: 100%;
     background-color: var(--color_banner_background);
-    border-radius: 10px; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-large); /* Round corners */
     padding: 8px 10px 7px 10px;
     text-align: center;
   }
@@ -755,7 +774,7 @@
     color: var(--color_network_select_text);
     background-color: var(--color_network_select_background);
     border: 1px solid transparent; /* We define the border here, even transparent, to avoid changes in size when hover */
-    border-radius: 0.5em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     margin: 2px 0 0 0;
     padding: 2px 2px 4px 2px;
   }
@@ -767,7 +786,7 @@
   }
   .popupDialog { /* Dialog popup */
     border: solid 5px var(--color_popup_border);
-    border-radius: 1rem;
+    border-radius: var(--round-corner-radius-large);
     box-shadow: 15px 15px 15px -10px #000;
     background-color: var(--color_popup_background);
     color: var(--color_popup_text);
@@ -814,7 +833,7 @@
     color: var(--color_popup_button_text);
     background-color: var(--color_popup_button_background);
     border: solid 1px var(--color_popup_button_border);
-    border-radius: 0.35em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     vertical-align: middle;
   }
   .popupButton:hover, .popupButton:focus {
@@ -888,7 +907,7 @@
   #SearchForm { }
   #SearchField {
     display: inline-block;
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     border: 1px solid var(--color_banner_search_border);
     background-color: var(--color_banner_search_background);
     padding: 1.5ch 1ch 1.2ch 1ch; /* Internal padding */
@@ -928,7 +947,7 @@
     display: inline-block;
     border: none;
     border: 1px solid var(--color_banner_search_button_border);
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     background-color: var(--color_banner_search_button_background);
     color: var(--color_banner_search_button_text);
     height: 2rem;
@@ -1078,7 +1097,7 @@
     border: none;
     text-align: left;
     outline: none;
-    border-radius: 0.4em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius); /* Round corners */
   }
   .collapsible-label:hover {
     background-color: var(--color_collapsible_hover);
@@ -1091,7 +1110,7 @@
     background-color: var(--color_small_collapsible);
     margin: 0;
     padding: 2px 5px 2px 5px;
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
   }
   .collapsible-label.small:hover {
     background-color: var(--color_small_collapsible_hover);
@@ -1118,6 +1137,9 @@
     color: var(--color_collapsible_content_text);
     background-color: var(--color_collapsible_content_background);
     border: 0.5px solid var(--color_collapsible); /* Add a thin border */
+    border-bottom-left-radius: var(--round-corner-radius);
+    border-bottom-right-radius: var(--round-corner-radius);
+    border-top-right-radius: var(--round-corner-radius);
   }
   .collapsible-content.small {
     background-color: unset; /* No specific background color for small collapsibles */
@@ -1154,7 +1176,7 @@
     color: var(--color_config_collapsible_text);
     padding: 2px 2px 5px 2px;
     margin: 5px 0 10px 0;
-    border-radius: 0.4em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-large); /* Round corners */
     border-style: none;
   }
   .collapsible .collapsible .collapsible-content.tableOptions { /* If collapsible is inside another collapsible */
@@ -1195,7 +1217,7 @@
     border-style: solid;
     border-width: 1px;
     border-color: var(--color_config_collapsible_button_border);
-    border-radius: 0.35em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius); /* Round corners */
   }
   #applySelection:hover, #applySelection:focus {
     outline: none; /* Avoid the browser default focus outline */
@@ -1218,7 +1240,7 @@
     border-style: solid;
     border-width: 1px;
     border-color: var(--color_config_collapsible_description);
-    border-radius: 0.2em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     appearance: textfield; /* Hide arrows (not compatible with Chrome 83) */
   }
   .nbrRows, .nbrStep { /* Input numbers */
@@ -1270,7 +1292,7 @@
   #selectCurrentColumns, #selectDefaultColumns, #selectAllColumns, #pasteColumns, #reorderAllColumns {} /* Columns selection links */
   #pasteColumnsInput { /* Input text */
     border: 1px solid var(--color_popup_input_border);
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     background-color: var(--color_popup_input_background);
     font-family: "Lucida Console", ui-monospace, monospace; /* Switch to monospace font */
     font-size: 1.5rem;
@@ -1410,7 +1432,7 @@
     font-weight: bold;
     margin: 0;
     padding: 5px 10px 5px 2px;
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
   }
   .specialBlock_Description {
     font-size: 1.3rem;
@@ -1533,7 +1555,7 @@
     width: 95%;
     max-width: 20ch;
     min-width: 5ch;
-    border-radius: 0.25em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     border: 1px solid var(--color_table_search_border); /* Search field border */
     background-color: var(--color_table_search_background);
     padding: 0.25ch 1ch 0.25ch 1ch ; /* Internal padding */
@@ -1645,7 +1667,7 @@
     background-color: var(--color_graph_option_background);
     border: none;
     outline: none;
-    border-radius: 0.2em; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     margin: 0;
     padding: 0 3px 0 3px;
   }
@@ -1711,7 +1733,7 @@
     /* Colors of text are defined by JS */
     font-size: 1rem !important; /* To supersed inline style */
     font-weight: bold !important; /* To supersed inline style */
-    border-radius: 3px; /* Slightly round corners */
+    border-radius: var(--round-corner-radius-small); /* Round corners */
     background: var(--color_graph_cursor_scale_background);
     filter: drop-shadow(0 0 2px var(--color_graph_cursor_scale_shadow));
     padding: 2px;
@@ -1892,7 +1914,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.3</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.4 (dev)</span></h1>
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
@@ -2153,7 +2175,7 @@
 
   function SetContent(text) {
     document.getElementById('MainContent').innerHTML = text;
-    // Parse Metadata to add classes (Rem: we do this one first because its innerHTML destroys the even handlers!)
+    // Parse Metadata to add classes (Rem: we do this one first because its innerHTML destroys the event handlers!)
     addClassesToMetadata();
     // Add truncate/expand options to all text of type hash, cid, metadata, etc.
     addExpandOptions();
@@ -2412,7 +2434,7 @@
     }
     text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     // If a search was made, add a link to scroll down to the result
-    if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');" title='Scroll down to the searched kernel'>Kernel found!</a>`,'scrollToSearchResult'); }
+    if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');" title="Scroll down to the searched kernel">Kernel found!</a>`,'scrollToSearchResult'); }
     text += '</h2>';
 
     if (j) {
