@@ -110,7 +110,7 @@
     --color_h2: #ddd;
     --color_h2_sub: #ddd;
     --color_h3: #ddd;
-    --color_h3_sub: #17204e;
+    --color_h4: #17204e;
     --color_link: #0066CC;
     --color_link_visited: #3e1a8b;
     --color_search_result_link: #d7d7a6;
@@ -260,7 +260,7 @@
     --color_h2: black;
     --color_h2_sub: black;
     --color_h3: #17204e;
-    --color_h3_sub: #17204e;
+    --color_h4: #17204e;
     --color_link: #0066CC;
     --color_link_visited: #3e1a8b;
     --color_search_result_link: #555fb8;
@@ -445,14 +445,14 @@
     color: var(--color_h3);
     margin: 15px 0 10px 0;
   }
-  h3.sub { /* For the h3 inside collapsibles */
-    color: var(--color_h3_sub);
-  }
   h3::before {
     content: "\25b8 \00a0"; /* Nice useless decoration ;-) */
   }
-  .collapsible-label > h3::before {
-    content: ""; /* No decoration when in a collapsible summary */
+  h4, h4 a:link, h4 a:visited {
+    font-size: 1.7rem;
+    text-align: left;
+    color: var(--color_h4);
+    margin: 10px 0 10px 0;
   }
   .blockHeight, .blockHeight a {
     font-family: "Lucida Console", ui-monospace, monospace;
@@ -1122,7 +1122,7 @@
     font-size: unset;
     color: unset;
     background-color: unset;
-    margin: 5px 0 0 0;
+    margin: 0;
   }
   .collapsible[open] > .collapsible-label {
     border-bottom-right-radius: 0; /* Remove bottom round corners when expanded... */
@@ -1436,19 +1436,10 @@
   }
 
   /* SPECIAL HISTORICAL BLOCKS */
-  .collapsible-label.special {
-    display: block;
-    min-width: 45rem; /* Keeps most labels with similar width */
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin: 0;
-    padding: 5px 10px 5px 2px;
-    border-radius: var(--round-corner-radius-small); /* Round corners */
-  }
   .specialBlock_Description {
     font-size: 1.3rem;
     line-height: 1.7rem;
-    padding: 8px 2px 10px 2px;
+    padding: 5px 10px 10px 10px;
   }
   .specialBlock_Description br { /* Dirty hack to add line spacing to 'br' tag... */
     display: block;
@@ -1462,7 +1453,7 @@
     font-size: 1.2rem;
     color: var(--color_historical_notes);
     line-height: 1.3rem;
-    padding: 2px;
+    padding: 0 10px;
   }
   .specialBlock_Link:first-child {
     padding-top: 20rem;
@@ -2460,21 +2451,21 @@
 
     j = jData['inputs'];
     if (j) {
-      text += MakeCollapsibleBegin('<h3 class="sub">Inputs (' + j.length + ')</h3>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4>Inputs (' + j.length + ')</h4>', 'discreet', 'open');
       text += MakeTableTxos(j, true);
       text += MakeCollapsibleEnd();
     }
 
     j = jData['outputs'];
     if (j) {
-      text += MakeCollapsibleBegin('<h3 class="sub">Outputs (' + j.length + ')</h3>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4>Outputs (' + j.length + ')</h4>', 'discreet', 'open');
       text += MakeTableTxos(j, false);
       text += MakeCollapsibleEnd();
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += MakeCollapsibleBegin('<h3 class="sub">Kernels (' + jTbl.length + ')</h3>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4>Kernels (' + jTbl.length + ')</h4>', 'discreet', 'open');
       text += `<table class="dataTable tableKernels" border="1" cellspacing="0">
                 <thead><tr>
                   <th><span class="th">ID</span></th>
@@ -2976,7 +2967,7 @@
       text += MakeCellRA(blocks);
 
       let desc = '';
-      if (obj.title) { desc += MakeCollapsibleBegin(obj.title, 'special'); }
+      if (obj.title) { desc += MakeCollapsibleBegin('<h4>'+ obj.title + '</h4>', 'discreet'); }
       if (obj.description) { desc += AddClassDiv(obj.description, 'specialBlock_Description') }
       if (obj.links) {
         for (let link of obj.links) { desc += AddClassDiv(link[0] + '&nbsp;: ' + MakeRef(link[1], link[1], '_blank'), 'specialBlock_Link') }
@@ -3638,9 +3629,8 @@
       myItem.nextElementSibling.removeEventListener('click', expandMetadata);
       myItem.nextElementSibling.addEventListener('click', truncateMetadata);
     }
-    // Expand all small and special collapsible blocks
+    // Expand all small collapsible blocks
     for (let myItem of document.querySelectorAll('.collapsible.small')) { myItem.open = true }
-    for (let myItem of document.querySelectorAll('.collapsible.special')) { myItem.open = true }
     // Show colum selection descriptions
     showDescriptions();
     // Switch action of the main clickable symbol
@@ -3666,9 +3656,8 @@
       myItem.nextElementSibling.removeEventListener('click', truncateMetadata);
       myItem.nextElementSibling.addEventListener('click', expandMetadata);
     }
-    // Collapse all small and special collapsible blocks
+    // Collapse all small collapsible blocks
     for (let myItem of document.querySelectorAll('.collapsible.small')) { myItem.open = false }
-    for (let myItem of document.querySelectorAll('.collapsible.special')) { myItem.open = false }
     // Hide colum selection descriptions
     hideDescriptions();
     // Switch action of the main clickable symbol
