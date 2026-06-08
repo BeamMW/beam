@@ -2453,21 +2453,21 @@
 
     j = jData['inputs'];
     if (j) {
-      text += MakeCollapsibleBegin('<h4>Inputs (' + j.length + ')</h4>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4 title="Collapse/Expand">Inputs (' + j.length + ')</h4>', 'discreet', 'open');
       text += MakeTableTxos(j, true);
       text += MakeCollapsibleEnd();
     }
 
     j = jData['outputs'];
     if (j) {
-      text += MakeCollapsibleBegin('<h4>Outputs (' + j.length + ')</h4>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4 title="Collapse/Expand">Outputs (' + j.length + ')</h4>', 'discreet', 'open');
       text += MakeTableTxos(j, false);
       text += MakeCollapsibleEnd();
     }
 
     let jTbl = jData['kernels'];
     if (jTbl) {
-      text += MakeCollapsibleBegin('<h4>Kernels (' + jTbl.length + ')</h4>', 'discreet', 'open');
+      text += MakeCollapsibleBegin('<h4 title="Collapse/Expand">Kernels (' + jTbl.length + ')</h4>', 'discreet', 'open');
       text += `<table class="dataTable tableKernels" border="1" cellspacing="0">
                 <thead><tr>
                   <th><span class="th">ID</span></th>
@@ -2970,7 +2970,7 @@
       text += MakeCellRA(blocks);
 
       let desc = '';
-      if (obj.title) { desc += MakeCollapsibleBegin('<h4>'+ obj.title + '</h4>', 'discreet'); }
+      if (obj.title) { desc += MakeCollapsibleBegin('<h4 title="Collapse/Expand">'+ obj.title + '</h4>', 'discreet'); }
       if (obj.description) { desc += AddClassDiv(obj.description, 'specialBlock_Description') }
       if (obj.links) {
         for (let link of obj.links) { desc += AddClassDiv(link[0] + '&nbsp;: ' + MakeRef(link[1], link[1], '_blank'), 'specialBlock_Link') }
