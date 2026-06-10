@@ -399,7 +399,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 38;
+	const uint64_t nVersionTop = 39;
 
 
 	Transaction t(*this);
@@ -499,6 +499,10 @@ void NodeDB::Open(const char* szPath)
 			CreateTables37();
 			// no break;
 
+		case 38: // block hash index
+			ExecQuick("CREATE INDEX IF NOT EXISTS [Idx" TblStates "Hash] ON [" TblStates "] ([" TblStates_Hash "]);");
+			// no break;
+
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
 
@@ -559,6 +563,7 @@ void NodeDB::Create()
 
 	ExecQuick("CREATE INDEX [Idx" TblStates "Wrk] ON [" TblStates "] ([" TblStates_ChainWork "]);");
 	ExecQuick("CREATE INDEX [Idx" TblStates TblStates_Txos "] ON [" TblStates "] ([" TblStates_Txos "]);");
+	ExecQuick("CREATE INDEX [Idx" TblStates "Hash] ON [" TblStates "] ([" TblStates_Hash "]);");
 
 	ExecQuick("CREATE TABLE [" TblTips "] ("
 		"[" TblTips_Number	"] INTEGER NOT NULL,"
@@ -2378,6 +2383,18 @@ Height NodeDB::FindKernel(const Blob& key)
 	rs.get(0, h);
 
 	assert(h);
+	return h;
+}
+
+Height NodeDB::FindBlockByHash(const Blob& hash)
+{
+	Recordset rs(*this, Query::StateFindByHash, "SELECT " TblStates_Number " FROM " TblStates " WHERE " TblStates_Hash "=? LIMIT 1");
+	rs.put(0, hash);
+	if (!rs.Step())
+		return 0;
+
+	Height h;
+	rs.get(0, h);
 	return h;
 }
 

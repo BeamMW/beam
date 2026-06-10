@@ -3348,8 +3348,8 @@
   function submitSearch() {
     // Get search string
     let query = document.getElementById('SearchField').value;
-    // Simplistic test to check if search string is rather block height or kernel id
-    let key = query.length < 10 ? '&height=' : '&kernel=';
+    // Simplistic test to check if search string is rather block height or hash/kernel id
+    let key = query.length < 10 ? '&height=' : '&id=';
     // Load the corresponding URL
     window.location.href = UrlSelf('block', key + query);
   }
