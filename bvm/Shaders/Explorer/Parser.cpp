@@ -26,6 +26,7 @@ namespace Testnet {
 }
 #include "../minter/contract.h"
 #include "../blackhole/contract.h"
+#include "../asset_lists/contract.h"
 #include "../sidechain_pos/contract_l1.h"
 #include "../sidechain_pos/contract_l2.h"
 #include "../pbft/pbft_dpos.h"
@@ -287,6 +288,7 @@ void DocAddFixedPoint(const char* sz, uint64_t val, uint64_t one, uint32_t nDigs
 	macro(DaoAccumulator, DaoAccumulator::s_pSID) \
 	macro(DaoVote, DaoVote::s_pSID) \
 	macro(Bridge_L1, SidechainPos::L1::s_pSID) \
+	macro(AssetLists, AssetLists::s_pSID) \
 
 #define HandleContractsWrappers(macro) \
 	macro(Upgradable, Upgradable::s_SID) \
@@ -512,6 +514,11 @@ struct ParserContext
 	void On_PBFT_DelegatorAddr(const PubKey&);
 	void On_PBFT_Status(const char*, I_PBFT::State::Validator::Status);
 	void On_PBFT_Commission(uint16_t, bool bIsTbl = false);
+
+	void OnState_AssetLists_Accounts();
+	void OnState_AssetLists_Lists();
+	void OnState_AssetLists_Balances();
+	void OnState_AssetLists_PendingTransfers();
 
 };
 
@@ -3471,6 +3478,352 @@ void ParserContext::WriteDaoVoteCfg(const DaoVote::Cfg& cfg)
 	DocAddAid("Voting asset", cfg.m_Aid);
 	Env::DocAddNum("Epoch duration", cfg.m_hEpochDuration);
 	DocAddPk("Admin", cfg.m_pkAdmin);
+}
+
+// ---------------------------------------------------------------------------
+// AssetLists
+// ---------------------------------------------------------------------------
+
+void ParserContext::OnState_AssetLists_Accounts()
+{
+	Env::DocGroup gr("Accounts");
+	DocSetType("table");
+
+	{
+		Env::DocGroup grH("");
+		DocAddTableHeader("Account PK");
+		DocAddTableHeader("Created");
+		DocAddTableHeader("Proposals");
+	}
+
+	Env::Key_T<AssetLists::Account::Key> k0, k1;
+	_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+	k0.m_KeyInContract.m_Tag = AssetLists::Tags::s_Account;
+	k1.m_KeyInContract.m_Tag = AssetLists::Tags::s_Account;
+	_POD_(k0.m_KeyInContract.m_pkAccount).SetZero();
+	_POD_(k1.m_KeyInContract.m_pkAccount).SetObject(0xff);
+
+	for (Env::VarReader r(k0, k1); ; )
+	{
+		Env::Key_T<AssetLists::Account::Key> ekey;
+		AssetLists::Account acct;
+		if (!r.MoveNext_T(ekey, acct))
+			break;
+
+		Env::DocGroup grRow("");
+		DocAddPk("pk",            ekey.m_KeyInContract.m_pkAccount);
+		DocAddHeight("created",   acct.m_hCreated);
+		Env::DocAddNum("proposals", acct.m_nProposals);
+	}
+}
+
+void ParserContext::OnState_AssetLists_Lists()
+{
+	Env::DocGroup gr("Lists");
+	DocSetType("table");
+
+	{
+		Env::DocGroup grH("");
+		DocAddTableHeader("Account PK");
+		DocAddTableHeader("List PK");
+		DocAddTableHeader("Created");
+		DocAddTableHeader("Type");
+		DocAddTableHeader("Assets");
+		DocAddTableHeader("Proposals");
+	}
+
+	Env::Key_T<AssetLists::List::Key> k0, k1;
+	_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+	k0.m_KeyInContract.m_Tag = AssetLists::Tags::s_List;
+	k1.m_KeyInContract.m_Tag = AssetLists::Tags::s_List;
+	_POD_(k0.m_KeyInContract.m_pkAccount).SetZero();
+	_POD_(k0.m_KeyInContract.m_pkList).SetZero();
+	_POD_(k1.m_KeyInContract.m_pkAccount).SetObject(0xff);
+	_POD_(k1.m_KeyInContract.m_pkList).SetObject(0xff);
+
+	for (Env::VarReader r(k0, k1); ; )
+	{
+		Env::Key_T<AssetLists::List::Key> ekey;
+		AssetLists::List lst;
+		if (!r.MoveNext_T(ekey, lst))
+			break;
+
+		Env::DocGroup grRow("");
+		DocAddPk("account_pk",    ekey.m_KeyInContract.m_pkAccount);
+		DocAddPk("list_pk",       ekey.m_KeyInContract.m_pkList);
+		DocAddHeight("created",   lst.m_hCreated);
+		Env::DocAddText("type",   lst.m_ListType == AssetLists::ListType::s_Single ? "single" : "multi");
+		Env::DocAddNum("assets",    lst.m_nAssets);
+		Env::DocAddNum("proposals", lst.m_nProposals);
+	}
+}
+
+void ParserContext::OnState_AssetLists_Balances()
+{
+	Env::DocGroup gr("Account Balances");
+	DocSetType("table");
+
+	{
+		Env::DocGroup grH("");
+		DocAddTableHeader("Account PK");
+		DocAddTableHeader("Balance");
+	}
+
+	Env::Key_T<AssetLists::AccountBalance::Key> k0, k1;
+	_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+	k0.m_KeyInContract.m_Tag = AssetLists::Tags::s_AccountBalance;
+	k1.m_KeyInContract.m_Tag = AssetLists::Tags::s_AccountBalance;
+	_POD_(k0.m_KeyInContract.m_pkAccount).SetZero();
+	_POD_(k1.m_KeyInContract.m_pkAccount).SetObject(0xff);
+
+	for (Env::VarReader r(k0, k1); ; )
+	{
+		Env::Key_T<AssetLists::AccountBalance::Key> ekey;
+		AssetLists::AccountBalance bal;
+		if (!r.MoveNext_T(ekey, bal))
+			break;
+
+		Env::DocGroup grRow("");
+		DocAddPk("account_pk", ekey.m_KeyInContract.m_pkAccount);
+		DocAddAmount("balance", bal.m_Amount);
+	}
+}
+
+void ParserContext::OnState_AssetLists_PendingTransfers()
+{
+	Env::DocGroup gr("Pending Transfers");
+	DocSetType("table");
+
+	{
+		Env::DocGroup grH("");
+		DocAddTableHeader("Source Account PK");
+		DocAddTableHeader("List PK");
+		DocAddTableHeader("Dest Account PK");
+		DocAddTableHeader("Expires");
+	}
+
+	Env::Key_T<AssetLists::PendingTransfer::Key> k0, k1;
+	_POD_(k0.m_Prefix.m_Cid) = m_Cid;
+	_POD_(k1.m_Prefix.m_Cid) = m_Cid;
+	k0.m_KeyInContract.m_Tag = AssetLists::Tags::s_PendingTransfer;
+	k1.m_KeyInContract.m_Tag = AssetLists::Tags::s_PendingTransfer;
+	_POD_(k0.m_KeyInContract.m_pkAccountSrc).SetZero();
+	_POD_(k0.m_KeyInContract.m_pkList).SetZero();
+	_POD_(k1.m_KeyInContract.m_pkAccountSrc).SetObject(0xff);
+	_POD_(k1.m_KeyInContract.m_pkList).SetObject(0xff);
+
+	for (Env::VarReader r(k0, k1); ; )
+	{
+		Env::Key_T<AssetLists::PendingTransfer::Key> ekey;
+		AssetLists::PendingTransfer pt;
+		if (!r.MoveNext_T(ekey, pt))
+			break;
+
+		Env::DocGroup grRow("");
+		DocAddPk("source_account", ekey.m_KeyInContract.m_pkAccountSrc);
+		DocAddPk("list_pk",        ekey.m_KeyInContract.m_pkList);
+		DocAddPk("dest_account",   pt.m_pkAccountDest);
+		DocAddHeight("expires",    pt.m_hExpire);
+	}
+}
+
+void ParserContext::OnMethod_AssetLists(uint32_t /* iVer */)
+{
+	switch (m_iMethod)
+	{
+	case AssetLists::Method::Init::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::Init>();
+		if (pArg)
+		{
+			OnMethod("Create");
+			GroupArgs gr;
+			WriteUpgradeSettings(pArg->m_Upgradable);
+			DocAddMonoblob("dao_vault",        pArg->m_Settings.m_cidDaoVault);
+			DocAddAmount("fee_account",        pArg->m_Settings.m_FeeAccount);
+			DocAddAmount("fee_list",           pArg->m_Settings.m_FeeList);
+			DocAddAmount("fee_proposal",       pArg->m_Settings.m_FeeProposal);
+			Env::DocAddNum("proposal_ttl",     pArg->m_Settings.m_ProposalTtl);
+		}
+	}
+	break;
+
+	case AssetLists::Method::CreateAccount::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::CreateAccount>();
+		if (pArg)
+		{
+			OnMethod("Create Account");
+			GroupArgs gr;
+			DocAddPk("account_pk",              pArg->m_pkAccount);
+			Env::DocAddNum("threshold",    (uint32_t) pArg->m_Threshold);
+			Env::DocAddNum("signers",      (uint32_t) pArg->m_nSigners);
+		}
+	}
+	break;
+
+	case AssetLists::Method::ProposeAccountAction::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::ProposeAccountAction>();
+		if (pArg)
+		{
+			OnMethod("Propose Account Action");
+			GroupArgs gr;
+			DocAddPk("account_pk",              pArg->m_pkAccount);
+			DocAddPk("proposer",               pArg->m_pkProposer);
+			Env::DocAddNum("action",  (uint32_t) pArg->m_Action);
+		}
+	}
+	break;
+
+	case AssetLists::Method::VoteAccountProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::VoteAccountProposal>();
+		if (pArg)
+		{
+			OnMethod("Vote Account Proposal");
+			GroupArgs gr;
+			DocAddPk("account_pk",       pArg->m_pkAccount);
+			Env::DocAddNum("proposal",             pArg->m_ProposalID);
+			Env::DocAddNum("signer_idx", (uint32_t) pArg->m_SignerIdx);
+			Env::DocAddNum("yes",        (uint32_t) pArg->m_bYes);
+		}
+	}
+	break;
+
+	case AssetLists::Method::CancelAccountProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::CancelAccountProposal>();
+		if (pArg)
+		{
+			OnMethod("Cancel Account Proposal");
+			GroupArgs gr;
+			DocAddPk("account_pk",     pArg->m_pkAccount);
+			Env::DocAddNum("proposal", pArg->m_ProposalID);
+			DocAddPk("proposer",       pArg->m_pkProposer);
+		}
+	}
+	break;
+
+	case AssetLists::Method::ProposeListAction::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::ProposeListAction>();
+		if (pArg)
+		{
+			OnMethod("Propose List Action");
+			GroupArgs gr;
+			DocAddPk("account_pk",              pArg->m_pkAccount);
+			DocAddPk("list_pk",                pArg->m_pkList);
+			DocAddPk("proposer",               pArg->m_pkProposer);
+			Env::DocAddNum("action", (uint32_t) pArg->m_Action);
+		}
+	}
+	break;
+
+	case AssetLists::Method::VoteListProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::VoteListProposal>();
+		if (pArg)
+		{
+			OnMethod("Vote List Proposal");
+			GroupArgs gr;
+			DocAddPk("account_pk",       pArg->m_pkAccount);
+			DocAddPk("list_pk",          pArg->m_pkList);
+			Env::DocAddNum("proposal",             pArg->m_ProposalID);
+			Env::DocAddNum("signer_idx", (uint32_t) pArg->m_SignerIdx);
+			Env::DocAddNum("yes",        (uint32_t) pArg->m_bYes);
+		}
+	}
+	break;
+
+	case AssetLists::Method::CancelListProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::CancelListProposal>();
+		if (pArg)
+		{
+			OnMethod("Cancel List Proposal");
+			GroupArgs gr;
+			DocAddPk("account_pk",     pArg->m_pkAccount);
+			DocAddPk("list_pk",        pArg->m_pkList);
+			Env::DocAddNum("proposal", pArg->m_ProposalID);
+			DocAddPk("proposer",       pArg->m_pkProposer);
+		}
+	}
+	break;
+
+	case AssetLists::Method::CleanupProposal::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::CleanupProposal>();
+		if (pArg)
+		{
+			OnMethod("Cleanup Proposal");
+			GroupArgs gr;
+			Env::DocAddNum("account_proposal", (uint32_t) pArg->m_bAccountProposal);
+			DocAddPk("account_pk",             pArg->m_pkAccount);
+			DocAddPk("list_pk",                pArg->m_pkList);
+			Env::DocAddNum("proposal",         pArg->m_ProposalID);
+		}
+	}
+	break;
+
+	case AssetLists::Method::ClaimBalance::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::ClaimBalance>();
+		if (pArg)
+		{
+			OnMethod("Claim Balance");
+			GroupArgs gr;
+			DocAddPk("recipient",   pArg->m_pkRecipient);
+			DocAddPk("account_pk",  pArg->m_pkAccount);
+		}
+	}
+	break;
+
+	case AssetLists::Method::CleanupTransfer::s_iMethod:
+	{
+		auto pArg = get_ArgsAs<AssetLists::Method::CleanupTransfer>();
+		if (pArg)
+		{
+			OnMethod("Cleanup Transfer");
+			GroupArgs gr;
+			DocAddPk("account_pk", pArg->m_pkAccount);
+			DocAddPk("list_pk",    pArg->m_pkList);
+		}
+	}
+	break;
+
+	default:
+		OnUpgrade3Method();
+		break;
+	}
+}
+
+void ParserContext::OnState_AssetLists(uint32_t /* iVer */)
+{
+	WriteUpgrade3State();
+
+	Env::Key_T<uint8_t> k;
+	_POD_(k.m_Prefix.m_Cid) = m_Cid;
+	k.m_KeyInContract = AssetLists::State::s_Key;
+
+	AssetLists::State s;
+	if (!Env::VarReader::Read_T(k, s))
+		return;
+
+	DocAddAmount("Fee (account creation)",  s.m_Settings.m_FeeAccount);
+	DocAddAmount("Fee (list creation)",     s.m_Settings.m_FeeList);
+	DocAddAmount("Fee (proposal, non-signer)", s.m_Settings.m_FeeProposal);
+	Env::DocAddNum("Proposal TTL (blocks)", s.m_Settings.m_ProposalTtl);
+	Env::DocAddNum("Total accounts",        s.m_nAccounts);
+	Env::DocAddNum("Total lists",           s.m_nLists);
+
+	OnState_AssetLists_Accounts();
+	OnState_AssetLists_Lists();
+	OnState_AssetLists_Balances();
+	OnState_AssetLists_PendingTransfers();
 }
 
 
