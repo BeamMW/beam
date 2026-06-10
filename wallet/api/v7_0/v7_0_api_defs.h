@@ -16,7 +16,9 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <boost/optional.hpp>
 #include "core/ecc_native.h"
+#include "wallet/core/common.h"
 
 namespace beam::wallet
 {
@@ -28,7 +30,8 @@ namespace beam::wallet
         macro(IPFSUnpin,        "ipfs_unpin",           API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,           "ipfs_gc",              API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(SignMessage,      "sign_message",         API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
-        macro(VerifySignature,  "verify_signature",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) 
+        macro(VerifySignature,  "verify_signature",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(VerifyMessage,    "verify_message",       API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED)
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
     struct IPFSAdd
@@ -96,7 +99,8 @@ namespace beam::wallet
 
     struct SignMessage
     {
-        std::vector<uint8_t> keyMaterial;
+        boost::optional<std::vector<uint8_t>> keyMaterial; // deprecated, kept for backward compat
+        boost::optional<std::string> address;              // preferred: own wallet address
         std::string message;
         struct Response
         {
@@ -112,6 +116,17 @@ namespace beam::wallet
         struct Response
         {
             bool result;
+        };
+    };
+
+    struct VerifyMessage
+    {
+        WalletID address = Zero;
+        std::string message;
+        std::vector<uint8_t> signature;
+        struct Response
+        {
+            bool isValid;
         };
     };
 }

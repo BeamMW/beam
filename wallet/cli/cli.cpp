@@ -3326,6 +3326,109 @@ namespace
 
         return 1;
     }
+    // Hash a message for signing/verification: SHA256("beam.signed.message" + len + message)
+    void GetSignMessageHash(ECC::Hash::Value& hv, const std::string& message)
+    {
+        std::stringstream ss;
+        ss << "beam.signed.message" << message.size() << message;
+        ECC::Hash::Processor() << ss.str() >> hv;
+    }
+
+    int SignMessage(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        // Resolve address
+        WalletAddress addr;
+        std::string addressToken = vm[cli::WALLET_ADDR].as<string>();
+        if (addressToken == "*")
+        {
+            walletDB->getDefaultAddressAlways(addr);
+        }
+        else
+        {
+            auto found = walletDB->getAddressByToken(addressToken);
+            if (!found)
+            {
+                BEAM_LOG_ERROR() << "Address not found: " << addressToken;
+                return -1;
+            }
+            addr = *found;
+        }
+
+        if (!addr.isOwn())
+        {
+            BEAM_LOG_ERROR() << "Address is not owned by this wallet";
+            return -1;
+        }
+
+        // Derive the signing key
+        ECC::Scalar::Native sk;
+        PeerID pid;
+        walletDB->get_SbbsPeerID(sk, pid, addr.m_OwnID);
+
+        // Hash the message
+        std::string message = vm[cli::MSG_TO_SIGN].as<string>();
+        ECC::Hash::Value hv;
+        GetSignMessageHash(hv, message);
+
+        // Sign
+        ECC::Signature sig;
+        sig.Sign(hv, sk);
+
+        Serializer s;
+        s & sig;
+        auto sigHex = to_hex(s.buffer().first, s.buffer().second);
+
+        cout << "Signature: " << sigHex << std::endl;
+        cout << "Address: " << std::to_string(addr.m_BbsAddr) << std::endl;
+        return 0;
+    }
+
+    int VerifyMessage(const po::variables_map& vm)
+    {
+        std::string addressStr = vm[cli::WALLET_ADDR].as<string>();
+        if (addressStr == "*")
+        {
+            BEAM_LOG_ERROR() << "Please specify --address for verify_message";
+            return -1;
+        }
+
+        WalletID wid;
+        if (!wid.FromHex(addressStr))
+        {
+            BEAM_LOG_ERROR() << "Invalid address: " << addressStr;
+            return -1;
+        }
+
+        if (vm.count(cli::SIGNATURE) == 0)
+        {
+            BEAM_LOG_ERROR() << "Please specify --signature";
+            return -1;
+        }
+
+        std::string message = vm[cli::MSG_TO_SIGN].as<string>();
+        ECC::Hash::Value hv;
+        GetSignMessageHash(hv, message);
+
+        ByteBuffer sigBuf = from_hex(vm[cli::SIGNATURE].as<string>());
+        Deserializer d;
+        ECC::Signature sig;
+        d.reset(sigBuf);
+        d & sig;
+
+        if (wid.m_Pk.CheckSignature(hv, sig))
+        {
+            cout << "Good signature from " << addressStr << std::endl;
+            return 0;
+        }
+        else
+        {
+            cout << "Invalid signature from " << addressStr << std::endl;
+            return -1;
+        }
+    }
+
 }  // namespace
 
 io::Reactor::Ptr reactor;
@@ -3363,6 +3466,8 @@ int main(int argc, char* argv[])
         {cli::TX_DETAILS,         TxDetails,                        "print details of the transaction with given ID"},
         {cli::PAYMENT_PROOF_EXPORT, ExportPaymentProof,             "export payment proof by transaction ID"},
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
+        {cli::SIGN_MESSAGE,         SignMessage,                    "sign a message with a wallet address"},
+        {cli::VERIFY_MESSAGE,       VerifyMessage,                  "verify a message signature for a wallet address"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
         {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
         {cli::WALLET_ADDRESS_VERIFY, VerifyAddress,                 "verify your Endpoint on the attached HW wallet"},
