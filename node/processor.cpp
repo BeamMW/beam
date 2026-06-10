@@ -185,14 +185,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 		}
 	}
 
-	if (StartParams::RichInfo::UpdShader & sp.m_RichInfoFlags)
-	{
-		m_DB.ParamSet(NodeDB::ParamID::RichContractParser, nullptr, &sp.m_RichParser);
-		
-		if (!bRebuildNonStd && m_DB.ParamIntGetDef(NodeDB::ParamID::RichContractInfo))
-			bRebuildNonStd = true;
-	}
-
 	uint64_t nFlags1 = m_DB.ParamIntGetDef(NodeDB::ParamID::Flags1);
 	if (bRebuildNonStd || (NodeDB::Flags1::PendingRebuildNonStd & nFlags1))
 	{
@@ -5733,7 +5725,6 @@ struct NodeProcessor::ProcessorInfoParser
 	NodeProcessor& m_Proc;
 
 	Height m_Height;
-	ByteBuffer m_bufParser;
 	std::ostringstream m_os;
 
 	void SelectContext(bool /* bDependent */, uint32_t /* nChargeNeeded */) override {
@@ -5844,15 +5835,18 @@ struct NodeProcessor::ProcessorInfoParser
 		m_Height = p.m_Cursor.m_hh.m_Height;
 	}
 
-	bool Init(uint32_t nStackBytesExtra)
+	bool Init(uint32_t nStackBytesExtra, const ECC::uintBig* pSid)
 	{
-		m_Proc.m_DB.ParamGet(NodeDB::ParamID::RichContractParser, nullptr, nullptr, &m_bufParser);
-		if (m_bufParser.empty())
+		if (!pSid)
 			return false;
 
-		InitMem(nStackBytesExtra);
-		m_Code = m_bufParser;
+		auto it = m_Proc.m_RichParserModules.find(*pSid);
+		if (it == m_Proc.m_RichParserModules.end())
+			return false;
 
+		const ByteBuffer& module = it->second;
+		InitMem(nStackBytesExtra);
+		m_Code = Blob(module.data(), static_cast<uint32_t>(module.size()));
 		m_pOut = &m_os;
 		return true;
 	}
@@ -5892,7 +5886,7 @@ void NodeProcessor::BlockInterpretCtx::BvmProcessor::ParseExtraInfo(ContractInvo
 		ProcessorInfoParser proc(m_Bic.m_Proc);
 		proc.m_Height = m_Bic.m_Height - 1;
 
-		if (!proc.Init(m_Stack.AlignUp(args.n)))
+		if (!proc.Init(m_Stack.AlignUp(args.n), &sid))
 			return;
 
 		proc.m_Stack.PushAlias(args);
@@ -5919,7 +5913,7 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	try
 	{
 		ProcessorInfoParser proc(*this);
-		if (!proc.Init(0))
+		if (!proc.Init(0, &sid))
 			return;
 
 		proc.PushArgBoth(sid);
@@ -5932,6 +5926,56 @@ void NodeProcessor::get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBi
 	catch (const std::exception& e)
 	{
 		BEAM_LOG_WARNING() << "contract parser error: " << e.what();
+	}
+}
+
+bool NodeProcessor::ParserModule_GetSupportedSids(const Blob& moduleBytes, std::vector<ECC::uintBig>& outSids)
+{
+	try
+	{
+		ProcessorInfoParser proc(*this);
+		proc.InitMem(0);
+
+		// moduleBytes is already-compiled BVM bytecode (compiled by stage_parser_modules).
+		proc.m_Code = moduleBytes;
+		proc.m_pOut = &proc.m_os;
+
+		// First call: get count.
+		proc.m_Stack.Push((Wasm::Word) 0); // out_buf = nullptr
+		proc.m_Stack.Push((Wasm::Word) 0); // out_cap = 0
+		proc.CallMethod(3);
+		while (!proc.IsDone())
+			proc.RunOnce();
+
+		uint32_t nCount = proc.m_Stack.Pop<Wasm::Word>();
+		if (!nCount)
+			return true;
+
+		// Second call: allocate aux buffer, write SIDs there, copy out.
+		const uint32_t nBytes = nCount * (uint32_t) sizeof(ECC::uintBig);
+		proc.m_Stack.AliasAlloc(nBytes);
+		Wasm::Word pBuf = proc.m_Stack.get_AlasSp();
+
+		proc.m_Stack.Push(pBuf);
+		proc.m_Stack.Push((Wasm::Word) nCount);
+		proc.CallMethod(3);
+		while (!proc.IsDone())
+			proc.RunOnce();
+
+		uint32_t nWritten = proc.m_Stack.Pop<Wasm::Word>();
+		if (nWritten > nCount)
+			nWritten = nCount;
+
+		const auto* pSids = (const ECC::uintBig*) proc.m_Stack.get_AliasPtr();
+		for (uint32_t i = 0; i < nWritten; i++)
+			outSids.push_back(pSids[i]);
+
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		BEAM_LOG_WARNING() << "parser module Method_3 error: " << e.what();
+		return false;
 	}
 }
 

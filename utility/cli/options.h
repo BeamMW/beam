@@ -84,7 +84,8 @@ namespace beam
         extern const char* MANUAL_ROLLBACK;
         extern const char* MANUAL_SELECT;
         extern const char* CONTRACT_RICH_INFO;
-        extern const char* CONTRACT_RICH_PARSER;
+        extern const char* CONTRACT_RICH_PARSER_FOLDER;
+        extern const char* CONTRACT_RICH_PARSER_FOLDER_DRYRUN;
         extern const char* CHECKDB;
         extern const char* VACUUM;
         extern const char* CRASH;
