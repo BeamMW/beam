@@ -35,11 +35,12 @@ void V73Api::getResponse(const JsonRpcId& id, const AssetsList::Response& res, j
     msg = json
     {
         {JsonRpcHeader, JsonRpcVersion},
-        {"id", id}
+        {"id", id},
+        {"result", json::object()}
     };
 
-    msg["assets"] = json::array();
-    auto& jsonAssets = msg["assets"];
+    msg["result"]["assets"] = json::array();
+    auto& jsonAssets = msg["result"]["assets"];
 
     for (auto& asset: res.assets)
     {

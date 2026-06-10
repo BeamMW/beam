@@ -86,12 +86,25 @@ namespace beam::wallet
         auto& builder = *_builder;
         if (GetState<State>() == State::Initial)
         {
+            Asset::ID assetId = 0;
+            std::string unitName = kAmountASSET;
+            std::string nthName  = kAmountAGROTH;
+
+            const auto pInfo = GetWalletDB()->findAsset(builder.m_pidAsset);
+            if (pInfo)
+            {
+                assetId  = pInfo->m_ID;
+                WalletAssetMeta meta(*pInfo);
+                unitName = meta.GetUnitName();
+                nthName  = meta.GetNthUnitName();
+            }
+
             BEAM_LOG_INFO()
                 << GetTxID()
                 << " "
                 << (_issue ? "Generating" : "Consuming")
                 << " asset with owner id " << builder.m_pidAsset
-                << ". Amount: " << PrintableAmount(builder.m_Value, false, 0, kAmountASSET, kAmountAGROTH);
+                << ". Amount: " << PrintableAmount(builder.m_Value, false, assetId, unitName.c_str(), nthName.c_str());
 
             UpdateTxDescription(TxStatus::InProgress);
         }
