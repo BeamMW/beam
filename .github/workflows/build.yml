@@ -328,10 +328,10 @@ jobs:
       - name: Configure CMake && Build
         run: |
           export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios"
-          cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=Off -B./build
+          cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=OS64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=On -B./build
           make -C ./build -j$(sysctl -n hw.ncpu)
           export BOOST_ROOT_IOS="${{runner.workspace}}/dependencies/boost-ios-simulator"
-          cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=Off -B./build-simulator
+          cmake . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_TOOLCHAIN_FILE=${{runner.workspace}}/dependencies/toolchain-ios/ios.toolchain.cmake -DPLATFORM=SIMULATOR64 -DCMAKE_CXX_FLAGS=-stdlib=libc++ -DDEPLOYMENT_TARGET=11.0 -DENABLE_BITCODE=NO -DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR -DOPENSSL_CRYPTO_LIBRARY=$OPENSSL_CRYPTO_LIBRARY -DOPENSSL_INCLUDE_DIR=$OPENSSL_INCLUDE_DIR -DOPENSSL_SSL_LIBRARY=$OPENSSL_SSL_LIBRARY -DOPENSSL_LIBRARIES=$OPENSSL_LIBRARIES -DIOS=YES -Wno-error=deprecated-declarations -Wno-error=deprecated -DCMAKE_TRY_COMPILE_PLATFORM_VARIABLES=CMAKE_WARN_DEPRECATED -DBEAM_IPFS_SUPPORT=On -B./build-simulator
           make -C ./build-simulator -j$(sysctl -n hw.ncpu)
 
       - name: Save version info
@@ -347,12 +347,33 @@ jobs:
           echo BEAM_VERSION = $BEAM_VERSION
           mkdir -p ${{runner.workspace}}/results/beam-ios/include
           mkdir -p ${{runner.workspace}}/results/beam-ios/lib
-          find ./build -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios/lib/ \;
+          # asio-ipfs extracts a Go toolchain under 3rdparty/asio-ipfs/golang/
+          # (which ships ~400 .a files: pre-built host std-lib under
+          # pkg/darwin_arm64/ — bidirule.a etc. — plus test fixtures under
+          # src/.../testdata/ such as libimportsar.a) and uses
+          # 3rdparty/asio-ipfs/go-workspace/ as GOPATH. None of those are
+          # the iOS archives we want; lipo below either rejects them
+          # outright or silently accepts arm64-darwin / arm64-linux
+          # objects that would corrupt the combined slice. Prune both
+          # subtrees before collecting. The real asio-ipfs outputs live
+          # at ./build/3rdparty/asio-ipfs/ipfs_bindings/libipfs-bindings.a
+          # and ./build/3rdparty/asio-ipfs/libasio-ipfs.a — neither is
+          # under golang/ or go-workspace/, so they're still picked up.
+          collect_libs() {
+            local src_dir="$1"
+            local dst_dir="$2"
+            find "$src_dir" \
+              \( -path "$src_dir/3rdparty/asio-ipfs/golang" -o \
+                 -path "$src_dir/3rdparty/asio-ipfs/go-workspace" \) -prune -o \
+              -name '*.a' -type f -print0 \
+            | xargs -0 -I {} cp {} "$dst_dir/"
+          }
+          collect_libs ./build ${{runner.workspace}}/results/beam-ios/lib
           rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios/include/
           cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios/include/core/
           mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/include
           mkdir -p ${{runner.workspace}}/results/beam-ios-simulator/lib
-          find ./build-simulator -name \*.a -type f -exec cp {} ${{runner.workspace}}/results/beam-ios-simulator/lib/ \;
+          collect_libs ./build-simulator ${{runner.workspace}}/results/beam-ios-simulator/lib
           rsync -am --include='*.h' --include='*.hpp' --include='*/' --exclude='*' . ${{runner.workspace}}/results/beam-ios-simulator/include/
           cp ./build/core/version.h ${{runner.workspace}}/results/beam-ios-simulator/include/core/
           mkdir -p ${{runner.workspace}}/results/beam-ios-combined/include
