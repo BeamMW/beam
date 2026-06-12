@@ -73,8 +73,8 @@ struct Node
 		} m_Timeout;
 
 		uint32_t m_MaxConcurrentBlocksRequest = 18;
-		uint32_t m_MaxPoolTransactions = 100 * 1000;
-		uint32_t m_MaxDeferredTransactions = 100 * 1000;
+		uint32_t m_MaxPoolTransactions = 10 * 1000;
+		uint32_t m_MaxDeferredTransactions = 1000;
 		uint32_t m_MiningThreads = 0; // by default disabled
 
 		bool m_LogEvents = false; // may be insecure. Off by default.
