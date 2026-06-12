@@ -702,15 +702,12 @@ namespace detail
 			if (!cfg.get_N())
 				throw std::runtime_error("Sigma/Cfg");
 
-			v.m_Part1.m_vG.resize(cfg.M);
+			concepts::array::preload_vector_carefully(ar, v.m_Part1.m_vG, cfg.M);
 			for (uint32_t i = 0; i < cfg.M; i++)
-				ar & v.m_Part1.m_vG[i].m_X;
+				ar & v.m_Part1.m_vG.emplace_back().m_X;
 
 			uint32_t nSizeF = cfg.get_F();
-			v.m_Part2.m_vF.resize(nSizeF);
-
-			for (uint32_t i = 0; i < nSizeF; i++)
-				ar & v.m_Part2.m_vF[i];
+			concepts::array::load_vector_carefully(ar, v.m_Part2.m_vF, nSizeF);
 
 			return ar;
 		}
@@ -1349,10 +1346,9 @@ namespace detail
 				if (bNestedNonStd)
 					ar & nCount;
 
-				krn.m_vNested.resize(nCount);
-
-				for (uint32_t i = 0; i < nCount; i++)
-					ImplTxKernel::load2(ar, krn.m_vNested[i], nRecursion, !bNestedNonStd);
+				concepts::array::preload_vector_carefully(ar, krn.m_vNested, nCount);
+				while (nCount--)
+					ImplTxKernel::load2(ar, krn.m_vNested.emplace_back(), nRecursion, !bNestedNonStd);
 			}
 
 			template <typename Archive>
@@ -1789,10 +1785,9 @@ namespace detail
 			uint32_t nSize;
 			x.Export(nSize);
 
-			v.resize(nSize);
-
-			for (size_t i = 0; i < v.size(); i++)
-				loadPtr(ar, v[i]);
+			concepts::array::preload_vector_carefully(ar, v, nSize);
+			while (nSize--)
+				loadPtr(ar, v.emplace_back());
 		}
 
         template<typename Archive>
@@ -1845,10 +1840,9 @@ namespace detail
 			if (!bStd)
 				nSize &= ~nFlag;
 
-			txv.m_vKernels.resize(nSize);
-
-			for (size_t i = 0; i < txv.m_vKernels.size(); i++)
-				ImplTxKernel::load2(ar, txv.m_vKernels[i], 0, bStd);
+			concepts::array::preload_vector_carefully(ar, txv.m_vKernels, nSize);
+			while (nSize--)
+				ImplTxKernel::load2(ar, txv.m_vKernels.emplace_back(), 0, bStd);
 
 			return ar;
 		}

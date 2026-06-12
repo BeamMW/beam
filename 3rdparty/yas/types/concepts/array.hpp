@@ -77,6 +77,23 @@ Archive& save(Archive &ar, const C &c) {
 
 /***************************************************************************/
 
+template<typename Archive, typename C>
+void preload_vector_carefully(Archive& ar, C& c, size_t size)
+{
+    ar.ensure_size(size); // assume at least 1 byte per element
+
+    const size_t max_reserve = 10 * 1024 * 1024 / sizeof(typename C::value_type);
+    c.reserve(std::min(size, max_reserve));
+}
+
+template<typename Archive, typename C>
+void load_vector_carefully(Archive& ar, C& c, size_t size)
+{
+    preload_vector_carefully(ar, c, size);
+    while (size--)
+        ar & c.emplace_back();
+}
+
 template<std::size_t F, typename Archive, typename C>
 Archive& load(Archive &ar, C &c) {
     if ( F & yas::json ) {
@@ -127,14 +144,17 @@ Archive& load(Archive &ar, C &c) {
     } else {
         const auto size = ar.read_seq_size();
         if ( size ) {
-            ar.ensure_size(size);
-            c.resize(size);
             if ( can_be_processed_as_byte_array<F, typename C::value_type>::value ) {
-                ar.read(&c[0], sizeof(typename C::value_type) * size);
+                auto size_bytes = sizeof(typename C::value_type) * size;
+                if (size_bytes / sizeof(typename C::value_type) != size)
+                    __YAS_THROW_EXCEPTION(::yas::serialization_exception, "bad size"); // overflow
+
+                ar.ensure_size(size_bytes);
+
+                c.resize(size);
+                ar.read(&c[0], size_bytes);
             } else {
-                for ( auto &it: c ) {
-                    ar & it;
-                }
+                load_vector_carefully(ar, c, size);
             }
         }
     }
