@@ -82,6 +82,7 @@ void preload_vector_carefully(Archive& ar, C& c, size_t size)
 {
     ar.ensure_size(size); // assume at least 1 byte per element
 
+    c.clear();
     const size_t max_reserve = 10 * 1024 * 1024 / sizeof(typename C::value_type);
     c.reserve(std::min(size, max_reserve));
 }
