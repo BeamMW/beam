@@ -805,6 +805,16 @@ OnRequest(swap_totals)
     return _backend.get_swap_totals();
 }
 
+OnRequest(asset_swaps)
+{
+    return _backend.get_asset_swaps();
+}
+
+OnRequest(asset_swaps_totals)
+{
+    return _backend.get_asset_swaps_totals();
+}
+
 OnRequest(contracts)
 {
     return _backend.get_contracts();

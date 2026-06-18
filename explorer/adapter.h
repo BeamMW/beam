@@ -79,6 +79,10 @@ struct IAdapter {
     virtual json get_swap_offers() = 0;
     virtual json get_swap_totals() = 0;
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    virtual json get_asset_swaps() = 0;
+    virtual json get_asset_swaps_totals() = 0;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     virtual json get_contracts() = 0;
     virtual json get_contract_details(const Blob& id, Height hMin, Height hMax, uint32_t nMaxTxs, bool bState, bool bOwnedAssets, bool bFundsLocked, bool bVerInfo) = 0;
     virtual json get_asset_details(uint32_t, Height hMin, Height hMax, uint32_t nMaxOps) = 0;
