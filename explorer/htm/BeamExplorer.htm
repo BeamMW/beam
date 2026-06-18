@@ -2874,8 +2874,8 @@
         text += '<tr>'
               + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency + ' (' + o.send_asset_id + ')')
               + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency + ' (' + o.receive_asset_id + ')')
-              + MakeCell(o.create_time)
-              + MakeCell(o.expire_time)
+              + MakeCell(formatTimestamp(o.create_time, 'local'))
+              + MakeCell(formatTimestamp(o.expire_time, 'local'))
               + MakeCell(o.id)
               + '</tr>';
       }
