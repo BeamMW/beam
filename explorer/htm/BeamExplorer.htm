@@ -2855,8 +2855,8 @@
             + '</tr></thead>';
       for (const o of jData) {
         text += '<tr>'
-              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency)
-              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency)
+              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency + ' (' + o.send_asset_id + ')')
+              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency + ' (' + o.receive_asset_id + ')')
               + MakeCell(o.create_time)
               + MakeCell(o.expire_time)
               + MakeCell(o.id)
@@ -2889,7 +2889,7 @@
           + '</tr></thead>';
     for (const a of jData.assets) {
       text += '<tr>'
-            + MakeCell(a.currency)
+            + MakeCell(a.currency + ' (' + a.asset_id + ')')
             + MakeCellRA(MakeAmountClr(a.amount_offered))
             + MakeCellRA(MakeAmountClr(a.amount_wanted))
             + '</tr>';
