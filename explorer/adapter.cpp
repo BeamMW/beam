@@ -3064,13 +3064,12 @@ private:
                 {"id", order.getID().to_string()},
                 {"send_asset_id", order.getFirstAssetId()},
                 {"send_currency", order.getFirstAssetSname()},
-                {"send_amount", std::to_string(order.getFirstAmount())},
+                {"send_amount", std::to_string(wallet::PrintableAmount(order.getFirstAmount()))},
                 {"receive_asset_id", order.getSecondAssetId()},
                 {"receive_currency", order.getSecondAssetSname()},
-                {"receive_amount", std::to_string(order.getSecondAmount())},
+                {"receive_amount", std::to_string(wallet::PrintableAmount(order.getSecondAmount()))},
                 {"create_time", format_timestamp(wallet::kTimeStampFormat3x3, order.getCreation() * 1000, false)},
                 {"expire_time", format_timestamp(wallet::kTimeStampFormat3x3, order.getExpiration() * 1000, false)},
-                {"is_mine", order.isMine()},
             });
         }
 
@@ -3109,8 +3108,8 @@ private:
             assets.push_back(json{
                 {"asset_id", pair.first},
                 {"currency", pair.second.sname},
-                {"amount_offered", std::to_string(pair.second.offered)},
-                {"amount_wanted", std::to_string(pair.second.wanted)},
+                {"amount_offered", std::to_string(wallet::PrintableAmount(pair.second.offered))},
+                {"amount_wanted", std::to_string(wallet::PrintableAmount(pair.second.wanted))},
             });
         }
 
