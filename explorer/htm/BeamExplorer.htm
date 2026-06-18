@@ -1901,6 +1901,8 @@
             <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=swap_offers" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
             <span class="menuSeparator"> | </span>
+            <span class="menuItem"><a href="?network=$network&type=asset_swaps" title="List of current Asset Swap offers">Asset Swaps</a></span>
+            <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
@@ -2836,6 +2838,38 @@
     document.getElementById('divSwapTotals').innerHTML = text;
   }
 
+  function DisplayAssetSwaps() {
+    const jData = JSON.parse(this.responseText);
+
+    let text = '<h2 class="title">Asset Swaps</h2>';
+    if (jData.length === 0) {
+      text += '<p class="aboutDisclaimer">There are currently no offers for Asset Swaps.</p>';
+    } else {
+      text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
+      text += '<div class="divSwapOffers">' + Obj2Html(jData) + '</div>';
+      text += MakeCollapsibleEnd();
+      text += MakeCollapsibleBegin('Totals');
+      text += '<div id="divAssetSwapTotals"><p>Loading...</p></div>';
+      text += MakeCollapsibleEnd();
+    }
+
+    SetContent(text);
+
+    // Get Asset Swap totals (new node request)
+    if (jData.length !== 0) {
+      const xmlhttp = new XMLHttpRequest();
+      xmlhttp.onload = DisplayAssetSwapTotals;
+      xmlhttp.open('GET', urlPrefix + 'asset_swaps_totals');
+      xmlhttp.send();
+    }
+  }
+
+  function DisplayAssetSwapTotals() { // Query node for Asset Swap totals and display them in existing 'div'
+    const jData = JSON.parse(this.responseText);
+    let text = Obj2Html(jData);
+    document.getElementById('divAssetSwapTotals').innerHTML = text;
+  }
+
   function DisplayHistoricalBlocks() {
     let text = `<h2 class="title">Special historical blocks in Beam's mainnet</h2>`;
     text += `<table class="dataTable tableHistoricalBlocks" border="1" cellspacing="0">
@@ -3276,6 +3310,10 @@
     } else if (g_type == 'swap_offers') { // Arguments for 'swap_offers': (none)
       xmlhttp.onload = DisplayAtomicSwaps;
     // Remark: The query for 'swap_totals' is made from within the 'DisplayAtomicSwaps' function.
+
+    } else if (g_type == 'asset_swaps') { // Arguments for 'asset_swaps': (none)
+      xmlhttp.onload = DisplayAssetSwaps;
+    // Remark: The query for 'asset_swaps_totals' is made from within the 'DisplayAssetSwaps' function.
 
     } else {
       g_type = 'status'; // Arguments for 'status': (none)
