@@ -2846,7 +2846,23 @@
       text += '<p class="aboutDisclaimer">There are currently no offers for Asset Swaps.</p>';
     } else {
       text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
-      text += '<div class="divSwapOffers">' + Obj2Html(jData) + '</div>';
+      text += '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+            + '<th><span class="th">Sends</span></th>'
+            + '<th><span class="th">For</span></th>'
+            + '<th><span class="th">Created</span></th>'
+            + '<th><span class="th">Expires</span></th>'
+            + '<th><span class="th">Order ID</span></th>'
+            + '</tr></thead>';
+      for (const o of jData) {
+        text += '<tr>'
+              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency)
+              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency)
+              + MakeCell(o.create_time)
+              + MakeCell(o.expire_time)
+              + MakeCell(o.id)
+              + '</tr>';
+      }
+      text += '</table>';
       text += MakeCollapsibleEnd();
       text += MakeCollapsibleBegin('Totals');
       text += '<div id="divAssetSwapTotals"><p>Loading...</p></div>';
@@ -2866,7 +2882,20 @@
 
   function DisplayAssetSwapTotals() { // Query node for Asset Swap totals and display them in existing 'div'
     const jData = JSON.parse(this.responseText);
-    let text = Obj2Html(jData);
+    let text = '<p class="aboutText">Total offers: ' + jData.total_offers_count + '</p>';
+    text += '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+          + '<th><span class="th">Asset</span></th>'
+          + '<th><span class="th">Offered</span></th>'
+          + '<th><span class="th">Wanted</span></th>'
+          + '</tr></thead>';
+    for (const a of jData.assets) {
+      text += '<tr>'
+            + MakeCell(a.currency)
+            + MakeCellRA(MakeAmountClr(a.amount_offered))
+            + MakeCellRA(MakeAmountClr(a.amount_wanted))
+            + '</tr>';
+    }
+    text += '</table>';
     document.getElementById('divAssetSwapTotals').innerHTML = text;
   }
 
