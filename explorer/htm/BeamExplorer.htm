@@ -2814,7 +2814,24 @@
       text += '<p class="aboutDisclaimer">There are currently no offers for Atomic Swaps.</p>';
     } else {
       text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
-      text += '<div class="divSwapOffers">' + Obj2Html(jData) + '</div>';
+      text += '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+            + '<th><span class="th">Sends</span></th>'
+            + '<th><span class="th">For</span></th>'
+            + '<th><span class="th">Created</span></th>'
+            + '<th><span class="th">Expires</span></th>'
+            + '<th><span class="th">Order ID</span></th>'
+            + '</tr></thead>';
+      for (const o of jData) {
+        const beam = MakeAmountClr(o.beam_amount) + ' BEAM';
+        text += '<tr>'
+              + MakeCellRA(o.is_beam_side ? beam : o.swap_amount)
+              + MakeCellRA(o.is_beam_side ? o.swap_amount : beam)
+              + MakeCell(o.time_created)
+              + MakeCellRA(o.height_expired)
+              + MakeCell(o.txId)
+              + '</tr>';
+      }
+      text += '</table>';
       text += MakeCollapsibleEnd();
       text += MakeCollapsibleBegin('Totals');
       text += '<div id="divSwapTotals"><p>Loading...</p></div>';
