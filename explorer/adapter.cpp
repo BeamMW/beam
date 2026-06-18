@@ -438,10 +438,16 @@ private:
             get_TreasuryTotals(sd.m_Totals);
     }
 
+    static uint64_t get_Timestamp_ms_safe(const Block::SystemState::Full& s)
+    {
+        return (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+            ? s.get_Timestamp_ms()
+            : (uint64_t) s.m_TimeStamp * 1000;
+    }
+
     static double get_Timestamp_s(const Block::SystemState::Full& s)
     {
-        auto ts_ms = s.get_Timestamp_ms();
-        return ((double)ts_ms) / 1000.;
+        return ((double) get_Timestamp_ms_safe(s)) / 1000.;
     }
 
     uint64_t m_tsBlock1_ms = 0;
@@ -454,7 +460,7 @@ private:
             auto row = _nodeBackend.FindActiveAtStrict(Block::Number(1));
             _nodeBackend.get_DB().get_State(row, s);
 
-            m_tsBlock1_ms = s.get_Timestamp_ms();
+            m_tsBlock1_ms = get_Timestamp_ms_safe(s);
         }
 
         return m_tsBlock1_ms;
@@ -2371,11 +2377,11 @@ private:
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
         void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", get_Timestamp_s(m_pThis->m_Hdr))); }
-        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_pPrev->m_Hdr.get_Timestamp_ms()).m_sz); }
+        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalTimeDelta(get_Timestamp_ms_safe(m_pThis->m_Hdr) - get_Timestamp_ms_safe(m_pPrev->m_Hdr)).m_sz); }
 
         void OnName_Age_Abs() { m_json.push_back(MakeTableHdr("Age")); }
         void OnName_Age_Rel() { m_json.push_back(MakeTableHdr("d.Age")); }
-        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_This.get_TimeStampGenesis_ms()).m_sz); }
+        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalTimeDelta(get_Timestamp_ms_safe(m_pThis->m_Hdr) - m_This.get_TimeStampGenesis_ms()).m_sz); }
         void OnData_Age_Rel() { OnData_Time_Rel(); }
 
         void OnName_Difficulty_Abs() { m_json.push_back(MakeTableHdr("Chainwork")); }
@@ -3068,8 +3074,8 @@ private:
                 {"receive_asset_id", order.getSecondAssetId()},
                 {"receive_currency", order.getSecondAssetSname()},
                 {"receive_amount", std::to_string(wallet::PrintableAmount(order.getSecondAmount()))},
-                {"create_time", format_timestamp(wallet::kTimeStampFormat3x3, order.getCreation() * 1000, false)},
-                {"expire_time", format_timestamp(wallet::kTimeStampFormat3x3, order.getExpiration() * 1000, false)},
+                {"create_time", order.getCreation()},
+                {"expire_time", order.getExpiration()},
             });
         }
 
