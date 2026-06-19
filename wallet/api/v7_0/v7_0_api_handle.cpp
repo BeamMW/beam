@@ -224,6 +224,16 @@ namespace beam::wallet
                 << ss.str()
                 >> hv;
         }
+
+        void GetMessageHash(ECC::Hash::Value& hv, const PeerID& pk, const std::string& message)
+        {
+            ECC::Hash::Processor()
+                << "beam.signed.message"
+                << pk
+                << (uint64_t) message.size()
+                << Blob(message.data(), (uint32_t) message.size())
+                >> hv;
+        }
     }
 
     void V70Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
@@ -240,6 +250,7 @@ namespace beam::wallet
             MyProcessor::DeriveKeyPreimage(hv, Blob(*req.keyMaterial));
             auto pKdf = db->get_MasterKdf();
             pKdf->DeriveKey(sk, hv);
+            GetMessageHash(hv, req.message);
         }
         else
         {
@@ -258,9 +269,8 @@ namespace beam::wallet
             }
             PeerID pid;
             db->get_SbbsPeerID(sk, pid, addr.m_OwnID);
+            GetMessageHash(hv, pid, req.message);
         }
-
-        GetMessageHash(hv, req.message);
 
         ECC::Signature sig;
         sig.Sign(hv, sk);
@@ -289,7 +299,7 @@ namespace beam::wallet
     void V70Api::onHandleVerifyMessage(const JsonRpcId& id, VerifyMessage&& req)
     {
         ECC::Hash::Value hv;
-        GetMessageHash(hv, req.message);
+        GetMessageHash(hv, req.address.m_Pk, req.message);
 
         Deserializer d;
         ECC::Signature sig;

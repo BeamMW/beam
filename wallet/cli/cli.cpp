@@ -3326,12 +3326,14 @@ namespace
 
         return 1;
     }
-    // Hash a message for signing/verification: SHA256("beam.signed.message" + len + message)
-    void GetSignMessageHash(ECC::Hash::Value& hv, const std::string& message)
+    void GetSignMessageHash(ECC::Hash::Value& hv, const PeerID& pk, const std::string& message)
     {
-        std::stringstream ss;
-        ss << "beam.signed.message" << message.size() << message;
-        ECC::Hash::Processor() << ss.str() >> hv;
+        ECC::Hash::Processor()
+            << "beam.signed.message"
+            << pk
+            << (uint64_t) message.size()
+            << Blob(message.data(), (uint32_t) message.size())
+            >> hv;
     }
 
     int SignMessage(const po::variables_map& vm)
@@ -3370,7 +3372,7 @@ namespace
         // Hash the message
         std::string message = vm[cli::MSG_TO_SIGN].as<string>();
         ECC::Hash::Value hv;
-        GetSignMessageHash(hv, message);
+        GetSignMessageHash(hv, pid, message);
 
         // Sign
         ECC::Signature sig;
@@ -3409,7 +3411,7 @@ namespace
 
         std::string message = vm[cli::MSG_TO_SIGN].as<string>();
         ECC::Hash::Value hv;
-        GetSignMessageHash(hv, message);
+        GetSignMessageHash(hv, wid.m_Pk, message);
 
         ByteBuffer sigBuf = from_hex(vm[cli::SIGNATURE].as<string>());
         Deserializer d;
