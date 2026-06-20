@@ -115,6 +115,7 @@ public:
 			StateSetRB,
 			StateGetTxos,
 			StateFindByTxos,
+			StateFindByHash,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -577,6 +578,7 @@ public:
 	void InsertKernel(const Blob&, Height h);
 	void DeleteKernel(const Blob&, Height h);
 	Height FindKernel(const Blob&); // in case of duplicates - returning the one with the largest Height
+	Height FindBlockByHash(const Blob& hash);
 
 	uint64_t FindStateWorkGreater(const Difficulty::Raw&);
 

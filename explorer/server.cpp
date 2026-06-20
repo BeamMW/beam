@@ -695,10 +695,27 @@ bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uintBig_t<n
 
 OnRequest(block)
 {
-
     ECC::Hash::Value hv;
+    if (get_UrlHexArg(_currentUrl, "hash", hv))
+        return _backend.get_block_by_hash(hv);
+
     if (get_UrlHexArg(_currentUrl, "kernel", hv))
         return _backend.get_block_by_kernel(hv);
+
+    auto idArg = _currentUrl.args.find("id");
+    if (_currentUrl.args.end() != idArg)
+    {
+        const auto& val = idArg->second;
+        if (val.find_first_not_of("0123456789") == std::string_view::npos)
+            return _backend.get_block(static_cast<Height>(_currentUrl.get_int_arg("id", 0)), 0);
+        if (get_UrlHexArg(_currentUrl, "id", hv))
+        {
+            auto res = _backend.get_block_by_kernel(hv);
+            if (res.value("found", true))
+                return res;
+            return _backend.get_block_by_hash(hv);
+        }
+    }
 
     auto height = _currentUrl.get_int_arg("height", 0);
     auto adj = _currentUrl.get_int_arg("adj", 0);

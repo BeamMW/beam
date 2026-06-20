@@ -113,3 +113,4 @@ keykeeper/wasm-key-keeper.*
 
 out/
 wmake.sh
+.cache
