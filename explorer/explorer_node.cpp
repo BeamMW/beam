@@ -35,14 +35,18 @@ struct Options {
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
     std::vector<uint32_t> whitelist;
     uint32_t logCleanupPeriod;
-    ByteBuffer m_RichParser;
-    bool m_RichParserChanged = false;
+    std::string m_RichParserFolder;
+    bool m_RichParserFolderDryRun = false;
     bool m_LogTrafic = false;
     bool m_PeersPersistent;
 };
 
+using StagedParserModules = std::vector<std::pair<std::string, ByteBuffer>>;
+
 static bool parse_cmdline(int argc, char* argv[], Options& o, Rules&);
 static void setup_node(Node& node, const Options& o);
+static bool load_parser_modules(const Options& o, StagedParserModules& staged);
+static bool apply_parser_modules(Node& node, const StagedParserModules& staged, bool dryRun);
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
@@ -55,6 +59,10 @@ int main(int argc, char* argv[]) {
     if (!parse_cmdline(argc, argv, options, r)) {
         return 1;
     }
+
+    StagedParserModules stagedModules;
+    if (!load_parser_modules(options, stagedModules))
+        return 1;
 
     r.UpdateChecksum();
 
@@ -76,6 +84,8 @@ int main(int argc, char* argv[]) {
         setup_node(node, options);
         explorer::IAdapter::Ptr adapter = explorer::create_adapter(node);
         node.Initialize();
+        if (!apply_parser_modules(node, stagedModules, options.m_RichParserFolderDryRun))
+            return 1;
         adapter->Initialize();
         explorer::Server server(*adapter, *reactor, options.explorerListenTo, options.accessControlFile, options.whitelist);
         BEAM_LOG_INFO() << "Node listens to " << options.nodeListenTo << ", explorer listens to " << options.explorerListenTo;
@@ -110,7 +120,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
-        (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
+        (cli::CONTRACT_RICH_PARSER_FOLDER, po::value<std::string>(), "Optional folder of per-contract parser modules (*.wasm)")
+        (cli::CONTRACT_RICH_PARSER_FOLDER_DRYRUN, po::bool_switch(&o.m_RichParserFolderDryRun)->default_value(false), "Scan parser folder, print SID->module map and exit")
         (cli::LOG_LEVEL, po::value<string>(), "set log level [error|warning|info(default)|debug|verbose]")
         (cli::NODE_PEERS_PERSISTENT, po::value<bool>()->default_value(false), "Keep persistent connection to the specified peers, regardless to ratings")
         (g_szTraficLog, po::value<bool>()->default_value(false), "Log trafic")
@@ -177,25 +188,9 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
             }
         }
 
-        auto& vArg = vm[cli::CONTRACT_RICH_PARSER];
-        if (!vArg.empty())
-        {
-            o.m_RichParserChanged = true;
-
-            auto sPath = vArg.as<std::string>();
-            if (!sPath.empty())
-            {
-                std::FStream fs;
-                fs.Open(sPath.c_str(), true, true);
-
-                o.m_RichParser.resize(static_cast<size_t>(fs.get_Remaining()));
-                if (!o.m_RichParser.empty())
-                    fs.read(&o.m_RichParser.front(), o.m_RichParser.size());
-
-                bvm2::Processor::Compile(o.m_RichParser, o.m_RichParser, bvm2::Processor::Kind::Manager);
-            }
-
-        }
+        auto& vFolder = vm[cli::CONTRACT_RICH_PARSER_FOLDER];
+        if (!vFolder.empty())
+            o.m_RichParserFolder = vFolder.as<std::string>();
 
         o.m_LogTrafic = vm[g_szTraficLog].as<bool>();
 
@@ -238,6 +233,116 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
     return false;
 }
 
+// Step 1 of folder load (runs at CLI-parse time): read+compile every *.wasm
+// in the folder. SID discovery is deferred to apply_parser_modules() because
+// querying Method_3 needs a NodeProcessor instance.
+bool load_parser_modules(const Options& o, StagedParserModules& staged)
+{
+    if (o.m_RichParserFolder.empty())
+        return true;
+
+    namespace fs = boost::filesystem;
+    fs::path dir(o.m_RichParserFolder);
+    if (!fs::is_directory(dir))
+    {
+        BEAM_LOG_ERROR() << "Parser folder not a directory: " << o.m_RichParserFolder;
+        return false;
+    }
+
+    std::vector<fs::path> wasms;
+    for (const auto& entry : fs::directory_iterator(dir))
+    {
+        if (!fs::is_regular_file(entry.status()))
+            continue;
+        if (entry.path().extension() != ".wasm")
+            continue;
+        wasms.push_back(entry.path());
+    }
+    std::sort(wasms.begin(), wasms.end()); // deterministic for stable error output
+
+    for (const auto& p : wasms)
+    {
+        std::FStream fs1;
+        fs1.Open(p.string().c_str(), true, true);
+
+        ByteBuffer raw;
+        raw.resize(static_cast<size_t>(fs1.get_Remaining()));
+        if (!raw.empty())
+            fs1.read(&raw.front(), raw.size());
+
+        ByteBuffer compiled;
+        try
+        {
+            bvm2::Processor::Compile(compiled, raw, bvm2::Processor::Kind::Manager);
+        }
+        catch (const std::exception& e)
+        {
+            BEAM_LOG_ERROR() << "Failed to compile parser module " << p.filename().string() << ": " << e.what();
+            return false;
+        }
+        staged.emplace_back(p.filename().string(), std::move(compiled));
+    }
+    return true;
+}
+
+// Step 2 of folder load (runs after node.Initialize()): for each staged
+// module, ask it for its supported SIDs via Method_3, populate
+// node.get_Processor().m_RichParserModules keyed by SID, and refuse to start
+// if two modules claim the same SID. Returns false on conflict.
+bool apply_parser_modules(Node& node, const StagedParserModules& staged, bool dryRun)
+{
+    if (staged.empty() && !dryRun)
+        return true;
+
+    auto& proc = node.get_Processor();
+    std::map<ECC::uintBig, std::string> sidToName; // for conflict reporting
+
+    bool conflict = false;
+    for (const auto& m : staged)
+    {
+        const std::string& name = m.first;
+        const ByteBuffer& compiled = m.second;
+        Blob bb(compiled.data(), static_cast<uint32_t>(compiled.size()));
+
+        std::vector<ECC::uintBig> sids;
+        if (!proc.ParserModule_GetSupportedSids(bb, sids) || sids.empty())
+        {
+            BEAM_LOG_WARNING() << "Parser module " << name << " reported no SIDs; skipping";
+            continue;
+        }
+
+        for (const auto& sid : sids)
+        {
+            auto it = sidToName.find(sid);
+            if (it != sidToName.end())
+            {
+                BEAM_LOG_ERROR() << "SID " << sid << " claimed by multiple parser modules: " << it->second << " and " << name;
+                conflict = true;
+            }
+            else
+            {
+                sidToName[sid] = name;
+                proc.m_RichParserModules[sid] = compiled;
+            }
+        }
+    }
+
+    if (conflict)
+    {
+        BEAM_LOG_ERROR() << "Refusing to start: duplicate parser module SIDs.";
+        return false;
+    }
+
+    if (dryRun)
+    {
+        std::cout << "Parser module SID -> module map:\n";
+        for (const auto& kv : sidToName)
+            std::cout << "  " << kv.first << "  " << kv.second << "\n";
+        std::exit(0);
+    }
+    return true;
+}
+
 void setup_node(Node& node, const Options& o) {
     BEAM_LOG_INFO() << "Beam Node Explorer " << PROJECT_VERSION << " (" << BRANCH_NAME << ")";
     BEAM_LOG_INFO() << "Rules signature: " << Rules::get().get_SignatureStr();
@@ -256,9 +361,4 @@ void setup_node(Node& node, const Options& o) {
     address.resolve(o.nodeConnectTo.c_str());
 
     node.m_Cfg.m_ProcessorParams.m_RichInfoFlags = NodeProcessor::StartParams::RichInfo::On;
-    if (o.m_RichParserChanged)
-    {
-        node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= NodeProcessor::StartParams::RichInfo::UpdShader;
-        node.m_Cfg.m_ProcessorParams.m_RichParser = o.m_RichParser;
-    }
 }

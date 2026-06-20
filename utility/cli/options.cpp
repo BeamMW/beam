@@ -118,7 +118,8 @@ namespace beam
         const char* MANUAL_ROLLBACK = "manual_rollback";
         const char* MANUAL_SELECT = "manual_select";
         const char* CONTRACT_RICH_INFO = "contract_rich_info";
-        const char* CONTRACT_RICH_PARSER = "contract_rich_parser";
+        const char* CONTRACT_RICH_PARSER_FOLDER = "contract_rich_parser_folder";
+        const char* CONTRACT_RICH_PARSER_FOLDER_DRYRUN = "contract_rich_parser_folder_dryrun";
         const char* CHECKDB = "check_db";
         const char* VACUUM = "vacuum";
         const char* CRASH = "crash";
@@ -442,7 +443,7 @@ namespace beam
             (cli::RECOVERY_AUTO_PATH, po::value<string>(), "path and file prefix for recovery auto-generation")
             (cli::RECOVERY_AUTO_PERIOD, po::value<uint32_t>()->default_value(30), "period (in blocks) for recovery auto-generation")
             (cli::CONTRACT_RICH_INFO, po::value<bool>(), "Set to save rich contract invocation info")
-            (cli::CONTRACT_RICH_PARSER, po::value<std::string>(), "Optional shader to parse contract invocation info")
+            (cli::CONTRACT_RICH_PARSER_FOLDER, po::value<std::string>(), "Optional folder of per-contract parser modules (*.wasm)")
 
             (cli::BRIDGE_NETWORK_L1, po::value<std::string>(), "Bridge L1 network")
             (cli::BRIDGE_CID, po::value<std::string>(), "Bridge L1 Contract ID")

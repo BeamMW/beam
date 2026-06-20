@@ -549,8 +549,6 @@ int main(int argc, char* argv[])
 							node.m_Cfg.m_Horizon.SetInfinite();
 					}
 
-					ByteBuffer bufRichParser;
-
 					if (vm.count(cli::CONTRACT_RICH_INFO))
 					{
 						uint8_t nFlag = vm[cli::CONTRACT_RICH_INFO].as<bool>() ?
@@ -558,26 +556,6 @@ int main(int argc, char* argv[])
 							NodeProcessor::StartParams::RichInfo::Off;
 
 						node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= nFlag;
-					}
-
-					if (vm.count(cli::CONTRACT_RICH_PARSER))
-					{
-						auto sPath = vm[cli::CONTRACT_RICH_PARSER].as<std::string>();
-						if (!sPath.empty())
-						{
-							std::FStream fs;
-							fs.Open(sPath.c_str(), true, true);
-
-							bufRichParser.resize(static_cast<size_t>(fs.get_Remaining()));
-							if (!bufRichParser.empty())
-								fs.read(&bufRichParser.front(), bufRichParser.size());
-
-							bvm2::Processor::Compile(bufRichParser, bufRichParser, bvm2::Processor::Kind::Manager);
-
-							node.m_Cfg.m_ProcessorParams.m_RichParser = bufRichParser;
-						}
-
-						node.m_Cfg.m_ProcessorParams.m_RichInfoFlags |= NodeProcessor::StartParams::RichInfo::UpdShader;
 					}
 
 					node.m_Cfg.m_pExternalPOW = stratumServer.get();

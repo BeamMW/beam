@@ -3632,13 +3632,7 @@ namespace beam
 
 		node.m_Keys.m_Accounts.m_vAdd.push_back(cl.m_Wallet2.m_pKdf);
 
-		ByteBuffer bufParser;
-		bvm2::Compile(bufParser, "Explorer/Parser.wasm", bvm2::Processor::Kind::Manager);
-
-		node.m_Cfg.m_ProcessorParams.m_RichInfoFlags =
-			NodeProcessor::StartParams::RichInfo::On |
-			NodeProcessor::StartParams::RichInfo::UpdShader;
-		node.m_Cfg.m_ProcessorParams.m_RichParser = bufParser;
+		node.m_Cfg.m_ProcessorParams.m_RichInfoFlags = NodeProcessor::StartParams::RichInfo::On;
 
 		node.Initialize();
 
