@@ -36,6 +36,10 @@
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/client/extensions/dex_board/dex_board.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
 namespace beam { namespace explorer {
 
 namespace {
@@ -217,6 +221,10 @@ public:
 
         _broadcastRouter = std::make_shared<BroadcastRouter>(nnet, *wnet, std::make_shared<BroadcastRouter::BbsTsHolder>(_walletDB));
         _exchangeRateProvider = std::make_shared<ExchangeRateProvider>(*_broadcastRouter, _walletDB);
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        _dexBoard = std::make_shared<wallet::DexBoard>(*_broadcastRouter, _dexCtlGateway, *_walletDB);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         _offerBoardProtocolHandler =
@@ -430,10 +438,16 @@ private:
             get_TreasuryTotals(sd.m_Totals);
     }
 
+    static uint64_t get_Timestamp_ms_safe(const Block::SystemState::Full& s)
+    {
+        return (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+            ? s.get_Timestamp_ms()
+            : (uint64_t) s.m_TimeStamp * 1000;
+    }
+
     static double get_Timestamp_s(const Block::SystemState::Full& s)
     {
-        auto ts_ms = s.get_Timestamp_ms();
-        return ((double)ts_ms) / 1000.;
+        return ((double) get_Timestamp_ms_safe(s)) / 1000.;
     }
 
     uint64_t m_tsBlock1_ms = 0;
@@ -446,7 +460,7 @@ private:
             auto row = _nodeBackend.FindActiveAtStrict(Block::Number(1));
             _nodeBackend.get_DB().get_State(row, s);
 
-            m_tsBlock1_ms = s.get_Timestamp_ms();
+            m_tsBlock1_ms = get_Timestamp_ms_safe(s);
         }
 
         return m_tsBlock1_ms;
@@ -2363,11 +2377,11 @@ private:
         void OnName_Time_Abs() { m_json.push_back(MakeTableHdr("Timestamp")); }
         void OnName_Time_Rel() { m_json.push_back(MakeTableHdr("d.Time")); }
         void OnData_Time_Abs() { m_json.push_back(MakeTypeObj("time", get_Timestamp_s(m_pThis->m_Hdr))); }
-        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_pPrev->m_Hdr.get_Timestamp_ms()).m_sz); }
+        void OnData_Time_Rel() { m_json.push_back(m_This.MakeDecimalTimeDelta(get_Timestamp_ms_safe(m_pThis->m_Hdr) - get_Timestamp_ms_safe(m_pPrev->m_Hdr)).m_sz); }
 
         void OnName_Age_Abs() { m_json.push_back(MakeTableHdr("Age")); }
         void OnName_Age_Rel() { m_json.push_back(MakeTableHdr("d.Age")); }
-        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalTimeDelta(m_pThis->m_Hdr.get_Timestamp_ms() - m_This.get_TimeStampGenesis_ms()).m_sz); }
+        void OnData_Age_Abs() { m_json.push_back(m_This.MakeDecimalTimeDelta(get_Timestamp_ms_safe(m_pThis->m_Hdr) - m_This.get_TimeStampGenesis_ms()).m_sz); }
         void OnData_Age_Rel() { OnData_Time_Rel(); }
 
         void OnName_Difficulty_Abs() { m_json.push_back(MakeTableHdr("Chainwork")); }
@@ -3040,6 +3054,78 @@ private:
     }
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    json get_asset_swaps() override
+    {
+        json result = json::array();
+        if (!_dexBoard)
+            return result;
+
+        for (const auto& order : _dexBoard->getDexOrders())
+        {
+            if (order.isExpired())
+                continue;
+
+            result.push_back(json{
+                {"id", order.getID().to_string()},
+                {"send_asset_id", order.getFirstAssetId()},
+                {"send_currency", order.getFirstAssetSname()},
+                {"send_amount", std::to_string(wallet::PrintableAmount(order.getFirstAmount()))},
+                {"receive_asset_id", order.getSecondAssetId()},
+                {"receive_currency", order.getSecondAssetSname()},
+                {"receive_amount", std::to_string(wallet::PrintableAmount(order.getSecondAmount()))},
+                {"create_time", order.getCreation()},
+                {"expire_time", order.getExpiration()},
+            });
+        }
+
+        return result;
+    }
+
+    json get_asset_swaps_totals() override
+    {
+        struct Agg { Amount offered = 0; Amount wanted = 0; std::string sname; };
+        std::map<Asset::ID, Agg> totals;
+        uint64_t count = 0;
+
+        if (_dexBoard)
+        {
+            for (const auto& order : _dexBoard->getDexOrders())
+            {
+                if (order.isExpired())
+                    continue;
+                ++count;
+
+                auto& offeredAsset = totals[order.getFirstAssetId()];
+                offeredAsset.offered += order.getFirstAmount();
+                if (offeredAsset.sname.empty())
+                    offeredAsset.sname = order.getFirstAssetSname();
+
+                auto& wantedAsset = totals[order.getSecondAssetId()];
+                wantedAsset.wanted += order.getSecondAmount();
+                if (wantedAsset.sname.empty())
+                    wantedAsset.sname = order.getSecondAssetSname();
+            }
+        }
+
+        json assets = json::array();
+        for (const auto& pair : totals)
+        {
+            assets.push_back(json{
+                {"asset_id", pair.first},
+                {"currency", pair.second.sname},
+                {"amount_offered", std::to_string(wallet::PrintableAmount(pair.second.offered))},
+                {"amount_wanted", std::to_string(wallet::PrintableAmount(pair.second.wanted))},
+            });
+        }
+
+        return json{
+            {"total_offers_count", count},
+            {"assets", assets},
+        };
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     HttpMsgCreator _packer;
 
     // node db interface
@@ -3060,6 +3146,10 @@ private:
     wallet::Wallet::Ptr _wallet;
     std::shared_ptr<beam::BroadcastRouter> _broadcastRouter;
     std::shared_ptr<ExchangeRateProvider> _exchangeRateProvider;
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    wallet::IRawCommGateway _dexCtlGateway;
+    wallet::DexBoard::Ptr _dexBoard;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     std::shared_ptr<wallet::OfferBoardProtocolHandler> _offerBoardProtocolHandler;
     wallet::SwapOffersBoard::Ptr _offersBulletinBoard;

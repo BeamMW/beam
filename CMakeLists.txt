@@ -296,6 +296,7 @@ else()
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-variable") # osx 13.3 clang 14 core/merkle.cpp
         endif()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-enum-constexpr-conversion -Wno-error=enum-constexpr-conversion -Wno-vla-cxx-extension")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-literal-operator") # newer clang vs old 3rdparty/nlohmann json.hpp operator "" _json
     endif()
 endif()
 

@@ -1901,6 +1901,8 @@
             <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=swap_offers" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
             <span class="menuSeparator"> | </span>
+            <span class="menuItem"><a href="?network=$network&type=asset_swaps" title="List of current Asset Swap offers">Asset Swaps</a></span>
+            <span class="menuSeparator"> | </span>
             <span class="menuItem"><a href="?network=$network&type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
@@ -2812,7 +2814,24 @@
       text += '<p class="aboutDisclaimer">There are currently no offers for Atomic Swaps.</p>';
     } else {
       text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
-      text += '<div class="divSwapOffers">' + Obj2Html(jData) + '</div>';
+      text += '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+            + '<th><span class="th">Sends</span></th>'
+            + '<th><span class="th">For</span></th>'
+            + '<th><span class="th">Created</span></th>'
+            + '<th><span class="th">Expires</span></th>'
+            + '<th><span class="th">Order ID</span></th>'
+            + '</tr></thead>';
+      for (const o of jData) {
+        const beam = MakeAmountClr(o.beam_amount) + ' BEAM';
+        text += '<tr>'
+              + MakeCellRA(o.is_beam_side ? beam : o.swap_amount)
+              + MakeCellRA(o.is_beam_side ? o.swap_amount : beam)
+              + MakeCell(o.time_created)
+              + MakeCellRA(o.height_expired)
+              + MakeCell(o.txId)
+              + '</tr>';
+      }
+      text += '</table>';
       text += MakeCollapsibleEnd();
       text += MakeCollapsibleBegin('Totals');
       text += '<div id="divSwapTotals"><p>Loading...</p></div>';
@@ -2834,6 +2853,66 @@
     const jData = JSON.parse(this.responseText);
     let text = Obj2Html(jData);
     document.getElementById('divSwapTotals').innerHTML = text;
+  }
+
+  function DisplayAssetSwaps() {
+    const jData = JSON.parse(this.responseText);
+
+    let text = '<h2 class="title">Asset Swaps</h2>';
+    if (jData.length === 0) {
+      text += '<p class="aboutDisclaimer">There are currently no offers for Asset Swaps.</p>';
+    } else {
+      text += MakeCollapsibleBegin('Offers (' + jData.length + ')');
+      text += '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+            + '<th><span class="th">Sends</span></th>'
+            + '<th><span class="th">For</span></th>'
+            + '<th><span class="th">Created</span></th>'
+            + '<th><span class="th">Expires</span></th>'
+            + '<th><span class="th">Order ID</span></th>'
+            + '</tr></thead>';
+      for (const o of jData) {
+        text += '<tr>'
+              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency + ' (' + o.send_asset_id + ')')
+              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency + ' (' + o.receive_asset_id + ')')
+              + MakeCell(formatTimestamp(o.create_time, 'local'))
+              + MakeCell(formatTimestamp(o.expire_time, 'local'))
+              + MakeCell(o.id)
+              + '</tr>';
+      }
+      text += '</table>';
+      text += MakeCollapsibleEnd();
+      text += MakeCollapsibleBegin('Totals');
+      text += '<div id="divAssetSwapTotals"><p>Loading...</p></div>';
+      text += MakeCollapsibleEnd();
+    }
+
+    SetContent(text);
+
+    // Get Asset Swap totals (new node request)
+    if (jData.length !== 0) {
+      const xmlhttp = new XMLHttpRequest();
+      xmlhttp.onload = DisplayAssetSwapTotals;
+      xmlhttp.open('GET', urlPrefix + 'asset_swaps_totals');
+      xmlhttp.send();
+    }
+  }
+
+  function DisplayAssetSwapTotals() { // Query node for Asset Swap totals and display them in existing 'div'
+    const jData = JSON.parse(this.responseText);
+    let text = '<table class="dataTable" border="1" cellspacing="0"><thead><tr>'
+          + '<th><span class="th">Asset</span></th>'
+          + '<th><span class="th">Offered</span></th>'
+          + '<th><span class="th">Wanted</span></th>'
+          + '</tr></thead>';
+    for (const a of jData.assets) {
+      text += '<tr>'
+            + MakeCell(a.currency + ' (' + a.asset_id + ')')
+            + MakeCellRA(MakeAmountClr(a.amount_offered))
+            + MakeCellRA(MakeAmountClr(a.amount_wanted))
+            + '</tr>';
+    }
+    text += '</table>';
+    document.getElementById('divAssetSwapTotals').innerHTML = text;
   }
 
   function DisplayHistoricalBlocks() {
@@ -3276,6 +3355,10 @@
     } else if (g_type == 'swap_offers') { // Arguments for 'swap_offers': (none)
       xmlhttp.onload = DisplayAtomicSwaps;
     // Remark: The query for 'swap_totals' is made from within the 'DisplayAtomicSwaps' function.
+
+    } else if (g_type == 'asset_swaps') { // Arguments for 'asset_swaps': (none)
+      xmlhttp.onload = DisplayAssetSwaps;
+    // Remark: The query for 'asset_swaps_totals' is made from within the 'DisplayAssetSwaps' function.
 
     } else {
       g_type = 'status'; // Arguments for 'status': (none)
