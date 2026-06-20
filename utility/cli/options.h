@@ -144,6 +144,10 @@ namespace beam
         extern const char* VERSION_FULL;
         extern const char* GIT_COMMIT_HASH;
         extern const char* WALLET_ADDR;
+        extern const char* SIGN_MESSAGE;
+        extern const char* VERIFY_MESSAGE;
+        extern const char* MSG_TO_SIGN;
+        extern const char* SIGNATURE;
         extern const char* CHANGE_ADDRESS_EXPIRATION;
         extern const char* WALLET_ADDRESS_LIST;
         extern const char* WALLET_ADDRESS_VERIFY;

@@ -207,9 +207,20 @@ namespace beam::wallet
     std::pair<SignMessage, IWalletApi::MethodInfo> V70Api::onParseSignMessage(const JsonRpcId& id, const nlohmann::json& params)
     {
         SignMessage message;
-        message.message = getMandatoryParam<NonEmptyString>(params, "message");
-        auto km = getMandatoryParam<NonEmptyString>(params, "key_material");
-        message.keyMaterial = from_hex(km);
+        message.message = getOptionalParam<std::string>(params, "message").get_value_or("");
+
+        auto km = getOptionalParam<NonEmptyString>(params, "key_material");
+        auto addr = getOptionalParam<NonEmptyString>(params, "address");
+
+        if (km && addr)
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Provide either 'address' or 'key_material', not both");
+
+        if (km)
+            message.keyMaterial = from_hex(*km);
+        else if (addr)
+            message.address = *addr;
+        // else: neither provided – default address will be used in the handler
+
         return std::make_pair(message, MethodInfo());
     }
 
@@ -233,7 +244,7 @@ namespace beam::wallet
         message.message = getMandatoryParam<NonEmptyString>(params, "message");
         message.publicKey = getMandatoryParam<ECC::Point::Native>(params, "public_key");
         message.signature = getMandatoryParam<ValidHexBuffer>(params, "signature");
-        
+
         return std::make_pair(message, MethodInfo());
     }
 
@@ -244,6 +255,33 @@ namespace beam::wallet
             {JsonRpcHeader, JsonRpcVersion},
             {"id", id},
             {"result", res.result }
+        };
+    }
+
+    std::pair<VerifyMessage, IWalletApi::MethodInfo> V70Api::onParseVerifyMessage(const JsonRpcId& id, const nlohmann::json& params)
+    {
+        VerifyMessage message;
+        auto addrStr = getMandatoryParam<NonEmptyString>(params, "address");
+        if (!message.address.FromHex(addrStr))
+            throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Invalid 'address'");
+
+        message.message = getOptionalParam<std::string>(params, "message").get_value_or("");
+        message.signature = getMandatoryParam<ValidHexBuffer>(params, "signature");
+
+        return std::make_pair(message, MethodInfo());
+    }
+
+    void V70Api::getResponse(const JsonRpcId& id, const VerifyMessage::Response& res, json& msg)
+    {
+        msg = json
+        {
+            {JsonRpcHeader, JsonRpcVersion},
+            {"id", id},
+            {"result",
+                {
+                    {"is_valid", res.isValid}
+                }
+            }
         };
     }
 }

@@ -3118,7 +3118,7 @@ void ParserContext::OnState_DEX(uint32_t /* iVer */)
 			DocAddTableHeader("Amount2");
 			DocAddTableHeader("Amount-LP-Token");
 			DocAddTableHeader("Rate 1:2");
-			DocAddTableHeader("Rate 2:2");
+			DocAddTableHeader("Rate 2:1");
 		}
 
 		Env::Key_T<Amm::Pool::Key> k0, k1;

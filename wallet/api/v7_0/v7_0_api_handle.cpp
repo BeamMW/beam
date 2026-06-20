@@ -224,19 +224,53 @@ namespace beam::wallet
                 << ss.str()
                 >> hv;
         }
+
+        void GetMessageHash(ECC::Hash::Value& hv, const PeerID& pk, const std::string& message)
+        {
+            ECC::Hash::Processor()
+                << "beam.signed.message"
+                << pk
+                << (uint64_t) message.size()
+                << Blob(message.data(), (uint32_t) message.size())
+                >> hv;
+        }
     }
 
     void V70Api::onHandleSignMessage(const JsonRpcId& id, SignMessage&& req)
     {
         SignMessage::Response resp;
         ECC::Hash::Value hv;
-        MyProcessor::DeriveKeyPreimage(hv, Blob(req.keyMaterial));
-        auto db = getWalletDB();
-        auto pKdf = db->get_MasterKdf();
         ECC::Scalar::Native sk;
-        pKdf->DeriveKey(sk, hv);
 
-        GetMessageHash(hv, req.message);
+        auto db = getWalletDB();
+
+        if (req.keyMaterial)
+        {
+            // Legacy path: derive key from raw key material
+            MyProcessor::DeriveKeyPreimage(hv, Blob(*req.keyMaterial));
+            auto pKdf = db->get_MasterKdf();
+            pKdf->DeriveKey(sk, hv);
+            GetMessageHash(hv, req.message);
+        }
+        else
+        {
+            // Address-based path
+            WalletAddress addr;
+            if (req.address)
+            {
+                auto found = db->getAddressByToken(*req.address);
+                if (!found || !found->isOwn())
+                    throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Address not found or not owned by this wallet");
+                addr = *found;
+            }
+            else
+            {
+                db->getDefaultAddressAlways(addr);
+            }
+            PeerID pid;
+            db->get_SbbsPeerID(sk, pid, addr.m_OwnID);
+            GetMessageHash(hv, pid, req.message);
+        }
 
         ECC::Signature sig;
         sig.Sign(hv, sk);
@@ -260,5 +294,18 @@ namespace beam::wallet
         d& sig;
         resp.result = sig.IsValid(hv, req.publicKey);
         doResponse(id, resp);
+    }
+
+    void V70Api::onHandleVerifyMessage(const JsonRpcId& id, VerifyMessage&& req)
+    {
+        ECC::Hash::Value hv;
+        GetMessageHash(hv, req.address.m_Pk, req.message);
+
+        Deserializer d;
+        ECC::Signature sig;
+        d.reset(req.signature);
+        d & sig;
+
+        doResponse(id, VerifyMessage::Response{req.address.m_Pk.CheckSignature(hv, sig)});
     }
 }
