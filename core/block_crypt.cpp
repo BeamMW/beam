@@ -1455,6 +1455,11 @@ namespace beam
 			m_pAsset->Clone(v.m_pAsset);
 		else
 			v.m_pAsset.reset();
+
+		if (m_pDisclosure)
+			v.m_pDisclosure = std::make_unique<Disclosure>(*m_pDisclosure);
+		else
+			v.m_pDisclosure.reset();
 	}
 
 	void TxKernelShieldedInput::AddStats(TxStats& s) const
@@ -1468,7 +1473,8 @@ namespace beam
 		ECC::Oracle oracle;
 		oracle << get_Msg();
 
-		if (Rules::get().IsPastFork_<3>(m_Height.m_Min))
+		const Rules& r = Rules::get();
+		if (r.IsPastFork_<3>(m_Height.m_Min))
 			oracle << m_NotSerialized.m_hvShieldedState;
 
 		// auto-generate seed for sigma proof and m_R_Output
