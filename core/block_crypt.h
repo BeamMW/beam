@@ -552,7 +552,7 @@ namespace beam
 		void get_Emission(AmountBig::Number&, const HeightRange&) const;
 		void get_Emission(AmountBig::Number&, const HeightRange&, Amount base) const;
 
-		HeightHash pForks[7];
+		HeightHash pForks[8];
 
 		const HeightHash& get_LastFork() const;
 		const HeightHash* FindFork(const Merkle::Hash&) const;
@@ -779,6 +779,19 @@ namespace beam
 		int cmp(const TxElement&) const;
 	};
 
+	struct Disclosure
+	{
+		typedef std::unique_ptr<Disclosure> Ptr;
+
+		Amount m_Amount;
+		Asset::ID m_Aid;
+		ECC::Signature m_Signature;
+
+		void Create(const ECC::Scalar::Native& sk);
+		bool IsValid(const ECC::Point::Native&) const;
+		void Test(const ECC::Point::Native&) const; // same as above, but throws
+	};
+
 	struct Input
 		:public TxElement
 	{
@@ -817,6 +830,8 @@ namespace beam
 			static const uint32_t s_EntriesMax = 20; // if this is the size of the vector - the result is probably trunacted
 		};
 
+		Disclosure::Ptr m_pDisclosure;
+
 		Input() = default;
 		Input(const Input& v)
 			:TxElement(v)
@@ -824,6 +839,7 @@ namespace beam
 		}
 		Input(Input&& v) noexcept
 			:TxElement(std::move(v))
+			,m_pDisclosure(std::move(v.m_pDisclosure))
 		{
 		}
 
@@ -1423,6 +1439,7 @@ namespace beam
 		TxoID m_WindowEnd; // ID of the 1st element outside the window
 		Lelantus::Proof m_SpendProof;
 		Asset::Proof::Ptr m_pAsset;
+		Disclosure::Ptr m_pDisclosure;
 
 		struct NotSerialized {
 			ECC::Hash::Value m_hvShieldedState;

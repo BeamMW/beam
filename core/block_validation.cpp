@@ -146,6 +146,13 @@ namespace beam
 
 				pt.ImportStrict(r.m_pUtxoIn->m_Commitment);
 
+				if (r.m_pUtxoIn->m_pDisclosure)
+				{
+					if (iFork < 7)
+						Rules::Fail_Fork(7);
+					r.m_pUtxoIn->m_pDisclosure->Test(pt);
+				}
+
 				r.m_pUtxoIn->AddStats(m_Stats);
 				m_Sigma += pt;
 			}

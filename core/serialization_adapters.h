@@ -592,16 +592,51 @@ namespace detail
         /// Common Beam serialization adapters
         ///////////////////////////////////////////////////////////
 
+		/// beam::Disclosure serialization
+		template<typename Archive>
+		Archive& save(Archive& ar, const beam::Disclosure& x)
+		{
+			ar
+				& x.m_Amount
+				& x.m_Aid
+				& x.m_Signature;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		Archive& load(Archive& ar, beam::Disclosure& x)
+		{
+			ar
+				& x.m_Amount
+				& x.m_Aid
+				& x.m_Signature;
+
+			return ar;
+		}
+
+		template<typename Archive>
+		void load(Archive& ar, beam::Disclosure::Ptr& p)
+		{
+			p = std::make_unique<beam::Disclosure>();
+			ar & *p;
+		}
+
+
         /// beam::Input serialization
         template<typename Archive>
         Archive& save(Archive& ar, const beam::Input& input)
         {
 			uint8_t nFlags =
-				(input.m_Commitment.m_Y ? 1 : 0);
+				(input.m_Commitment.m_Y ? 1 : 0) |
+				(input.m_pDisclosure ? 2 : 0);
 
 			ar
 				& nFlags
 				& input.m_Commitment.m_X;
+
+			if (input.m_pDisclosure)
+				ar & *input.m_pDisclosure;
 
             return ar;
         }
@@ -615,6 +650,9 @@ namespace detail
 				& input.m_Commitment.m_X;
 
 			input.m_Commitment.m_Y = (1 & nFlags);
+
+			if (2 & nFlags)
+				load(ar, input.m_pDisclosure);
 
             return ar;
         }
@@ -1601,7 +1639,8 @@ namespace detail
 			uint32_t nFlags =
 				ImplTxKernel::get_CommonFlags(val) |
 				(val.m_pAsset ? 1 : 0) |
-				(val.m_CanEmbed ? 0x80 : 0);
+				(val.m_CanEmbed ? 0x80 : 0) |
+				(val.m_pDisclosure ? 0x100 : 0);
 
 			ar
 				& nFlags
@@ -1613,6 +1652,9 @@ namespace detail
 
 			if (val.m_pAsset)
 				savePtr(ar, val.m_pAsset);
+
+			if (val.m_pDisclosure)
+				ar & *val.m_pDisclosure;
 
 			return ar;
 		}
@@ -1634,6 +1676,9 @@ namespace detail
 
 			if (1 & nFlags)
 				loadPtr(ar, val.m_pAsset);
+
+			if (0x100 & nFlags)
+				load(ar, val.m_pDisclosure);
 		}
 
         /// beam::TxKernelContractControl serialization

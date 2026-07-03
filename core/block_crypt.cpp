@@ -221,6 +221,10 @@ namespace beam
 	Input& Input::operator = (const Input& v)
 	{
 		Cast::Down<TxElement>(*this) = v;
+		if (v.m_pDisclosure)
+			m_pDisclosure = std::make_unique<Disclosure>(*v.m_pDisclosure);
+		else
+			m_pDisclosure.reset();
 		return *this;
 	}
 
@@ -229,6 +233,7 @@ namespace beam
 		if (*this != v)
 		{
 			Cast::Down<TxElement>(*this) = std::move(v);
+			m_pDisclosure = std::move(v.m_pDisclosure);
 		}
 		return *this;
 	}
@@ -733,6 +738,33 @@ namespace beam
 			return val;
 
 		return static_cast<Amount>(-val);
+	}
+
+	/////////////
+	// Disclosure
+	void Disclosure::Create(const ECC::Scalar::Native& sk)
+	{
+		m_Signature.Sign(Zero, sk);
+	}
+
+	bool Disclosure::IsValid(const ECC::Point::Native& pt) const
+	{
+		ECC::Mode::Scope scope(ECC::Mode::Fast);
+
+		ECC::Point::Native pt2 = -pt;
+
+		CoinID::Generator g(m_Aid);
+		g.AddValue(pt2, m_Amount);
+
+		pt2 = -pt2;
+
+		return m_Signature.IsValid(Zero, pt2);
+	}
+
+	void Disclosure::Test(const ECC::Point::Native& pt) const
+	{
+		if (!IsValid(pt))
+			TxBase::Fail_Signature();
 	}
 
 	/////////////
@@ -1389,6 +1421,14 @@ namespace beam
 		comm.ImportNnzStrict(ptNeg);
 		exc += comm;
 		// Spend proof verification is not done here
+
+		if (m_pDisclosure)
+		{
+			r.TestForkAtLeast_<7>(hScheme);
+
+			comm = -comm;
+			m_pDisclosure->Test(comm);
+		}
 	}
 
 	void TxKernelShieldedInput::HashSelfForMsg(ECC::Hash::Processor& hp) const
