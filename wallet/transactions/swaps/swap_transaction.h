@@ -160,6 +160,7 @@ namespace beam::wallet
         private:
             BaseTransaction::Ptr Create(const TxContext& context) override;
             TxParameters CheckAndCompleteParameters(const TxParameters& parameters) override;
+            void EnsurePublisherAddressPersisted(const TxParameters& parameters);
 
             SecondSide::Ptr GetSecondSide(BaseTransaction& tx) override;
         private:

@@ -21,6 +21,7 @@ WALLET_TEST_INIT
 // tested module
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
 
 // dependencies
 #include "keykeeper/local_private_key_keeper.h"
@@ -883,6 +884,116 @@ namespace
         }
     }
 
+    /**
+     *  Regression test: starting a swap transaction has to persist an own
+     *  address for the offer publisher. Without it publishOffer() rejects
+     *  every locally created offer with ForeignOfferException and the
+     *  publisher is not listening on the offer's BBS channel, so atomic
+     *  swaps cannot even start. Generating offer parameters alone, however,
+     *  must leave no traces in the wallet database.
+     */
+    void TestPublisherAddressPersistence()
+    {
+        cout << endl << "Test swap offer publisher address is persisted" << endl;
+
+        auto storage = createSqliteWalletDB();
+
+        OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        SwapOffersBoard board(broadcastRouter, protocolHandler, storage);
+        storage->Subscribe(&board);
+
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        board.onSystemStateChanged(startState);
+
+        AtomicSwapTransaction::Creator swapTxCreator(storage);
+        BaseTransaction::Creator& txCreator = swapTxCreator;
+
+        // Build offer parameters exactly the way CLI / UI / wallet-api do
+        const auto makeOfferParams = [&storage](const TxID& id)
+        {
+            auto params = CreateSwapTransactionParameters(id);
+            FillSwapTxParams(&params,
+                             *storage,
+                             Fork1Height,
+                             Amount(400),
+                             Amount(100),
+                             AtomicSwapCoin::Bitcoin,
+                             Amount(2000),
+                             Amount(700),
+                             true,
+                             Height(10));
+            return params;
+        };
+
+        TxID txID = generateTxID();
+        auto params = makeOfferParams(txID);
+
+        auto myAddr = params.GetParameter<WalletID>(TxParameterID::MyAddr);
+        auto myAddressID = params.GetParameter<uint64_t>(TxParameterID::MyAddressID);
+        WALLET_CHECK(myAddr && myAddressID);
+        if (!myAddr || !myAddressID) return;
+
+        // generating parameters is side effect free: nothing is persisted
+        // until the transaction is actually started
+        WALLET_CHECK(!storage->getAddress(*myAddr).is_initialized());
+
+        // starting the transaction (Wallet::StartTransaction runs the tx
+        // creator's CheckAndCompleteParameters) persists the address
+        const auto addressCount = storage->getAddresses(true).size();
+        params = txCreator.CheckAndCompleteParameters(params);
+        WALLET_CHECK(storage->getAddresses(true).size() == addressCount + 1);
+
+        // and does it exactly once (restarts don't duplicate it)
+        params = txCreator.CheckAndCompleteParameters(params);
+        WALLET_CHECK(storage->getAddresses(true).size() == addressCount + 1);
+
+        auto address = storage->getAddress(*myAddr);
+        WALLET_CHECK(address.is_initialized());
+        if (address)
+        {
+            WALLET_CHECK(address->isOwn());
+            WALLET_CHECK(address->m_OwnID == *myAddressID);
+            WALLET_CHECK(!address->isExpired());
+            WALLET_CHECK(!address->isPermanent());
+            // the expiration covers the acceptance window with a margin
+            WALLET_CHECK(address->m_duration >= WalletAddress::AddressExpiration24h);
+        }
+
+        // such offer has to be publishable on the offers board
+        SwapOffer offer(params);
+        offer.m_publisherId = *myAddr;
+        WALLET_CHECK(offer.IsValid());
+        WALLET_CHECK_NO_THROW(board.publishOffer(offer));
+        WALLET_CHECK(board.getOffersList().size() == 1);
+
+        // and the board has to resolve own addresses directly from the
+        // database even if it missed the address change notification
+        {
+            BroadcastRouter lateRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+            // not Subscribe()'d: the board gets no address change notifications,
+            // so the address created below stays unknown to its cache
+            SwapOffersBoard lateBoard(lateRouter, protocolHandler, storage);
+            lateBoard.onSystemStateChanged(startState);
+
+            auto lateParams = makeOfferParams(++txID);
+            auto latePublisherId = lateParams.GetParameter<WalletID>(TxParameterID::MyAddr);
+            WALLET_CHECK(latePublisherId.is_initialized());
+            if (!latePublisherId) return;
+
+            lateParams = txCreator.CheckAndCompleteParameters(lateParams);
+            SwapOffer lateOffer(lateParams);
+            lateOffer.m_publisherId = *latePublisherId;
+            WALLET_CHECK_NO_THROW(lateBoard.publishOffer(lateOffer));
+            WALLET_CHECK(lateBoard.getOffersList().size() == 1);
+            // ownership checks resolve through the database as well: the
+            // offer echoed back from the network is recognized as own
+            WALLET_CHECK(lateBoard.getOffersList()[0].m_isOwn == true);
+        }
+    }
+
 } // namespace
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
@@ -911,6 +1022,7 @@ int main()
     TestDelayedOfferUpdate();
     TestOffersLifetimeCheck();
     TestOwnOfferCheck();
+    TestPublisherAddressPersistence();
 
     boost::filesystem::remove(dbFileName);
 

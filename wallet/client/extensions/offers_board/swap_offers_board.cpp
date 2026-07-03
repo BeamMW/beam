@@ -158,10 +158,10 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
     {
         throw OfferAlreadyPublishedException();
     }
-    
-    auto it = m_ownAddresses.find(offer.m_publisherId);
-    
-    if (it == std::cend(m_ownAddresses))
+
+    auto ownAddressID = getOwnAddressID(offer.m_publisherId);
+
+    if (!ownAddressID)
     {
         throw ForeignOfferException();
     }
@@ -183,7 +183,31 @@ void SwapOffersBoard::publishOffer(const SwapOffer& offer) const
             << "minimalHeight: " << *minimalHeight;
     }
 
-    broadcastOffer(offer, it->second/*m_OwnID*/);
+    broadcastOffer(offer, *ownAddressID);
+}
+
+/**
+ *  Resolves an own address key id (BBS KDF OwnID) by the publisher's WalletID.
+ *  The m_ownAddresses cache may lag behind the database in frontends where
+ *  address change notifications are not (yet) wired when the offer is being
+ *  published, so fall back to the wallet database, the source of truth.
+ *  Expiration is ignored on purpose: board status updates (e.g. a swap
+ *  completing or failing) must be signable even after the publisher's
+ *  address has expired.
+ */
+boost::optional<uint64_t> SwapOffersBoard::getOwnAddressID(const WalletID& publisherId) const
+{
+    if (auto it = m_ownAddresses.find(publisherId); it != std::cend(m_ownAddresses))
+    {
+        return it->second;
+    }
+
+    if (auto address = m_walletDB->getAddress(publisherId); address && address->isOwn())
+    {
+        return address->m_OwnID;
+    }
+
+    return boost::none;
 }
 
 void SwapOffersBoard::fillOwnAdresses()
@@ -292,7 +316,7 @@ bool SwapOffersBoard::isOfferLifetimeTooLong(const SwapOffer& offer) const
 
 bool SwapOffersBoard::isOwnOffer(const SwapOffer& offer) const
 {
-    return m_ownAddresses.find(offer.m_publisherId) != std::cend(m_ownAddresses);
+    return getOwnAddressID(offer.m_publisherId).is_initialized();
 }
 
 void SwapOffersBoard::updateOfferStatus(const TxID& offerTxID, SwapOfferStatus newStatus)
@@ -338,11 +362,14 @@ void SwapOffersBoard::sendUpdateToNetwork(const SwapOffer& offer) const
 {
     BEAM_LOG_INFO() << offer.m_txId << " offer status updated to " << std::to_string(offer.m_status);
 
-    auto it = m_ownAddresses.find(offer.m_publisherId);
-    
-    if (it != std::cend(m_ownAddresses))
+    if (auto ownAddressID = getOwnAddressID(offer.m_publisherId); ownAddressID)
     {
-        broadcastOffer(offer, it->second/*m_OwnID*/);
+        broadcastOffer(offer, *ownAddressID);
+    }
+    else
+    {
+        BEAM_LOG_WARNING() << offer.m_txId
+            << " offer status update is not broadcast: the publisher address is missing from the wallet database";
     }
 }
 

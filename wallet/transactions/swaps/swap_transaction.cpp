@@ -49,6 +49,13 @@ namespace beam::wallet
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
     {
+        // Note: only a key id / SBBS WalletID pair is derived here, so that
+        // (re)generating offer parameters (e.g. while the user is editing the
+        // offer in the UI) leaves no traces in the wallet database. The
+        // publisher's address is persisted when the swap transaction is
+        // actually started, which is required for the offer to be publishable
+        // and for the acceptor's first message to be received - see
+        // AtomicSwapTransaction::Creator::CheckAndCompleteParameters().
         auto ownID = db.AllocateKidRange(1);
         WalletID wid;
         db.get_SbbsWalletID(wid, ownID);
@@ -320,7 +327,71 @@ namespace beam::wallet
                 throw FailToStartSwapException();
             }
         }
+        EnsurePublisherAddressPersisted(parameters);
         return parameters;
+    }
+
+    /**
+     *  Persists the offer publisher's SBBS address as an own address.
+     *
+     *  FillSwapTxParams() only derives a key id / WalletID pair. Without a
+     *  persisted WalletAddress atomic swaps cannot work:
+     *   - SwapOffersBoard learns own addresses exclusively from
+     *     IWalletDB::getAddresses(true) and address change notifications, so
+     *     publishOffer() rejects the offer with ForeignOfferException
+     *     ("Offer has foreign Pk and will not be published");
+     *   - BaseMessageEndpoint::Subscribe() listens only on BBS channels of
+     *     persisted, non-expired own addresses, so the publisher would never
+     *     receive the acceptor's first message: until it arrives no
+     *     transaction object exists, hence EnsureListening() cannot cover
+     *     this. It does cover the acceptor side, which is why nothing has to
+     *     be persisted there.
+     *
+     *  The address is persisted here, when the swap transaction is actually
+     *  started, and not in FillSwapTxParams(), so that generating offer
+     *  parameters has no side effects. Only the publisher's parameters carry
+     *  MyAddressID: swap tokens and mirrored board offers never include it,
+     *  so this is a no-op on the acceptor side.
+     */
+    void AtomicSwapTransaction::Creator::EnsurePublisherAddressPersisted(const TxParameters& parameters)
+    {
+        auto ownID = parameters.GetParameter<uint64_t>(TxParameterID::MyAddressID);
+        auto wid = parameters.GetParameter<WalletID>(TxParameterID::MyAddr);
+        if (!ownID || !wid)
+        {
+            return; // acceptor side: the own key id is allocated by the transaction itself
+        }
+
+        WalletAddress address("swap offer");
+        address.m_OwnID = *ownID;
+        m_walletDB->get_SbbsWalletID(address.m_BbsAddr, address.m_OwnID);
+        if (address.m_BbsAddr != *wid)
+        {
+            return; // inconsistent parameters, don't persist a mismatching address
+        }
+
+        if (m_walletDB->getAddress(address.m_BbsAddr))
+        {
+            return; // already persisted (e.g. the transaction is restarted)
+        }
+
+        address.m_createTime = getTimestamp();
+        m_walletDB->get_Endpoint(address.m_Endpoint, address.m_OwnID);
+        m_walletDB->setDefaultToken(address);
+
+        // The address has to outlive the offer's acceptance window
+        // (PeerResponseTime, measured in blocks of ~1 minute) with a solid
+        // margin even if blocks come slower than usual. Expiration only
+        // matters until the acceptor's first message arrives: after that the
+        // transaction keeps listening by itself (EnsureListening() on every
+        // update), and offer status updates stay signable as well, since
+        // SwapOffersBoard resolves own addresses through the wallet DB
+        // regardless of their expiration.
+        auto responseTime = parameters.GetParameter<Height>(TxParameterID::PeerResponseTime);
+        address.m_duration = WalletAddress::AddressExpiration24h
+                           + (responseTime ? *responseTime * 60 : 0);
+
+        m_walletDB->saveAddress(address);
     }
 
     AtomicSwapTransaction::AtomicSwapTransaction(const TxContext& context
