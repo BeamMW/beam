@@ -3189,6 +3189,15 @@
       description: `The second halving came shortly after the <b>5-year anniversary of the Beam blockchain</b>, in January 2024. It reduced the block rewards from 50 BEAM (block <a href="?network=mainnet&type=block&height=2628000">2628000</a>) to 25 BEAM (block <a href="?network=mainnet&type=block&height=2628001">2628001</a>).<br>This halving also saw the <a href="?network=mainnet&type=block&height=0" title="Treasury">end of the 5-year treasury allocation</a>: from then on, 100% of the block rewards go to the miners. However, even without treasury allocation, the project is still funded as the <a href="?network=mainnet&type=contract&id=0066b12078623df132b691001b25d7eb94b207b42c018020c9e58152e21ecd25" title="Smart contract call history">DAO Vault</a> receives a share of fees from several DApps of the <b>BeamX ecosystem</b> (DEX, Nephrite, BANS, etc.).`,
       links: [['The 5-year recap', 'https://medium.com/beam-mw/celebrating-beams-5th-anniversary-kick-off-2024-with-beam-wallet-7-5-f5f3cb54e30f']]
     },
+    {
+      block_list: [3928666],
+      title: 'Sixth Hard-Fork (emergency hard fork)',
+      description: `This hard-fork was made on <a href="?network=mainnet&type=hdrs&hMax=3928666" title="Blocks up to the hard fork">June 2026</a> after the responsible disclosure of a subtle but serious vulnerability in Beam's implementation of the Bulletproofs rangeproofs. The issue was patched in a non-public branch, and a coordinated network upgrade was organized with the main mining pools and exchanges.<br>Although it's unlikely the vulnerability was exploited, it could -in theory- have allowed creating new coins out of thin air. Thus, a special <i>"lustration"</i> process was submitted to the community for discussion. This process (which requires yet another hard fork) would allow verifying the supply integrity thanks to a one-time limited disclosure of legacy outputs.<br>This hard fork also brought several improvements which had been made previously but were not yet released. Among them, a better concealing of the id of the Confidential Assets in any UTXO. Indeed, all 64-ranges of possible IDs now also include id 0 (which is the BEAM coin itself), thus increasing significantly its anonymity set (as can be seen in this <a href="?network=mainnet&type=block&height=3933910" title="Inputs and Outputs in this block">example</a>).`,
+      links: [
+        ['Blog post', 'https://beam.mw/blog/news/hardfork-six'],
+        ['Release Notes', 'https://github.com/BeamMW/beam/releases/tag/beam-7.5.14493'],
+      ]
+    }
   ];
 
   // Get URL parameters
