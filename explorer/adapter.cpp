@@ -2891,6 +2891,15 @@ private:
         if (h)
             return extract_block_from_row(sid, s, h);
 
+        // Edge-case guard only (fresh node with no blocks, or prune-navigation
+        // via adj<0 that falls back to h=0). The primary way to view the
+        // treasury is an explicit height=0 request, dispatched in
+        // Server::on_request_block -> get_treasury().
+        return get_treasury();
+    }
+
+    json get_treasury() override
+    {
         json out;
         get_treasury(out);
         return out;
