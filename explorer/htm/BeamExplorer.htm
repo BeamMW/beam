@@ -2783,6 +2783,13 @@
   function DisplayAssets() {
     const jData = JSON.parse(this.responseText);
 
+    // Display error message if block does not exist
+    if (jData['found'] === false) {
+      let text = '<h2 class="title errorMessage">Block not found.</h2>';
+      SetContent(text);
+      return;
+    }
+
     // Get block height
     let jH = jData['h'];
     if (jH != null) { g_height = jH; }
