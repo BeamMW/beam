@@ -2406,8 +2406,7 @@
     const jData = JSON.parse(this.responseText);
 
     // Display error message if no block was found
-    // Remark: The explorer node returns the treasury when no block is found. Here we display an error if height was not explicitely set to 0.
-    if (jData['found'] === false || (jData['info'] === undefined && g_height != '0')) { // Remark: Only the Treasury lacks the 'info' field
+    if (jData['found'] === false) {
       text += '<h2 class="title errorMessage">Block not found.</h2>';
       SetContent(text);
       return;
