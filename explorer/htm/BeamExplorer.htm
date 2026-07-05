@@ -2340,10 +2340,12 @@
       }
 
       let txtExtra = '';
+      let txtExtra2 = '';
 
       j = jRow['Asset'];
       if (j) {
-        txtExtra += ' CA [' + j['min'] + '-' + j['max'] + ']';
+        if (j['x'] == 0 && j['min'] > 0) { txtExtra2 += '0;' } // Add id:0 for CA ranges after HF6
+        txtExtra += ' CA [' + txtExtra2 + j['min'] + '-' + j['max'] + ']';
         delete jRow.Asset;
       }
 
