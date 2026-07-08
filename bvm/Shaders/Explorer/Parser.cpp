@@ -3555,6 +3555,53 @@ void ParserContext::OnState_DaoVote(uint32_t /* iVer */)
 		}
 	}
 
+	// Per-voter ballots. One UserVote log entry per Vote call; Choices is the
+	// trailing per-proposal variant-index bytes (0xff = no vote for that proposal).
+	{
+		Env::DocGroup grVotes("User votes");
+		DocSetType("table");
+		Env::DocArray grVal("value");
+		{
+			Env::DocArray grHdr("");
+			DocAddTableHeader("Height");
+			DocAddTableHeader("Voter");
+			DocAddTableHeader("Proposal0");
+			DocAddTableHeader("Stake");
+			DocAddTableHeader("Choices");
+		}
+
+		// Whole pk + proposal-id range, across all voters and epochs.
+		Env::Key_T<DaoVote::Events::UserVote::Key> vk0, vk1;
+		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
+		vk0.m_KeyInContract.m_Tag = DaoVote::Events::Tags::s_UserVote;
+		vk1.m_KeyInContract.m_Tag = DaoVote::Events::Tags::s_UserVote;
+		_POD_(vk0.m_KeyInContract.m_pk).SetZero();
+		_POD_(vk1.m_KeyInContract.m_pk).SetObject(0xff);
+		vk0.m_KeyInContract.m_ID_0_be = 0;
+		vk1.m_KeyInContract.m_ID_0_be = static_cast<uint32_t>(-1);
+
+		for (Env::LogReader r(vk0, vk1); ; )
+		{
+			Env::Key_T<DaoVote::Events::UserVote::Key> vk;
+			DaoVote::Events::UserVoteMax uv;
+			uint32_t nKey = sizeof(vk), nVal = sizeof(uv);
+			if (!r.MoveNext(&vk, nKey, &uv, nVal, 0))
+				break;
+			if ((sizeof(vk) != nKey) || (nVal < sizeof(DaoVote::Events::UserVote)))
+				continue;
+
+			const uint32_t nVotes = nVal - sizeof(DaoVote::Events::UserVote);
+
+			Env::DocArray grRow("");
+			Env::DocAddNum("", r.m_Pos.m_Height);
+			DocAddPk("", vk.m_KeyInContract.m_pk);
+			Env::DocAddNum32("", Utils::FromBE(vk.m_KeyInContract.m_ID_0_be));
+			DocAddAmount("", uv.m_Stake);
+			Env::DocAddBlob("", uv.m_pVotes, nVotes);
+		}
+	}
+
 	// Per-proposal variant tallies. Each Proposal var is variable-length
 	// (m_iEpoch followed by the per-variant staked amounts).
 	{
