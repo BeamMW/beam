@@ -13,6 +13,7 @@ target_sources(news_channels
         contract_price_types.h
         asset_price_engine.h
         contract_price_parse.h
+        contract_var_reader.h
     PRIVATE
         verification_provider.cpp
         updates_provider.cpp
@@ -21,6 +22,7 @@ target_sources(news_channels
         exchange_rate_provider.cpp
         asset_price_engine.cpp
         contract_price_parse.cpp
+        contract_var_reader.cpp
 )
 
 target_link_libraries(news_channels 
