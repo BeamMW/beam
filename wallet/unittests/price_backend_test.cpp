@@ -15,7 +15,9 @@
 // unit tests for the contract price backend (AssetPriceEngine + parsers).
 #include "test_helpers.h"
 #include "wallet/client/extensions/news_channels/asset_price_engine.h"
+#include "wallet/client/extensions/news_channels/contract_price_parse.h"
 #include <cmath>
+#include <cstring>
 
 using namespace beam;
 using namespace beam::wallet;
@@ -70,9 +72,34 @@ void TestAssetPriceEngineHops()
     WALLET_CHECK(m.find(99) == m.end());                 // no 2-hop chaining through the hop-priced hub 50
 }
 
+void TestContractPriceParsers()
+{
+    // Median value: num=9534975028043687912, order=-70 -> 0.008076438 ; hEnd=3941929
+    uint8_t med[24]; memset(med, 0, sizeof(med));
+    uint64_t num = 9534975028043687912ull; int32_t order = -70; uint64_t hEnd = 3941929ull;
+    memcpy(med + 0, &num, 8); memcpy(med + 8, &order, 4);
+    med[12] = 0xAA; med[13] = 0xBB; med[14] = 0xCC; med[15] = 0xDD;   // garbage padding must be ignored
+    memcpy(med + 16, &hEnd, 8);
+    OracleMedian om = ParseOracleMedianValue(med, sizeof(med));
+    WALLET_CHECK(om.m_Ok);
+    WALLET_CHECK(std::fabs(om.m_UsdPerBeam - 0.008076438) < 1e-7);
+    WALLET_CHECK(om.m_hEnd == 3941929ull);
+    WALLET_CHECK(!ParseOracleMedianValue(med, 20).m_Ok);             // short buffer -> not ok
+
+    // Pool key = cid(32) || 0x00 || 0x01 || aid1(4 LE) || aid2(4 LE); val = r1(8) r2(8)
+    uint8_t key[42]; memset(key, 0, sizeof(key)); key[32] = 0x00; key[33] = 0x01;
+    uint32_t a1 = 0, a2 = 3; memcpy(key + 34, &a1, 4); memcpy(key + 38, &a2, 4);
+    uint8_t val[16]; uint64_t r1 = 188925646570ull, r2 = 23340437325353ull;
+    memcpy(val, &r1, 8); memcpy(val + 8, &r2, 8);
+    PoolData pd;
+    WALLET_CHECK(ParsePool(key, sizeof(key), val, sizeof(val), pd));
+    WALLET_CHECK(pd.m_Aid1 == 0 && pd.m_Aid2 == 3 && pd.m_Reserve1 == r1 && pd.m_Reserve2 == r2);
+}
+
 int main()
 {
     TestAssetPriceEngine();
     TestAssetPriceEngineHops();
+    TestContractPriceParsers();
     return WALLET_CHECK_RESULT;
 }
