@@ -10,12 +10,15 @@ target_sources(news_channels
         version_info.h
         exchange_rate_provider.h
         interface.h
+        contract_price_types.h
+        asset_price_engine.h
     PRIVATE
         verification_provider.cpp
         updates_provider.cpp
         wallet_updates_provider.cpp
         version_info.cpp
         exchange_rate_provider.cpp
+        asset_price_engine.cpp
 )
 
 target_link_libraries(news_channels 
