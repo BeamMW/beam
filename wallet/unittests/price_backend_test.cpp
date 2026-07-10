@@ -16,6 +16,8 @@
 #include "test_helpers.h"
 #include "wallet/client/extensions/news_channels/asset_price_engine.h"
 #include "wallet/client/extensions/news_channels/contract_price_parse.h"
+#include "wallet/client/extensions/news_channels/contract_rate_provider.h"
+#include "core/block_crypt.h"
 #include <cmath>
 #include <cstring>
 
@@ -96,10 +98,19 @@ void TestContractPriceParsers()
     WALLET_CHECK(pd.m_Aid1 == 0 && pd.m_Aid2 == 3 && pd.m_Reserve1 == r1 && pd.m_Reserve2 == r2);
 }
 
+void TestRateScaling()
+{
+    // ExchangeRate.m_rate == round(usdPerBeam * Rules::Coin); convertAmount() divides rate/Coin.
+    WALLET_CHECK(ContractRateProvider::ToRate(0.008076438) == 807644);   // 0.008076438 * Rules::Coin(1e8)
+}
+
+thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
+
 int main()
 {
     TestAssetPriceEngine();
     TestAssetPriceEngineHops();
     TestContractPriceParsers();
+    TestRateScaling();
     return WALLET_CHECK_RESULT;
 }
