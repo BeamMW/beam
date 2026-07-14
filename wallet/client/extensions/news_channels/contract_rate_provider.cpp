@@ -17,6 +17,7 @@
 #include "core/block_crypt.h"   // beam::getTimestamp(), beam::Rules::Coin
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace beam::wallet
 {
@@ -35,30 +36,41 @@ namespace beam::wallet
 
     void ContractRateProvider::refresh(Height tip)
     {
+        m_Tip = tip;                            // record unconditionally so re-enabling has a tip to read at
         if (!m_Active) return;
-        m_Tip = tip;
-        m_Reader.ReadMedian(m_CidOracle, [this](const OracleMedian& om) { onMedian(om); });
+        if (!m_Rates.empty() && m_CacheEnd && m_CacheEnd < tip)  // cached median expired on this tip advance
+        {
+            m_Rates.clear();
+            m_CacheEnd = 0;
+            publish();
+        }
+        const uint64_t gen = ++m_Gen;           // new cycle; older in-flight callbacks become no-ops
+        m_Reader.ReadMedian(m_CidOracle, [this, gen](const OracleMedian& om) { if (gen == m_Gen && m_Active) onMedian(om, gen); });
     }
 
-    void ContractRateProvider::onMedian(const OracleMedian& om)
+    void ContractRateProvider::onMedian(const OracleMedian& om, uint64_t gen)
     {
         // "blank over wrong": require a parsed, non-zero, NON-EXPIRED median (m_hEnd >= current tip).
         if (!om.m_Ok || om.m_UsdPerBeam <= 0.0 || om.m_hEnd < m_Tip)
         {
             m_Rates.clear();
+            m_CacheEnd = 0;
             publish();
             return;
         }
         double usd = om.m_UsdPerBeam;
         Height hEnd = om.m_hEnd;
-        m_Reader.ReadPools(m_CidAmm, [this, usd, hEnd](std::vector<PoolData>&& pools) { onPools(std::move(pools), usd, hEnd); });
+        m_Reader.ReadPools(m_CidAmm, [this, usd, hEnd, gen](std::vector<PoolData>&& pools) { if (gen == m_Gen && m_Active) onPools(std::move(pools), usd, hEnd, gen); });
     }
 
-    void ContractRateProvider::onPools(std::vector<PoolData>&& pools, double usdPerBeam, Height medianEnd)
+    void ContractRateProvider::onPools(std::vector<PoolData>&& pools, double usdPerBeam, Height medianEnd, uint64_t gen)
     {
+        if (gen != m_Gen || !m_Active) return;  // superseded by a newer cycle or turned off while reading pools
+
         if (medianEnd < m_Tip)   // median expired while we were reading pools -> blank, not a stale price
         {
             m_Rates.clear();
+            m_CacheEnd = 0;
             publish();
             return;
         }
@@ -76,21 +88,36 @@ namespace beam::wallet
             rates.push_back(std::move(r));
         }
         m_Rates = std::move(rates);
+        m_CacheEnd = medianEnd;                 // remember validity so refresh() can expire it on tip advance
         publish();
     }
 
     Amount ContractRateProvider::ToRate(double usdPerWholeCoin)
     {
-        return Amount(std::llround(usdPerWholeCoin * double(Rules::Coin)));
+        if (!std::isfinite(usdPerWholeCoin) || usdPerWholeCoin <= 0.0) return 0;
+        const double scaled = usdPerWholeCoin * double(Rules::Coin);
+        // Bound on std::llround's return type (long long), not Amount(uint64): a value in
+        // [LLONG_MAX, UINT64_MAX) would pass an Amount-max check yet overflow llround -> UB.
+        if (!std::isfinite(scaled) || scaled >= double(std::numeric_limits<long long>::max())) return 0;
+        return Amount(std::llround(scaled));
     }
 
     void ContractRateProvider::setOnOff(bool active)
     {
+        if (active == m_Active) return;         // edge-guarded: only act on an actual transition
         m_Active = active;
+        ++m_Gen;                                // invalidate any in-flight callbacks
         if (!active)              // off -> don't keep serving a frozen (aging) rate set
         {
             m_Rates.clear();
+            m_CacheEnd = 0;
             publish();
+            return;
+        }
+        if (m_Tip)               // on -> read immediately instead of waiting for the next block
+        {
+            const uint64_t gen = m_Gen;
+            m_Reader.ReadMedian(m_CidOracle, [this, gen](const OracleMedian& om) { if (gen == m_Gen && m_Active) onMedian(om, gen); });
         }
     }
 

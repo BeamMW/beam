@@ -21,6 +21,11 @@ namespace beam::wallet
 {
     namespace
     {
+        // Paging caps against a malicious/MITM node returning m_bMore=true forever.
+        // Sized comfortably above the realistic pool count.
+        constexpr uint32_t kMaxPages   = 64;
+        constexpr uint32_t kMaxRecords = 4096;
+
         // cid || KeyTag::Internal(0x00) || subkey...
         ByteBuffer makeKey(const ECC::uintBig& cid, std::initializer_list<uint8_t> tail)
         {
@@ -72,6 +77,7 @@ namespace beam::wallet
             boost::intrusive_ptr<proto::FlyClient::RequestContractVars> m_Req;
             std::vector<PoolData> m_Acc;
             std::function<void(std::vector<PoolData>&&)> m_Cb;
+            uint32_t m_Pages = 0;
 
             ~PoolsHandler() { if (m_Req) m_Req->m_pTrg = nullptr; }
 
@@ -81,12 +87,20 @@ namespace beam::wallet
                 auto& rv = Cast::Up<proto::FlyClient::RequestContractVars>(r);
                 ByteBuffer last;
                 forEachRecord(rv.m_Res.m_Result, [&](const uint8_t* k, uint32_t nK, const uint8_t* v, uint32_t nV) {
-                    PoolData pd;
-                    if (ParsePool(k, nK, v, nV, pd) && pd.m_Reserve1 && pd.m_Reserve2)
-                        m_Acc.push_back(pd);
+                    if (m_Acc.size() < kMaxRecords)
+                    {
+                        PoolData pd;
+                        if (ParsePool(k, nK, v, nV, pd) && pd.m_Reserve1 && pd.m_Reserve2)
+                            m_Acc.push_back(pd);
+                    }
                     last.assign(k, k + nK);
                 });
-                if (rv.m_Res.m_bMore && !last.empty())
+                // Continue paging only when the node's cursor strictly advances within
+                // [KeyMin,KeyMax] and the caps are not hit; the enum is unauthenticated,
+                // so a malicious node cannot spin us forever or grow m_Acc without bound.
+                if (rv.m_Res.m_bMore && !last.empty() && ++m_Pages < kMaxPages &&
+                    m_Acc.size() < kMaxRecords &&
+                    last > m_Req->m_Msg.m_KeyMin && last <= m_Req->m_Msg.m_KeyMax)
                 {
                     m_Req->m_Res = proto::ContractVars();
                     m_Req->m_Msg.m_KeyMin = std::move(last);

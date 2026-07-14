@@ -24,8 +24,8 @@ namespace beam::wallet
         // reserve of `from` per 1 unit of `to`, from one pool; 0 if pool doesn't join them.
         double ratioFromPer(const PoolData& p, Asset::ID from, Asset::ID to, double& liqFromSide)
         {
-            if (p.m_Aid1 == from && p.m_Aid2 == to) { liqFromSide = double(p.m_Reserve1); return double(p.m_Reserve1) / double(p.m_Reserve2); }
-            if (p.m_Aid2 == from && p.m_Aid1 == to) { liqFromSide = double(p.m_Reserve2); return double(p.m_Reserve2) / double(p.m_Reserve1); }
+            if (p.m_Aid1 == from && p.m_Aid2 == to) { if (p.m_Reserve2 == 0) { liqFromSide = 0.0; return 0.0; } liqFromSide = double(p.m_Reserve1); return double(p.m_Reserve1) / double(p.m_Reserve2); }
+            if (p.m_Aid2 == from && p.m_Aid1 == to) { if (p.m_Reserve1 == 0) { liqFromSide = 0.0; return 0.0; } liqFromSide = double(p.m_Reserve2); return double(p.m_Reserve2) / double(p.m_Reserve1); }
             liqFromSide = 0.0; return 0.0;
         }
     }
@@ -77,9 +77,10 @@ namespace beam::wallet
                 double hubPerX = ratioFromPer(p, hub, x, liq);
                 if (hubPerX <= 0.0) continue;
                 // No liquidity floor on the hop pool (user decision): deepest hop pool wins.
-                if (bestHopLiq.find(x) == bestHopLiq.end() || liq > bestHopLiq[x])
+                const double hopValue = liq * itHub->second;   // normalize: raw reserves in different hubs' units are incomparable
+                if (bestHopLiq.find(x) == bestHopLiq.end() || hopValue > bestHopLiq[x])
                 {
-                    bestHopLiq[x] = liq;
+                    bestHopLiq[x] = hopValue;
                     out[x] = hubPerX * itHub->second;
                 }
             }

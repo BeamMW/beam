@@ -38,14 +38,16 @@ namespace beam::wallet
         static Amount ToRate(double usdPerWholeCoin);
 
     private:
-        void onMedian(const OracleMedian&);
-        void onPools(std::vector<PoolData>&&, double usdPerBeam, Height medianEnd);
+        void onMedian(const OracleMedian&, uint64_t gen);
+        void onPools(std::vector<PoolData>&&, double usdPerBeam, Height medianEnd, uint64_t gen);
         void publish();
 
         bool m_Active;
         ContractVarReader m_Reader;
         ECC::uintBig m_CidOracle, m_CidAmm;
         Height m_Tip = 0;                      // current tip, for median validity ("blank over wrong")
+        Height m_CacheEnd = 0;                 // median m_hEnd backing m_Rates; cleared when the tip passes it
+        uint64_t m_Gen = 0;                    // read generation; stale in-flight callbacks compare and bail
         ExchangeRates m_Rates;
         std::vector<IExchangeRatesObserver*> m_Observers;
     };
