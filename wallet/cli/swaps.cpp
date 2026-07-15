@@ -933,6 +933,15 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     bool isBeamSide = (vm.count(cli::SWAP_BEAM_SIDE) != 0);
 
+    if (!isBeamSide)
+    {
+        Amount balance = GetBalance(swapCoin, walletDB);
+        if (swapAmount > balance)
+        {
+            throw std::runtime_error("The swap amount must not exceed the " + GetCoinName(swapCoin) + " balance.");
+        }
+    }
+
     Asset::ID assetId = Asset::s_InvalidID;
     Amount amount = 0;
     Amount fee = 0;
@@ -1078,6 +1087,15 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         if (!IsLockTxAmountValid(*swapCoin, *swapAmount, swapFeeRate))
         {
             throw std::runtime_error("The swap amount must be greater than the redemption fee.");
+        }
+    }
+
+    if (!*isBeamSide)
+    {
+        Amount balance = GetBalance(*swapCoin, walletDB);
+        if (*swapAmount > balance)
+        {
+            throw std::runtime_error("The swap amount must not exceed the " + GetCoinName(*swapCoin) + " balance.");
         }
     }
 
