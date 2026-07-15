@@ -1583,6 +1583,13 @@ namespace beam::wallet
             try
             {
                 p->publishOffer(offer);
+                if (m_swapOfferAddress &&
+                    offer.GetParameter<uint64_t>(TxParameterID::MyAddressID) == m_swapOfferAddress->m_OwnID)
+                {
+                    // the preview address is now bound to a live offer;
+                    // the next preview gets a fresh one
+                    m_swapOfferAddress.reset();
+                }
             }
             catch (const std::runtime_error& e)
             {
@@ -1613,6 +1620,19 @@ namespace beam::wallet
         try
         {
             res = CreateSwapTransactionParameters();
+
+            // regenerated on every preview edit/new block; reuse one publisher
+            // address until an offer is actually published with it
+            if (!m_swapOfferAddress)
+            {
+                WalletAddress swapAddr("swap offer");
+                m_walletDB->createAddress(swapAddr);
+                swapAddr.setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
+                m_walletDB->saveAddress(swapAddr);
+                m_swapOfferAddress = swapAddr;
+            }
+            res.SetParameter(TxParameterID::MyAddressID, m_swapOfferAddress->m_OwnID);
+            res.SetParameter(TxParameterID::MyAddr, m_swapOfferAddress->m_BbsAddr);
 
             FillSwapTxParams(
                 &res,

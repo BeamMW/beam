@@ -411,6 +411,11 @@ namespace beam::wallet
         std::shared_ptr<MyThread> m_thread;
         const Rules& m_rules;
         IWalletDB::Ptr m_walletDB;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        // publisher address reused across swap-offer previews; reset once an
+        // offer is published with it
+        boost::optional<WalletAddress> m_swapOfferAddress;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
         io::Reactor::Ptr m_reactor;
         IWalletModelAsync::Ptr m_async;
         std::weak_ptr<NodeNetwork> m_nodeNetwork;

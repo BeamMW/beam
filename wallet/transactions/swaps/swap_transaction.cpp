@@ -49,12 +49,23 @@ namespace beam::wallet
                           Height responseTime /*= kDefaultTxResponseTime*/,
                           Height lifetime /*= kDefaultTxLifetime*/)
     {
-        auto ownID = db.AllocateKidRange(1);
-        WalletID wid;
-        db.get_SbbsWalletID(wid, ownID);
+        // The offer publisher address must be persisted as an own address:
+        // SwapOffersBoard::publishOffer() and sendUpdateToNetwork() look up
+        // the publisher in the set filled from IWalletDB::getAddresses(true),
+        // otherwise the offer is rejected with ForeignOfferException. A caller
+        // may stamp the address beforehand (repeated offer-preview
+        // regeneration must not grow the address book).
+        if (!params->GetParameter<uint64_t>(TxParameterID::MyAddressID) ||
+            !params->GetParameter<WalletID>(TxParameterID::MyAddr))
+        {
+            WalletAddress swapAddr("swap offer");
+            db.createAddress(swapAddr);
+            swapAddr.setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
+            db.saveAddress(swapAddr);
 
-        params->SetParameter(TxParameterID::MyAddressID, ownID);
-        params->SetParameter(TxParameterID::MyAddr, wid);
+            params->SetParameter(TxParameterID::MyAddressID, swapAddr.m_OwnID);
+            params->SetParameter(TxParameterID::MyAddr, swapAddr.m_BbsAddr);
+        }
 
         params->SetParameter(TxParameterID::MinHeight, minHeight);
         params->SetParameter(TxParameterID::Amount, amount);

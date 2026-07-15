@@ -21,6 +21,8 @@ WALLET_TEST_INIT
 // tested module
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/swap_transaction.h"
+#include "wallet/transactions/swaps/utils.h"
 
 // dependencies
 #include "keykeeper/local_private_key_keeper.h"
@@ -883,6 +885,59 @@ namespace
         }
     }
 
+    void TestFillSwapTxParamsPublish()
+    {
+        cout << endl << "Test FillSwapTxParams produces publishable offer" << endl;
+
+        auto storage = createSqliteWalletDB();
+
+        auto mockNetwork = MockBbsNetwork::CreateInstance();
+        BroadcastRouter broadcastRouter(mockNetwork, *mockNetwork, MockTimestampHolder::CreateInstance());
+        OfferBoardProtocolHandler protocolHandler(storage->get_SbbsKdf());
+        SwapOffersBoard board(broadcastRouter, protocolHandler, storage);
+
+        HeightHash startState;
+        startState.m_Height = Fork1Height;
+        board.onSystemStateChanged(startState);
+
+        // The board learns about newly saved addresses via IWalletDbObserver;
+        // subscribe so the publisher address created below is picked up
+        // (mirrors how the real wallet client wires SwapOffersBoard).
+        storage->Subscribe(&board);
+
+        // Create the offer exactly as UI/CLI/API do: via FillSwapTxParams.
+        auto params = CreateSwapTransactionParameters(generateTxID());
+        FillSwapTxParams(&params,
+                         *storage,
+                         Fork1Height,          // minHeight
+                         1000,                 // amount
+                         100,                  // beamFee
+                         AtomicSwapCoin::Bitcoin,
+                         2000,                 // swapAmount
+                         10,                   // swapFeeRate
+                         true);                // isBeamSide
+
+        SwapOffer offer(*params.GetTxID());
+        offer.SetTxParameters(params.Pack());
+        offer.m_status = SwapOfferStatus::Pending;
+        offer.m_coin = AtomicSwapCoin::Bitcoin;
+        offer.m_publisherId = *params.GetParameter<WalletID>(TxParameterID::MyAddr);
+
+        size_t offersReceived = 0;
+        MockBoardObserver observer([&offersReceived](ChangeAction action, const vector<SwapOffer>& offers) {
+            if (action == ChangeAction::Added) offersReceived += offers.size();
+        });
+        board.Subscribe(&observer);
+
+        // Regression #2071: without the persisted publisher address this throws
+        // ForeignOfferException ("Offer has foreign Pk and will not be published").
+        WALLET_CHECK_NO_THROW(board.publishOffer(offer));
+        WALLET_CHECK(offersReceived == 1);
+
+        board.Unsubscribe(&observer);
+        storage->Unsubscribe(&board);
+    }
+
 } // namespace
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
@@ -911,6 +966,7 @@ int main()
     TestDelayedOfferUpdate();
     TestOffersLifetimeCheck();
     TestOwnOfferCheck();
+    TestFillSwapTxParamsPublish();
 
     boost::filesystem::remove(dbFileName);
 
