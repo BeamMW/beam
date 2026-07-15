@@ -15,6 +15,7 @@
 #include "ethereum_bridge.h"
 
 #include "common.h"
+#include "rpc_endpoint.h"
 
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
@@ -27,15 +28,6 @@
 #include <bitcoin/bitcoin.hpp>
 
 using json = nlohmann::json;
-
-namespace
-{
-bool needSsl(const std::string& address)
-{
-    // TODO roman.strilets need insensitive
-    return address.find("infura") != std::string::npos;
-}
-}
 
 namespace beam::ethereum
 {
@@ -130,6 +122,31 @@ void EthereumBridge::getBlockNumber(std::function<void(const Error&, uint64_t)> 
             }
         }
         callback(error, blockNumber);
+    });
+}
+
+void EthereumBridge::getChainID(std::function<void(const Error&, uint64_t)> callback)
+{
+    BEAM_LOG_DEBUG() << "EthereumBridge::getChainID";
+    sendRequest("eth_chainId", "", [callback](Error error, const json& result)
+    {
+        BEAM_LOG_DEBUG() << "EthereumBridge::getChainID in";
+        uint64_t chainID = 0;
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                std::string strChainID = result["result"].get<std::string>();
+                chainID = std::stoull(strChainID, nullptr, 16);
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+        callback(error, chainID);
     });
 }
 
@@ -698,10 +715,11 @@ void EthereumBridge::sendRequest(
 
     if (!address.resolve(url.c_str()))
     {
-        BEAM_LOG_ERROR() << "unable to resolve electrum address: " << url;
+        // url is host:port from GetEthNodeAddress(), no path/query key material
+        BEAM_LOG_ERROR() << "unable to resolve ethereum provider address: " << url;
 
         // TODO maybe to need async??
-        Error error{ IOError, "unable to resolve ethereum provider address: " + url };
+        Error error{ IOError, "unable to resolve ethereum provider address" };
         json result;
         callback(error, result);
         return;

@@ -66,6 +66,7 @@ if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(swap_board_test swap_offers_board node)
     add_test_snippet(electrum_test swap)
     #add_test_snippet(ethereum_test swap)
+    add_test_snippet(eth_rpc_endpoint_test swap)
 endif()
 
 if (BEAM_LASER_SUPPORT)

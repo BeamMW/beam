@@ -61,6 +61,11 @@ struct EthereumClientBridge : public Bridge<IClientAsync>
         call_async(&IClientAsync::EstimateGasPrice);
     }
 
+    void ValidateEndpoint()
+    {
+        call_async(&IClientAsync::ValidateEndpoint);
+    }
+
     void ChangeSettings(const Settings& settings)
     {
         call_async(&IClientAsync::ChangeSettings, settings);
@@ -180,6 +185,55 @@ void Client::EstimateGasPrice()
 
             OnEstimatedGasPrice(result);
         }
+    });
+}
+
+void Client::ValidateEndpoint()
+{
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        return;
+    }
+
+    bridge->getChainID([this, weak = this->weak_from_this(), bridge](const IBridge::Error& error, uint64_t chainID)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        if (error.m_type != IBridge::None)
+        {
+            SetConnectionError(error.m_type);
+            SetStatus(Status::Failed);
+            OnEndpointValidated(0, 0, error);
+            return;
+        }
+
+        bridge->getBlockNumber([this, weak, chainID](const IBridge::Error& error, uint64_t blockNumber)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            IBridge::Error finalError = error;
+            // Spec: a wrong-network endpoint must FAIL the check, not just
+            // display its chain. Mainnet builds require chain id 1; testnet
+            // builds accept anything (private nets / forks are the use case).
+            if (finalError.m_type == IBridge::None &&
+                wallet::UseMainnetSwap() && chainID != 1)
+            {
+                finalError.m_type = IBridge::InvalidNetwork;
+                finalError.m_message = "endpoint is not an Ethereum mainnet node";
+            }
+
+            SetConnectionError(finalError.m_type);
+            SetStatus((finalError.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            OnEndpointValidated(chainID, blockNumber, finalError);
+        });
     });
 }
 

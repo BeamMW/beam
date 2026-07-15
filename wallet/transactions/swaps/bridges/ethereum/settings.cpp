@@ -14,6 +14,7 @@
 
 #include "settings.h"
 #include "../../common.h"
+#include "rpc_endpoint.h"
 namespace
 {
     const char* get_SwapHashlockContractAddress() {
@@ -61,7 +62,14 @@ namespace beam::ethereum
 {
 bool Settings::IsInitialized() const
 {
-    return m_secretWords.size() == 12 && !m_projectID.empty();
+    if (m_secretWords.size() != 12)
+        return false;
+    if (m_useCustomRpc)
+    {
+        RpcEndpoint ep;
+        return ParseEthereumRpcUrl(m_customRpcUrl, ep);
+    }
+    return !m_projectID.empty();
 }
 
 bool Settings::IsActivated() const
@@ -127,21 +135,49 @@ std::string Settings::GetTokenContractAddress(beam::wallet::AtomicSwapCoin swapC
 
 std::string Settings::GetEthNodeAddress() const
 {
+    if (m_useCustomRpc)
+    {
+        RpcEndpoint ep;
+        if (ParseEthereumRpcUrl(m_customRpcUrl, ep))
+            return ep.m_host + ":" + std::to_string(ep.m_port);
+        return "";
+    }
     return get_EthNodeAddress();
 }
 
 std::string Settings::GetEthNodeHost() const
 {
+    if (m_useCustomRpc)
+    {
+        RpcEndpoint ep;
+        if (ParseEthereumRpcUrl(m_customRpcUrl, ep))
+            return ep.m_host;
+        return "";
+    }
     return get_EthNodeHost();
 }
 
 bool Settings::NeedSsl() const
 {
+    if (m_useCustomRpc)
+    {
+        RpcEndpoint ep;
+        if (ParseEthereumRpcUrl(m_customRpcUrl, ep))
+            return ep.m_ssl;
+        return true;
+    }
     return kNeedSsl;
 }
 
 std::string Settings::GetPathAndQuery() const
 {
-    return kPahtAndQuery + m_projectID; // TODO roman.strilets add Project ID
+    if (m_useCustomRpc)
+    {
+        RpcEndpoint ep;
+        if (ParseEthereumRpcUrl(m_customRpcUrl, ep))
+            return ep.m_pathAndQuery;
+        return "/";
+    }
+    return kPahtAndQuery + m_projectID;
 }
 } // namespace beam::ethereum

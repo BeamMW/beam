@@ -34,7 +34,8 @@ public:
         InvalidResultFormat,
         IOError,
         EthError,
-        EmptyResult
+        EmptyResult,
+        InvalidNetwork
     };
 
     struct Error
@@ -52,6 +53,7 @@ public:
         const std::string& contractAddr, 
         std::function<void(const Error&, const std::string&)> callback) = 0;
     virtual void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) = 0;
+    virtual void getChainID(std::function<void(const Error&, uint64_t)> callback) = 0;
     virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;
     virtual void send(

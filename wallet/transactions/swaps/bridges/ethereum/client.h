@@ -27,6 +27,7 @@ public:
     virtual void GetStatus() = 0;
     virtual void GetBalance(wallet::AtomicSwapCoin swapCoin) = 0;
     virtual void EstimateGasPrice() = 0;
+    virtual void ValidateEndpoint() = 0;
     virtual void ChangeSettings(const Settings& settings) = 0;
 };
 
@@ -62,6 +63,7 @@ protected:
     virtual void OnCanModifySettingsChanged(bool canModify) = 0;
     virtual void OnChangedSettings() = 0;
     virtual void OnConnectionError(IBridge::ErrorType error) = 0;
+    virtual void OnEndpointValidated(uint64_t chainID, uint64_t blockNumber, const IBridge::Error& error) {}
 
     bool CanModify() const override;
     void AddRef() override;
@@ -72,6 +74,7 @@ private:
     void GetStatus() override;
     void GetBalance(wallet::AtomicSwapCoin swapCoin) override;
     void EstimateGasPrice() override;
+    void ValidateEndpoint() override;
     void ChangeSettings(const Settings& settings) override;
 
     void SetStatus(const Status& status);

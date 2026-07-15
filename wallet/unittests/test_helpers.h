@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <iostream>
 
 #define WALLET_TEST_INIT \
