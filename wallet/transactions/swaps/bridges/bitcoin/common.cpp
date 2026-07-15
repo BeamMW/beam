@@ -60,4 +60,18 @@ namespace beam::bitcoin
 
         return address.encoded();
     }
+
+    bool IsFundedTxFeeSufficient(const std::string& hexTx, uint64_t fee, uint64_t feeRate)
+    {
+        libbitcoin::data_chunk txData;
+        if (!libbitcoin::decode_base16(txData, hexTx))
+            return true; // undecodable -> let the existing sign/broadcast path report it
+
+        libbitcoin::chain::transaction tx;
+        if (!tx.from_data(txData, true, true))
+            return true;
+
+        uint64_t vsize = tx.serialized_size() + (kMinInputVsize - kUnsignedInputVsize) * tx.inputs().size();
+        return fee >= (vsize * feeRate) / 1000u;
+    }
 } // namespace beam::bitcoin

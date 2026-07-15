@@ -540,11 +540,11 @@ namespace beam::wallet
                 return SwapTxState::CreatingTx;
             }
 
-            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
+            m_bitcoinBridge->fundRawTransaction(hexTx, GetFeeRate(SubTxIndex::LOCK_TX), [this, weak = this->weak_from_this()](const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos, Amount fee)
             {
                 if (!weak.expired())
                 {
-                    OnFundRawTransaction(error, hexTx, changePos);
+                    OnFundRawTransaction(error, hexTx, changePos, fee);
                 }
             });
             return SwapTxState::CreatingTx;
@@ -807,7 +807,7 @@ namespace beam::wallet
         }
     }
 
-    void BitcoinSide::OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos)
+    void BitcoinSide::OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos, Amount fee)
     {
         // TODO: refactor this condition.
         // Checking !m_SwapLockRawTx.is_initialized() used to ignore double lock on electrum
@@ -826,6 +826,21 @@ namespace beam::wallet
 
         if (!m_SwapLockRawTx.is_initialized())
         {
+            // #1039: with many small UTXOs the funded lock tx is much larger than
+            // the fixed-size estimate the pre-flight validator used. Verify the
+            // actual fee satisfies the configured fee rate before going further.
+            // fee == 0 (mock or a bridge that can't report) skips the check.
+            if (fee > 0 && !bitcoin::IsFundedTxFeeSufficient(hexTx, fee, GetFeeRate(SubTxIndex::LOCK_TX)))
+            {
+                BEAM_LOG_ERROR() << m_tx.GetTxID() << "[" << (int)SubTxIndex::LOCK_TX << "]"
+                    << " lock transaction fee rate too low (fee " << fee
+                    << "); consolidate coins or raise the fee rate";
+                m_tx.SetParameter(TxParameterID::InternalFailureReason,
+                                  TxFailureReason::FeeIsTooSmall, false, SubTxIndex::LOCK_TX);
+                m_tx.UpdateAsync();
+                return;
+            }
+
             m_SwapLockRawTx = hexTx;
             m_LockTxValuePosition = changePos ? 0 : 1;
             m_tx.SetState(SwapTxState::CreatingTx, SubTxIndex::LOCK_TX);
