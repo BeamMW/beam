@@ -241,7 +241,7 @@ void Client::EstimateGasPrice()
 
             if (GetSettings().GetMinFeeRate() > result)
             {
-                result = 0;
+                result = GetSettings().GetMinFeeRate();
             }
 
             OnEstimatedGasPrice(result);
