@@ -125,6 +125,28 @@ bool SwapOffer::IsValid() const
         && amount && swapAmount && responseTime && minimalHeight && txId;
 }
 
+bool SwapOffer::IsExtended() const
+{
+    auto beamAssetId = GetParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID);
+    if (beamAssetId.value_or(0) != 0)
+    {
+        return true;
+    }
+
+    auto paramCoin = GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    return m_coin == AtomicSwapCoin::Erc20Token ||
+           (paramCoin && *paramCoin == AtomicSwapCoin::Erc20Token);
+}
+
+AtomicSwapCoin SwapOffer::ResolveCoin() const
+{
+    if (m_coin != AtomicSwapCoin::ExtendedOffer)
+    {
+        return m_coin;
+    }
+    return GetParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin).value_or(AtomicSwapCoin::Unknown);
+}
+
 bool SwapOffer::isBeamSide() const
 {
     bool res = true;

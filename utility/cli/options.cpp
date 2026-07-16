@@ -199,6 +199,7 @@ namespace beam
         const char* ESTIMATE_SWAP_FEERATE = "recommended_fee_rate";
         const char* GET_BALANCE = "get_balance";
         const char* SWAP_COIN = "swap_coin";
+        const char* TOKEN_CONTRACT = "token_contract";
         const char* SWAP_BEAM_SIDE = "swap_beam_side";
         const char* SWAP_TX_HISTORY = "swap_tx_history";
         const char* NODE_POLL_PERIOD = "node_poll_period";
@@ -528,7 +529,8 @@ namespace beam
             (cli::SWAP_WALLET_ADDR, po::value<string>(), "rpc address of the swap wallet")
             (cli::SWAP_WALLET_USER, po::value<string>(), "rpc user name for the swap wallet")
             (cli::SWAP_WALLET_PASS, po::value<string>(), "rpc password for the swap wallet")
-            (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM/DASH/DOGE/ETH)")
+            (cli::SWAP_COIN, po::value<string>(), "swap coin currency (BTC/LTC/QTUM/DASH/DOGE/ETH/ERC20)")
+            (cli::TOKEN_CONTRACT, po::value<string>(), "ERC-20 token contract address (0x + 40 hex chars), required when swap_coin=erc20")
             (cli::SWAP_AMOUNT, po::value<Positive<Amount>>(), "swap amount in the smallest unit of the coin (e.g. satoshi for BTC)")
             (cli::SWAP_FEERATE, po::value<Positive<Amount>>(), "specific feerate you are willing to pay (the smallest unit of the coin per KB)")
             (cli::SWAP_BEAM_SIDE, "should be always set by the swap party who owns BEAM")

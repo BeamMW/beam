@@ -29,6 +29,90 @@
 
 using json = nlohmann::json;
 
+namespace
+{
+    // Folds the low 8 bytes of a 32-byte big-endian ABI word into a uint64_t.
+    // Sufficient for ABI offsets/lengths, which are always tiny for a symbol() string.
+    uint64_t LowUint64OfAbiWord(libbitcoin::data_chunk::const_iterator wordBegin)
+    {
+        uint64_t value = 0;
+        auto begin = wordBegin + (beam::ethereum::kEthContractABIWordSize - 8);
+        for (auto it = begin; it != wordBegin + beam::ethereum::kEthContractABIWordSize; ++it)
+        {
+            value = (value << 8) | *it;
+        }
+        return value;
+    }
+
+    // Decodes an ERC-20 symbol() eth_call result. Standard tokens return an
+    // ABI-encoded dynamic string ([offset][length][data]); some non-standard
+    // tokens (e.g. MKR) return a raw bytes32 value instead. Falls back to the
+    // trimmed raw bytes when the standard layout does not parse.
+    std::string DecodeAbiStringOrRawBytes(const std::string& hexResult)
+    {
+        auto raw = beam::ethereum::RemoveHexPrefix(hexResult);
+        libbitcoin::data_chunk bytes;
+        if (!raw.empty())
+        {
+            libbitcoin::decode_base16(bytes, raw);
+        }
+
+        constexpr size_t kWord = beam::ethereum::kEthContractABIWordSize;
+
+        if (bytes.size() >= 2 * kWord)
+        {
+            uint64_t offset = LowUint64OfAbiWord(bytes.begin());
+            if (offset <= bytes.size() && bytes.size() - offset >= kWord)
+            {
+                auto lengthBegin = bytes.begin() + offset;
+                uint64_t length = LowUint64OfAbiWord(lengthBegin);
+                auto dataBegin = lengthBegin + kWord;
+                if (length <= static_cast<uint64_t>(bytes.end() - dataBegin))
+                {
+                    return std::string(dataBegin, dataBegin + length);
+                }
+            }
+        }
+
+        // fallback: raw fixed-size (bytes32-like) value, trim trailing zero padding
+        auto end = bytes.end();
+        while (end != bytes.begin() && *(end - 1) == 0)
+        {
+            --end;
+        }
+        return std::string(bytes.begin(), end);
+    }
+
+    // A token's symbol() result is attacker-controlled (the contract belongs to
+    // the counterparty) and reaches the CLI, API and UI verbatim. Strip
+    // non-printable-ASCII bytes and cap the length so it can't be used to smuggle
+    // control characters or oversized strings into those surfaces; fall back to a
+    // generic placeholder if nothing sensible remains.
+    constexpr size_t kMaxSymbolLength = 32;
+
+    std::string SanitizeTokenSymbol(const std::string& symbol)
+    {
+        std::string sanitized;
+        sanitized.reserve(std::min(symbol.size(), kMaxSymbolLength));
+        for (unsigned char c : symbol)
+        {
+            if (c >= 0x20 && c <= 0x7E)
+            {
+                sanitized.push_back(static_cast<char>(c));
+                if (sanitized.size() >= kMaxSymbolLength)
+                {
+                    break;
+                }
+            }
+        }
+        if (sanitized.empty())
+        {
+            sanitized = "ERC20";
+        }
+        return sanitized;
+    }
+}
+
 namespace beam::ethereum
 {
 EthereumBridge::EthereumBridge(io::Reactor& reactor, ISettingsProvider& settingsProvider)
@@ -97,6 +181,86 @@ void EthereumBridge::getTokenBalance(
             }
         }
         callback(error, balance);
+    });
+}
+
+void EthereumBridge::getTokenInfo(
+    const std::string& contractAddr,
+    std::function<void(const Error&, const std::string& symbol, uint8_t decimals)> callback)
+{
+    BEAM_LOG_DEBUG() << "EthereumBridge::getTokenInfo";
+    const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(contractAddr);
+
+    libbitcoin::data_chunk decimalsData;
+    decimalsData.reserve(ethereum::kEthContractMethodHashSize);
+    libbitcoin::decode_base16(decimalsData, ethereum::ERC20Hashes::kDecimalsHash);
+
+    call(tokenContractAddress, libbitcoin::encode_base16(decimalsData),
+        [this, tokenContractAddress, callback](const IBridge::Error& decError, const nlohmann::json& decResult)
+    {
+        BEAM_LOG_DEBUG() << "EthereumBridge::getTokenInfo (decimals) in";
+        Error error = decError;
+        uint8_t decimals = 0;
+
+        if (error.m_type == IBridge::None)
+        {
+            try
+            {
+                auto raw = ethereum::RemoveHexPrefix(decResult.get<std::string>());
+                if (raw.empty())
+                {
+                    throw std::runtime_error("empty decimals() result");
+                }
+                // decimals() returns a uint256; a legitimate token's decimals fits in
+                // the low byte. decimals is attacker-controlled (this contract belongs
+                // to the counterparty) and unconditionally feeds wire-amount arithmetic
+                // (WalletUnitsPerToken/TokenUnitsMultiplier), where an out-of-range value
+                // wraps/zeroes silently. Reject rather than truncate: any nonzero byte
+                // above the low byte, or a low byte beyond kMaxTokenDecimals, is invalid.
+                if (!ethereum::ParseTokenDecimalsWord(raw, decimals))
+                {
+                    throw std::runtime_error("decimals() value out of range");
+                }
+            }
+            catch (const std::exception& ex)
+            {
+                error.m_type = IBridge::InvalidResultFormat;
+                error.m_message = ex.what();
+            }
+        }
+
+        if (error.m_type != IBridge::None)
+        {
+            callback(error, "", 0);
+            return;
+        }
+
+        libbitcoin::data_chunk symbolData;
+        symbolData.reserve(ethereum::kEthContractMethodHashSize);
+        libbitcoin::decode_base16(symbolData, ethereum::ERC20Hashes::kSymbolHash);
+
+        call(tokenContractAddress, libbitcoin::encode_base16(symbolData),
+            [decimals, callback](const IBridge::Error& symError, const nlohmann::json& symResult)
+        {
+            BEAM_LOG_DEBUG() << "EthereumBridge::getTokenInfo (symbol) in";
+            Error error = symError;
+            std::string symbol;
+
+            if (error.m_type == IBridge::None)
+            {
+                try
+                {
+                    symbol = DecodeAbiStringOrRawBytes(symResult.get<std::string>());
+                }
+                catch (const std::exception& ex)
+                {
+                    error.m_type = IBridge::InvalidResultFormat;
+                    error.m_message = ex.what();
+                }
+            }
+
+            callback(error, error.m_type == IBridge::None ? SanitizeTokenSymbol(symbol) : symbol, decimals);
+        });
     });
 }
 

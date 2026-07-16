@@ -826,9 +826,8 @@ namespace beam::wallet
 
         if (!m_SwapLockRawTx.is_initialized())
         {
-            // #1039: with many small UTXOs the funded lock tx is much larger than
-            // the fixed-size estimate the pre-flight validator used. Verify the
-            // actual fee satisfies the configured fee rate before going further.
+            // The pre-funding estimate assumes a fixed-size tx; verify the actual
+            // funded fee meets the configured rate before accepting.
             // fee == 0 (mock or a bridge that can't report) skips the check.
             if (fee > 0 && !bitcoin::IsFundedTxFeeSufficient(hexTx, fee, GetFeeRate(SubTxIndex::LOCK_TX)))
             {

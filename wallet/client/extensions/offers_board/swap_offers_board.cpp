@@ -16,8 +16,27 @@
 
 #include "utility/logger.h"
 
+#include <algorithm>
+#include <cctype>
+
 namespace beam::wallet
 {
+namespace
+{
+    // Token symbol as reported by a peer's ERC-20 contract: bounded length,
+    // printable ASCII only (0x20-0x7E), never empty.
+    bool isValidTokenSymbol(const std::string& symbol)
+    {
+        if (symbol.empty() || symbol.size() > 32)
+        {
+            return false;
+        }
+        return std::all_of(symbol.begin(), symbol.end(), [](unsigned char c)
+        {
+            return c >= 0x20 && c <= 0x7E;
+        });
+    }
+}  // namespace
 /**
  *  @broadcastRouter    incoming messages source
  *  @messageEndpoint    outgoing messages destination
@@ -198,10 +217,31 @@ void SwapOffersBoard::fillOwnAdresses()
 
 bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
 {
-    if (newOffer.m_coin >= AtomicSwapCoin::Unknown || newOffer.m_status > SwapOfferStatus::Failed)
+    // ExtendedOffer (the wire placeholder for asset/ERC-20 offers) is
+    // accepted and validated below; only true unknowns are rejected outright.
+    // Erc20Token must never appear as the top-level wire coin: a legitimate
+    // publisher always substitutes ExtendedOffer on the wire and carries the
+    // real Erc20Token coin inside the AtomicSwapCoin tx param (see
+    // SwapOffersBoard::broadcastOffer / SwapOffer::IsExtended). A raw wire
+    // Erc20Token is therefore malformed by definition and rejected outright.
+    if (newOffer.m_coin > AtomicSwapCoin::ExtendedOffer ||
+        newOffer.m_coin == AtomicSwapCoin::Erc20Token ||
+        newOffer.m_status > SwapOfferStatus::Failed)
     {
         BEAM_LOG_WARNING() << "offer board message is invalid";
         return false;
+    }
+
+    if (newOffer.m_coin == AtomicSwapCoin::ExtendedOffer)
+    {
+        if (!isExtendedOfferDataValid(newOffer))
+        {
+            BEAM_LOG_WARNING() << "offer board message is invalid";
+            return false;
+        }
+        // ExtendedOffer is only a wire placeholder (kept old wallets from
+        // mis-parsing the coin); internally we always work with the real coin.
+        newOffer.m_coin = newOffer.ResolveCoin();
     }
 
     auto it = m_offersCache.find(newOffer.m_txId);
@@ -245,10 +285,13 @@ bool SwapOffersBoard::onOfferFromNetwork(SwapOffer& newOffer)
         {
             if (newOffer.m_status == SwapOfferStatus::Pending && isOwnOffer(newOffer))
             {
-                // fill missing parameters and send stored status to network
-                existingOffer.m_coin = newOffer.m_coin;
-                existingOffer.m_publisherId = newOffer.m_publisherId;
-                existingOffer.m_isOwn = true;
+                // the incomplete cache entry carries only txId + status; adopt
+                // the full parameter set from the network copy so the update
+                // broadcast is valid (extended offers need the packed
+                // coin/token params on the wire), then send the stored status
+                newOffer.m_status = existingOffer.m_status;
+                newOffer.m_isOwn = true;
+                existingOffer = newOffer;
                 sendUpdateToNetwork(existingOffer);
             }
         }
@@ -288,6 +331,45 @@ bool SwapOffersBoard::isOfferLifetimeTooLong(const SwapOffer& offer) const
         return m_currentHeight + messageLifetime < expiresHeight;
     }
     else return true;
+}
+
+/**
+ *  Validates the payload of an incoming offer wire-tagged as ExtendedOffer:
+ *  the real foreign coin must resolve and not be Unknown, and the params
+ *  required to interpret it must be present.
+ */
+bool SwapOffersBoard::isExtendedOfferDataValid(const SwapOffer& offer) const
+{
+    auto resolvedCoin = offer.ResolveCoin();
+    if (resolvedCoin == AtomicSwapCoin::Unknown || resolvedCoin == AtomicSwapCoin::ExtendedOffer)
+    {
+        return false;
+    }
+
+    if (resolvedCoin == AtomicSwapCoin::Erc20Token)
+    {
+        auto decimals = offer.GetParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals);
+        auto contract = offer.GetParameter<std::string>(TxParameterID::AtomicSwapTokenContract);
+        auto symbol = offer.GetParameter<std::string>(TxParameterID::AtomicSwapTokenSymbol);
+        if (!contract || !symbol ||
+            !decimals || *decimals > kMaxTokenDecimals ||
+            !IsValidEthContractAddress(*contract) ||
+            !isValidTokenSymbol(*symbol))
+        {
+            return false;
+        }
+    }
+
+    auto beamAssetId = offer.GetParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID);
+    if (beamAssetId.value_or(0) != 0)
+    {
+        if (!offer.GetParameter<std::string>(TxParameterID::AtomicSwapBeamAssetName))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool SwapOffersBoard::isOwnOffer(const SwapOffer& offer) const
@@ -348,6 +430,23 @@ void SwapOffersBoard::sendUpdateToNetwork(const SwapOffer& offer) const
 
 void SwapOffersBoard::broadcastOffer(const SwapOffer& offer, uint64_t keyOwnID) const
 {
+    // Extended offers (foreign-asset-on-Beam-side or ERC-20 foreign coin) are wire-
+    // tagged with the ExtendedOffer placeholder so old wallets - which reject
+    // m_coin >= (old) Unknown - drop them instead of misinterpreting the coin.
+    // The real coin stays available to new wallets via the AtomicSwapCoin tx param.
+    static_assert(static_cast<int32_t>(AtomicSwapCoin::ExtendedOffer) >= 10,
+        "ExtendedOffer must be >= the pre-extension AtomicSwapCoin::Unknown ordinal (10) "
+        "so old wallets' 'm_coin >= Unknown' guard drops extended offers");
+
+    if (offer.IsExtended())
+    {
+        SwapOffer wireOffer = offer;
+        wireOffer.m_coin = AtomicSwapCoin::ExtendedOffer;
+        auto message = m_protocolHandler.createBroadcastMessage(wireOffer, keyOwnID);
+        m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, message);
+        return;
+    }
+
     auto message = m_protocolHandler.createBroadcastMessage(offer, keyOwnID);
     m_broadcastGateway.sendMessage(BroadcastContentType::SwapOffers, message);
 }

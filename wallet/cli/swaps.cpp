@@ -44,7 +44,6 @@
 #include <boost/program_options.hpp>
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
-#include <regex>
 
 using namespace std;
 using namespace beam;
@@ -57,7 +56,7 @@ namespace
 {
 const char kElectrumSeparateSymbol = ' ';
 
-Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin)
+Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin, boost::optional<uint8_t> tokenDecimals = boost::none)
 {
     if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
     {
@@ -69,8 +68,15 @@ Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin)
     try
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
-         
-        preciseAmount *= UnitsPerCoin(swapCoin);
+
+        // Erc20Token has no fixed entry in UnitsPerCoin (it asserts for this
+        // pseudo-coin); its units are derived from the per-offer decimals()
+        // queried from the token contract instead.
+        const uint64_t unitsPerCoin = (swapCoin == AtomicSwapCoin::Erc20Token)
+            ? ethereum::WalletUnitsPerToken(tokenDecimals.value_or(0))
+            : UnitsPerCoin(swapCoin);
+
+        preciseAmount *= unitsPerCoin;
 
         return preciseAmount.convert_to<Amount>();
     }
@@ -90,15 +96,17 @@ Amount ReadGasPrice(const po::variables_map& vm)
     return vm[cli::ETH_GAS_PRICE].as<Positive<Amount>>().value;
 }
 
-std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin)
+std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin, boost::optional<uint8_t> tokenDecimals = boost::none, const std::string& tokenSymbol = {})
 {
     const uint64_t unitsToPrint = 1'000'000u;
     boost::multiprecision::cpp_dec_float_50 preciseAmount(value);
-    auto unitsPerCoin = UnitsPerCoin(swapCoin);
+    const uint64_t unitsPerCoin = (swapCoin == AtomicSwapCoin::Erc20Token)
+        ? ethereum::WalletUnitsPerToken(tokenDecimals.value_or(0))
+        : UnitsPerCoin(swapCoin);
 
     if (unitsPerCoin > unitsToPrint)
     {
-        preciseAmount /= UnitsPerCoin(swapCoin) / unitsToPrint;
+        preciseAmount /= unitsPerCoin / unitsToPrint;
     }
 
     preciseAmount = boost::multiprecision::round(preciseAmount);
@@ -112,7 +120,11 @@ std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin)
         preciseAmount /= unitsToPrint;
     }
 
-    return preciseAmount.str() + " " + std::to_string(swapCoin);
+    const std::string suffix = (swapCoin == AtomicSwapCoin::Erc20Token && !tokenSymbol.empty())
+        ? tokenSymbol
+        : std::to_string(swapCoin);
+
+    return preciseAmount.str() + " " + suffix;
 }
 
 template<typename Settings>
@@ -636,7 +648,10 @@ Amount EstimateSwapFeerate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
 {
     Amount result = 0;
 
-    if (ethereum::IsEthereumBased(swapCoin))
+    // Erc20Token is not IsEthereumBased (its contract is per-offer, not one of
+    // the fixed coins that macro covers), but its fee is still paid in ETH gas,
+    // so it takes the same estimation path as the fixed ethereum-based coins.
+    if (ethereum::IsEthereumBased(swapCoin) || swapCoin == AtomicSwapCoin::Erc20Token)
     {
         auto callback = [&result](ethereum::IBridge::Ptr bridge)
         {
@@ -706,7 +721,11 @@ Amount GetMinSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
+    case AtomicSwapCoin::Erc20Token:
     {
+        // Gas price bounds are coin-agnostic (paid in ETH regardless of the
+        // ERC-20 token being swapped), so Erc20Token shares the ethereum
+        // settings provider with the fixed ethereum-based coins.
         return GetMinSwapFeeRate<ethereum::SettingsProvider>(walletDB);
     }
     default:
@@ -751,6 +770,7 @@ Amount GetMaxSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
+    case AtomicSwapCoin::Erc20Token:
     {
         return GetMaxSwapFeeRate<ethereum::SettingsProvider>(walletDB);
     }
@@ -762,15 +782,24 @@ Amount GetMaxSwapFeeRate(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
     }
 }
 
-Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
+Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB, const std::string& erc20TokenContract, uint8_t erc20TokenDecimals)
 {
     Amount result = 0;
 
-    if (ethereum::IsEthereumBased(swapCoin))
+    const bool isErc20 = (swapCoin == AtomicSwapCoin::Erc20Token);
+
+    if (ethereum::IsEthereumBased(swapCoin) || isErc20)
     {
-        auto callback = [&result, swapCoin, walletDB](beam::ethereum::IBridge::Ptr bridge)
+        // Erc20Token's units-per-coin is derived from the per-offer decimals
+        // (there is no fixed table entry for it), unlike the classic
+        // ethereum-based coins whose multiplier is a fixed constant.
+        const uint32_t unitsMultiplier = isErc20
+            ? ethereum::TokenUnitsMultiplier(erc20TokenDecimals)
+            : ethereum::GetCoinUnitsMultiplier(swapCoin);
+
+        auto callback = [&result, swapCoin, walletDB, isErc20, &erc20TokenContract, unitsMultiplier](beam::ethereum::IBridge::Ptr bridge)
         {
-            auto balanceCallback = [&result, swapCoin](const ethereum::IBridge::Error& error, const std::string& balance)
+            auto balanceCallback = [&result, unitsMultiplier](const ethereum::IBridge::Error& error, const std::string& balance)
             {
                 if (error.m_type != ethereum::IBridge::ErrorType::None)
                 {
@@ -779,7 +808,7 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
 
                 boost::multiprecision::uint256_t tmp(balance);
 
-                tmp /= ethereum::GetCoinUnitsMultiplier(swapCoin);
+                tmp /= unitsMultiplier;
 
                 result = tmp.convert_to<Amount>();
                 io::Reactor::get_Current().stop();
@@ -788,6 +817,15 @@ Amount GetBalance(AtomicSwapCoin swapCoin, IWalletDB::Ptr walletDB)
             if (swapCoin == AtomicSwapCoin::Ethereum)
             {
                 bridge->getBalance(balanceCallback);
+            }
+            else if (isErc20)
+            {
+                if (erc20TokenContract.empty())
+                {
+                    throw std::runtime_error("Token contract is absent");
+                }
+
+                bridge->getTokenBalance(erc20TokenContract, balanceCallback);
             }
             else
             {
@@ -843,10 +881,85 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         swapCoin = wallet::from_string(vm[cli::SWAP_COIN].as<string>());
     }
 
+    const bool isErc20 = (swapCoin == AtomicSwapCoin::Erc20Token);
+
+    std::string tokenContract;
+    std::string tokenSymbol;
+    uint8_t tokenDecimals = 0;
+
+    if (isErc20)
+    {
+        if (vm.count(cli::TOKEN_CONTRACT) == 0)
+        {
+            throw std::runtime_error("token_contract should be specified for swap_coin=erc20");
+        }
+
+        tokenContract = vm[cli::TOKEN_CONTRACT].as<string>();
+        if (!IsValidEthContractAddress(tokenContract))
+        {
+            throw std::runtime_error("token_contract is not a valid ERC-20 contract address (expected '0x' followed by 40 hex characters).");
+        }
+
+        // Fetch symbol()/decimals() from the contract before parsing
+        // eth_swap_amount below: the amount is denominated in the token's
+        // own decimals, not a fixed table, so the wallet must know them first.
+        ethereum::IBridge::Error tokenInfoError{ ethereum::IBridge::ErrorType::None, "" };
+        RequestToEthBridge(walletDB, [&](ethereum::IBridge::Ptr bridge)
+        {
+            bridge->getTokenInfo(tokenContract,
+                [&](const ethereum::IBridge::Error& error, const std::string& symbol, uint8_t decimals)
+            {
+                tokenInfoError = error;
+                tokenSymbol = symbol;
+                tokenDecimals = decimals;
+                io::Reactor::get_Current().stop();
+            });
+
+            io::Reactor::get_Current().run();
+        });
+
+        if (tokenInfoError.m_type != ethereum::IBridge::ErrorType::None)
+        {
+            throw std::runtime_error("failed to query the ERC-20 token contract: " + tokenInfoError.m_message);
+        }
+
+        // Belt-and-braces: EthereumBridge::getTokenInfo already rejects
+        // decimals() > kMaxTokenDecimals, but the CLI is itself a trust
+        // boundary for whatever the counterparty-controlled contract returned.
+        if (tokenDecimals > wallet::kMaxTokenDecimals)
+        {
+            throw std::runtime_error("token decimals() exceeds the maximum supported value.");
+        }
+
+        cout << " ERC-20 token contract: " << tokenContract << "\n"
+             << " Token symbol:          " << tokenSymbol << "\n"
+             << " Token decimals:        " << static_cast<uint32_t>(tokenDecimals) << "\n" << endl;
+
+        bool isTokenAccepted = false;
+        while (true)
+        {
+            std::string result;
+            cout << "Do you agree to swap this ERC-20 token? (y/n): " << endl;
+            cin >> result;
+
+            if (result == "y" || result == "n")
+            {
+                isTokenAccepted = (result == "y");
+                break;
+            }
+        }
+
+        if (!isTokenAccepted)
+        {
+            BEAM_LOG_INFO() << "Swap rejected!";
+            return boost::none;
+        }
+    }
+
     Amount swapAmount = 0;
     Amount swapFeeRate = 0;
 
-    if (ethereum::IsEthereumBased(swapCoin))
+    if (ethereum::IsEthereumBased(swapCoin) || isErc20)
     {
         if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
         {
@@ -858,7 +971,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
             throw std::runtime_error("eth_gas_price should be specified");
         }
 
-        swapAmount = ReadEthSwapAmount(vm, swapCoin);
+        swapAmount = isErc20 ? ReadEthSwapAmount(vm, swapCoin, tokenDecimals) : ReadEthSwapAmount(vm, swapCoin);
         swapFeeRate = ReadGasPrice(vm);
 
         if (!swapAmount)
@@ -935,7 +1048,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
 
     if (!isBeamSide)
     {
-        Amount balance = GetBalance(swapCoin, walletDB);
+        Amount balance = GetBalance(swapCoin, walletDB, tokenContract, tokenDecimals);
         if (swapAmount > balance)
         {
             throw std::runtime_error("The swap amount must not exceed the " + GetCoinName(swapCoin) + " balance.");
@@ -952,12 +1065,41 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
         return boost::none;
     }
 
+    std::string assetUnitName;
     if (assetId)
     {
-        throw std::runtime_error(kErrorCantSwapAsset);
+        // The wallet must know the asset and hold enough of it.
+        const auto info = walletDB->findAsset(assetId);
+        if (!info)
+        {
+            throw std::runtime_error("Unknown asset id. Receive the asset (or sync its info) before swapping it.");
+        }
+        assetUnitName = WalletAssetMeta(*info).GetUnitName();
+
+        storage::Totals totals(*walletDB, false);
+        auto availableAsset = totals.GetTotals(assetId).Avail;
+        if (AmountBig::get_Lo(availableAsset) < amount)
+        {
+            throw std::runtime_error("Not enough asset balance for the swap.");
+        }
+
+        // The fee is paid in BEAM, separately from the asset amount.
+        if (fee == 0)
+        {
+            throw std::runtime_error("Fee must be greater than zero.");
+        }
+        auto availableBeam = totals.GetTotals(Asset::s_BeamID).Avail;
+        if (AmountBig::get_Lo(availableBeam) < fee)
+        {
+            throw std::runtime_error("Not enough BEAM balance to pay the transaction fee.");
+        }
+
+        // The counterparty redeeming this asset needs BEAM too.
+        cout << "Note: the counterparty will need a small BEAM balance to pay the "
+                "redeem transaction fee when claiming this asset." << endl;
     }
 
-    if (amount <= fee)
+    if (!assetId && amount <= fee)
     {
         throw std::runtime_error(kErrorSwapAmountTooLow);
     }
@@ -976,6 +1118,19 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
                      swapAmount,
                      swapFeeRate,
                      isBeamSide);
+
+    if (isErc20)
+    {
+        swapTxParameters.SetParameter(TxParameterID::AtomicSwapTokenContract, tokenContract);
+        swapTxParameters.SetParameter(TxParameterID::AtomicSwapTokenSymbol, tokenSymbol);
+        swapTxParameters.SetParameter(TxParameterID::AtomicSwapTokenDecimals, tokenDecimals);
+    }
+
+    if (assetId)
+    {
+        swapTxParameters.SetParameter(TxParameterID::AtomicSwapBeamAssetID, assetId);
+        swapTxParameters.SetParameter(TxParameterID::AtomicSwapBeamAssetName, assetUnitName);
+    }
 
     boost::optional<TxID> currentTxID = wallet.StartTransaction(swapTxParameters);
 
@@ -1018,9 +1173,25 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         throw std::runtime_error("swap transaction token is invalid.");
     }
 
+    const bool isErc20 = (*swapCoin == AtomicSwapCoin::Erc20Token);
+    std::string tokenContract;
+    std::string tokenSymbol;
+    uint8_t tokenDecimals = 0;
+
+    auto beamAssetId = swapTxParameters->GetParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID);
+    const bool hasBeamAsset = beamAssetId && *beamAssetId != Asset::s_InvalidID;
+
+    if (isErc20)
+    {
+        if (!GetValidatedErc20Params(*swapTxParameters, tokenContract, tokenSymbol, tokenDecimals))
+        {
+            throw std::runtime_error("swap transaction token carries invalid ERC-20 token parameters.");
+        }
+    }
+
     Amount swapFeeRate = 0;
 
-    if (ethereum::IsEthereumBased(*swapCoin))
+    if (ethereum::IsEthereumBased(*swapCoin) || isErc20)
     {
         if (vm.count(cli::ETH_GAS_PRICE) == 0)
         {
@@ -1090,17 +1261,29 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         }
     }
 
+    Amount fee = 0;
+    ReadFee(vm, fee, wallet);
+
     if (!*isBeamSide)
     {
-        Amount balance = GetBalance(*swapCoin, walletDB);
+        Amount balance = GetBalance(*swapCoin, walletDB, tokenContract, tokenDecimals);
         if (*swapAmount > balance)
         {
             throw std::runtime_error("The swap amount must not exceed the " + GetCoinName(*swapCoin) + " balance.");
         }
-    }
 
-    Amount fee = 0;
-    ReadFee(vm, fee, wallet);
+        // !*isBeamSide means this wallet gives the swap coin and receives BEAM
+        // (and, when hasBeamAsset, the asset riding on the BEAM leg). The
+        // redeem tx's fee is paid in BEAM regardless of the asset.
+        if (hasBeamAsset)
+        {
+            storage::Totals totals(*walletDB, false);
+            if (AmountBig::get_Lo(totals.GetBeamTotals().Avail) <= fee)
+            {
+                throw std::runtime_error("Receiving an asset via swap requires a BEAM balance for the redeem fee.");
+            }
+        }
+    }
 
     ProcessLibraryVersion(*swapTxParameters);
 
@@ -1109,10 +1292,49 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
         << " Beam side:    " << *isBeamSide << "\n"
         << " Swap coin:    " << to_string(*swapCoin) << "\n"
         << " Beam amount:  " << PrintableAmount(*beamAmount) << "\n"
-        << " Swap amount:  " << (ethereum::IsEthereumBased(*swapCoin) ? PrintEth(*swapAmount, *swapCoin): std::to_string(*swapAmount)) << "\n"
-        << " Peer ID:      " << to_string(*peerID) << "\n"
+        << " Swap amount:  " << ((ethereum::IsEthereumBased(*swapCoin) || isErc20)
+               ? PrintEth(*swapAmount, *swapCoin, isErc20 ? boost::make_optional(tokenDecimals) : boost::none, tokenSymbol)
+               : std::to_string(*swapAmount)) << "\n";
+    if (isErc20)
+    {
+        cout << " Token contract: " << tokenContract << "\n"
+             << " Token symbol:   " << tokenSymbol << "\n"
+             << " Token decimals: " << static_cast<uint32_t>(tokenDecimals) << "\n";
+    }
+    if (hasBeamAsset)
+    {
+        auto assetName = swapTxParameters->GetParameter<std::string>(TxParameterID::AtomicSwapBeamAssetName);
+        cout << " Beam-side asset id:   " << *beamAssetId << "\n"
+             << " Asset unit name:      " << (assetName ? *assetName : std::string("<unknown>")) << "\n"
+             << " NOTE: this swap moves a Confidential Asset on the BEAM side. You must\n"
+             << "       hold BEAM to pay the redeem transaction fee.\n";
+    }
+    cout << " Peer ID:      " << to_string(*peerID) << "\n"
         << " Fee:          " << PrintableAmount(fee) << "\n" << endl;
-    
+
+    if (hasBeamAsset)
+    {
+        bool isAssetAccepted = false;
+        while (true)
+        {
+            std::string result;
+            cout << "Do you agree to swap this Confidential Asset? (y/n): " << endl;
+            cin >> result;
+
+            if (result == "y" || result == "n")
+            {
+                isAssetAccepted = (result == "y");
+                break;
+            }
+        }
+
+        if (!isAssetAccepted)
+        {
+            BEAM_LOG_INFO() << "Swap rejected!";
+            return boost::none;
+        }
+    }
+
     // get accepting
     // TODO: Refactor
     bool isAccepted = false;
@@ -1180,6 +1402,7 @@ int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB,
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
+    case AtomicSwapCoin::Erc20Token:
     {
         return SetEthSettings(vm, walletDB, swapCoin);
     }
@@ -1230,6 +1453,7 @@ void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletD
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
+    case AtomicSwapCoin::Erc20Token:
     {
         ShowEthSettings(walletDB);
         break;

@@ -19,6 +19,9 @@ namespace
 {
     const unsigned int kBalanceUpdateInterval = 10 * 1000; // 10 seconds
     const unsigned int kPriceGasUpdateInterval = 60 * 1000; // 1 minute
+    // a watched token contract is polled until nobody has asked for its
+    // balance this long, then its watch and cache entries are dropped
+    constexpr std::chrono::minutes kTokenWatchIdleTimeout{10};
 }
 
 SwapEthClient::SwapEthClient(
@@ -53,6 +56,26 @@ Amount SwapEthClient::GetAvailable(beam::wallet::AtomicSwapCoin swapCoin) const
     return 0;
 }
 
+boost::optional<Amount> SwapEthClient::GetTokenAvailable(const std::string& tokenContract, uint8_t decimals)
+{
+    const auto now = std::chrono::steady_clock::now();
+    auto [watched, isNew] = _watchedTokens.try_emplace(tokenContract, WatchedToken{decimals, now});
+    watched->second.m_lastUse = now;
+
+    auto iter = _tokenBalances.find(tokenContract);
+    if (iter != _tokenBalances.end())
+    {
+        return iter->second;
+    }
+
+    if (isNew && GetSettings().IsActivated())
+    {
+        GetAsync()->GetTokenBalance(tokenContract, decimals);
+    }
+
+    return boost::none;
+}
+
 Amount SwapEthClient::GetRecommendedFeeRate() const
 {
     return _recommendedFeeRate;
@@ -74,6 +97,18 @@ void SwapEthClient::requestBalance()
         {
             GetAsync()->GetBalance(token);
         }
+        const auto deadline = std::chrono::steady_clock::now() - kTokenWatchIdleTimeout;
+        for (auto it = _watchedTokens.begin(); it != _watchedTokens.end();)
+        {
+            if (it->second.m_lastUse < deadline)
+            {
+                _tokenBalances.erase(it->first);
+                it = _watchedTokens.erase(it);
+                continue;
+            }
+            GetAsync()->GetTokenBalance(it->first, it->second.m_decimals);
+            ++it;
+        }
     }
 }
 
@@ -94,6 +129,11 @@ void SwapEthClient::OnStatus(Status status)
 void SwapEthClient::OnBalance(beam::wallet::AtomicSwapCoin swapCoin, beam::Amount balance)
 {
     _balances[swapCoin] = balance;
+}
+
+void SwapEthClient::OnTokenBalance(const std::string& tokenContract, beam::Amount balance)
+{
+    _tokenBalances[tokenContract] = balance;
 }
 
 void SwapEthClient::OnEstimatedGasPrice(Amount feeRate)

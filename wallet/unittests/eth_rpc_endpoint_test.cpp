@@ -2,6 +2,8 @@
 #include "test_helpers.h"
 #include "wallet/transactions/swaps/bridges/ethereum/rpc_endpoint.h"
 #include "wallet/transactions/swaps/bridges/ethereum/settings.h"
+#include "wallet/transactions/swaps/bridges/ethereum/common.h"
+#include "wallet/transactions/swaps/utils.h"
 
 WALLET_TEST_INIT
 
@@ -107,6 +109,93 @@ void TestSettingsAccessors()
     WALLET_CHECK(s != t); // endpoint change must trigger bridge reset
 }
 
+void TestPerTokenUnitsHelpers()
+{
+    // ETH/DAI: 18 decimals -> today's constants (UnitsPerCoin == 10^9, GetCoinUnitsMultiplier == 10^9)
+    WALLET_CHECK(WalletUnitsPerToken(18) == 1'000'000'000ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(18) == 1'000'000'000u);
+
+    // USDT: 6 decimals -> today's constants (UnitsPerCoin == 10^6, GetCoinUnitsMultiplier == 1)
+    WALLET_CHECK(WalletUnitsPerToken(6) == 1'000'000ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(6) == 1u);
+
+    // WBTC: 8 decimals -> today's constants (UnitsPerCoin == satoshi_per_bitcoin == 10^8, GetCoinUnitsMultiplier == 1)
+    WALLET_CHECK(WalletUnitsPerToken(8) == 100'000'000ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(8) == 1u);
+
+    // 0 decimals -> both sides collapse to the identity
+    WALLET_CHECK(WalletUnitsPerToken(0) == 1ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(0) == 1u);
+
+    // 9 decimals -> boundary: all precision fits the wallet Amount, no on-wire scaling needed
+    WALLET_CHECK(WalletUnitsPerToken(9) == 1'000'000'000ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(9) == 1u);
+
+    // kMaxTokenDecimals (18) -> boundary of the allowed range, still exact
+    WALLET_CHECK(WalletUnitsPerToken(18) == 1'000'000'000ULL);
+    WALLET_CHECK(TokenUnitsMultiplier(18) == 1'000'000'000u);
+
+    // NOTE: decimals > kMaxTokenDecimals (e.g. 19, 255) is intentionally not exercised
+    // here via a direct call: WalletUnitsPerToken/TokenUnitsMultiplier assert(decimals
+    // <= kMaxTokenDecimals) before clamping, and this suite builds with assertions
+    // enabled (Debug), so such a call aborts the process before the clamped value could
+    // ever be observed - that's the intended fail-fast for a programmer error reaching
+    // these helpers directly. The real defense against an attacker-controlled decimals
+    // is upstream, at the two points that can observe a value coming from a
+    // counterparty/peer: SwapOffersBoard::isExtendedOfferDataValid (board_test.cpp) and
+    // EthereumBridge::getTokenInfo's decode. The clamp math itself (10^min(decimals,9)
+    // and 10^max(0,decimals-9) evaluated at decimals=kMaxTokenDecimals) is covered by
+    // the kMaxTokenDecimals boundary case above.
+}
+
+void TestIsLockTxAmountValidErc20()
+{
+    using namespace beam::wallet;
+
+    // Erc20Token must route like the other ethereum-based coins (receiver pays
+    // fee), not fall through to the "unsupported coin" default and throw.
+    WALLET_CHECK(IsLockTxAmountValid(AtomicSwapCoin::Erc20Token, 1, 1));
+    WALLET_CHECK(IsLockTxAmountValid(AtomicSwapCoin::Erc20Token, 0, 0));
+
+    // A classic (non-ethereum-based) coin's result must be unchanged.
+    WALLET_CHECK(!IsLockTxAmountValid(AtomicSwapCoin::Bitcoin, 1, 1));
+}
+
+namespace
+{
+std::string makeWord(const std::string& lowByteHex, const std::string& highBytesHex = std::string(62, '0'))
+{
+    return highBytesHex + lowByteHex;
+}
+}
+
+void TestParseTokenDecimalsWord()
+{
+    uint8_t decimals = 0xFF;
+
+    // Accepted values: proper 64-char words, only the low byte set.
+    WALLET_CHECK(ParseTokenDecimalsWord(makeWord("00"), decimals) && decimals == 0);
+    WALLET_CHECK(ParseTokenDecimalsWord(makeWord("06"), decimals) && decimals == 6);
+    WALLET_CHECK(ParseTokenDecimalsWord(makeWord("08"), decimals) && decimals == 8);
+    WALLET_CHECK(ParseTokenDecimalsWord(makeWord("09"), decimals) && decimals == 9);
+    WALLET_CHECK(ParseTokenDecimalsWord(makeWord("12"), decimals) && decimals == 18);
+
+    // Rejected: value beyond kMaxTokenDecimals (18).
+    WALLET_CHECK(!ParseTokenDecimalsWord(makeWord("13"), decimals)); // 19
+    WALLET_CHECK(!ParseTokenDecimalsWord(makeWord("ff"), decimals)); // 255
+
+    // Rejected: a high byte is set.
+    WALLET_CHECK(!ParseTokenDecimalsWord(makeWord("06", std::string(60, '0') + "01"), decimals));
+
+    // Rejected: wrong length.
+    WALLET_CHECK(!ParseTokenDecimalsWord("06", decimals));
+    WALLET_CHECK(!ParseTokenDecimalsWord(makeWord("06") + "00", decimals));
+    WALLET_CHECK(!ParseTokenDecimalsWord(std::string(), decimals));
+
+    // Rejected: non-hex characters.
+    WALLET_CHECK(!ParseTokenDecimalsWord(std::string(62, '0') + "zz", decimals));
+}
+
 int main()
 {
     beam::Rules r;
@@ -117,5 +206,8 @@ int main()
     TestRejects();
     TestSanitize();
     TestSettingsAccessors();
+    TestPerTokenUnitsHelpers();
+    TestIsLockTxAmountValidErc20();
+    TestParseTokenDecimalsWord();
     return WALLET_CHECK_RESULT;
 }

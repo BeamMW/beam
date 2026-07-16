@@ -355,8 +355,7 @@ bool EthereumSide::SendLockTx()
             ethereum::AddContractABIWordToBuffer(GetContractAddress(), data);
             ethereum::AddContractABIWordToBuffer({ std::begin(swapAmount.m_pData), std::end(swapAmount.m_pData) }, data);
 
-            auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-            const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+            const auto tokenContractAddress = GetTokenContractAddress();
 
             m_ethBridge->erc20Approve(tokenContractAddress, GetContractAddress(), swapAmount, GetApproveTxGasLimit(), GetGasPrice(SubTxIndex::LOCK_TX),
                 [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, std::string txHash)
@@ -504,8 +503,7 @@ beam::ByteBuffer EthereumSide::BuildRedeemTxData()
         if (IsERC20Token())
         {
             // add TokenContractAddress
-            auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-            const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+            const auto tokenContractAddress = GetTokenContractAddress();
             hashData.insert(hashData.end(), tokenContractAddress.cbegin(), tokenContractAddress.cend());
         }
 
@@ -556,6 +554,7 @@ bool EthereumSide::IsERC20Token() const
         case beam::wallet::AtomicSwapCoin::Dai:
         case beam::wallet::AtomicSwapCoin::Usdt:
         case beam::wallet::AtomicSwapCoin::WBTC:
+        case beam::wallet::AtomicSwapCoin::Erc20Token:
             return true;
         case beam::wallet::AtomicSwapCoin::Ethereum:
             return false;
@@ -565,6 +564,17 @@ bool EthereumSide::IsERC20Token() const
             return false;
         }
     }
+}
+
+libbitcoin::short_hash EthereumSide::GetTokenContractAddress() const
+{
+    auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
+    if (swapCoin == AtomicSwapCoin::Erc20Token)
+    {
+        auto contractAddrStr = m_tx.GetMandatoryParameter<std::string>(TxParameterID::AtomicSwapTokenContract);
+        return ethereum::ConvertStrToEthAddress(contractAddrStr);
+    }
+    return ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
 }
 
 beam::ByteBuffer EthereumSide::BuildLockTxData()
@@ -586,8 +596,7 @@ beam::ByteBuffer EthereumSide::BuildLockTxData()
     if (IsERC20Token())
     {
         // + ERC20 contractAddress, + value
-        auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
-        const auto tokenContractAddress = ethereum::ConvertStrToEthAddress(m_settingsProvider.GetSettings().GetTokenContractAddress(swapCoin));
+        const auto tokenContractAddress = GetTokenContractAddress();
         uintBig swapAmount = GetSwapAmount();
 
         ethereum::AddContractABIWordToBuffer(tokenContractAddress, out);
@@ -634,7 +643,11 @@ ECC::uintBig EthereumSide::GetSwapAmount() const
     auto swapCoin = m_tx.GetMandatoryParameter<AtomicSwapCoin>(TxParameterID::AtomicSwapCoin);
     uintBig swapAmount = m_tx.GetMandatoryParameter<Amount>(TxParameterID::AtomicSwapAmount);
 
-    auto num = swapAmount.ToNumber() * MultiWord::From(ethereum::GetCoinUnitsMultiplier(swapCoin));
+    uint32_t unitsMultiplier = (swapCoin == AtomicSwapCoin::Erc20Token)
+        ? ethereum::TokenUnitsMultiplier(m_tx.GetMandatoryParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals))
+        : ethereum::GetCoinUnitsMultiplier(swapCoin);
+
+    auto num = swapAmount.ToNumber() * MultiWord::From(unitsMultiplier);
 
     swapAmount.FromNumber(num);
     return swapAmount;

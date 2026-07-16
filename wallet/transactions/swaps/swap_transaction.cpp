@@ -124,6 +124,12 @@ namespace beam::wallet
         copyParameter<std::string>(TxParameterID::ClientVersion, original, res);
         copyParameter<std::string>(TxParameterID::LibraryVersion, original, res);
 
+        copyParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapBeamAssetName, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapTokenContract, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapTokenSymbol, original, res);
+        copyParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals, original, res);
+
         if (isOwn)
         {
             auto myAddr = *original.GetParameter<WalletID>(TxParameterID::MyAddr);
@@ -172,6 +178,12 @@ namespace beam::wallet
 
         copyParameter<std::string>(TxParameterID::ClientVersion, original, res);
         copyParameter<std::string>(TxParameterID::LibraryVersion, original, res);
+
+        copyParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapBeamAssetName, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapTokenContract, original, res);
+        copyParameter<std::string>(TxParameterID::AtomicSwapTokenSymbol, original, res);
+        copyParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals, original, res);
 
         return res;
     }
@@ -801,6 +813,10 @@ namespace beam::wallet
             case State::CompleteSwap:
             {
                 BEAM_LOG_INFO() << GetTxID() << " Swap completed.";
+
+                if (isBeamOwner)
+                    ReleaseUnusedSubTxCoins(SubTxIndex::BEAM_REFUND_TX);
+
                 UpdateTxDescription(TxStatus::Completed);
                 GetGateway().on_tx_completed(GetTxID());
                 break;
@@ -847,6 +863,10 @@ namespace beam::wallet
             case State::Refunded:
             {
                 BEAM_LOG_INFO() << GetTxID() << " Swap has not succeeded.";
+
+                if (!isBeamOwner)
+                    ReleaseUnusedSubTxCoins(SubTxIndex::BEAM_REDEEM_TX);
+
                 UpdateTxDescription(TxStatus::Failed);
                 GetGateway().on_tx_failed(GetTxID());
                 break;
@@ -1161,8 +1181,13 @@ namespace beam::wallet
                 return;
             }
 
+            PropagateBeamAssetID(SubTxIndex::BEAM_LOCK_TX);
+
             m_pLockBuiler = std::make_shared<LockTxBuilder>(*this, GetAmount());
             m_pLockBuiler->m_IsSender = isBeamOwner;
+
+            if (GetBeamAssetID())
+                m_pLockBuiler->VerifyAssetsEnabled();
         }
         LockTxBuilder& builder = *m_pLockBuiler.get();
 
@@ -1209,7 +1234,10 @@ namespace beam::wallet
             throw TransactionFailedException(true, TxFailureReason::FailedToGetParameter);
         }
 
-        SetParameter(TxParameterID::Amount, GetAmount() - val, subTxID);
+        if (GetBeamAssetID() != 0)
+            SetParameter(TxParameterID::Amount, GetAmount(), subTxID); // full asset amount, the BEAM fee is funded from the owner's own coins
+        else
+            SetParameter(TxParameterID::Amount, GetAmount() - val, subTxID);
 
         Height h = GetMandatoryParameter<Height>(TxParameterID::MinHeight, SubTxIndex::BEAM_LOCK_TX);
         if (SubTxIndex::BEAM_REFUND_TX == subTxID)
@@ -1231,8 +1259,13 @@ namespace beam::wallet
             if (!SetWithdrawParams(isTxOwner, subTxID))
                 return;
 
+            PropagateBeamAssetID(subTxID);
+
             m_pSharedBuiler = std::make_shared<SharedTxBuilder>(*this, subTxID);
             m_pSharedBuiler->m_IsSender = isTxOwner;
+
+            if (GetBeamAssetID())
+                m_pSharedBuiler->VerifyAssetsEnabled();
         }
 
         SharedTxBuilder& builder = *m_pSharedBuiler;
@@ -1245,17 +1278,36 @@ namespace beam::wallet
             assert(builder.m_Coins.IsEmpty());
             if (isTxOwner)
             {
+                Asset::ID aid = GetBeamAssetID();
+
                 CoinID cid;
                 if (GetParameter(TxParameterID::SharedCoinID, cid))
                     cid.m_Value = builder.m_Amount;
                 else
                 {
-                    Coin newUtxo = GetWalletDB()->generateNewCoin(builder.m_Amount, 0);
+                    Coin newUtxo = GetWalletDB()->generateNewCoin(builder.m_Amount, aid);
                     cid = newUtxo.m_ID;
                     SetParameter(TxParameterID::SharedCoinID, cid);
                 }
 
                 builder.m_Coins.m_Output.push_back(cid);
+
+                if (aid != 0)
+                {
+                    // an asset cannot pay the BEAM fee: fund it from the
+                    // owner's own coins, with change
+                    try
+                    {
+                        BaseTxBuilder::Balance bb(builder);
+                        bb.m_Map[0].m_Value -= builder.m_Fee;
+                        bb.CompleteBalance();
+                    }
+                    catch (const TransactionFailedException&)
+                    {
+                        BEAM_LOG_ERROR() << GetTxID() << "[" << subTxID << "] Withdrawing an asset requires a BEAM balance for the transaction fee";
+                        throw;
+                    }
+                }
 
                 builder.SaveCoins();
             }
@@ -1360,7 +1412,7 @@ namespace beam::wallet
             }
         }
 
-        SetCompletedTxCoinStatuses(hProof);
+        CompleteSubTxCoinStatuses(subTxID, hProof);
 
         return true;
     }
@@ -1387,6 +1439,96 @@ namespace beam::wallet
             m_Amount = GetMandatoryParameter<Amount>(TxParameterID::Amount);
         }
         return *m_Amount;
+    }
+
+    Asset::ID AtomicSwapTransaction::GetBeamAssetID() const
+    {
+        Asset::ID aid = 0; // 0 = BEAM
+        GetParameter(TxParameterID::AtomicSwapBeamAssetID, aid);
+        return aid;
+    }
+
+    void AtomicSwapTransaction::CompleteSubTxCoinStatuses(SubTxID subTxID, Height hProof)
+    {
+        // update only this sub-tx's coins: sibling sub-txs (refund vs redeem)
+        // reserve their own coins and may never be broadcast
+        auto walletDB = GetWalletDB();
+        std::vector<Coin> modified;
+
+        CoinIDList cids;
+        if (GetParameter(TxParameterID::InputCoins, cids, subTxID))
+        {
+            for (const auto& cid : cids)
+            {
+                Coin c;
+                c.m_ID = cid;
+                if (walletDB->findCoin(c))
+                {
+                    std::setmin(c.m_spentHeight, hProof);
+                    modified.push_back(c);
+                }
+            }
+        }
+
+        cids.clear();
+        if (GetParameter(TxParameterID::OutputCoins, cids, subTxID))
+        {
+            for (const auto& cid : cids)
+            {
+                Coin c;
+                c.m_ID = cid;
+                if (walletDB->findCoin(c))
+                {
+                    std::setmin(c.m_confirmHeight, hProof);
+                    c.m_maturity = hProof;
+                    modified.push_back(c);
+                }
+            }
+        }
+
+        walletDB->saveCoins(modified);
+    }
+
+    void AtomicSwapTransaction::ReleaseUnusedSubTxCoins(SubTxID subTxID)
+    {
+        // the sub-tx was fully built but will never be broadcast: free its coins
+        auto walletDB = GetWalletDB();
+
+        CoinIDList cids;
+        if (GetParameter(TxParameterID::InputCoins, cids, subTxID))
+        {
+            std::vector<Coin> modified;
+            for (const auto& cid : cids)
+            {
+                Coin c;
+                c.m_ID = cid;
+                if (walletDB->findCoin(c))
+                {
+                    c.m_spentTxId.reset();
+                    c.m_spentHeight = MaxHeight;
+                    modified.push_back(c);
+                }
+            }
+            walletDB->saveCoins(modified);
+        }
+
+        cids.clear();
+        if (GetParameter(TxParameterID::OutputCoins, cids, subTxID) && !cids.empty())
+            walletDB->removeCoins(cids);
+    }
+
+    void AtomicSwapTransaction::PropagateBeamAssetID(SubTxID subTxID)
+    {
+        Asset::ID aid = GetBeamAssetID();
+        if (!aid)
+            return;
+
+        // every Beam sub-tx must operate on the asset agreed in the offer
+        Asset::ID cur = 0;
+        if (!GetParameter(TxParameterID::AssetID, cur, subTxID))
+            SetParameter(TxParameterID::AssetID, aid, subTxID);
+        else if (cur != aid)
+            throw TransactionFailedException(true, TxFailureReason::InvalidPeerSignature);
     }
 
     bool AtomicSwapTransaction::IsSender() const
