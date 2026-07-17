@@ -209,9 +209,21 @@ namespace beam::wallet {
         return true;
     }
 
+    bool BaseMessageEndpoint::AcceptsMessage(const TxID& txID)
+    {
+        // An endpoint handles a tx unless it's flagged for manual (Slatepack) transport.
+        // Unknown/unflagged txs -> accepted, preserving existing SBBS behavior.
+        bool isManual = false;
+        storage::getTxParameter(*m_WalletDB, txID, TxParameterID::ManualTransport, isManual);
+        return !isManual;
+    }
+
     void BaseMessageEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
         if (!m_pKdfSbbs)
+            return;
+
+        if (!AcceptsMessage(msg.m_TxID))
             return;
 
         Serializer ser;
