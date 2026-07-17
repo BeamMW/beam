@@ -270,7 +270,6 @@ private:
     std::queue<MessageFunction> m_Messages;
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
-    IWalletApi::Ptr m_WalletApi;
     std::vector<WasmAppApi::Ptr> m_Apis;
 };
 
@@ -645,6 +644,7 @@ public:
             {
                 BEAM_LOG_DEBUG() << "Recovery done";
                 m_RecoveryCallback.reset();
+                RemoveRecoveryFile();
             }
         }
     }
@@ -656,6 +656,25 @@ public:
             auto error = val::global("Error").new_(val("Failed to import recovery"));
             OnImportRecoveryProgress(error, 0, 0);
         }
+    }
+
+    // recovery.bin holds seed-equivalent material; remove it from the
+    // persistent FS once import has finished (whether it succeeded or failed)
+    // so it is not left behind in IDBFS. Only the blob we wrote ourselves is
+    // touched; files passed to ImportRecoveryFromFile are not.
+    static void RemoveRecoveryFile()
+    {
+        std::error_code ec;
+        fs::remove(std::string(RecoveryFileName), ec);
+        if (ec)
+        {
+            BEAM_LOG_WARNING() << "Failed to remove recovery file: " << ec.message();
+            return;
+        }
+        EM_ASM
+        (
+            FS.syncfs(false, function() {});
+        );
     }
 
     void CreateAppAPI(const std::string& appid, const std::string& appname, val cb)
