@@ -100,6 +100,7 @@ namespace beam::wallet
         virtual void getNetworkStatus() = 0;
         virtual void rescan() = 0;
         virtual void exportPaymentProof(const TxID& id) = 0;
+        virtual void importSlatepack(const std::string& text) = 0;
         virtual void checkNetworkAddress(const std::string& addr) = 0;
 
         virtual void importRecovery(const std::string& path) = 0;

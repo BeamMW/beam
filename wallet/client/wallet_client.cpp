@@ -14,6 +14,7 @@
 
 #include "wallet_client.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/slatepack_endpoint.h"
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/transactions/dex/dex_tx.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
@@ -339,6 +340,11 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
     void exportPaymentProof(const wallet::TxID& id) override
     {
         call_async(&IWalletModelAsync::exportPaymentProof, id);
+    }
+
+    void importSlatepack(const std::string& text) override
+    {
+        call_async(&IWalletModelAsync::importSlatepack, text);
     }
 
     void checkNetworkAddress(const std::string& addr) override
@@ -728,6 +734,14 @@ namespace beam::wallet
                 m_walletNetwork = walletNetwork;
                 wallet->SetNodeEndpoint(nodeNetwork);
                 wallet->AddMessageEndpoint(walletNetwork);
+
+                auto slatepackEndpoint = make_shared<SlatepackEndpoint>(*wallet, m_walletDB,
+                    [this](const TxID& txID, const std::string& armored)
+                    {
+                        onSlatepackReady(txID, armored);
+                    });
+                m_slatepackEndpoint = slatepackEndpoint;
+                wallet->AddMessageEndpoint(slatepackEndpoint);
 
                 wallet->ResumeAllTransactions();
 
@@ -2114,6 +2128,15 @@ namespace beam::wallet
     void WalletClient::exportPaymentProof(const TxID& id)
     {
         onPaymentProofExported(id, storage::ExportPaymentProof(*m_walletDB, id));
+    }
+
+    void WalletClient::importSlatepack(const std::string& text)
+    {
+        // Runs on the wallet thread; feeds a pasted Slatepack into the negotiation.
+        std::string error;
+        auto ep = m_slatepackEndpoint.lock();
+        const bool ok = ep && ep->Inject(text, error);
+        onSlatepackImportResult(ok, error);
     }
 
     void WalletClient::checkNetworkAddress(const std::string& addr)
