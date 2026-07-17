@@ -422,21 +422,6 @@ public:
         m_Client->SendResult(result);
     }
 
-    uint32_t AddCallback(val&& callback)
-    {
-        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
-        {
-            auto& cb = m_Callbacks[i];
-            if (cb.isNull())
-            {
-                cb = std::move(callback);
-                return i;
-            }
-        }
-        m_Callbacks.push_back(std::move(callback));
-        return static_cast<uint32_t>(m_Callbacks.size() - 1);
-    }
-
     int Subscribe(val callback)
     {
         for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
@@ -454,11 +439,15 @@ public:
 
     void Unsubscribe(int key)
     {
-        if (key == m_Callbacks.size() - 1)
+        if (key < 0 || key >= static_cast<int>(m_Callbacks.size()))
+        {
+            return;
+        }
+        if (key == static_cast<int>(m_Callbacks.size()) - 1)
         {
             m_Callbacks.pop_back();
         }
-        else if (key < m_Callbacks.size() - 1)
+        else
         {
             m_Callbacks[key] = val::null();
         }
@@ -552,7 +541,8 @@ public:
 
             if (!m_CurrentRecoveryFile.empty())
             {
-                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile)); // m_CurrentRecoveryFile should be cleared 
+                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile));
+                m_CurrentRecoveryFile.clear();
             }
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
@@ -936,9 +926,8 @@ public:
 
     static void CheckPasswordImpl(const std::string& dbName, const std::string& pass, std::shared_ptr<val> cb)
     {
-        WalletDB::isValidPassword(dbName, SecString(pass));
         auto res = WalletDB::isValidPassword(dbName, SecString(pass));
-        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(res);
         auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
