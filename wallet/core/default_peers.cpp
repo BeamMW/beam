@@ -36,7 +36,7 @@ namespace beam
         constexpr const char* kDefaultPort = ":8100";
 #endif
 
-        auto addPeers = [&result, kDefaultPort](const char* hosts[], uint32_t n)
+        auto addPeers = [&result](const char* hosts[], uint32_t n)
         {
             result.reserve(n);
             for (uint32_t i = 0; i < n; i++)

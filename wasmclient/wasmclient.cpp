@@ -190,15 +190,25 @@ private:
 
     void onPostFunctionToClientContext(MessageFunction&& func) override
     {
+        bool wasEmpty;
         {
             std::unique_lock lock(m_Mutex);
+            wasEmpty = m_Messages.empty();
             m_Messages.push(std::move(func));
         }
-        auto thisWeakPtr = std::make_unique<WeakPtr>(weak_from_this());
-        emscripten_async_run_in_main_runtime_thread(
-            EM_FUNC_SIG_VI,
-            &WalletClient2::ProcessMessageOnMainThread,
-            reinterpret_cast<int>(thisWeakPtr.release()));
+        // ProcessMessageOnMainThread drains the whole queue, so only dispatch
+        // on the empty->non-empty transition; messages enqueued after the
+        // trigger are picked up by the running drain loop. This coalesces
+        // event bursts (subscribe-all in toggleEvents) into a single proxied
+        // main-thread call + allocation instead of one per message.
+        if (wasEmpty)
+        {
+            auto thisWeakPtr = std::make_unique<WeakPtr>(weak_from_this());
+            emscripten_async_run_in_main_runtime_thread(
+                EM_FUNC_SIG_VI,
+                &WalletClient2::ProcessMessageOnMainThread,
+                reinterpret_cast<int>(thisWeakPtr.release()));
+        }
     }
 
     void onStopped() override
@@ -402,7 +412,7 @@ public:
     }
 
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node, Rules::Network network)
-        : m_Logger(beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG))
+        : m_Logger(beam::Logger::create(BEAM_LOG_LEVEL_INFO, BEAM_LOG_LEVEL_INFO))
         , m_Reactor(io::Reactor::create())
         , m_DbPath(dbName)
         , m_Pass(pass)
