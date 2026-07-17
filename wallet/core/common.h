@@ -343,6 +343,8 @@ namespace beam::wallet
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
     MACRO(ExternalDexOrderID,              118, DexOrderID) \
+    /* routes negotiation via Slatepack armor instead of SBBS; public so the peer responds manually too */ \
+    MACRO(ManualTransport,                 119, bool) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -384,8 +386,6 @@ namespace beam::wallet
         HftState = 142,
 
         UserConfirmationToken = 143,
-
-        ManualTransport = 144, // tx negotiation travels via Slatepack armor instead of SBBS. Private: never serialized to the peer.
 
         Status = 151,
         KernelID = 152,
