@@ -593,12 +593,21 @@ public:
             [](const boost::any&) {
         });
         std::weak_ptr<WalletClient2> wp = m_Client;
+        // May legitimately be >1 here: a SendResult posted by the wallet thread
+        // can still be sitting undrained in m_Messages holding shared_from_this()
+        // when JS calls stopWallet(). That is the load race the assert-downgrade
+        // is for; it does NOT contradict the destruction guarantee below.
         CheckUseCount(wp.use_count(), 1, "StopWallet");
         m_Client->Stop([wp, sp = std::move(m_Client), handler = std::move(handler)]() mutable
         {
             AssertMainThread();
+            // Guaranteed 1 here: this handler is posted from onStopped(), which
+            // runs only after the reactor loop returns, i.e. after every
+            // SendResult was enqueued. They share this FIFO queue, so all prior
+            // SendResults (and their shared_from_this refs) are drained before
+            // this runs -- so sp is the sole owner and sp.reset() destroys it.
             CheckUseCount(wp.use_count(), 1, "StopWallet.stopped");
-            sp.reset(); // release client, at this point destructor should be called and handler code can rely on that client is really stopped and destroyed
+            sp.reset(); // last owner: client is really stopped and destroyed here, handler code can rely on that
             if (!handler.isNull())
             {
                 auto handlerPtr = std::make_unique<val>(std::move(handler));
@@ -689,23 +698,27 @@ public:
         }
     }
 
-    // recovery.bin holds seed-equivalent material; remove it from the
-    // persistent FS once import has finished (whether it succeeded or failed)
-    // so it is not left behind in IDBFS. Only the blob we wrote ourselves is
-    // touched; files passed to ImportRecoveryFromFile are not.
-    static void RemoveRecoveryFile()
+    // recovery.bin is written with a relative path and (absent any chdir)
+    // resolves to /recovery.bin in the transient MEMFS root, NOT the persisted
+    // IDBFS mount at /beam_wallet -- so it never reaches IndexedDB and needs no
+    // syncfs. It still holds seed-equivalent material and occupies space in the
+    // fixed heap (INITIAL_MEMORY, ALLOW_MEMORY_GROWTH=0), so free it once import
+    // has finished, whether it succeeded or failed. Only the blob we wrote
+    // ourselves is removed; a file supplied to ImportRecoveryFromFile is left
+    // alone even if it happens to be named recovery.bin (m_OwnsRecoveryFile).
+    void RemoveRecoveryFile()
     {
+        if (!m_OwnsRecoveryFile)
+        {
+            return;
+        }
+        m_OwnsRecoveryFile = false;
         std::error_code ec;
         fs::remove(std::string(RecoveryFileName), ec);
         if (ec)
         {
             BEAM_LOG_WARNING() << "Failed to remove recovery file: " << ec.message();
-            return;
         }
-        EM_ASM
-        (
-            FS.syncfs(false, function() {});
-        );
     }
 
     void CreateAppAPI(const std::string& appid, const std::string& appname, val cb)
@@ -821,6 +834,7 @@ public:
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
             m_CurrentRecoveryFile = RecoveryFileName;
+            m_OwnsRecoveryFile = true; // we wrote the blob; safe to delete on completion
         }
         catch (const std::exception& ex)
         {
@@ -843,6 +857,7 @@ public:
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
             m_CurrentRecoveryFile = fileName;
+            m_OwnsRecoveryFile = false; // user-supplied file; never delete it
         }
         catch (const std::exception& ex)
         {
@@ -1023,20 +1038,21 @@ public:
                 FS.mount(IDBFS, {}, "/beam_wallet");
                 FS.syncfs(true, function(error)
                 {
-                    // Hand OnMountFS a valid val* ($1 = &s_Null) plus a success
-                    // flag. The JS error object can't be marshalled through the
-                    // pointer slot (doing so derefs a bogus pointer), so log its
-                    // text here and signal failure via the flag instead.
+                    // The JS error object can't be marshalled to C++ through the
+                    // dynCall arg slot, so log its text here and pass only a
+                    // success flag. Reuse the existing 'vi' signature: dynCall is
+                    // not in EXPORTED_RUNTIME_METHODS and DYNAMIC_EXECUTION=0, so
+                    // avoid introducing a new (possibly unavailable) signature.
                     if (error != null) {
                         console.error("Beam: filesystem sync failed:", error);
                     }
-                    dynCall('vii', $0, [$1, error == null ? 1 : 0]);
+                    dynCall('vi', $0, [error == null ? 1 : 0]);
                 });
-            }, OnMountFS, &s_Null
+            }, OnMountFS
         );
     }
 private:
-    static void OnMountFS(val* nullVal, int success)
+    static void OnMountFS(int success)
     {
         if (success)
         {
@@ -1049,7 +1065,7 @@ private:
         }
         if (success)
         {
-            s_MountCB(*nullVal); // null -> mount promise resolves as success
+            s_MountCB(s_Null); // null -> mount promise resolves as success
         }
         else
         {
@@ -1078,6 +1094,7 @@ private:
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
     std::string m_CurrentRecoveryFile;
+    bool m_OwnsRecoveryFile = false; // true only for the recovery.bin blob we write ourselves
 };
 
 val WasmWalletClient::s_MountCB = val::null();
