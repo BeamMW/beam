@@ -385,6 +385,8 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
+        ManualTransport = 144, // tx negotiation travels via Slatepack armor instead of SBBS. Private: never serialized to the peer.
+
         Status = 151,
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned

@@ -76,6 +76,10 @@ namespace beam::wallet
         virtual void OnChannelAdded(BbsChannel channel) {};
         virtual void OnChannelDeleted(BbsChannel channel) {};
         virtual void OnIncomingMessage() {};
+
+        // Return false to skip a tx's messages. Base skips ManualTransport txs (Slatepack, not
+        // SBBS); SlatepackEndpoint overrides to the inverse.
+        virtual bool AcceptsMessage(const TxID& txID);
     private:
         Addr* FindAddr(const WalletID&, IHandler*);
         void DeleteAddr(const Addr&);
