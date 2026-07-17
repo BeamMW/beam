@@ -31,6 +31,7 @@ configure_file("../../bvm/Shaders/pbft/pbft_stat.wasm" "${CMAKE_CURRENT_BINARY_D
 add_test_snippet(wallet_test wallet node mnemonic wallet_client wallet_api wallet_test_node)
 add_test_snippet(wallet_db_test wallet_core)
 add_test_snippet(slatepack_test wallet_core)
+add_test_snippet(slatepack_exchange_test wallet node mnemonic wallet_client wallet_api wallet_test_node)
 add_test_snippet(wallet_api_test wallet_api)
 add_test_snippet(wallet_assets_test core node wallet_core pow assets wallet_test_node)
 add_test_snippet(news_channels_test wallet_client node)
