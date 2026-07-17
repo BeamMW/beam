@@ -58,10 +58,19 @@ namespace beam
 
         case Rules::Network::mainnet:
             {
+#ifdef __EMSCRIPTEN__
+                // us-nodes.mainnet.beam.mw has no WebSocket (:8200) endpoint, only
+                // raw TCP (:8100). Listing it in the browser build causes endless
+                // failed wss reconnect attempts, so restrict to hosts that serve wss.
+                static const char* hosts[] = {
+                    "eu-nodes.mainnet.beam.mw",
+                };
+#else
                 static const char* hosts[] = {
                     "eu-nodes.mainnet.beam.mw",
                     "us-nodes.mainnet.beam.mw",
                 };
+#endif
                 addPeers(hosts, _countof(hosts));
             }
             break;
