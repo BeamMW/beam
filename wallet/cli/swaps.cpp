@@ -56,6 +56,31 @@ namespace
 {
 const char kElectrumSeparateSymbol = ' ';
 
+// Erc20Token has no fixed entry in UnitsPerCoin (it asserts for this
+// pseudo-coin); its units are derived from the per-offer decimals()
+// queried from the token contract instead.
+uint64_t EthUnitsPerCoin(AtomicSwapCoin swapCoin, boost::optional<uint8_t> tokenDecimals)
+{
+    return (swapCoin == AtomicSwapCoin::Erc20Token)
+        ? ethereum::WalletUnitsPerToken(tokenDecimals.value_or(0))
+        : UnitsPerCoin(swapCoin);
+}
+
+bool ConfirmYesNo(const char* prompt)
+{
+    while (true)
+    {
+        std::string result;
+        cout << prompt << endl;
+        cin >> result;
+
+        if (result == "y" || result == "n")
+        {
+            return result == "y";
+        }
+    }
+}
+
 Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin, boost::optional<uint8_t> tokenDecimals = boost::none)
 {
     if (vm.count(cli::ETH_SWAP_AMOUNT) == 0)
@@ -69,14 +94,7 @@ Amount ReadEthSwapAmount(const po::variables_map& vm, AtomicSwapCoin swapCoin, b
     {
         boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount);
 
-        // Erc20Token has no fixed entry in UnitsPerCoin (it asserts for this
-        // pseudo-coin); its units are derived from the per-offer decimals()
-        // queried from the token contract instead.
-        const uint64_t unitsPerCoin = (swapCoin == AtomicSwapCoin::Erc20Token)
-            ? ethereum::WalletUnitsPerToken(tokenDecimals.value_or(0))
-            : UnitsPerCoin(swapCoin);
-
-        preciseAmount *= unitsPerCoin;
+        preciseAmount *= EthUnitsPerCoin(swapCoin, tokenDecimals);
 
         return preciseAmount.convert_to<Amount>();
     }
@@ -100,9 +118,7 @@ std::string PrintEth(beam::Amount value, AtomicSwapCoin swapCoin, boost::optiona
 {
     const uint64_t unitsToPrint = 1'000'000u;
     boost::multiprecision::cpp_dec_float_50 preciseAmount(value);
-    const uint64_t unitsPerCoin = (swapCoin == AtomicSwapCoin::Erc20Token)
-        ? ethereum::WalletUnitsPerToken(tokenDecimals.value_or(0))
-        : UnitsPerCoin(swapCoin);
+    const uint64_t unitsPerCoin = EthUnitsPerCoin(swapCoin, tokenDecimals);
 
     if (unitsPerCoin > unitsToPrint)
     {
@@ -935,21 +951,7 @@ boost::optional<TxID> InitSwap(const po::variables_map& vm, const IWalletDB::Ptr
              << " Token symbol:          " << tokenSymbol << "\n"
              << " Token decimals:        " << static_cast<uint32_t>(tokenDecimals) << "\n" << endl;
 
-        bool isTokenAccepted = false;
-        while (true)
-        {
-            std::string result;
-            cout << "Do you agree to swap this ERC-20 token? (y/n): " << endl;
-            cin >> result;
-
-            if (result == "y" || result == "n")
-            {
-                isTokenAccepted = (result == "y");
-                break;
-            }
-        }
-
-        if (!isTokenAccepted)
+        if (!ConfirmYesNo("Do you agree to swap this ERC-20 token? (y/n): "))
         {
             BEAM_LOG_INFO() << "Swap rejected!";
             return boost::none;
@@ -1314,44 +1316,14 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
     if (hasBeamAsset)
     {
-        bool isAssetAccepted = false;
-        while (true)
-        {
-            std::string result;
-            cout << "Do you agree to swap this Confidential Asset? (y/n): " << endl;
-            cin >> result;
-
-            if (result == "y" || result == "n")
-            {
-                isAssetAccepted = (result == "y");
-                break;
-            }
-        }
-
-        if (!isAssetAccepted)
+        if (!ConfirmYesNo("Do you agree to swap this Confidential Asset? (y/n): "))
         {
             BEAM_LOG_INFO() << "Swap rejected!";
             return boost::none;
         }
     }
 
-    // get accepting
-    // TODO: Refactor
-    bool isAccepted = false;
-    while (true)
-    {
-        std::string result;
-        cout << "Do you agree to these conditions? (y/n): " << endl;
-        cin >> result;
-
-        if (result == "y" || result == "n")
-        {
-            isAccepted = (result == "y");
-            break;
-        }
-    }
-
-    if (!isAccepted)
+    if (!ConfirmYesNo("Do you agree to these conditions? (y/n): "))
     {
         BEAM_LOG_INFO() << "Swap rejected!";
         return boost::none;
