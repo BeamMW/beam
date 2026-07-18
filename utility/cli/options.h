@@ -123,6 +123,7 @@ namespace beam
         extern const char* SLATEPACK;
         extern const char* SLATEPACK_FILE;
         extern const char* SLATEPACK_SAVE;
+        extern const char* SLATEPACK_EXPORT;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
         extern const char* EXPIRATION_TIME;

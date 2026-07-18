@@ -155,6 +155,7 @@ namespace beam
         const char* SLATEPACK = "slatepack";
         const char* SLATEPACK_FILE = "slatepack_file";
         const char* SLATEPACK_SAVE = "save";
+        const char* SLATEPACK_EXPORT = "slatepack_export";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* UTXO_LIST = "utxo_list";
@@ -471,7 +472,7 @@ namespace beam
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
             (cli::SLATEPACK, po::bool_switch(), "with 'send': produce a Slatepack for manual copy-paste transfer instead of sending over SBBS")
             (cli::SLATEPACK_FILE, po::value<string>(), "with 'slatepack': path to a Slatepack file to import (omit to paste interactively)")
-            (cli::SLATEPACK_SAVE, po::value<string>()->implicit_value(""), "with 'send'/'slatepack': save the produced pack to a file (bare = <wallet_dir>/<txid>.slatepack, or =<path>)")
+            (cli::SLATEPACK_SAVE, po::value<string>()->implicit_value(""), "with 'send'/'slatepack'/'slatepack_export': save the produced pack to a file (bare = <wallet_dir>/<txid>.slatepack, or =<path>)")
             (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::UTXO_LIST, "print the list of UTXOs (should be used with info command)")

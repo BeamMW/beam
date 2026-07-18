@@ -133,6 +133,32 @@ namespace
     // WalletClient's m_slatepackEndpoint weak_ptr member.
     std::weak_ptr<beam::wallet::SlatepackEndpoint> g_cliSlatepack;
 
+    // Emit a produced/stored Slatepack: print it, or write it to a file when --save is given
+    // (bare --save -> <wallet_dir>/<txid>.slatepack, --save=<dir>, or --save=<file>).
+    void OutputSlatepack(const po::variables_map& vm, const TxID& txID, const std::string& armored)
+    {
+        if (vm.count(cli::SLATEPACK_SAVE))
+        {
+            namespace fs = boost::filesystem;
+            const std::string opt = vm[cli::SLATEPACK_SAVE].as<std::string>();
+            const std::string name = std::to_string(txID) + ".slatepack";
+            fs::path out;
+            if (opt.empty())                    // bare --save -> wallet dir
+                out = fs::path(vm[cli::WALLET_STORAGE].as<std::string>()).parent_path() / name;
+            else if (fs::is_directory(opt))     // --save=<dir>
+                out = fs::path(opt) / name;
+            else                                // --save=<file>
+                out = fs::path(opt);
+            std::ofstream f(out.string(), std::ios::binary | std::ios::trunc);
+            f << armored;
+            std::cout << "Saved Slatepack to " << fs::absolute(out).string() << std::endl;
+        }
+        else
+        {
+            std::cout << armored << std::endl;
+        }
+    }
+
     std::string interpretStatusCliImpl(const beam::wallet::TxDescription& tx)
     {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -1853,6 +1879,33 @@ namespace
         return 0;
     }
 
+    int ExportSlatepack(const po::variables_map& vm)
+    {
+        auto txId = GetTxID(vm);
+        if (!txId)
+        {
+            return -1;
+        }
+
+        auto walletDB = OpenDataBase(vm);
+        if (!walletDB->getTx(*txId))
+        {
+            BEAM_LOG_ERROR() << boost::format(kErrorTxWithIdNotFound) % vm[cli::TX_ID].as<string>();
+            return -1;
+        }
+
+        // Read the armored Slatepack the send/reply step stored on the tx (see SlatepackEndpoint).
+        std::string armored;
+        if (!storage::getTxParameter(*walletDB, *txId, TxParameterID::SlatepackOutgoing, armored) || armored.empty())
+        {
+            BEAM_LOG_ERROR() << "No stored Slatepack for this transaction (only manually-transported sends keep one, and it is dropped on cancel).";
+            return -1;
+        }
+
+        OutputSlatepack(vm, *txId, armored);
+        return 0;
+    }
+
     int VerifyPaymentProof(const po::variables_map& vm)
     {
         const auto& pprofData = vm[cli::PAYMENT_PROOF_DATA];
@@ -2409,26 +2462,7 @@ namespace
             auto slatepackEndpoint = make_shared<SlatepackEndpoint>(*wallet, walletDB,
                 [&vm](const TxID& txID, const std::string& armored)
                 {
-                    if (vm.count(cli::SLATEPACK_SAVE))
-                    {
-                        namespace fs = boost::filesystem;
-                        const std::string opt = vm[cli::SLATEPACK_SAVE].as<std::string>();
-                        const std::string name = std::to_string(txID) + ".slatepack";
-                        fs::path out;
-                        if (opt.empty())                    // bare --save -> wallet dir
-                            out = fs::path(vm[cli::WALLET_STORAGE].as<std::string>()).parent_path() / name;
-                        else if (fs::is_directory(opt))     // --save=<dir>
-                            out = fs::path(opt) / name;
-                        else                                // --save=<file>
-                            out = fs::path(opt);
-                        std::ofstream f(out.string(), std::ios::binary | std::ios::trunc);
-                        f << armored;
-                        std::cout << "Saved Slatepack to " << fs::absolute(out).string() << std::endl;
-                    }
-                    else
-                    {
-                        std::cout << armored << std::endl;
-                    }
+                    OutputSlatepack(vm, txID, armored);
                     io::Reactor::get_Current().stop();
                 });
             wallet->AddMessageEndpoint(slatepackEndpoint);
@@ -3454,6 +3488,7 @@ int main(int argc, char* argv[])
         {cli::HID_INSTALL,        HidInstall,                       "Install Beam app on the attached HW wallet"},
         {cli::SEND,               Send,                             "send BEAM"},
         {cli::SLATEPACK,          Slatepack,                        "import a Slatepack: review a received one (produces the reply) or finalize a reply"},
+        {cli::SLATEPACK_EXPORT,   ExportSlatepack,                  "re-print the stored outgoing Slatepack for a transaction (--tx_id; --save optional)"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::SHADER_WIDGET,      ShaderWidget,                     "Set the wallet widget shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
