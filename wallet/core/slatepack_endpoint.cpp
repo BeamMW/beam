@@ -71,10 +71,14 @@ namespace beam::wallet
     void SlatepackEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
         // A manual tx torn down (cancel/expire) notifies the peer with a FailureReason — nothing
-        // useful to hand-deliver, so don't armor it, just drop it.
+        // useful to hand-deliver, so don't armor it. Also drop the stored outgoing Slatepack: the
+        // tx is terminal, so its armored negotiation message is dead data.
         for (const auto& p : msg.m_Parameters)
             if (p.first == TxParameterID::FailureReason)
+            {
+                m_WalletDB->delTxParameter(m_CurrentTxID, kDefaultSubTxID, TxParameterID::SlatepackOutgoing);
                 return;
+            }
 
         m_LiveSend = true;
         BaseMessageEndpoint::Send(peerID, msg);
@@ -92,8 +96,15 @@ namespace beam::wallet
         n.m_Peer = peerID;
         n.m_Ciphertext = std::move(encrypted);
 
+        const std::string armored = slatepack::Armor(slatepack::PayloadType::TxNegotiation, slatepack::ToBytes(n));
+
+        // Persist the latest outgoing Slatepack so the user can re-copy it after dismissing the
+        // produce dialog; survives a wallet restart (manual transfers are long-lived). Notify so
+        // the tx list reloads with the param now, not only on the next tx change (the peer reply).
+        storage::setTxParameter(*m_WalletDB, m_CurrentTxID, TxParameterID::SlatepackOutgoing, armored, true);
+
         if (m_OnOutgoing)
-            m_OnOutgoing(m_CurrentTxID, slatepack::Armor(slatepack::PayloadType::TxNegotiation, slatepack::ToBytes(n)));
+            m_OnOutgoing(m_CurrentTxID, armored);
     }
 
     bool SlatepackEndpoint::Preview(const std::string& armoredText, std::string& error, ImportInfo& info)
