@@ -18,6 +18,7 @@
 #include "wallet/core/wallet_db.h"      // IWalletDbObserver, IWalletDB, WalletAddress
 #include <functional>
 #include <string>
+#include <map>
 
 namespace beam::wallet
 {
@@ -36,15 +37,34 @@ namespace beam::wallet
         SlatepackEndpoint(IWalletMessageConsumer&, const IWalletDB::Ptr&, OutgoingHandler);
         ~SlatepackEndpoint() override;
 
-        // Import a pasted/scanned/opened Slatepack. On success feeds the contained negotiation
-        // message to the wallet and returns true. On any failure returns false and sets
-        // 'error' to a short user-facing reason. A Slatepack addressed to another wallet
-        // (no matching channel) is not an error here — it is a silent no-op.
-        bool Inject(const std::string& armoredText, std::string& error);
+        // Structured summary of what an imported Slatepack contained, for the UI to render.
+        struct ImportInfo
+        {
+            Amount      m_Amount  = 0;
+            Asset::ID   m_AssetID = 0;
+            Amount      m_Fee     = 0;
+            bool        m_IsSend  = false; // our role in the imported tx
+            std::string m_AddressFrom;     // sender address
+            std::string m_AddressTo;       // receiver address
+            std::string m_TxID;            // hex transaction id
+        };
+
+        // Decrypt a pasted Slatepack and preview it WITHOUT continuing the transaction: fills
+        // 'info', stashes the message pending confirmation (keyed by info.m_TxID), returns true.
+        // A Slatepack none of our addresses can decrypt is a failure here, not a silent no-op.
+        bool Preview(const std::string& armoredText, std::string& error, ImportInfo& info);
+
+        // Confirm a previewed Slatepack: hand the stashed message to the wallet so the
+        // transaction proceeds. Returns false if no pending import matches txId.
+        bool Commit(const std::string& txId, std::string& error);
+
+        // Discard a previewed-but-unconfirmed Slatepack.
+        void CancelPending(const std::string& txId);
 
     private:
         // BaseMessageEndpoint
         bool AcceptsMessage(const TxID& txID) override;
+        void Send(const WalletID& peerID, const SetTxParameter& msg) override;
         void SendRawMessage(const WalletID& peerID, ByteBuffer&&) override;
         // IWalletDbObserver
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
@@ -52,5 +72,10 @@ namespace beam::wallet
         IWalletDB::Ptr m_WalletDB;
         OutgoingHandler m_OnOutgoing;
         TxID m_CurrentTxID = {};
+        // True only during a live Send(), so SendRawMessage can tell a real negotiation message
+        // from a ProcessStoredMessages replay (which fans every stored SBBS message to all endpoints).
+        bool m_LiveSend = false;
+        // Slatepacks decrypted for preview, awaiting the user's confirm/cancel, keyed by txID.
+        std::map<std::string, proto::BbsMsg> m_PendingImports;
     };
 }

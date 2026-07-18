@@ -70,7 +70,11 @@ namespace beam::wallet
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(const WalletID&);
     protected:
-        void ProcessMessage(const proto::BbsMsg& msg);
+        // Returns true if one of our subscribed addresses decrypted the message. pDecrypted/pMyAddr
+        // (if set) receive the decrypted message and the own address it targeted. deliver=false
+        // decrypts without handing to the wallet — used to preview a Slatepack import before confirm.
+        bool ProcessMessage(const proto::BbsMsg& msg, SetTxParameter* pDecrypted = nullptr,
+                            WalletID* pMyAddr = nullptr, bool deliver = true);
         void Subscribe();
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
@@ -80,6 +84,9 @@ namespace beam::wallet
         // Return false to skip a tx's messages. Base skips ManualTransport txs (Slatepack, not
         // SBBS); SlatepackEndpoint overrides to the inverse.
         virtual bool AcceptsMessage(const TxID& txID);
+
+        // Protected so SlatepackEndpoint can wrap it (e.g. drop failure/cancel notifications).
+        void Send(const WalletID& peerID, const SetTxParameter& msg) override;
     private:
         Addr* FindAddr(const WalletID&, IHandler*);
         void DeleteAddr(const Addr&);
@@ -88,7 +95,6 @@ namespace beam::wallet
         Addr* CreateAddr(const WalletID&, IHandler* );
 
         // IWalletMessageEndpoint
-        void Send(const WalletID& peerID, const SetTxParameter& msg) override;
         void Send(const WalletID& peerID, const Blob&) override;
         void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
         void Unlisten(const WalletID&, IHandler*) override;

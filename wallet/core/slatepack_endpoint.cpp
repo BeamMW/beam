@@ -68,20 +68,35 @@ namespace beam::wallet
         return isManual;
     }
 
+    void SlatepackEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
+    {
+        // A manual tx torn down (cancel/expire) notifies the peer with a FailureReason — nothing
+        // useful to hand-deliver, so don't armor it, just drop it.
+        for (const auto& p : msg.m_Parameters)
+            if (p.first == TxParameterID::FailureReason)
+                return;
+
+        m_LiveSend = true;
+        BaseMessageEndpoint::Send(peerID, msg);
+        m_LiveSend = false;
+    }
+
     void SlatepackEndpoint::SendRawMessage(const WalletID& peerID, ByteBuffer&& encrypted)
     {
+        // Armor only a live send routed through Send() above. ProcessStoredMessages replays every
+        // stored SBBS message to every endpoint on startup; those aren't ours to armor.
+        if (!m_LiveSend)
+            return;
+
         slatepack::TxNegotiation n;
         n.m_Peer = peerID;
         n.m_Ciphertext = std::move(encrypted);
-
-        // Persist in the outgoing queue so an unsent Slatepack survives a restart.
-        m_WalletDB->saveWalletMessage(peerID, Blob(n.m_Ciphertext));
 
         if (m_OnOutgoing)
             m_OnOutgoing(m_CurrentTxID, slatepack::Armor(slatepack::PayloadType::TxNegotiation, slatepack::ToBytes(n)));
     }
 
-    bool SlatepackEndpoint::Inject(const std::string& armoredText, std::string& error)
+    bool SlatepackEndpoint::Preview(const std::string& armoredText, std::string& error, ImportInfo& info)
     {
         slatepack::PayloadType type;
         ByteBuffer payload;
@@ -106,10 +121,60 @@ namespace beam::wallet
         msg.m_TimePosted = getTimestamp();
         msg.m_Message = std::move(n.m_Ciphertext);
 
-        // Matches a subscribed own-address channel, decrypts with that address's key, and
-        // feeds the negotiator. A Slatepack for another wallet matches no channel -> no-op.
-        ProcessMessage(msg);
+        // Decrypt with a subscribed own-address key but do NOT hand it to the wallet yet — the
+        // user confirms first. A Slatepack none of our addresses can decrypt is for another wallet.
+        SetTxParameter decrypted;
+        WalletID myAddr = Zero;
+        if (!ProcessMessage(msg, &decrypted, &myAddr, false))
+        {
+            error = "This Slatepack isn't addressed to your wallet.";
+            return false;
+        }
+
+        info.m_TxID = std::to_string(decrypted.m_TxID);
+
+        if (auto tx = m_WalletDB->getTx(decrypted.m_TxID))
+        {
+            // Our side of the tx already exists (e.g. we sent S1 and are importing the reply).
+            info.m_Amount      = tx->m_amount;
+            info.m_AssetID     = tx->m_assetId;
+            info.m_Fee         = tx->m_fee;
+            info.m_IsSend      = tx->m_sender;
+            info.m_AddressFrom = tx->getAddressFrom();
+            info.m_AddressTo   = tx->getAddressTo();
+        }
+        else
+        {
+            // First look at an incoming invitation — summarise straight from the message.
+            decrypted.GetParameter(TxParameterID::Amount, info.m_Amount);
+            decrypted.GetParameter(TxParameterID::AssetID, info.m_AssetID);
+            decrypted.GetParameter(TxParameterID::Fee, info.m_Fee);
+            info.m_IsSend      = false;
+            info.m_AddressFrom = std::to_string(decrypted.m_From);
+            info.m_AddressTo   = std::to_string(myAddr);
+        }
+
+        // Hold the message until the user confirms (Commit) or discards (CancelPending).
+        m_PendingImports[info.m_TxID] = std::move(msg);
         return true;
+    }
+
+    bool SlatepackEndpoint::Commit(const std::string& txId, std::string& error)
+    {
+        auto it = m_PendingImports.find(txId);
+        if (it == m_PendingImports.end())
+        {
+            error = "no pending Slatepack to confirm";
+            return false;
+        }
+        ProcessMessage(it->second); // deliver to the wallet — the transaction proceeds
+        m_PendingImports.erase(it);
+        return true;
+    }
+
+    void SlatepackEndpoint::CancelPending(const std::string& txId)
+    {
+        m_PendingImports.erase(txId);
     }
 
     void SlatepackEndpoint::onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items)
