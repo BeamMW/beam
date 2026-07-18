@@ -23,6 +23,7 @@
 #include "wallet/core/private_key_keeper.h"
 #include "wallet/core/common_utils.h"
 #include "wallet/core/contracts/i_shaders_manager.h"
+#include "wallet/core/slatepack_endpoint.h"
 #include "wallet_model_async.h"
 #include "changes_collector.h"
 #include "extensions/notifications/notification_observer.h"
@@ -209,7 +210,7 @@ namespace beam::wallet
         // A manually-transported (Slatepack) negotiation message is ready to hand off, and the
         // result of importing a pasted Slatepack.
         virtual void onSlatepackReady(const TxID& txID, const std::string& armored) {}
-        virtual void onSlatepackImportResult(bool ok, const std::string& error) {}
+        virtual void onSlatepackImportResult(bool ok, const std::string& error, const SlatepackEndpoint::ImportInfo& info) {}
         virtual void onAddressChecked(const std::string& addr, bool isValid) {}
         virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) {}
         virtual void onNoDeviceConnected() {}
@@ -331,6 +332,8 @@ namespace beam::wallet
         void rescan() override;
         void exportPaymentProof(const TxID& id) override;
         void importSlatepack(const std::string& text) override;
+        void commitSlatepack(const std::string& txId) override;
+        void cancelSlatepack(const std::string& txId) override;
         void checkNetworkAddress(const std::string& addr) override;
         void importRecovery(const std::string& path) override;
         void importDataFromJson(const std::string& data) override;

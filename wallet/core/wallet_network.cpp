@@ -57,10 +57,11 @@ namespace beam::wallet {
             DeleteAddr(m_Addresses.begin()->get_ParentObj());
     }
 
-    void BaseMessageEndpoint::ProcessMessage(const proto::BbsMsg& msg)
+    bool BaseMessageEndpoint::ProcessMessage(const proto::BbsMsg& msg, SetTxParameter* pDecrypted, WalletID* pMyAddr, bool deliver)
     {
         Addr::Channel key;
         key.m_Value = msg.m_Channel;
+        bool delivered = false;
 
         for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; ++it)
         {
@@ -75,7 +76,7 @@ namespace beam::wallet {
                 // read-only wallet
                 m_WalletDB->saveIncomingWalletMessage(msg.m_Channel, msg.m_Message);
                 OnIncomingMessage();
-                return;
+                return true;
             }
 
             ByteBuffer buf = msg.m_Message; // duplicate, copy
@@ -88,7 +89,10 @@ namespace beam::wallet {
                 continue;
 
             if (x.m_Wid.m_pHandler)
+            {
                 x.m_Wid.m_pHandler->OnMsg(Blob(pMsg, nSize));
+                delivered = true;
+            }
             else
             {
                 SetTxParameter msgWallet;
@@ -106,11 +110,17 @@ namespace beam::wallet {
 
                 if (bValid)
                 {
-                    m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
-                    break;
+                    if (pDecrypted)
+                        *pDecrypted = msgWallet;
+                    if (pMyAddr)
+                        *pMyAddr = it->get_ParentObj().m_Wid.m_Value;
+                    if (deliver)
+                        m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
+                    return true;
                 }
             }
         }
+        return delivered;
     }
 
     BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateAddr(const WalletID& wid, IHandler* pHandler)

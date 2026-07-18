@@ -347,6 +347,16 @@ struct WalletModelBridge : public Bridge<IWalletModelAsync>
         call_async(&IWalletModelAsync::importSlatepack, text);
     }
 
+    void commitSlatepack(const std::string& txId) override
+    {
+        call_async(&IWalletModelAsync::commitSlatepack, txId);
+    }
+
+    void cancelSlatepack(const std::string& txId) override
+    {
+        call_async(&IWalletModelAsync::cancelSlatepack, txId);
+    }
+
     void checkNetworkAddress(const std::string& addr) override
     {
         call_async(&IWalletModelAsync::checkNetworkAddress, addr);
@@ -2132,11 +2142,26 @@ namespace beam::wallet
 
     void WalletClient::importSlatepack(const std::string& text)
     {
-        // Runs on the wallet thread; feeds a pasted Slatepack into the negotiation.
+        // Runs on the wallet thread; decrypts a pasted Slatepack and previews it. The tx does
+        // not proceed until the user confirms via commitSlatepack.
         std::string error;
+        SlatepackEndpoint::ImportInfo info;
         auto ep = m_slatepackEndpoint.lock();
-        const bool ok = ep && ep->Inject(text, error);
-        onSlatepackImportResult(ok, error);
+        const bool ok = ep && ep->Preview(text, error, info);
+        onSlatepackImportResult(ok, error, info);
+    }
+
+    void WalletClient::commitSlatepack(const std::string& txId)
+    {
+        std::string error;
+        if (auto ep = m_slatepackEndpoint.lock())
+            ep->Commit(txId, error);
+    }
+
+    void WalletClient::cancelSlatepack(const std::string& txId)
+    {
+        if (auto ep = m_slatepackEndpoint.lock())
+            ep->CancelPending(txId);
     }
 
     void WalletClient::checkNetworkAddress(const std::string& addr)
