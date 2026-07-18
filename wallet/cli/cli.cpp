@@ -20,6 +20,7 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/simple_transaction.h"
+#include "wallet/core/slatepack_endpoint.h"
 #include "wallet/core/secstring.h"
 #include "wallet/core/strings_resources.h"
 #include "wallet/core/contracts/shaders_manager.h"
@@ -72,6 +73,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/format.hpp>
+#include <fstream>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/erase.hpp>
 
@@ -126,6 +128,11 @@ namespace beam
 
 namespace
 {
+    // The CLI runs one command per process against one wallet, so a single
+    // process-wide handle to the manual-transport endpoint is safe. Mirrors
+    // WalletClient's m_slatepackEndpoint weak_ptr member.
+    std::weak_ptr<beam::wallet::SlatepackEndpoint> g_cliSlatepack;
+
     std::string interpretStatusCliImpl(const beam::wallet::TxDescription& tx)
     {
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
@@ -2395,6 +2402,38 @@ namespace
 
             auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
             wallet->AddMessageEndpoint(wnet);
+
+            // Manual (Slatepack) transport: prints the produced pack, or saves it to a
+            // file when --save is given, then stops the reactor. Only fires for
+            // ManualTransport-flagged txs, so normal sends are unaffected.
+            auto slatepackEndpoint = make_shared<SlatepackEndpoint>(*wallet, walletDB,
+                [&vm](const TxID& txID, const std::string& armored)
+                {
+                    if (vm.count(cli::SLATEPACK_SAVE))
+                    {
+                        namespace fs = boost::filesystem;
+                        const std::string opt = vm[cli::SLATEPACK_SAVE].as<std::string>();
+                        const std::string name = std::to_string(txID) + ".slatepack";
+                        fs::path out;
+                        if (opt.empty())                    // bare --save -> wallet dir
+                            out = fs::path(vm[cli::WALLET_STORAGE].as<std::string>()).parent_path() / name;
+                        else if (fs::is_directory(opt))     // --save=<dir>
+                            out = fs::path(opt) / name;
+                        else                                // --save=<file>
+                            out = fs::path(opt);
+                        std::ofstream f(out.string(), std::ios::binary | std::ios::trunc);
+                        f << armored;
+                        std::cout << "Saved Slatepack to " << fs::absolute(out).string() << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << armored << std::endl;
+                    }
+                    io::Reactor::get_Current().stop();
+                });
+            wallet->AddMessageEndpoint(slatepackEndpoint);
+            g_cliSlatepack = slatepackEndpoint;
+
             wallet->SetNodeEndpoint(nnet);
 
             wallet->ResumeAllTransactions();
@@ -2451,8 +2490,73 @@ namespace
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
 
+                if (vm.count(cli::SLATEPACK) && vm[cli::SLATEPACK].template as<bool>())
+                    params.SetParameter(TxParameterID::ManualTransport, true);
+
                 currentTxID = wallet->StartTransaction(params);
                 return 0;
+            });
+    }
+
+    int Slatepack(const po::variables_map& vm)
+    {
+        return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID) -> int
+            {
+                std::string armored;
+                if (!read_slatepack(armored, vm))
+                {
+                    std::cout << "No Slatepack provided." << std::endl;
+                    return -1;
+                }
+
+                auto ep = g_cliSlatepack.lock();
+                if (!ep)
+                {
+                    std::cout << "Slatepack transport not available." << std::endl;
+                    return -1;
+                }
+
+                std::string error;
+                SlatepackEndpoint::ImportInfo info;
+                if (!ep->Preview(armored, error, info))
+                {
+                    std::cout << "Cannot import Slatepack: " << error << std::endl;
+                    return -1;
+                }
+
+                std::cout << (info.m_IsSend ? "You are sending " : "You are receiving ")
+                          << PrintableAmount(info.m_Amount, true, info.m_AssetID)
+                          << (info.m_IsSend ? " to " : " from ")
+                          << (info.m_IsSend ? info.m_AddressTo : info.m_AddressFrom) << "\n"
+                          << "Fee: " << PrintableAmount(info.m_Fee, true, Asset::s_BeamID) << "\n"
+                          << "Transaction: " << info.m_TxID << "\n"
+                          << "Proceed? (y/n)" << std::endl;
+
+                std::string s;
+                std::cin >> s;
+                if (s != "y" && s != "Y")
+                {
+                    ep->CancelPending(info.m_TxID);
+                    std::cout << "Cancelled." << std::endl;
+                    return -1; // non-zero: skips DoWalletFunc's reactor.run(), exits cleanly
+                }
+
+                // Track this tx so onTxCompleteAction stops the reactor when it finalizes
+                // (the reply case is stopped earlier by the outgoing handler instead).
+                auto txIdVec = from_hex(info.m_TxID);
+                if (txIdVec.size() >= 16)
+                {
+                    TxID t;
+                    std::copy_n(txIdVec.begin(), 16, t.begin());
+                    currentTxID = t;
+                }
+
+                if (!ep->Commit(info.m_TxID, error))
+                {
+                    std::cout << "Cannot process Slatepack: " << error << std::endl;
+                    return -1;
+                }
+                return 0; // reactor runs: outgoing handler (reply) or tx-completed (finalize) stops it
             });
     }
 
@@ -3349,6 +3453,7 @@ int main(int argc, char* argv[])
         {cli::HID_ENUM,           EnumHid,                          "Enumerate attached HW wallets"},
         {cli::HID_INSTALL,        HidInstall,                       "Install Beam app on the attached HW wallet"},
         {cli::SEND,               Send,                             "send BEAM"},
+        {cli::SLATEPACK,          Slatepack,                        "import a Slatepack: review a received one (produces the reply) or finalize a reply"},
         {cli::SHADER_INVOKE,      ShaderInvoke,                     "Invoke a wallet-side shader"},
         {cli::SHADER_WIDGET,      ShaderWidget,                     "Set the wallet widget shader"},
         {cli::LISTEN,             Listen,                           "listen to the node (the wallet won't close till halted"},
