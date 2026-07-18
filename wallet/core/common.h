@@ -387,6 +387,10 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
+        // Manual transport (Slatepack): last armored negotiation message produced for this tx,
+        // kept so the user can re-copy/re-save it after dismissing the produce dialog.
+        SlatepackOutgoing = 144,
+
         Status = 151,
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
