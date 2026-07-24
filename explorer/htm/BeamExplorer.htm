@@ -2887,10 +2887,15 @@
 
     // Get Atomic Swap totals (new node request)
     if (jData.length !== 0) {
-      const xmlhttp = new XMLHttpRequest();
-      xmlhttp.onload = DisplayAtomicSwapTotals;
-      xmlhttp.open('GET', g_urlPrefix + 'swap_totals' + '?exp_am=1');
-      xmlhttp.send();
+      fetchAPI('swap_totals')
+        .then(data => {
+          DisplayAtomicSwapTotals.call({ responseText: JSON.stringify(data) });
+        })
+        .catch(err => {
+          console.error('Failed to load atomic swap totals:', err);
+          const el = document.getElementById('divSwapTotals');
+          if (el) el.innerHTML = '<p class="error">Error loading totals.</p>';
+        });
     }
   }
 
@@ -2935,10 +2940,15 @@
 
     // Get Asset Swap totals (new node request)
     if (jData.length !== 0) {
-      const xmlhttp = new XMLHttpRequest();
-      xmlhttp.onload = DisplayAssetSwapTotals;
-      xmlhttp.open('GET', g_urlPrefix + 'asset_swaps_totals' + '?exp_am=1');
-      xmlhttp.send();
+      fetchAPI('asset_swaps_totals')
+        .then(data => {
+          DisplayAssetSwapTotals.call({ responseText: JSON.stringify(data) });
+        })
+        .catch(err => {
+          console.error('Failed to load asset swap totals:', err);
+          const el = document.getElementById('divAssetSwapTotals');
+          if (el) el.innerHTML = '<p class="error">Error loading totals.</p>';
+        });
     }
   }
 
