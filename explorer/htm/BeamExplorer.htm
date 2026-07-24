@@ -3574,8 +3574,9 @@
     }
     // Save in local storage
     localStorage.setItem('g_defaultNodesURL',JSON.stringify(g_defaultNodesURL));
-    // Reload the page
-    location.reload();
+    // Reload the current page
+    loadPageFromURL();
+    // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
   }
 </script>
 
@@ -3847,8 +3848,9 @@
     args.set('nMaxTxs', g_nMaxTxs);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -3906,8 +3908,9 @@
     args.set('nMaxOps', g_nMaxOps);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -3939,8 +3942,9 @@
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('height', g_height);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -5039,8 +5043,9 @@
     args.set('nMax', g_nMax);
     args.set('dh', g_dh);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 
   // DRAG-AND-DROP OPTIONS FOR THE COLUMN HEADERS CHECKBOXES
