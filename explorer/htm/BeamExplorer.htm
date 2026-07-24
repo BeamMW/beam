@@ -2778,6 +2778,11 @@
     text += Obj2Html(jData);
     text += '</div>';
 
+    // Replace some terms
+    text = text.replace(/Treasury Released/g, 'Treasury Emission');
+    text = text.replace(/Current Circulation/g, 'Current Supply');
+    text = text.replace(/Total Circulation/g, 'Total Supply');
+
     // Add link to connected peers
     text += '<h3>' + MakeRef(UrlSelf('peers'), 'Connected Peers') + '</h3>';
 
@@ -3070,7 +3075,7 @@
     {
       block_list: [0],
       title: 'Treasury',
-      description: `Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href="?network=mainnet&type=treasury" title="Treasury">Treasury</a> is also represented in the explorer as a <a href="?network=mainnet&type=block&height=0" title="Treasury as block height 0">pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate "maturity" (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href="?network=mainnet&type=treasury" title="List Treasury UTXOs">60 such groups</a>.`,
+      description: `Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href="?network=mainnet&type=treasury" title="Treasury">Treasury</a> is also represented in the explorer as a <a href="?network=mainnet&type=block&height=0" title="Treasury as block height 0">pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate "maturity" (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury emission lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href="?network=mainnet&type=treasury" title="List Treasury UTXOs">60 such groups</a>.`,
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
