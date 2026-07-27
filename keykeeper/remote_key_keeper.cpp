@@ -446,8 +446,6 @@ namespace beam::wallet
 
     void RemoteKeyKeeper::Impl::Import(hw::ShieldedInput_Blob& blob, hw::ShieldedInput_Fmt& fmt, const ShieldedTxo::ID& src, Amount fee)
     {
-	    Import(blob.m_User, src.m_User);
-
 	    fmt.m_Amount = src.m_Value;
 	    fmt.m_AssetID = src.m_AssetID;
         fmt.m_Fee = fee;
