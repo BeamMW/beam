@@ -63,7 +63,7 @@ extern "C"
 		Cast::Up<KeyKeeperPlus>(pKk)->m_Nonces.Regenerate(iSlot);
 	}
 
-	uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, const hw::TxSummary*)
+	uint16_t KeyKeeper_ConfirmTransaction(KeyKeeper*, const hw::TxSummary*)
 	{
 		return c_KeyKeeper_Status_Ok;
 	}
