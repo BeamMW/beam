@@ -59,7 +59,6 @@ typedef struct
 typedef struct
 {
 	UintBig m_kSerG;
-	ShieldedTxoUser m_User;
 	uint8_t m_IsCreatedByViewer;
 
 } ShieldedInput_Blob;
@@ -236,7 +235,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 //////////////////
 // Protocol
 #define BeamCrypto_Signature "BeamHW"
-#define BeamCrypto_CurrentVersion 5
+#define BeamCrypto_CurrentVersion 6
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
@@ -434,7 +433,8 @@ void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pPeerID
 // KeyKeeper - request user approval for spend
 typedef struct
 {
-	const UintBig* m_pPeer; // optional
+	const UintBig* m_pEpMy; // optional
+	const UintBig* m_pEpPeer; // optional
 	const UintBig* m_pKrnID; // NULL if it's a Send 1st invocation (kernel ID isn't known yet)
 
 	TxKernelUser m_Krn; // contains fee and min/max height (may be shown to the user). Note: the fee contains the fee that *this* wallet pays. Including shielded input fees

@@ -3345,7 +3345,8 @@ uint16_t TxSend_Prepare(KeyKeeper* p, OpIn_TxSend2* pIn, TxSendContext* pCtx)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
 	TxSend_DeriveKeys(p, pIn, pCtx);
-	pCtx->m_Txs.m_pPeer = &pIn->m_Mut.m_Peer;
+	pCtx->m_Txs.m_pEpPeer = &pIn->m_Mut.m_Peer;
+	pCtx->m_Txs.m_pEpMy = &pCtx->m_hvMyID;
 
 	return c_KeyKeeper_Status_Ok;
 }
@@ -3363,7 +3364,6 @@ PROTO_METHOD(TxSend1)
 		return errCode;
 
 	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmTx_Send;
-	ctx.m_Txs.m_pKrnID = 0;
 
 	errCode = KeyKeeper_ConfirmTransaction(p, &ctx.m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
@@ -4564,7 +4564,8 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	{
 		// save Peer before generating output
 		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
-		pCtx->m_Txs.m_pPeer = &hvPeer;
+		pCtx->m_Txs.m_pEpPeer = &hvPeer;
+		pCtx->m_Txs.m_pEpMy = &pCtx->m_pIn->m_User.m_Sender;
 	}
 
 	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
