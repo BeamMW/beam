@@ -191,6 +191,9 @@ typedef union
 	ShieldedOutParams m_Sh;
 } KeyKeeper_AuxBuf;
 
+#define c_KeyKeeper_MaxTxAssets 4
+
+
 typedef struct
 {
 	Kdf m_MasterKey;
@@ -202,13 +205,10 @@ typedef struct
 
 		struct {
 
-			int64_t m_RcvBeam;
-			int64_t m_RcvAsset; // up to 1 more asset supported in a tx
-			Amount m_ImplicitFee; // shielded input fees.
-			AssetID m_Aid;
+			int64_t m_pRcvAmount[c_KeyKeeper_MaxTxAssets];
+			AssetID m_pRcvAid[c_KeyKeeper_MaxTxAssets];
+			Amount m_Fee; // Fees that I pay, including shielded inputs
 			secp256k1_scalar m_sk; // net blinding factor, sum(outputs) - sum(inputs)
-
-			// 64 bytes so far
 
 		} m_TxBalance;
 
@@ -226,6 +226,7 @@ typedef struct
 } KeyKeeper;
 
 #define c_KeyKeeper_State_TxBalance 1
+#define c_KeyKeeper_State_TxAggregated 2 // same as above, whereas Beam balance is compensated by the fees that we pay
 #define c_KeyKeeper_State_CreateShielded_1 11
 #define c_KeyKeeper_State_CreateShielded_2 12
 
@@ -433,21 +434,20 @@ void KeyKeeper_DisplayEndpoint(KeyKeeper*, AddrID addrID, const UintBig* pPeerID
 // KeyKeeper - request user approval for spend
 typedef struct
 {
-	const UintBig* m_pPeer; // NULL if it's a split tx (i.e. funds are transferred back to you, only the fee is spent).
-	const UintBig* m_pKrnID; // NULL if it's a Send 1st invocation
+	const UintBig* m_pPeer; // optional
+	const UintBig* m_pKrnID; // NULL if it's a Send 1st invocation (kernel ID isn't known yet)
 
-	TxKernelUser m_Krn; // contains fee and min/max height (may be shown to the user)
-
-	Amount m_NetAmount;
-	AssetID m_Aid;
+	TxKernelUser m_Krn; // contains fee and min/max height (may be shown to the user). Note: the fee contains the fee that *this* wallet pays. Including shielded input fees
 	uint8_t m_Flags;
 
 } TxSummary;
 
-uint16_t KeyKeeper_ConfirmSpend(KeyKeeper*, const TxSummary*);
+uint16_t KeyKeeper_ConfirmTransaction(KeyKeeper*, const TxSummary*);
 
+#define c_KeyKeeper_ConfirmTx_Send      0x01 // only sending, getting nothing in exchange. The Peer EP must be known, and the payment proof is obtained
+#define c_KeyKeeper_ConfirmTx_Split     0x02 // Sending to self. Only fee is spent
+#define c_KeyKeeper_ConfirmTx_Exchange  0x03 // Some assets are sent, some received. Peer EP is usually NULL
 
-#define c_KeyKeeper_ConfirmSpend_Split 0x10 // if not set - this is a send tx (also pPeerID should be specified)
-#define c_KeyKeeper_ConfirmSpend_Shielded 0x20
-#define c_KeyKeeper_ConfirmSpend_2ndPhase 0x40
-#define c_KeyKeeper_ConfirmSpend_Offline 0x80
+#define c_KeyKeeper_ConfirmTx_Shielded  0x20
+#define c_KeyKeeper_ConfirmTx_2ndPhase  0x40
+#define c_KeyKeeper_ConfirmTx_Offline   0x80

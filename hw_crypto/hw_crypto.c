@@ -2710,22 +2710,22 @@ static int TxAggr_AddAmount_Uns(Amount* pRes, Amount newVal)
 
 static int TxAggr_AddAmount(KeyKeeper* p, Amount newVal, AssetID aid, int isOut)
 {
-	int64_t* pRcv = &p->u.m_TxBalance.m_RcvBeam;
-
-	if (aid)
+	for (uint32_t i = 0; i < c_KeyKeeper_MaxTxAssets; i++)
 	{
-		if (p->u.m_TxBalance.m_Aid)
-		{
-			if (p->u.m_TxBalance.m_Aid != aid)
-				return 0; // only 1 additional asset type is supported in a tx
-		}
-		else
-			p->u.m_TxBalance.m_Aid = aid;
+		int64_t* pRcvAmount = p->u.m_TxBalance.m_pRcvAmount + i;
+		AssetID* pRcvAid = p->u.m_TxBalance.m_pRcvAid + i;
 
-		pRcv = &p->u.m_TxBalance.m_RcvAsset;
+		if (*pRcvAid != aid)
+		{
+			if (*pRcvAmount)
+				continue;
+			*pRcvAid = aid;
+		}
+
+		return TxAggr_AddAmount_Raw(pRcvAmount, newVal, isOut);
 	}
 
-	return TxAggr_AddAmount_Raw(pRcv, newVal, isOut);
+	return 0;
 }
 
 __stack_hungry__
@@ -2770,7 +2770,7 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 		if (fmt.m_Fee)
 		{
 			// Starting from HF3 shielded input fees are optional. And basically should not be used. But currently we support them
-			if (!TxAggr_AddAmount_Uns(&p->u.m_TxBalance.m_ImplicitFee, fmt.m_Fee))
+			if (!TxAggr_AddAmount_Uns(&p->u.m_TxBalance.m_Fee, fmt.m_Fee))
 				return MakeStatus(c_KeyKeeper_Status_Unspecified, 1); // overflow
 		}
 
@@ -2785,58 +2785,66 @@ static uint16_t TxAggr_AddShieldedInputs(KeyKeeper* p, uint8_t* pIns_unaligned, 
 	return c_KeyKeeper_Status_Ok;
 }
 
-static uint16_t TxAggr_Get(const KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx, uint8_t isSender)
+static uint16_t TxAggr_Get(KeyKeeper* p, TxSummary* pRes, const TxCommonIn* pTx, uint8_t isSender)
 {
 	if (c_KeyKeeper_State_TxBalance != p->m_State)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
 
+	ZERO_OBJ(*pRes);
 	memcpy_unaligned(&pRes->m_Krn, &pTx->m_Krn, sizeof(pRes->m_Krn));
 
-	N2H_uint_inplace(pRes->m_Krn.m_Fee, 64);
 	N2H_uint_inplace(pRes->m_Krn.m_hMin, 64);
 	N2H_uint_inplace(pRes->m_Krn.m_hMax, 64);
+	N2H_uint_inplace(pRes->m_Krn.m_Fee, 64);
 
-	int64_t rcvVal = p->u.m_TxBalance.m_RcvBeam;
-	if (isSender)
+	switch (p->m_State)
 	{
-		Amount totalFee = p->u.m_TxBalance.m_ImplicitFee;
-		if (!TxAggr_AddAmount_Uns(&totalFee, pRes->m_Krn.m_Fee))
+	case c_KeyKeeper_State_TxBalance:
+		// compensate for the fee, calculate the net tx balance, as seen by the peers
+		if (isSender && !TxAggr_AddAmount_Uns(&p->u.m_TxBalance.m_Fee, pRes->m_Krn.m_Fee))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 15);
 
-		// we're paying the fee. Subtract it from the net value we're sending
-		if (!TxAggr_AddAmount_Raw(&rcvVal, totalFee, 1))
+		if (p->u.m_TxBalance.m_Fee && !TxAggr_AddAmount(p, p->u.m_TxBalance.m_Fee, 0, 1))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 17);
-	}
-	else
-	{
-		if (p->u.m_TxBalance.m_ImplicitFee)
-			// Implicit fees are not allowed for rcv tx (since we don't ask user permission)
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 16);
-	}
 
-	if (p->u.m_TxBalance.m_RcvAsset)
-	{
-		if (rcvVal)
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 11); // nnz net result in both beams and assets.
+		// sort amount+aid entries by aid ascending, remove empty entries from the middle. bubble sort
+		while (1)
+		{
+			int dirty = 0;
 
-		rcvVal = p->u.m_TxBalance.m_RcvAsset;
-		pRes->m_Aid = p->u.m_TxBalance.m_Aid;
-	}
-	else
-		pRes->m_Aid = 0;
+			for (uint32_t i = 1; i < c_KeyKeeper_MaxTxAssets; i++)
+			{
+				Amount val1 = p->u.m_TxBalance.m_pRcvAmount[i];
+				if (val1)
+				{
+					AssetID aid1 = p->u.m_TxBalance.m_pRcvAid[i];
+					Amount val0 = p->u.m_TxBalance.m_pRcvAmount[i - 1];
+					AssetID aid0 = p->u.m_TxBalance.m_pRcvAid[i - 1];
 
-	if (isSender)
-	{
-		if (rcvVal > 0)
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 12); // actually receiving
+					if (!val0 || (aid0 > aid1))
+					{
+						dirty = 1;
+						// swap
+						p->u.m_TxBalance.m_pRcvAmount[i - 1] = val1;
+						p->u.m_TxBalance.m_pRcvAmount[i] = val0;
+						p->u.m_TxBalance.m_pRcvAid[i - 1] = aid1;
+						p->u.m_TxBalance.m_pRcvAid[i] = aid0;
+					}
+				}
+			}
 
-		pRes->m_NetAmount = -rcvVal;
-	}
-	else
-	{
-		if (rcvVal <= 0)
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 13); // not receiving
-		pRes->m_NetAmount = rcvVal;
+			if (!dirty)
+				break;
+		}
+
+		p->m_State = c_KeyKeeper_State_TxAggregated;
+		// no break;
+
+	case c_KeyKeeper_State_TxAggregated:
+		break;
+
+	default:
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 10);
 	}
 
 	return c_KeyKeeper_Status_Ok;
@@ -2977,7 +2985,7 @@ PROTO_METHOD(TxSplit)
 	if (errCode)
 		return errCode;
 
-	if (txs.m_NetAmount)
+	if (p->u.m_TxBalance.m_pRcvAmount[0])
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not split
 
 	// hash all visible params
@@ -3006,11 +3014,10 @@ PROTO_METHOD(TxSplit)
 
 	TxKernel_getID(&txs.m_Krn, &pOut->m_Tx.m_Comms, &hv);
 
-	txs.m_Flags = c_KeyKeeper_ConfirmSpend_Split;
-	txs.m_pPeer = 0;
+	txs.m_Flags = c_KeyKeeper_ConfirmTx_Split;
 	txs.m_pKrnID = &hv;
 
-	errCode = KeyKeeper_ConfirmSpend(p, &txs);
+	errCode = KeyKeeper_ConfirmTransaction(p, &txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -3078,7 +3085,11 @@ PROTO_METHOD(TxReceive)
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
-	assert(txs.m_NetAmount);
+	if (p->u.m_TxBalance.m_Fee)
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 16); // fees arent' allowed, since we don't ask the confirmation
+
+	if ((p->u.m_TxBalance.m_pRcvAmount[0] <= 0) || p->u.m_TxBalance.m_pRcvAmount[1])
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 12); // should be a single receive asset
 
 	TxMutualIn txm;
 	memcpy_unaligned(&txm, &pIn->m_Mut, sizeof(txm)); // save it before we generate output
@@ -3102,8 +3113,8 @@ PROTO_METHOD(TxReceive)
 	secp256k1_scalar_get_b32(hv.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write_UintBig(&sha, &hv);
 
-	secp256k1_sha256_write_Num(&sha, txs.m_NetAmount); // the value being-received
-	secp256k1_sha256_write_Num(&sha, txs.m_Aid);
+	secp256k1_sha256_write_Num(&sha, p->u.m_TxBalance.m_pRcvAmount[0]); // the value being-received
+	secp256k1_sha256_write_Num(&sha, p->u.m_TxBalance.m_pRcvAid[0]);
 
 	secp256k1_sha256_finalize(&sha, hv.m_pVal);
 
@@ -3130,7 +3141,7 @@ PROTO_METHOD(TxReceive)
 		// sign
 		UintBig hvID;
 		DeriveAddress(p, txm.m_AddrID, &keys.m_kKrn, &hvID);
-		GetPaymentConfirmationMsg(&hvID, &txm.m_Peer, &hv, txs.m_NetAmount, txs.m_Aid);
+		GetPaymentConfirmationMsg(&hvID, &txm.m_Peer, &hv, p->u.m_TxBalance.m_pRcvAmount[0], p->u.m_TxBalance.m_pRcvAid[0]);
 		Signature_Sign(&pOut->m_PaymentProof, &hvID, &keys.m_kKrn);
 	}
 
@@ -3291,8 +3302,8 @@ static void TxSend_DeriveKeys(KeyKeeper* p, const OpIn_TxSend2* pIn, TxSendConte
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &p->u.m_TxBalance.m_sk);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_NetAmount);
-	secp256k1_sha256_write_Num(&sha, pCtx->m_Txs.m_Aid);
+	secp256k1_sha256_write_Num(&sha, -p->u.m_TxBalance.m_pRcvAmount[0]);
+	secp256k1_sha256_write_Num(&sha, p->u.m_TxBalance.m_pRcvAid[0]);
 
 	secp256k1_scalar_get_b32(pCtx->m_hvToken.m_pVal, &pCtx->m_Keys.m_kNonce);
 	secp256k1_sha256_write_UintBig(&sha, &pCtx->m_hvToken);
@@ -3322,7 +3333,7 @@ uint16_t TxSend_Prepare(KeyKeeper* p, OpIn_TxSend2* pIn, TxSendContext* pCtx)
 	if (errCode)
 		return errCode;
 
-	if (!pCtx->m_Txs.m_NetAmount)
+	if ((p->u.m_TxBalance.m_pRcvAmount[0] >= 0) || p->u.m_TxBalance.m_pRcvAmount[1])
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
@@ -3334,7 +3345,6 @@ uint16_t TxSend_Prepare(KeyKeeper* p, OpIn_TxSend2* pIn, TxSendContext* pCtx)
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 
 	TxSend_DeriveKeys(p, pIn, pCtx);
-
 	pCtx->m_Txs.m_pPeer = &pIn->m_Mut.m_Peer;
 
 	return c_KeyKeeper_Status_Ok;
@@ -3352,10 +3362,10 @@ PROTO_METHOD(TxSend1)
 	if (errCode)
 		return errCode;
 
-	ctx.m_Txs.m_Flags = 0;
+	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmTx_Send;
 	ctx.m_Txs.m_pKrnID = 0;
 
-	errCode = KeyKeeper_ConfirmSpend(p, &ctx.m_Txs);
+	errCode = KeyKeeper_ConfirmTransaction(p, &ctx.m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -3384,16 +3394,16 @@ PROTO_METHOD(TxSend2)
 	TxKernel_getID(&ctx.m_Txs.m_Krn, &pIn->m_Comms, &ctx.m_hvToken);
 
 	// verify payment confirmation signature
-	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, ctx.m_Txs.m_NetAmount, ctx.m_Txs.m_Aid);
+	GetPaymentConfirmationMsg(&ctx.m_hvMyID, &ctx.m_hvMyID, &ctx.m_hvToken, -p->u.m_TxBalance.m_pRcvAmount[0], p->u.m_TxBalance.m_pRcvAid[0]);
 
 	if (!Signature_IsValid_Ex(&pIn->m_PaymentProof, &ctx.m_hvMyID, &pIn->m_Mut.m_Peer))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 25);
 
 	// 2nd user confirmation request. Now the kernel is complete, its ID is calculated
-	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_2ndPhase;
+	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmTx_Send | c_KeyKeeper_ConfirmTx_2ndPhase;
 	ctx.m_Txs.m_pKrnID = &ctx.m_hvMyID;
 
-	errCode = KeyKeeper_ConfirmSpend(p, &ctx.m_Txs);
+	errCode = KeyKeeper_ConfirmTransaction(p, &ctx.m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -4381,7 +4391,7 @@ void TxSendShielded_PrepareRangeProofRepack(TxSendShieldedContext* pCtx, TxSendS
 }
 
 __stack_hungry__
-void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+void TxSendShielded_PrepareRangeProofRecover(const KeyKeeper* p, TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
 {
 	union {
 		NonceGenerator ng; // no really secret
@@ -4399,17 +4409,17 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 	pRp->m_FlagsPacked = Msg2Scalar(&u.skExtra, &pCtx->m_pIn->m_User.m_Sender);
 	secp256k1_scalar_add(&pCtx->m_skKrn, &pCtx->m_skKrn, &u.skExtra); // output blinding factor
 
-	CustomGenerator* pAGen = pCtx->m_Txs.m_Aid ? &pRp->u.m_AGen : 0;
+	CustomGenerator* pAGen = p->u.m_TxBalance.m_pRcvAid[0] ? &pRp->u.m_AGen : 0;
 	if (pAGen)
 	{
 #ifdef BeamCrypto_ExternalGej
 		Gej_Init(pAGen);
 #endif // BeamCrypto_ExternalGej
-		CoinID_GenerateAGen(pCtx->m_Txs.m_Aid, pAGen); // assume that's not the peak stack consumer
+		CoinID_GenerateAGen(p->u.m_TxBalance.m_pRcvAid[0], pAGen); // assume that's not the peak stack consumer
 	}
 
 	Gej_Init(&u.gej);
-	CoinID_getCommRaw(&pCtx->m_skKrn, pCtx->m_Txs.m_NetAmount, pAGen, &u.gej); // output commitment
+	CoinID_getCommRaw(&pCtx->m_skKrn, -p->u.m_TxBalance.m_pRcvAmount[0], pAGen, &u.gej); // output commitment
 
 #ifdef BeamCrypto_ExternalGej
 	if (pAGen)
@@ -4443,7 +4453,7 @@ void TxSendShielded_PrepareRangeProofRecover(TxSendShieldedContext* pCtx, TxSend
 }
 
 __stack_hungry__
-uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+uint16_t TxSendShielded_VerifyParams2(const KeyKeeper* p, TxSendShieldedRecoveryParams* pRp)
 {
 
 #pragma pack (push, 1)
@@ -4462,7 +4472,7 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 	if (!RangeProof_Recover1(&pRp->u.m_RCtx))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 26);
 
-	if ((pRp->u.m_RCtx.m_Amount != pCtx->m_Txs.m_NetAmount) || (bswap32_be(packed.m_AssetID) != pCtx->m_Txs.m_Aid))
+	if ((pRp->u.m_RCtx.m_Amount != (Amount) -p->u.m_TxBalance.m_pRcvAmount[0]) || (bswap32_be(packed.m_AssetID) != p->u.m_TxBalance.m_pRcvAid[0]))
 		return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
 
 	pRp->m_FlagsPacked ^= packed.m_Flags;
@@ -4471,7 +4481,7 @@ uint16_t TxSendShielded_VerifyParams2(TxSendShieldedContext* pCtx, TxSendShielde
 }
 
 __stack_hungry__
-uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
+uint16_t TxSendShielded_VerifyParams3(const KeyKeeper* p, TxSendShieldedContext* pCtx, TxSendShieldedRecoveryParams* pRp)
 {
 	{
 		secp256k1_scalar pExtra[2];
@@ -4483,14 +4493,14 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 
 	}
 
-	if (pCtx->m_Txs.m_Aid || pCtx->m_pIn->m_HideAssetAlways)
+	if (p->u.m_TxBalance.m_pRcvAid[0] || pCtx->m_pIn->m_HideAssetAlways)
 	{
 		static const char szSalt[] = "skG-O";
 		NonceGenerator ng; // not really secret
 		NonceGenerator_Init(&ng, szSalt, sizeof(szSalt), &pCtx->m_pSh->u.m_Voucher.m_SharedSecret);
 		NonceGenerator_NextScalar(&ng, pRp->u.m_RCtx.m_pExtra);
 
-		secp256k1_scalar_set_u64(pRp->u.m_RCtx.m_pExtra + 1, pCtx->m_Txs.m_NetAmount);
+		secp256k1_scalar_set_u64(pRp->u.m_RCtx.m_pExtra + 1, -p->u.m_TxBalance.m_pRcvAmount[0]);
 		wrap_scalar_mul(pRp->u.m_RCtx.m_pExtra, pRp->u.m_RCtx.m_pExtra, pRp->u.m_RCtx.m_pExtra + 1);
 		secp256k1_scalar_add(&pRp->u.m_RCtx.m_Sk, &pRp->u.m_RCtx.m_Sk, pRp->u.m_RCtx.m_pExtra);
 	}
@@ -4503,7 +4513,7 @@ uint16_t TxSendShielded_VerifyParams3(TxSendShieldedContext* pCtx, TxSendShielde
 }
 
 __stack_hungry__
-uint16_t TxSendShielded_VerifyParams(TxSendShieldedContext* pCtx)
+uint16_t TxSendShielded_VerifyParams(const KeyKeeper* p, TxSendShieldedContext* pCtx)
 {
 	// The host expects a TxKernelStd, which contains TxKernelShieldedOutput as a nested kernel, which contains the ShieldedTxo
 	// This ShieldedTxo must use the ticket from the voucher, have appropriate commitment + rangeproof, which MUST be generated w.r.t. SharedSecret from the voucher.
@@ -4514,16 +4524,16 @@ uint16_t TxSendShielded_VerifyParams(TxSendShieldedContext* pCtx)
 	// Important: the TxKernelShieldedOutput kernel ID has the whole rangeproof serialized, means it can't be tampered with after we sign the outer kernel
 
 	TxSendShieldedRecoveryParams rp;
-	TxSendShielded_PrepareRangeProofRecover(pCtx, &rp);
+	TxSendShielded_PrepareRangeProofRecover(p, pCtx, &rp);
 
-	uint16_t errCode = TxSendShielded_VerifyParams2(pCtx, &rp);
+	uint16_t errCode = TxSendShielded_VerifyParams2(p, &rp);
 	if (errCode)
 		return errCode;
 
 	RangeProof_Recover2(&rp.u.m_RCtx);
 	RangeProof_Recover3(&rp.u.m_RCtx);
 
-	return TxSendShielded_VerifyParams3(pCtx, &rp);
+	return TxSendShielded_VerifyParams3(p, pCtx, &rp);
 }
 
 __stack_hungry__
@@ -4550,9 +4560,7 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	NonceGenerator_NextScalar(&ng, &keys.m_kNonce);
 	SECURE_ERASE_OBJ(ng);
 
-	if (bSplit)
-		pCtx->m_Txs.m_pPeer = 0;
-	else
+	if (!bSplit)
 	{
 		// save Peer before generating output
 		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
@@ -4565,7 +4573,7 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 	// all set
 	pCtx->m_Txs.m_pKrnID = &hvOuter;
 
-	uint16_t errCode = KeyKeeper_ConfirmSpend(pCtx->m_p, &pCtx->m_Txs);
+	uint16_t errCode = KeyKeeper_ConfirmTransaction(pCtx->m_p, &pCtx->m_Txs);
 	if (c_KeyKeeper_Status_Ok != errCode)
 		return errCode;
 
@@ -4597,14 +4605,13 @@ PROTO_METHOD(TxSendShielded)
 	if (errCode)
 		return errCode;
 
-	if (!ctx.m_Txs.m_NetAmount)
-		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending/splitting
+	if ((p->u.m_TxBalance.m_pRcvAmount[0] >= 0) || p->u.m_TxBalance.m_pRcvAmount[1])
+		return MakeStatus(c_KeyKeeper_Status_Unspecified, 21); // not sending
 
 	if (IsUintBigZero(&pIn->m_Mut.m_Peer))
 		return MakeStatus(c_KeyKeeper_Status_UserAbort, 22); // conventional transfers must always be signed
 
-	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmSpend_Shielded;
-
+	ctx.m_Txs.m_Flags = c_KeyKeeper_ConfirmTx_Shielded;
 
 	if (pIn->m_UsePublicGen)
 	{
@@ -4614,7 +4621,7 @@ PROTO_METHOD(TxSendShielded)
 		if (!TxSendShielded_OfflineMakeTicket(&ctx))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 27);
 
-		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Offline;
+		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmTx_Offline;
 	}
 	else
 	{
@@ -4624,20 +4631,20 @@ PROTO_METHOD(TxSendShielded)
 
 	if (addrID)
 	{
-		// should be a split tx
+		// should be a split tx (sending to self)
 		DeriveAddress(p, addrID, &ctx.m_skKrn, &ctx.m_hvKrn);
 		if (memcmp(ctx.m_hvKrn.m_pVal, pIn->m_Mut.m_Peer.m_pVal, sizeof(ctx.m_hvKrn.m_pVal)))
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 24);
 
-		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmSpend_Split;
-	}
+		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmTx_Split;
+		// leave the being-sent balance entry as-is. The UX will display a Split transaction, and then display how much is sent. It's ok
+	} else
+		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmTx_Send;
 
-	errCode = TxSendShielded_VerifyParams(&ctx);
+	errCode = TxSendShielded_VerifyParams(p, &ctx);
 	if (errCode)
 		return errCode;
 
 	errCode = TxSendShielded_FinalyzeTx(&ctx, !!addrID);
-
-
 	return errCode;
 }
