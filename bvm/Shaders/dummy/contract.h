@@ -146,6 +146,17 @@ namespace Dummy
         uint8_t m_Op;
     };
 
+    struct DivTest2
+    {
+        static const uint32_t s_iMethod = 18;
+        // in
+        uint8_t m_Op;
+        int64_t m_Nom;
+        int64_t m_Denom;
+        // out
+        int64_t m_Result;
+    };
+
 #pragma pack (pop)
 
 }

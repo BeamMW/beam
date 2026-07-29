@@ -396,3 +396,16 @@ BEAM_EXPORT void Method_17(Dummy::TestFloat2& r)
 {
     TestFloatOp(r);
 }
+
+BEAM_EXPORT void Method_18(Dummy::DivTest2& r)
+{
+    switch (r.m_Op)
+    {
+    case 0:
+        r.m_Result = r.m_Nom / r.m_Denom;
+        break;
+
+    case 1:
+        r.m_Result = r.m_Nom % r.m_Denom;
+    }
+}

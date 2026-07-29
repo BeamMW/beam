@@ -95,6 +95,11 @@ namespace Shaders {
 		ConvertOrd<bToShader>(x.m_Nom);
 		ConvertOrd<bToShader>(x.m_Denom);
 	}
+	template <bool bToShader> void Convert(Dummy::DivTest2& x) {
+		ConvertOrd<bToShader>(x.m_Nom);
+		ConvertOrd<bToShader>(x.m_Denom);
+		ConvertOrd<bToShader>(x.m_Result);
+	}
 	template <bool bToShader> void Convert(Dummy::InfCycle& x) {
 		ConvertOrd<bToShader>(x.m_Val);
 	}
@@ -2848,6 +2853,23 @@ namespace bvm2 {
 			args.m_Nom = 13;
 			args.m_Denom = 0;
 			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+		}
+
+		{
+			Shaders::Dummy::DivTest2 args;
+			args.m_Op = 0; // division
+			args.m_Nom = 10;
+			args.m_Denom = -5;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(args.m_Result == -2);
+			args.m_Denom = 0;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Nom = std::numeric_limits<int64_t>::min();
+			args.m_Denom = -1;
+			verify_test(!RunGuarded_T(cid, args.s_iMethod, args));
+			args.m_Op = 1;
+			verify_test(RunGuarded_T(cid, args.s_iMethod, args));
+			verify_test(args.m_Result == 0);
 		}
 
 		{
