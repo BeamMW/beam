@@ -415,9 +415,9 @@ namespace std {
 
     template <typename T>
     void swap(T& a, T& b) {
-        T tmp(move(a));
-        a = move(b);
-        b = move(tmp);
+        T tmp(std::move(a));
+        a = std::move(b);
+        b = std::move(tmp);
     }
 
     template <typename T> const T& min(const T& a, const T& b) {
