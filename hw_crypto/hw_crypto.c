@@ -4250,6 +4250,7 @@ typedef struct
 	TxSummary m_Txs;
 
 	secp256k1_scalar m_skKrn;
+	UintBig m_Sender;
 	UintBig m_hvKrn;
 
 } TxSendShieldedContext;
@@ -4406,7 +4407,7 @@ void TxSendShielded_PrepareRangeProofRecover(const KeyKeeper* p, TxSendShieldedC
 		NonceGenerator_NextScalar(&u.ng, &pCtx->m_skKrn);
 	}
 
-	pRp->m_FlagsPacked = Msg2Scalar(&u.skExtra, &pCtx->m_pIn->m_User.m_Sender);
+	pRp->m_FlagsPacked = Msg2Scalar(&u.skExtra, &pCtx->m_Sender);
 	secp256k1_scalar_add(&pCtx->m_skKrn, &pCtx->m_skKrn, &u.skExtra); // output blinding factor
 
 	CustomGenerator* pAGen = p->u.m_TxBalance.m_pRcvAid[0] ? &pRp->u.m_AGen : 0;
@@ -4485,8 +4486,8 @@ uint16_t TxSendShielded_VerifyParams3(const KeyKeeper* p, TxSendShieldedContext*
 {
 	{
 		secp256k1_scalar pExtra[2];
-		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra, &pCtx->m_pIn->m_User.m_pMessage[0]) << 1);
-		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra + 1, &pCtx->m_pIn->m_User.m_pMessage[1]) << 2);
+		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra, &pCtx->m_pIn->m_Msg.m_p[0]) << 1);
+		pRp->m_FlagsPacked ^= (Msg2Scalar(pExtra + 1, &pCtx->m_pIn->m_Msg.m_p[1]) << 2);
 
 		if (memcmp(pRp->u.m_RCtx.m_pExtra, pExtra, sizeof(pExtra)) || pRp->m_FlagsPacked)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 28);
@@ -4565,7 +4566,7 @@ uint16_t TxSendShielded_FinalyzeTx(TxSendShieldedContext* pCtx, int bSplit)
 		// save Peer before generating output
 		memcpy(hvPeer.m_pVal, pCtx->m_pIn->m_Mut.m_Peer.m_pVal, sizeof(hvPeer.m_pVal));
 		pCtx->m_Txs.m_pEpPeer = &hvPeer;
-		pCtx->m_Txs.m_pEpMy = &pCtx->m_pIn->m_User.m_Sender;
+		pCtx->m_Txs.m_pEpMy = &pCtx->m_Sender;
 	}
 
 	KernelUpdateKeys(&pCtx->m_pOut->m_Tx.m_Comms, &keys, 0);
@@ -4601,6 +4602,7 @@ PROTO_METHOD(TxSendShielded)
 
 	AddrID addrID;
 	N2H_uint(addrID, pIn->m_Mut.m_AddrID, 64);
+	DeriveAddress(p, addrID, &ctx.m_skKrn, &ctx.m_Sender);
 
 	uint16_t errCode = TxAggr_Get(p, &ctx.m_Txs, &pIn->m_Tx, 1);
 	if (errCode)
@@ -4630,17 +4632,9 @@ PROTO_METHOD(TxSendShielded)
 			return MakeStatus(c_KeyKeeper_Status_Unspecified, 23);
 	}
 
-	if (addrID)
-	{
-		// should be a split tx (sending to self)
-		DeriveAddress(p, addrID, &ctx.m_skKrn, &ctx.m_hvKrn);
-		if (memcmp(ctx.m_hvKrn.m_pVal, pIn->m_Mut.m_Peer.m_pVal, sizeof(ctx.m_hvKrn.m_pVal)))
-			return MakeStatus(c_KeyKeeper_Status_Unspecified, 24);
-
-		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmTx_Split;
-		// leave the being-sent balance entry as-is. The UX will display a Split transaction, and then display how much is sent. It's ok
-	} else
-		ctx.m_Txs.m_Flags |= c_KeyKeeper_ConfirmTx_Send;
+	ctx.m_Txs.m_Flags |= memcmp(ctx.m_Sender.m_pVal, pIn->m_Mut.m_Peer.m_pVal, sizeof(ctx.m_Sender.m_pVal)) ?
+		c_KeyKeeper_ConfirmTx_Send :
+		c_KeyKeeper_ConfirmTx_Split; // leave the being-sent balance entry as-is. The UX will display a Split transaction, and then display how much is sent. It's ok
 
 	errCode = TxSendShielded_VerifyParams(p, &ctx);
 	if (errCode)

@@ -49,10 +49,8 @@ int TxKernel_IsValid(const TxKernelUser*, const TxKernelCommitments*, const Uint
 
 typedef struct
 {
-	UintBig m_Sender;
-	UintBig m_pMessage[2];
-
-} ShieldedTxoUser;
+	UintBig m_p[2];
+} ShieldedTxoMsg;
 
 #pragma pack (push, 1)
 
@@ -382,7 +380,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 #define BeamCrypto_ProtoRequest_TxSendShielded(macro) \
 	macro(TxCommonIn, Tx) \
 	macro(TxMutualIn, Mut) \
-	macro(ShieldedTxoUser, User) \
+	macro(ShieldedTxoMsg, Msg) \
 	macro(CompactPoint, ptAssetGen) \
 	macro(uint8_t, UsePublicGen) \
 	macro(uint8_t, HideAssetAlways) /* important to specify, this affects expected blinding factor recovery */ \

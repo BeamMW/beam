@@ -82,7 +82,7 @@ extern "C" {
         void h2n(TxSig& x) {}
         void h2n(TxKernelCommitments& x) {}
         void h2n(ShieldedVoucher& x) {}
-        void h2n(ShieldedTxoUser& x) {}
+        void h2n(ShieldedTxoMsg& x) {}
         void h2n(Signature& x) {}
         void h2n(RangeProof_Packed& x) {}
 
@@ -196,7 +196,7 @@ namespace beam::wallet
         static void Import(hw::TxCommonOut&, const Method::TxCommon&);
 		static void Import(hw::TxMutualIn&, const Method::TxMutual&);
 		static void Import(hw::ShieldedInput_Blob&, hw::ShieldedInput_Fmt&, const ShieldedTxo::ID&, Amount fee);
-		static void Import(hw::ShieldedTxoUser&, const ShieldedTxo::User&);
+		static void Import(hw::ShieldedTxoMsg&, const ShieldedTxo::User&);
 
 		static void Export(Method::TxCommon&, const hw::TxCommonOut&);
 
@@ -435,13 +435,11 @@ namespace beam::wallet
 	    m.m_kOffset = kOffs;
     }
 
-    void RemoteKeyKeeper::Impl::Import(hw::ShieldedTxoUser& dst, const ShieldedTxo::User& src)
+    void RemoteKeyKeeper::Impl::Import(hw::ShieldedTxoMsg& dst, const ShieldedTxo::User& src)
     {
-	    dst.m_Sender = Ecc2BC(src.m_Sender);
-
-	    static_assert(_countof(dst.m_pMessage) == _countof(src.m_pMessage));
+	    static_assert(_countof(dst.m_p) == _countof(src.m_pMessage));
 	    for (uint32_t i = 0; i < _countof(src.m_pMessage); i++)
-		    dst.m_pMessage[i] = Ecc2BC(src.m_pMessage[i]);
+		    dst.m_p[i] = Ecc2BC(src.m_pMessage[i]);
     }
 
     void RemoteKeyKeeper::Impl::Import(hw::ShieldedInput_Blob& blob, hw::ShieldedInput_Fmt& fmt, const ShieldedTxo::ID& src, Amount fee)
@@ -1458,6 +1456,7 @@ namespace beam::wallet
         {
         }
 
+        Method::get_Kdf m_GetKey;
         Method::SignSendShielded& m_M;
         TxKernelShieldedOutput::Ptr m_pOutp;
         uint32_t m_BlobsSent = 0;
@@ -1466,13 +1465,31 @@ namespace beam::wallet
         {
             if (!m_Phase)
             {
+                if (!m_This.m_Cache.get_Owner(m_GetKey.m_pPKdf))
+                {
+                    SendDummyReq();
+                    m_GetKey.m_Type = KdfType::Root;
+                    m_This.InvokeAsyncStart(m_GetKey, shared_from_this());
+                    return;
+                }
+
+
+                // derive our endpoint
+                ECC::Hash::Value hv;
+                Key::ID(m_M.m_iEndpoint, Key::Type::EndPoint).get_Hash(hv);
+                ECC::Point::Native ptN;
+                m_This.m_Cache.m_pOwner->DerivePKeyG(ptN, hv);
+                ECC::Point pt;
+                ptN.Export(pt);
+                m_M.m_User.m_Sender = pt.m_X;
+
                 SendCoins(m_M);
 
                 hw::Proto::TxSendShielded::Out msg;
 
                 msg.m_Mut.m_Peer = Ecc2BC(m_M.m_Peer);
                 msg.m_Mut.m_AddrID = m_M.m_iEndpoint;
-                Import(msg.m_User, m_M.m_User);
+                Import(msg.m_Msg, m_M.m_User);
                 Import(msg.m_Tx.m_Krn, m_M);
 
                 hw::ShieldedOutParams sop;
