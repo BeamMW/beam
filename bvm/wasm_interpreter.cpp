@@ -1706,9 +1706,21 @@ namespace Wasm {
 		BINOP(add) { return a + b; }
 		BINOP(sub) { return a - b; }
 		BINOP(mul) { return a * b; }
-		BINOP(div_s) { Exc::Test(b);  return Type::SignedFrom(a) / Type::SignedFrom(b); }
+		BINOP(div_s) {
+			auto a_s = Type::SignedFrom(a);
+			auto b_s = Type::SignedFrom(b);
+			Exc::Test(b_s != 0);
+			Exc::Test((b_s != -1) || (a_s != std::numeric_limits<Type::ToFlexible<TIn, true>::T>::min()));
+			return a_s / b_s;
+		}
 		BINOP(div_u) { Exc::Test(b);  return a / b; }
-		BINOP(rem_s) { Exc::Test(b);  return Type::SignedFrom(a) % Type::SignedFrom(b); }
+		BINOP(rem_s) {
+			auto b_s = Type::SignedFrom(b);
+			Exc::Test(b_s != 0);
+			if (b_s == -1)
+				return 0;
+			return Type::SignedFrom(a) % Type::SignedFrom(b);
+		}
 		BINOP(rem_u) { Exc::Test(b);  return a % b; }
 		BINOP(and) { return a & b; }
 		BINOP(or) { return a | b; }
@@ -1716,8 +1728,8 @@ namespace Wasm {
 		BINOP(shl) { return a << FixShiftCount(b); }
 		BINOP(shr_s) { return Type::SignedFrom(a) >> FixShiftCount(b); }
 		BINOP(shr_u) { return a >> FixShiftCount(b); }
-		BINOP(rotl) { if (!b) return a; b = FixShiftCount(b); return (a << b) | (a >> ((sizeof(a) * 8) - b)); }
-		BINOP(rotr) { if (!b) return a; b = FixShiftCount(b); return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
+		BINOP(rotl) { b = FixShiftCount(b); if (!b) return a; return (a << b) | (a >> ((sizeof(a) * 8) - b)); }
+		BINOP(rotr) { b = FixShiftCount(b); if (!b) return a; return (a >> b) | (a << ((sizeof(a) * 8) - b)); }
 
 
 		Word ReadAddr()
