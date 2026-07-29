@@ -18,6 +18,8 @@ BEAM_EXPORT void Dtor(void*)
     Env::RefRelease(Vault::s_CID);
 }
 
+uint8_t g_pData[sizeof(Vault::Deposit)] = { 0 };
+
 BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
 {
     Vault::Deposit r_Stack;
@@ -63,7 +65,7 @@ BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
         break;
 
     case 7:
-        pR = nullptr;
+        pR = g_pData;
     }
 
     Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_Flags);
