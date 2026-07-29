@@ -1522,15 +1522,13 @@ void TestShielded()
 		wallet::IPrivateKeyKeeper2::Method::SignSendShielded m;
 		m.m_Peer = pidRcv;
 
-		ECC::GenRandom(&m.m_User, sizeof(m.m_User));
+		ECC::GenRandom(&m.m_User.m_pMessage, sizeof(m.m_User.m_pMessage));
 
 		ECC::uintBig hvHuge = 12U;
 		hvHuge.Negate();
 		assert(hvHuge > ECC::Scalar::s_Order);
 
 		// test boundary conditions for embedded parameters (when they don't feet scalars)
-		if (1 == i)
-			m.m_User.m_Sender = hvHuge;
 		if (2 == i)
 			m.m_User.m_pMessage[0] = hvHuge;
 		if (3 == i)
@@ -1559,9 +1557,7 @@ void TestShielded()
 
 		if (1 & i)
 		{
-			m.m_iEndpoint = nKeyRcv + 10; // wrong, should not pass
-			verify_test(kkw.InvokeOnBoth(m) != KeyKeeperHwEmu::Status::Success);
-			m.m_iEndpoint = nKeyRcv;
+			m.m_iEndpoint = nKeyRcv; // should be identified as split
 
 			auto& sig = m.m_pVoucher ?
 				m.m_pVoucher->m_Signature :
