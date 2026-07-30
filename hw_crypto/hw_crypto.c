@@ -2947,7 +2947,7 @@ static int KernelUpdateKeysEx(TxKernelCommitments* pComms, const KernelKeys* pKe
 	Gej_Init(pGej);
 	Gej_Init(pGej + 1);
 
-	auto ret = KernelUpdateKeysInternal(pComms, pKeys, pAdd, pGej);
+	int ret = KernelUpdateKeysInternal(pComms, pKeys, pAdd, pGej);
 
 	Gej_Destroy(pGej);
 	Gej_Destroy(pGej + 1);
