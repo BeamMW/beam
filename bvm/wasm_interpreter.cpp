@@ -1710,7 +1710,7 @@ namespace Wasm {
 			auto a_s = Type::SignedFrom(a);
 			auto b_s = Type::SignedFrom(b);
 			Exc::Test(b_s != 0);
-			Exc::Test((b_s != -1) || (a_s != std::numeric_limits<Type::ToFlexible<TIn, true>::T>::min()));
+			Exc::Test((b_s != -1) || (a_s != std::numeric_limits<typename Type::ToFlexible<TIn, true>::T>::min()));
 			return a_s / b_s;
 		}
 		BINOP(div_u) { Exc::Test(b);  return a / b; }
