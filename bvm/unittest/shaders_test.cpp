@@ -651,6 +651,10 @@ namespace bvm2 {
 
 		} m_Eth;
 
+		uint32_t get_WasmVersion() override
+		{
+			return 1; // newer clang tends to generate more code that requires this to work
+		}
 
 		void CallFar(const ContractID& cid, uint32_t iMethod, Wasm::Word pArgs, uint32_t nArgs, uint32_t nFlags) override
 		{
