@@ -188,7 +188,7 @@ typedef union
 	ShieldedOutParams m_Sh;
 } KeyKeeper_AuxBuf;
 
-#define c_KeyKeeper_MaxTxAssets 4
+#define c_KeyKeeper_MaxTxAssets 10
 
 
 typedef struct
