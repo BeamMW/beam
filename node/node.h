@@ -84,6 +84,12 @@ struct Node
 
 		bool m_PreferOnlineMining = true;
 
+		// Accept a finalized coinbase containing outputs this node's owner key
+		// cannot recover -- what pooled mining needs, since the coinbase pays other
+		// participants. Off by default: the check it disables is what stops a
+		// compromised wallet connection from mining for someone else.
+		bool m_AllowForeignCoinbaseOutputs = false;
+
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.

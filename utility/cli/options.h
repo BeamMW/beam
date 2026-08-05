@@ -107,6 +107,7 @@ namespace beam
         extern const char* MINER_KEY;
         extern const char* MINER_JOB_LATENCY;
         extern const char* MINE_ONLINE;
+        extern const char* MINING_ALLOW_FOREIGN_OUTPUTS;
         extern const char* BBS_ENABLE;
         extern const char* NEW_ADDRESS;
         extern const char* GET_ADDRESS;

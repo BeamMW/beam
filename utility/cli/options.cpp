@@ -141,6 +141,7 @@ namespace beam
         const char* OWNER_KEY_REMOVE_ALL = "remove_all_owners";
         const char* MINER_JOB_LATENCY = "miner_job_latency";
         const char* MINE_ONLINE = "mine_online";
+        const char* MINING_ALLOW_FOREIGN_OUTPUTS = "mining_allow_foreign_outputs";
         const char* BBS_ENABLE = "bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_ADDRESS = "get_address";
@@ -431,6 +432,7 @@ namespace beam
             (cli::KEY_MINE, po::value<string>(), "Standalone miner key (deprecated)")
             (cli::MINER_JOB_LATENCY, po::value<uint32_t>(), "Minimal latency in milliseconds for miner job update upon transaction pool change")
             (cli::MINE_ONLINE, po::value<bool>(), "Perfer online mining when owner wallet is conntected")
+            (cli::MINING_ALLOW_FOREIGN_OUTPUTS, po::value<bool>()->default_value(false), "Accept a finalized coinbase paying parties other than this node's owner. Needed for pooled mining; disables the check that stops a compromised wallet connection mining for someone else")
             (cli::PASS, po::value<string>(), "password for keys")
             (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
             (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")

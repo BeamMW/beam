@@ -4305,12 +4305,16 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 		if (bAddAuxKrn)
 			tx.m_vKernels.pop_back();
 
-		// verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
-		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		// Verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else).
+		// Pooled mining needs a coinbase that pays other participants, so an operator may opt out of this check explicitly.
+		if (!m_This.m_Cfg.m_AllowForeignCoinbaseOutputs)
 		{
-			CoinID cid;
-			if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_hh.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
-				ThrowUnexpected();
+			for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+			{
+				CoinID cid;
+				if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_hh.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
+					ThrowUnexpected();
+			}
 		}
 
 		tx.MoveInto(x.m_Block);

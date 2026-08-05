@@ -487,6 +487,10 @@ int main(int argc, char* argv[])
 					if (vm.count(cli::MINE_ONLINE))
 						node.m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
+					node.m_Cfg.m_AllowForeignCoinbaseOutputs = vm[cli::MINING_ALLOW_FOREIGN_OUTPUTS].as<bool>();
+					if (node.m_Cfg.m_AllowForeignCoinbaseOutputs)
+						BEAM_LOG_WARNING() << "mining_allow_foreign_outputs is ON: this node will mine a coinbase that pays parties other than its owner";
+
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 
 					for (size_t i = 0; i < vPeers.size(); i++)
