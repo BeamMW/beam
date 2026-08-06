@@ -4698,6 +4698,14 @@ void Node::Miner::OnFinalizerChanged(Peer* p)
 			}
 	}
 
+	// The coinbase of the block being mined came from the finalizer that just
+	// changed, so that block is stale whoever replaced it. Without this the fee
+	// target left over from it makes Restart() decide there is "no change", and the
+	// node goes on hashing a candidate whose coinbase came from a connection that no
+	// longer exists -- while the finalizer that owns the payout is never asked for
+	// one, and cannot account for the block if it is found.
+	HardAbortSafe();
+
 	Restart();
 }
 
