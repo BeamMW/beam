@@ -4891,7 +4891,19 @@ bool Node::Miner::Restart()
 	if (m_pFinalizer)
 	{
 		if (Peer::Flags::Finalizing & m_pFinalizer->m_Flags)
-			return false; // wait until we receive that outdated finalization
+		{
+			// Wait until we receive that outdated finalization -- but not forever.
+			// The owner may be unable to answer at all, and every later Restart()
+			// returns here, so a question nobody answers would end mining until the
+			// connection happened to drop.
+			uint32_t dt_ms = GetTimeNnz_ms() - m_FinalizeAsked_ms;
+			if (dt_ms < s_FinalizeTimeout_ms)
+				return false;
+
+			BEAM_LOG_WARNING() << "Owner did not finalize within " << (s_FinalizeTimeout_ms / 1000)
+				<< "s, asking again";
+			m_pFinalizer->m_Flags &= ~Peer::Flags::Finalizing;
+		}
 	}
 	else
 		if (!keys.m_pMiner)
@@ -4934,6 +4946,7 @@ bool Node::Miner::Restart()
 
 		assert(!(Peer::Flags::Finalizing & m_pFinalizer->m_Flags));
 		m_pFinalizer->m_Flags |= Peer::Flags::Finalizing;
+		m_FinalizeAsked_ms = GetTimeNnz_ms();
 
 		m_pTaskToFinalize = std::move(pTask);
 	}

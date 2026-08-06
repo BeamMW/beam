@@ -789,6 +789,12 @@ private:
 		Peer* m_pFinalizer = NULL;
 		Task::Ptr m_pTaskToFinalize;
 
+		// When the finalizer was asked. A request it never answers leaves the
+		// Finalizing flag up, and Restart() bails on that flag, so without an expiry
+		// one unanswered question stops this node mining for good.
+		uint32_t m_FinalizeAsked_ms = 0;
+		static const uint32_t s_FinalizeTimeout_ms = 30 * 1000;
+
 		std::mutex m_Mutex;
 		Task::Ptr m_pTask; // currently being-mined
 
