@@ -2413,7 +2413,7 @@
       return;
     }
 
-    // the returned height may be adjusted
+    // The returned height may be adjusted (by 'adj' parameter in PoS chains)
     let jH = jData['h'];
     if (jH != null) { g_height = jH; }
 
@@ -2817,6 +2817,7 @@
     }
     text += AddClass(MakeRef(UrlSelf('assets', { height: Number(g_height) + 1, adj: 1 }), '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     text += '</h2>';
+    // Remark: 'adj' is currently ignored by explorer nodes for 'assets', but it doesn't hurt including it anyways.
 
     // Display table options
     text += DisplayAssetsOptions();
@@ -3242,7 +3243,7 @@
   var g_id = ''; // Used for type=asset & contract
   var g_height = ''; // Used for type=block & blocks & assets
   var g_kernel = ''; // Used for type=block
-  var g_adj = ''; // Used for type=block & blocks & assets (on PoS chains)
+  var g_adj = ''; // Used for type=block (on PoS chains) - Might also be used for blocks & assets one day...
   //var g_n = ''; // Used for type=blocks (NOT USED HERE)
   var g_hMin = ''; // Used for type=asset & contract
   var g_hMax = ''; // Used for type=asset & contract & hdrs
@@ -3259,7 +3260,7 @@
     'hdrs': { display: DisplayHdrs, params: ['cols', 'nMax', 'dh', 'hMax'] },
     'block': { display: DisplayBlock, params: ['height', 'kernel', 'adj'] }, // We let the explorer node handle the case where both 'height' AND 'kernel' are requested...
     //'blocks': { display: DisplayBlocks, params: ['height', 'adj', 'n'] }, // Query details of multiple blocks (NOT USED HERE)
-    'assets': { display: DisplayAssets, params: ['height', 'adj'] },
+    'assets': { display: DisplayAssets, params: ['height', 'adj'] }, // 'adj' is currently ignored by explorer nodes, but it doesn't hurt including it. 
     'asset': { display: DisplayAssetHistory, params: ['id', 'nMaxOps', 'hMin', 'hMax'] },
     'contracts': { display: DisplayContracts, params: [] },
     'contract': { display: DisplayContractState, params: ['id', 'nMaxTxs', 'hMin', 'hMax'] },
