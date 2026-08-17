@@ -3432,12 +3432,7 @@ void ParserContext::OnMethod_DaoVote(uint32_t /* iVer */)
 	{
 		auto pArg = get_ArgsAs<DaoVote::Method::MoveFunds>();
 		if (pArg)
-		{
 			OnMethod(pArg->m_Lock ? "Funds Lock" : "Funds Unlock");
-			GroupArgs gr;
-			DocAddPk("user", pArg->m_pkUser);
-			DocAddAmount("amount", pArg->m_Amount);
-		}
 	}
 	break;
 
