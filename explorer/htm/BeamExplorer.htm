@@ -403,6 +403,9 @@
     font-size: 1.6rem;
     padding: 5px 0 5px 0;
   }
+  p.errorMessage {
+    font-style: italic;
+  }
   summary > * { /* This will avoid new lines if tags are used within a summary */ 
     display: inline;
   }
@@ -1983,7 +1986,8 @@
   }
 
   function UrlSelf(type, params = {}) { // Params is made of pairs { key: value, ... }
-    const text = JSON.stringify(params).replace(/"/g, '&quot;'); // We HTML-encode stringfy's double-quotes to avoid breaking the link
+    // We HTML-encode stringfy's special characters to avoid breaking the link
+    const text = JSON.stringify(params).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); // First '&', then double-quotes    
     return `javascript:showPage('${type}', ${text});`;
   }
 
@@ -2900,7 +2904,7 @@
         .catch(err => {
           console.error('Failed to load atomic swap totals:', err);
           const el = document.getElementById('divSwapTotals');
-          if (el) el.innerHTML = '<p class="error">Error loading totals.</p>';
+          if (el) el.innerHTML = '<p class="errorMessage">Error loading totals.</p>';
         });
     }
   }
@@ -2953,7 +2957,7 @@
         .catch(err => {
           console.error('Failed to load asset swap totals:', err);
           const el = document.getElementById('divAssetSwapTotals');
-          if (el) el.innerHTML = '<p class="error">Error loading totals.</p>';
+          if (el) el.innerHTML = '<p class="errorMessage">Error loading totals.</p>';
         });
     }
   }
@@ -3064,7 +3068,7 @@
     'D': { color: '#00bdbd', original: 'Chainwork', title: 'Total span', description: 'Total block span (identical to Block height)' },
   };
   // Start with PoW names by default
-  let columnHeaders = columnHeaders_pow;
+  let columnHeaders = { ...columnHeaders_pow }; // Copy content (only works for one level deep)
 
   // Array of objects listing the special historical blocks.
   // Remarks:
@@ -3378,7 +3382,10 @@
   // Display a specific page dynamically and asynchronously.
   // Most 'page_id' are identical to the node 'type' (i.e. 'hdrs', 'block', etc.).
   // The parameters are the key:value pairs for the query.
+  let g_showPageCounter = 0; // USe counter to avoid mixing fetched data when switching between pages too quickly
   async function showPage(page_id, parameters = {}) {
+
+    const showPageCounter = ++g_showPageCounter; // Increase and copy the global showPage counter
 
     // Update the global parameters to ensure sync with navigation
     if (parameters.network !== undefined) { g_network = parameters.network; }
@@ -3410,8 +3417,9 @@
     // Scroll to top (to give a natural multi-page feel on switch)
     topFunction();
 
-    // Get active parameters list for the current page
-    const activeParams = pageConfig[page_id].params || [];
+    // Get active parameters list for the current page (or default to 'status')
+    const page = pageConfig[page_id] || (page_id = 'status', pageConfig['status']);
+    const activeParams = page.params || [];
 
     // Helper function to get or reset persistent parameters from localStorage
     // Remark: If defaultValue is a number, paramVal will be define as such too
@@ -3500,6 +3508,7 @@
 
       // Call the explorer node and then the associated Display function
       const data = await fetchAPI(fetchType, fetchParams);
+      if (showPageCounter !== g_showPageCounter) return; // If another page has already been called in the mean time, interrupt this old one
       page.display.call({ responseText: JSON.stringify(data) });
       
     } catch (err) {
