@@ -2838,6 +2838,49 @@ private:
         return json{ { "found", false}, {"height", h } };
     }
 
+    // Resolves the block for the given height and adj direction. false if there's none (vacant height, no adj)
+    // h is the resolved height, 0 means treasury
+    bool ResolveBlock(NodeDB::StateID& sid, Block::SystemState::Full& s, Height& h, Height height, int adj)
+    {
+        assert(height);
+
+        if (FindBlockByHeight(sid, s, height))
+        {
+            h = s.get_Height();
+            assert(h >= height);
+        }
+        else
+        {
+            assert(height > _nodeBackend.m_Cursor.m_hh.m_Height); // requested above current tip
+
+            sid = _nodeBackend.m_Cursor.get_Sid();
+            s = _nodeBackend.m_Cursor.m_Full;
+            h = _nodeBackend.m_Cursor.m_hh.m_Height;
+        }
+
+        if (h != height)
+        {
+            if (!adj)
+                return false;
+
+            if ((h > height) && (adj < 0))
+            {
+                if (_nodeBackend.get_DB().get_Prev(sid))
+                {
+                    _nodeBackend.get_DB().get_State(sid.m_Row, s);
+                    h = s.get_Height();
+                    assert(h < height);
+                }
+                else
+                    h = 0; // fall back to treasury
+            }
+
+            // ignore other cases
+        }
+
+        return true;
+    }
+
     json get_block(Height height, int adj) override
     {
         NodeDB::StateID sid;
@@ -2846,39 +2889,8 @@ private:
 
         if (height)
         {
-            if (FindBlockByHeight(sid, s, height))
-            {
-                h = s.get_Height();
-                assert(h >= height);
-            }
-            else
-            {
-                assert(height > _nodeBackend.m_Cursor.m_hh.m_Height); // requested above current tip
-
-                sid = _nodeBackend.m_Cursor.get_Sid();
-                s = _nodeBackend.m_Cursor.m_Full;
-                h = _nodeBackend.m_Cursor.m_hh.m_Height;
-            }
-
-            if (h != height)
-            {
-                if (!adj)
-                    return get_block_not_found(height);
-
-                if ((h > height) && (adj < 0))
-                {
-                    if (_nodeBackend.get_DB().get_Prev(sid))
-                    {
-                        _nodeBackend.get_DB().get_State(sid.m_Row, s);
-                        h = s.get_Height();
-                        assert(h < height);
-                    }
-                    else
-                        h = 0; // fall back to treasury
-                }
-
-                // ignore other cases
-            }
+            if (!ResolveBlock(sid, s, h, height, adj))
+                return get_block_not_found(height);
         }
         else
         {
@@ -2919,7 +2931,7 @@ private:
         return get_block_not_found(h);
     }
 
-    json get_blocks(Height startHeight, uint64_t n) override {
+    json get_blocks(Height startHeight, uint64_t n, int adj) override {
 
         json result = json::array();
 
@@ -2929,25 +2941,45 @@ private:
 
         NodeDB::StateID sid;
         Block::SystemState::Full s;
+        Height h = startHeight;
 
         Height endHeight = startHeight + n - 1; // correct only for PoW
         _exchangeRateProvider->preloadRates(startHeight, endHeight);
 
-        if (FindBlockByHeight(sid, s, startHeight))
+        // adj applies to the 1st block only, the rest follow upwards
+        if (!ResolveBlock(sid, s, h, startHeight, adj))
         {
-            while (true)
+            result.push_back(get_block_not_found(startHeight));
+            return result;
+        }
+
+        if (!h)
+        {
+            // treasury, nothing to continue from
+            result.push_back(get_treasury());
+            return result;
+        }
+
+        while (true)
+        {
+            result.push_back(extract_block_from_row(sid, s, h));
+            if (!--n)
+                break;
+
+            if (sid.m_Number.v >= _nodeBackend.m_Cursor.m_Full.m_Number.v)
             {
-                result.push_back(extract_block_from_row(sid, s, s.get_Height()));
-                if (!--n)
-                    break;
-
-                if (sid.m_Number.v >= _nodeBackend.m_Cursor.m_Full.m_Number.v)
-                    break;
-
-                sid.m_Number.v++;
-                sid.m_Row = _nodeBackend.FindActiveAtStrict(sid.m_Number);
+                // past the tip, report the rest as missing
+                while (n--)
+                    result.push_back(get_block_not_found(++h)); // correct only for PoW
+                break;
             }
 
+            sid.m_Number.v++;
+            sid.m_Row = _nodeBackend.FindActiveAtStrict(sid.m_Number);
+
+            _nodeBackend.get_DB().get_State(sid.m_Row, s);
+
+            h = s.get_Height();
         }
 
         return result;

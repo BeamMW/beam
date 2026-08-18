@@ -718,7 +718,8 @@ OnRequest(blocks)
     if (start <= 0 || n < 0)
         Exc::Fail("#3.1");
 
-    return _backend.get_blocks(start, n);
+    auto adj = _currentUrl.get_int_arg("adj", 0);
+    return _backend.get_blocks(start, n, static_cast<int>(adj));
 }
 
 OnRequest(hdrs)
