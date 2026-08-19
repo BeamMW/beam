@@ -2912,7 +2912,8 @@
   function DisplayAtomicSwapTotals() { // Query node for Atomic Swap totals and display them in existing 'div'
     const jData = JSON.parse(this.responseText);
     let text = Obj2Html(jData);
-    document.getElementById('divSwapTotals').innerHTML = text;
+    const el = document.getElementById('divSwapTotals'); // Check the div still exists
+    if (el) el.innerHTML = text;
   }
 
   function DisplayAssetSwaps() {
@@ -2977,7 +2978,8 @@
             + '</tr>';
     }
     text += '</table>';
-    document.getElementById('divAssetSwapTotals').innerHTML = text;
+    const el = document.getElementById('divAssetSwapTotals'); // Check the div still exists
+    if (el) el.innerHTML = text;
   }
 
   function DisplayHistoricalBlocks() {
@@ -3476,41 +3478,38 @@
       history.pushState(null, '', newUrl);
     }
 
-    // Asynchronously fetch the data and invoke the corresponding Display function
+    // Get the page configuration
+    const page = pageConfig[page_id];
+
+    // Case of static pages (no explorer node query)
+    if (page.static) { page.display.call(); return; }
+
+    // Populate fetchParams from the active parameters
+    let fetchType = page_id;
+    const fetchParams = {};
+    activeParams.forEach(paramName => {
+      const val = window[paramConfig[paramName].globalVar]; // Retrieve value of global variable
+      if (val != null && val !== '') { fetchParams[paramName] = val; } // First test catches both null & undefined
+    });
+
+    // Handling some special cases (ideally, these should be moved to pageConfig,
+    // to keep showPage() fully generic, but that's probably a bit overkill...)
+
+    // Since asset 0 is not accepted by the explorer node, we display ALL assets instead
+    if (page_id === 'asset' && g_id == 0) {
+      showPage('assets', { replaceState: true });
+      return;
+    }
+    // To get the treasury, we call 'block' with height 0
+    if (page_id === 'treasury') {
+      fetchType = 'block';
+      fetchParams.height = 0;
+    }
+
+    // Call the explorer node to asynchronously fetch the data
+    let data;
     try {
-      // Get page configuration
-      const page = pageConfig[page_id];
-
-      // Case of static pages (no explorer node query)
-      if (page.static) { page.display.call(); return; }
-
-      // Populate fetchParams from the active parameters
-      let fetchType = page_id;
-      const fetchParams = {};
-      activeParams.forEach(paramName => {
-        const val = window[paramConfig[paramName].globalVar]; // Retrieve value of global variable
-        if (val != null && val !== '') { fetchParams[paramName] = val; } // First test catches both null & undefined
-      });
-
-      // Handling some special cases (ideally, these should be moved to pageConfig,
-      // to keep showPage() fully generic, but that's probably a bit overkill...)
-
-      // Since asset 0 is not accepted by the explorer node, we display ALL assets instead
-      if (page_id === 'asset' && g_id == 0) {
-        showPage('assets', { replaceState: true });
-        return;
-      }
-      // To get the treasury, we call 'block' with height 0
-      if (page_id === 'treasury') {
-        fetchType = 'block';
-        fetchParams.height = 0;
-      }
-
-      // Call the explorer node and then the associated Display function
-      const data = await fetchAPI(fetchType, fetchParams);
-      if (showPageCounter !== g_showPageCounter) return; // If another page has already been called in the mean time, interrupt this old one
-      page.display.call({ responseText: JSON.stringify(data) });
-      
+      data = await fetchAPI(fetchType, fetchParams);
     } catch (err) {
       console.error('Failed to load page ' + page_id + ':', err);
       document.getElementById('MainContent').innerHTML = `
@@ -3519,7 +3518,14 @@
         <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry request</a>.</p>
         <p class="querying">&#9656; <a href="javascript:openNodeSelection();">Choose a different node URL</a>.</p>
       `;
+      return; // Stop execution on fetch error
     }
+
+    // If another page has already been called during fetch, interrupt this old one
+    if (showPageCounter !== g_showPageCounter) { return; }
+    // Call the associated Display function
+    page.display.call({ responseText: JSON.stringify(data) });
+
   }
 
   // Helper function to extract parameters from the URL and display the corresponding page
