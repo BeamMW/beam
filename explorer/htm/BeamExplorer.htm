@@ -65,6 +65,34 @@
     ]},
   };
 
+  // Text content for the "What's new" popup
+  const whatsNewText = `
+    <div class="popupSubtitle">v0.9</div>
+    <ul>
+      <li>Remove full HTML reloads to make navigation faster.</li>
+    </ul>
+    <div class="popupSubtitle">v0.8.4</div>
+    <ul>
+      <li>Ignore spaces, dots and comas in search.</li>
+      <li>Add collapsibles to Inputs/Outputs/Kernels.</li>
+      <li>Update list of explorer nodes.</li>
+      <li>Add hard fork 6 to historical blocks.</li>
+      <li>Add id:0 to CA ranges of post-HF6 UTXOs.</li>
+      <li>Other small improvements.</li>
+    </ul>
+    <div class="popupSubtitle">v0.8.3</div>
+    <ul>
+      <li>Add Peer nodes list.</li>
+      <li>Add Atomic Swap list.</li>
+      <li>Propose multiple options for the X axis of graphs.</li>
+      <li>Display all graph values directly on the graph axis.</li>
+      <li>Make timestamps human-readable.
+      <li>Use ms in timestamps for PoS chains.</li>
+      <li>Adjust columns names for PoS chains.</li>
+      <li>Code cleaning and optimization.</li>
+    </ul>
+  `;
+
 </script>
 
 <!-- ************ SECTION 2 - CSS STYLES ************ -->
@@ -792,6 +820,7 @@
     filter: drop-shadow(0 0 3px var(--color_network_select_shadow)); /* Add a halo */
   }
   .popupDialog { /* Dialog popup */
+    white-space: normal;
     border: solid 5px var(--color_popup_border);
     border-radius: var(--round-corner-radius-large);
     box-shadow: 15px 15px 15px -10px #000;
@@ -807,7 +836,7 @@
     color: var(--color_popup_text);
     text-align: center;
     font-weight: bold;
-    padding: 0px 2px 10px 2px;
+    padding: 5px 2px 10px 2px;
   }
   .popupSubtitle { /* Popup subtitle */
     font-size: 1.3rem;
@@ -885,6 +914,29 @@
   #Version {
     font-size: 1rem;
     color: var(--color_banner_version);
+  }
+  #Version a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  #Version a:hover {
+    color: var(--color_banner_menu_link_hover);
+    filter: drop-shadow(0 0 3px var(--color_banner_menu_link_shadow));
+  }
+  #WhatsNewContent {
+    max-width: 80vw;
+    max-height: 70vh;
+    overflow-y: auto;
+    line-height: 1.2;
+    padding: 5px 10px 10px 10px;
+  }
+  #WhatsNewContent ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  #WhatsNewContent li {
+    margin-bottom: 0;
   }
   #Menu {
     font-size: 1.5rem;
@@ -1920,7 +1972,19 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.9</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"><a href="javascript:openWhatsNew();" title="What's new">v0.9</a></span></h1>
+
+          <!-- Popup for What's new -->
+          <dialog class="popupDialog" id="whatsNewPopup">
+            <form id="whatsNewForm" name="whatsNewForm" method="dialog">
+              <div class="popupTitle">- What's new -</div>
+              <div id="WhatsNewContent" class="popupText"></div>
+              <div class="popupButtons">
+                <button type="submit" class="popupButton" id="whatsNewClose" title="Close">Close</button>
+              </div>
+            </form>
+          </dialog>
+
           <div id="Menu">
             <!-- Main explorer menu -->
             <span class="menuItem"><a href="javascript:showPage('hdrs')" title="List of recent Block Headers">Block Headers</a></span>
@@ -3599,6 +3663,12 @@
     // Reload the current page
     loadPageFromURL();
     // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
+  }
+
+  function openWhatsNew() { // Open "What's new" popup
+    const el = document.getElementById('WhatsNewContent');
+    if (el) { el.innerHTML = whatsNewText; } // Populate content from global variable
+    openDialog('whatsNewPopup');
   }
 </script>
 
