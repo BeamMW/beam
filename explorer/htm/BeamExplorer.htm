@@ -1947,7 +1947,7 @@
         <div id="Navigation">
           <div class="NavRow">
             <a id="Back" href="javascript:history.back();" title="Back"><svg width="1.2em" height="1.2em"><use href="#back_icon"/></svg></a>
-            <a id="Reload" href="" title="Reload"><svg width="1.1em" height="1.1em"><use href="#reload_icon"/></svg></a>
+            <a id="Reload" href="" title="Full reload"><svg width="1.1em" height="1.1em"><use href="#reload_icon"/></svg></a>
           </div>
           <div class="NavRow">
             <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></a>
@@ -3384,7 +3384,7 @@
   // Display a specific page dynamically and asynchronously.
   // Most 'page_id' are identical to the node 'type' (i.e. 'hdrs', 'block', etc.).
   // The parameters are the key:value pairs for the query.
-  let g_showPageCounter = 0; // USe counter to avoid mixing fetched data when switching between pages too quickly
+  let g_showPageCounter = 0; // Use counter to avoid mixing fetched data when switching between pages too quickly
   async function showPage(page_id, parameters = {}) {
 
     const showPageCounter = ++g_showPageCounter; // Increase and copy the global showPage counter
@@ -3552,8 +3552,12 @@
   function openDialog(id) { // Open popup
     const popup = document.getElementById(id);
     popup.showModal(); // Display popup
-    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
-    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+    // Check if event listener exists (to avoid adding a new one each time a popup opens)
+    if (!popup.dataset.hasBackdropListener) {
+      // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
+      popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+      popup.dataset.hasBackdropListener = true;
+    }
   }
 
   function closeDialog(id) { // Close popup
