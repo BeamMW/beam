@@ -74,7 +74,7 @@
     </ul>
     <div class="popupSubtitle">v0.8.4</div>
     <ul>
-      <li>Ignore spaces, dots and comas in search.</li>
+      <li>Ignore spaces, dots and commas in search.</li>
       <li>Add collapsibles to Inputs/Outputs/Kernels.</li>
       <li>Update list of explorer nodes.</li>
       <li>Add hard fork 6 to historical blocks.</li>
@@ -87,7 +87,7 @@
       <li>Add Atomic Swap list.</li>
       <li>Propose multiple options for the X axis of graphs.</li>
       <li>Display all graph values directly on the graph axis.</li>
-      <li>Make timestamps human-readable.
+      <li>Make timestamps human-readable.</li>
       <li>Use ms in timestamps for PoS chains.</li>
       <li>Adjust columns names for PoS chains.</li>
       <li>Code cleaning and optimization.</li>
@@ -3573,6 +3573,9 @@
     try {
       data = await fetchAPI(fetchType, fetchParams);
     } catch (err) {
+      // If another page has already been called during fetch, interrupt this old one
+      if (showPageCounter !== g_showPageCounter) { return; }
+      // Otherwise, display a network error message
       console.error('Failed to load page ' + page_id + ':', err);
       document.getElementById('MainContent').innerHTML = `
         <h2 class="title errorMessage">Error Loading Data</h2>
@@ -3586,7 +3589,17 @@
     // If another page has already been called during fetch, interrupt this old one
     if (showPageCounter !== g_showPageCounter) { return; }
     // Call the associated Display function
-    page.display.call({ responseText: JSON.stringify(data) });
+    try {
+      page.display.call({ responseText: JSON.stringify(data) });
+    } catch (err) {
+      console.error('Failed to display page ' + page_id + ':', err);
+      document.getElementById('MainContent').innerHTML = `
+        <h2 class="title errorMessage">Error Displaying Data</h2>
+        <p class="querying">An error occurred while rendering data for page <b>${page_id}</b>.</p>
+        <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry</a>.</p>
+      `;
+      return; // Stop execution on error
+    }
 
   }
 
