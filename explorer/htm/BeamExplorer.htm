@@ -3478,9 +3478,6 @@
       history.pushState(null, '', newUrl);
     }
 
-    // Get the page configuration
-    const page = pageConfig[page_id];
-
     // Case of static pages (no explorer node query)
     if (page.static) { page.display.call(); return; }
 
