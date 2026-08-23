@@ -10,9 +10,10 @@
   - Current version of the file: v0.9.1 (dev)
 
   General rules for developement:
-  - Let's keep everything in one single standalone file, without external dependencies.
+  - Everything is kept in one single standalone file, without external dependencies.
   - No cookies, no trackers. Only local storage to remember user's preferences.
   - Vanilla HTML/JS/CSS compatible with Chrome 83 (to allow using it as a Beam Wallet DApp).
+  - 'use strict' in all <script> blocks to force safer javascript (e.g. no undeclared variables, etc.).
   - Quotes are double for HTML and single for JS (and backticks to allow using both, multilines and variable substitutions).
   - Rule of thumb: 'undefined' is set by the computer (multiple causes) while 'null' is set by the developer (= no value by choice). We use 'value == null' to check both.
   - Graphics are Unicode symbols or embedded SVGs (Remark: inline SVGs in a file served as 'text/html' don't require 'xmlns' definition).
@@ -44,8 +45,7 @@
   <title>Beam Smart Explorer</title>
 
   <!-- ************ SECTION 1 - MAIN GLOBAL VARIABLES ************ -->
-<script>
-  'use strict'; // Force safer JavaScript code (e.g. forbids using undeclared variables, etc.).
+<script> 'use strict'; // GLOBAL VARIABLES
 
   // Check localStorage for light/dark mode status ('light' or '')
   let mode = localStorage.getItem('mode');
@@ -208,7 +208,6 @@
     --color_network_select_background: transparent;
     --color_network_select_background_active: var(--color_banner_search_background);
     --color_network_select_border: var(--color_banner_search_button_border);
-    --color_network_select_shadow: var(--color_network_select_border);
     --color_network_select_text: #eee;
     --color_network_select_hover: #fff;
     --color_network_select_shadow: rgba(255, 255, 255, 0.3);
@@ -358,7 +357,6 @@
     --color_network_select_background: transparent;
     --color_network_select_background_active: var(--color_banner_search_background);
     --color_network_select_border: var(--color_banner_search_button_border);
-    --color_network_select_shadow: var(--color_network_select_border);
     --color_network_select_text: #17204e;
     --color_network_select_hover: #1f276f;
     --color_network_select_shadow: rgba(62, 26, 139, 0.2);
@@ -1920,6 +1918,9 @@
     0% {opacity: 0}
     100% {opacity: 1}
   }
+  @media (prefers-reduced-motion: reduce) { /* In case users asked for reduced motion */
+    html { scroll-behavior: auto; }
+  }
 
 </style>
 
@@ -2044,7 +2045,7 @@
   </div>
 
 <!-- ************ SECTION 4 - CORE JS FUNCTIONS ************ -->
-<script>
+<script> 'use strict'; // CORE DATA PARSING FUNCTIONS
 
   function MakeRef(link, text, target = '_self') {
     return '<a href="' + link + '" target="' + target + '">' + text + '</a>';
@@ -3087,7 +3088,7 @@
 </script>
 
 <!-- ************ SECTION 5 - MAIN JS CODE ************ -->
-<script> // ADDITIONAL GLOBAL VARIABLES
+<script> 'use strict'; // ADDITIONAL GLOBAL VARIABLES
 
   // Array of codes, graph colors, old/new names and descriptions for the Block Header columns
   // (columns with 'null' color won't be displayable as graphs)
@@ -3364,7 +3365,7 @@
 
 </script>
 
-<script> // UPDATE NETWORK AND NODE URL SELECTION
+<script> 'use strict'; // UPDATE NETWORK AND NODE URL SELECTION
 
   // Declare the variable for the node URL query prefix (it will be updated in showPage).
   let g_urlPrefix;
@@ -3427,7 +3428,7 @@
 
 </script>
 
-<script> // QUERY EXPLORER NODE USING AN ASYNC SINGLE-PAGE-APPLICATION (SPA) ARCHITECTURE
+<script> 'use strict'; // QUERY EXPLORER NODE USING AN ASYNC SINGLE-PAGE-APPLICATION (SPA) ARCHITECTURE
 
   // Query the explorer node using the standard async 'fetch',
   // with a given type ('hdrs', 'block', etc.) and the key:value pairs parameters.
@@ -3622,7 +3623,7 @@
 </script>
 
 <!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
-<script> // MANAGE POPUP FOR EXPLORER NODE SELECTION
+<script> 'use strict'; // MANAGE POPUP FOR EXPLORER NODE SELECTION
 
   function openDialog(id) { // Open popup
     const popup = document.getElementById(id);
@@ -3686,7 +3687,7 @@
   }
 </script>
 
-<script> // MISCELLANEOUS STUFF
+<script> 'use strict'; // MISCELLANEOUS STUFF
 
   // Process a block/kernel search request
   function submitSearch() {
@@ -3701,7 +3702,7 @@
 
   // Parse metadata to add classes
   function addClassesToMetadata() {
-    for (let str of document.querySelectorAll('.metadata')) {
+    for (let str of document.querySelectorAll('.metadata')) { // 'querySelectorAll' returns a static node list (i.e. no risk when changing the DOM)
       // Add a class around the asset name (the name field is detected with a regexp)
       str.innerHTML = str.innerHTML.replace(/(:|;)N=([^;]*)/,'$1N=<span class="metadataAssetName">$2</span>');
     }
@@ -3714,7 +3715,7 @@
 
   // Replace empty tables with a text
   function hideEmptyTables() {
-    for (let myTable of document.getElementsByTagName('table')) {
+    for (let myTable of Array.from(document.getElementsByTagName('table'))) { // 'Array.from' makes the live collection into a static one (to avoid problems when changing the DOM)
       // Check if table has only one row
       if (myTable.rows.length == 1) {
         let myRow = myTable.rows[0];
@@ -3725,7 +3726,7 @@
           // Add a span with a simple text after the table
           let mySpan = document.createElement('span');
           mySpan.className = 'noDataText';
-          mySpan.innerHTML = '(none)'
+          mySpan.textContent = '(none)';
           myTable.parentNode.insertBefore(mySpan, myTable.nextSibling); // (This is the way to add a node AFTER another...)
         }
       }
@@ -3733,12 +3734,12 @@
     // While at it, add the same text in empty spans...
     for (let myEmptySpan of document.getElementsByClassName('emptySpan')) {
       myEmptySpan.classList.add('noDataText'); 
-      myEmptySpan.innerHTML = '(none)';
+      myEmptySpan.textContent = '(none)';
     }
   }
 </script>
 
-<script> // ADD EXPAND OPTIONS TO ALL HASHES OR METADATA (CSS DISPLAYS THEM TRUNCATED BY DEFAULT)
+<script> 'use strict'; // ADD EXPAND OPTIONS TO ALL HASHES OR METADATA (CSS DISPLAYS THEM TRUNCATED BY DEFAULT)
 
   function addExpandOptions() {
     // Text of type Hash (truncated/expanded)
@@ -3769,9 +3770,9 @@
       let col = input.closest('th,td').cellIndex;
       let table = input.closest('table');
       // Loop on all cells in that column
-      for (let myRow of table.rows) {
+      for (let myRow of Array.from(table.rows)) { // 'Array.from' makes the live collection into a static one
         // Remove all truncated classes in the cell
-        for (let myItem of myRow.cells[col].querySelectorAll('.truncated')) {
+        for (let myItem of myRow.cells[col].querySelectorAll('.truncated')) { // 'querySelectorAll' returns a static node list (i.e. no risk if changing the DOM)
           myItem.classList.remove('truncated');
           myItem.classList.add('expanded');
           // Switch action of the clickable symbols
@@ -3781,7 +3782,7 @@
       }
     } else {
       // Expand only the item and its siblings
-      for (let myItem of input.parentNode.querySelectorAll('.truncated')) {
+      for (let myItem of input.parentNode.querySelectorAll('.truncated')) { // 'querySelectorAll' returns a static node list (i.e. no risk if changing the DOM)
         myItem.classList.remove('truncated');
         myItem.classList.add('expanded');
         // Switch action of the clickable symbols
@@ -3799,7 +3800,7 @@
       let col = input.closest('th,td').cellIndex;
       let table = input.closest('table');
       // Loop on all cells in that column
-      for (let myRow of table.rows) {
+      for (let myRow of Array.from(table.rows)) { // 'Array.from' makes the live collection into a static one
         // Remove all expanded classes in the cell
         for (let myItem of myRow.cells[col].querySelectorAll('.expanded')) {
           myItem.classList.remove('expanded');
@@ -3900,7 +3901,7 @@
   }
 </script>
 
-<script> // SELECTION OPTIONS FOR THE TABLE OF CONTRACT CALLS
+<script> 'use strict'; // SELECTION OPTIONS FOR THE TABLE OF CONTRACT CALLS
 
   function DisplayContractOptions() {
     // Display table options
@@ -3960,7 +3961,7 @@
   }
 </script>
 
-<script> // SELECTION OPTIONS FOR THE TABLE OF AN ASSET
+<script> 'use strict'; // SELECTION OPTIONS FOR THE TABLE OF AN ASSET
 
   function DisplayAssetOptions() {
     // Display table options
@@ -4020,7 +4021,7 @@
   }
 </script>
 
-<script> // SELECTION OPTIONS FOR THE TABLE OF ALL ASSETS
+<script> 'use strict'; // SELECTION OPTIONS FOR THE TABLE OF ALL ASSETS
 
   function DisplayAssetsOptions() {
     // Display table options
@@ -4054,7 +4055,7 @@
   }
 </script>
 
-<script> // GRAPH DISPLAY FUNCTIONS
+<script> 'use strict'; // GRAPH DISPLAY FUNCTIONS
 
   // Global variables for the graphs
   // For x and y data (as well as ticks and colors), each key is a column code (usually one letter) and its value is the corresponding array of data.
@@ -4104,6 +4105,7 @@
     // Fill the global variable with the default colors
     for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
     // Get locally saved colors, if any
+    let g_graph_colors;
     try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
       g_graph_colors = JSON.parse(localStorage.getItem('g_graph_colors'));
     } catch (error) { // In case of any parsing error, also set the variable to 'null'
@@ -4131,8 +4133,9 @@
       // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
       g_graph.xcode = 'row';
       const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
-      const headerCode = headers[col].firstChild.dataset.code; // Get the code of the sorted column from the <span> in its header
-      const isValid = headerCode in g_graph.xcodes; // Check if the sorted column is an X axis option
+      const headerCode = headers[col]?.firstElementChild?.dataset?.code; // Get the code of the sorted column from the <span> in its header (or 'null' if non-existent)
+      const isValid = headerCode && (headerCode in g_graph.xcodes); // Check if the sorted column is an X axis option
+
       // Disable all alternative X axis options if the sorted column is NOT one of them
       for (let code of Object.keys(g_graph.xcodes)) {
         const properties = { selected: (code == 'row'), disabled: (code == 'row') ? false : !isValid };
@@ -4152,8 +4155,8 @@
     // Loop on each header cell of the table
     for (let col = 0; col < headers.length; col++) {
       const header = headers[col];
-      const title = header.firstChild.textContent;
-      const code = header.firstChild.dataset.code; // Get the column code from the <span>
+      const code = header.firstElementChild?.dataset?.code; // Get the column code from the <span> (or 'null' if non-existent)
+      if (!code) continue; // Skip if we can't get the code
       // All columns for which a color has been defined in the global variable 'columnHeaders' can be displayed as graphs
       if (columnHeaders[code].color !== null) {
         // Add a checkbox to the right of the header title
@@ -4221,11 +4224,14 @@
     graphSVG.addEventListener('mouseleave', graphHoverOff); // Cursor disapears when the mouse leaves the graph area
     graphSVG.addEventListener('click', graphHoverToggle); // Cursor freezes and unfreezes when clicked
     // Add event to scroll down to the highlighted table row
-    graphSVG.getElementById('graphCursorMarker').addEventListener('click', function(event) {
-      event.stopPropagation(); // Stop propagation to avoid triggering the other SVG events
-      g_graph.hover = false; // Ensure the cursor now remains fixed
-      scrollTo('.rowHighlight','center'); // Scroll to the highlighted table row
-    });
+    const marker = document.getElementById('graphCursorMarker');
+    if (marker) { // Stop if -for any reason- the SVG element does not exist
+      marker.addEventListener('click', function(event) {
+        event.stopPropagation(); // Stop propagation to avoid triggering the other SVG events
+        g_graph.hover = false; // Ensure the cursor now remains fixed
+        scrollTo('.rowHighlight', 'center'); // Scroll to the highlighted table row
+      });
+    }
 
     // Display empty Y axis, just for decoration
     drawYAxis();
@@ -4252,7 +4258,8 @@
     // Get context information
     const checkbox = event.target;
     const col = checkbox.dataset.column; // Get the column number
-    const code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+    const code = checkbox.previousElementSibling?.dataset?.code; // Get the column code from the <span> just before the checkbox (or 'null' if non-existent)
+    if (!code) return; // Stop if we couldn't get the code
     const header = checkbox.closest('th').textContent; // Get header text
     const description = columnHeaders[code].description; // Get description
 
@@ -4396,14 +4403,15 @@
   // Recompute one or all the Y graph data arrays (e.g. after checking a checkbox, or after sorting or filtering the table)
   function updateGraphDataY(column) { // If no 'column' parameter is given, then all columns with checkboxes will be considered
     // Check if data should be updated for one or all graphs
-    let checkboxes = (column !== undefined) ?
+    const checkboxes = (column !== undefined) ?
       document.querySelectorAll('#checkbox_column_' + column) : // Get only the one requested checkbox
       document.querySelectorAll('.tableGraphCheckbox'); // Get all the checkboxes
 
     // Update Y-coordinates for all selected checked checkboxes
     for (let checkbox of checkboxes) {
-      let col = checkbox.dataset.column; // Get the column number
-      let code = checkbox.previousElementSibling.dataset.code; // Get the column code from the <span> just before the checkbox
+      const col = checkbox.dataset.column; // Get the column number
+      const code = checkbox.previousElementSibling?.dataset?.code; // Get the column code from the <span> just before the checkbox (if it exists)
+      if (!code) continue; // Skip if we couldn't get the code
       // Add/update or remove data series for the graph
       if (checkbox.checked == false) { // Remove data series (this shouldn't be needed, but we do it just in case)
         delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
@@ -4423,8 +4431,8 @@
           });
         }
         // Compute and store nice axis ticks (including nice min and max values)
-        let min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
-        let max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
+        const min = Math.min(...g_graph.y[code]); // Compute the min (the spread operator '...' expands the array elements)
+        const max = Math.max(...g_graph.y[code]); // Compute the max (the spread operator '...' expands the array elements)
         // Get arrays of nicely defined ticks ('primary', 'secondary', and nice 'min' and 'max')
         g_graph.yTicks[code] = (code == 'T') ?
           defineNiceTimeTicks(min, max, 5) : // Special case for timestamps
@@ -4791,7 +4799,7 @@
       const xPercentage = 100 * g_graph.xsvg[code][g_graph.index] / g_graph.width;
       // Move scale cursor to the corresponding axis position
       document.getElementById('scaleCursorX').setAttribute('x', xPercentage + '%');
-      document.getElementById('scaleCursorXValue').innerHTML = xNice;
+      document.getElementById('scaleCursorXValue').setContent = xNice;
       // Update the axis tooltip to give the value for all the available x coordinates
       let text = '';
       for (code in g_graph.xcodes) {
@@ -4815,7 +4823,7 @@
       const yPercentage = 100 - 100 * g_graph.ysvg[code][g_graph.index] / g_graph.height;
       // Move scale cursor to the corresponding axis position
       document.getElementById('scaleCursorY_' + code).setAttribute('y', yPercentage + '%');
-      document.getElementById('scaleCursorYValue_' + code).innerHTML = yNice;
+      document.getElementById('scaleCursorYValue_' + code).setContent = yNice;
       // Add/replace the value in the second line of its tooltip
       const container = document.getElementById('yAxisContainer_' + code);
       container.title = container.title.replace(/[ : ]*\n.*/, ' : \n' + yNice); // Everything after the new line becomes the new value
@@ -4823,7 +4831,7 @@
   }
   function graphUpdateCursor() { // Update or reset cursor when table rows have changed
     // Get a list of all non-header table rows (Remark: There is always at least one 'tbody', even if not explicitely defined)
-    const allRows = document.querySelector('#divTableBlocks table').tBodies[0].rows;
+    const allRows = Array.from(document.querySelector('#divTableBlocks table').tBodies[0].rows); // 'Array.from' makes the live collection into a static one
     // Remove highlighting marks in rows not visible anymore
     for (let row of allRows) { if (!g_graph.rows.includes(row)) { row.classList.remove('rowHighlight'); }};
     // Get the index of the first visible highlighted row (if any)
@@ -4839,7 +4847,7 @@
 
 </script>
 
-<script> // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
+<script> 'use strict'; // SELECTION OPTIONS FOR THE TABLE OF BLOCK HEADERS
 
   function DisplayHdrsOptions() {
 
@@ -5224,16 +5232,16 @@
     let nbr = 0;
     for (let item of document.querySelectorAll('.columnOptionNumber')) {
       nbr++;
-      item.innerHTML = nbr.toString().padStart(2,'0') + '. ';
+      item.setContent = nbr.toString().padStart(2,'0') + '. ';
     }
   }
 </script>
 
-<script> // ADD SEARCHING AND FILTERING OPTIONS TO TABLES
+<script> 'use strict'; // ADD SEARCHING AND FILTERING OPTIONS TO TABLES
 
   // ALLOW ADDING FILTERS TO FIRST ROW OF ALL LONG TABLES
   function addFilterOption() {
-    for (let myTable of document.getElementsByTagName('table')) {
+    for (let myTable of Array.from(document.getElementsByTagName('table'))) { // 'Array.from' makes the live collection into a static one (to avoid problems when changing the DOM)
       // Ignore tables of certain specific classes
       if (!myTable.classList.contains('tableTotals') && !myTable.classList.contains('tableSummary') && !myTable.closest('.divTableStatus')) {
         let myRow = myTable.rows[0];
@@ -5249,7 +5257,7 @@
           // Mark the row as 'header'
           myRow.classList.add('headerRow');
           // Define all cells in this first row as 'th' (remark: any attribute of those cells are lost, but we don't care)
-          for (let myTd of myRow.cells) {
+          for (let myTd of Array.from(myRow.cells)) { // 'Array.from' makes the live collection into a static one
             let myTh = document.createElement('th');
             myTh.innerHTML = '<div>' + myTd.innerHTML + '</div>'; // This <div> is important: it will be used later on when filters are activated
             myTd.replaceWith(myTh);
@@ -5281,7 +5289,7 @@
     myRow.removeAttribute('title');
 
     // Apply to each cell of the first row (whether 'th' or 'td', it doesn't matter)
-    for (let myHeader of myRow.cells) {
+    for (let myHeader of Array.from(myRow.cells)) { // 'Array.from' makes the live collection into a static one
       // Add a class to the existing div (it will be clickable for sorting),
       myHeader.querySelector('div').classList.add('sortable');
       myHeader.querySelector('div').title = 'Sort column';
@@ -5478,7 +5486,7 @@
   }
 </script>
 
-<script> // MORE MISCELLANEOUS STUFF
+<script> 'use strict'; // MORE MISCELLANEOUS STUFF
 
   // SCROLL FUNCTIONS
   window.onscroll = function () { scrollFunction() }
