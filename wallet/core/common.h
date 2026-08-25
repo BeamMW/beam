@@ -343,8 +343,6 @@ namespace beam::wallet
     MACRO(AssetMetadata,                   116, std::string)\
     MACRO(DexOrderID,                      117, DexOrderID) \
     MACRO(ExternalDexOrderID,              118, DexOrderID) \
-    /* routes negotiation via Slatepack armor instead of SBBS; public so the peer responds manually too */ \
-    MACRO(ManualTransport,                 119, bool) \
     MACRO(ExchangeRates,                   120, std::vector<ExchangeRate>) \
     MACRO(OriginalToken,                   121, std::string) \
     /* Lelantus */ \
@@ -387,9 +385,17 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
-        // Manual transport (Slatepack): last armored negotiation message produced for this tx,
-        // kept so the user can re-copy/re-save it after dismissing the produce dialog.
-        SlatepackOutgoing = 144,
+        // Manual transport (Slatepack). Both are PRIVATE, and deliberately so: the flag means
+        // "this negotiation arrived, and continues, by hand", which only the local endpoint that
+        // received it can know. Were it a public parameter a peer could set it on us and push our
+        // replies off SBBS, so it is never serialized to the wire - SlatepackEndpoint::Commit()
+        // sets it when a pasted Slatepack is confirmed.
+        //
+        // Routes this tx's negotiation via Slatepack armor instead of SBBS.
+        ManualTransport = 144,
+        // Last armored negotiation message produced for this tx, kept so the user can
+        // re-copy/re-save it after dismissing the produce dialog.
+        SlatepackOutgoing = 145,
 
         Status = 151,
         KernelID = 152,

@@ -89,12 +89,6 @@ namespace beam::wallet
             .AddParameter(TxParameterID::PeerProtoVersion, s_ProtoVersion)
             .AddParameter(TxParameterID::PeerMaxHeight, hMax);
 
-        // Propagate manual (Slatepack) transport so the peer routes its replies the same way
-        // instead of falling back to SBBS.
-        bool manualTransport = false;
-        if (GetParameter(TxParameterID::ManualTransport, manualTransport) && manualTransport)
-            msg.AddParameter(TxParameterID::ManualTransport, true);
-
         if (m_IsSender)
         {
             msg
@@ -137,7 +131,6 @@ namespace beam::wallet
         case TxParameterID::Lifetime:
         case TxParameterID::PaymentConfirmation:
         case TxParameterID::PeerProtoVersion:
-        case TxParameterID::ManualTransport: // peer tells us to route replies via Slatepack, not SBBS
         case TxParameterID::MyEndpoint:
         case TxParameterID::PeerEndpoint:
         case TxParameterID::PeerMaxHeight:

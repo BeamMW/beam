@@ -156,6 +156,7 @@ namespace beam
         const char* SLATEPACK_FILE = "slatepack_file";
         const char* SLATEPACK_SAVE = "save";
         const char* SLATEPACK_EXPORT = "slatepack_export";
+        const char* SLATEPACK_YES = "yes";
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* UTXO_LIST = "utxo_list";
@@ -473,6 +474,7 @@ namespace beam
             (cli::SLATEPACK, po::bool_switch(), "with 'send': produce a Slatepack for manual copy-paste transfer instead of sending over SBBS")
             (cli::SLATEPACK_FILE, po::value<string>(), "with 'slatepack': path to a Slatepack file to import (omit to paste interactively)")
             (cli::SLATEPACK_SAVE, po::value<string>()->implicit_value(""), "with 'send'/'slatepack'/'slatepack_export': save the produced pack to a file (bare = <wallet_dir>/<txid>.slatepack, or =<path>)")
+            (cli::SLATEPACK_YES, po::bool_switch(), "with 'slatepack': accept the reviewed transaction without an interactive prompt (for scripts and pipes)")
             (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::UTXO_LIST, "print the list of UTXOs (should be used with info command)")
@@ -1002,17 +1004,30 @@ namespace beam
         return read_secret_impl(pass, "Enter password: ", cli::PASS, vm);
     }
 
-    bool read_slatepack(std::string& out, const po::variables_map& vm)
+    bool read_slatepack(std::string& out, const po::variables_map& vm, std::string& error)
     {
         out.clear();
+        error.clear();
+
         if (vm.count(cli::SLATEPACK_FILE))
         {
-            std::ifstream f(vm[cli::SLATEPACK_FILE].as<std::string>());
+            const std::string path = vm[cli::SLATEPACK_FILE].as<std::string>();
+            std::ifstream f(path, std::ios::binary);
             if (!f)
+            {
+                error = "cannot open '" + path + "'";
                 return false;
+            }
             std::stringstream ss;
             ss << f.rdbuf();
+            if (f.bad())
+            {
+                error = "cannot read '" + path + "'";
+                return false;
+            }
             out = ss.str();
+            if (out.empty())
+                error = "'" + path + "' is empty";
         }
         else
         {
@@ -1026,6 +1041,8 @@ namespace beam
                 if (out.find("ENDSLATEPACK.") != std::string::npos)
                     break;
             }
+            if (out.empty())
+                error = "nothing was pasted";
         }
         return !out.empty();
     }

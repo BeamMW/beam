@@ -13,11 +13,23 @@
 // limitations under the License.
 
 #include "wallet/core/slatepack_endpoint.h"
-#include "wallet/core/slatepack.h"
 #include "utility/logger.h"
 
 namespace beam::wallet
 {
+    namespace
+    {
+        // Parse the hex tx id the UI/CLI round-trips through ImportInfo::m_TxID.
+        bool TxIDFromHex(const std::string& s, TxID& out)
+        {
+            const auto v = from_hex(s);
+            if (v.size() != out.size())
+                return false;
+            std::copy(v.begin(), v.end(), out.begin());
+            return true;
+        }
+    }
+
     SlatepackEndpoint::SlatepackEndpoint(IWalletMessageConsumer& wallet, const IWalletDB::Ptr& walletDB, OutgoingHandler handler)
         : BaseMessageEndpoint(wallet, walletDB)
         , m_WalletDB(walletDB)
@@ -25,18 +37,6 @@ namespace beam::wallet
     {
         Subscribe();
         m_WalletDB->Subscribe(this);
-
-        // Drain Slatepacks queued while the wallet couldn't decrypt them (read-only path). A hot
-        // wallet decrypts inline, so this is normally empty.
-        for (const auto& m : m_WalletDB->getIncomingWalletMessages())
-        {
-            proto::BbsMsg msg;
-            msg.m_Channel = m.m_Channel;
-            msg.m_TimePosted = getTimestamp();
-            msg.m_Message = m.m_Message;
-            ProcessMessage(msg);
-            m_WalletDB->deleteIncomingWalletMessage(m.m_ID);
-        }
     }
 
     SlatepackEndpoint::~SlatepackEndpoint()
@@ -61,36 +61,36 @@ namespace beam::wallet
         // Inverse of the base endpoint: handle ONLY transactions flagged for manual transport.
         bool isManual = false;
         storage::getTxParameter(*m_WalletDB, txID, TxParameterID::ManualTransport, isManual);
-        if (isManual)
-            // Stash the txID for the SendRawMessage that follows synchronously in this Send()
-            // call (it sees only the encrypted body, but must label the produced Slatepack).
-            m_CurrentTxID = txID;
         return isManual;
     }
 
     void SlatepackEndpoint::Send(const WalletID& peerID, const SetTxParameter& msg)
     {
-        // A manual tx torn down (cancel/expire) notifies the peer with a FailureReason — nothing
-        // useful to hand-deliver, so don't armor it. Also drop the stored outgoing Slatepack: the
-        // tx is terminal, so its armored negotiation message is dead data.
+        if (!AcceptsMessage(msg.m_TxID))
+            return; // not a manual tx - the SBBS endpoint carries it
+
+        // A manual tx torn down (cancel/expire) notifies the peer with a FailureReason - nothing
+        // useful to hand-deliver, so don't armor it. Also drop the stored outgoing Slatepack for
+        // THAT tx: it is terminal, so its armored negotiation message is dead data.
         for (const auto& p : msg.m_Parameters)
             if (p.first == TxParameterID::FailureReason)
             {
-                m_WalletDB->delTxParameter(m_CurrentTxID, kDefaultSubTxID, TxParameterID::SlatepackOutgoing);
+                m_WalletDB->delTxParameter(msg.m_TxID, kDefaultSubTxID, TxParameterID::SlatepackOutgoing);
                 return;
             }
 
-        m_LiveSend = true;
         BaseMessageEndpoint::Send(peerID, msg);
-        m_LiveSend = false;
     }
 
     void SlatepackEndpoint::SendRawMessage(const WalletID& peerID, ByteBuffer&& encrypted)
     {
-        // Armor only a live send routed through Send() above. ProcessStoredMessages replays every
-        // stored SBBS message to every endpoint on startup; those aren't ours to armor.
-        if (!m_LiveSend)
+        // Armor only a live negotiation message routed through Send() above, which is the only
+        // caller that knows which tx this ciphertext belongs to. Wallet::ProcessStoredMessages
+        // replays raw stored buffers into every endpoint on startup; those aren't ours to armor.
+        const TxID* pTxID = GetSendingTxID();
+        if (!pTxID)
             return;
+        const TxID txID = *pTxID;
 
         slatepack::TxNegotiation n;
         n.m_Peer = peerID;
@@ -101,13 +101,35 @@ namespace beam::wallet
         // Persist the latest outgoing Slatepack so the user can re-copy it after dismissing the
         // produce dialog; survives a wallet restart (manual transfers are long-lived). Notify so
         // the tx list reloads with the param now, not only on the next tx change (the peer reply).
-        storage::setTxParameter(*m_WalletDB, m_CurrentTxID, TxParameterID::SlatepackOutgoing, armored, true);
+        storage::setTxParameter(*m_WalletDB, txID, TxParameterID::SlatepackOutgoing, armored, true);
 
         if (m_OnOutgoing)
-            m_OnOutgoing(m_CurrentTxID, armored);
+            m_OnOutgoing(txID, armored);
     }
 
-    bool SlatepackEndpoint::Preview(const std::string& armoredText, std::string& error, ImportInfo& info)
+    void SlatepackEndpoint::ExpirePendingImports()
+    {
+        const Timestamp now = getTimestamp();
+        for (auto it = m_PendingImports.begin(); it != m_PendingImports.end(); )
+        {
+            if (now > it->second.m_Created + s_PendingImportTtl_s)
+                it = m_PendingImports.erase(it);
+            else
+                ++it;
+        }
+
+        // Hard cap as well: a stream of previews within the TTL must not grow without bound.
+        while (m_PendingImports.size() >= s_MaxPendingImports)
+        {
+            auto oldest = m_PendingImports.begin();
+            for (auto it = m_PendingImports.begin(); it != m_PendingImports.end(); ++it)
+                if (it->second.m_Created < oldest->second.m_Created)
+                    oldest = it;
+            m_PendingImports.erase(oldest);
+        }
+    }
+
+    bool SlatepackEndpoint::Preview(const std::string& armoredText, slatepack::Error& error, ImportInfo& info)
     {
         slatepack::PayloadType type;
         ByteBuffer payload;
@@ -116,14 +138,14 @@ namespace beam::wallet
 
         if (type != slatepack::PayloadType::TxNegotiation)
         {
-            error = "unsupported Slatepack type";
+            error = slatepack::Error::UnsupportedType;
             return false;
         }
 
         slatepack::TxNegotiation n;
         if (!slatepack::FromBytes(n, payload))
         {
-            error = "damaged Slatepack (payload)";
+            error = slatepack::Error::BadPayload;
             return false;
         }
 
@@ -132,13 +154,22 @@ namespace beam::wallet
         msg.m_TimePosted = getTimestamp();
         msg.m_Message = std::move(n.m_Ciphertext);
 
-        // Decrypt with a subscribed own-address key but do NOT hand it to the wallet yet — the
+        // Decrypt with a subscribed own-address key but do NOT hand it to the wallet yet - the
         // user confirms first. A Slatepack none of our addresses can decrypt is for another wallet.
         SetTxParameter decrypted;
         WalletID myAddr = Zero;
-        if (!ProcessMessage(msg, &decrypted, &myAddr, false))
+        switch (ProcessMessage(msg, &decrypted, &myAddr, false))
         {
-            error = "This Slatepack isn't addressed to your wallet.";
+        case MsgResult::Decrypted:
+            break;
+        case MsgResult::ReadOnly:
+            error = slatepack::Error::ReadOnlyWallet;
+            return false;
+        case MsgResult::Handler:
+            error = slatepack::Error::HandlerAddress;
+            return false;
+        default:
+            error = slatepack::Error::NotForThisWallet;
             return false;
         }
 
@@ -156,7 +187,7 @@ namespace beam::wallet
         }
         else
         {
-            // First look at an incoming invitation — summarise straight from the message.
+            // First look at an incoming invitation - summarise straight from the message.
             decrypted.GetParameter(TxParameterID::Amount, info.m_Amount);
             decrypted.GetParameter(TxParameterID::AssetID, info.m_AssetID);
             decrypted.GetParameter(TxParameterID::Fee, info.m_Fee);
@@ -166,20 +197,41 @@ namespace beam::wallet
         }
 
         // Hold the message until the user confirms (Commit) or discards (CancelPending).
-        m_PendingImports[info.m_TxID] = std::move(msg);
+        ExpirePendingImports();
+        Pending& p = m_PendingImports[info.m_TxID];
+        p.m_Msg     = std::move(msg);
+        p.m_Created = getTimestamp();
+
+        error = slatepack::Error::None;
         return true;
     }
 
-    bool SlatepackEndpoint::Commit(const std::string& txId, std::string& error)
+    bool SlatepackEndpoint::Commit(const std::string& txId, slatepack::Error& error)
     {
         auto it = m_PendingImports.find(txId);
         if (it == m_PendingImports.end())
         {
-            error = "no pending Slatepack to confirm";
+            error = slatepack::Error::NoPendingImport;
             return false;
         }
-        ProcessMessage(it->second); // deliver to the wallet — the transaction proceeds
+
+        const proto::BbsMsg msg = std::move(it->second.m_Msg);
         m_PendingImports.erase(it);
+
+        // Flag the tx for manual transport BEFORE delivering it. The negotiator produces its
+        // reply synchronously from inside OnWalletMessage, and both endpoints consult this
+        // parameter to decide who carries that reply - so it has to be committed first, or the
+        // SBBS endpoint would post the reply as well.
+        //
+        // Setting it here, rather than trusting a ManualTransport parameter carried in the
+        // message, is deliberate: the flag means "this arrived by hand", which only the endpoint
+        // that received it can know. A peer must not be able to push us off SBBS.
+        TxID txID;
+        if (TxIDFromHex(txId, txID))
+            storage::setTxParameter(*m_WalletDB, txID, TxParameterID::ManualTransport, true, false);
+
+        ProcessMessage(msg); // deliver to the wallet - the transaction proceeds
+        error = slatepack::Error::None;
         return true;
     }
 
