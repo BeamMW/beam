@@ -57,11 +57,12 @@ namespace beam::wallet {
             DeleteAddr(m_Addresses.begin()->get_ParentObj());
     }
 
-    bool BaseMessageEndpoint::ProcessMessage(const proto::BbsMsg& msg, SetTxParameter* pDecrypted, WalletID* pMyAddr, bool deliver)
+    BaseMessageEndpoint::MsgResult BaseMessageEndpoint::ProcessMessage(
+        const proto::BbsMsg& msg, SetTxParameter* pDecrypted, WalletID* pMyAddr, bool deliver)
     {
         Addr::Channel key;
         key.m_Value = msg.m_Channel;
-        bool delivered = false;
+        MsgResult res = MsgResult::NotForUs;
 
         for (ChannelSet::iterator it = m_Channels.lower_bound(key); ; ++it)
         {
@@ -73,10 +74,15 @@ namespace beam::wallet {
 
             if (!m_pKdfSbbs)
             {
-                // read-only wallet
+                // read-only wallet: we cannot decrypt. Park the message for a hot wallet to pick
+                // up later - but only when we were actually asked to consume it. A preview must
+                // not have side effects, so it just reports that decryption is impossible.
+                if (!deliver)
+                    return MsgResult::ReadOnly;
+
                 m_WalletDB->saveIncomingWalletMessage(msg.m_Channel, msg.m_Message);
                 OnIncomingMessage();
-                return true;
+                return MsgResult::Delivered;
             }
 
             ByteBuffer buf = msg.m_Message; // duplicate, copy
@@ -90,8 +96,17 @@ namespace beam::wallet {
 
             if (x.m_Wid.m_pHandler)
             {
+                // A raw-handler address (max privacy / vouchers). There is no SetTxParameter to
+                // summarise, so a preview can only report that - delivering here would both skip
+                // the user's confirmation and double-deliver on the subsequent Commit().
+                if (!deliver)
+                {
+                    res = MsgResult::Handler;
+                    continue;
+                }
+
                 x.m_Wid.m_pHandler->OnMsg(Blob(pMsg, nSize));
-                delivered = true;
+                res = MsgResult::Delivered;
             }
             else
             {
@@ -114,13 +129,15 @@ namespace beam::wallet {
                         *pDecrypted = msgWallet;
                     if (pMyAddr)
                         *pMyAddr = it->get_ParentObj().m_Wid.m_Value;
-                    if (deliver)
-                        m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
-                    return true;
+                    if (!deliver)
+                        return MsgResult::Decrypted;
+
+                    m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
+                    return MsgResult::Delivered;
                 }
             }
         }
-        return delivered;
+        return res;
     }
 
     BaseMessageEndpoint::Addr* BaseMessageEndpoint::CreateAddr(const WalletID& wid, IHandler* pHandler)
@@ -235,6 +252,9 @@ namespace beam::wallet {
 
         if (!AcceptsMessage(msg.m_TxID))
             return;
+
+        // Make the tx visible to SendRawMessage, which is handed only the encrypted body.
+        SendingTxScope scope(*this, msg.m_TxID);
 
         Serializer ser;
         ser & msg;
@@ -460,7 +480,27 @@ namespace beam::wallet {
     {
         Subscribe();
         m_WalletDB->Subscribe(this);
+        ProcessStoredIncoming();
 	}
+
+    void WalletNetworkViaBbs::ProcessStoredIncoming()
+    {
+        // Messages parked by ProcessMessage() while the wallet was read-only. Without an SBBS key
+        // we still cannot decrypt them, and re-processing would just delete and re-insert every
+        // row on each start, so leave the queue alone until the wallet is opened with its key.
+        if (!CanDecrypt())
+            return;
+
+        for (const auto& m : m_WalletDB->getIncomingWalletMessages())
+        {
+            proto::BbsMsg msg;
+            msg.m_Channel = m.m_Channel;
+            msg.m_TimePosted = getTimestamp();
+            msg.m_Message = m.m_Message;
+            ProcessMessage(msg);
+            m_WalletDB->deleteIncomingWalletMessage(m.m_ID);
+        }
+    }
 
 	WalletNetworkViaBbs::~WalletNetworkViaBbs()
 	{

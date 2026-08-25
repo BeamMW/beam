@@ -84,13 +84,36 @@ namespace
             .SetParameter(TxParameterID::Lifetime, Height(200))
             .SetParameter(TxParameterID::ManualTransport, true));
 
-        // Driver: run the reactor until it stops (a Slatepack popped out, a tx completed, or
-        // the per-leg watchdog fired), courier any produced Slatepack to the other wallet,
-        // and repeat until both txs report Completed. The watchdog turns a stalled
-        // negotiation into a failed assertion instead of a hang.
-        io::Timer::Ptr watchdog = io::Timer::create(io::Reactor::get_Current());
-        string err;
+        // Hand-deliver one Slatepack exactly as the UI/CLI does: Preview() decrypts it and
+        // reports a summary WITHOUT touching the transaction, then Commit() confirms it. Both
+        // halves are asserted here, so a regression in the two-step import fails the test.
         int couriered = 0;
+        auto courier = [&couriered](const shared_ptr<SlatepackEndpoint>& to, const char* who, const string& pack)
+        {
+            slatepack::Error err = slatepack::Error::None;
+            SlatepackEndpoint::ImportInfo info;
+
+            cout << "  >> couriering to " << who << ": preview\n";
+            const bool previewed = to->Preview(pack, err, info);
+            WALLET_CHECK(previewed);
+            if (!previewed)
+            {
+                cout << "     preview failed: " << slatepack::ErrorToString(err) << "\n";
+                return;
+            }
+            WALLET_CHECK(!info.m_TxID.empty());
+            cout << "     " << (info.m_IsSend ? "sending " : "receiving ") << info.m_Amount
+                 << ", fee " << info.m_Fee << ", tx " << info.m_TxID << "\n"
+                 << "  >> confirming\n";
+            WALLET_CHECK(to->Commit(info.m_TxID, err));
+            ++couriered;
+        };
+
+        // Driver: run the reactor until it stops (a Slatepack popped out, a tx completed, or
+        // the per-leg watchdog fired), courier any produced Slatepack to the other wallet, and
+        // repeat until both txs report Completed. The watchdog turns a stalled negotiation into
+        // a failed assertion instead of a hang.
+        io::Timer::Ptr watchdog = io::Timer::create(io::Reactor::get_Current());
         for (int leg = 0; leg < 16 && completed < 2; ++leg)
         {
             watchdog->start(8000, false, [&mainReactor] { mainReactor->stop(); });
@@ -100,16 +123,12 @@ namespace
             while (!fromSender.empty())
             {
                 const string s = fromSender.back(); fromSender.pop_back();
-                cout << "  >> couriering S1 to RECEIVER and injecting it\n";
-                WALLET_CHECK(receiverBp->Inject(s, err));
-                ++couriered;
+                courier(receiverBp, "RECEIVER", s);
             }
             while (!fromReceiver.empty())
             {
                 const string s = fromReceiver.back(); fromReceiver.pop_back();
-                cout << "  >> couriering S2 back to SENDER and injecting it\n";
-                WALLET_CHECK(senderBp->Inject(s, err));
-                ++couriered;
+                courier(senderBp, "SENDER", s);
             }
         }
 
@@ -132,6 +151,18 @@ namespace
              << "   sender tx status    : " << statusStr(sh) << "\n"
              << "   receiver tx status  : " << statusStr(rh) << "\n"
              << "  =========================================================\n\n";
+
+        // A pack addressed to someone else is refused rather than silently ignored, and garbage
+        // is refused with a decodable reason.
+        {
+            slatepack::Error err = slatepack::Error::None;
+            SlatepackEndpoint::ImportInfo info;
+            WALLET_CHECK(!senderBp->Preview("hello world", err, info));
+            WALLET_CHECK(err == slatepack::Error::NotSlatepack);
+
+            WALLET_CHECK(!senderBp->Commit("not-a-tx-id", err));
+            WALLET_CHECK(err == slatepack::Error::NoPendingImport);
+        }
 
         // At least S1 (sender->receiver) and S2 (receiver->sender) must have crossed the gap.
         WALLET_CHECK(couriered >= 2);

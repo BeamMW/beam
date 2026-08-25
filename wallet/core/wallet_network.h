@@ -69,12 +69,26 @@ namespace beam::wallet
         virtual ~BaseMessageEndpoint();
         void AddOwnAddress(const WalletAddress& address);
         void DeleteOwnAddress(const WalletID&);
+    public:
+        // Outcome of trying to consume an inbound BBS message with our subscribed addresses.
+        enum struct MsgResult
+        {
+            NotForUs,     // nothing we are subscribed to could decrypt it
+            Delivered,    // handed to the wallet (or to a raw handler)
+            Decrypted,    // decrypted only, because deliver == false
+            Handler,      // matched a raw-handler address; nothing was delivered (deliver == false)
+            ReadOnly,     // no SBBS key: we cannot decrypt at all
+        };
     protected:
-        // Returns true if one of our subscribed addresses decrypted the message. pDecrypted/pMyAddr
-        // (if set) receive the decrypted message and the own address it targeted. deliver=false
-        // decrypts without handing to the wallet — used to preview a Slatepack import before confirm.
-        bool ProcessMessage(const proto::BbsMsg& msg, SetTxParameter* pDecrypted = nullptr,
-                            WalletID* pMyAddr = nullptr, bool deliver = true);
+        // Consume an inbound BBS message. pDecrypted/pMyAddr (if set) receive the decrypted
+        // message and the own address it targeted. deliver=false decrypts WITHOUT handing
+        // anything to the wallet or to a raw handler — used to preview a Slatepack import
+        // before the user confirms it.
+        MsgResult ProcessMessage(const proto::BbsMsg& msg, SetTxParameter* pDecrypted = nullptr,
+                                 WalletID* pMyAddr = nullptr, bool deliver = true);
+
+        // False on a read-only wallet, which holds no SBBS key and can neither send nor decrypt.
+        bool CanDecrypt() const { return !!m_pKdfSbbs; }
         void Subscribe();
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
@@ -82,17 +96,32 @@ namespace beam::wallet
         virtual void OnIncomingMessage() {};
 
         // Return false to skip a tx's messages. Base skips ManualTransport txs (Slatepack, not
-        // SBBS); SlatepackEndpoint overrides to the inverse.
+        // SBBS); SlatepackEndpoint overrides to the inverse. Pure predicate — no side effects.
         virtual bool AcceptsMessage(const TxID& txID);
 
         // Protected so SlatepackEndpoint can wrap it (e.g. drop failure/cancel notifications).
         void Send(const WalletID& peerID, const SetTxParameter& msg) override;
+
+        // The transaction whose negotiation message is being sent right now, or nullptr when
+        // SendRawMessage was reached some other way (Wallet::ProcessStoredMessages replays raw
+        // buffers straight into every endpoint). Set only for the duration of the Send() below,
+        // so a subclass can label the message it is handed without re-deriving the txID.
+        const TxID* GetSendingTxID() const { return m_pSendingTxID; }
     private:
         Addr* FindAddr(const WalletID&, IHandler*);
         void DeleteAddr(const Addr&);
         void ReleaseAddr(Addr&, bool bInternalRef);
         bool IsSingleChannelUser(const Addr::Channel&);
         Addr* CreateAddr(const WalletID&, IHandler* );
+
+        // RAII for m_pSendingTxID; see GetSendingTxID().
+        struct SendingTxScope
+        {
+            BaseMessageEndpoint& m_Ep;
+            SendingTxScope(BaseMessageEndpoint& ep, const TxID& txID) : m_Ep(ep) { ep.m_pSendingTxID = &txID; }
+            ~SendingTxScope() { m_Ep.m_pSendingTxID = nullptr; }
+        };
+        const TxID* m_pSendingTxID = nullptr;
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const Blob&) override;
@@ -184,6 +213,7 @@ namespace beam::wallet
         virtual ~WalletNetworkViaBbs();
     private:
         // BaseMessageEndpoint
+        void ProcessStoredIncoming();
         void OnChannelAdded(BbsChannel channel) override;
         void OnChannelDeleted(BbsChannel channel) override;
         void OnMessageSent(uint64_t messageID) override;

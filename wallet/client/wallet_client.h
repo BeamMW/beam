@@ -210,7 +210,8 @@ namespace beam::wallet
         // A manually-transported (Slatepack) negotiation message is ready to hand off, and the
         // result of importing a pasted Slatepack.
         virtual void onSlatepackReady(const TxID& txID, const std::string& armored) {}
-        virtual void onSlatepackImportResult(bool ok, const std::string& error, const SlatepackEndpoint::ImportInfo& info) {}
+        // 'error' is a code, not a string, so the desktop wallet can render it translated.
+        virtual void onSlatepackImportResult(bool ok, slatepack::Error error, const SlatepackEndpoint::ImportInfo& info) {}
         virtual void onAddressChecked(const std::string& addr, bool isValid) {}
         virtual void onImportRecoveryProgress(uint64_t done, uint64_t total) {}
         virtual void onNoDeviceConnected() {}
