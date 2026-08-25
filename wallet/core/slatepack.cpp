@@ -68,13 +68,33 @@ namespace beam::wallet::slatepack
         return out;
     }
 
-    bool Unarmor(const std::string& text, PayloadType& type, ByteBuffer& payload, std::string& error)
+    const char* ErrorToString(Error e)
+    {
+        switch (e)
+        {
+        case Error::None:               return "ok";
+        case Error::NotSlatepack:       return "not a Slatepack";
+        case Error::BadEncoding:        return "damaged Slatepack (encoding)";
+        case Error::BadChecksum:        return "damaged Slatepack (checksum)";
+        case Error::UnsupportedVersion: return "unsupported Slatepack version";
+        case Error::UnknownType:        return "unknown Slatepack type";
+        case Error::BadPayload:         return "damaged Slatepack (payload)";
+        case Error::UnsupportedType:    return "unsupported Slatepack type";
+        case Error::NotForThisWallet:   return "this Slatepack is not addressed to your wallet";
+        case Error::ReadOnlyWallet:     return "this wallet cannot decrypt Slatepacks (no SBBS key)";
+        case Error::HandlerAddress:     return "this Slatepack cannot be previewed";
+        case Error::NoPendingImport:    return "no pending Slatepack to confirm";
+        }
+        return "unknown error";
+    }
+
+    bool Unarmor(const std::string& text, PayloadType& type, ByteBuffer& payload, Error& error)
     {
         const size_t begin = text.find(kBegin);
-        if (begin == std::string::npos) { error = "not a Slatepack"; return false; }
+        if (begin == std::string::npos) { error = Error::NotSlatepack; return false; }
         const size_t bodyStart = begin + std::strlen(kBegin);
         const size_t end = text.find(kEnd, bodyStart);
-        if (end == std::string::npos) { error = "not a Slatepack"; return false; }
+        if (end == std::string::npos) { error = Error::NotSlatepack; return false; }
 
         // Reassemble the base58 body, dropping the whitespace and '.' separators the armor
         // inserted for readability.
@@ -88,27 +108,28 @@ namespace beam::wallet::slatepack
         }
 
         const ByteBuffer body = DecodeBase58(b58);
-        if (body.size() < kHeaderSize + kChecksumSize) { error = "damaged Slatepack (encoding)"; return false; }
+        if (body.size() < kHeaderSize + kChecksumSize) { error = Error::BadEncoding; return false; }
 
         const ByteBuffer data(body.begin(), body.end() - kChecksumSize);
         uint8_t cs[kChecksumSize];
         ComputeChecksum(data, cs);
         if (std::memcmp(cs, body.data() + body.size() - kChecksumSize, kChecksumSize) != 0)
         {
-            error = "damaged Slatepack (checksum)";
+            error = Error::BadChecksum;
             return false;
         }
 
-        if (data[0] != kVersion) { error = "Slatepack is from a newer wallet version"; return false; }
+        if (data[0] != kVersion) { error = Error::UnsupportedVersion; return false; }
         if (data[1] < static_cast<uint8_t>(PayloadType::TxNegotiation) ||
             data[1] > static_cast<uint8_t>(PayloadType::ProofOfFunds))
         {
-            error = "unknown Slatepack type";
+            error = Error::UnknownType;
             return false;
         }
 
         type = static_cast<PayloadType>(data[1]);
         payload.assign(data.begin() + kHeaderSize, data.end());
+        error = Error::None;
         return true;
     }
 

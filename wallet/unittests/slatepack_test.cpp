@@ -44,8 +44,9 @@ namespace
         const string wrapped = "hey, here is the tx:\n\n" + s + "\n\nthanks!";
         slatepack::PayloadType type;
         ByteBuffer out;
-        string err;
+        slatepack::Error err = slatepack::Error::None;
         WALLET_CHECK(slatepack::Unarmor(wrapped, type, out, err));
+        WALLET_CHECK(err == slatepack::Error::None);
         WALLET_CHECK(type == slatepack::PayloadType::TxNegotiation);
         WALLET_CHECK(out == payload);
     }
@@ -57,22 +58,36 @@ namespace
 
         slatepack::PayloadType type;
         ByteBuffer out;
-        string err;
+        slatepack::Error err = slatepack::Error::None;
 
         // Corruption: flip one body char to a different (still valid) base58 char.
         string bad = s;
         const size_t pos = bad.find("BEGINSLATEPACK.") + strlen("BEGINSLATEPACK.") + 2;
         bad[pos] = (bad[pos] == 'A') ? 'B' : 'A';
         WALLET_CHECK(!slatepack::Unarmor(bad, type, out, err));
+        WALLET_CHECK(err == slatepack::Error::BadChecksum || err == slatepack::Error::BadEncoding);
 
-        // Truncation.
+        // Truncation: the end marker is gone, so it no longer reads as a Slatepack at all.
         WALLET_CHECK(!slatepack::Unarmor(s.substr(0, s.size() / 2), type, out, err));
+        WALLET_CHECK(err == slatepack::Error::NotSlatepack);
 
         // Not a Slatepack at all.
         WALLET_CHECK(!slatepack::Unarmor("hello world", type, out, err));
+        WALLET_CHECK(err == slatepack::Error::NotSlatepack);
 
         // Empty input.
         WALLET_CHECK(!slatepack::Unarmor("", type, out, err));
+        WALLET_CHECK(err == slatepack::Error::NotSlatepack);
+
+        // A non-base58 character inside an otherwise well-formed envelope.
+        string illegal = s;
+        illegal[illegal.find("BEGINSLATEPACK.") + strlen("BEGINSLATEPACK.") + 2] = '0'; // '0' is not in the alphabet
+        WALLET_CHECK(!slatepack::Unarmor(illegal, type, out, err));
+        WALLET_CHECK(err == slatepack::Error::BadEncoding);
+
+        // Every rejection reason renders as something printable.
+        for (uint8_t i = 0; i <= static_cast<uint8_t>(slatepack::Error::NoPendingImport); ++i)
+            WALLET_CHECK(strlen(slatepack::ErrorToString(static_cast<slatepack::Error>(i))) > 0);
     }
 
     void TestTxNegotiationRoundTrip()
@@ -93,7 +108,7 @@ namespace
         const string s = slatepack::Armor(slatepack::PayloadType::TxNegotiation, bytes);
         slatepack::PayloadType type;
         ByteBuffer out;
-        string err;
+        slatepack::Error err = slatepack::Error::None;
         WALLET_CHECK(slatepack::Unarmor(s, type, out, err));
         slatepack::TxNegotiation r2;
         WALLET_CHECK(slatepack::FromBytes(r2, out));

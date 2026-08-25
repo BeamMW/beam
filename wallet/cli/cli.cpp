@@ -151,6 +151,13 @@ namespace
                 out = fs::path(opt);
             std::ofstream f(out.string(), std::ios::binary | std::ios::trunc);
             f << armored;
+            f.close();
+            if (f.fail())
+            {
+                BEAM_LOG_ERROR() << "Cannot write Slatepack to " << fs::absolute(out).string();
+                std::cout << armored << std::endl; // don't lose it: fall back to stdout
+                return;
+            }
             std::cout << "Saved Slatepack to " << fs::absolute(out).string() << std::endl;
         }
         else
@@ -2536,10 +2543,10 @@ namespace
     {
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID) -> int
             {
-                std::string armored;
-                if (!read_slatepack(armored, vm))
+                std::string armored, readError;
+                if (!read_slatepack(armored, vm, readError))
                 {
-                    std::cout << "No Slatepack provided." << std::endl;
+                    std::cout << "No Slatepack provided: " << readError << std::endl;
                     return -1;
                 }
 
@@ -2550,11 +2557,11 @@ namespace
                     return -1;
                 }
 
-                std::string error;
+                slatepack::Error error = slatepack::Error::None;
                 SlatepackEndpoint::ImportInfo info;
                 if (!ep->Preview(armored, error, info))
                 {
-                    std::cout << "Cannot import Slatepack: " << error << std::endl;
+                    std::cout << "Cannot import Slatepack: " << slatepack::ErrorToString(error) << std::endl;
                     return -1;
                 }
 
@@ -2563,16 +2570,25 @@ namespace
                           << (info.m_IsSend ? " to " : " from ")
                           << (info.m_IsSend ? info.m_AddressTo : info.m_AddressFrom) << "\n"
                           << "Fee: " << PrintableAmount(info.m_Fee, true, Asset::s_BeamID) << "\n"
-                          << "Transaction: " << info.m_TxID << "\n"
-                          << "Proceed? (y/n)" << std::endl;
+                          << "Transaction: " << info.m_TxID << std::endl;
 
-                std::string s;
-                std::cin >> s;
-                if (s != "y" && s != "Y")
+                // --yes lets a script drive this. Without it we prompt - and a prompt that cannot
+                // be answered (stdin already consumed by a pasted pack, or a pipe at EOF) is a
+                // decline, never a silent accept.
+                if (vm.count(cli::SLATEPACK_YES) && vm[cli::SLATEPACK_YES].template as<bool>())
                 {
-                    ep->CancelPending(info.m_TxID);
-                    std::cout << "Cancelled." << std::endl;
-                    return -1; // non-zero: skips DoWalletFunc's reactor.run(), exits cleanly
+                    std::cout << "Proceeding (--" << cli::SLATEPACK_YES << ")." << std::endl;
+                }
+                else
+                {
+                    std::cout << "Proceed? (y/n)" << std::endl;
+                    std::string answer;
+                    if (!(std::cin >> answer) || (answer != "y" && answer != "Y"))
+                    {
+                        ep->CancelPending(info.m_TxID);
+                        std::cout << "Cancelled." << std::endl;
+                        return -1; // non-zero: skips DoWalletFunc's reactor.run(), exits cleanly
+                    }
                 }
 
                 // Track this tx so onTxCompleteAction stops the reactor when it finalizes
@@ -2587,7 +2603,7 @@ namespace
 
                 if (!ep->Commit(info.m_TxID, error))
                 {
-                    std::cout << "Cannot process Slatepack: " << error << std::endl;
+                    std::cout << "Cannot process Slatepack: " << slatepack::ErrorToString(error) << std::endl;
                     return -1;
                 }
                 return 0; // reactor runs: outgoing handler (reply) or tx-completed (finalize) stops it

@@ -16,6 +16,7 @@
 
 #include "wallet/core/wallet_network.h" // BaseMessageEndpoint
 #include "wallet/core/wallet_db.h"      // IWalletDbObserver, IWalletDB, WalletAddress
+#include "wallet/core/slatepack.h"      // slatepack::Error
 #include <functional>
 #include <string>
 #include <map>
@@ -52,11 +53,11 @@ namespace beam::wallet
         // Decrypt a pasted Slatepack and preview it WITHOUT continuing the transaction: fills
         // 'info', stashes the message pending confirmation (keyed by info.m_TxID), returns true.
         // A Slatepack none of our addresses can decrypt is a failure here, not a silent no-op.
-        bool Preview(const std::string& armoredText, std::string& error, ImportInfo& info);
+        bool Preview(const std::string& armoredText, slatepack::Error& error, ImportInfo& info);
 
         // Confirm a previewed Slatepack: hand the stashed message to the wallet so the
         // transaction proceeds. Returns false if no pending import matches txId.
-        bool Commit(const std::string& txId, std::string& error);
+        bool Commit(const std::string& txId, slatepack::Error& error);
 
         // Discard a previewed-but-unconfirmed Slatepack.
         void CancelPending(const std::string& txId);
@@ -69,13 +70,22 @@ namespace beam::wallet
         // IWalletDbObserver
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
 
+        void ExpirePendingImports();
+
         IWalletDB::Ptr m_WalletDB;
         OutgoingHandler m_OnOutgoing;
-        TxID m_CurrentTxID = {};
-        // True only during a live Send(), so SendRawMessage can tell a real negotiation message
-        // from a ProcessStoredMessages replay (which fans every stored SBBS message to all endpoints).
-        bool m_LiveSend = false;
+
         // Slatepacks decrypted for preview, awaiting the user's confirm/cancel, keyed by txID.
-        std::map<std::string, proto::BbsMsg> m_PendingImports;
+        // Bounded and time-limited: a preview the user simply walks away from must not pin the
+        // ciphertext for the lifetime of the process.
+        struct Pending
+        {
+            proto::BbsMsg m_Msg;
+            Timestamp     m_Created = 0;
+        };
+        std::map<std::string, Pending> m_PendingImports;
+
+        static const size_t    s_MaxPendingImports  = 16;
+        static const Timestamp s_PendingImportTtl_s = 60 * 60; // an hour is plenty to click Send
     };
 }

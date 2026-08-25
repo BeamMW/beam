@@ -2144,18 +2144,20 @@ namespace beam::wallet
     {
         // Runs on the wallet thread; decrypts a pasted Slatepack and previews it. The tx does
         // not proceed until the user confirms via commitSlatepack.
-        std::string error;
+        slatepack::Error error = slatepack::Error::None;
         SlatepackEndpoint::ImportInfo info;
         auto ep = m_slatepackEndpoint.lock();
         const bool ok = ep && ep->Preview(text, error, info);
+        if (!ep)
+            error = slatepack::Error::ReadOnlyWallet; // no manual transport in this session
         onSlatepackImportResult(ok, error, info);
     }
 
     void WalletClient::commitSlatepack(const std::string& txId)
     {
-        std::string error;
-        if (auto ep = m_slatepackEndpoint.lock())
-            ep->Commit(txId, error);
+        slatepack::Error error = slatepack::Error::None;
+        if (auto ep = m_slatepackEndpoint.lock(); ep && !ep->Commit(txId, error))
+            BEAM_LOG_WARNING() << "Slatepack commit failed: " << slatepack::ErrorToString(error);
     }
 
     void WalletClient::cancelSlatepack(const std::string& txId)
