@@ -818,6 +818,15 @@
     background-color: var(--color_network_select_background_active); /* Change background */
     filter: drop-shadow(0 0 3px var(--color_network_select_shadow)); /* Add a halo */
   }
+  #NetworkSelect option {
+    text-align: left; /* Left align options */
+  }
+  #NetworkSelect hr { /* Horizontal line */
+    border: none;
+    border-top: 1px solid var(--color_table_border);
+    margin: 2px 0;
+    opacity: 0.6;
+  }
   .popupDialog { /* Dialog popup */
     white-space: normal;
     border: solid 5px var(--color_popup_border);
@@ -1958,8 +1967,7 @@
           <div id="NetworkSelection">
             <!-- Network selection dropdown (the options will be added by JS) -->
             <select id="NetworkSelect" title="Change network" name="network"></select>
-            <!-- Popup for selecting the network (will be activated by a link in the About section) -->
-            <!-- Remark: We use 'dialog' because 'popover' does not work on Chrome 83. -->
+            <!-- Popup for selecting the network (We use 'dialog' because 'popover' does not work on Chrome 83) -->
             <dialog class="popupDialog" id="nodeSelectionPopup">
               <form id="nodeSelectionForm" name="nodeSelectionForm" method="dialog" onsubmit="applyNodeSelection();">
                 <div class="popupTitle">- Explorer nodes -</div>
@@ -3405,7 +3413,7 @@
   let networkOptions = '';
   for (let network in explorerNodes) {
     // Create new option for the dropdown menu
-    networkOptions += '<option value="' + network + '">' + network + '</option>';
+    networkOptions += '<option value="' + network + '" title="' + explorerNodes[network].description + '">' + network + '</option>';
     // Add nodes to the popup list
     nodesList += `<div class="popupSubtitle">${network} <span class="popupNote">(${explorerNodes[network].description})</span></div>`;
     const nodes = explorerNodes[network].url;
@@ -3417,13 +3425,21 @@
       // Remark: All radios start unchecked. Radios of default nodes will be checked at popup opening.
     }
   }
+  // Add an option to open the explorer nodes selection popup
+  networkOptions += '<hr><option value="nodes">Explorer nodes...</option>';
+
   // Add the elements to HTML
   document.getElementById('NodeSelectionList').innerHTML = nodesList;
   document.getElementById('NetworkSelect').innerHTML = networkOptions;
 
   // Add reload event to network selection dropdown
   document.getElementById('NetworkSelect').addEventListener('change', function() {
-    showPage(g_type, { network: this.value });
+    if (this.value === 'nodes') { // Open the nodes selection popup if requested
+      this.value = g_network; // Reset dropdown to the currently active network
+      openNodeSelection();
+      return;
+    }
+    showPage(g_type, { network: this.value }); // Switch to selected network
   });
 
 </script>
@@ -3464,6 +3480,8 @@
 
     // Set current value in the network dropdown
     document.getElementById('NetworkSelect').value = g_network;
+    // Adjust dropdown width to the active network name (rather than the longest option)
+    document.getElementById('NetworkSelect').style.width = (g_network.length + 3) + 'ch';
 
     // Put the current network in ad-hoc text elements
     document.querySelectorAll('.queried-node').forEach(item => { item.textContent = g_urlPrefix; });
