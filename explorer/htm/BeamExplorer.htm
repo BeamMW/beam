@@ -800,7 +800,10 @@
   #BeamLogo:hover svg {
     filter: saturate(1.5) drop-shadow(0 0 5px var(--color_logo_shadow));
   }
-  #NetworkSelection { }
+  #NetworkSelection {
+    display: inline-block;
+    white-space: nowrap; /* Keep selector and spinner on the same line */
+  }
   #NetworkSelect {
     border: none;
     font-size: 1.2rem;
@@ -811,6 +814,21 @@
     border-radius: var(--round-corner-radius-small); /* Round corners */
     margin: 2px 0 0 0;
     padding: 2px 2px 4px 2px;
+  }
+  #NetworkSpinner {
+    visibility: hidden; /* Hidden when idle, but preserving its layout space */
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--color_network_select_border);
+    border-top-color: transparent; /* Neat trick! */
+    border-radius: 50%; /* Neat trick! */
+    margin: 0;
+    vertical-align: middle;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { /* Network spinner animation */
+    to { transform: rotate(360deg); }
   }
   #NetworkSelect:hover, #NetworkSelect:focus {
     cursor: pointer;
@@ -1967,6 +1985,8 @@
           <div id="NetworkSelection">
             <!-- Network selection dropdown (the options will be added by JS) -->
             <select id="NetworkSelect" title="Change network" name="network"></select>
+            <!-- CSS micro-spinner to indicate ongoing explorer node queries -->
+            <span id="NetworkSpinner" title="Querying explorer node..."></span>
             <!-- Popup for selecting the network (We use 'dialog' because 'popover' does not work on Chrome 83) -->
             <dialog class="popupDialog" id="nodeSelectionPopup">
               <form id="nodeSelectionForm" name="nodeSelectionForm" method="dialog" onsubmit="applyNodeSelection();">
@@ -3450,6 +3470,15 @@
 
   // Default timeout in milliseconds for explorer node queries
   const g_fetchTimeout = 10000; // 10 seconds
+  // Counter of active queries (to control spinner visibility)
+  let g_activeQueries = 0;
+
+  // Toggle the query micro-spinner visibility
+  function setQuerySpinner(active) {
+    active ? g_activeQueries++ : g_activeQueries--; // Increase or decrease counter
+    const spinner = document.getElementById('NetworkSpinner');
+    if (spinner) { spinner.style.visibility = (g_activeQueries > 0) ? 'visible' : 'hidden'; }
+  }
 
   // Query the explorer node using the standard async 'fetch',
   // with a given type ('hdrs', 'block', etc.), the key:value pairs parameters, and a timeout.
@@ -3467,6 +3496,9 @@
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    // Activate micro-spinner
+    setQuerySpinner(true);
+
     try {
       const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) {
@@ -3480,6 +3512,7 @@
       throw err;
     } finally {
       clearTimeout(timeoutId); // Always clear the timer once completed or errored
+      setQuerySpinner(false); // Hide micro-spinner when request completes or errors
     }
   }
 
