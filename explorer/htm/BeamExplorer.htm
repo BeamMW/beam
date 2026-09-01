@@ -3332,12 +3332,13 @@
   var g_nMaxTxs = ''; // Used for type=contract
   var g_cols = ''; // Used for type=hdrs
   var g_dh = ''; // Used for type=hdrs
+  var g_graphs = ''; // Used for type=hdrs (front end only)
 
   // Configuration of each page (node query & URL parameters, and Display function, including for static pages).
   const pageConfig = {
     'status': { display: DisplayStatus, params: [] },
     'peers': { display: DisplayPeers, params: [] },
-    'hdrs': { display: DisplayHdrs, params: ['cols', 'nMax', 'dh', 'hMax'] },
+    'hdrs': { display: DisplayHdrs, params: ['cols', 'nMax', 'dh', 'hMax', 'graph'] }, // 'graph' is front end only (not passed to the explorer node)
     'block': { display: DisplayBlock, params: ['height', 'kernel', 'adj'] }, // We let the explorer node handle the case where both 'height' AND 'kernel' are requested...
     //'blocks': { display: DisplayBlocks, params: ['height', 'adj', 'n'] }, // Query details of multiple blocks (NOT USED HERE)
     'assets': { display: DisplayAssets, params: ['height', 'adj'] }, // 'adj' is currently ignored by explorer nodes, but it doesn't hurt including it. 
@@ -3350,7 +3351,7 @@
     'treasury': { display: DisplayBlock, params: [] } //  Specific to this front end (it's type 'block' with 'height=0')
   };
 
-  // Configuration of query parameters
+  // Configuration of URL and query parameters
   // (associated global variable, persistence in localStorage, type, default value, sanitization rules)
   const paramConfig = {
     id: { globalVar: 'g_id', persistent: false, type: 'string', defaultValue: '' },
@@ -3368,7 +3369,8 @@
     nMaxOps: { globalVar: 'g_nMaxOps', persistent: true, type: 'number', defaultValue: 100 },
     nMaxTxs: { globalVar: 'g_nMaxTxs', persistent: true, type: 'number', defaultValue: 100 },
     cols: { globalVar: 'g_cols', persistent: true, type: 'string', defaultValue: columnDefaultDisplay },
-    dh: { globalVar: 'g_dh', persistent: true, type: 'number', defaultValue: 1 }
+    dh: { globalVar: 'g_dh', persistent: true, type: 'number', defaultValue: 1 },
+    graph: { globalVar: 'g_graphs', persistent: false, type: 'string', defaultValue: '' } // URL only, not for node queries
   };
 
 </script>
@@ -3569,6 +3571,7 @@
     let fetchType = page_id;
     const fetchParams = {};
     activeParams.forEach(paramName => {
+      if (paramName === 'graph') { return; } // Skip this one as it's for graph display, not for node queries
       const val = window[paramConfig[paramName].globalVar]; // Retrieve value of global variable
       if (val != null && val !== '') { fetchParams[paramName] = val; } // First test catches both null & undefined
     });
@@ -4257,6 +4260,104 @@
     updateGraphDataX();
     // Display X axis with default data
     drawXAxis(g_graph.xcode);
+
+    // If 'graph=' parameter is present in URL, display the graphs in the same order as its code letters
+    if (g_graphs && typeof g_graphs === 'string') {
+      const requestedCodes = [...new Set(g_graphs.split(''))];
+      let validGraphCount = 0;
+      for (let code of requestedCodes) {
+        // Display requested graphs (and count successes)
+        if (displayGraph(code)) { validGraphCount++; } 
+      }
+      if (validGraphCount > 0) { // If graphs were displayed, open the graph collapsible
+        const graphCollapsible = document.getElementById('graphCollapsible');
+        if (graphCollapsible) {
+          document.querySelectorAll('[name="tableOptionsCollapsibles"]').forEach(any => { any.open = false; });
+          graphCollapsible.open = true;
+        }
+      }
+      // Update URL parameters to ensure only valid graph codes are retained
+      updateGraphURL();
+    }
+  }
+
+  // Synchronize the 'graph' URL parameter with the currently displayed graphs
+  function updateGraphURL() {
+    if (g_type !== 'hdrs') { return; } // Graphs only exist for 'type=hdrs'
+    const activeCodes = Object.keys(g_graph.y);
+    g_graphs = (activeCodes.length > 0) ? activeCodes.join('') : '';
+    const url = new URL(window.location);
+    if (g_graphs) {
+      url.searchParams.set('graph', g_graphs);
+    } else {
+      url.searchParams.delete('graph');
+    }
+    history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
+  }
+
+  // Add and display a single graph for a given column code
+  function displayGraph(code) {
+    // Find the corresponding header and checkbox for this column code
+    const headers = document.querySelectorAll('#divTableBlocks .th');
+    let col = null;
+    let checkbox = null;
+    for (let i = 0; i < headers.length; i++) {
+      const spanCode = headers[i].firstElementChild?.dataset?.code;
+      if (spanCode === code) {
+        col = i;
+        checkbox = document.getElementById('checkbox_column_' + col);
+        break;
+      }
+    }
+    if (col === null || !checkbox || !columnHeaders[code] || columnHeaders[code].color === null) {
+      return false; // Code does not exist in table or is not graphable
+    }
+	  // Check the checkbox
+    checkbox.checked = true;
+
+    // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
+    // Remark: Events here are included in the HTML (instead of addEventListener) to maintain them in case of manipulating the legend's 'innerHTML'
+    const color = g_graph.color[code];
+    const legend_id = 'graphLegendItem_' + code;
+    const colorpicker_id = 'graphColorPicker_' + code;
+    const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
+    const header = checkbox.closest('th').textContent; // Get header text
+    const description = columnHeaders[code].description; // Get description
+
+    let legend_item = `<span class="graphLegendItem" id="${legend_id}" style="color:${color}; white-space:nowrap;"
+                       onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
+    // Add legend name (with description) and color picker (with events: 'oninput' to preview a new color and 'onchange' to apply the final one)
+    legend_item += `<label class="graphColorPickerLabel" autocomplete="on" title="Click to change color">
+                      <input type="color" class="graphColorPicker" id="${colorpicker_id}" name="${colorpicker_id}" value="${hex_color}" oninput="changeGraphColor('${code}')" onchange="changeGraphColor('${code}')">
+                      &nbsp;<span class="graphLegendText" title="${description}">${header}</span>&nbsp;
+                    </label>`;
+    legend_item += `</span>`;
+    // Append the new item to the legend area
+    document.getElementById('graphLegend').insertAdjacentHTML('beforeend', legend_item);
+    // Hide the legend title (since at least one legend item is now displayed)
+    document.getElementById('graphLegendTitle').style.display = 'none';
+
+    // Extract graph data for the selected column and draw the corresponding graph
+    updateGraphDataY(col);
+    drawGraph(code);
+    // If cursor is active, display the axis cursor and the corresponding values
+    graphDisplayCursorYValues(code);
+
+    return true; // Graph was displayed
+  }
+
+  // Remove a graph for a given column code
+  function removeGraph(code, col) {
+    delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
+    delete g_graph.yTicks[code]; // Remove ticks data for the selected column
+    delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
+    document.getElementById('polyline_' + code)?.remove(); // Remove graph from SVG
+    document.getElementById('yAxisContainer_' + code)?.remove(); // Remove graph axis
+    drawYAxis(); // Redraw the empty axis if needed
+    document.getElementById('graphLegendItem_' + code)?.remove(); // Remove graph name from legend
+    // Show the legend title if no more legend item is displayed
+    document.getElementById('graphLegendTitle').style.display = (document.querySelectorAll('.graphLegendItem').length == 0) ? 'block' : 'none';
+    updateGraphDataY(col);
   }
 
   // Toggle class to show/hide checkboxes in table header when the graph's collapsible if opened/closed
@@ -4278,45 +4379,14 @@
     const col = checkbox.dataset.column; // Get the column number
     const code = checkbox.previousElementSibling?.dataset?.code; // Get the column code from the <span> just before the checkbox (or 'null' if non-existent)
     if (!code) return; // Stop if we couldn't get the code
-    const header = checkbox.closest('th').textContent; // Get header text
-    const description = columnHeaders[code].description; // Get description
-
     // Add or remove data series for the graphs
-    if (checkbox.checked == false) {
-      delete g_graph.y[code]; // Remove graph data for the selected column (but keep its color information)
-      delete g_graph.yTicks[code]; // Remove ticks data for the selected column
-      delete g_graph.ysvg[code]; // Remove SVG graph data for the selected column
-      document.getElementById('polyline_' + code).remove(); // Remove graph from SVG
-      document.getElementById('yAxisContainer_' + code).remove(); // Remove graph axis
-      drawYAxis(); // Redraw the empty axis if needed
-      document.getElementById('graphLegendItem_' + code).remove(); // Remove graph name from legend
+    if (checkbox.checked) {
+      displayGraph(code);
     } else {
-      // Prepare HTML for the new legend item, with styling and events (CSS will highlight a graph when hovering on its legend)
-      // Remark: Events here are included in the HTML (instead of addEventListener) to maitain them in case of manipulating the legend's 'innerHTML'
-      const color = g_graph.color[code];
-      const legend_id = 'graphLegendItem_' + code;
-      const colorpicker_id = 'graphColorPicker_' + code;
-      const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
-      let legend_item = `<span class="graphLegendItem" id="${legend_id}" style="color:${color}; white-space:nowrap;"
-                         onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
-      // Add legend name (with description) and color picker (with events: 'oninput' to preview a new color and 'onchange' to apply the final one)
-      legend_item += `<label class="graphColorPickerLabel" autocomplete="on" title="Click to change color">
-                        <input type="color" class="graphColorPicker" id="${colorpicker_id}" name="${colorpicker_id}" value="${hex_color}" oninput="changeGraphColor('${code}')" onchange="changeGraphColor('${code}')">
-                        &nbsp;<span class="graphLegendText" title="${description}">${header}</span>&nbsp;
-                      </label>`;
-      legend_item += `</span>`;
-      // Append the new item to the legend area
-      document.getElementById('graphLegend').insertAdjacentHTML('beforeend', legend_item);
+      removeGraph(code, col);
     }
-
-    // Hide the legend title if at least one legend item is displayed
-    document.getElementById('graphLegendTitle').style.display = (document.querySelectorAll('.graphLegendItem').length == 0) ? 'block' : 'none';
-
-    // Extract graph data for the selected column and draw the corresponding graph
-    updateGraphDataY(col);
-    drawGraph(code);
-    // If the graph is new and the cursor is active, display the axis cursor and the corresponding values
-    if (checkbox.checked == true) { graphDisplayCursorYValues(code); }
+    // Update the URL parameter 'graph='
+    updateGraphURL();
   }
 
   // Set classes for hovering effects (highlight graphs, names and scales)
@@ -4968,7 +5038,7 @@
 
     text += MakeCollapsibleEnd();
 
-    // Display graph options
+    // Display graph container
     text += MakeCollapsibleBegin('Graph', 'tableOptions', '', 'id="graphCollapsible" name="tableOptionsCollapsibles"');
     // Remark: The 800px width and 250px height are given just for the initial CSS-less layout. CSS will make them resizable.
     // Weird trick: To allow CSS to shrink the table cell of the SVG below its default 'height', we set it to 1px, then scale it up to 250px ('width' does not have this problem)!
