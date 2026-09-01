@@ -3448,9 +3448,12 @@
 
 <script> 'use strict'; // QUERY EXPLORER NODE USING AN ASYNC SINGLE-PAGE-APPLICATION (SPA) ARCHITECTURE
 
+  // Default timeout in milliseconds for explorer node queries
+  const g_fetchTimeout = 10000; // 10 seconds
+
   // Query the explorer node using the standard async 'fetch',
-  // with a given type ('hdrs', 'block', etc.) and the key:value pairs parameters.
-  async function fetchAPI(type, params = {}) {
+  // with a given type ('hdrs', 'block', etc.), the key:value pairs parameters, and a timeout.
+  async function fetchAPI(type, params = {}, timeoutMs = g_fetchTimeout) {
     // 'exp_am=1' requests nice formatting from the node (amounts as XXX,XXX,XXX.YYYYYYYY)
     let url = g_urlPrefix + type + '?exp_am=1';
     for (let key in params) {
@@ -3458,11 +3461,26 @@
         url += '&' + key + '=' + encodeURIComponent(params[key]);
       }
     }
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error('Explorer node responded with HTTP status: ' + response.status);
+
+    // Set up an AbortController with a timer to abort if the explorer node does not respond in time.
+    // Note: AbortSignal.timeout(ms) is only available in Chrome 103+, so we use AbortController & setTimeout for Chrome 83.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error('Explorer node responded with HTTP status: ' + response.status);
+      }
+      return await response.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error(`Explorer node request timed out after ${timeoutMs / 1000}s`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId); // Always clear the timer once completed or errored
     }
-    return await response.json();
   }
 
   // Display a specific page dynamically and asynchronously.
