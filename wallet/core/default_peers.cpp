@@ -26,18 +26,16 @@ namespace beam
     std::vector<std::string> getDefaultPeers()
     {
         std::vector<std::string> result;
-
-        // In the WASM/browser build every connection must go over wss://, so the
-        // default peers listen on the WebSocket port (:8200). The raw-TCP P2P
-        // ports (:8100) used by native builds are unreachable from the browser.
-#ifdef __EMSCRIPTEN__
-        constexpr const char* kDefaultPort = ":8200";
-#else
-        constexpr const char* kDefaultPort = ":8100";
-#endif
-
         auto addPeers = [&result](const char* hosts[], uint32_t n)
         {
+            // In the WASM/browser build, every connection must go over wss://, so the
+            // default peers listen on the WebSocket port (:8200). The raw-TCP P2P
+            // ports (:8100) used by native builds are unreachable from the browser.
+        #ifdef __EMSCRIPTEN__
+            constexpr const char* kDefaultPort = ":8200";
+        #else
+            constexpr const char* kDefaultPort = ":8100";
+        #endif
             result.reserve(n);
             for (uint32_t i = 0; i < n; i++)
                 result.emplace_back(std::string(hosts[i]) + kDefaultPort);
