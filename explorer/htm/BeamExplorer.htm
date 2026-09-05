@@ -4129,34 +4129,39 @@
 
 <script> 'use strict'; // GRAPH DISPLAY FUNCTIONS
 
-  // Global variables for the graphs
-  // For x and y data (as well as ticks and colors), each key is a column code (usually one letter) and its value is the corresponding array of data.
-  // Example: { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], etc.}
-  const g_graph = {
-    rows: [], // List of the visible rows
-    xcodes_valid: ['row', 'h', 'N', 'T'], // Codes for all possible data for the X coordinates ('row' table rows, 'h' blockheights, 'N' block numbers, 'T' timestamps)
-    xcodes: {}, // Available codes (and column numbers) for the X coordinates (Remark: rows and blockheight are always available)
-    xcode: '', // Code currently used for the X axis
-    x: {}, // Data for each available x coordinates (always increasing, and without empty values)
-    xsvg: {}, // Proportional x coordinates over the SVG width
-    xTicks: {}, // Nice ticks for the horizontal scale of each available x coordinates
-    y: {}, // Data for y coordinates of each displayed graph
-    ysvg: {}, // Proportional y coordinates over the SVG height
-    timeText: [], // If available, the human-readable timestamps will be saved here (as plotting will use the raw data instead)
-    yTicks: {}, // Nice ticks for the vertical scale of each displayed graph
-    color: {}, // CSS color of each graph
-    width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
-    height: 600, // Arbitrary SVG height
-    margin: 10, // Margin around the graph area
-    padding: 10, // Padding inside the graph area
-    area: {}, // Other measures of the graph area (values are computed here below)
-    axis: {}, // Other measures of the axis area (values are computed here below)
-    hover: true, // Indicates if the hovering effect is active (the cursor position follows the mouse)
-    index: null // Index in the x coordinates array for the cursor position
-  };
+  // Global parameters for the graphs
+  let g_graph = {};
 
   // Setup the whole graph environment
   function setupGraph() {
+
+    // (Re)initialize the graph parameters
+    // For x and y data (as well as ticks and colors), each key is a column code (usually one letter) and its value is the corresponding array of data.
+    // Example: { c:[445,445,1901,-1955,...], k:[2,2,1,1,...], etc.}
+    g_graph = {
+      rows: [], // List of the visible rows
+      xcodes_valid: ['row', 'h', 'N', 'T'], // Codes for all possible data for the X coordinates ('row' table rows, 'h' blockheights, 'N' block numbers, 'T' timestamps)
+      xcodes: { 'row': null }, // Available codes (and column numbers) for the X coordinates (Remark: rows and blockheight are always available)
+      xcode: 'row', // Code currently used for the X axis
+      // Remark: 'row' is always usable as X coordinate (without any data column), and it's the default option
+      x: {}, // Data for each available x coordinates (always increasing, and without empty values)
+      xsvg: {}, // Proportional x coordinates over the SVG width
+      xTicks: {}, // Nice ticks for the horizontal scale of each available x coordinates
+      y: {}, // Data for y coordinates of each displayed graph
+      ysvg: {}, // Proportional y coordinates over the SVG height
+      timeText: [], // If available, the human-readable timestamps will be saved here (as plotting will use the raw data instead)
+      yTicks: {}, // Nice ticks for the vertical scale of each displayed graph
+      color: g_graph.color || {}, // CSS color of each graph (preserved if already in memory)
+      width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
+      height: 600, // Arbitrary SVG height
+      margin: 10, // Margin around the graph area
+      padding: 10, // Padding inside the graph area
+      area: {}, // Other measures of the graph area (values are computed here below)
+      axis: {}, // Other measures of the axis area (values are computed here below)
+      hover: true, // Indicates if the hovering effect is active (the cursor position follows the mouse)
+      index: null // Index in the x coordinates array for the cursor position
+    };
+
     // Add a toggle event to the collapsible containing the graph
     document.getElementById('graphCollapsible').addEventListener('toggle', toggleGraph);
 
@@ -4222,8 +4227,6 @@
 
     // Add checkboxes for selecting columns to display as graphs (and identify data usable as X coordinates)
     const headers = document.querySelectorAll('#divTableBlocks .th');
-    g_graph.xcodes['row'] = null ; // 'row' is always usable as X coordinate (without any data column)
-    g_graph.xcode = 'row'; // And it's the default option
     // Loop on each header cell of the table
     for (let col = 0; col < headers.length; col++) {
       const header = headers[col];
@@ -4517,7 +4520,7 @@
         // Special case for timestamps: The plotted values are not the same as the displayed ones
         if (code == 'T') {
           g_graph.timeText = g_graph.x[code]; // Store the human-readable values
-          g_graph.x[code] = g_graph.rows.map(row => row.cells[col].firstElementChild.dataset.raw); // Get the raw data from the first <span> in the cell
+          g_graph.x[code] = g_graph.rows.map(row => row.cells[col]?.firstElementChild?.dataset?.raw || '0'); // Get the raw data from the first <span> in the cell
         }
       }
       // Get min and max values (the spread operator '...' expands the array elements)
@@ -4559,11 +4562,11 @@
       } else { // Add/update data series
         // Special case for timestamps: Get the plottable raw data, not the displayed one (which is already saved in 'g_graph.timeText')
         if (code == 'T') {
-          g_graph.y[code] = g_graph.rows.map(row => row.cells[col].firstElementChild.dataset.raw); // Get the raw data from the first <span> in the cell
+          g_graph.y[code] = g_graph.rows.map(row => row.cells[col]?.firstElementChild?.dataset?.raw || '0'); // Get the raw data from the first <span> in the cell
         } else {
           // Use the map method to extract from the visible rows an array with the cell values of the column
           g_graph.y[code] = g_graph.rows.map(function(row) {
-            let val = row.cells[col].innerText; // Return the content of the cell in a given column
+            let val = row.cells[col]?.innerText || ''; // Return the content of the cell in a given column
             val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
             if (val == '') { val = '0' }; // Replace empty values with 0
             return val;
