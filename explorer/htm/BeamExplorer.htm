@@ -4938,7 +4938,7 @@
       const xPercentage = 100 * g_graph.xsvg[code][g_graph.index] / g_graph.width;
       // Move scale cursor to the corresponding axis position
       document.getElementById('scaleCursorX').setAttribute('x', xPercentage + '%');
-      document.getElementById('scaleCursorXValue').setContent = xNice;
+      document.getElementById('scaleCursorXValue').textContent = xNice;
       // Update the axis tooltip to give the value for all the available x coordinates
       let text = '';
       for (code in g_graph.xcodes) {
@@ -4962,7 +4962,7 @@
       const yPercentage = 100 - 100 * g_graph.ysvg[code][g_graph.index] / g_graph.height;
       // Move scale cursor to the corresponding axis position
       document.getElementById('scaleCursorY_' + code).setAttribute('y', yPercentage + '%');
-      document.getElementById('scaleCursorYValue_' + code).setContent = yNice;
+      document.getElementById('scaleCursorYValue_' + code).textContent = yNice;
       // Add/replace the value in the second line of its tooltip
       const container = document.getElementById('yAxisContainer_' + code);
       container.title = container.title.replace(/[ : ]*\n.*/, ' : \n' + yNice); // Everything after the new line becomes the new value
@@ -5371,7 +5371,7 @@
     let nbr = 0;
     for (let item of document.querySelectorAll('.columnOptionNumber')) {
       nbr++;
-      item.setContent = nbr.toString().padStart(2,'0') + '. ';
+      item.textContent = nbr.toString().padStart(2,'0') + '. ';
     }
   }
 </script>
