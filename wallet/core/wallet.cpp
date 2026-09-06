@@ -2701,9 +2701,11 @@ namespace beam::wallet
         auto messages = m_WalletDB->getWalletMessages();
         for (auto& message : messages)
         {
+            // Every endpoint gets its own copy: moving would hand the second and later
+            // endpoints an empty buffer.
             for (auto& endpoint : m_MessageEndpoints)
             {
-                endpoint->SendRawMessage(message.m_PeerID, std::move(message.m_Message));
+                endpoint->SendRawMessage(message.m_PeerID, ByteBuffer(message.m_Message));
             }
             m_WalletDB->deleteWalletMessage(message.m_ID);
         }
