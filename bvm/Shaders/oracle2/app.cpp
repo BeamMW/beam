@@ -288,6 +288,8 @@ ON_METHOD(manager, view_params)
         return;
 
     Env::DocGroup gr("params");
+    Env::DocAddNum("hValidity", s.m_Settings.m_hValidity);
+    Env::DocAddNum("nMinProviders", s.m_Settings.m_MinProviders);
     if (s.IsProvider())
         Env::DocAddNum("iProv", s.m_iProv);
 
@@ -313,7 +315,7 @@ ON_METHOD(manager, view_median)
     Median med;
     if (Env::VarReader::Read_T(k, med))
     {
-        Env::DocArray gr("res");
+        Env::DocGroup gr("res");
         Env::DocAddNum("val", med.m_Res * get_Norm_n());
         Env::DocAddNum("hEnd", med.m_hEnd);
     }
@@ -328,7 +330,7 @@ ON_METHOD(provider, get_key)
     PubKey pk;
     kid.get_Pk(pk);
 
-    Env::DocArray gr("res");
+    Env::DocGroup gr("res");
     Env::DocAddBlob_T("pk", pk);
 }
 
