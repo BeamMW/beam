@@ -42,8 +42,29 @@ using namespace beam::wallet;
 
 #define Assert(x) ((void)((x) || (__assert_fail(#x, __FILE__, __LINE__, __func__),0)))
 
+// Pointers are marshalled to the main thread through EM_FUNC_SIG_VI (a 32-bit
+// int slot) in several places below. That is correct on wasm32, where pointers
+// are 32-bit, but would silently truncate under MEMORY64. Guard the assumption
+// so a future wasm64 build fails to compile here instead of corrupting pointers
+// (the fix then is a pointer-sized signature such as EM_FUNC_SIG_VP).
+static_assert(sizeof(void*) == sizeof(int),
+    "pointer/int size mismatch: revisit i32 proxying (EM_FUNC_SIG_VI) for MEMORY64");
+
 namespace
 {
+    // Non-fatal refcount check used around wallet stop. The custom Assert above
+    // always aborts (even with -s ASSERTIONS=0), but a WalletClient2 can
+    // legitimately have extra owners mid-stop: queued SendResult messages
+    // capture shared_from_this(). shared_ptr still guarantees destruction once
+    // the last owner releases, so an off-count is worth logging, not crashing.
+    void CheckUseCount(long actual, long expected, const char* where)
+    {
+        if (actual != expected)
+        {
+            BEAM_LOG_WARNING() << "Unexpected WalletClient2 use_count at " << where
+                << ": " << actual << " (expected " << expected << ")";
+        }
+    }
     void GetWalletSeed(NoLeak<uintBig>& walletSeed, const std::string& s)
     {
         SecString seed;
@@ -74,10 +95,7 @@ namespace
         GenerateDefaultAddress(db);
         EM_ASM
         (
-            FS.syncfs(false, function()
-            {
-                console.log("wallet created!");
-            });
+            FS.syncfs(false, function() {});
         );
         return db;
     }
@@ -190,29 +208,39 @@ private:
 
     void onPostFunctionToClientContext(MessageFunction&& func) override
     {
+        bool wasEmpty;
         {
             std::unique_lock lock(m_Mutex);
+            wasEmpty = m_Messages.empty();
             m_Messages.push(std::move(func));
         }
-        auto thisWeakPtr = std::make_unique<WeakPtr>(weak_from_this());
-        emscripten_async_run_in_main_runtime_thread(
-            EM_FUNC_SIG_VI,
-            &WalletClient2::ProcessMessageOnMainThread,
-            reinterpret_cast<int>(thisWeakPtr.release()));
+        // ProcessMessageOnMainThread drains the whole queue, so only dispatch
+        // on the empty->non-empty transition; messages enqueued after the
+        // trigger are picked up by the running drain loop. This coalesces
+        // event bursts (subscribe-all in toggleEvents) into a single proxied
+        // main-thread call + allocation instead of one per message.
+        if (wasEmpty)
+        {
+            auto thisWeakPtr = std::make_unique<WeakPtr>(weak_from_this());
+            emscripten_async_run_in_main_runtime_thread(
+                EM_FUNC_SIG_VI,
+                &WalletClient2::ProcessMessageOnMainThread,
+                reinterpret_cast<int>(thisWeakPtr.release()));
+        }
     }
 
     void onStopped() override
     {
         WalletClient2::WeakPtr wp = weak_from_this();
-        Assert(wp.use_count() == 1);
+        CheckUseCount(wp.use_count(), 1, "onStopped");
         postFunctionToClientContext([sp = shared_from_this(), wp]() mutable
         {
-            Assert(wp.use_count() == 2);
+            CheckUseCount(wp.use_count(), 2, "onStopped.dispatch");
             if (sp->m_StoppedHandler)
             {
                 auto h = std::move(sp->m_StoppedHandler);
                 sp.reset(); // handler may hold WalletClient too, but can destroy it, we don't want to prevent this
-                Assert(wp.use_count() == 1);
+                CheckUseCount(wp.use_count(), 1, "onStopped.afterReset");
                 h();
             }
         });
@@ -270,7 +298,6 @@ private:
     std::queue<MessageFunction> m_Messages;
     ICallbackHandler* m_CbHandler = nullptr;
     Callback m_StoppedHandler;
-    IWalletApi::Ptr m_WalletApi;
     std::vector<WasmAppApi::Ptr> m_Apis;
 };
 
@@ -403,7 +430,7 @@ public:
     }
 
     WasmWalletClient(const std::string& dbName, const std::string& pass, const std::string& node, Rules::Network network)
-        : m_Logger(beam::Logger::create(BEAM_LOG_LEVEL_DEBUG, BEAM_LOG_LEVEL_DEBUG))
+        : m_Logger(beam::Logger::create(BEAM_LOG_LEVEL_INFO, BEAM_LOG_LEVEL_INFO))
         , m_Reactor(io::Reactor::create())
         , m_DbPath(dbName)
         , m_Pass(pass)
@@ -422,43 +449,32 @@ public:
         m_Client->SendResult(result);
     }
 
-    uint32_t AddCallback(val&& callback)
-    {
-        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
-        {
-            auto& cb = m_Callbacks[i];
-            if (cb.isNull())
-            {
-                cb = std::move(callback);
-                return i;
-            }
-        }
-        m_Callbacks.push_back(std::move(callback));
-        return static_cast<uint32_t>(m_Callbacks.size() - 1);
-    }
-
     int Subscribe(val callback)
     {
-        for (uint32_t i = 0; i < m_Callbacks.size(); ++i)
+        for (size_t i = 0; i < m_Callbacks.size(); ++i)
         {
             auto& cb = m_Callbacks[i];
             if (cb.isNull())
             {
                 cb = std::move(callback);
-                return i;
+                return static_cast<int>(i);
             }
         }
         m_Callbacks.push_back(std::move(callback));
-        return static_cast<uint32_t>(m_Callbacks.size() - 1);
+        return static_cast<int>(m_Callbacks.size() - 1);
     }
 
     void Unsubscribe(int key)
     {
-        if (key == m_Callbacks.size() - 1)
+        if (key < 0 || key >= static_cast<int>(m_Callbacks.size()))
+        {
+            return;
+        }
+        if (key == static_cast<int>(m_Callbacks.size()) - 1)
         {
             m_Callbacks.pop_back();
         }
-        else if (key < m_Callbacks.size() - 1)
+        else
         {
             m_Callbacks[key] = val::null();
         }
@@ -525,11 +541,6 @@ public:
                 io::Reactor::Scope scope(*r);
                 WalletDB::initNoKeeper(m_DbPath, m_Pass);
                 s_Mounted = true;
-
-                EM_ASM
-                (
-                    console.log("headless wallet created!");
-                );
             }
 
             BEAM_LOG_INFO() << "Rules signature: " << m_Rules.get_SignatureStr();
@@ -552,7 +563,8 @@ public:
 
             if (!m_CurrentRecoveryFile.empty())
             {
-                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile)); // m_CurrentRecoveryFile should be cleared 
+                m_Client->getAsync()->importRecovery(std::move(m_CurrentRecoveryFile));
+                m_CurrentRecoveryFile.clear();
             }
             m_Client->getAsync()->enableBodyRequests(true);
             m_Client->start({}, true, additionalTxCreators);
@@ -581,12 +593,21 @@ public:
             [](const boost::any&) {
         });
         std::weak_ptr<WalletClient2> wp = m_Client;
-        Assert(wp.use_count() == 1);
+        // May legitimately be >1 here: a SendResult posted by the wallet thread
+        // can still be sitting undrained in m_Messages holding shared_from_this()
+        // when JS calls stopWallet(). That is the load race the assert-downgrade
+        // is for; it does NOT contradict the destruction guarantee below.
+        CheckUseCount(wp.use_count(), 1, "StopWallet");
         m_Client->Stop([wp, sp = std::move(m_Client), handler = std::move(handler)]() mutable
         {
             AssertMainThread();
-            Assert(wp.use_count() == 1);
-            sp.reset(); // release client, at this point destructor should be called and handler code can rely on that client is really stopped and destroyed
+            // Guaranteed 1 here: this handler is posted from onStopped(), which
+            // runs only after the reactor loop returns, i.e. after every
+            // SendResult was enqueued. They share this FIFO queue, so all prior
+            // SendResults (and their shared_from_this refs) are drained before
+            // this runs -- so sp is the sole owner and sp.reset() destroys it.
+            CheckUseCount(wp.use_count(), 1, "StopWallet.stopped");
+            sp.reset(); // last owner: client is really stopped and destroyed here, handler code can rely on that
             if (!handler.isNull())
             {
                 auto handlerPtr = std::make_unique<val>(std::move(handler));
@@ -613,10 +634,15 @@ public:
     {
         AssertMainThread();
         auto r = result.dump();
-        for (auto& cb : m_Callbacks)
+        // A callback may (un)subscribe synchronously, which can reallocate
+        // m_Callbacks and invalidate a range-for reference to the val being
+        // invoked. Index by position and copy the val (cheap refcount bump)
+        // before calling so reentrant mutation can't leave us on freed storage.
+        for (size_t i = 0; i < m_Callbacks.size(); ++i)
         {
-            if (!cb.isNull())
+            if (!m_Callbacks[i].isNull())
             {
+                val cb = m_Callbacks[i];
                 cb(r);
             }
         }
@@ -648,14 +674,18 @@ public:
     void OnImportRecoveryProgress(val error, uint64_t done, uint64_t total)
     {
         AssertMainThread();
+        const bool finished = (done == total) || !error.isNull();
         if (m_RecoveryCallback && !m_RecoveryCallback->isNull())
         {
             (*m_RecoveryCallback)(error, static_cast<int>(done), static_cast<int>(total));
-            if (done == total || !error.isNull())
-            {
-                BEAM_LOG_DEBUG() << "Recovery done";
-                m_RecoveryCallback.reset();
-            }
+        }
+        // Remove the seed-equivalent blob once import ends, regardless of whether
+        // a progress callback was supplied (ImportRecovery permits a null one).
+        if (finished)
+        {
+            BEAM_LOG_DEBUG() << "Recovery done";
+            m_RecoveryCallback.reset();
+            RemoveRecoveryFile();
         }
     }
 
@@ -665,6 +695,29 @@ public:
         {
             auto error = val::global("Error").new_(val("Failed to import recovery"));
             OnImportRecoveryProgress(error, 0, 0);
+        }
+    }
+
+    // recovery.bin is written with a relative path and (absent any chdir)
+    // resolves to /recovery.bin in the transient MEMFS root, NOT the persisted
+    // IDBFS mount at /beam_wallet -- so it never reaches IndexedDB and needs no
+    // syncfs. It still holds seed-equivalent material and occupies space in the
+    // fixed heap (INITIAL_MEMORY, ALLOW_MEMORY_GROWTH=0), so free it once import
+    // has finished, whether it succeeded or failed. Only the blob we wrote
+    // ourselves is removed; a file supplied to ImportRecoveryFromFile is left
+    // alone even if it happens to be named recovery.bin (m_OwnsRecoveryFile).
+    void RemoveRecoveryFile()
+    {
+        if (!m_OwnsRecoveryFile)
+        {
+            return;
+        }
+        m_OwnsRecoveryFile = false;
+        std::error_code ec;
+        fs::remove(std::string(RecoveryFileName), ec);
+        if (ec)
+        {
+            BEAM_LOG_WARNING() << "Failed to remove recovery file: " << ec.message();
         }
     }
 
@@ -781,6 +834,7 @@ public:
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
             m_CurrentRecoveryFile = RecoveryFileName;
+            m_OwnsRecoveryFile = true; // we wrote the blob; safe to delete on completion
         }
         catch (const std::exception& ex)
         {
@@ -803,6 +857,7 @@ public:
                 m_RecoveryCallback = std::make_unique<val>(std::move(callback));
             }
             m_CurrentRecoveryFile = fileName;
+            m_OwnsRecoveryFile = false; // user-supplied file; never delete it
         }
         catch (const std::exception& ex)
         {
@@ -907,10 +962,7 @@ public:
             fs::remove(dbName);
             EM_ASM
             (
-                FS.syncfs(false, function()
-                {
-                    console.log("wallet deleted!");
-                });
+                FS.syncfs(false, function() {});
             );
         }
         catch (const std::exception& ex)
@@ -936,9 +988,8 @@ public:
 
     static void CheckPasswordImpl(const std::string& dbName, const std::string& pass, std::shared_ptr<val> cb)
     {
-        WalletDB::isValidPassword(dbName, SecString(pass));
         auto res = WalletDB::isValidPassword(dbName, SecString(pass));
-        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(res);
         auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
@@ -949,6 +1000,11 @@ public:
 
     static void CheckPassword(const std::string& dbName, const std::string& pass, val cb)
     {
+        // isValidPassword runs a deliberately-slow KDF, so it is offloaded to a
+        // detached thread to keep the main thread responsive. This is safe
+        // without lifetime tracking: the thread only touches its own copies of
+        // dbName/pass and the static WalletDB::isValidPassword (no shared
+        // instance state), and hands the result back via the main-thread proxy.
         auto pcb = std::make_shared<val>(cb);
         MyThread(&WasmWalletClient::CheckPasswordImpl, dbName, pass, pcb).detach();
     }
@@ -980,31 +1036,40 @@ public:
             {
                 FS.mkdir("/beam_wallet");
                 FS.mount(IDBFS, {}, "/beam_wallet");
-                console.log("mounting...");
                 FS.syncfs(true, function(error)
                 {
-                    if (error == null) {
-                        dynCall('vi', $0, [$1]);
+                    // The JS error object can't be marshalled to C++ through the
+                    // dynCall arg slot, so log its text here and pass only a
+                    // success flag. Reuse the existing 'vi' signature: dynCall is
+                    // not in EXPORTED_RUNTIME_METHODS and DYNAMIC_EXECUTION=0, so
+                    // avoid introducing a new (possibly unavailable) signature.
+                    if (error != null) {
+                        console.error("Beam: filesystem sync failed:", error);
                     }
-                    else {
-                        dynCall('vi', $0, [error]);
-                    }
+                    dynCall('vi', $0, [error == null ? 1 : 0]);
                 });
-
-            }, OnMountFS, &s_Null
+            }, OnMountFS
         );
     }
 private:
-    static void OnMountFS(val* error)
+    static void OnMountFS(int success)
     {
-        s_Mounted = true;
-        if (!s_MountCB.isNull())
+        if (success)
         {
-            s_MountCB(*error);
+            s_Mounted = true;
+        }
+        if (s_MountCB.isNull())
+        {
+            BEAM_LOG_WARNING() << "Callback for mount is not set";
+            return;
+        }
+        if (success)
+        {
+            s_MountCB(s_Null); // null -> mount promise resolves as success
         }
         else
         {
-            BEAM_LOG_WARNING() << "Callback for mount is not set";
+            s_MountCB(val::global("Error").new_(val("Failed to mount filesystem")));
         }
     }
 
@@ -1023,9 +1088,13 @@ private:
     std::unique_ptr<val> m_ApproveContractInfoHandler;
     std::unique_ptr<val> m_RecoveryCallback;
     WalletClient2::Ptr m_Client;
+    // Only ever created/reset/used inside makeIWTCall (ExecuteAPIRequest,
+    // StopWallet), i.e. on the wallet thread. Do not touch it from the main
+    // thread or add a second owner without revisiting that invariant.
     IWalletApi::Ptr m_WalletApi;
     bool m_Headless = false;
     std::string m_CurrentRecoveryFile;
+    bool m_OwnsRecoveryFile = false; // true only for the recovery.bin blob we write ourselves
 };
 
 val WasmWalletClient::s_MountCB = val::null();

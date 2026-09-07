@@ -26,50 +26,73 @@ namespace beam
     std::vector<std::string> getDefaultPeers()
     {
         std::vector<std::string> result;
+        auto addPeers = [&result](const char* hosts[], uint32_t n)
+        {
+            // In the WASM/browser build, every connection must go over wss://, so the
+            // default peers listen on the WebSocket port (:8200). The raw-TCP P2P
+            // ports (:8100) used by native builds are unreachable from the browser.
+        #ifdef __EMSCRIPTEN__
+            constexpr const char* kDefaultPort = ":8200";
+        #else
+            constexpr const char* kDefaultPort = ":8100";
+        #endif
+            result.reserve(n);
+            for (uint32_t i = 0; i < n; i++)
+                result.emplace_back(std::string(hosts[i]) + kDefaultPort);
+        };
 
         switch (Rules::get().m_Network)
         {
         case Rules::Network::testnet:
             {
-                static const char* psz[] = {
-                    "us-nodes.testnet.beam.mw:8100",
-                    "eu-nodes.testnet.beam.mw:8100",
-                    "ap-nodes.testnet.beam.mw:8100"
+                static const char* hosts[] = {
+                    "us-nodes.testnet.beam.mw",
+                    "eu-nodes.testnet.beam.mw",
+                    "ap-nodes.testnet.beam.mw"
                 };
-                Arr2Vec(result, psz, _countof(psz));
+                addPeers(hosts, _countof(hosts));
             }
             break;
 
         case Rules::Network::mainnet:
             {
-                static const char* psz[] = {
-                    "eu-nodes.mainnet.beam.mw:8100",
-                    "us-nodes.mainnet.beam.mw:8100",
+#ifdef __EMSCRIPTEN__
+                // us-nodes.mainnet.beam.mw has no WebSocket (:8200) endpoint, only
+                // raw TCP (:8100). Listing it in the browser build causes endless
+                // failed wss reconnect attempts, so restrict to hosts that serve wss.
+                static const char* hosts[] = {
+                    "eu-nodes.mainnet.beam.mw",
                 };
-                Arr2Vec(result, psz, _countof(psz));
+#else
+                static const char* hosts[] = {
+                    "eu-nodes.mainnet.beam.mw",
+                    "us-nodes.mainnet.beam.mw",
+                };
+#endif
+                addPeers(hosts, _countof(hosts));
             }
             break;
 
         case Rules::Network::dappnet:
             {
-                static const char* psz[] = {
-                    "eu-node01.dappnet.beam.mw:8100",
-                    "eu-node02.dappnet.beam.mw:8100",
-                    "eu-node03.dappnet.beam.mw:8100"
+                static const char* hosts[] = {
+                    "eu-node01.dappnet.beam.mw",
+                    "eu-node02.dappnet.beam.mw",
+                    "eu-node03.dappnet.beam.mw"
                 };
-                Arr2Vec(result, psz, _countof(psz));
+                addPeers(hosts, _countof(hosts));
             }
             break;
 
         case Rules::Network::masternet:
             {
-                static const char* psz[] = {
-                    "eu-node01.masternet.beam.mw:8100",
-                    "eu-node02.masternet.beam.mw:8100",
-                    "eu-node03.masternet.beam.mw:8100",
-                    "eu-node04.masternet.beam.mw:8100"
+                static const char* hosts[] = {
+                    "eu-node01.masternet.beam.mw",
+                    "eu-node02.masternet.beam.mw",
+                    "eu-node03.masternet.beam.mw",
+                    "eu-node04.masternet.beam.mw"
                 };
-                Arr2Vec(result, psz, _countof(psz));
+                addPeers(hosts, _countof(hosts));
             }
             break;
 
