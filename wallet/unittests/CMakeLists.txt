@@ -33,6 +33,7 @@ add_test_snippet(wallet_db_test wallet_core)
 add_test_snippet(wallet_api_test wallet_api)
 add_test_snippet(wallet_assets_test core node wallet_core pow assets wallet_test_node)
 add_test_snippet(news_channels_test wallet_client node)
+add_test_snippet(price_backend_test news_channels)
 add_test_snippet(broadcasting_test broadcast_gateway node)
 
 if (BEAM_TEST_SHADERS)

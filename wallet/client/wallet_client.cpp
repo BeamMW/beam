@@ -24,7 +24,7 @@
 #include "extensions/broadcast_gateway/broadcast_router.h"
 #include "extensions/export/tx_history_to_csv.h"
 #include "extensions/news_channels/wallet_updates_provider.h"
-#include "extensions/news_channels/exchange_rate_provider.h"
+#include "extensions/news_channels/contract_rate_provider.h"
 #include "utility/fsutils.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
@@ -785,11 +785,11 @@ namespace beam::wallet
 
                 // Other content providers using broadcast messages
                 auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
-                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, withExchangeRates);
+                auto exchangeRateProvider = make_shared<ContractRateProvider>(nodeNetwork, withExchangeRates);
                 m_exchangeRateProvider = exchangeRateProvider;
                 m_walletUpdatesProvider = walletUpdatesProvider;
                 using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
-                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
+                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ContractRateProvider>;
                 auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), walletUpdatesProvider);
                 auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
@@ -899,6 +899,8 @@ namespace beam::wallet
 
                 nodeNetworkSubscriber.reset();
                 broadcastRouter.reset();
+                ratesSubscriber.reset();
+                exchangeRateProvider.reset();
                 assert(nodeNetwork.use_count() == 1);
                 nodeNetwork.reset();
 
@@ -1332,6 +1334,8 @@ namespace beam::wallet
 
     void WalletClient::onSystemStateChanged(const HeightHash& stateID)
     {
+        if (auto p = m_exchangeRateProvider.lock())
+            p->refresh(stateID.m_Height);
         updateStatus();
     }
 

@@ -29,7 +29,7 @@
 #include "extensions/notifications/notification_center.h"
 #include "extensions/broadcast_gateway/interface.h"
 #include "extensions/broadcast_gateway/broadcast_msg_validator.h"
-#include "extensions/news_channels/exchange_rate_provider.h"
+#include "extensions/news_channels/contract_rate_provider.h"
 #include "extensions/news_channels/verification_provider.h"
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "extensions/dex_board/dex_board.h"
@@ -428,7 +428,7 @@ namespace beam::wallet
         std::weak_ptr<IBroadcastMsgGateway> m_broadcastRouter;
         std::weak_ptr<IBroadcastListener> m_updatesProvider;
         std::weak_ptr<IBroadcastListener> m_walletUpdatesProvider;
-        std::weak_ptr<ExchangeRateProvider> m_exchangeRateProvider;
+        std::weak_ptr<ContractRateProvider> m_exchangeRateProvider;
         std::weak_ptr<VerificationProvider> m_verificationProvider;
         std::shared_ptr<NotificationCenter> m_notificationCenter;
 
