@@ -45,8 +45,8 @@ namespace beam::bitcoin
 
         virtual ~IBridge() {};
 
-        // error, transaction (hex), changepos
-        virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) = 0;
+        // error, transaction (hex), changepos, fee (satoshi, 0 if unknown)
+        virtual void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int, Amount)> callback) = 0;
         //error, transaction (hex), complete
         virtual void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) = 0;
         // error, transaction ID

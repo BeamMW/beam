@@ -167,6 +167,7 @@ namespace beam
         extern const char* ESTIMATE_SWAP_FEERATE;
         extern const char* GET_BALANCE;
         extern const char* SWAP_COIN;
+        extern const char* TOKEN_CONTRACT;
         extern const char* SWAP_BEAM_SIDE;
         extern const char* SWAP_TX_HISTORY;
         extern const char* NODE_POLL_PERIOD;

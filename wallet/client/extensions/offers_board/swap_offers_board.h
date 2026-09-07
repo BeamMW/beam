@@ -109,6 +109,7 @@ private:
 
     bool isOfferExpired(const SwapOffer&) const;
     bool isOfferLifetimeTooLong(const SwapOffer&) const;
+    bool isExtendedOfferDataValid(const SwapOffer&) const;
     bool onOfferFromNetwork(SwapOffer& newOffer);
     void broadcastOffer(const SwapOffer& content, uint64_t keyOwnID) const;
     void sendUpdateToNetwork(const SwapOffer&) const;

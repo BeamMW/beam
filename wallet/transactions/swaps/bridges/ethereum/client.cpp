@@ -56,9 +56,24 @@ struct EthereumClientBridge : public Bridge<IClientAsync>
         call_async(&IClientAsync::GetBalance, swapCoin);
     }
 
+    void GetTokenBalance(const std::string& tokenContract, uint8_t decimals)
+    {
+        call_async(&IClientAsync::GetTokenBalance, tokenContract, decimals);
+    }
+
+    void GetTokenInfo(const std::string& tokenContract)
+    {
+        call_async(&IClientAsync::GetTokenInfo, tokenContract);
+    }
+
     void EstimateGasPrice()
     {
         call_async(&IClientAsync::EstimateGasPrice);
+    }
+
+    void ValidateEndpoint()
+    {
+        call_async(&IClientAsync::ValidateEndpoint);
     }
 
     void ChangeSettings(const Settings& settings)
@@ -147,6 +162,57 @@ void Client::GetBalance(wallet::AtomicSwapCoin swapCoin)
     }
 }
 
+void Client::GetTokenBalance(const std::string& tokenContract, uint8_t decimals)
+{
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        return;
+    }
+
+    bridge->getTokenBalance(tokenContract, [this, weak = this->weak_from_this(), tokenContract, decimals](const IBridge::Error& error, const std::string& balance)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        SetConnectionError(error.m_type);
+        SetStatus((error.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+
+        if (error.m_type == IBridge::None)
+        {
+            boost::multiprecision::uint256_t tmp(balance);
+            tmp /= ethereum::TokenUnitsMultiplier(decimals);
+
+            OnTokenBalance(tokenContract, tmp.convert_to<Amount>());
+        }
+    });
+}
+
+void Client::GetTokenInfo(const std::string& tokenContract)
+{
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        // empty message: callers show their own no-connection text
+        OnTokenInfo(tokenContract, {}, 0, { IBridge::IOError, {} });
+        return;
+    }
+
+    bridge->getTokenInfo(tokenContract, [this, weak = this->weak_from_this(), tokenContract](const IBridge::Error& error, const std::string& symbol, uint8_t decimals)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        OnTokenInfo(tokenContract, symbol, decimals, error);
+    });
+}
+
 void Client::EstimateGasPrice()
 {
     auto bridge = GetBridge();
@@ -175,11 +241,59 @@ void Client::EstimateGasPrice()
 
             if (GetSettings().GetMinFeeRate() > result)
             {
-                result = 0;
+                result = GetSettings().GetMinFeeRate();
             }
 
             OnEstimatedGasPrice(result);
         }
+    });
+}
+
+void Client::ValidateEndpoint()
+{
+    auto bridge = GetBridge();
+
+    if (!bridge)
+    {
+        return;
+    }
+
+    bridge->getChainID([this, weak = this->weak_from_this(), bridge](const IBridge::Error& error, uint64_t chainID)
+    {
+        if (weak.expired())
+        {
+            return;
+        }
+
+        if (error.m_type != IBridge::None)
+        {
+            SetConnectionError(error.m_type);
+            SetStatus(Status::Failed);
+            OnEndpointValidated(0, 0, error);
+            return;
+        }
+
+        bridge->getBlockNumber([this, weak, chainID](const IBridge::Error& error, uint64_t blockNumber)
+        {
+            if (weak.expired())
+            {
+                return;
+            }
+
+            IBridge::Error finalError = error;
+            // Mainnet builds require chain id 1; testnet builds accept any
+            // chain (private nets / forks are the use case).
+            if (finalError.m_type == IBridge::None &&
+                wallet::UseMainnetSwap() && chainID != 1)
+            {
+                finalError.m_type = IBridge::InvalidNetwork;
+                finalError.m_message = "endpoint is not an Ethereum mainnet node";
+            }
+
+            SetConnectionError(finalError.m_type);
+            SetStatus((finalError.m_type != IBridge::None) ? Status::Failed : Status::Connected);
+            OnEndpointValidated(chainID, blockNumber, finalError);
+        });
     });
 }
 

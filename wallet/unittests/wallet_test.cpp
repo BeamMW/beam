@@ -79,6 +79,7 @@ namespace
     {
     public:
         Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
+        boost::optional<Amount> getTokenAvailable(const std::string& tokenContract, uint8_t decimals) const override { throw std::runtime_error("not impl"); }
         Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }

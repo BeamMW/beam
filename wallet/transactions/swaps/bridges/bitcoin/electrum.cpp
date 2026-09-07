@@ -36,7 +36,6 @@ using namespace libbitcoin::chain;
 namespace
 {
     const std::chrono::seconds kRequestPeriod = std::chrono::seconds(10);
-    const size_t kUnlogingScriptSize = 107u; // without prefix
 
     std::string generateScriptHash(const ec_public& publicKey, uint8_t addressVersion)
     {
@@ -52,7 +51,7 @@ namespace
     {
         beam::Amount vsize = tx.serialized_size();
 
-        return ((vsize + kUnlogingScriptSize * tx.inputs().size()) * feeRate) / 1000u;
+        return ((vsize + beam::bitcoin::kUnlogingScriptSize * tx.inputs().size()) * feeRate) / 1000u;
     }
 
     const char kInvalidGenesisBlockHashMsg[] = "Invalid genesis block hash";
@@ -83,7 +82,7 @@ namespace beam::bitcoin
         }
     }
 
-    void Electrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
+    void Electrum::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int, Amount)> callback)
     {
         BEAM_LOG_DEBUG() << "fundRawTransaction command";
 
@@ -91,7 +90,7 @@ namespace beam::bitcoin
         {
             if (error.m_type != ErrorType::None)
             {
-                callback(error, "", 0);
+                callback(error, "", 0, 0);
                 return;
             }
 
@@ -130,7 +129,7 @@ namespace beam::bitcoin
                     if (resultPoints.value() < total)
                     {
                         IBridge::Error internalError{ ErrorType::BitcoinError, "not enough coins" };
-                        callback(internalError, "", 0);
+                        callback(internalError, "", 0, 0);
                         return;
                     }
 
@@ -149,6 +148,7 @@ namespace beam::bitcoin
                     auto changeValue = totalInputValue - newTx.total_output_value();
 
                     auto fee = calcFee(newTx, feeRate);
+                    Amount effectiveFee = fee;
 
                     if (fee > changeValue)
                     {
@@ -174,6 +174,7 @@ namespace beam::bitcoin
                         {
                             changePosition = static_cast<int>(newTx.outputs().size()) - 1;
                             newTx.outputs().back().set_value(changeValue - newFee);
+                            effectiveFee = newFee;
                         }
 
                         BEAM_LOG_DEBUG() << "electrum fundrawtransaction:  fee = " << newFee << ", size = " << newTx.serialized_size();
@@ -186,7 +187,7 @@ namespace beam::bitcoin
 
                     BEAM_LOG_DEBUG() << "electrum fundrawtransaction: weight = " << newTx.weight() << ", fee = " << fee << ", size = " << newTx.serialized_size();
 
-                    callback(error, encode_base16(newTx.to_data()), changePosition);
+                    callback(error, encode_base16(newTx.to_data()), changePosition, effectiveFee);
                     return;
                 }
             }
@@ -195,7 +196,7 @@ namespace beam::bitcoin
                 Error tmp;
                 tmp.m_type = IBridge::BitcoinError;
                 tmp.m_message = err.what();
-                callback(tmp, "", -1);
+                callback(tmp, "", -1, 0);
             }
         });
     }

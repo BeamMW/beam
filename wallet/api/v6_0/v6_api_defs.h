@@ -458,6 +458,21 @@ namespace beam::wallet
         Amount swapFeeRate = 0;
         Height offerLifetime = 15;
         std::string comment;
+        // Only meaningful when swapCoin == AtomicSwapCoin::Erc20Token: the
+        // per-offer ERC-20 contract address ("0x" + 40 hex chars) and the
+        // symbol()/decimals() the caller asserts for it. Unlike the CLI (which
+        // queries the contract live and asks for interactive confirmation),
+        // the API is not a live-query trust boundary, so the caller supplies
+        // these directly; they are re-validated (format + decimals bound)
+        // when the offer is created/accepted, and the wallet re-derives the
+        // authoritative values from the chain when the swap transaction runs.
+        std::string tokenContract;
+        std::string tokenSymbol;
+        uint8_t tokenDecimals = 0;
+        // Non-zero when the BEAM leg of the swap carries a Confidential Asset
+        // instead of plain BEAM; validated (known asset, sufficient balance)
+        // when the offer is created.
+        Asset::ID beamAssetId = Asset::s_InvalidID;
     };
 
     struct OffersList

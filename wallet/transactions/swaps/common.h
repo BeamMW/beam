@@ -58,12 +58,47 @@ enum class AtomicSwapCoin : int32_t // explicit signed type for serialization ba
     Dai,
     Usdt,
     WBTC,
+    // Appended at the old 'Unknown' ordinal (10); 'Unknown' moves up to 12.
+    // Wire-format stability: BITCOIN_CASH_SUPPORT does not gate this enum's
+    // layout (Bitcoin_Cash is unconditional above), so ordinals are identical
+    // across build configs. The asserts below freeze that invariant.
+    Erc20Token,
+    ExtendedOffer,
     Unknown
 };
+
+static_assert(static_cast<int32_t>(AtomicSwapCoin::WBTC) == 9,
+    "AtomicSwapCoin::WBTC ordinal must stay 9 for wire compatibility");
+static_assert(static_cast<int32_t>(AtomicSwapCoin::Erc20Token) == 10,
+    "AtomicSwapCoin::Erc20Token takes the old AtomicSwapCoin::Unknown ordinal (10)");
+static_assert(static_cast<int32_t>(AtomicSwapCoin::ExtendedOffer) == 11,
+    "AtomicSwapCoin::ExtendedOffer ordinal must stay 11");
+static_assert(static_cast<int32_t>(AtomicSwapCoin::Unknown) == 12,
+    "AtomicSwapCoin::Unknown moved up to 12");
 
 const AtomicSwapCoin kEthTokens[] = { AtomicSwapCoin::Dai, AtomicSwapCoin::Usdt, AtomicSwapCoin::WBTC };
 
 bool IsEthToken(AtomicSwapCoin swapCoin);
+
+// Upper bound on a per-offer ERC-20 token's on-chain decimals()
+// (TxParameterID::AtomicSwapTokenDecimals). decimals is attacker-controlled
+// (sourced from the counterparty's contract), so it must be bounded before it
+// feeds any wire-amount arithmetic (see ethereum/common.h's
+// WalletUnitsPerToken/TokenUnitsMultiplier) and before an offer carrying it is
+// accepted onto the offers board (see swap_offers_board.cpp's
+// isExtendedOfferDataValid). Defined here (rather than in the ethereum bridge
+// headers) so the offers board doesn't need to depend on the ethereum bridge.
+constexpr uint8_t kMaxTokenDecimals = 18;
+
+// Strict 0x-prefixed 20-byte hex address check, shared by the CLI, the API
+// and the offers board so the format rule lives in exactly one place.
+bool IsValidEthContractAddress(const std::string& value);
+
+// Extracts the ERC-20 token parameters carried by a swap token/offer,
+// validating contract address format and the decimals bound. Shared by the
+// CLI and API accept paths (a pasted token may not have gone through the
+// offers board's own validation).
+bool GetValidatedErc20Params(const TxParameters& params, std::string& contract, std::string& symbol, uint8_t& decimals);
 
 enum class SwapOfferStatus : uint32_t
 {

@@ -20,6 +20,7 @@
 
 #include "wallet/transactions/swaps/bridges/bitcoin/bitcoin_core_016.h"
 #include "wallet/transactions/swaps/bridges/bitcoin/settings_provider.h"
+#include "wallet/transactions/swaps/bridges/bitcoin/common.h"
 
 #include "test_helpers.h"
 
@@ -89,7 +90,7 @@ void testSuccessResponse()
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
-    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
+    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos, Amount fee)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::None);
         WALLET_CHECK(!tx.empty());
@@ -205,7 +206,7 @@ void testEmptyResult()
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
-    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
+    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos, Amount fee)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::EmptyResult);
         WALLET_CHECK(!error.m_message.empty());
@@ -259,7 +260,7 @@ void testEmptyResponse()
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
-    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
+    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos, Amount fee)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::InvalidResultFormat);
         WALLET_CHECK(!error.m_message.empty());
@@ -286,7 +287,7 @@ void testConnectionRefused()
     auto settingsProvider = std::make_shared<BitcoindSettingsProvider>(btcUserName, btcPass, addr);
     bitcoin::BitcoinCore016 bridge = bitcoin::BitcoinCore016(*reactor, *settingsProvider);
 
-    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos)
+    bridge.fundRawTransaction("", 2, [&counter](const bitcoin::IBridge::Error& error, const std::string& tx, int pos, Amount fee)
     {
         WALLET_CHECK(error.m_type == bitcoin::IBridge::IOError);
         WALLET_CHECK(!error.m_message.empty());
@@ -295,6 +296,53 @@ void testConnectionRefused()
 
     reactor->run();
     WALLET_CHECK(counter == 1);
+}
+
+void TestFundedTxFeeSufficiency()
+{
+    // build a 2-in/2-out dummy tx with libbitcoin, serialize to hex
+    libbitcoin::chain::transaction tx;
+    tx.set_version(2);
+    for (int i = 0; i < 2; ++i)
+    {
+        libbitcoin::chain::input in;
+        tx.inputs().push_back(in);
+    }
+    libbitcoin::chain::output out(100000, libbitcoin::chain::script());
+    tx.outputs().push_back(out);
+    tx.outputs().push_back(out);
+    std::string hex = libbitcoin::encode_base16(tx.to_data());
+
+    // each unsigned input already serializes at kUnsignedInputVsize; the gate
+    // tops it up to the signed P2WPKH lower bound
+    beam::Amount vsize = tx.serialized_size() + (bitcoin::kMinInputVsize - bitcoin::kUnsignedInputVsize) * 2;
+    beam::Amount rate = 1000; // sat/kB
+    beam::Amount exact = (vsize * rate) / 1000u;
+
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient(hex, exact, rate));
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient(hex, exact + 1, rate));
+    WALLET_CHECK(!bitcoin::IsFundedTxFeeSufficient(hex, exact - 1, rate));
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient("zzzz-not-hex", 0, rate)); // undecodable -> permissive
+
+    // single-input tx: exercises the per-input multiplier at n=1
+    libbitcoin::chain::transaction tx1;
+    tx1.set_version(2);
+    libbitcoin::chain::input in1;
+    tx1.inputs().push_back(in1);
+    tx1.outputs().push_back(out);
+    tx1.outputs().push_back(out);
+    std::string hex1 = libbitcoin::encode_base16(tx1.to_data());
+
+    beam::Amount vsize1 = tx1.serialized_size() + (bitcoin::kMinInputVsize - bitcoin::kUnsignedInputVsize) * 1;
+    beam::Amount exact1 = (vsize1 * rate) / 1000u;
+
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient(hex1, exact1, rate));
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient(hex1, exact1 + 1, rate));
+    WALLET_CHECK(!bitcoin::IsFundedTxFeeSufficient(hex1, exact1 - 1, rate));
+
+    // valid hex, but too short to parse as a transaction: from_data fails,
+    // and the permissive fallback lets the sign/broadcast path report it.
+    WALLET_CHECK(bitcoin::IsFundedTxFeeSufficient("00", 0, rate));
 }
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
@@ -312,6 +360,7 @@ int main()
     testEmptyResult();
     testEmptyResponse();
     testConnectionRefused();
+    TestFundedTxFeeSufficiency();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

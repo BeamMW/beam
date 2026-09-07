@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "common.h"
+#include <cassert>
 #include <bitcoin/bitcoin.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <ethash/keccak.hpp>
@@ -131,6 +132,34 @@ std::string RemoveHexPrefix(const std::string& value)
     return value;
 }
 
+bool ParseTokenDecimalsWord(const std::string& hexWord, uint8_t& decimals)
+{
+    if (hexWord.size() != kEthContractABIWordSize * 2)
+    {
+        return false;
+    }
+
+    if (hexWord.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+    {
+        return false;
+    }
+
+    std::string lowByteHex = hexWord.substr(hexWord.size() - 2);
+    std::string highBytesHex = hexWord.substr(0, hexWord.size() - 2);
+    if (highBytesHex.find_first_not_of('0') != std::string::npos)
+    {
+        return false;
+    }
+
+    decimals = static_cast<uint8_t>(std::stoul(lowByteHex, nullptr, 16));
+    if (decimals > wallet::kMaxTokenDecimals)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::data_chunk& dst)
 {
     assert(src.size() <= kEthContractABIWordSize);
@@ -155,6 +184,44 @@ uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin)
         assert(false && "Unexpected swapCoin!");
         return 1u;
     }
+}
+
+uint64_t WalletUnitsPerToken(uint8_t decimals)
+{
+    // Primary guard is upstream (isExtendedOfferDataValid / getTokenInfo); this
+    // is only a backstop against a programmer error letting an out-of-range
+    // decimals slip through.
+    assert(decimals <= wallet::kMaxTokenDecimals);
+    if (decimals > wallet::kMaxTokenDecimals)
+    {
+        decimals = wallet::kMaxTokenDecimals;
+    }
+
+    uint8_t walletDecimals = std::min<uint8_t>(decimals, 9);
+    uint64_t result = 1;
+    for (uint8_t i = 0; i < walletDecimals; ++i)
+    {
+        result *= 10;
+    }
+    return result;
+}
+
+uint32_t TokenUnitsMultiplier(uint8_t decimals)
+{
+    // See WalletUnitsPerToken: belt-and-braces clamp, not the primary guard.
+    assert(decimals <= wallet::kMaxTokenDecimals);
+    if (decimals > wallet::kMaxTokenDecimals)
+    {
+        decimals = wallet::kMaxTokenDecimals;
+    }
+
+    uint8_t extraDecimals = (decimals > 9) ? (decimals - 9) : 0;
+    uint32_t result = 1;
+    for (uint8_t i = 0; i < extraDecimals; ++i)
+    {
+        result *= 10;
+    }
+    return result;
 }
 
 bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin)

@@ -31,6 +31,8 @@ void SettingsProvider::SetSettings(const Settings& settings)
 {
     // store to DB
     WriteToDb(GetProjectIDName(), settings.m_projectID);
+    WriteToDb(GetUseCustomRpcName(), settings.m_useCustomRpc);
+    WriteToDb(GetCustomRpcUrlName(), settings.m_customRpcUrl);
     WriteToDb(GetSecretWordsName(), settings.m_secretWords);
     WriteToDb(GetAccountIndexName(), settings.m_accountIndex);
     WriteToDb(GetShouldConnectName(), settings.m_shouldConnect);
@@ -45,6 +47,8 @@ void SettingsProvider::Initialize()
     {
         m_settings = std::make_unique<Settings>(GetEmptySettings());
         ReadFromDB(GetProjectIDName(), m_settings->m_projectID);
+        ReadFromDB(GetUseCustomRpcName(), m_settings->m_useCustomRpc);
+        ReadFromDB(GetCustomRpcUrlName(), m_settings->m_customRpcUrl);
         ReadFromDB(GetSecretWordsName(), m_settings->m_secretWords);
         ReadFromDB(GetAccountIndexName(), m_settings->m_accountIndex);
         ReadFromDB(GetShouldConnectName(), m_settings->m_shouldConnect);
@@ -82,6 +86,16 @@ Settings SettingsProvider::GetEmptySettings()
 std::string SettingsProvider::GetProjectIDName() const
 {
     return GetSettingsName() + "_ProjectID";
+}
+
+std::string SettingsProvider::GetUseCustomRpcName() const
+{
+    return GetSettingsName() + "_UseCustomRpc";
+}
+
+std::string SettingsProvider::GetCustomRpcUrlName() const
+{
+    return GetSettingsName() + "_CustomRpcUrl";
 }
 
 std::string SettingsProvider::GetSecretWordsName() const

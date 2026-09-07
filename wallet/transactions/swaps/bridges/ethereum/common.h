@@ -44,6 +44,27 @@ void AddContractABIWordToBuffer(const libbitcoin::data_slice& src, libbitcoin::d
 uint32_t GetCoinUnitsMultiplier(beam::wallet::AtomicSwapCoin swapCoin);
 bool IsEthereumBased(wallet::AtomicSwapCoin swapCoin);
 
+// Parses an ABI uint256 word (64 hex chars, no 0x) as token decimals.
+// Fails when any byte above the lowest is set or the value exceeds
+// kMaxTokenDecimals.
+bool ParseTokenDecimalsWord(const std::string& hexWord, uint8_t& decimals);
+
+// Per-offer ERC-20 token (AtomicSwapCoin::Erc20Token) equivalents of
+// UnitsPerCoin/GetCoinUnitsMultiplier, parameterized by the token's on-chain
+// decimals (TxParameterID::AtomicSwapTokenDecimals) instead of a fixed table.
+// walletDecimals = min(decimals, 9); on-wire value = Amount * TokenUnitsMultiplier(decimals).
+// These reproduce today's constants for classic coins: ETH/DAI (18 -> 10^9/10^9),
+// USDT (6 -> 10^6/1), WBTC (8 -> 10^8/1).
+// decimals is attacker-controlled (comes from the counterparty's contract via
+// getTokenInfo, or from a peer's offer-board TxParameterID::AtomicSwapTokenDecimals),
+// so it must be bounded by kMaxTokenDecimals before it reaches these helpers.
+// isExtendedOfferDataValid() and getTokenInfo() are the primary guards; the
+// assert+clamp below is only a backstop against a programmer error letting an
+// out-of-range decimals slip through, never the primary defense (TokenUnitsMultiplier
+// computes 10^(decimals-9) in a uint32_t, which wraps/zeroes for decimals >= 19).
+uint64_t WalletUnitsPerToken(uint8_t decimals);   // = 10^min(decimals, 9)
+uint32_t TokenUnitsMultiplier(uint8_t decimals);  // = 10^max(0, decimals - 9)
+
 namespace ERC20Hashes
 {
     // "allowance(address,address)"
@@ -62,6 +83,8 @@ namespace ERC20Hashes
     inline const char* kNameHash = "06fdde03";
     // "decimals()"
     inline const char* kDecimalsHash = "313ce567";
+    // "symbol()"
+    inline const char* kSymbolHash = "95d89b41";
 } // namespace ERC20Hashes
 
 namespace swap_contract

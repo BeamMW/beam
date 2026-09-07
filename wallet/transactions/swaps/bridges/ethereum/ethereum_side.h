@@ -74,9 +74,10 @@ namespace beam::wallet
         beam::ByteBuffer BuildRedeemTxData();
         beam::ByteBuffer BuildRefundTxData();
 
-        bool IsERC20Token() const;        
+        bool IsERC20Token() const;
         beam::ByteBuffer BuildLockTxData();
         ECC::uintBig GetSwapAmount() const;
+        libbitcoin::short_hash GetTokenContractAddress() const;
         bool IsHashLockScheme() const;
         void SetTxError(const ethereum::IBridge::Error& error, SubTxID subTxID);
 

@@ -322,6 +322,14 @@ namespace beam::wallet
     MACRO(AtomicSwapExternalTx,            37,  std::string) \
     MACRO(AtomicSwapExternalTxID,          38,  std::string) \
     MACRO(AtomicSwapExternalTxOutputIndex, 39,  uint32_t) \
+    /* Extended atomic-swap offers: asset-side and ERC-20 wire data. */ \
+    /* Values 41-45 are free (gap between PeerPublicNonce=40 and */ \
+    /* PeerPublicExcess=50); frozen by static_assert below the enum. */ \
+    MACRO(AtomicSwapBeamAssetID,           41,  Asset::ID) \
+    MACRO(AtomicSwapBeamAssetName,         42,  std::string) \
+    MACRO(AtomicSwapTokenContract,         43,  std::string) \
+    MACRO(AtomicSwapTokenSymbol,           44,  std::string) \
+    MACRO(AtomicSwapTokenDecimals,         45,  uint8_t) \
     /* signature parameters */ \
     MACRO(PeerPublicNonce,                 40,  ECC::Point) \
     MACRO(PeerPublicExcess,                50,  ECC::Point) \
@@ -432,6 +440,13 @@ namespace beam::wallet
         MyEndpoint = MyWalletIdentity,
         PeerEndpoint = PeerWalletIdentity,
     };
+
+    // Wire format stability: these numeric values are serialized and must never change.
+    static_assert(static_cast<uint8_t>(TxParameterID::AtomicSwapBeamAssetID)   == 41);
+    static_assert(static_cast<uint8_t>(TxParameterID::AtomicSwapBeamAssetName) == 42);
+    static_assert(static_cast<uint8_t>(TxParameterID::AtomicSwapTokenContract) == 43);
+    static_assert(static_cast<uint8_t>(TxParameterID::AtomicSwapTokenSymbol)   == 44);
+    static_assert(static_cast<uint8_t>(TxParameterID::AtomicSwapTokenDecimals) == 45);
 
     using PackedTxParameters = std::vector<std::pair<TxParameterID, ByteBuffer>>;
 

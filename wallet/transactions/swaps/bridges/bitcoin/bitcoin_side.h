@@ -82,7 +82,7 @@ namespace beam::wallet
         std::string FillSegwitWithdrawTxInput(SubTxID subTxID);
 
         void OnGetRawChangeAddress(const bitcoin::IBridge::Error& error, const std::string& address);
-        void OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos);
+        void OnFundRawTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, int changePos, Amount fee);
         void OnSignLockTransaction(const bitcoin::IBridge::Error& error, const std::string& hexTx, bool complete);
         void OnCreateWithdrawTransaction(SubTxID subTxID, const bitcoin::IBridge::Error& error, const std::string& hexTx);
         void OnGetSwapLockTxConfirmations(const bitcoin::IBridge::Error& error, const std::string& hexScript, Amount amount, uint32_t confirmations);

@@ -36,6 +36,15 @@ struct SwapOffer : public TxParameters
 
     bool IsValid() const;
 
+    // True when this offer carries extended-offer data: a non-BEAM asset on the
+    // Beam side, or an ERC-20 token as the foreign coin (wire/param coin ==
+    // AtomicSwapCoin::Erc20Token).
+    bool IsExtended() const;
+    // The real foreign coin. When m_coin == ExtendedOffer (the wire placeholder
+    // substituted for old-wallet compatibility), resolves the actual coin
+    // stashed in the AtomicSwapCoin tx parameter.
+    AtomicSwapCoin ResolveCoin() const;
+
     bool isBeamSide() const;
     Amount amountBeam() const;
     Amount amountSwapCoin() const;
