@@ -147,12 +147,18 @@ namespace beam::wallet
                 // Balance doesn't have to match send/receive semantics, payment confirmation is neither generated nor verified
             };
 
-            struct TxMutual :public TxCommon
+            struct TxEndpoints
             {
-                // for mutually-constructed kernel
                 PeerID m_Peer;
                 EndpointIndex m_iEndpoint; // Must set for trustless wallet
                 bool m_IsBbs = false; // set in legacy mode (where it was sbbs pubkey instead of endpoint). Unavailable in trusted mode
+            };
+
+            struct TxMutual
+                :public TxCommon
+                ,public TxEndpoints
+            {
+                // for mutually-constructed kernel
                 ECC::Signature m_PaymentProofSignature;
             };
 
@@ -168,7 +174,9 @@ namespace beam::wallet
                 // send funds to yourself. in/out difference must be equal to fee
             };
 
-            struct SignSendShielded :public TxCommon
+            struct SignSendShielded
+                :public TxCommon
+                ,public TxEndpoints
             {
                 // one of the above should be specified
                 std::unique_ptr<ShieldedTxo::Voucher> m_pVoucher;
@@ -182,11 +190,8 @@ namespace beam::wallet
 
                 std::unique_ptr<Offline> m_pOffline;
 
-                PeerID m_Peer;
-                EndpointIndex m_iEndpoint = 0; // set if sending to yourself (though makes no sense to do so)
-
                 // sent value and asset are derived from the tx balance (ins - outs)
-                ShieldedTxo::User m_User;
+                ShieldedTxo::User m_User; // the Sender will automatically be set to the one corresponding to the iEndpoint, iff the tx is conventional
                 Asset::ID m_AidMax = 1u;
             };
 

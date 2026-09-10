@@ -3412,6 +3412,18 @@ void ParserContext::OnMethod_DaoVote(uint32_t /* iVer */)
 			GroupArgs gr;
 
 			DocAddPk("moderator", pArg->m_pkModerator);
+			Env::DocAddNum32("variants", pArg->m_Data.m_Variants);
+
+			// Proposal text (base64 JSON) trails the struct and can be several KB,
+			// so copy the full length via the heap rather than a fixed stack buffer.
+			uint32_t nTxt = pArg->m_TxtLen;
+			const uint32_t nAvail = (m_nArg > sizeof(DaoVote::Method::AddProposal)) ? (m_nArg - sizeof(DaoVote::Method::AddProposal)) : 0;
+			if (nTxt > nAvail)
+				nTxt = nAvail;
+			char* szText = static_cast<char*>(Env::Heap_Alloc(nTxt + 1));
+			Env::Memcpy(szText, pArg + 1, nTxt);
+			szText[nTxt] = 0;
+			Env::DocAddText("text", szText);
 		}
 	}
 	break;
@@ -3430,6 +3442,21 @@ void ParserContext::OnMethod_DaoVote(uint32_t /* iVer */)
 		if (pArg)
 		{
 			OnMethod("Vote");
+			GroupArgs gr;
+
+			DocAddPk("voter", pArg->m_pkUser);
+			Env::DocAddNum32("epoch", pArg->m_iEpoch);
+			Env::DocAddNum32("counter", pArg->m_VoteCounter);
+
+			// One uint8_t vote per epoch proposal trails the struct (0xff = no vote).
+			const uint32_t nVotes = (m_nArg > sizeof(DaoVote::Method::Vote)) ? (m_nArg - sizeof(DaoVote::Method::Vote)) : 0;
+			const uint8_t* pVotes = reinterpret_cast<const uint8_t*>(pArg + 1);
+			Env::DocAddNum32("proposals", nVotes);
+			{
+				Env::DocArray arrVotes("choices");
+				for (uint32_t i = 0; i < nVotes; i++)
+					Env::DocAddNum32("", pVotes[i]);
+			}
 		}
 	}
 	break;
@@ -3481,6 +3508,150 @@ void ParserContext::OnState_DaoVote(uint32_t /* iVer */)
 	{
 		Env::DocGroup gr("Settings");
 		WriteDaoVoteCfg(s.m_Cfg);
+	}
+
+	// Per-epoch turnout. The current epoch is held in State; finalized epochs
+	// are stored as EpochStats vars.
+	{
+		Env::DocGroup grStats("Epoch stats");
+		DocSetType("table");
+		Env::DocArray grVal("value");
+		{
+			Env::DocArray grHdr("");
+			DocAddTableHeader("Epoch");
+			DocAddTableHeader("Stake active");
+			// m_StakeVoted is the dividend-eligible stake (contract only accrues it when a
+			// dividend epoch is active), not voter turnout — name it honestly.
+			DocAddTableHeader("Dividend eligible");
+		}
+		{
+			Env::DocArray grRow("");
+			Env::DocAddNum32("", s.m_Current.m_iEpoch);
+			DocAddAmount("", s.m_Current.m_Stats.m_StakeActive);
+			DocAddAmount("", s.m_Current.m_Stats.m_StakeVoted);
+		}
+		Env::Key_T<DaoVote::EpochStats::Key> ek0, ek1;
+		_POD_(ek0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(ek1.m_Prefix.m_Cid) = m_Cid;
+		ek0.m_KeyInContract.m_Tag = DaoVote::Tags::s_EpochStats;
+		ek1.m_KeyInContract.m_Tag = DaoVote::Tags::s_EpochStats;
+		ek0.m_KeyInContract.m_iEpoch = 0;
+		ek1.m_KeyInContract.m_iEpoch = static_cast<uint32_t>(-1);
+		for (Env::VarReader r(ek0, ek1); ; )
+		{
+			Env::Key_T<DaoVote::EpochStats::Key> ek;
+			DaoVote::EpochStats es;
+			if (!r.MoveNext_T(ek, es))
+				break;
+			Env::DocArray grRow("");
+			Env::DocAddNum32("", ek.m_KeyInContract.m_iEpoch);
+			DocAddAmount("", es.m_StakeActive);
+			DocAddAmount("", es.m_StakeVoted);
+		}
+	}
+
+	// Per-voter ballots. One UserVote log entry per Vote call; Choices is the
+	// trailing per-proposal variant-index bytes (0xff = no vote for that proposal).
+	{
+		Env::DocGroup grVotes("User votes");
+		DocSetType("table");
+		Env::DocArray grVal("value");
+		{
+			Env::DocArray grHdr("");
+			DocAddTableHeader("Height");
+			DocAddTableHeader("Voter");
+			DocAddTableHeader("Proposal0");
+			DocAddTableHeader("Stake");
+			DocAddTableHeader("Choices");
+		}
+
+		// Whole pk + proposal-id range, across all voters and epochs.
+		Env::Key_T<DaoVote::Events::UserVote::Key> vk0, vk1;
+		_POD_(vk0.m_Prefix.m_Cid) = m_Cid;
+		_POD_(vk1.m_Prefix.m_Cid) = m_Cid;
+		vk0.m_KeyInContract.m_Tag = DaoVote::Events::Tags::s_UserVote;
+		vk1.m_KeyInContract.m_Tag = DaoVote::Events::Tags::s_UserVote;
+		_POD_(vk0.m_KeyInContract.m_pk).SetZero();
+		_POD_(vk1.m_KeyInContract.m_pk).SetObject(0xff);
+		vk0.m_KeyInContract.m_ID_0_be = 0;
+		vk1.m_KeyInContract.m_ID_0_be = static_cast<uint32_t>(-1);
+
+		for (Env::LogReader r(vk0, vk1); ; )
+		{
+			Env::Key_T<DaoVote::Events::UserVote::Key> vk;
+			DaoVote::Events::UserVoteMax uv;
+			uint32_t nKey = sizeof(vk), nVal = sizeof(uv);
+			if (!r.MoveNext(&vk, nKey, &uv, nVal, 0))
+				break;
+			if ((sizeof(vk) != nKey) || (nVal < sizeof(DaoVote::Events::UserVote)))
+				continue;
+
+			const uint32_t nVotes = nVal - sizeof(DaoVote::Events::UserVote);
+
+			Env::DocArray grRow("");
+			Env::DocAddNum("", r.m_Pos.m_Height);
+			DocAddPk("", vk.m_KeyInContract.m_pk);
+			Env::DocAddNum32("", Utils::FromBE(vk.m_KeyInContract.m_ID_0_be));
+			DocAddAmount("", uv.m_Stake);
+			Env::DocAddBlob("", uv.m_pVotes, nVotes);
+		}
+	}
+
+	// Per-proposal variant tallies. Each Proposal var is variable-length
+	// (m_iEpoch followed by the per-variant staked amounts).
+	{
+		Env::DocGroup grProps("Proposals");
+		DocSetType("table");
+		Env::DocArray grVal("value");
+		{
+			Env::DocArray grHdr("");
+			DocAddTableHeader("ID");
+			DocAddTableHeader("Epoch");
+			DocAddTableHeader("Variants");
+			DocAddTableHeader("Voted");
+		}
+		// IDs are 1..m_iLastProposal (contract.cpp assigns ++m_iLastProposal), inclusive.
+		DaoVote::Proposal::ID idStart = (s.m_iLastProposal > 1000) ? (s.m_iLastProposal - 1000) : 1;
+		DaoVote::ProposalMax pr;
+		for (DaoVote::Proposal::ID id = idStart; id <= s.m_iLastProposal; id++)
+		{
+			Env::Key_T<DaoVote::Proposal::Key> pk;
+			_POD_(pk.m_Prefix.m_Cid) = m_Cid;
+			pk.m_KeyInContract.m_Tag = DaoVote::Tags::s_Proposal;
+			pk.m_KeyInContract.m_ID = id;
+
+			Env::VarReader r(pk, pk);
+			uint32_t nKey = 0, nVal = sizeof(pr);
+			if (!r.MoveNext(nullptr, nKey, &pr, nVal, 0))
+				continue;
+			if (nVal < sizeof(DaoVote::Proposal))
+				continue;
+			uint32_t nVariants = (nVal - sizeof(DaoVote::Proposal)) / sizeof(Amount);
+
+			Env::DocArray grRow("");
+			Env::DocAddNum32("", id);
+			// m_iEpoch is the voting epoch (creation+1); show the creation epoch to match the DAO app.
+			Env::DocAddNum32("", pr.m_iEpoch - 1);
+			// Binary proposals get No/Yes labels (variant 0 = No, 1 = Yes per the DAO app);
+			// others stay an unlabelled amount list.
+			if (nVariants == 2)
+			{
+				Env::DocGroup grV("");
+				DocAddAmount("No", pr.m_pVariant[0]);
+				DocAddAmount("Yes", pr.m_pVariant[1]);
+			}
+			else
+			{
+				Env::DocArray grV("");
+				for (uint32_t v = 0; v < nVariants; v++)
+					DocAddAmount("", pr.m_pVariant[v]);
+			}
+			// Total stake that voted on this proposal = sum of variant tallies (the real turnout).
+			Amount totalVoted = 0;
+			for (uint32_t v = 0; v < nVariants; v++)
+				totalVoted += pr.m_pVariant[v];
+			DocAddAmount("", totalVoted);
+		}
 	}
 
 }
