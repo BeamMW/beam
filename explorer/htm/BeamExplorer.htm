@@ -5405,15 +5405,22 @@
             myTd.replaceWith(myTh);
             // Mark the cell as 'header'
             myTh.classList.add('headerCell');
+            // Tag the header label (= the innermost span)
+            const spans = myTh.querySelectorAll('span');
+            if (spans.length > 0) { spans[spans.length - 1].classList.add('headerLabel'); }
           }
           // Add filters only to tables with more than a 5 lines
           if (myTable.rows.length > 5) {
             myRow.classList.add('filtersOff');
             myRow.addEventListener('click', addSortAndSearch);
-            myRow.title = 'Click to activate filters'; // This is for the tooltip
+            myRow.title = 'Click to activate filters'; // This header tooltip will be superseded by those from certain column labels
           } else {
             myRow.classList.add('filtersNot');
           }
+          // Tag columns with numeric (or empty) values
+          tagNumericColumns(myTable);
+          // Compute column statistics and display them as tooltips
+          computeTableStats(myTable);
         }
       }
     }
@@ -5625,7 +5632,305 @@
       status = results_rows[ii] == 0 ? 'collapse' : 'visible';
       rows[ii].style.visibility = status;
     }
+
+    // Update column statistics for the displayed rows
+    computeTableStats(table);
   }
+
+  // STATISTICAL ANALYSIS
+
+  // Check whether a cell content is a valid finite number, empty (null) or non-numeric (NaN)
+  function parseCellNumericValue(cell) {
+    // Case of non-existent cell
+    if (!cell) { return null; }
+    // Get text content and remove leading/trailing/non-breaking spaces and thousand commas
+    let str = cell.textContent.replace(/\u00A0/g, ' ').replace(/,/g, '').trim();
+    // Case of an empty or whitespace-only cell
+    if (str === '') { return null; }
+    // Check if the string strictly represents a valid number
+    const num = Number(str);
+    // Number() also parses hexadecimal (0x or 0X) and infinite values
+    if (Number.isFinite(num) && !/^0[xX]/.test(str)) { return num; }
+    // Non-numeric text
+    return NaN;
+  }
+
+  // Format a number nicely for display
+  function formatNumber(val) {
+    if (val === undefined || val === null || isNaN(val)) { return 'N/A'; }
+    // Format integer numbers with standard thousands separators
+    if (Number.isInteger(val)) { return Intl.NumberFormat('en-US').format(val); }
+    // For fractional numbers, determine appropriate precision without trailing noise
+    const abs = Math.abs(val);
+    let maxFraction = 4;
+    if (abs > 0 && abs < 0.01) { maxFraction = 8; }
+    // Round to avoid floating point precision artifacts (e.g. 1.0000000000000002)
+    const factor = Math.pow(10, maxFraction);
+    const rounded = Math.round((val + Number.EPSILON) * factor) / factor;
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxFraction }).format(rounded);
+  }
+
+  // Calculate comprehensive statistics from an array of numbers (including null/empty values)
+  function computeStats(values) {
+
+    // Guard against non-array or empty array
+    if (!values) { return null; }
+
+    const totalCount = values.length;
+    let emptyCount = 0;
+    const numericValues = [];
+
+    // Separate valid finite numbers from empty/missing values
+    for (let i = 0; i < totalCount; i++) {
+      const val = values[i];
+      if (val === null || val === undefined || val === '') { emptyCount++; }
+      else if (typeof val === 'number' && Number.isFinite(val)) { numericValues.push(val); }
+      else { emptyCount++; }
+    }
+
+    // Special case for array without a single valid number
+    if (numericValues.length === 0) {
+      return {
+        totalCount: totalCount,
+        validCount: 0,
+        emptyCount: emptyCount,
+        zeroCount: 0,
+        zeroPercent: null,
+        distinctCount: 0,
+        min: null,
+        max: null,
+        sum: null,
+        mean: null,
+        median: null,
+        mode: null,
+        modeCount: 0,
+        modePercent: null,
+        sigma: null,
+        iqr: null,
+        cv: null,
+        q25: null,
+        q75: null,
+        p05: null,
+        p95: null
+      };
+    }
+    
+    // Sort ascending (numericValues is replaced with the sorted array)
+    const sortedValues = numericValues.sort(function (a, b) { return a - b; });
+    const n = sortedValues.length;
+
+    // Minimum and maximum values
+    const min = sortedValues[0];
+    const max = sortedValues[n - 1];
+
+    // Compute sum, zero count, distinct value count, and modal frequency in a single pass
+    let sum = 0;
+    let zeroCount = 0;
+    let distinctCount = 1;
+    let modeVal = sortedValues[0]; // Will be the most frequent value...
+    let maxModeCount = 1; // ...and its count
+    let currentVal = sortedValues[0];
+    let currentCount = 1;
+
+    for (let i = 0; i < n; i++) {
+      const val = sortedValues[i];
+      sum += val;
+      if (val === 0) { zeroCount++; }
+      if (i > 0) {
+        if (val !== sortedValues[i - 1]) {
+          distinctCount++;
+          currentVal = val;
+          currentCount = 1;
+        } else {
+          currentCount++;
+        }
+        if (currentCount > maxModeCount) {
+          maxModeCount = currentCount;
+          modeVal = currentVal;
+        }
+      }
+    }
+
+    // Percentage of zero values among valid entries
+    const zeroPercent = (zeroCount / n) * 100;
+
+    // Percentage of the most frequent value
+    const maxModePercent = (maxModeCount / n) * 100;
+    // If all values are unique, set mode to 'null'
+    if (maxModeCount === 1 && n !== 1) { modeVal = null; }
+
+    // Mean (arithmetic average)
+    const mean = sum / n;
+
+    // Standard deviation
+    let varianceSum = 0;
+    for (let i = 0; i < n; i++) {
+      const diff = sortedValues[i] - mean;
+      varianceSum += diff * diff;
+    }
+    const sigma = Math.sqrt(varianceSum / n);
+
+    // Quartiles and percentiles
+    const median = computePercentile(sortedValues, 0.5); // Median = Quartile Q2
+    const q25 = computePercentile(sortedValues, 0.25); // Quartile Q1 (25%)
+    const q75 = computePercentile(sortedValues, 0.75); // Quartile Q3 (75%)
+    const p05 = computePercentile(sortedValues, 0.05); // Lower bound 5%
+    const p95 = computePercentile(sortedValues, 0.95); // Upper bound 95%
+
+    // Interquartile Range (middle 50% spread, ignoring extreme outliers)
+    const iqr = q75 - q25;
+
+    // Coefficient of Variation (CV = sigma / |mean| * 100%)
+    // Measure of relative dispersion (useful to compare data with different magnitudes)
+    const cv = (mean !== 0) ? Math.abs((sigma / mean) * 100) : null;
+
+    return {
+      totalCount: totalCount,
+      validCount: n,
+      emptyCount: emptyCount,
+      zeroCount: zeroCount,
+      zeroPercent: zeroPercent,
+      distinctCount: distinctCount,
+      min: min,
+      max: max,
+      sum: sum,
+      mean: mean,
+      median: median,
+      mode: modeVal,
+      modeCount: maxModeCount,
+      modePercent: maxModePercent,
+      sigma: sigma,
+      iqr: iqr,
+      cv: cv,
+      q25: q25,
+      q75: q75,
+      p05: p05,
+      p95: p95
+    };
+  }
+
+  // Compute a quartile/percentile p (between 0 and 1) of a sorted array of numbers
+  function computePercentile(sortedArray, p) {
+    if (sortedArray.length === 0) { return 0; }
+    if (sortedArray.length === 1) { return sortedArray[0]; }
+    const idx = p * (sortedArray.length - 1);
+    const low = Math.floor(idx);
+    const high = Math.ceil(idx);
+    const weight = idx - low;
+    // Standard method: Linear interpolation between adjacent ranks
+    return sortedArray[low] + weight * (sortedArray[high] - sortedArray[low]);
+  }
+
+  // Format the calculated statistics into a compact multi-line text (for the tooltip)
+  function formatStatsText(stats) {
+    const zerosText = formatNumber(stats.zeroCount) + (stats.validCount > 0 ? ' (' + stats.zeroPercent.toFixed(1) + '%)' : '');
+    const cvText = (stats.cv !== null) ? stats.cv.toFixed(2) + '%' : 'N/A';
+    let modeText = '';
+    if (stats.validCount === 0) { modeText = 'N/A' }
+    else if (stats.mode === null) { modeText = 'All unique' }
+    else { modeText = `${formatNumber(stats.mode)}  |  Count: ${formatNumber(stats.modeCount)} (${stats.modePercent.toFixed(2)}%)` }
+    const lines = [
+      `Rows: ${formatNumber(stats.totalCount)}  |  Valid: ${formatNumber(stats.validCount)}  |  Empty: ${formatNumber(stats.emptyCount)}`,
+      `Zeros: ${zerosText}  |  Distinct: ${formatNumber(stats.distinctCount)}`,
+      `Min: ${formatNumber(stats.min)}  |  Max: ${formatNumber(stats.max)}  |  Sum: ${formatNumber(stats.sum)}`,
+      `Mean: ${formatNumber(stats.mean)}  |  Median: ${formatNumber(stats.median)}`,
+      `Mode: ${modeText}`,
+      `Sigma:${formatNumber(stats.sigma)}  |  IQR: ${formatNumber(stats.iqr)}  |  CV: ${cvText}`,
+      `Q25: ${formatNumber(stats.q25)}  |  Q75: ${formatNumber(stats.q75)}`,
+      `P05: ${formatNumber(stats.p05)}  |  P95: ${formatNumber(stats.p95)}`
+    ];
+    return lines.join('\n');
+  }
+
+  function setHeaderTooltip(target, defaultTitle, statsText = '') {
+    if (!target) { return; }
+    // Define the tooltip text: defaultTitle, statsText, or combined
+    const tooltip = defaultTitle ? (statsText ? defaultTitle + '\n\n' + statsText : defaultTitle) : statsText;
+    // Apply tooltip to target
+    if (tooltip) { target.setAttribute('title', tooltip); }
+    else { target.removeAttribute('title'); }
+  }
+
+  // Check columns for numeric (or empty) values and tag their headers (data-numeric 'true' or 'false').
+  function tagNumericColumns(table) {
+    // Guard against non-existent or empty tables
+    if (!table || !table.rows || table.rows.length <= 1) { return; }
+    // Get header row (addFilterOption() already structured the tables)
+    const headerCells = table.rows[0].cells;
+    const numRows = table.rows.length;
+    // Check values in all rows for each column
+    for (let c = 0; c < headerCells.length; c++) {
+      let isNumeric = true; // We start with 'true' so that columns with only empty cells are still tagged as 'numeric'
+      for (let r = 1; r < numRows; r++) { // We skip the header row
+        const val = parseCellNumericValue(table.rows[r].cells[c]);
+        if (val !== null && isNaN(val)) { isNumeric = false; break; } // Stop if non-numeric text is found
+      }
+      // Tag the header cell with the evaluation result
+      headerCells[c].dataset.numeric = isNumeric ? 'true' : 'false';
+    }
+  }
+
+  // Compute stats for all columns in a table (asynchronously) and update tooltips
+  function computeTableStats(table) {
+    // Guard against non existant, empty or header-only table
+    if (!table || !table.rows || table.rows.length <= 1) { return; }
+    // Get header row
+    const headerRow = table.rows[0];
+    // Guard against empty headers
+    if (!headerRow.cells || headerRow.cells.length === 0) { return; }
+    // Get header cells
+    const headerCells = Array.from(headerRow.cells);
+
+    // Step 1: Reset headers tooltips to default descriptions
+    const columnTargets = [];
+    const defaultDescriptions = [];
+    for (let c = 0; c < headerCells.length; c++) { // Loop on all columns
+      const target = headerCells[c].querySelector('.headerLabel') || headerCells[c];  // Get the header's label
+      // Save the default title in 'data-title' on first run
+      if (!target.hasAttribute('data-title')) { target.setAttribute('data-title', target.getAttribute('title') || ''); }
+      const defaultTitle = target.getAttribute('data-title');
+      // Add to arrays
+      columnTargets.push(target);
+      defaultDescriptions.push(defaultTitle);
+      // Reset tooltips to their default content
+      setHeaderTooltip(target, defaultTitle);
+    }
+
+    // Increment computation token to cancel any previous pending async tasks for this table
+    table.columnStatsTaskId = (table.columnStatsTaskId || 0) + 1;
+    const currentTaskId = table.columnStatsTaskId;
+
+    // Step 2: Compute stats asynchronously so UI is not blocked and tooltips update once stats are ready
+    setTimeout(function () {
+      // Stop if a newer computation was already requested for this table
+      if (table.columnStatsTaskId !== currentTaskId) { return; }
+      // Get visible data rows only (excluding header, which is the first row)
+      const displayedRows = Array.from(table.rows).slice(1).filter(row => row.style.visibility !== 'collapse'); // This was set by filterTable()
+      const totalRows = displayedRows.length;
+      // If all rows are hidden, tooltips are already reset to default in Step 1
+      if (totalRows === 0) { return; }
+      // Tag numeric columns if not already done
+      if (headerCells.some(cell => cell.dataset.numeric === undefined)) { tagNumericColumns(table); }
+      // Loop on columns to test and calculate statistics
+      for (let c = 0; c < headerCells.length; c++) {
+        // Verify if stats can be computed
+        const target = columnTargets[c];
+        const defaultTitle = defaultDescriptions[c];
+        // Skip non-numeric columns
+        if (headerCells[c].dataset.numeric !== 'true') { continue; }
+        // Extract values (numbers, null or NaN) for displayed rows
+        const columnValues = [];
+        for (let r = 0; r < displayedRows.length; r++) {
+          columnValues.push(parseCellNumericValue(displayedRows[r].cells[c]));
+        }
+        // Compute stats and display them in tooltips
+        const stats = computeStats(columnValues);
+        const statsText = stats ? formatStatsText(stats) : '';
+        setHeaderTooltip(target, defaultTitle, statsText);
+      }
+    }, 0);
+  }
+
 </script>
 
 <script> 'use strict'; // MORE MISCELLANEOUS STUFF
