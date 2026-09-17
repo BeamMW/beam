@@ -1031,6 +1031,9 @@
     color: var(--color_banner_search_placeholder);
     text-decoration: none;
   }
+  #SearchField::-webkit-search-cancel-button { /* Clear cross of the input field (not present on Firefox) */
+    cursor: pointer;
+  }
   #SearchButton {
     display: inline-block;
     border: none;
@@ -1662,6 +1665,9 @@
     outline: none; /* Avoid the browser default focus outline */
     border: 1px solid var(--color_table_search_border_filled); /* Active border */
   }
+  .search::-webkit-search-cancel-button { /* Clear cross of the input field (not present on Firefox) */
+    cursor: pointer;
+  }
 
   /* GRAPH AREA */
   #tableOptionsContainer {
@@ -2035,7 +2041,7 @@
           <div id="SearchArea">
             <!-- Search field -->
             <form id="SearchForm" name="SearchForm" action="javascript:submitSearch();">
-              <input id="SearchField" type="text" required value="" size="20" pattern="[0-9a-fA-F ,.]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
+              <input id="SearchField" type="search" required value="" size="20" pattern="[0-9a-fA-F ,.]+" placeholder="Search kernel id or block height" title="Enter a kernel id or a block height" autofocus>
               <button id="SearchButton" type="submit" title="Search">&#x1F50E;&#xFE0E;</button>
             </form>
           </div>
@@ -3764,6 +3770,11 @@
 
 <script> 'use strict'; // MISCELLANEOUS STUFF
 
+  // Clear search field when pressing 'Escape'
+  document.getElementById('SearchField').addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && this.value) { this.value = ''; }
+  });
+
   // Process a block/kernel search request
   function submitSearch() {
     // Get search string (and remove spaces, dots and commas)
@@ -5448,11 +5459,18 @@
       // And then add another div below, with a search input.
       let myDiv = document.createElement('div');
       myDiv.classList.add('searchable');
-      myDiv.innerHTML = '<input type="text" class="search" title="Enter search term" size="5" placeholder="&#x1F50E;&#xFE0E;&nbsp;" autocomplete="off">';
+      myDiv.innerHTML = '<input type="search" class="search" title="Enter search term" size="5" placeholder="&#x1F50E;&#xFE0E;&nbsp;" autocomplete="off">';
       myHeader.appendChild(myDiv);
       // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
-      myHeader.querySelector('.search').addEventListener('keyup', filterTable);
+      myHeader.querySelector('.search').addEventListener('input', filterTable);
+      // Clear search field when pressing 'Escape'
+      myHeader.querySelector('.search').addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && this.value) {
+          this.value = '';
+          filterTable(e);
+        }
+      });
     }
   }
 
