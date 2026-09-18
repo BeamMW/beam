@@ -5606,6 +5606,8 @@
     }
     // If query is empty (or was only '!'), consider everything as matching
     if (cleanQuery === '') { return null; }
+    // Ignore special prefixes: standalone / (RegExp) or comparison operators without a number yet (> < >= <= =)
+    if (cleanQuery === '/' || /^(<=|>=|<|>|=)\s*[+-]?$/.test(cleanQuery)) { return null; }
 
     let matcher; // A cell filter function will be created depending on the query type
 
