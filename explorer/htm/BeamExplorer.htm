@@ -5459,13 +5459,20 @@
       // And then add another div below, with a search input.
       let myDiv = document.createElement('div');
       myDiv.classList.add('searchable');
-      myDiv.innerHTML = '<input type="search" class="search" title="Enter search term" size="5" placeholder="&#x1F50E;&#xFE0E;&nbsp;" autocomplete="off">';
+      myDiv.innerHTML = '<input type="search" class="search" size="5" placeholder="&#x1F50E;&#xFE0E;&nbsp;" autocomplete="off">';
       myHeader.appendChild(myDiv);
+      const searchInput = myDiv.querySelector('.search');
+      // Add tooltip
+      searchInput.title = 'Filter options:\n' +
+        '• Wildcards: * or ?\n' +
+        '• Negation: !\n' +
+        '• Numeric: > < >= <= =\n' +
+        '• RegExp: /pattern/';
       // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
-      myHeader.querySelector('.search').addEventListener('input', filterTable);
+      searchInput.addEventListener('input', filterTable);
       // Clear search field when pressing 'Escape'
-      myHeader.querySelector('.search').addEventListener('keydown', function(e) {
+      searchInput.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && this.value) {
           this.value = '';
           filterTable(e);
@@ -5561,10 +5568,78 @@
     return col;
   }
 
+  // TEST IF A TABLE CELL MATCHES A GIVEN FILTER QUERY
+  // Supports: Case-insensitive match, Wilcards (* or ?), Negation (!), Numeric comparison (< > <= >=) and Regular Expressions (/pattern/)
+  function cellMatchesFilter(cell, query) {
+    // If no cell, no match
+    if (!cell) { return false; }
+    // Clean query string
+    let cleanQuery = query.trim();
+
+    // Check for negation operator '!'
+    let isNegation = false;
+    if (cleanQuery.startsWith('!')) {
+      isNegation = true;
+      cleanQuery = cleanQuery.slice(1).trim(); // Remove '!' symbol (and any space after it)
+    }
+    // If query is empty (or was only '!'), consider everything as matching
+    if (cleanQuery === '') { return true; }
+
+    // Get clean text content of the cell
+    let cellText = cell.textContent.replace(/\u00A0/g, ' ').trim(); // Replace non-breaking spaces and trim string
+    let matched = false;
+
+    // Numeric comparison: >, <, >=, <= or = followed by a number (with optional spaces and commas)
+    let opMatch = cleanQuery.match(/^(<=|>=|<|>|=)\s*([+-]?[0-9,]+(\.[0-9]+)?)$/); // Each (...) in the RegExp is captured
+    if (opMatch) {
+      let target = Number(opMatch[2].replace(/,/g, '')); // Retrieve value and convert to number
+      let cellVal = parseCellNumericValue(cell); // Check if cell has a pure numeric value
+      // If not, try extracting a leading numeric value (in cells like "1,200.5 BEAM")
+      if (cellVal === null || isNaN(cellVal)) {
+        let numMatch = cellText.match(/^[+-]?[0-9,]+(\.[0-9]+)?/); // Try extracting leading number
+        if (numMatch) { cellVal = Number(numMatch[0].replace(/,/g, '')); } // Convert to actual number
+      }
+      // Perform comparison if numeric values are available
+      if (cellVal !== null && !isNaN(cellVal) && !isNaN(target)) {
+        switch (opMatch[1]) { // Retrieve and apply comparison operator
+          case '>':  matched = cellVal > target; break;
+          case '>=': matched = cellVal >= target; break;
+          case '<':  matched = cellVal < target; break;
+          case '<=': matched = cellVal <= target; break;
+          case '=':  matched = cellVal === target; break;
+        }
+      }
+    }
+    // Regular Expression: /pattern/
+    else if (cleanQuery.length >= 2 && cleanQuery.startsWith('/')) { // The last / is actually optional! (the try{} protects against incomplete patterns)
+      try {
+        let pattern = cleanQuery.endsWith('/') ? cleanQuery.slice(1, -1) : cleanQuery.slice(1); // Remove / symbols
+        let rx = new RegExp(pattern, 'i');
+        matched = rx.test(cellText);
+      } catch {} // In case the regular expression is invalid (e.g. while still typing)
+    }
+    // Wildcards: * or ?
+    else if (/[*?]/.test(cleanQuery)) {
+      // Make the query into a RegExp by escaping with \ all regex special characters .+^${}()|[]\ except * and ?
+      // Remark: $& means "any character found", and \\ adds a \ in front of it
+      let escaped = cleanQuery.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+      let rx = new RegExp('^' + escaped + '$', 'is'); // No need for try{} here as the query has been cleaned
+      // Remark: The 's' flag makes '.' match newlines also (since cell text can have multiple lines)
+      matched = rx.test(cellText); 
+    }
+    // Default: Case-insensitive substring match
+    else {
+      matched = cellText.toUpperCase().includes(cleanQuery.toUpperCase());
+    }
+
+    // Invert match if negation was specified
+    return isNegation ? !matched : matched;
+  }
+
   // FILTER ROWS (OR GROUPS OF ROWS)
   function filterTable(e) {
     // Declare variables
-    let table, tbodies, rows, trows, headers, input, filter, i, ii, j, k, td, txtValue, status;
+    let table, tbodies, rows, trows, headers, input, filter, i, ii, j, k, td, isMatch, status;
 
     // Get tbodies and rows
     table = e.currentTarget.closest('table');
@@ -5583,10 +5658,11 @@
     for (j = 0; j < headers.length; j++) {
       // Get search input field
       input = headers[j].querySelector('.search');
-      // Get search query (we use toUpperCase() to perform a case-insensitive search)
-      filter = input.value.toUpperCase();
+      if (!input) { continue; }
+      // Get search query
+      filter = input.value;
       // Apply search query only if it's non-empty
-      if (filter != '') {
+      if (filter.trim() !== '') {
         // Loop on all rows within all tbodies
         for (k = 0; k < tbodies.length; k++) {
           // Only test cells if the tbody is not already marked as hidden
@@ -5605,20 +5681,20 @@
                 // Get cell
                 td = trows[i].cells[j];
                 if (td) {
-                  // Get cell content
-                  txtValue = td.textContent || td.innerText;
+                  // Evaluate match using cellMatchesFilter
+                  isMatch = cellMatchesFilter(td, filter);
                   // If there are multiple tbodies, then filter by tbodies
                   if (tbodies.length > 1) {
                     // Mark tbody back as visible as soon as one of its rows matches
                     // (and then stop looping on its rows)
-                    if (txtValue.toUpperCase().indexOf(filter) != -1) {
+                    if (isMatch) {
                       results_tbodies[k] = 1;
                       break;
                     }
                     // If there is only one tbody, then filter by rows
                   } else {
                     // Hide row if there is no match
-                    if (txtValue.toUpperCase().indexOf(filter) == -1) {
+                    if (!isMatch) {
                       results_rows[ii] = 0;
                     }
                   }
