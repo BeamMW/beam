@@ -4212,6 +4212,8 @@
     const originalFilterTable = filterTable; // Save the orignal function
     filterTable = function(...args) { // Wrap the function into a new one, with the same name
       originalFilterTable.apply(this, args); // Call the original function first
+      const graphCollapsible = document.getElementById('graphCollapsible');
+      if (graphCollapsible && !graphCollapsible.open) { return; } // Skip the heavy graph updates when collapsible is closed
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
       drawXAxis(); // Redraw X axis
@@ -4433,10 +4435,15 @@
     for (let checkbox of document.querySelectorAll('.tableGraphCheckbox')) {
       checkbox.parentElement.classList.toggle('graphable'); // The class is added to the <span> above, to also show/hide the '::after' symbol
     }
-    // In Chrome 83, the 'getBBox().height' used in 'drawXAxis()' returns '0' if the SVG is not visible!
-    // As a dirty workaround, we call 'drawXAxis()' again each time we toggle the Graph collapsible...
-    drawXAxis();
-    graphUpdateCursor();
+    // Update full graph when collapsible is opened
+    const graphCollapsible = document.getElementById('graphCollapsible');
+    if (graphCollapsible && graphCollapsible.open) {
+      updateGraphDataX();
+      updateGraphDataY();
+      drawXAxis();
+      drawGraph();
+      graphUpdateCursor();
+    }
   }
 
   // Draw/Delete graph when a checkbox is checked/unchecked
@@ -4530,7 +4537,7 @@
       } else {
         // Use the map method to extract from the visible rows an array with the cell values of the column (without comas)
         let col = g_graph.xcodes[code];
-        g_graph.x[code] = g_graph.rows.map(row => row.cells[col].innerText.replace(/,/g,''));
+        g_graph.x[code] = g_graph.rows.map(row => (row.cells[col]?.textContent || '').replace(/,/g,''));
         // Special case for timestamps: The plotted values are not the same as the displayed ones
         if (code == 'T') {
           g_graph.timeText = g_graph.x[code]; // Store the human-readable values
@@ -4580,7 +4587,7 @@
         } else {
           // Use the map method to extract from the visible rows an array with the cell values of the column
           g_graph.y[code] = g_graph.rows.map(function(row) {
-            let val = row.cells[col]?.innerText || ''; // Return the content of the cell in a given column
+            let val = row.cells[col]?.textContent || ''; // Return the content of the cell in a given column
             val = val.replace(/,/g,''); // Remove comas so that numbers are recognized as such
             if (val == '') { val = '0' }; // Replace empty values with 0
             return val;
@@ -4819,9 +4826,14 @@
     // Put the SVG in the container of the axis
     document.getElementById('xAxisSVGContainer').innerHTML = text;
     // Now, set the axis SVG height equal to the height of its content (this simulates 'max-content' in the case of a SVG!)
-    const xAxisSVG = document.getElementById('xAxisSVG'); // Get the above created SVG
-    const xAxisHeight = xAxisSVG.getElementById('boundingBox').getBBox().height + 5; // Get the height from its bounding box (plus a small margin)
-    xAxisSVG.setAttribute('height', xAxisHeight + 'px'); // Apply height to the SVG attribute
+    requestAnimationFrame(() => { // Performance: Let the browser execute this before the next screen repaint (instead of havin getBBox() force layout reflow)
+      const xAxisSVG = document.getElementById('xAxisSVG'); // Get the above created SVG
+      if (!xAxisSVG) { return; }
+      const boundingBox = xAxisSVG.getElementById('boundingBox');
+      if (!boundingBox) { return; }
+      const xAxisHeight = boundingBox.getBBox().height + 5; // Get the height from its bounding box (plus a small margin)
+      xAxisSVG.setAttribute('height', xAxisHeight + 'px'); // Apply height to the SVG attribute
+    });
   }
 
   // Draw vertical axis for one given graph
@@ -4888,9 +4900,14 @@
     // Add the SVG to the container of all axis
     document.getElementById('yAxisSVGContainer').insertAdjacentHTML('beforeend', text);
     // Now, set the axis SVG width equal to the width of its content (this simulates 'max-content' in the case of a SVG!)
-    const yAxisSVG = document.getElementById('yAxisSVG_' + code); // Get the above created SVG
-    const yAxisWidth = yAxisSVG.getElementById('boundingBox').getBBox().width + 6; // Get the width from its bounding box (plus a small margin)
-    yAxisSVG.setAttribute('width', yAxisWidth + 'px'); // Apply width to the SVG attribute
+    requestAnimationFrame(() => { // Performance: Let the browser execute this before the next screen repaint (instead of havin getBBox() force layout reflow)
+      const yAxisSVG = document.getElementById('yAxisSVG_' + code); // Get the above created SVG
+      if (!yAxisSVG) { return; }
+      const boundingBox = yAxisSVG.getElementById('boundingBox');
+      if (!boundingBox) { return; }
+      const yAxisWidth = boundingBox.getBBox().width + 6; // Get the width from its bounding box (plus a small margin)
+      yAxisSVG.setAttribute('width', yAxisWidth + 'px'); // Apply width to the SVG attribute
+    });
   }
 
   // The SVG cursor follows the mouse when hovering over the graph
@@ -5670,19 +5687,21 @@
       // For performance, create a cell filter function once, and only then apply it to each row in the column
       let cellFilter = createCellFilter(filter);
       if (cellFilter) {
+        // Performance: Use a general row index counter (independent of tbodies)
+        // to avoid expensive .rowIndex calls (which trigger layout reflows)
+        let overallRowIndex = 1;
         // Loop on all rows within all tbodies
         for (let k = 0; k < tbodies.length; k++) {
+          const trows = tbodies[k].rows;
           // Only test cells if the tbody is not already marked as hidden
           if (results_tbodies[k] != 0) {
             // In case of multiple tbodies, start by hidding the tbody
             // (it will be displayed back if at least one of its rows matches the search query)
-            if (tbodies.length > 1) { results_tbodies[k] = 0 }
+            if (tbodies.length > 1) { results_tbodies[k] = 0; }
             // Loop on all rows of the tbody
-            const trows = tbodies[k].rows;
             for (let i = 0; i < trows.length; i++) {
-              // Get the overall index of the row in the table (independent of tbodies)
-              // Remark: i and ii will be equal in the case of one single tbody
-              const ii = trows[i].rowIndex;
+              // Remark: i and ii will remain equal in the case of one single tbody
+              const ii = overallRowIndex + i;
               // Only test the cell if the row is not already marked as hidden
               if (results_rows[ii] != 0) {
                 // Get cell
@@ -5695,8 +5714,7 @@
                     // Mark tbody back as visible as soon as one of its rows matches
                     // (and then stop looping on its rows)
                     if (isMatch) { results_tbodies[k] = 1; break; }
-                    // If there is only one tbody, then filter by rows
-                  } else {
+                  } else { // If there is only one tbody, then filter by rows
                     // Hide row if there is no match
                     if (!isMatch) { results_rows[ii] = 0; }
                   }
@@ -5704,32 +5722,37 @@
               }
             }
           }
+          overallRowIndex += trows.length; // Increase counter
         }
       }
     }
     // Special hack to avoid a display bug on Chrome 83 (when used as Beam Wallet DApp):
     // If a tbody is hidden, then each of its rows must also be hidden!
     if (tbodies.length > 1) {
+      // Performance: Use a general row index counter (independent of tbodies)
+      // to avoid expensive .rowIndex calls (which trigger layout reflows)
+      let overallRowIndex = 1;
       // Loop on all tbodies
       for (let k = 0; k < tbodies.length; k++) {
         // Loop on all rows of the tbody
         const trows = tbodies[k].rows;
         for (let i = 0; i < trows.length; i++) {
-          // Get the overall index of the row in the table (independent of tbodies)
-          const ii = trows[i].rowIndex;
+          const ii = overallRowIndex + i;
           // Set status of the row identical to the tbody it belongs to
           results_rows[ii] = results_tbodies[k];
         }
+        overallRowIndex += trows.length; // Increase counter
       }
     }
-    // Apply final results by setting the visibility of all tbodies and rows
+    // Apply final results by setting the visibility of all tbodies and rows.
+    // Performance: Update style only when neeeded (to avoid unnecessary layout reflows).
     for (let k = 0; k < tbodies.length; k++) {
       const status = results_tbodies[k] == 0 ? 'collapse' : 'visible';
-      tbodies[k].style.visibility = status;
+      if (tbodies[k].style.visibility !== status) { tbodies[k].style.visibility = status; }
     }
     for (let ii = 1; ii < rows.length; ii++) {
       const status = results_rows[ii] == 0 ? 'collapse' : 'visible';
-      rows[ii].style.visibility = status;
+      if (rows[ii].style.visibility !== status) { rows[ii].style.visibility = status; }
     }
 
     // Update column statistics for the displayed rows
