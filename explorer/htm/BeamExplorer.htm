@@ -5487,10 +5487,17 @@
         '• RegExp: /pattern/';
       // Add event listeners to these elements
       myHeader.querySelector('.sortable').addEventListener('click', sortTable);
-      searchInput.addEventListener('input', filterTable);
-      // Clear search field when pressing 'Escape'
+      let filterTimeout;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+          filterTable({ currentTarget: this, target: this }); // Remark: Because of setTimeout(), we need to pass the event's target (i.e. the input field)
+        }, 120); // Wait 120ms while typing before running the filter
+      });
+      // Clear search field (and cancel any pending timer) when pressing 'Escape'
       searchInput.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && this.value) {
+          clearTimeout(filterTimeout);
           this.value = '';
           filterTable(e);
         }
