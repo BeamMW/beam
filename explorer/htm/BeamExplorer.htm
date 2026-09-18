@@ -6031,24 +6031,33 @@
       const totalRows = displayedRows.length;
       // If all rows are hidden, tooltips are already reset to default in Step 1
       if (totalRows === 0) { return; }
+
       // Tag numeric columns if not already done
       if (headerCells.some(cell => cell.dataset.numeric === undefined)) { tagNumericColumns(table); }
-      // Loop on columns to test and calculate statistics
+      // Identify numeric columns to analyze
+      const numericColumnsIndices = [];
       for (let c = 0; c < headerCells.length; c++) {
-        // Verify if stats can be computed
-        const target = columnTargets[c];
-        const defaultTitle = defaultDescriptions[c];
-        // Skip non-numeric columns
-        if (headerCells[c].dataset.numeric !== 'true') { continue; }
-        // Extract values (numbers, null or NaN) for displayed rows
-        const columnValues = [];
-        for (let r = 0; r < displayedRows.length; r++) {
-          columnValues.push(parseCellNumericValue(displayedRows[r].cells[c]));
+        if (headerCells[c].dataset.numeric === 'true') { numericColumnsIndices.push(c); }
+      }
+      if (numericColumnsIndices.length === 0) { return; }
+
+      // Performance: Pre-allocate an array of empty values for each numeric column
+      const columnData = numericColumnsIndices.map(() => []);
+      // Performance: Single pass over the displayed rows to extract all the cell values
+      for (let r = 0; r < totalRows; r++) {
+        const cells = displayedRows[r].cells;
+        for (let i = 0; i < numericColumnsIndices.length; i++) {
+          // Extract values (numbers, null or NaN) for the displayed numeric cells
+          columnData[i].push(parseCellNumericValue(cells[numericColumnsIndices[i]]));
         }
-        // Compute stats and display them in tooltips
-        const stats = computeStats(columnValues);
+      }
+
+      // Compute statistics and display them in header tooltips
+      for (let i = 0; i < numericColumnsIndices.length; i++) {
+        const c = numericColumnsIndices[i];
+        const stats = computeStats(columnData[i]);
         const statsText = stats ? formatStatsText(stats) : '';
-        setHeaderTooltip(target, defaultTitle, statsText);
+        setHeaderTooltip(columnTargets[c], defaultDescriptions[c], statsText);
       }
     }, 0);
   }
