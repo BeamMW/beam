@@ -218,6 +218,8 @@
     --color_banner_menu_link: #ddd;
     --color_banner_menu_link_hover: #fff;
     --color_banner_menu_link_shadow: rgba(255, 255, 255, 0.3);
+    --color_banner_menu_link_active: #00ffd9;
+    --color_banner_menu_link_active_shadow: rgba(0, 246, 210, 0.4);
     --color_banner_search_border: #636785;
     --color_banner_search_background: #1d3a5a;
     --color_banner_search_placeholder: #aaa;
@@ -367,6 +369,8 @@
     --color_banner_menu_link: #2d3799;
     --color_banner_menu_link_hover: #1f276f;
     --color_banner_menu_link_shadow: rgba(62, 26, 139, 0.2);
+    --color_banner_menu_link_active: #17204e;
+    --color_banner_menu_link_active_shadow: rgba(23, 32, 78, 0.3);
     --color_banner_search_border: #636785;
     --color_banner_search_background: #afb3d8;
     --color_banner_search_placeholder: #606060;
@@ -983,6 +987,10 @@
   .menuItem a:hover {
     color: var(--color_banner_menu_link_hover);
     filter: drop-shadow(0 0 5px var(--color_banner_menu_link_shadow));
+  }
+  .menuItem.active a { /* Menu item of the crrently displayed page */
+    color: var(--color_banner_menu_link_active);
+    filter: drop-shadow(0 0 5px var(--color_banner_menu_link_active_shadow));
   }
   .menuSeparator {
     color: var(--color_banner_menu_text);
@@ -2026,17 +2034,17 @@
 
           <div id="Menu">
             <!-- Main explorer menu -->
-            <span class="menuItem"><a href="javascript:showPage('hdrs')" title="List of recent Block Headers">Block Headers</a></span>
+            <span class="menuItem" data-page="hdrs"><a href="javascript:showPage('hdrs')" title="List of recent Block Headers">Block Headers</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:showPage('assets')" title="List of current Confidential Assets">Confidential Assets</a></span>
+            <span class="menuItem" data-page="assets"><a href="javascript:showPage('assets')" title="List of current Confidential Assets">Confidential Assets</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:showPage('contracts')" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+            <span class="menuItem" data-page="contracts"><a href="javascript:showPage('contracts')" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:showPage('swap_offers')" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
+            <span class="menuItem" data-page="swap_offers"><a href="javascript:showPage('swap_offers')" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:showPage('asset_swaps')" title="List of current Asset Swap offers">Asset Swaps</a></span>
+            <span class="menuItem" data-page="asset_swaps"><a href="javascript:showPage('asset_swaps')" title="List of current Asset Swap offers">Asset Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="javascript:showPage('historical')" title="List of special historical blocks">Historical blocks</a></span>
+            <span class="menuItem" data-page="historical"><a href="javascript:showPage('historical')" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
             <!-- Search field -->
@@ -3579,6 +3587,19 @@
       setNetwork(parameters.network);
     }
 
+    // Get active parameters list for the current page
+    let page = pageConfig[page_id];
+    if (!page) { page_id = 'status'; page = pageConfig['status']; } // Default to 'status' if needed
+    const activeParams = page.params;
+
+    // Update global variable for currently displayed page/type
+    g_type = page_id;
+
+    // Highlight the menu item corresponding to the current page
+    document.querySelectorAll('#Menu .menuItem').forEach(item => {
+      item.classList.toggle('active', item.dataset.page === g_type); // The second parameter is a boolean to force add/remove
+    });
+
     // Replace the MainContent container with the loading message
     document.getElementById('MainContent').innerHTML = `
       <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
@@ -3588,10 +3609,6 @@
 
     // Scroll to top (to give a natural multi-page feel on switch)
     topFunction();
-
-    // Get active parameters list for the current page (or default to 'status')
-    const page = pageConfig[page_id] || (page_id = 'status', pageConfig['status']);
-    const activeParams = page.params || [];
 
     // Helper function to get or reset persistent parameters from localStorage
     // Remark: If defaultValue is a number, paramVal will be define as such too
@@ -3633,7 +3650,6 @@
     });
 
     // Update the browser URL query string (without page reload)
-    g_type = page_id || 'status';
     const newParams = new URLSearchParams();
     newParams.set('network', g_network);
     newParams.set('type', g_type);
