@@ -3143,16 +3143,16 @@
 <!-- ************ SECTION 5 - MAIN JS CODE ************ -->
 <script> 'use strict'; // ADDITIONAL GLOBAL VARIABLES
 
-  // Array of codes, graph colors, old/new names and descriptions for the Block Header columns
-  // (columns with 'null' color won't be displayable as graphs)
+  // Array of codes, optional graph colors, old/new names and descriptions for the Block Header columns
+  // (if 'color' is omitted for a numeric column, a random one will be assigned)
   const columnDefaultOrder = 'NTHgGdDfFkKiIoOuUyYzZbBpPcCaA'; // Without 't' (which is redundant with 'g')
   const columnDefaultDisplay = 'THdfkioyzp';
   const columnHeaders_pow = {
     'h': { color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
-    'H': { color: null, original: 'Hash', title: 'Hash', description: 'Block hash' },
+    'H': { original: 'Hash', title: 'Hash', description: 'Block hash' },
     'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (identical to Block height)' },
     //'t': { color: '#bf3c3c', original: 'd.Time', title: 'Time', description: 'Block duration (in seconds)' }, // Redundant with 'g'
-    'T': { color: '#808080', original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp' },
+    'T': { color: '#808080', original: 'Timestamp', title: 'Timestamp', description: 'Block timestamp' }, // Special: timestamps are graphable even though not strictly displayed as numeric
     'g': { color: '#bf3c3c', original: 'd.Age', title: 'Duration', description: 'Block duration (in seconds)' },
     'G': { color: '#d67a7a', original: 'Age', title: 'Age', description: 'Block age since genesis (in seconds)' },
     'd': { color: '#008484', original: 'Difficulty', title: 'Difficulty', description: 'Block difficulty' },
@@ -4222,8 +4222,8 @@
     g_graph.axis.width = g_graph.axis.xmax - g_graph.axis.xmin;
     g_graph.axis.height = g_graph.axis.ymax - g_graph.axis.ymin;
 
-    // Fill the global variable with the default colors
-    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
+    // Fill the global variable with the default colors (when defined)
+    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; } }
     // Get locally saved colors, if any
     let g_graph_colors = {};
     try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
@@ -4274,8 +4274,9 @@
       const header = headers[col];
       const code = header.firstElementChild?.dataset?.code; // Get the column code from the <span> (or 'null' if non-existent)
       if (!code) continue; // Skip if we can't get the code
-      // All columns for which a color has been defined in the global variable 'columnHeaders' can be displayed as graphs
-      if (columnHeaders[code].color !== null) {
+      // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
+      const isNumeric = header.closest('th')?.dataset?.numeric === 'true' || code === 'T';
+      if (isNumeric) {
         // Add a checkbox to the right of the header title
         const checkboxHTML = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + col + '" data-column="' + col + '" autocomplete="off" onclick="checkboxGraph(event);">';
         header.insertAdjacentHTML('beforeend', checkboxHTML);
@@ -4405,9 +4406,13 @@
         break;
       }
     }
-    if (col === null || !checkbox || !columnHeaders[code] || columnHeaders[code].color === null) {
+    // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
+    const isNumeric = headers[col]?.closest('th')?.dataset?.numeric === 'true' || code === 'T';
+    if (col === null || !checkbox || !columnHeaders[code] || !isNumeric) {
       return false; // Code does not exist in table or is not graphable
     }
+    // Assign a random color when needed
+    if (!g_graph.color[code]) { g_graph.color[code] = columnHeaders[code].color || getRandomGraphColor(); }
 	  // Check the checkbox
     checkbox.checked = true;
 
@@ -4515,6 +4520,15 @@
     return ctx.fillStyle;
   }
 
+  // Generate a random, visually pleasing and distinct hex color (with good contrast and saturation)
+  function getRandomGraphColor() {
+    // Generate random hue across 360 degrees, with high saturation (65-85%) and balanced lightness (40-55%)
+    const hue = Math.floor(Math.random() * 360);
+    const sat = Math.floor(Math.random() * 20) + 65;
+    const light = Math.floor(Math.random() * 15) + 40;
+    return convertColorToHex(`hsl(${hue}, ${sat}%, ${light}%)`);
+  }
+
   // Apply a user-defined color to a graph
   function changeGraphColor(code) {
     let color = document.getElementById('graphColorPicker_' + code).value; // Get color from color picker
@@ -4523,12 +4537,15 @@
     localStorage.setItem('g_graph_colors',JSON.stringify(g_graph.color)); // Save all current colors in local storage
   }
 
-  // Reset all graph colors to the default ones
+  // Reset all graph colors to the default ones (or generate new ones when omitted)
   function resetGraphColors() {
     localStorage.removeItem('g_graph_colors'); // Remove locally saved colors
-    g_graph.color = {}; // Reset the global variable and fill it with the default colors
-    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
-    for (let code in g_graph.y) { applyGraphColor(code, g_graph.color[code]); } // Apply updated colors to graphs, legends and axis
+    g_graph.color = {}; // Reset the global variable and fill it with the default colors (when defined)
+    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; } }
+    for (let code in g_graph.y) {
+      if (!g_graph.color[code]) { g_graph.color[code] = getRandomGraphColor(); }
+      applyGraphColor(code, g_graph.color[code]); // Apply updated colors to graphs, legends and axis
+    }
   }
 
   // Apply a color to a graph (including its legend and axis)
