@@ -3364,10 +3364,9 @@
   // sanitize, cache, and synchronize all global variables with the URL query parameters.
   // Every new call to showPage() will then keep them updated.
   // Remark: 'var' (global-scope) is used instead of 'let' (block-scope) to allow calling them with 'window[name]'.
-  const URLparams = new URL(document.location).searchParams;
   var g_IsPos = false;
-  var g_network = URLparams.get('network') || 'mainnet'; // Should be one of those defined in global variable 'explorerNodes'
-  var g_type = URLparams.get('type') || 'status'; // Remark: We add two URL 'types' not used by the explorer node ('historical' and 'treasury')
+  var g_network = 'mainnet'; // Default network
+  var g_type = 'status'; // Default page type
   var g_id = ''; // Used for type=asset & contract
   var g_height = ''; // Used for type=block & blocks & assets
   var g_kernel = ''; // Used for type=block
@@ -3428,35 +3427,26 @@
   // Declare the variable for the node URL query prefix (it will be updated in showPage).
   let g_urlPrefix;
   // Define default explorer node URLs to query
-  let g_defaultNodesURL;
+  let g_defaultNodesURL = {};
   try { // Try to read list from local storage (getItem returns 'null' if the variable doesn't exist)
-    g_defaultNodesURL = JSON.parse(localStorage.getItem('g_defaultNodesURL'));
-  } catch (error) { // In case of any parsing error, also set the variable to 'null'
-    g_defaultNodesURL = null;
-  }
-  // If the variable doesn't exist or is not a literal object, then we set it with the default nodes
-  if (g_defaultNodesURL === null || g_defaultNodesURL.constructor !== Object) {
-    g_defaultNodesURL = {};
-    for (let network in explorerNodes) {
+    const storedURL = JSON.parse(localStorage.getItem('g_defaultNodesURL'));
+    if (storedURL && typeof storedURL === 'object' && !Array.isArray(storedURL)) { g_defaultNodesURL = storedURL; }
+  } catch (error) {} // In case of JSON.parse error
+
+  // Ensure each network has an authorized node URL, or fall back to default
+  for (let network in explorerNodes) {
+    if (!explorerNodes[network].url.includes(g_defaultNodesURL[network])) {
       g_defaultNodesURL[network] = explorerNodes[network].url[0]; // First node is used as default one
     }
-  // If the variable exists, then we thoroughly verify that its content is valid (authorized networks and nodes)
-  } else {
-    // First we remove any network that is not authorized
-    for (let network in g_defaultNodesURL) {
-      if (explorerNodes[network] === undefined) {
-        delete g_defaultNodesURL[network]; 
-      }
-    }
-    // If a network is missing, or if the node given for it is unknown, then we set the network with its default node
-    for (let network in explorerNodes) {
-      if (g_defaultNodesURL[network] === undefined || !explorerNodes[network].url.includes(g_defaultNodesURL[network])) {
-        g_defaultNodesURL[network] = explorerNodes[network].url[0]; // First node is used as default one
-      }
+  }
+  // Remove any network that is not authorized
+  for (let network in g_defaultNodesURL) {
+    if (!explorerNodes[network]) {
+      delete g_defaultNodesURL[network];
     }
   }
   // Save in local storage
-  localStorage.setItem('g_defaultNodesURL',JSON.stringify(g_defaultNodesURL));
+  localStorage.setItem('g_defaultNodesURL', JSON.stringify(g_defaultNodesURL));
 
   // Fill the network selection dropdown and the popup network list
   let nodesList = '';
@@ -3611,16 +3601,15 @@
     topFunction();
 
     // Helper function to get or reset persistent parameters from localStorage
-    // Remark: If defaultValue is a number, paramVal will be define as such too
+    // Remark: If defaultValue is a number, paramVal will be defined as such too
     function getPersistentParam(name, defaultValue, paramVal) {
-      if (paramVal !== undefined && paramVal !== null) {
-        const val = (paramVal !== '') ? (typeof defaultValue === 'number' ? Number(paramVal) : paramVal) : defaultValue;
+      if (paramVal != null && paramVal !== '') { // != null checks both null and undefined
+        const val = (typeof defaultValue === 'number') ? Number(paramVal) : paramVal;
         localStorage.setItem('g_' + name, val);
         return val;
-      } else {
-        const cached = localStorage.getItem('g_' + name);
-        return (cached !== null && cached !== '') ? (typeof defaultValue === 'number' ? Number(cached) : cached) : defaultValue;
       }
+      const cached = localStorage.getItem('g_' + name);
+      return (cached != null && cached !== '') ? ((typeof defaultValue === 'number') ? Number(cached) : cached) : defaultValue;
     }
 
     // Update and synchronize all global parameters for the current page
@@ -3634,7 +3623,8 @@
           val = getPersistentParam(paramName, config.defaultValue, parameters[paramName]);
         } else { // Transient parameters, not stored in localStorage.
           const paramVal = parameters[paramName];
-          if (paramVal != null && (typeof paramVal !== 'string' || paramVal.trim() !== '')) { // First test for both null & undefined, and second test for any empty or whitespace string
+          // Test for both null & undefined, and then for empty or whitespace string
+          if (paramVal != null && (typeof paramVal !== 'string' || paramVal.trim() !== '')) {
             if (config.sanitize) { // If some sanitization rules are defined
               val = config.sanitize(paramVal);
             } else { // Otherwise, simply make it a number when applicable
@@ -3655,7 +3645,7 @@
     newParams.set('type', g_type);
     activeParams.forEach(paramName => {
       const val = window[paramConfig[paramName].globalVar];
-      if (val !== undefined && val !== null && val !== '') { newParams.set(paramName, val); }
+      if (val != null && val !== '') { newParams.set(paramName, val); } // != null checks both null and undefined
     });
     const newUrl = window.location.pathname + '?' + newParams.toString();
     if (parameters.replaceState) { // Modify browser's current history entry (to avoid endless loops with the Back button)
@@ -3728,11 +3718,10 @@
   // Helper function to extract parameters from the URL and display the corresponding page
   function loadPageFromURL() {
     const params = new URLSearchParams(window.location.search);
-    const type = params.get('type') || 'status';
-    const page_id = type;
+    const page_id = params.get('type');
     const showParams = {};
     params.forEach((value, key) => { if (key !== 'type') { showParams[key] = value; } });
-    showPage(page_id, { ...showParams, replaceState: true });
+    showPage(page_id, { ...showParams, replaceState: true }); // showPage() shall handle null/empty/wrong parameters...
   }
 
   // Listen to popstate to support browser back/forward buttons
@@ -4236,14 +4225,11 @@
     // Fill the global variable with the default colors
     for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color !== null) { g_graph.color[code] = columnHeaders[code].color; } }
     // Get locally saved colors, if any
-    let g_graph_colors;
+    let g_graph_colors = {};
     try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
-      g_graph_colors = JSON.parse(localStorage.getItem('g_graph_colors'));
-    } catch (error) { // In case of any parsing error, also set the variable to 'null'
-      g_graph_colors = null;
-    }
-    // If the resulting variable doesn't exist or is not a literal object, then we set it empty
-    if (g_graph_colors === null || g_graph_colors.constructor !== Object) { g_graph_colors = {}; }
+      const storedColors = JSON.parse(localStorage.getItem('g_graph_colors'));
+      if (storedColors && typeof storedColors === 'object' && !Array.isArray(storedColors)) { g_graph_colors = storedColors; }
+    } catch (error) {} // In case of JSON.parse error
     // Replace -in the the global variable- the default colors with the user-defined ones (if any)
     for (let code in g_graph_colors) { g_graph.color[code] = g_graph_colors[code]; }
 
@@ -6006,7 +5992,7 @@
       `Min: ${formatNumber(stats.min)}  |  Max: ${formatNumber(stats.max)}  |  Sum: ${formatNumber(stats.sum)}`,
       `Mean: ${formatNumber(stats.mean)}  |  Median: ${formatNumber(stats.median)}`,
       `Mode: ${modeText}`,
-      `Sigma:${formatNumber(stats.sigma)}  |  IQR: ${formatNumber(stats.iqr)}  |  CV: ${cvText}`,
+      `Sigma: ${formatNumber(stats.sigma)}  |  IQR: ${formatNumber(stats.iqr)}  |  CV: ${cvText}`,
       `Q25: ${formatNumber(stats.q25)}  |  Q75: ${formatNumber(stats.q75)}`,
       `P05: ${formatNumber(stats.p05)}  |  P95: ${formatNumber(stats.p95)}`
     ];
