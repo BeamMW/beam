@@ -3420,6 +3420,9 @@
     graph: { globalVar: 'g_graphs', persistent: false, type: 'string', defaultValue: '' } // URL only, not for node queries
   };
 
+  // Global parameters for the graphs
+  var g_graph = {};
+
 </script>
 
 <script> 'use strict'; // UPDATE NETWORK AND NODE URL SELECTION
@@ -3430,6 +3433,7 @@
   let g_defaultNodesURL = {};
   try { // Try to read list from local storage (getItem returns 'null' if the variable doesn't exist)
     const storedURL = JSON.parse(localStorage.getItem('g_defaultNodesURL'));
+    // Test for a valid { key: value } object (not null, number/string/boolean or array)
     if (storedURL && typeof storedURL === 'object' && !Array.isArray(storedURL)) { g_defaultNodesURL = storedURL; }
   } catch (error) {} // In case of JSON.parse error
 
@@ -3441,9 +3445,7 @@
   }
   // Remove any network that is not authorized
   for (let network in g_defaultNodesURL) {
-    if (!explorerNodes[network]) {
-      delete g_defaultNodesURL[network];
-    }
+    if (!explorerNodes[network]) { delete g_defaultNodesURL[network]; }
   }
   // Save in local storage
   localStorage.setItem('g_defaultNodesURL', JSON.stringify(g_defaultNodesURL));
@@ -3482,7 +3484,36 @@
     showPage('status', { network: this.value }); // Switch to selected network and reset to default status page
   });
 
-  // Update network settings, URL prefix and related UI elements
+  // Helper function to get or reset persistent parameters from localStorage (saved per network)
+  // Remark: If defaultValue is a number, returned value will be defined as such too
+  function getPersistentParam(name, defaultValue, paramVal) {
+    // If paramVal is present, save it to localStorage and return it
+    if (paramVal != null && paramVal !== '') { // != null checks both null and undefined
+      const val = (typeof defaultValue === 'number') ? Number(paramVal) : paramVal;
+      localStorage.setItem('g_' + g_network + '_' + name, val);
+      return val;
+    }
+    // If paramVal is absent, retrieve its value from localStorage or set it to default
+    const cached = localStorage.getItem('g_' + g_network + '_' + name);
+    return (cached != null && cached !== '') ? ((typeof defaultValue === 'number') ? Number(cached) : cached) : defaultValue;
+  }
+
+  // Helper function to load and synchronize graph colors for the current network from defaults or localStorage
+  function loadGraphColors() {
+    g_graph.color = {}; // Reset the global color object
+    for (let code of Object.keys(columnHeaders)) { // Fill it with default colors (when defined)
+      if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; }
+    }
+    try { // Try to retrieve user-saved colors from localStorage (per network)
+      const storedColors = JSON.parse(localStorage.getItem('g_' + g_network + '_graph_colors'));
+      // Test for a valid { key: value } object (not null, number/string/boolean or array)
+      if (storedColors && typeof storedColors === 'object' && !Array.isArray(storedColors)) {
+        for (let code in storedColors) { g_graph.color[code] = storedColors[code]; }
+      }
+    } catch (error) {} // In case of JSON.parse error
+  }
+
+  // Update network settings, URL prefix, global variables and related UI elements
   function setNetwork(network) {
     // Ensure network and node url are any of those defined in explorerNodes, otherwise revert to 'mainnet'
     if (explorerNodes[network] === undefined || g_defaultNodesURL[network] === undefined) { network = 'mainnet'; }
@@ -3572,9 +3603,13 @@
 
     const showPageCounter = ++g_showPageCounter; // Increase and copy the global showPage counter
 
-    // Update network if a specific network was passed in parameters
-    if (parameters.network !== undefined && parameters.network !== g_network) {
+    // Update network if a different network was passed in parameters
+    if (parameters.network && parameters.network !== g_network) {
       setNetwork(parameters.network);
+      // Reset persistent parameters for the new network
+      Object.keys(paramConfig).forEach(paramName => {
+        if (paramConfig[paramName].persistent) { delete parameters[paramName]; }
+      });
     }
 
     // Get active parameters list for the current page
@@ -3600,43 +3635,24 @@
     // Scroll to top (to give a natural multi-page feel on switch)
     topFunction();
 
-    // Helper function to get or reset persistent parameters from localStorage
-    // Remark: If defaultValue is a number, paramVal will be defined as such too
-    function getPersistentParam(name, defaultValue, paramVal) {
-      if (paramVal != null && paramVal !== '') { // != null checks both null and undefined
-        const val = (typeof defaultValue === 'number') ? Number(paramVal) : paramVal;
-        localStorage.setItem('g_' + name, val);
-        return val;
-      }
-      const cached = localStorage.getItem('g_' + name);
-      return (cached != null && cached !== '') ? ((typeof defaultValue === 'number') ? Number(cached) : cached) : defaultValue;
-    }
-
     // Update and synchronize all global parameters for the current page
     // (provided value, cache from localStorage, default value or '')
     Object.keys(paramConfig).forEach(paramName => {
       const config = paramConfig[paramName];
-      let val = '';
-
-      if (activeParams.includes(paramName)) {
-        if (config.persistent) { // Persistent parameters, stored in localStorage.
-          val = getPersistentParam(paramName, config.defaultValue, parameters[paramName]);
-        } else { // Transient parameters, not stored in localStorage.
-          const paramVal = parameters[paramName];
-          // Test for both null & undefined, and then for empty or whitespace string
-          if (paramVal != null && (typeof paramVal !== 'string' || paramVal.trim() !== '')) {
-            if (config.sanitize) { // If some sanitization rules are defined
-              val = config.sanitize(paramVal);
-            } else { // Otherwise, simply make it a number when applicable
-              val = (config.type === 'number') ? Number(paramVal) : paramVal;
-            }
-          } else {
-            val = config.defaultValue;
-          }
+      let val = config.defaultValue; // Start with the default values
+      if (config.persistent) { // Persistent parameters, stored in localStorage
+        // Read from localStorage (or save if active parameter already has a value)
+        const paramVal = activeParams.includes(paramName) ? parameters[paramName] : undefined;
+        val = getPersistentParam(paramName, config.defaultValue, paramVal);
+      } else if (activeParams.includes(paramName)) { // Transient parameters, and used in the currently displayed page
+        const paramVal = parameters[paramName];
+        // Test for both null & undefined, and then for empty or whitespace string
+        if (paramVal != null && (typeof paramVal !== 'string' || paramVal.trim() !== '')) {
+          // Apply sanitization rules (if defined), or make it a number when applicable
+          val = config.sanitize ? config.sanitize(paramVal) : ((config.type === 'number') ? Number(paramVal) : paramVal);
         }
       }
-      // Update the associated global variable
-      window[config.globalVar] = val;
+      window[config.globalVar] = val; // Set global variables (= properties of 'window')
     });
 
     // Update the browser URL query string (without page reload)
@@ -3644,7 +3660,7 @@
     newParams.set('network', g_network);
     newParams.set('type', g_type);
     activeParams.forEach(paramName => {
-      const val = window[paramConfig[paramName].globalVar];
+      const val = window[paramConfig[paramName].globalVar]; // Retrieve global variables (= properties of 'window')
       if (val != null && val !== '') { newParams.set(paramName, val); } // != null checks both null and undefined
     });
     const newUrl = window.location.pathname + '?' + newParams.toString();
@@ -3662,7 +3678,7 @@
     const fetchParams = {};
     activeParams.forEach(paramName => {
       if (paramName === 'graph') { return; } // Skip this one as it's for graph display, not for node queries
-      const val = window[paramConfig[paramName].globalVar]; // Retrieve value of global variable
+      const val = window[paramConfig[paramName].globalVar]; // Retrieve global variables (= properties of 'window')
       if (val != null && val !== '') { fetchParams[paramName] = val; } // First test catches both null & undefined
     });
 
@@ -4061,10 +4077,10 @@
     g_hMin = document.getElementById('minHeight').value;
     // Get max block height (even when empty)
     g_hMax = document.getElementById('maxHeight').value;
-    // Save results in localStorage
-    localStorage.setItem('g_nMaxTxs', g_nMaxTxs);
-    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
-    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    // Save results in localStorage (per network)
+    localStorage.setItem('g_' + g_network + '_nMaxTxs', g_nMaxTxs);
+    //localStorage.setItem('g_' + g_network + '_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('nMaxTxs', g_nMaxTxs);
@@ -4121,10 +4137,10 @@
     g_hMin = document.getElementById('minHeight').value;
     // Get max block height (even when empty)
     g_hMax = document.getElementById('maxHeight').value;
-    // Save results in localStorage
-    localStorage.setItem('g_nMaxOps', g_nMaxOps);
-    //localStorage.setItem('g_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
-    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    // Save results in localStorage (per network)
+    localStorage.setItem('g_' + g_network + '_nMaxOps', g_nMaxOps);
+    //localStorage.setItem('g_' + g_network + '_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
+    //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('nMaxOps', g_nMaxOps);
@@ -4171,9 +4187,6 @@
 </script>
 
 <script> 'use strict'; // GRAPH DISPLAY FUNCTIONS
-
-  // Global parameters for the graphs
-  let g_graph = {};
 
   // Setup the whole graph environment
   function setupGraph() {
@@ -4222,16 +4235,8 @@
     g_graph.axis.width = g_graph.axis.xmax - g_graph.axis.xmin;
     g_graph.axis.height = g_graph.axis.ymax - g_graph.axis.ymin;
 
-    // Fill the global variable with the default colors (when defined)
-    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; } }
-    // Get locally saved colors, if any
-    let g_graph_colors = {};
-    try { // Try to read object from local storage (getItem returns 'null' if the variable doesn't exist)
-      const storedColors = JSON.parse(localStorage.getItem('g_graph_colors'));
-      if (storedColors && typeof storedColors === 'object' && !Array.isArray(storedColors)) { g_graph_colors = storedColors; }
-    } catch (error) {} // In case of JSON.parse error
-    // Replace -in the the global variable- the default colors with the user-defined ones (if any)
-    for (let code in g_graph_colors) { g_graph.color[code] = g_graph_colors[code]; }
+    // Load default and locally saved colors for the current network
+    loadGraphColors();
 
     // A neat trick to systematically update the graphs every time the table is filtered or sorted:
     // Wrap the original filterTable() and sortTable() functions into new versions... with added function calls!
@@ -4534,14 +4539,13 @@
     let color = document.getElementById('graphColorPicker_' + code).value; // Get color from color picker
     applyGraphColor(code, color); // Apply color to graph, legend and axis
     g_graph.color[code] = color; // Save color in the global variable, for future display of the same graph
-    localStorage.setItem('g_graph_colors',JSON.stringify(g_graph.color)); // Save all current colors in local storage
+    localStorage.setItem('g_' + g_network + '_graph_colors', JSON.stringify(g_graph.color)); // Save all colors in local storage (per network)
   }
 
   // Reset all graph colors to the default ones (or generate new ones when omitted)
   function resetGraphColors() {
-    localStorage.removeItem('g_graph_colors'); // Remove locally saved colors
-    g_graph.color = {}; // Reset the global variable and fill it with the default colors (when defined)
-    for (let code of Object.keys(columnHeaders)) { if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; } }
+    localStorage.removeItem('g_' + g_network + '_graph_colors'); // Remove locally saved colors for the current network
+    loadGraphColors(); // Reset and reload default colors into the global variable
     for (let code in g_graph.y) {
       if (!g_graph.color[code]) { g_graph.color[code] = getRandomGraphColor(); }
       applyGraphColor(code, g_graph.color[code]); // Apply updated colors to graphs, legends and axis
@@ -5285,9 +5289,9 @@
 
   function reorderColumns(series = '') { // Reorder checkboxes
     let n = 0, series2 = '', fullSeries;
-    // 1) If no order is given, check localStorage. If it's also empty, then use the default order.
+    // 1) If no order is given, check localStorage (for the current network). If it's also empty, then use the default order.
     if (series == '') {
-      series = localStorage.getItem('g_colsAll');
+      series = localStorage.getItem('g_' + g_network + '_colsAll');
       if (!series) { series = columnDefaultOrder; }
 
       // Until we adapt the UI for column repetition, we simply ignore them (although they do work when passed in the URL)...
@@ -5360,13 +5364,13 @@
       series += item.dataset.code; // String of codes with the order of all the checkboxes
       if (item.checked == true) { params += item.dataset.code }; // String of codes with the selected checkboxes only (in the same order)
     }
-    // Save results in localStorage
+    // Save results in localStorage (per network)
     g_cols = params;
-    localStorage.setItem('g_colsAll', series);
-    localStorage.setItem('g_cols', g_cols);
-    localStorage.setItem('g_nMax', g_nMax);
-    localStorage.setItem('g_dh', g_dh);
-    //localStorage.setItem('g_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
+    localStorage.setItem('g_' + g_network + '_colsAll', series);
+    localStorage.setItem('g_' + g_network + '_cols', g_cols);
+    localStorage.setItem('g_' + g_network + '_nMax', g_nMax);
+    localStorage.setItem('g_' + g_network + '_dh', g_dh);
+    //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('cols', g_cols);
