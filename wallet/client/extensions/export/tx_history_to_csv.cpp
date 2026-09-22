@@ -79,7 +79,6 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
        << "Amount" << ","
        << "Unit name" << ","
        << "\"Amount, USD\"" << ","
-       << "\"Amount, BTC\"" << ","
        << "\"Transaction fee, BEAM\"" << ","
        << "Status" << ","
        << "Comment" << "," 
@@ -121,14 +120,12 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
 
 
         std::string amountInUsd = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::USD()), 2);
-        std::string amountInBtc = convertAmount(tx.m_amount, tx.getExchangeRate(Currency::BTC()), 8);
 
         ss << (tx.m_sender ? "Send" : "Receive") << ","                                     // Type
            << format_timestamp(kTimeStampFormatCsv, tx.m_createTime * 1000, false) << ","   // Date | Time
            << "\"" << PrintableAmount(tx.m_amount, true) << "\"" << ","                     // Amount
            << "\"" << unitName << "\"" << ","                                               // Unit name
            << "\"" << amountInUsd << "\"" << ","                                            // Amount, USD
-           << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
            << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
            << beam::wallet::interpretStatus(tx) << ","                                      // Status
            << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
