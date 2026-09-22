@@ -129,8 +129,40 @@ namespace beam::wallet
         }
     }
 
+    // A tx's one-time sender address is registered with the endpoints by BaseTransaction::
+    // EnsureListening, which only runs on the tx's first Update - and Wallet defers that until it
+    // has synced with the node. A wallet restarted mid-negotiation (the CLI restarts on every
+    // command) therefore cannot decrypt the peer's reply until then. Register those addresses
+    // here so an import works as soon as the DB is open. Listen() is ref-counted; ours is held
+    // for the endpoint's lifetime, the tx's own ref comes and goes as before.
+    void SlatepackEndpoint::ListenForPendingManualTxs()
+    {
+        if (!CanDecrypt())
+            return;
+
+        for (const auto& tx : m_WalletDB->getTxHistory(TxType::Simple))
+        {
+            if (!tx.canResume() || m_ListenedTxs.count(tx.m_txId))
+                continue;
+
+            bool isManual = false;
+            uint64_t ownID = 0;
+            if (!storage::getTxParameter(*m_WalletDB, tx.m_txId, TxParameterID::ManualTransport, isManual) || !isManual ||
+                !storage::getTxParameter(*m_WalletDB, tx.m_txId, TxParameterID::MyAddressID, ownID) || !ownID)
+                continue;
+
+            WalletID wid;
+            ECC::Scalar::Native sk;
+            m_WalletDB->get_SbbsWalletID(sk, wid, ownID);
+            Listen(wid, sk, nullptr);
+            m_ListenedTxs.insert(tx.m_txId);
+        }
+    }
+
     bool SlatepackEndpoint::Preview(const std::string& armoredText, slatepack::Error& error, ImportInfo& info)
     {
+        ListenForPendingManualTxs();
+
         slatepack::PayloadType type;
         ByteBuffer payload;
         if (!slatepack::Unarmor(armoredText, type, payload, error))

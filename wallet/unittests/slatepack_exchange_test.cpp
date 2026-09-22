@@ -87,7 +87,7 @@ namespace
         // Hand-deliver one Slatepack exactly as the UI/CLI does: Preview() decrypts it and
         // reports a summary WITHOUT touching the transaction, then Commit() confirms it. Both
         // halves are asserted here, so a regression in the two-step import fails the test.
-        int couriered = 0;
+        int couriered = 0, freshPreviews = 0;
         auto courier = [&couriered](const shared_ptr<SlatepackEndpoint>& to, const char* who, const string& pack)
         {
             slatepack::Error err = slatepack::Error::None;
@@ -128,6 +128,24 @@ namespace
             while (!fromReceiver.empty())
             {
                 const string s = fromReceiver.back(); fromReceiver.pop_back();
+
+                // Restart shape: a brand-new endpoint on the sender's DB knows nothing the
+                // running tx registered in memory (its one-time sender address in particular).
+                // It must still be able to read the reply - that is what a CLI process that
+                // exited after 'send' and came back for 'slatepack' looks like.
+                {
+                    auto fresh = make_shared<SlatepackEndpoint>(*sender.m_Wallet, sender.m_WalletDB, nullptr);
+                    slatepack::Error err = slatepack::Error::None;
+                    SlatepackEndpoint::ImportInfo info;
+                    const bool ok = fresh->Preview(s, err, info);
+                    WALLET_CHECK(ok);
+                    if (!ok)
+                        cout << "  fresh-endpoint preview of S2 failed: " << slatepack::ErrorToString(err) << "\n";
+                    else
+                        fresh->CancelPending(info.m_TxID);
+                    ++freshPreviews;
+                }
+
                 courier(senderBp, "SENDER", s);
             }
         }
@@ -166,6 +184,7 @@ namespace
 
         // At least S1 (sender->receiver) and S2 (receiver->sender) must have crossed the gap.
         WALLET_CHECK(couriered >= 2);
+        WALLET_CHECK(freshPreviews >= 1);
         WALLET_CHECK(sh.size() == 1);
         WALLET_CHECK(rh.size() == 1);
         WALLET_CHECK(!sh.empty() && sh[0].m_status == TxStatus::Completed);

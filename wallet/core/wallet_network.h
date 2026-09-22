@@ -89,6 +89,8 @@ namespace beam::wallet
 
         // False on a read-only wallet, which holds no SBBS key and can neither send nor decrypt.
         bool CanDecrypt() const { return !!m_pKdfSbbs; }
+        void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
+        void Unlisten(const WalletID&, IHandler*) override;
         void Subscribe();
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
@@ -125,8 +127,6 @@ namespace beam::wallet
 
         // IWalletMessageEndpoint
         void Send(const WalletID& peerID, const Blob&) override;
-        void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
-        void Unlisten(const WalletID&, IHandler*) override;
         void OnAddressTimer();
         
     private:
