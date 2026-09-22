@@ -20,6 +20,7 @@
 #include <functional>
 #include <string>
 #include <map>
+#include <set>
 
 namespace beam::wallet
 {
@@ -71,8 +72,10 @@ namespace beam::wallet
         void onAddressChanged(ChangeAction action, const std::vector<WalletAddress>& items) override;
 
         void ExpirePendingImports();
+        void ListenForPendingManualTxs();
 
         IWalletDB::Ptr m_WalletDB;
+        std::set<TxID>  m_ListenedTxs; // manual txs whose one-time address this endpoint registered
         OutgoingHandler m_OnOutgoing;
 
         // Slatepacks decrypted for preview, awaiting the user's confirm/cancel, keyed by txID.
