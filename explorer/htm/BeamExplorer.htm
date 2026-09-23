@@ -3435,7 +3435,7 @@
     const storedURL = JSON.parse(localStorage.getItem('g_defaultNodesURL'));
     // Test for a valid { key: value } object (not null, number/string/boolean or array)
     if (storedURL && typeof storedURL === 'object' && !Array.isArray(storedURL)) { g_defaultNodesURL = storedURL; }
-  } catch (error) {} // In case of JSON.parse error
+  } catch {} // In case of JSON.parse error
 
   // Ensure each network has an authorized node URL, or fall back to default
   for (let network in explorerNodes) {
@@ -3510,7 +3510,7 @@
       if (storedColors && typeof storedColors === 'object' && !Array.isArray(storedColors)) {
         for (let code in storedColors) { g_graph.color[code] = storedColors[code]; }
       }
-    } catch (error) {} // In case of JSON.parse error
+    } catch {} // In case of JSON.parse error
   }
 
   // Update network settings, URL prefix, global variables and related UI elements
@@ -4991,7 +4991,7 @@
       g_graph.hover = true;
     }
   }
-  function graphHoverToggle(e) { // Start/Stop listening to hovering events (i.e. freeze/unfreeze the cursor)
+  function graphHoverToggle() { // Start/Stop listening to hovering events (i.e. freeze/unfreeze the cursor)
     g_graph.hover = !g_graph.hover // Elegant way to toggle a boolean! :-)
   }
   function graphDisplayCursor() { // Display graph cursor (and all the corresponding values)
@@ -5554,19 +5554,16 @@
 
   // SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
   function sortTable(e) {
-    // Declare variables
-    let input, col, headRow, table, nbr_tbodies, dir, items;
-
     // Get element, table and column number of the event
-    input = e.currentTarget;
-    col = input.closest('th,td').cellIndex;
-    headRow = input.closest('tr');
-    table = input.closest('table');
-    nbr_tbodies = table.tBodies.length;
+    const input = e.currentTarget;
+    const col = input.closest('th,td').cellIndex;
+    const headRow = input.closest('tr');
+    const table = input.closest('table');
+    const nbr_tbodies = table.tBodies.length;
 
     // Set the default sorting direction as descending
     // (or switch to ascending if already sorted descending)
-    dir = input.classList.contains('desc') ? 'asc' : 'desc';
+    const dir = input.classList.contains('desc') ? 'asc' : 'desc';
 
     // Reset sorting classes and titles in all headers of this table
     for (let myHeader of headRow.getElementsByClassName('sortable')) {
@@ -5577,7 +5574,7 @@
 
     // Get the list of rows or tbodies to be sorted
     // (Remark: There is always at least one tbody, even if not explictely defined)
-    items = nbr_tbodies > 1 ? table.tBodies : table.tBodies[0].rows;
+    const items = nbr_tbodies > 1 ? table.tBodies : table.tBodies[0].rows;
     // Make an array with the items to be sorted
     let itemsArray = Array.from(items);
 
@@ -5663,7 +5660,7 @@
     if (opMatch) {
       let op = opMatch[1]; // Retrieve comparison operator
       let target = Number(opMatch[2].replace(/,/g, '')); // Remove commas and convert to number
-      matcher = function(cell, cellText) {
+      matcher = function(cellText, cell) {
          // Check if cell has a pure numeric value
         let cellVal = parseCellNumericValue(cell);
         // If not, try extracting a leading numeric value (in cells like "1,200.5 BEAM")
@@ -5689,7 +5686,7 @@
       try {
         let pattern = cleanQuery.endsWith('/') ? cleanQuery.slice(1, -1) : cleanQuery.slice(1); // Remove first and last / symbols
         let rx = new RegExp(pattern, 'i');
-        matcher = function(cell, cellText) { return rx.test(cellText); };
+        matcher = function(cellText) { return rx.test(cellText); };
       } catch {
         matcher = function() { return false; }; // In case the regular expression is invalid (e.g. while still typing)
       }
@@ -5701,19 +5698,19 @@
       let escaped = cleanQuery.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
       let rx = new RegExp('^' + escaped + '$', 'is'); // No need for try{} here as the query has been cleaned
       // Remark: The 's' flag makes '.' match newlines also (since cell text can have multiple lines)
-      matcher = function(cell, cellText) { return rx.test(cellText); };
+      matcher = function(cellText) { return rx.test(cellText); };
     }
     // Default: Case-insensitive substring match
     else {
       let queryUpper = cleanQuery.toUpperCase(); // We convert everything to uppercase
-      matcher = function(cell, cellText) { return cellText.toUpperCase().includes(queryUpper); };
+      matcher = function(cellText) { return cellText.toUpperCase().includes(queryUpper); };
     }
 
     // Return the reusable cell filter function
     return function(cell) {
       if (!cell) { return false; }
       let cellText = cell.textContent.replace(/\u00A0/g, ' ').trim(); // Get text content and remove leading/trailing/non-breaking spaces
-      let matched = matcher(cell, cellText); // Apply filter function
+      let matched = matcher(cellText, cell); // Apply filter function
       return isNegation ? !matched : matched; // Invert match if negation was specified
     };
   }
