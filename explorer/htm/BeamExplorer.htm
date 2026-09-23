@@ -3686,16 +3686,12 @@
     // Handling some special cases (ideally, these should be moved to pageConfig,
     // to keep showPage() fully generic, but that's probably a bit overkill...)
 
-    // Since asset 0 is not accepted by the explorer node, we display ALL assets instead
-    if (page_id === 'asset' && g_id == 0) {
-      showPage('assets', { replaceState: true });
-      return;
-    }
+    // Since asset 0 is not accepted by the explorer node (or if no id is specified), we display ALL assets instead
+    if (page_id === 'asset' && (!g_id || g_id == 0)) { showPage('assets', { replaceState: true }); return; }
+    // If no contract id is specified, we display ALL contracts instead
+    if (page_id === 'contract' && !g_id) { showPage('contracts', { replaceState: true }); return; }
     // To get the treasury, we call 'block' with height 0
-    if (page_id === 'treasury') {
-      fetchType = 'block';
-      fetchParams.height = 0;
-    }
+    if (page_id === 'treasury') { fetchType = 'block'; fetchParams.height = 0; }
 
     // Call the explorer node to asynchronously fetch the data
     let data;
