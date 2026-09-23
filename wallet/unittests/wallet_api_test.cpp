@@ -1674,6 +1674,14 @@ void testCalcChange()
     }));
 }
 
+void testIsSwapAmountAvailable()
+{
+    WALLET_CHECK(IsSwapAmountAvailable(boost::none, 100));
+    WALLET_CHECK(IsSwapAmountAvailable(boost::optional<Amount>(150), 100));
+    WALLET_CHECK(!IsSwapAmountAvailable(boost::optional<Amount>(100), 100));
+    WALLET_CHECK(!IsSwapAmountAvailable(boost::optional<Amount>(50), 100));
+}
+
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
@@ -2394,6 +2402,7 @@ int main()
 
     testAppsApi();
     testCalcChange();
+    testIsSwapAmountAvailable();
 
     return WALLET_CHECK_RESULT;
 }

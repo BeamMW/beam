@@ -56,6 +56,8 @@ protected:
     virtual Settings GetEmptySettings();
 
     std::string GetProjectIDName() const;
+    std::string GetUseCustomRpcName() const;
+    std::string GetCustomRpcUrlName() const;
     std::string GetSecretWordsName() const;
     std::string GetAccountIndexName() const;
     std::string GetShouldConnectName() const;

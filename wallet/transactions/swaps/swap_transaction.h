@@ -213,6 +213,10 @@ namespace beam::wallet
         bool GetKernelFromChain(SubTxID subTxID) const;
 
         Amount GetAmount() const;
+        Asset::ID GetBeamAssetID() const;
+        void PropagateBeamAssetID(SubTxID subTxID);
+        void CompleteSubTxCoinStatuses(SubTxID subTxID, Height hProof);
+        void ReleaseUnusedSubTxCoins(SubTxID subTxID);
         bool IsSender() const;
         bool IsBeamSide() const;
 

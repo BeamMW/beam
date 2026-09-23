@@ -33,7 +33,11 @@ public:
     void getTokenBalance(
         const std::string& contractAddr,
         std::function<void(const Error&, const std::string&)> callback) override;
+    void getTokenInfo(
+        const std::string& contractAddr,
+        std::function<void(const Error&, const std::string& symbol, uint8_t decimals)> callback) override;
     void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) override;
+    void getChainID(std::function<void(const Error&, uint64_t)> callback) override;
     void getTransactionCount(std::function<void(const Error&, uint64_t)> callback) override;
     void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) override;
     void send(

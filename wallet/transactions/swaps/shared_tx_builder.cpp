@@ -38,11 +38,16 @@ namespace beam::wallet
 
     bool SharedTxBuilder::AddSharedInput()
     {
-        if (m_pTransaction->m_vInputs.empty() && (Status::FullTx != m_Status))
+        if (Status::FullTx != m_Status)
         {
             Input::Ptr pInp(std::make_unique<Input>());
             if (!m_Tx.GetParameter(TxParameterID::SharedCommitment, pInp->m_Commitment, SubTxIndex::BEAM_LOCK_TX))
                 return false;
+
+            // the tx may already carry the owner's own fee inputs
+            for (const auto& p : m_pTransaction->m_vInputs)
+                if (p->m_Commitment == pInp->m_Commitment)
+                    return true;
 
             m_pTransaction->m_vInputs.push_back(std::move(pInp));
         }

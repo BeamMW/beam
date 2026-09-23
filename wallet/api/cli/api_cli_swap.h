@@ -63,8 +63,24 @@ public:
     }
 
 private:
+    // Erc20Token is deliberately excluded from ethereum::IsEthereumBased (its
+    // contract is per-offer, not one of the fixed Dai/Usdt/WBTC entries with a
+    // static settings entry), but it still rides the same ethereum RPC
+    // connection as those coins for connectivity- and gas-price-related
+    // queries below.
+    [[nodiscard]] static bool usesEthConnection(AtomicSwapCoin swapCoin)
+    {
+        return ethereum::IsEthereumBased(swapCoin) || swapCoin == AtomicSwapCoin::Erc20Token;
+    }
+
     [[nodiscard]] beam::Amount getCoinAvailable(AtomicSwapCoin swapCoin) const override
     {
+        if (swapCoin == AtomicSwapCoin::Erc20Token)
+        {
+            // Erc20Token has no single fixed contract; use getTokenAvailable instead.
+            return 0;
+        }
+
         if (ethereum::IsEthereumBased(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetAvailable(swapCoin) : 0;
@@ -75,9 +91,19 @@ private:
         return swapClient ? swapClient->GetAvailable() : 0;
     }
 
+    [[nodiscard]] boost::optional<beam::Amount> getTokenAvailable(const std::string& tokenContract, uint8_t decimals) const override
+    {
+        if (!_swapEthClient)
+        {
+            return boost::none;
+        }
+
+        return _swapEthClient->GetTokenAvailable(tokenContract, decimals);
+    }
+
     [[nodiscard]] beam::Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        if (ethereum::IsEthereumBased(swapCoin))
+        if (usesEthConnection(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetRecommendedFeeRate() : 0;
         }
@@ -89,7 +115,7 @@ private:
 
     [[nodiscard]] beam::Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        if (ethereum::IsEthereumBased(swapCoin))
+        if (usesEthConnection(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetSettings().GetMinFeeRate() : 0;
         }
@@ -101,7 +127,7 @@ private:
 
     [[nodiscard]] beam::Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override
     {
-        if (ethereum::IsEthereumBased(swapCoin))
+        if (usesEthConnection(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->GetSettings().GetMaxFeeRate() : 0;
         }
@@ -118,7 +144,7 @@ private:
 
     [[nodiscard]] bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override
     {
-        if (ethereum::IsEthereumBased(swapCoin))
+        if (usesEthConnection(swapCoin))
         {
             return _swapEthClient ? _swapEthClient->IsConnected() : 0;
         }

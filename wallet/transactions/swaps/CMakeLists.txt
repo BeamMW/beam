@@ -35,6 +35,7 @@ set(SWAP_SRC
     bridges/ethereum/ethereum_base_transaction.cpp
     bridges/ethereum/ethereum_side.cpp
     bridges/ethereum/ethereum_bridge.cpp
+    bridges/ethereum/rpc_endpoint.cpp
     bridges/ethereum/settings.cpp
     bridges/ethereum/settings_provider.cpp
 )

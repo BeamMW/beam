@@ -19,8 +19,8 @@
 #include "wallet/transactions/swaps/swap_transaction.h"
 #include "wallet/transactions/swaps/swap_tx_description.h"
 #include "wallet/transactions/swaps/utils.h"
-#include <regex>
 #include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#include "wallet/transactions/swaps/common.h"
 
 namespace beam::wallet
 {
@@ -44,9 +44,27 @@ namespace beam::wallet
         }
     }
 
-    bool checkIsEnoughtSwapAmount(const ISwapsProvider& swapProvider, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate)
+    bool checkIsEnoughtSwapAmount(const ISwapsProvider& swapProvider, AtomicSwapCoin swapCoin, Amount swapAmount, Amount swapFeeRate,
+                                   const std::string& tokenContract, uint8_t tokenDecimals)
     {
         beam::Amount total = swapAmount + swapFeeRate;
+
+        if (swapCoin == AtomicSwapCoin::Erc20Token)
+        {
+            // getCoinAvailable is keyed by a fixed AtomicSwapCoin and has no
+            // notion of a per-offer contract address; getTokenAvailable is the
+            // per-contract equivalent, backed by SwapEthClient's balance cache.
+            // A contract seen for the first time here has no cached balance yet
+            // (boost::none), so this check passes and an insufficient balance
+            // still fails when the lock tx is built; a later check on the same
+            // contract sees the live balance once the cache has been populated.
+            if (!IsValidEthContractAddress(tokenContract))
+            {
+                return false;
+            }
+            return IsSwapAmountAvailable(swapProvider.getTokenAvailable(tokenContract, tokenDecimals), total);
+        }
+
         return swapProvider.getCoinAvailable(swapCoin) > total;
     }
 
@@ -248,9 +266,31 @@ namespace beam::wallet
         }
         else
         {
-            if(!checkIsEnoughtSwapAmount(*swaps, data.swapCoin, data.swapAmount, data.swapFeeRate))
+            if(!checkIsEnoughtSwapAmount(*swaps, data.swapCoin, data.swapAmount, data.swapFeeRate, data.tokenContract, data.tokenDecimals))
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
+            }
+        }
+
+        std::string beamAssetUnitName;
+        if (data.beamAssetId)
+        {
+            const auto info = walletDB->findAsset(data.beamAssetId);
+            if (!info)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,
+                    "Unknown 'beam_asset_id'. Receive the asset (or sync its info) before swapping it.");
+            }
+            beamAssetUnitName = WalletAssetMeta(*info).GetUnitName();
+
+            if (data.isBeamSide)
+            {
+                storage::Totals totals(*walletDB, false);
+                auto available = totals.GetTotals(data.beamAssetId).Avail;
+                if (AmountBig::get_Lo(available) < data.beamAmount)
+                {
+                    throw jsonrpc_exception(ApiError::AssetSwapNotEnoughtFunds, "Not enough asset balance for the swap.");
+                }
             }
         }
 
@@ -267,6 +307,19 @@ namespace beam::wallet
             data.swapFeeRate,
             data.isBeamSide,
             data.offerLifetime);
+
+        if (data.swapCoin == AtomicSwapCoin::Erc20Token)
+        {
+            txParameters.SetParameter(TxParameterID::AtomicSwapTokenContract, data.tokenContract);
+            txParameters.SetParameter(TxParameterID::AtomicSwapTokenSymbol, data.tokenSymbol);
+            txParameters.SetParameter(TxParameterID::AtomicSwapTokenDecimals, data.tokenDecimals);
+        }
+
+        if (data.beamAssetId)
+        {
+            txParameters.SetParameter(TxParameterID::AtomicSwapBeamAssetID, data.beamAssetId);
+            txParameters.SetParameter(TxParameterID::AtomicSwapBeamAssetName, beamAssetUnitName);
+        }
 
         if (!data.comment.empty())
         {
@@ -396,6 +449,20 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::SwapFailToParseToken, "bad or missing amounts or coins");
         }
 
+        std::string erc20TokenContract;
+        uint8_t erc20TokenDecimals = 0;
+        if (*swapCoin == AtomicSwapCoin::Erc20Token)
+        {
+            // Defense-in-depth re-validation of a peer-supplied token: a token
+            // pasted directly via swap_accept_offer may not have gone through
+            // the offers board's own validation (isExtendedOfferDataValid).
+            std::string erc20TokenSymbol;
+            if (!GetValidatedErc20Params(*txParams, erc20TokenContract, erc20TokenSymbol, erc20TokenDecimals))
+            {
+                throw jsonrpc_exception(ApiError::SwapFailToParseToken, "invalid or missing ERC-20 token parameters");
+            }
+        }
+
         Amount recommendedFeeRate = swaps->getRecommendedFeeRate(*swapCoin);
 
         if (recommendedFeeRate > 0 && data.swapFeeRate < recommendedFeeRate)
@@ -439,9 +506,23 @@ namespace beam::wallet
         }
         else
         {
-            if(!checkIsEnoughtSwapAmount(*swaps, *swapCoin, *swapAmount, data.swapFeeRate))
+            if(!checkIsEnoughtSwapAmount(*swaps, *swapCoin, *swapAmount, data.swapFeeRate, erc20TokenContract, erc20TokenDecimals))
             {
                 throw jsonrpc_exception(InvalidJsonRpc, kSwapNotEnoughtSwapCoins);
+            }
+
+            // !*isBeamSide means this wallet gives the swap coin and receives
+            // BEAM (and, when the offer carries one, the Confidential Asset
+            // riding on the BEAM leg). The redeem tx's fee is paid in BEAM.
+            if (auto beamAssetId = txParams->GetParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID);
+                beamAssetId && *beamAssetId != Asset::s_InvalidID)
+            {
+                storage::Totals totals(*walletDB, false);
+                if (AmountBig::get_Lo(totals.GetBeamTotals().Avail) <= data.beamFee)
+                {
+                    throw jsonrpc_exception(ApiError::SwapNotEnoughtBeams,
+                        "Receiving an asset via swap requires a BEAM balance for the redeem fee.");
+                }
             }
         }
 

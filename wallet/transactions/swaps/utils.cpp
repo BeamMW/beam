@@ -212,6 +212,7 @@ void RegisterSwapTxCreators(Wallet::Ptr wallet, IWalletDB::Ptr walletDB)
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Dai, ethFactory);
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Usdt, ethFactory);
     swapTransactionCreator->RegisterFactory(AtomicSwapCoin::WBTC, ethFactory);
+    swapTransactionCreator->RegisterFactory(AtomicSwapCoin::Erc20Token, ethFactory);
 }
 
 bool IsLockTxAmountValid(
@@ -238,6 +239,7 @@ bool IsLockTxAmountValid(
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
+    case AtomicSwapCoin::Erc20Token:
         return true;
     default:
         throw std::runtime_error("Unsupported coin for swap");

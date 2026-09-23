@@ -84,7 +84,6 @@ namespace beam
     extern const char kErrorNodePoolPeriodTooMuch[];
     extern const char kErrorSwapAmountMissing[];
     extern const char kErrorSwapCoinUnknown[];
-    extern const char kErrorCantSwapAsset[];
     extern const char kErrorNoBTCNodeCredentials[];
     extern const char kErrorSwapAmountTooLow[];
     extern const char kErrorNoLTCNodeCredentials[];

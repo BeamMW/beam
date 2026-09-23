@@ -34,7 +34,8 @@ public:
         InvalidResultFormat,
         IOError,
         EthError,
-        EmptyResult
+        EmptyResult,
+        InvalidNetwork
     };
 
     struct Error
@@ -49,9 +50,15 @@ public:
 
     virtual void getBalance(std::function<void(const Error&, const std::string&)> callback) = 0;
     virtual void getTokenBalance(
-        const std::string& contractAddr, 
+        const std::string& contractAddr,
         std::function<void(const Error&, const std::string&)> callback) = 0;
+    // Queries symbol() and decimals() of an arbitrary ERC-20 contract (used for
+    // per-offer tokens, where the wallet has no static entry for the contract).
+    virtual void getTokenInfo(
+        const std::string& contractAddr,
+        std::function<void(const Error&, const std::string& symbol, uint8_t decimals)> callback) = 0;
     virtual void getBlockNumber(std::function<void(const Error&, uint64_t)> callback) = 0;
+    virtual void getChainID(std::function<void(const Error&, uint64_t)> callback) = 0;
     virtual void getTransactionCount(std::function<void(const Error&, Amount)> callback) = 0;
     virtual void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, std::string)> callback) = 0;
     virtual void send(

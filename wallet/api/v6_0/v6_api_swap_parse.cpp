@@ -38,6 +38,39 @@ namespace beam::wallet
             return result;
         }
 
+        // Adds the extended-offer fields (only present when the offer actually
+        // carries them: a per-offer ERC-20 token and/or a non-BEAM Beam-side
+        // asset) to an offer/token json result. Mirrors the CLI's printout in
+        // AcceptSwap (wallet/cli/swaps.cpp).
+        void addExtendedOfferFieldsToJson(json& result, const SwapOffer& offer)
+        {
+            if (offer.ResolveCoin() == AtomicSwapCoin::Erc20Token)
+            {
+                if (auto contract = offer.GetParameter<std::string>(TxParameterID::AtomicSwapTokenContract))
+                {
+                    result["token_contract"] = *contract;
+                }
+                if (auto symbol = offer.GetParameter<std::string>(TxParameterID::AtomicSwapTokenSymbol))
+                {
+                    result["token_symbol"] = *symbol;
+                }
+                if (auto decimals = offer.GetParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals))
+                {
+                    result["token_decimals"] = static_cast<uint32_t>(*decimals);
+                }
+            }
+
+            if (auto beamAssetId = offer.GetParameter<Asset::ID>(TxParameterID::AtomicSwapBeamAssetID);
+                beamAssetId && *beamAssetId != Asset::s_InvalidID)
+            {
+                result["beam_asset_id"] = *beamAssetId;
+                if (auto assetName = offer.GetParameter<std::string>(TxParameterID::AtomicSwapBeamAssetName))
+                {
+                    result["beam_asset_unit_name"] = *assetName;
+                }
+            }
+        }
+
         json TokenToJson(const SwapOffer& offer, bool isMyOffer = false, bool isPublic = false)
         {
             // TODO roman.strilets: check isPublic in this code!!!
@@ -70,6 +103,8 @@ namespace beam::wallet
                 {"height_expired", offer.peerResponseHeight() + offer.minHeight()},
                 {"time_created", createTimeStr},
             };
+
+            addExtendedOfferFieldsToJson(result, offer);
 
             return result;
         }
@@ -122,6 +157,8 @@ namespace beam::wallet
                 {"height_expired", expiredHeight},
             };
 
+            addExtendedOfferFieldsToJson(result, offer);
+
             if (offer.m_status == SwapOfferStatus::Pending)
             {
                 result["is_my_offer"] = isOwnOffer;
@@ -147,6 +184,50 @@ namespace beam::wallet
         {
             const std::string message = std::string("wrong ") + name + std::string(" currency.");
             throw jsonrpc_exception(ApiError::InvalidJsonRpc, message);
+        }
+
+        // token_contract (mandatory), token_symbol (mandatory), token_decimals
+        // (mandatory, bounded by kMaxTokenDecimals) are only meaningful for
+        // AtomicSwapCoin::Erc20Token; parsed/validated here once for both
+        // create-offer and accept-offer callers.
+        void readErc20TokenParams(const JsonRpcId& id, const json& params, OfferInput& data)
+        {
+            if (data.swapCoin != AtomicSwapCoin::Erc20Token)
+            {
+                return;
+            }
+
+            const std::string tokenContract = V6Api::getMandatoryParam<NonEmptyString>(params, "token_contract");
+            if (!IsValidEthContractAddress(tokenContract))
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,
+                    "'token_contract' is not a valid ERC-20 contract address (expected '0x' followed by 40 hex characters).");
+            }
+
+            const std::string tokenSymbol = V6Api::getMandatoryParam<NonEmptyString>(params, "token_symbol");
+
+            const auto tokenDecimals = V6Api::getMandatoryParam<uint32_t>(params, "token_decimals");
+            if (tokenDecimals > kMaxTokenDecimals)
+            {
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc,
+                    "'token_decimals' exceeds the maximum supported value.");
+            }
+
+            data.tokenContract = tokenContract;
+            data.tokenSymbol = tokenSymbol;
+            data.tokenDecimals = static_cast<uint8_t>(tokenDecimals);
+        }
+
+        // beam_asset_id (optional): when present and non-zero, the BEAM leg of
+        // the offer carries a Confidential Asset instead of plain BEAM. Full
+        // validation (the wallet knows the asset, holds enough of it) happens
+        // in onHandleCreateOffer, once the wallet DB is available.
+        void readBeamAssetParam(const json& params, OfferInput& data)
+        {
+            if (auto assetId = V6Api::getOptionalParam<uint32_t>(params, "beam_asset_id"))
+            {
+                data.beamAssetId = *assetId;
+            }
         }
 
         Amount readSwapFeeRateParameter(const JsonRpcId& id, const json& params)
@@ -238,6 +319,9 @@ namespace beam::wallet
         data.beamAmount = data.isBeamSide ? sendAmount : receiveAmount;
         data.swapAmount = data.isBeamSide ? receiveAmount : sendAmount;
         data.beamFee = V6Api::getBeamFeeParam(params, "beam_fee");
+
+        readErc20TokenParams(id, params, data);
+        readBeamAssetParam(params, data);
 
         if (data.isBeamSide && data.beamAmount < data.beamFee)
         {

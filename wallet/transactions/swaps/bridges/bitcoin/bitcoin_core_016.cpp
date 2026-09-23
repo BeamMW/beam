@@ -174,7 +174,7 @@ namespace beam::bitcoin
     {
     }
 
-    void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int)> callback)
+    void BitcoinCore016::fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const IBridge::Error&, const std::string&, int, Amount)> callback)
     {
         BEAM_LOG_DEBUG() << "Send fundRawTransaction command";
 
@@ -187,6 +187,7 @@ namespace beam::bitcoin
         sendRequest("fundrawtransaction", params, [callback](IBridge::Error error, const json& result) {
             std::string hex;
             int changepos = -1;
+            Amount fee = 0;
 
             if (error.m_type == IBridge::None)
             {
@@ -194,6 +195,7 @@ namespace beam::bitcoin
                 {
                     hex = result["hex"].get<std::string>();
                     changepos = result["changepos"].get<int>();
+                    fee = btc_to_satoshi(result["fee"].get<double>());
                 }
                 catch (const std::exception& ex)
                 {
@@ -202,7 +204,7 @@ namespace beam::bitcoin
                 }
             }
 
-            callback(error, hex, changepos);
+            callback(error, hex, changepos, fee);
         });
     }
 

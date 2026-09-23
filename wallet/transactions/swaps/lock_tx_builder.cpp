@@ -102,13 +102,50 @@ namespace beam::wallet
             << (m_IsSender ? outp.m_Commitment : m_PubKey)
             >> cp.m_Seed.V;
 
+        // asset: both parties derive the same generator blinding from the
+        // shared seed. The surjection proof's witness is only this scalar,
+        // not the output blinding, so neither party learns anything extra.
+        ECC::Point::Native hGen;          // unblinded asset generator
+        ECC::Point::Native hGenBlinded;   // hGen + skGen*G, carried by the proof
+        const ECC::Point::Native* pGen = nullptr;
+        const ECC::Point::Native* pGenBlinded = nullptr;
+        ECC::Scalar::Native skSign = m_Sk;
+
+        if (m_AssetID)
+        {
+            ECC::Hash::Value hv;
+            ECC::Hash::Processor()
+                << "swap.asset.gen"
+                << cp.m_Seed.V
+                << m_AssetID
+                >> hv;
+
+            ECC::Scalar::Native skGen;
+            ECC::NonceGenerator("swap.asset.sk")
+                << hv
+                >> skGen;
+
+            Asset::Base(m_AssetID).get_Generator(hGen);
+            pGen = &hGen;
+
+            outp.m_pAsset = std::make_unique<Asset::Proof>();
+            outp.m_pAsset->Create(m_Height.m_Min, hGenBlinded, skGen, m_AssetID, hGen);
+            pGenBlinded = &hGenBlinded;
+
+            // the commitment stays v*H_aid + (skA+skB)*G while the rangeproof
+            // runs on the blinded generator: the sender's proof share absorbs
+            // the v*skGen skew, so ins/outs/offsets balance as usual
+            if (m_IsSender)
+                Asset::Proof::ModifySk(skSign, skGen, cp.m_Value);
+        }
+
         // commitment
         ECC::Point::Native pt;
         if (!pt.Import(outp.m_Commitment))
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
 
         pt += m_PubKeyN;
-        Tag::AddValue(pt, nullptr, cp.m_Value);
+        Tag::AddValue(pt, pGen, cp.m_Value);
 
         pt.Export(outp.m_Commitment);
 
@@ -122,15 +159,15 @@ namespace beam::wallet
         Oracle o2(o1);
 
         uint32_t iVersion = Rules::get().get_BpScheme(m_Height.m_Min);
-        if (!proof.CoSign(m_SeedSk.V, m_Sk, cp, iVersion, o1, RangeProof::Confidential::Phase::Step2))
+        if (!proof.CoSign(m_SeedSk.V, skSign, cp, iVersion, o1, RangeProof::Confidential::Phase::Step2, pGenBlinded))
             throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
 
         if (m_IsSender)
         {
-            // complete proof: 
+            // complete proof:
             GetParameterStrict(TxParameterID::PeerSharedBulletProofPart3, proof.m_Part3);
 
-            if (!proof.CoSign(m_SeedSk.V, m_Sk, cp, iVersion, o2, RangeProof::Confidential::Phase::Finalize))
+            if (!proof.CoSign(m_SeedSk.V, skSign, cp, iVersion, o2, RangeProof::Confidential::Phase::Finalize, pGenBlinded))
                 throw TransactionFailedException(true, TxFailureReason::FailedToCreateMultiSig);
         }
         else
@@ -141,7 +178,7 @@ namespace beam::wallet
             msig.m_Part2 = proof.m_Part2;
 
             ZeroObject(proof.m_Part3);
-            msig.CoSignPart(m_SeedSk.V, m_Sk, o2, proof.m_Part3);
+            msig.CoSignPart(m_SeedSk.V, skSign, o2, proof.m_Part3);
         }
     }
 

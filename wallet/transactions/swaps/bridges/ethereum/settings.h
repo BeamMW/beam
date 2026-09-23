@@ -25,6 +25,8 @@ namespace beam::ethereum
 struct Settings
 {
     std::string m_projectID = "";
+    bool m_useCustomRpc = false;
+    std::string m_customRpcUrl = "";
     std::vector<std::string> m_secretWords = {};
     uint32_t m_accountIndex = 0;
     bool m_shouldConnect = false;
@@ -32,7 +34,7 @@ struct Settings
     uint16_t m_withdrawTxMinConfirmations = 1;
     uint32_t m_lockTimeInBlocks = 12 * 60 * 4;  // 12h
     double m_blocksPerHour = 250;
-    Amount m_minFeeRate = wallet::UseMainnetSwap() ? 15u : 1u;
+    Amount m_minFeeRate = 1u;
     Amount m_maxFeeRate = 2'000u;
     uint64_t m_lockTxGasLimit = kLockTxGasLimit;
     uint64_t m_approveTxGasLimit = kApproveTxGasLimit;
@@ -58,6 +60,8 @@ struct Settings
     bool operator == (const Settings& other) const
     {
         return m_projectID == other.m_projectID &&
+            m_useCustomRpc == other.m_useCustomRpc &&
+            m_customRpcUrl == other.m_customRpcUrl &&
             m_secretWords == other.m_secretWords &&
             m_accountIndex == other.m_accountIndex &&
             m_shouldConnect == other.m_shouldConnect;

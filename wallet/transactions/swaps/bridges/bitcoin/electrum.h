@@ -60,7 +60,7 @@ namespace beam::bitcoin
         Electrum(beam::io::Reactor& reactor, ISettingsProvider& settingsProvider);
         ~Electrum() override;
 
-        void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int)> callback) override;
+        void fundRawTransaction(const std::string& rawTx, Amount feeRate, std::function<void(const Error&, const std::string&, int, Amount)> callback) override;
         void signRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&, bool)> callback) override;
         void sendRawTransaction(const std::string& rawTx, std::function<void(const Error&, const std::string&)> callback) override;
         void getRawChangeAddress(std::function<void(const Error&, const std::string&)> callback) override;

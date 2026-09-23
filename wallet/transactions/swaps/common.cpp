@@ -16,11 +16,37 @@
 #include "wallet/transactions/swaps/bridges/bitcoin/common.h"
 #include "wallet/transactions/swaps/bridges/qtum/common.h"
 #include "bitcoin/bitcoin.hpp"
+#include <regex>
 
 namespace beam::wallet
 {
 
 bool g_EnforceTestnetSwap = false;
+
+bool IsValidEthContractAddress(const std::string& value)
+{
+    static const std::regex kEthAddressRegex("^0x[0-9a-fA-F]{40}$");
+    return std::regex_match(value, kEthAddressRegex);
+}
+
+bool GetValidatedErc20Params(const TxParameters& params, std::string& contract, std::string& symbol, uint8_t& decimals)
+{
+    auto paramContract = params.GetParameter<std::string>(TxParameterID::AtomicSwapTokenContract);
+    auto paramSymbol = params.GetParameter<std::string>(TxParameterID::AtomicSwapTokenSymbol);
+    auto paramDecimals = params.GetParameter<uint8_t>(TxParameterID::AtomicSwapTokenDecimals);
+
+    if (!paramContract || !IsValidEthContractAddress(*paramContract) ||
+        !paramSymbol ||
+        !paramDecimals || *paramDecimals > kMaxTokenDecimals)
+    {
+        return false;
+    }
+
+    contract = *paramContract;
+    symbol = *paramSymbol;
+    decimals = *paramDecimals;
+    return true;
+}
 
 bool UseMainnetSwap()
 {
@@ -59,6 +85,8 @@ AtomicSwapCoin from_string(const std::string& value)
         return AtomicSwapCoin::Usdt;
     else if (value == "wbtc")
         return AtomicSwapCoin::WBTC;
+    else if (value == "erc20")
+        return AtomicSwapCoin::Erc20Token;
 
     return AtomicSwapCoin::Unknown;
 }
@@ -82,6 +110,12 @@ uint64_t UnitsPerCoin(AtomicSwapCoin swapCoin) noexcept
         return 1'000'000'000u;
     case AtomicSwapCoin::Usdt:
         return 1'000'000u;
+    case AtomicSwapCoin::Erc20Token:
+    case AtomicSwapCoin::ExtendedOffer:
+        // per-token decimals (AtomicSwapTokenDecimals) replace this fixed table;
+        // callers must not ask for units-per-coin on these pseudo-coins.
+        assert(false && "UnitsPerCoin is not defined for Erc20Token/ExtendedOffer");
+        return 0;
     default:
     {
         assert("Unsupported swapCoin type.");
@@ -135,6 +169,14 @@ std::string GetCoinName(AtomicSwapCoin swapCoin)
     case AtomicSwapCoin::WBTC:
     {
         return "WBTC";
+    }
+    case AtomicSwapCoin::Erc20Token:
+    {
+        return "ERC-20";
+    }
+    case AtomicSwapCoin::ExtendedOffer:
+    {
+        return "Extended offer";
     }
     default:
     {
@@ -210,6 +252,10 @@ string to_string(beam::wallet::AtomicSwapCoin value)
         return "USDT";
     case beam::wallet::AtomicSwapCoin::WBTC:
         return "WBTC";
+    case beam::wallet::AtomicSwapCoin::Erc20Token:
+        return "ERC20";
+    case beam::wallet::AtomicSwapCoin::ExtendedOffer:
+        return "EXTENDED";
     default:
         return "";
     }

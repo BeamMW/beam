@@ -26,7 +26,10 @@ public:
 
     virtual void GetStatus() = 0;
     virtual void GetBalance(wallet::AtomicSwapCoin swapCoin) = 0;
+    virtual void GetTokenBalance(const std::string& tokenContract, uint8_t decimals) = 0;
+    virtual void GetTokenInfo(const std::string& tokenContract) = 0;
     virtual void EstimateGasPrice() = 0;
+    virtual void ValidateEndpoint() = 0;
     virtual void ChangeSettings(const Settings& settings) = 0;
 };
 
@@ -58,10 +61,15 @@ protected:
     virtual void OnStatus(Status status) = 0;
     // balance in gwei
     virtual void OnBalance(wallet::AtomicSwapCoin swapCoin, Amount balance) = 0;
+    // balance in wallet units (decimals already normalized), keyed by contract address
+    virtual void OnTokenBalance(const std::string& tokenContract, Amount balance) {}
+    // symbol()/decimals() as reported by the contract
+    virtual void OnTokenInfo(const std::string& tokenContract, const std::string& symbol, uint8_t decimals, const IBridge::Error& error) {}
     virtual void OnEstimatedGasPrice(Amount gasPrice) = 0;
     virtual void OnCanModifySettingsChanged(bool canModify) = 0;
     virtual void OnChangedSettings() = 0;
     virtual void OnConnectionError(IBridge::ErrorType error) = 0;
+    virtual void OnEndpointValidated(uint64_t chainID, uint64_t blockNumber, const IBridge::Error& error) {}
 
     bool CanModify() const override;
     void AddRef() override;
@@ -71,7 +79,10 @@ private:
     // IClientAsync
     void GetStatus() override;
     void GetBalance(wallet::AtomicSwapCoin swapCoin) override;
+    void GetTokenBalance(const std::string& tokenContract, uint8_t decimals) override;
+    void GetTokenInfo(const std::string& tokenContract) override;
     void EstimateGasPrice() override;
+    void ValidateEndpoint() override;
     void ChangeSettings(const Settings& settings) override;
 
     void SetStatus(const Status& status);
