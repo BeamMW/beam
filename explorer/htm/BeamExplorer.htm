@@ -3481,7 +3481,8 @@
       openNodeSelection();
       return;
     }
-    showPage('status', { network: this.value }); // Switch to selected network and reset to default status page
+    // Switch to selected network and reload the page (with its own localStorage or default parameters)
+    showPage(g_type, { network: this.value });
   });
 
   // Helper function to get or reset persistent parameters from localStorage (saved per network)
