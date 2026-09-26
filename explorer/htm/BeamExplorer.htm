@@ -7,7 +7,7 @@
   - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.9.1 (dev)
+  - Current version of the file: v0.9.1
 
   General rules for developement:
   - Everything is kept in one single standalone file, without external dependencies.
@@ -67,29 +67,31 @@
 
   // Text content for the "What's new" popup
   const whatsNewText = `
+    <div class="popupSubtitle">v0.9.1</div>
+    <ul>
+      <li>Allow wildcards & regexp in column searches.</li>
+      <li>Clear search fields with 'Escape' key.</li>
+      <li>Add statistics in column tooltips.</li>
+      <li>Make 'Historical Blocks' network-specific.</li>
+      <li>Remember parameters per network.</li>
+      <li>Protect against code injection.</li>
+      <li>Improve performance.</li>
+    </ul>
     <div class="popupSubtitle">v0.9</div>
     <ul>
-      <li>Remove full HTML reloads to make navigation faster.</li>
+      <li>Remove HTML reloads to make navigation faster.</li>
       <li>Add this "What's new" popup!</li>
     </ul>
     <div class="popupSubtitle">v0.8.4</div>
     <ul>
-      <li>Ignore spaces, dots and commas in search.</li>
-      <li>Add collapsibles to Inputs/Outputs/Kernels.</li>
-      <li>Update list of explorer nodes.</li>
       <li>Add hard fork 6 to historical blocks.</li>
       <li>Add id:0 to CA ranges of post-HF6 UTXOs.</li>
-      <li>Other small improvements.</li>
+      <li>Add collapsibles to Inputs/Outputs/Kernels.</li>
     </ul>
     <div class="popupSubtitle">v0.8.3</div>
     <ul>
-      <li>Add Peer nodes list.</li>
-      <li>Add Atomic Swap list.</li>
-      <li>Propose multiple options for the X axis of graphs.</li>
-      <li>Display all graph values directly on the graph axis.</li>
-      <li>Make timestamps human-readable.</li>
-      <li>Use ms in timestamps for PoS chains.</li>
-      <li>Adjust columns names for PoS chains.</li>
+      <li>Display Peer nodes and Atomic Swaps.</li>
+      <li>Improve graphs axis and timestamps.</li>
       <li>Code cleaning and optimization.</li>
     </ul>
   `;
@@ -2019,7 +2021,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"><a href="javascript:openWhatsNew();" title="What's new">v0.9.1 (dev)</a></span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"><a href="javascript:openWhatsNew();" title="What's new">v0.9.1</a></span></h1>
 
           <!-- Popup for What's new -->
           <dialog class="popupDialog" id="whatsNewPopup">
