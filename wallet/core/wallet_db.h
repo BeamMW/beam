@@ -304,29 +304,8 @@ namespace beam::wallet
 
         Status m_Status = Unavailable;
 
-        struct SpendData
-        {
-            // selected spend window
-            TxoID m_Begin;
-            TxoID m_End;
-            // flags
-            bool m_LargeWindowLost;
-            bool m_OldEpoch;
-            // reserves wrt loosing large window
-            struct Stats {
-                struct Reserve
-                {
-                    int32_t m_Optimal; // how many can be added to shielded pool before window is lost, assuming Preferred window
-                    int32_t m_Any; // how many can be added to shielded pool before window is lost, for any window
-                } m_Reserve;
-                uint8_t m_Progress; // 0..100
-            } m_Stats;
-        };
-
-        SpendData get_SpendData(const std::pair<TxoID, TxoID>& shRange) const;
-
         struct UnlinkStatus
-            :public SpendData::Stats
+            :public ShieldedTxo::ID::SpendData::Stats
         {
             UnlinkStatus() = default;
             UnlinkStatus(const ShieldedCoin& sc, const std::pair<TxoID, TxoID>& shRange) { Init(sc, shRange); }

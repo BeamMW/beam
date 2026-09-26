@@ -665,7 +665,7 @@ namespace beam::wallet
         m_Method.m_pKernel->m_Fee = si.m_Fee;
 
         auto shRange = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
-        auto sd = c.get_SpendData(shRange);
+        auto sd = c.m_CoinID.get_SpendData(c.m_TxoID, shRange);
 
         m_Method.m_pKernel->m_SpendProof.m_Cfg = sd.m_LargeWindowLost ?
             Rules::get().Shielded.m_ProofMin :

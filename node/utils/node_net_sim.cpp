@@ -773,27 +773,6 @@ struct Context
         SendTx(std::move(pTx));
     }
 
-    static uint32_t SelectSpendWindow(const TxoSH& txo, TxoID N, TxoID nShieldedOutputs, TxoID& nWindowEnd)
-    {
-        assert(txo.m_ID.m_Value < nShieldedOutputs);
-        assert(N);
-
-        uint32_t nIdx;
-        txo.m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // little randomization
-        nIdx %= N;
-
-        nWindowEnd = txo.m_ID.m_Value + N - nIdx;
-
-        if (nWindowEnd > nShieldedOutputs)
-        {
-            // withdrawal is not optimal. But since it's a test - let's proceed anyway
-            nWindowEnd = nShieldedOutputs;
-            nIdx = static_cast<uint32_t>(txo.m_ID.m_Value + N - nShieldedOutputs);
-        }
-
-        return nIdx;
-    }
-
     bool SendShieldedInp(TxoSH& txo)
     {
         Height h = m_FlyClient.get_Height();
@@ -814,45 +793,27 @@ struct Context
         pKrn->m_Height = hr;
         pKrn->m_Fee = fee;
 
+        auto sd = txo.get_SpendData(txo.m_ID.m_Value, std::make_pair(m_pProc->m_Extra.m_ShieldedOutputs0, m_pProc->m_Extra.m_ShieldedOutputs));
+        pKrn->m_WindowEnd = sd.m_End;
+
         const Rules& r = Rules::get();
-        pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMax;
-        uint32_t N = pKrn->m_SpendProof.m_Cfg.get_N();
-
-        uint32_t nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
-
-        if (m_pProc->m_Extra.m_ShieldedOutputs > pKrn->m_WindowEnd + r.Shielded.MaxWindowBacklog)
-        {
-            // try to reposition
-            pKrn->m_WindowEnd = m_pProc->m_Extra.m_ShieldedOutputs - r.Shielded.MaxWindowBacklog;
-
-            TxoID val = txo.m_ID.m_Value + N - pKrn->m_WindowEnd;
-            if (val < N)
-                nIdx = static_cast<uint32_t>(val);
-            else
-            {
-                // use smaller window
-                pKrn->m_SpendProof.m_Cfg = r.Shielded.m_ProofMin;
-                N = pKrn->m_SpendProof.m_Cfg.get_N();
-                nIdx = SelectSpendWindow(txo, N, m_pProc->m_Extra.m_ShieldedOutputs, pKrn->m_WindowEnd);
-            }
-        }
+        pKrn->m_SpendProof.m_Cfg = sd.m_LargeWindowLost ? r.Shielded.m_ProofMin : r.Shielded.m_ProofMax;
+        const auto N = std::max(pKrn->m_SpendProof.m_Cfg.get_N(), 1u);
 
         Sigma::CmListVec lst;
         lst.m_vec.resize(N);
 
-        if (pKrn->m_WindowEnd >= N)
-            m_pProc->get_DB().ShieldedRead(pKrn->m_WindowEnd - N, &lst.m_vec.front(), N);
-        else
-        {
-            uint32_t nPad = static_cast<uint32_t>(N - pKrn->m_WindowEnd);
-            m_pProc->get_DB().ShieldedRead(0, &lst.m_vec.front() + nPad, N - nPad);
+        auto wndSize = static_cast<uint32_t>(sd.m_End - sd.m_Begin);
+        assert(wndSize <= N);
+        uint32_t nPad = N - wndSize;
 
-            for (uint32_t i = 0; i < nPad; i++)
-            {
-                ECC::Point::Storage& v = lst.m_vec[i];
-                v.m_X = Zero;
-                v.m_Y = Zero;
-            }
+        m_pProc->get_DB().ShieldedRead(sd.m_Begin, &lst.m_vec.front() + nPad, wndSize);
+
+        for (uint32_t i = 0; i < nPad; i++)
+        {
+            ECC::Point::Storage& v = lst.m_vec[i];
+            v.m_X = Zero;
+            v.m_Y = Zero;
         }
 
         ShieldedTxo::Viewer v;
@@ -869,7 +830,7 @@ struct Context
         sdp.m_Output.Restore_kG(sdp.m_Ticket.m_SharedSecret);
 
         Lelantus::Prover p(lst, pKrn->m_SpendProof);
-        p.m_Witness.m_L = nIdx;
+        p.m_Witness.m_L = static_cast<uint32_t>(txo.m_ID.m_Value - sd.m_Begin) + nPad;
         p.m_Witness.m_R = sdp.m_Ticket.m_pK[0] + sdp.m_Output.m_k; // total blinding factor of the shielded element
         p.m_Witness.m_V = sdp.m_Output.m_Value;
 
