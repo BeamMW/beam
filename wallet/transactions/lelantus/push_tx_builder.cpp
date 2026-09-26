@@ -65,6 +65,10 @@ namespace beam::wallet::lelantus
 
         m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>();
 
+        // sender info, both for send and split
+        m.m_iEndpoint = m_Tx.EnsureOwnID();
+        m_Tx.GetMyEndpointAlways(m.m_User.m_Sender); // just to make sure tx history contains our endpoint (not only own ID)
+
         if (GetParameter(TxParameterID::PeerEndpoint, m.m_Peer))
         {
             auto pOffline = std::make_unique<IPrivateKeyKeeper2::Method::SignSendShielded::Offline>();
@@ -98,15 +102,10 @@ namespace beam::wallet::lelantus
                     SetParameter(TxParameterID::Voucher, *m.m_pVoucher);
                 }
             }
-
-            // set sender info
-            m_Tx.GetMyEndpointAlways(m.m_User.m_Sender);
         }
         else
         {
             // We're sending to ourselves. Create our voucher
-            m.m_iEndpoint = m_Tx.EnsureOwnID();
-
             m_Tx.GetWalletDB()->get_Endpoint(m.m_Peer, m.m_iEndpoint);
 
             IPrivateKeyKeeper2::Method::CreateVoucherShielded m2;

@@ -18,6 +18,8 @@ BEAM_EXPORT void Dtor(void*)
     Env::RefRelease(Vault::s_CID);
 }
 
+uint8_t g_pData[sizeof(Vault::Deposit)] = { 0 };
+
 BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
 {
     Vault::Deposit r_Stack;
@@ -63,7 +65,7 @@ BEAM_EXPORT void Method_2(Dummy::TestFarCall& r)
         break;
 
     case 7:
-        pR = nullptr;
+        pR = g_pData;
     }
 
     Env::CallFar_T(Vault::s_CID, *reinterpret_cast<Vault::Deposit*>(pR), r.m_Flags);
@@ -393,4 +395,17 @@ BEAM_EXPORT void Method_16(Dummy::TestFloat1& r)
 BEAM_EXPORT void Method_17(Dummy::TestFloat2& r)
 {
     TestFloatOp(r);
+}
+
+BEAM_EXPORT void Method_18(Dummy::DivTest2& r)
+{
+    switch (r.m_Op)
+    {
+    case 0:
+        r.m_Result = r.m_Nom / r.m_Denom;
+        break;
+
+    case 1:
+        r.m_Result = r.m_Nom % r.m_Denom;
+    }
 }

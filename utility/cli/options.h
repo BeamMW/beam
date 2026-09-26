@@ -120,6 +120,11 @@ namespace beam
         extern const char* PAYMENT_PROOF_VERIFY;
         extern const char* PAYMENT_PROOF_DATA;
         extern const char* SEND;
+        extern const char* SLATEPACK;
+        extern const char* SLATEPACK_FILE;
+        extern const char* SLATEPACK_SAVE;
+        extern const char* SLATEPACK_EXPORT;
+        extern const char* SLATEPACK_YES;
         extern const char* INFO;
         extern const char* NEW_ADDRESS_COMMENT;
         extern const char* EXPIRATION_TIME;
@@ -493,6 +498,7 @@ namespace beam
     void SetNetworkStrict(Rules&, const std::string&);
 
     bool read_wallet_pass(SecString& pass, const po::variables_map& vm);
+    bool read_slatepack(std::string& out, const po::variables_map& vm, std::string& error);
     bool confirm_wallet_pass(const SecString& pass);
 
     void read_password(const char* prompt, beam::SecString& out);

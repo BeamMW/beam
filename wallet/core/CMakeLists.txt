@@ -17,6 +17,8 @@ target_sources(wallet_core
         node_network.cpp
         wallet_db.cpp
         base58.cpp
+        slatepack.cpp
+        slatepack_endpoint.cpp
         version.cpp
         exchange_rate.cpp
         currency.cpp
@@ -33,6 +35,8 @@ target_sources(wallet_core
         simple_transaction.h
         base_transaction.h
         private_key_keeper.h
+        slatepack.h
+        slatepack_endpoint.h
 )
 
 target_link_libraries(wallet_core
