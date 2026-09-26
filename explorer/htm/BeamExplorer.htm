@@ -849,6 +849,10 @@
   #NetworkSelect option {
     text-align: left; /* Left align options */
   }
+  #NetworkSelect option.highlight-option {
+    font-style: italic;
+    font-weight: bold;
+  }
   #NetworkSelect hr { /* Horizontal line */
     border: none;
     border-top: 1px solid var(--color_table_border);
@@ -3514,7 +3518,7 @@
     }
   }
   // Add an option to open the explorer nodes selection popup
-  networkOptions += '<hr><option value="nodes">Explorer nodes...</option>';
+  networkOptions += '<hr><option class="highlight-option" value="nodes" title="Choose the node to query for each network">Config...&nbsp;</option>';
 
   // Add the elements to HTML
   document.getElementById('NodeSelectionList').innerHTML = nodesList;
