@@ -2973,7 +2973,7 @@ namespace bvm2 {
 			r.pForks[3].m_Height = 999999999;
 			r.pForks[3].m_Hash = Zero;
 
-			r.DisableForksFrom(4);
+			r.DisableForksFrom_<4>();
 
 
 			beam::Block::SystemState::Full s;
@@ -4876,10 +4876,8 @@ int main()
 			*/
 		}
 
-		for (uint32_t i = 0; i <= 6; i++)
-			r.pForks[i].m_Height = 0;
-
-		r.DisableForksFrom(7);
+		r.SetForks_<0, 7>(0);
+		r.DisableForksFrom_<7>();
 		r.UpdateChecksum();
 
 		proc.m_Height = 10;

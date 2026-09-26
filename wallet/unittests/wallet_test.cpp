@@ -3306,7 +3306,7 @@ namespace
 
         L2Params pars;
 
-        pars.m_RulesL2.SetForksFrom(0, 0);
+        pars.m_RulesL2.SetForks_<0, 7>(0);
         pars.m_RulesL2.SetParamsPbft(920);
 
         pars.m_RulesL2.CA.ForeignEnd = 1'000'000;
@@ -5625,7 +5625,7 @@ void MakeTreasury_dappnet2()
 {
     Rules r;
     Rules::Scope scope(r);
-    r.SetForksFrom(0, 0);
+    r.SetForks_<0, 7>(0);
 
     Treasury tres;
     Treasury::Parameters pars;
@@ -5711,7 +5711,7 @@ void MakeTreasury_warp()
 {
     Rules r;
     Rules::Scope scope(r);
-    r.SetForksFrom(0, 0);
+    r.SetForks_<0, 7>(0);
 
     Treasury::Data td;
     auto& tg = td.m_vGroups.emplace_back();
@@ -5803,7 +5803,7 @@ int main()
 
     r.m_Consensus = Rules::Consensus::FakePoW;
 	r.pForks[1].m_Height = 100500; // needed for lightning network to work
-    r.DisableForksFrom(2);
+    r.DisableForksFrom_<2>();
     r.UpdateChecksum();
 
     wallet::g_AssetsEnabled = true;
@@ -5866,11 +5866,7 @@ int main()
 
     //TestBbsMessages();
     //TestBbsMessages2();
-
-    r.pForks[1].m_Height = 1;
-    r.pForks[2].m_Height = 1;
-    r.pForks[3].m_Height = 1;
-    r.pForks[4].m_Height = 1;
+    r.SetForks_<1, 5>(1);
     r.UpdateChecksum();
     TestAppShader1(r);
     TestAppShader2(r);
@@ -5879,10 +5875,7 @@ int main()
     TestAppShader5(r);
     TestAppShader6(r);
     TestBridgeL2(r);
-    r.pForks[1].m_Height = 20;
-    r.pForks[2].m_Height = 20;
-    r.pForks[3].m_Height = 20;
-    r.pForks[4].m_Height = 20;
+    r.SetForks_<1, 5>(20);
     r.UpdateChecksum();
 
     TestSendingShielded();

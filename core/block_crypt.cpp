@@ -2384,7 +2384,7 @@ namespace beam
 		DA.Difficulty0 = Difficulty(8 << Difficulty::s_MantissaBits); // 2^8 = 256
 
 		ZeroObject(pForks);
-		DisableForksFrom(6); // future forks
+		DisableForksFrom_<1>(); // frok0 always at height=0, others must be defined explicitly
 
 		switch (m_Network)
 		{
@@ -2422,7 +2422,7 @@ namespace beam
 		case Network::dappnet2:
 
 			SetParamsPbft(15'000);
-			SetForksFrom(0, 0);
+			SetForks_<0, 8>(0);
 
 			m_Pbft.m_Whitelist.m_NumRequired = 1;
 			m_Pbft.m_Whitelist.m_Addresses.resize(1);
@@ -2439,7 +2439,7 @@ namespace beam
 		case Network::warp_dev3:
 
 			SetParamsPbft(3'000);
-			SetForksFrom(0, 0);
+			SetForks_<0, 8>(0);
 
 			CA.ForeignEnd = 1'000'000;
 
@@ -2827,15 +2827,11 @@ namespace beam
 		return pForks[i];
 	}
 
-	void Rules::SetForksFrom(uint32_t iBegin, Height h)
+	void Rules::SetForks(uint32_t iBegin, uint32_t iEnd, Height h)
 	{
-		for (; iBegin < _countof(pForks); iBegin++)
+		assert((iBegin <= iEnd) && (iEnd <= _countof(pForks)));
+		for (; iBegin < iEnd; iBegin++)
 			pForks[iBegin].m_Height = h;
-	}
-
-	void Rules::DisableForksFrom(uint32_t i)
-	{
-		SetForksFrom(i, MaxHeight);
 	}
 
 	void Rules::SetParamsPbft(uint32_t nTarget_ms)

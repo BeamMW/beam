@@ -1986,7 +1986,7 @@ namespace beam
 
 		if (bTestPbft || bTestBridge)
 		{
-			r.SetForksFrom(0, 0);
+			r.SetForks_<0, 7>(0);
 
 			auto td = beam::BuildTreasuryData();
 

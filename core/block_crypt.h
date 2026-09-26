@@ -558,10 +558,26 @@ namespace beam
 		const HeightHash* FindFork(const Merkle::Hash&) const;
 		uint32_t FindFork(Height) const;
 		Height get_ForkMaxHeightSafe(uint32_t iFork) const;
-		void DisableForksFrom(uint32_t);
 		std::string get_SignatureStr() const;
 		Amount get_DepositForCA(Height hScheme) const;
 		bool IsEnabledCA(Height hScheme) const;
+
+		void DisableForksFrom2(uint32_t);
+		void SetForks(uint32_t iBegin, uint32_t iEnd, Height);
+
+		template <uint32_t iBegin, uint32_t iEnd>
+		void SetForks_(Height h)
+		{
+			static_assert(iBegin <= iEnd, "");
+			static_assert(iEnd <= _countof(pForks), "");
+			SetForks(iBegin, iEnd, h);
+		}
+
+		template <uint32_t i>
+		void DisableForksFrom_()
+		{
+			SetForks_<i, _countof(pForks)>(MaxHeight);
+		}
 
 		static void Fail_Fork(uint32_t iFork);
 
@@ -617,7 +633,6 @@ namespace beam
 		Difficulty Span2Difficulty(uint32_t) const;
 		uint32_t Difficulty2Span(Difficulty) const;
 
-		void SetForksFrom(uint32_t iBegin, Height);
 		void SetParamsPbft(uint32_t nTarget_ms);
 
 		bool IsPbftWhitelistMode() const

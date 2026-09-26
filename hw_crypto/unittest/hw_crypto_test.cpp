@@ -1660,8 +1660,9 @@ int main()
 	beam::Rules::Scope scopeRules(r);
 
 	r.CA.Enabled = true;
-	r.SetForksFrom(1, g_hFork);
-	r.SetForksFrom(6, g_hFork6);
+	r.SetForks_<1, 6>(g_hFork);
+	r.SetForks_<6, 7>(g_hFork6);
+	r.DisableForksFrom_<7>();
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);
