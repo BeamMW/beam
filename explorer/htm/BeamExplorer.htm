@@ -2092,6 +2092,21 @@
 <!-- ************ SECTION 4 - CORE JS FUNCTIONS ************ -->
 <script> 'use strict'; // CORE DATA PARSING FUNCTIONS
 
+  // Lookup map and regex for fast HTML character replacement
+  const HTML_ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const HTML_ESCAPE_TEST = /[&<>"']/; // Check if special HTML characters exist
+  const HTML_ESCAPE_REPLACE = /[&<>"']/g; // Match all special characters in a single pass
+
+  // Optimized helper to escape HTML special characters to prevent code injection from untrusted node data or user inputs
+  function escapeHtml(str) {
+    if (str == null) { return ''; }
+    const s = typeof str === 'string' ? str : String(str);
+    // Fast path: If there are no characters to escape (most cases), return immediately
+    if (!HTML_ESCAPE_TEST.test(s)) { return s; }
+    // Single-pass replacement using the lookup map
+    return s.replace(HTML_ESCAPE_REPLACE, char => HTML_ESCAPE_MAP[char]);
+  }
+
   function MakeRef(link, text, target = '_self') {
     return '<a href="' + link + '" target="' + target + '">' + text + '</a>';
   }
@@ -2111,13 +2126,13 @@
   }
 
   function MakeAmountClr(amount) {
+    let str = escapeHtml(amount);
     let type = 'amount';
-    if (amount[0] == '-') { type += ' neg' }
-    if (amount[0] == '+') { type += ' pos' }
+    if (str[0] == '-') { type += ' neg' }
+    if (str[0] == '+') { type += ' pos' }
     // Add a span to the decimal dot (to allow applying special styles)
-    amount = amount.replace('.', AddClass('.','dot'));
-
-    return AddClass(amount, type);
+    str = str.replace('.', AddClass('.','dot'));
+    return AddClass(str, type);
   }
 
   function AddClass(txt, className, extra = '') {
@@ -2133,7 +2148,7 @@
   }
 
   function MakeBlock(h) {
-    return AddClass(MakeRef(UrlBlock(h), h), 'blockHeight');
+    return AddClass(MakeRef(UrlBlock(h), escapeHtml(h)), 'blockHeight');
   }
 
   function MakeCellAmount(amount, extra = '') {
@@ -2142,11 +2157,13 @@
 
   function MakeAsset(aid) {
     if (aid == 0) return AddClass('Beam', 'assetName');
-    return AddClass(MakeRef(UrlSelf('asset', { id: aid }), 'Asset-' + aid), 'assetName');
+    const safeAid = escapeHtml(aid);
+    return AddClass(MakeRef(UrlSelf('asset', { id: aid }), 'Asset-' + safeAid), 'assetName');
   }
 
   function MakeCid(cid) {
-    return AddClass(MakeRef(UrlSelf('contract', { id: cid }), cid), 'cid', 'title="' + cid + '"');
+    const safeCid = escapeHtml(cid);
+    return AddClass(MakeRef(UrlSelf('contract', { id: cid }), safeCid), 'cid', 'title="' + safeCid + '"');
   }
 
   function MakeFundsTbl(jFunds) {
@@ -2193,9 +2210,7 @@
         text += '<tr>';
 
         for (let iCol = 0; iCol < jRow.length; iCol++) {
-          text += '<td align="right">';
-          text += Obj2Html(jRow[iCol]);
-          text += '</td>';
+          text += MakeCellRA(Obj2Html(jRow[iCol]));
         }
 
         text += '</tr>';
@@ -2224,11 +2239,19 @@
 
     if (obj.type == 'height') { return MakeBlock(obj.value) }
 
-    if (obj.type == 'blob') { return AddClass(obj.value, 'blob', 'title="' + obj.value + '"') }
+    if (obj.type == 'blob') {
+      const safeVal = escapeHtml(obj.value);
+      return AddClass(safeVal, 'blob', 'title="' + safeVal + '"');
+    }
 
     if (obj.type == 'bool') { return obj.value > 0 ? AddClass('yes', 'bool yes') : AddClass('no', 'bool no') }
 
-    if (obj.type == 'time') { return AddClass(formatTimestamp(obj.value, 'local'), 'time', 'data-raw="' + obj.value + '" title="UTC: ' + formatTimestamp(obj.value) + '"'); }
+    if (obj.type == 'time') {
+      const safeRawTime = escapeHtml(obj.value);
+      const localFormatted = escapeHtml(formatTimestamp(obj.value, 'local'));
+      const utcFormatted = escapeHtml(formatTimestamp(obj.value));
+      return AddClass(localFormatted, 'time', 'data-raw="' + safeRawTime + '" title="UTC: ' + utcFormatted + '"');
+    }
     // Remark: We keep as 'data-raw' the raw timestamp (given in seconds since 01/01/1970 00:00 UTC)
 
     return '';
@@ -2236,15 +2259,15 @@
 
   function formatTimestamp(time, zone) { // Human readable format of timestamps (given in seconds since 01/01/1970 00:00 UTC)
     // If 'zone' is 'local', we will convert to the browser local timezone, otherwise we'll keep timestamp's UTC
+    const numTime = Number(time);
+    if (isNaN(numTime)) { return ''; }
+    try {
     let d = new Date(); // Get current local date and time
     const diff = (zone == 'local') ? d.getTimezoneOffset() : 0 ; // If needed, get difference between local time and UTC
-    d = new Date((time - diff * 60) * 1000); // Get date object from miliseconds
-    const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ
-    const txt = g_IsPos ?
-      iso.replace(/(.*)T(.*)\.([0-9]+)Z/, '$1 $2.$3') : // Convert to simple format YYYY-MM-DD HH:MM:SS.ZZZ
-      iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
-    // Alternative: The 'Intl.DateTimeFormat' with 'sv-SE' also happens to match this format...
-    return txt;
+    d = new Date((numTime - diff * 60) * 1000); // Get date object from milliseconds
+    // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ (always 24 characters) and remove (or not) the ms
+    return d.toISOString().replace('T', ' ').slice(0, g_IsPos ? 23 : 19);
+    } catch { return ''; } // In case of toISOString error
   }
 
   function Obj2Html(obj) {
@@ -2268,7 +2291,7 @@
 
       txt = '<ul>';
       for (let key in obj) {
-        txt += '<li>' + key + ': ';
+        txt += '<li>' + escapeHtml(key) + ': ';
         txt += Obj2Html(obj[key]);
         txt += '</li>';
       }
@@ -2279,13 +2302,14 @@
 
     if (typeof obj === 'string') {
       // If data is a text string starting with 'STD:' (i.e. it's an asset description), then we type it as 'metadata'
-      if (obj.startsWith('STD:')) { return AddClass(obj, 'metadata') }
+      if (obj.startsWith('STD:')) { return AddClass(escapeHtml(obj), 'metadata') }
       // For the table of block headers, we also replace some default labels and add the corresponding codes and descriptions
       if (g_type == 'hdrs') {
         for (let code of Object.keys(columnHeaders)) {
           if (obj == columnHeaders[code].original) { return '<span title="' + columnHeaders[code].description + '" data-code="' + code + '">' + columnHeaders[code].title + '</span>' }
         }
       }
+      return escapeHtml(obj);
     }
 
     return obj;
@@ -2350,7 +2374,7 @@
           const jFR = jOwned[iF];
           text += '<tr>';
           text += MakeCell(MakeAsset(jFR[0]['value']), 'style="width:10%"');
-          text += MakeCell(AddClass(jFR[1], 'metadata'));
+          text += MakeCell(AddClass(escapeHtml(jFR[1]), 'metadata'));
           text += MakeCellAmount(jFR[2]['value'], 'style="width:40%"');
           text += '</tr>';
         }
@@ -2373,7 +2397,7 @@
     const jTblObj = jData['Asset history'];
     const jTbl = jTblObj['value'];
 
-    let text = '<h2 class="title">Status of Asset ' + g_id + '</h2>';
+    let text = '<h2 class="title">Status of Asset ' + escapeHtml(g_id) + '</h2>';
 
     text += MakeCollapsibleBegin('Asset History');
 
@@ -2394,10 +2418,10 @@
     for (let iRow = 1; iRow < jTbl.length; iRow++) {
       const jRow = jTbl[iRow];
       text += '<tr>';
-      text += MakeCell(MakeBlock(jRow[0]));
-      text += MakeCell(jRow[1]);
-      text += MakeCellAmount(Obj2Html(jRow[2]));
-      text += MakeCellAmount(Obj2Html(jRow[3]));
+      text += MakeCellRA(MakeBlock(jRow[0]));
+      text += MakeCell(Obj2Html(jRow[1]));
+      text += MakeCellRA(Obj2Html(jRow[2]));
+      text += MakeCellRA(Obj2Html(jRow[3]));
       text += MakeCell(Obj2Html(jRow[4]));
       text += '</tr>';
     }
@@ -2433,7 +2457,8 @@
       let jRow = jTbl[i];
       text += '<tr>';
 
-      text += MakeCell(AddClass(jRow['commitment'], 'commitment', 'title="' + jRow['commitment'] + '"'));
+      const safeCommitment = escapeHtml(jRow['commitment']);
+      text += MakeCell(AddClass(safeCommitment, 'commitment', 'title="' + safeCommitment + '"'));
       delete jRow.commitment;
 
       let j = jRow[isInp ? 'height' : 'spent'];
@@ -2459,7 +2484,7 @@
       j = jRow['Asset'];
       if (j) {
         if (j['x'] == 0 && j['min'] > 0) { txtExtra2 += '0;' } // Add id:0 for CA ranges after HF6
-        txtExtra += ' CA [' + txtExtra2 + j['min'] + '-' + j['max'] + ']';
+        txtExtra += ' CA [' + txtExtra2 + escapeHtml(j['min']) + '-' + escapeHtml(j['max']) + ']';
         delete jRow.Asset;
       }
 
@@ -2505,7 +2530,7 @@
       text += MakeCellAmount(jRow[2]['value']);
       text += MakeCellAmount(jRow[3]['value']);
       text += MakeCellRA(MakeBlock(jRow[4]));
-      text += MakeCell(AddClass(jRow[5], 'metadata'));
+      text += MakeCell(AddClass(escapeHtml(jRow[5]), 'metadata'));
       text += '</tr>';
     }
 
@@ -2543,7 +2568,7 @@
     if (g_height > 0) {
       text += AddClass(MakeRef(UrlSelf('hdrs', { hMax: g_height }), '<svg width="1em" height="1em"><use href="#list_icon"/></svg>'), 'listOfBlockHeaders', 'title="List of blocks up to this one"');
       text += '&nbsp;';
-      text += 'Block ' + AddClass(g_height, 'blockHeight');
+      text += 'Block ' + AddClass(escapeHtml(g_height), 'blockHeight');
       text += '&nbsp;';
       text += AddClass(MakeRef(UrlBlock(Number(g_height) - 1, -1), '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
     } else {
@@ -2597,7 +2622,8 @@
         // Mark the row to be highlighted if the kernel was the one queried
         text += (g_kernel && jRow['id'] == g_kernel) ? '<tr class="rowHighlight">' : '<tr>';
 
-        text += MakeCell(AddClass(jRow['id'], 'kernelId', 'title="' + jRow['id'] + '"'));
+        const safeId = escapeHtml(jRow['id']);
+        text += MakeCell(AddClass(safeId, 'kernelId', 'title="' + safeId + '"'));
         text += MakeCellRA(Obj2Html(jRow['fee']));
 
         let txtH = '';
@@ -2681,10 +2707,10 @@
       // (all these rows are kept together within a dedicated tbody).
       if (depth == 0) {
         // Display block height for main contract call
-        text += MakeCell(MakeBlock(jRow[0]), 'class="mainCall"');
+        text += MakeCellRA(MakeBlock(jRow[0]), 'class="mainCall"');
       } else {
         // Use an empty cell for subsequent contract calls
-        text += MakeCell('', 'class="subCall"');
+        text += MakeCellRA('', 'class="subCall"');
       }
 
       text += MakeCell(Obj2Html(jRow[1]));
@@ -2762,7 +2788,7 @@
     const jTblObj = jData['Calls history'];
     const jTbl = jTblObj['value'];
 
-    let text = '<h2 class="title">Contract ' + AddClass(g_id, 'cidTitle') + '</h2>';
+    let text = '<h2 class="title">Contract ' + AddClass(escapeHtml(g_id), 'cidTitle') + '</h2>';
 
     text += MakeCollapsibleBegin('Call history');
     
@@ -2963,7 +2989,8 @@
         const peer = peers[i];
         text += '<tr>';
         text += MakeCellRA(i + 1);
-        text += MakeCell(AddClass(peer.ip || (typeof peer === 'string' ? peer : String(peer)), "nodeURL"));
+        const ipString = peer.ip || (typeof peer === 'string' ? peer : String(peer));
+        text += MakeCell(AddClass(escapeHtml(ipString), "nodeURL"));
         text += '</tr>';
       }
     }
@@ -2990,11 +3017,11 @@
       for (const o of jData) {
         const beam = MakeAmountClr(o.beam_amount) + ' BEAM';
         text += '<tr>'
-              + MakeCellRA(o.is_beam_side ? beam : o.swap_amount)
-              + MakeCellRA(o.is_beam_side ? o.swap_amount : beam)
-              + MakeCell(o.time_created)
-              + MakeCellRA(o.height_expired)
-              + MakeCell(o.txId)
+              + MakeCellRA(o.is_beam_side ? beam : escapeHtml(o.swap_amount))
+              + MakeCellRA(o.is_beam_side ? escapeHtml(o.swap_amount) : beam)
+              + MakeCell(escapeHtml(o.time_created))
+              + MakeCellRA(escapeHtml(o.height_expired))
+              + MakeCell(escapeHtml(o.txId))
               + '</tr>';
       }
       text += '</table>';
@@ -3044,11 +3071,11 @@
             + '</tr></thead>';
       for (const o of jData) {
         text += '<tr>'
-              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + o.send_currency + ' (' + o.send_asset_id + ')')
-              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + o.receive_currency + ' (' + o.receive_asset_id + ')')
+              + MakeCellRA(MakeAmountClr(o.send_amount) + ' ' + escapeHtml(o.send_currency) + ' (' + escapeHtml(o.send_asset_id) + ')')
+              + MakeCellRA(MakeAmountClr(o.receive_amount) + ' ' + escapeHtml(o.receive_currency) + ' (' + escapeHtml(o.receive_asset_id) + ')')
               + MakeCell(formatTimestamp(o.create_time, 'local'))
               + MakeCell(formatTimestamp(o.expire_time, 'local'))
-              + MakeCell(o.id)
+              + MakeCell(escapeHtml(o.id))
               + '</tr>';
       }
       text += '</table>';
@@ -3083,9 +3110,9 @@
           + '</tr></thead>';
     for (const a of jData.assets) {
       text += '<tr>'
-            + MakeCell(a.currency + ' (' + a.asset_id + ')')
-            + MakeCellRA(MakeAmountClr(a.amount_offered))
-            + MakeCellRA(MakeAmountClr(a.amount_wanted))
+            + MakeCell(escapeHtml(a.currency) + ' (' + escapeHtml(a.asset_id) + ')')
+            + MakeCellAmount(a.amount_offered)
+            + MakeCellAmount(a.amount_wanted)
             + '</tr>';
     }
     text += '</table>';
@@ -3398,26 +3425,42 @@
     'treasury': { display: DisplayBlock, params: [] } //  Specific to this front end (it's type 'block' with 'height=0')
   };
 
-  // Configuration of URL and query parameters
+  // Reusable sanitization rules (return valid value or empty)
+  const sanePositiveInteger = (val) => { // Positive integer (>= 0), ignoring commas
+    const s = (val == null) ? '' : String(val).replace(/,/g, '').trim();
+    return (s === '' || isNaN(s) || Number(s) < 0) ? '' : Math.floor(Number(s));
+  };
+  const saneStrictPositiveInteger = (val) => { // Strictly positive integer (> 0), ignoring commas
+    const s = (val == null) ? '' : String(val).replace(/,/g, '').trim();
+    return (s === '' || isNaN(s) || Number(s) <= 0) ? '' : Math.floor(Number(s));
+  };
+  const sanePlusMinusOne = (val) => { // Reduce numbers to -1, 1 or empty
+    const s = (val == null) ? '' : String(val).trim();
+    return (s === '' || isNaN(s)) ? '' : (Number(s) >= 0 ? 1 : -1);
+  };
+  const saneHex = (val) => { // Integer or hash string
+    return (val == null) ? '' : String(val).replace(/[^a-fA-F0-9]/g, '');
+  };
+  const saneCols = (val) => { // Existing column codes only
+    return (val == null) ? '' : String(val).replace(new RegExp('[^' + columnDefaultOrder + ']', 'g'), '');
+  };
+
+  // Configuration of URL and node query parameters
   // (associated global variable, persistence in localStorage, type, default value, sanitization rules)
   const paramConfig = {
-    id: { globalVar: 'g_id', persistent: false, type: 'string', defaultValue: '' },
-    height: { globalVar: 'g_height', persistent: false, type: 'number', defaultValue: '',
-      sanitize: (val) => (isNaN(val) || Number(val) < 0) ? '' : Number(val) // Keep it as a positive number
-    },
-    kernel: { globalVar: 'g_kernel', persistent: false, type: 'string', defaultValue: '' },
-    adj: { globalVar: 'g_adj', persistent: false, type: 'number', defaultValue: '',
-      sanitize: (val) => isNaN(val) ? '' : (Number(val) > 0 ? 1 : -1) // Keep it as 1, -1 or empty
-    },
-    //n: { globalVar: 'g_n', persistent: true, type: 'number', defaultValue: 1 } // (NOT USED HERE)
-    hMin: { globalVar: 'g_hMin', persistent: false, type: 'number', defaultValue: '' },
-    hMax: { globalVar: 'g_hMax', persistent: false, type: 'number', defaultValue: '' },
-    nMax: { globalVar: 'g_nMax', persistent: true, type: 'number', defaultValue: 100 },
-    nMaxOps: { globalVar: 'g_nMaxOps', persistent: true, type: 'number', defaultValue: 100 },
-    nMaxTxs: { globalVar: 'g_nMaxTxs', persistent: true, type: 'number', defaultValue: 100 },
-    cols: { globalVar: 'g_cols', persistent: true, type: 'string', defaultValue: columnDefaultDisplay },
-    dh: { globalVar: 'g_dh', persistent: true, type: 'number', defaultValue: 1 },
-    graph: { globalVar: 'g_graphs', persistent: false, type: 'string', defaultValue: '' } // URL only, not for node queries
+    id: { globalVar: 'g_id', persistent: false, type: 'string', defaultValue: '', sanitize: saneHex },
+    height: { globalVar: 'g_height', persistent: false, type: 'number', defaultValue: '', sanitize: sanePositiveInteger },
+    kernel: { globalVar: 'g_kernel', persistent: false, type: 'string', defaultValue: '', sanitize: saneHex },
+    adj: { globalVar: 'g_adj', persistent: false, type: 'number', defaultValue: '', sanitize: sanePlusMinusOne },
+    //n: { globalVar: 'g_n', persistent: true, type: 'number', defaultValue: '', sanitize: saneStrictPositiveInteger }, // (NOT USED HERE)
+    hMin: { globalVar: 'g_hMin', persistent: false, type: 'number', defaultValue: '', sanitize: sanePositiveInteger },
+    hMax: { globalVar: 'g_hMax', persistent: false, type: 'number', defaultValue: '', sanitize: sanePositiveInteger },
+    nMax: { globalVar: 'g_nMax', persistent: true,  type: 'number', defaultValue: 100, sanitize: saneStrictPositiveInteger },
+    nMaxOps: { globalVar: 'g_nMaxOps', persistent: true,  type: 'number', defaultValue: 100, sanitize: saneStrictPositiveInteger },
+    nMaxTxs: { globalVar: 'g_nMaxTxs', persistent: true,  type: 'number', defaultValue: 100, sanitize: saneStrictPositiveInteger },
+    cols: { globalVar: 'g_cols', persistent: true,  type: 'string', defaultValue: columnDefaultDisplay, sanitize: saneCols },
+    dh: { globalVar: 'g_dh', persistent: true,  type: 'number', defaultValue: 1, sanitize: saneStrictPositiveInteger },
+    graph: { globalVar: 'g_graphs', persistent: false, type: 'string', defaultValue: '', sanitize: saneCols } // Internal, not used for node queries
   };
 
   // Global parameters for the graphs
@@ -3486,17 +3529,22 @@
   });
 
   // Helper function to get or reset persistent parameters from localStorage (saved per network)
-  // Remark: If defaultValue is a number, returned value will be defined as such too
+  // Remark: If defaultValue is a number, returned/stored value will be defined as such too
   function getPersistentParam(name, defaultValue, paramVal) {
-    // If paramVal is present, save it to localStorage and return it
+    const config = paramConfig[name];
+    // If paramVal is present, sanitize it (if rule exists), make it a number (if applicable), save it to localStorage and return it
     if (paramVal != null && paramVal !== '') { // != null checks both null and undefined
-      const val = (typeof defaultValue === 'number') ? Number(paramVal) : paramVal;
+      let val = (config && config.sanitize) ? config.sanitize(paramVal) : ((typeof defaultValue === 'number') ? Number(paramVal) : paramVal);
+      if (val === '') { val = defaultValue; } // Revert to default if empty
       localStorage.setItem('g_' + g_network + '_' + name, val);
       return val;
     }
-    // If paramVal is absent, retrieve its value from localStorage or set it to default
+    // If paramVal is absent, retrieve its value from localStorage or set it to default, make it a number(if applicable) and sanitize it (if rule exists)
     const cached = localStorage.getItem('g_' + g_network + '_' + name);
-    return (cached != null && cached !== '') ? ((typeof defaultValue === 'number') ? Number(cached) : cached) : defaultValue;
+    let val = (cached != null && cached !== '') ? ((typeof defaultValue === 'number') ? Number(cached) : cached) : defaultValue;
+    if (config && config.sanitize) { val = config.sanitize(val); }
+    if (val === '') { val = defaultValue; } // Revert to default if empty
+    return val;
   }
 
   // Helper function to load and synchronize graph colors for the current network from defaults or localStorage
@@ -3509,7 +3557,11 @@
       const storedColors = JSON.parse(localStorage.getItem('g_' + g_network + '_graph_colors'));
       // Test for a valid { key: value } object (not null, number/string/boolean or array)
       if (storedColors && typeof storedColors === 'object' && !Array.isArray(storedColors)) {
-        for (let code in storedColors) { g_graph.color[code] = storedColors[code]; }
+        for (let code in storedColors) {
+          if (columnHeaders[code] && typeof storedColors[code] === 'string') { // Check that 'code' applies and the retrieved color is a string
+            g_graph.color[code] = convertColorToHex(storedColors[code]); // Converting color to HEX format also sanitizes it
+          }
+        }
       }
     } catch {} // In case of JSON.parse error
   }
@@ -4424,8 +4476,8 @@
     const legend_id = 'graphLegendItem_' + code;
     const colorpicker_id = 'graphColorPicker_' + code;
     const hex_color = convertColorToHex(color); // Conversion needed because <input> only accepts HEX colors!
-    const header = checkbox.closest('th').textContent; // Get header text
-    const description = columnHeaders[code].description; // Get description
+    const header = escapeHtml(checkbox.closest('th').textContent); // Get header text (escaped again because 'textContent' returns HTML entities back into plain characters)
+    const description = escapeHtml(columnHeaders[code].description); // Get description (escaped to ensure proper display)
 
     let legend_item = `<span class="graphLegendItem" id="${legend_id}" style="color:${color}; white-space:nowrap;"
                        onmouseover="graphHighlightOn('${code}')" onmouseout="graphHighlightOff('${code}')">`;
@@ -4517,8 +4569,10 @@
 
   // Smart trick to convert any CSS color value (name, rgb, hsl...) into its HEX value
   function convertColorToHex(CSScolor) {
+    if (typeof CSScolor !== 'string') { return '#000000'; }
     let ctx = document.createElement('canvas').getContext('2d'); // No need to delete it, it will be garbage-collected
-    ctx.fillStyle = CSScolor;
+    ctx.fillStyle = '#000000'; // Default fallback
+    ctx.fillStyle = CSScolor; // The canvas parser silently aborts in case of error (it also serves as security against malicious input)
     return ctx.fillStyle;
   }
 
