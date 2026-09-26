@@ -106,6 +106,8 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 
 	NodeDB::StateID sid;
 	m_DB.get_Cursor(sid);
+
+	m_Extra.m_ShieldedOutputs0 = std::numeric_limits<TxoID>::max();
 	InitCursor(false, sid);
 
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
@@ -166,7 +168,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	}
 
 	m_Mmr.m_Assets.m_Count = aidMax - r.CA.ForeignEnd;
-	m_Extra.m_ShieldedOutputs0 = 0;
 	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
@@ -1212,7 +1213,9 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 				{
 					ECC::Hash::Processor hp;
 					hp.Serialize(v);
-					hp << v.m_NotSerialized.m_hvShieldedState;
+					hp
+						<< v.m_NotSerialized.m_hvShieldedState
+						<< m_Rubicon; // make sure cache doesn't cross the rubicon, past it all shielded inputs must be rechecked
 					hp >> hv;
 				}
 

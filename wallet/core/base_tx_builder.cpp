@@ -705,9 +705,11 @@ namespace beam::wallet
 
     bool BaseTxBuilder::HandlerInOuts::HandlerInputShielded::OnList(BaseTxBuilder& b, proto::ShieldedList& msg)
     {
-        if (msg.m_Items.size() > m_Count)
+        // we can get fewer coins than requested, if during this period there was a reorg, and some recent coins from the shielded pool are gone
+        // it's ok as long as our coin stays
+        if ((msg.m_Items.size() > m_Count) || (msg.m_Items.size() <= m_Method.m_iIdx))
         {
-            BEAM_LOG_ERROR() << "ShieldedList message returned more coins than requested " << TRACE(msg.m_Items.size()) << TRACE(m_Count);
+            BEAM_LOG_ERROR() << "ShieldedList got=" << msg.m_Items.size() << ", requested=" << m_Count << ", iIdx=" << m_Method.m_iIdx;
             return false;
         }
 
@@ -736,12 +738,6 @@ namespace beam::wallet
 
         if (nItems < N)
         {
-            if (m_Wnd0 || (nItems <= m_Method.m_iIdx))
-            {
-                BEAM_LOG_ERROR() << "ShieldedList message returned unexpected data " << TRACE(m_Wnd0) << TRACE(nItems) << TRACE(m_Method.m_iIdx);
-                return false;
-            }
-
             uint32_t nDelta = N - nItems;
             m_Lst.m_Skip = nDelta;
 
