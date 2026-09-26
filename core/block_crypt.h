@@ -1466,7 +1466,9 @@ namespace beam
 			ECC::Hash::Value m_hvShieldedState;
 		} m_NotSerialized;
 
-		void Sign(Lelantus::Prover&, Asset::ID aids);
+		void Sign(Lelantus::Prover&, Asset::ID aids, bool bDisclose);
+		void Sign(Lelantus::Prover&, Asset::ID aids, Height hOutp);
+		void AddDisclosure(const Lelantus::Prover&, Asset::ID);
 
 		virtual ~TxKernelShieldedInput() {}
 		Subtype::Enum get_Subtype() const override;

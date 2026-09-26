@@ -844,8 +844,8 @@ struct Context
 
         {
             beam::Executor::Scope scope(m_Exec);
-            pKrn->Sign(p, txo.m_AssetID);
-        };
+            pKrn->Sign(p, txo.m_AssetID, txo.m_Height.m_Confirmed);
+        }
 
         pTx->m_vKernels.push_back(std::move(pKrn));
 

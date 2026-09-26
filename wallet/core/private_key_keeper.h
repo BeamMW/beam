@@ -107,6 +107,7 @@ namespace beam::wallet
                 Sigma::CmList* m_pList;
                 uint32_t m_iIdx;
                 Asset::ID m_AidMax = 1u;
+                bool m_Disclose = false;
 
                 TxKernelShieldedInput::Ptr m_pKernel;
                 // before invocation the following must be set:

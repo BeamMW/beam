@@ -975,6 +975,10 @@ namespace beam::wallet
                     m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
                     // finished
+
+                    if (m_M.m_Disclose)
+                        m_M.m_pKernel->AddDisclosure(m_Prover, m_M.m_AssetID);
+
                     Fin();
                     return;
                 }

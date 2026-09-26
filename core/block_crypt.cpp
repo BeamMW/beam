@@ -1468,7 +1468,15 @@ namespace beam
 		s.m_InputsShielded++;
 	}
 
-	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid)
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, Height hOutp)
+	{
+		const Rules& r = Rules::get();
+		bool bDisclose = r.IsPastFork_<7>(m_Height.m_Min) && !r.IsPastFork_<7>(hOutp);
+
+		Sign(p, aid, bDisclose);
+	}
+
+	void TxKernelShieldedInput::Sign(Lelantus::Prover& p, Asset::ID aid, bool bDisclose)
 	{
 		ECC::Oracle oracle;
 		oracle << get_Msg();
@@ -1511,6 +1519,18 @@ namespace beam
 
 		p.Generate(hvSeed.V, oracle, &hGen);
 
+		if (bDisclose)
+			AddDisclosure(p, aid);
+		else
+			m_Lazy_ID.Invalidate();
+	}
+
+	void TxKernelShieldedInput::AddDisclosure(const Lelantus::Prover& p, Asset::ID aid)
+	{
+		m_pDisclosure = std::make_unique<Disclosure>();
+		m_pDisclosure->m_Aid = aid;
+		m_pDisclosure->m_Amount = p.m_Witness.m_V;
+		m_pDisclosure->Create(p.m_Witness.m_R_Output);
 		m_Lazy_ID.Invalidate();
 	}
 

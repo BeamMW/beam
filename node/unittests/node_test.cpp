@@ -2184,6 +2184,7 @@ namespace beam
 				Height m_Sent = 0;
 				bool m_Withdrew = false;
 				TxoID m_Confirmed = MaxHeight;
+				Height m_hConfirmed = MaxHeight;
 				TxoID m_Wnd0 = 0;
 				uint32_t m_N;
 
@@ -2333,7 +2334,7 @@ namespace beam
 				ECC::SetRandom(p.m_Witness.m_R_Output);
 
 				pKrn->m_NotSerialized.m_hvShieldedState = msg.m_State1;
-				pKrn->Sign(p, 0);
+				pKrn->Sign(p, 0, m_Shielded.m_hConfirmed);
 
 				verify_test(m_Shielded.m_Params.m_Ticket.m_SpendPk == pKrn->m_SpendProof.m_SpendPk);
 
@@ -2376,6 +2377,7 @@ namespace beam
 
 				verify_test(m_vStates.back().IsValidProofShieldedOutp(d, msg.m_Proof));
 				m_Shielded.m_Confirmed = msg.m_ID;
+				m_Shielded.m_hConfirmed = msg.m_Height;
 
 				m_Shielded.m_N = m_Shielded.m_Cfg.get_N();
 
