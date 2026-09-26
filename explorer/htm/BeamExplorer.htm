@@ -673,10 +673,11 @@
   .amount {
     font-family: "Lucida Console", ui-monospace, monospace;
     font-size: 1.4rem;
+    line-height: 1.4rem; /* Explicit the line height */
     color: var(--color_amount); /* Unsigned amounts */
   }
   .amount .dot { /* Decimal dot */
-    font-size: 2rem;
+    font-size: 2rem; /* It won't force a line height increase */
   }
   .amount.pos { /* Positive amounts */
     color: var(--color_pos); 
@@ -716,7 +717,7 @@
     overflow: hidden; /* Force the round corners over the content */
   }
   .dataTable td, .dataTable th {
-    padding: 5px; /* Add a small padding to cells */
+    padding: 7px 5px 7px 5px; /* Add a small padding to cells */
     border-style: none; /* Remove cell borders to avoid double thickness */
     border-bottom: 1px solid var(--color_table_border); /* Add border only on one side */
     border-right: 1px solid var(--color_table_border); /* Add border only on one side */
