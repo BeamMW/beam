@@ -4354,6 +4354,9 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
 	msgOut.m_AssetsMax = p.get_AidMax();
 	msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsActive));
 
+	if (std::numeric_limits<TxoID>::max() != p.m_Extra.m_ShieldedOutputs0)
+		msgOut.m_ShieldedOuts0 = p.m_Extra.m_ShieldedOutputs0;
+
 	Send(msgOut);
 }
 

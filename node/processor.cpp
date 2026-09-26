@@ -532,6 +532,15 @@ void NodeProcessor::InitCursor(bool bMovingUp, const NodeDB::StateID& sid)
 	}
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
+
+	const Rules& r = Rules::get();
+	if (r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
+	{
+		if (std::numeric_limits<TxoID>::max() == m_Extra.m_ShieldedOutputs0)
+			m_Extra.m_ShieldedOutputs0 = m_DB.ShieldedOutpGet(r.pForks[7].m_Height);
+	}
+	else
+		m_Extra.m_ShieldedOutputs0 = std::numeric_limits<TxoID>::max();
 }
 
 Block::SystemState::ID NodeProcessor::Cursor::get_ID() const
@@ -1096,14 +1105,14 @@ struct NodeProcessor::MultiShieldedContext
 		vc.ShrinkTo(10 * 1024);
 	}
 
-	bool IsValid(const TxVectors::Eternal&, Height, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
+	bool IsValid(const TxVectors::Eternal&, TxoID rubicon, Height, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
 	void Prepare(const TxVectors::Eternal&, NodeProcessor&, Height);
 
 private:
 
 	Sigma::CmListVec m_Lst;
 
-	bool IsValid(const TxKernelShieldedInput&, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
+	bool IsValid(const TxKernelShieldedInput&, TxoID rubicon, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
 	Sigma::CmList& get_List() override
 	{
@@ -1131,7 +1140,7 @@ private:
 	};
 };
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, Height hScheme, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, TxoID rubicon, Height hScheme, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
@@ -1145,10 +1154,25 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	if (krn.m_pAsset)
 		BEAM_VERIFY(hGen.Import(krn.m_pAsset->m_hGen)); // must already be tested in krn.IsValid();
 
+	const Rules& r = Rules::get();
+
+	TxoID id1 = krn.m_WindowEnd;
+	TxoID pool0 = 0;
+
+	if (r.IsPastFork_<7>(hScheme))
+	{
+		if (id1 > rubicon)
+			pool0 = rubicon;
+		else
+			if (!krn.m_pDisclosure)
+				return false;
+	}
+
+
 	ECC::Oracle oracle;
 	oracle << krn.get_Msg();
 
-	if (Rules::get().IsPastFork_<3>(hScheme))
+	if (r.IsPastFork_<3>(hScheme))
 	{
 		oracle << krn.m_NotSerialized.m_hvShieldedState;
 		Asset::Proof::Expose(oracle, hScheme, krn.m_pAsset);
@@ -1157,16 +1181,16 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& k
 	if (!x.IsValid(bc, oracle, &vKs.front(), &hGen))
 		return false;
 
-	TxoID id1 = krn.m_WindowEnd;
-	if (id1 >= N)
+	auto nElements = id1 - pool0;
+	if (nElements >= N)
 		Add(id1 - N, N, &vKs.front());
 	else
-		Add(0, static_cast<uint32_t>(id1), &vKs.front() + N - static_cast<uint32_t>(id1));
+		Add(pool0, static_cast<uint32_t>(nElements), &vKs.front() + N - static_cast<uint32_t>(nElements));
 
 	return true;
 }
 
-bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, Height h, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
+bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve, TxoID rubicon, Height h, ECC::InnerProduct::BatchContext& bc, uint32_t iVerifier, uint32_t nTotal, ValidatedCache& vc)
 {
 	struct MyWalker
 		:public Walker
@@ -1175,6 +1199,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 		MultiShieldedContext* m_pThis;
 		ValidatedCache* m_pVc;
 		ECC::InnerProduct::BatchContext* m_pBc;
+		TxoID m_Rubicon;
 		uint32_t m_iVerifier;
 		uint32_t m_Total;
 		Height m_Height;
@@ -1203,7 +1228,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 						m_pThis->m_Vc.Insert(hv, v.m_WindowEnd);
 				}
 
-				if (!bFound && !m_pThis->IsValid(v, m_Height, m_vKs, *m_pBc))
+				if (!bFound && !m_pThis->IsValid(v, m_Rubicon, m_Height, m_vKs, *m_pBc))
 					return false;
 			}
 
@@ -1220,6 +1245,7 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 	wlk.m_iVerifier = iVerifier;
 	wlk.m_Total = nTotal;
 	wlk.m_Height = h;
+	wlk.m_Rubicon = rubicon;
 
 	return wlk.Process(txve.m_vKernels);
 }
@@ -1415,10 +1441,12 @@ struct NodeProcessor::MultiblockContext
 			size_t m_Size;
 			TxBase::Context m_Ctx;
 			Block::Number m_Number;
+			TxoID m_ShieldedOutputs0;
 
-			SharedBlock(MultiblockContext& mbc, Block::Number num)
+			SharedBlock(MultiblockContext& mbc, Block::Number num, TxoID shieldedRubicon)
 				:Shared(mbc)
 				,m_Number(num)
+				,m_ShieldedOutputs0(shieldedRubicon)
 			{
 				m_Ctx.m_Params.m_Kind = TxBase::Kind::Block;
 			}
@@ -1668,7 +1696,7 @@ void NodeProcessor::MultiblockContext::MyTask::SharedBlock::Exec(uint32_t iVerif
 	try {
 		ctx.ValidateAndSummarizeStrict(bSparse ? txbDummy : m_Body, m_Body.get_Reader());
 
-		if (!m_Mbc.m_Msc.IsValid(m_Body, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache))
+		if (!m_Mbc.m_Msc.IsValid(m_Body, m_ShieldedOutputs0, m_Ctx.m_Height.m_Min, *ECC::InnerProduct::BatchContext::s_pInstance, iVerifier, m_Ctx.m_Params.m_nVerifiers, m_Mbc.m_This.m_ValCache))
 		{
 			Exc::CheckpointTxt cp("Shielded proof");
 			TxBase::Fail_Signature();
@@ -3092,7 +3120,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (bFirstTime)
 		mbc.OnNextBlockPid(pid);
 
-	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number);
+	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number, m_Extra.m_ShieldedOutputs0);
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
@@ -7255,7 +7283,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.Prepare(tx, *this, h);
 
-		bool bValid = msc.IsValid(tx, h, bc, 0, 1, m_ValCache);
+		bool bValid = msc.IsValid(tx, m_Extra.m_ShieldedOutputs0, h, bc, 0, 1, m_ValCache);
 		if (bValid)
 		{
 			msc.Calculate(bc.m_Sum, *this);
