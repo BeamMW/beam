@@ -1675,6 +1675,7 @@ void TestShieldedStatus2()
 
     params.m_Output.m_Value = 340;
     params.m_Output.m_AssetID = 0;
+    params.m_Ticket.m_pK->GenRandomNnz(); //  make sure coin's preferred index isn't necessarily 0
 
     auto* packedMessage = ShieldedTxo::User::ToPackedMessage(params.m_Output.m_User);
     packedMessage->m_MaxPrivacyMinAnonymitySet = 32;
@@ -1714,6 +1715,9 @@ int main()
 
     beam::Rules r;
     beam::Rules::Scope scopeRules(r);
+
+    ECC::PseudoRandomGenerator prg;
+    ECC::PseudoRandomGenerator::Scope scopePrg(&prg);
 
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
