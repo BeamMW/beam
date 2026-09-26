@@ -368,6 +368,7 @@ public:
 		Block::Number m_TxoHi;
 
 		TxoID m_ShieldedOutputs;
+		TxoID m_ShieldedOutputs0;
 
 	} m_Extra;
 

@@ -250,7 +250,7 @@ namespace proto {
     macro(Block::Number, TxoLo) /* if 0 - this is the archieve Node */ \
     macro(TxoID, Kernels) /* not supported atm */ \
     macro(TxoID, Txos) /* Total num of outputs interpreted by this Node. Would be total num of outputs if TxoLo == 0.  */ \
-    macro(TxoID, Utxos) /* not supported atm */ \
+    macro(TxoID, ShieldedOuts0) /* epoch start */ \
     macro(TxoID, ShieldedOuts) \
     macro(TxoID, ShieldedIns) \
     macro(Asset::ID, AssetsMax) \

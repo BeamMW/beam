@@ -214,6 +214,8 @@ namespace beam::wallet
     private:
         void ProcessTransaction(BaseTransaction::Ptr tx);
         void ResumeTransaction(const TxDescription& tx);
+        void LoadShieldedOutputs();
+        void SaveShieldedOutputs();
 
         // INegotiatorGateway
         void OnAsyncStarted() override;

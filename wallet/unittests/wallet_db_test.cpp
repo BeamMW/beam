@@ -1641,7 +1641,7 @@ void TestShieldedStatus()
     auto db = createSqliteWalletDB();
 
     db->set_MaxPrivacyLockTimeLimitHours(72);
-    db->set_ShieldedOuts(65);
+    db->set_ShieldedOuts(std::make_pair(0, 65));
 
 
     ShieldedTxo::DataParams params;
@@ -1678,7 +1678,7 @@ void TestShieldedStatus2()
 
     auto* packedMessage = ShieldedTxo::User::ToPackedMessage(params.m_Output.m_User);
     packedMessage->m_MaxPrivacyMinAnonymitySet = 32;
-    db->set_ShieldedOuts(1ULL << 14);
+    db->set_ShieldedOuts(std::make_pair(0, 1ULL << 14));
 
     ShieldedCoin c;
     c.m_TxoID = 2;
@@ -1687,17 +1687,17 @@ void TestShieldedStatus2()
     params.ToID(c.m_CoinID);
     storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
     WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
-    db->set_ShieldedOuts(1ULL << 15);
+    db->set_ShieldedOuts(std::make_pair(0, 1ULL << 15));
     storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
     WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
 
     packedMessage->m_MaxPrivacyMinAnonymitySet = 64;
     params.ToID(c.m_CoinID);
-    db->set_ShieldedOuts(1ULL << 15);
+    db->set_ShieldedOuts(std::make_pair(0, 1ULL << 15));
     storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
     WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Maturing);
 
-    db->set_ShieldedOuts((1ULL << 16) + 2);
+    db->set_ShieldedOuts(std::make_pair(0, (1ULL << 16) + 2));
     storage::DeduceStatus(*db, c, static_cast<Height>(24 * 60));
     WALLET_CHECK(c.m_Status == ShieldedCoin::Status::Available);
 }

@@ -148,7 +148,19 @@ namespace beam::wallet
         RegisterTransactionType(TxType::Simple, make_unique<SimpleTransaction::Creator>(m_WalletDB));
         RegisterTransactionType(TxType::Contract, make_unique<ContractTransaction::Creator>(m_WalletDB));
         m_IsTreasuryHandled = storage::isTreasuryHandled(*m_WalletDB);
-        m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
+        LoadShieldedOutputs();
+    }
+
+    void Wallet::LoadShieldedOutputs()
+    {
+        auto shaRange = m_WalletDB->get_ShieldedOuts();
+        m_Extra.m_ShieldedOutputs0 = shaRange.first;
+        m_Extra.m_ShieldedOutputs = shaRange.second;
+    }
+
+    void Wallet::SaveShieldedOutputs()
+    {
+        m_WalletDB->set_ShieldedOuts(std::make_pair(m_Extra.m_ShieldedOutputs0, m_Extra.m_ShieldedOutputs));
     }
 
     struct Wallet::VoucherManager::Ser {
@@ -1523,10 +1535,11 @@ namespace beam::wallet
     void Wallet::OnRequestComplete(MyRequestStateSummary& r)
     {
         // TODO: save full response?
-        m_WalletDB->set_ShieldedOuts(r.m_Res.m_ShieldedOuts);
+        m_WalletDB->set_ShieldedOuts(r.m_Res);
         m_WalletDB->set_AidMax(r.m_Res.m_AssetsMax);
         if (!IsMobileNodeEnabled())
         {
+            m_Extra.m_ShieldedOutputs0 = r.m_Res.m_ShieldedOuts0;
             m_Extra.m_ShieldedOutputs = r.m_Res.m_ShieldedOuts;
         }
     }
@@ -1668,8 +1681,7 @@ namespace beam::wallet
                 ++startHeight;
             }
             assert(GetEventsHeightNext() == startHeight);
-
-            m_WalletDB->set_ShieldedOuts(m_Extra.m_ShieldedOutputs);
+            SaveShieldedOutputs();
         }
         catch (const std::exception&)
         {
@@ -1810,8 +1822,9 @@ namespace beam::wallet
         if (!IsMobileNodeEnabled())
             return;
 
+        m_Extra.m_ShieldedOutputs0 = 0;
         m_Extra.m_ShieldedOutputs = 0;
-        m_WalletDB->set_ShieldedOuts(0);
+        SaveShieldedOutputs();
 
         MyRequestBody::Ptr pReq(new MyRequestBody);
 
@@ -2244,9 +2257,7 @@ namespace beam::wallet
         BEAM_LOG_INFO() << "Sync up to " << id;
 
         if (!SyncRemains())
-        {
-            m_Extra.m_ShieldedOutputs = m_WalletDB->get_ShieldedOuts();
-        }
+            LoadShieldedOutputs();
 
         RequestBodies();
         RequestEvents();
@@ -2421,8 +2432,7 @@ namespace beam::wallet
             confirm_asset(assetId);
         }
 
-        BEAM_LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_WalletDB->get_ShieldedOuts();
-        assert(m_Extra.m_ShieldedOutputs == m_WalletDB->get_ShieldedOuts());
+        BEAM_LOG_DEBUG() << TRACE(IsMobileNodeEnabled()) << TRACE(m_Extra.m_ShieldedOutputs) << " Node shielded outs=" << m_Extra.m_ShieldedOutputs0 << " / " << m_Extra.m_ShieldedOutputs;
         storage::setNeedToRequestBodies(*m_WalletDB, false); // disable body requests after importing recovery or rescan
     }
 

@@ -1119,9 +1119,9 @@ namespace beam::wallet
         return m_isSynced;
     }
 
-    beam::TxoID WalletClient::getTotalShieldedCount() const
+    std::pair<beam::TxoID, beam::TxoID> WalletClient::getTotalShieldedCounts() const
     {
-        return m_status.shieldedTotalCount;
+        return m_status.shieldedTotalCounts;
     }
 
     uint8_t WalletClient::getMPLockTimeLimit() const
@@ -1131,7 +1131,7 @@ namespace beam::wallet
 
     uint32_t WalletClient::getMarurityProgress(const ShieldedCoin& coin) const
     {
-        ShieldedCoin::UnlinkStatus us(coin, getTotalShieldedCount());
+        ShieldedCoin::UnlinkStatus us(coin, getTotalShieldedCounts());
         const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
         uint32_t mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
         return mpAnonymitySet ? us.m_Progress * mpAnonymitySet / beam::MaxPrivacyAnonimitySetFractionsCount : us.m_Progress;
@@ -1151,7 +1151,7 @@ namespace beam::wallet
 
         if (m_shieldedPer24h)
         {
-            auto outputsAddedAfterMyCoin = getTotalShieldedCount() - coin.m_TxoID;
+            auto outputsAddedAfterMyCoin = getTotalShieldedCounts().second - coin.m_TxoID;
             const auto* packedMessage = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
             
             auto mpAnonymitySet = packedMessage->m_MaxPrivacyMinAnonymitySet;
@@ -2498,7 +2498,7 @@ namespace beam::wallet
 
         ZeroObject(status.stateID);
         m_walletDB->getSystemStateID(status.stateID);
-        status.shieldedTotalCount = m_walletDB->get_ShieldedOuts();
+        status.shieldedTotalCounts = m_walletDB->get_ShieldedOuts();
         status.update.lastTime = m_walletDB->getLastUpdateTime();
         status.nzAssets = allTotals.GetAssetsNZ();
 

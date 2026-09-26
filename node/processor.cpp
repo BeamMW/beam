@@ -166,6 +166,7 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	}
 
 	m_Mmr.m_Assets.m_Count = aidMax - r.CA.ForeignEnd;
+	m_Extra.m_ShieldedOutputs0 = 0;
 	m_Extra.m_ShieldedOutputs = m_DB.ShieldedOutpGet(std::numeric_limits<int64_t>::max());
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;

@@ -303,18 +303,35 @@ namespace beam::wallet
         };
 
         Status m_Status = Unavailable;
-        uint32_t get_WndIndex(uint32_t N) const; // preferred index within a window of the specified size
+
+        struct SpendData
+        {
+            // selected spend window
+            TxoID m_Begin;
+            TxoID m_End;
+            // flags
+            bool m_LargeWindowLost;
+            bool m_OldEpoch;
+            // reserves wrt loosing large window
+            struct Stats {
+                struct Reserve
+                {
+                    int32_t m_Optimal; // how many can be added to shielded pool before window is lost, assuming Preferred window
+                    int32_t m_Any; // how many can be added to shielded pool before window is lost, for any window
+                } m_Reserve;
+                uint8_t m_Progress; // 0..100
+            } m_Stats;
+        };
+
+        SpendData get_SpendData(const std::pair<TxoID, TxoID>& shRange) const;
 
         struct UnlinkStatus
+            :public SpendData::Stats
         {
             UnlinkStatus() = default;
-            UnlinkStatus(const ShieldedCoin& sc, TxoID nShieldedOuts) { Init(sc, nShieldedOuts); }
+            UnlinkStatus(const ShieldedCoin& sc, const std::pair<TxoID, TxoID>& shRange) { Init(sc, shRange); }
 
-            void Init(const ShieldedCoin& sc, TxoID nShieldedOuts);
-
-            uint32_t m_Progress = 0; // 0-100: cleaning
-            int32_t m_WndReserve0 = 0; // how many can be added to shielded pool before window is lost, assuming Preferred window
-            int32_t m_WndReserve1 = 0; // how many can be added to shielded pool before window is lost, for any window
+            void Init(const ShieldedCoin& sc, const std::pair<TxoID, TxoID>& shRange);
 
             bool IsLargeSpendWindowLost() const;
             int get_SpendPriority() const;
@@ -330,8 +347,7 @@ namespace beam::wallet
         static void Sort(std::vector<WithStatus>&);
 
     private:
-    uint32_t m_offset = 0; // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
-        static int32_t get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel);
+        uint32_t m_offset = 0; // confirmations count to wait before can spend coin, not stored in db, copied from tx on DeduceStatus. 0 for Shielded coins
     };
 
     template<typename T>
@@ -464,8 +480,9 @@ namespace beam::wallet
         void setDefaultToken(WalletAddress&);
         void get_Endpoint(PeerID&, uint64_t ownID) const;
 
-        TxoID get_ShieldedOuts() const;
-        void set_ShieldedOuts(TxoID);
+        std::pair<TxoID, TxoID> get_ShieldedOuts() const;
+        void set_ShieldedOuts(const std::pair<TxoID, TxoID>&);
+        void set_ShieldedOuts(const proto::StateSummary&);
 
         Asset::ID get_AidMax() const;
         void set_AidMax(Asset::ID);

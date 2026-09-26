@@ -2903,6 +2903,7 @@ namespace beam::wallet
             IWalletDB& m_This;
             INegotiatorGateway& m_Gateway;
             IRecoveryProgress& m_Progr;
+            TxoID m_ShieldedOutsBeforeHF7 = 0;
             TxoID m_ShieldedOuts = 0;
 
             MyParser(IWalletDB& db, INegotiatorGateway& gateway, IRecoveryProgress& progr)
@@ -3012,6 +3013,9 @@ namespace beam::wallet
             bool OnShieldedOut(const ShieldedTxo::DescriptionOutp& d, const ShieldedTxo& s, const ECC::Hash::Value& hvMsg, Height h) override
             {
                 m_ShieldedOuts++;
+                if (!Rules::get().IsPastFork_<7>(h))
+                    m_ShieldedOutsBeforeHF7++;
+
                 return RecoveryInfo::IRecognizer::OnShieldedOut(d, s, hvMsg, h);
             }
 
@@ -3025,9 +3029,12 @@ namespace beam::wallet
         if (p.Proceed(path.c_str()))
         {
             storage::setTreasuryHandled(*this, true);
-            set_ShieldedOuts(p.m_ShieldedOuts);
+
             Block::SystemState::Full sTip;
             get_History().get_Tip(sTip);
+
+            auto shBegin = Rules::get().IsPastFork_<7>(sTip.get_Height()) ? p.m_ShieldedOutsBeforeHF7 : 0;
+            set_ShieldedOuts(std::make_pair(shBegin, p.m_ShieldedOuts));
             storage::setNextEventHeight(*this, sTip.get_Height() + 1); // next
             storage::setNeedToRequestBodies(*this, true); // temporarily enable body requests, to solve lag in blocks
             return true;
@@ -3096,16 +3103,26 @@ namespace beam::wallet
         pid = ECC::Point(pt).m_X;
     }
 
-    TxoID IWalletDB::get_ShieldedOuts() const
+    std::pair<TxoID, TxoID> IWalletDB::get_ShieldedOuts() const
     {
-        TxoID ret = 0;
-        storage::getVar(*this, kStateSummaryShieldedOutsDBPath, ret);
+        auto ret = std::make_pair((TxoID) 0, (TxoID) 0);
+        if (!storage::getVar(*this, kStateSummaryShieldedOutsDBPath, ret))
+            storage::getVar(*this, kStateSummaryShieldedOutsDBPath, ret.second);
+
         return ret;
     }
 
-    void IWalletDB::set_ShieldedOuts(TxoID val)
+    void IWalletDB::set_ShieldedOuts(const std::pair<TxoID, TxoID>& shRange)
     {
-        storage::setVar(*this, kStateSummaryShieldedOutsDBPath, val);
+        if (shRange.first)
+            storage::setVar(*this, kStateSummaryShieldedOutsDBPath, shRange);
+        else
+            storage::setVar(*this, kStateSummaryShieldedOutsDBPath, shRange.second);
+    }
+
+    void IWalletDB::set_ShieldedOuts(const proto::StateSummary& msg)
+    {
+        set_ShieldedOuts(std::make_pair(msg.m_ShieldedOuts0, msg.m_ShieldedOuts));
     }
 
     Asset::ID IWalletDB::get_AidMax() const
@@ -3164,9 +3181,9 @@ namespace beam::wallet
 
             if (!vShielded.empty())
             {
-                TxoID nOuts = get_ShieldedOuts();
+                auto shRange = get_ShieldedOuts();
                 for (auto& x : vShielded)
-                    x.second.Init(x.first, nOuts);
+                    x.second.Init(x.first, shRange);
 
                 ShieldedCoin::Sort(vShielded);
             }
@@ -7556,20 +7573,93 @@ namespace beam::wallet
         return "shld";
     }
 
-    uint32_t ShieldedCoin::get_WndIndex(uint32_t N) const
+    template <typename TDst, typename TSrc>
+    TDst CastSaturated(const TSrc& x)
     {
-        assert(N);
-
-        uint32_t nIdx;
-        m_CoinID.m_Key.m_kSerG.m_Value.ExportWord<0>(nIdx); // pseudo-random
-
-        nIdx %= N; // pseudo-random, how many elements should follow this in the window
-
-        if (nIdx > m_TxoID)
-            nIdx = static_cast<uint32_t>(m_TxoID);
-
-        return nIdx;
+        return
+            (x > std::numeric_limits<TDst>::max()) ? std::numeric_limits<TDst>::max() :
+            (x < std::numeric_limits<TDst>::min()) ? std::numeric_limits<TDst>::min() :
+            static_cast<TDst>(x);
     }
+
+    ShieldedCoin::SpendData ShieldedCoin::get_SpendData(const std::pair<TxoID, TxoID>& shRange) const
+    {
+        const Rules& r = Rules::get();
+        uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
+        TxoID idRel, totalSize, oldSize = shRange.first;
+
+        SpendData ret;
+        ret.m_OldEpoch = (m_TxoID < oldSize);
+        if (ret.m_OldEpoch)
+        {
+            idRel = m_TxoID;
+            totalSize = std::max(oldSize, shRange.second);
+        }
+        else
+        {
+            totalSize = std::max(shRange.second, m_TxoID + 1);
+            idRel = m_TxoID - oldSize;
+        }
+
+        assert(m_TxoID < totalSize);
+
+        TxoID maxWndEnd = m_TxoID + N;
+        if (ret.m_OldEpoch)
+            std::setmin(maxWndEnd, oldSize);
+
+        int64_t reserveFactor = static_cast<int64_t>(r.Shielded.MaxWindowBacklog) - totalSize - r.Shielded.MaxIns; // MaxIns for safety thershold.
+        ret.m_Stats.m_Reserve.m_Any = CastSaturated<int32_t, int64_t>(maxWndEnd + reserveFactor);
+        ret.m_LargeWindowLost = (ret.m_Stats.m_Reserve.m_Any < 0);
+        if (ret.m_LargeWindowLost)
+            N = std::max(r.Shielded.m_ProofMin.get_N(), 1U); // switch to small window
+
+        uint32_t iIdx;
+        m_CoinID.m_Key.m_kSerG.m_Value.ExportWord<0>(iIdx); // pseudo-random
+        iIdx %= N;
+        if (iIdx > idRel)
+            iIdx = (uint32_t) idRel;
+
+        ret.m_Stats.m_Progress = 100;
+
+        TxoID endPreferred = m_TxoID - iIdx + N;
+        if (ret.m_OldEpoch)
+        {
+            std::setmin(endPreferred, oldSize);
+            ret.m_End = endPreferred;
+            ret.m_Begin = (ret.m_End > N) ? (ret.m_End - N) : 0;
+        }
+        else
+        {
+            if (endPreferred > totalSize)
+            {
+                if (!ret.m_LargeWindowLost)
+                    ret.m_Stats.m_Progress = static_cast<uint8_t>((totalSize + N - endPreferred) * 100 / N);
+                ret.m_End = totalSize;
+            } else
+                ret.m_End = endPreferred;
+
+            ret.m_Begin = (ret.m_End > oldSize + N) ? (ret.m_End - N) : oldSize;
+        }
+
+        if (ret.m_LargeWindowLost)
+            ret.m_Stats.m_Reserve.m_Optimal = ret.m_Stats.m_Reserve.m_Any;
+        else
+        {
+            ret.m_Stats.m_Reserve.m_Optimal = CastSaturated<int32_t, int64_t>(endPreferred + reserveFactor);
+            assert(ret.m_Stats.m_Reserve.m_Optimal <= ret.m_Stats.m_Reserve.m_Any);
+
+            if (ret.m_Stats.m_Reserve.m_Optimal < 0)
+            {
+                // preferred window isn't possible, we should move right. Must be possible.
+                ret.m_End -= ret.m_Stats.m_Reserve.m_Optimal;
+                ret.m_Begin -= ret.m_Stats.m_Reserve.m_Optimal;
+                assert(ret.m_End <= maxWndEnd);
+            }
+        }
+
+        return ret;
+    }
+
 
     std::string ShieldedCoin::getStatusString() const
     {
@@ -7592,67 +7682,17 @@ namespace beam::wallet
         m_offset = offset;
     }
 
-    void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, TxoID nShieldedOuts)
+    void ShieldedCoin::UnlinkStatus::Init(const ShieldedCoin& sc, const std::pair<TxoID, TxoID>& shRange)
     {
         if (kTxoInvalidID == sc.m_TxoID)
-        {
-            m_Progress = 0;
-            m_WndReserve0 = 0;
-            m_WndReserve1 = 0;
-        }
+            ZeroObject(*this);
         else
-        {
-            const Rules& r = Rules::get();
-            const uint32_t N = std::max(r.Shielded.m_ProofMax.get_N(), 1U);
-
-
-            uint32_t nRemaining = N - sc.get_WndIndex(N) - 1;
-
-            std::setmax(nShieldedOuts, sc.m_TxoID + 1);
-            nShieldedOuts -= sc.m_TxoID; // to relative
-            assert(nShieldedOuts);
-
-            if (nShieldedOuts <= nRemaining)
-            {
-                assert(nRemaining);
-
-                uint32_t n = static_cast<uint32_t>(nShieldedOuts) - 1;
-                assert(n < nRemaining);
-
-                m_Progress = 1 + 99U * n / nRemaining;
-            }
-            else
-                m_Progress = 100;
-
-            m_WndReserve0 = get_Reserve(nRemaining + 1, nShieldedOuts);
-            m_WndReserve1 = get_Reserve(N, nShieldedOuts);
-        }
-    }
-
-    template <typename TDst, typename TSrc>
-    TDst CastSaturated(const TSrc& x)
-    {
-        return
-            (x > std::numeric_limits<TDst>::max()) ? std::numeric_limits<TDst>::max() :
-            (x < std::numeric_limits<TDst>::min()) ? std::numeric_limits<TDst>::min() :
-            static_cast<TDst>(x);
-    }
-
-    int32_t ShieldedCoin::get_Reserve(uint32_t nEndRel, TxoID nShieldedOutsRel)
-    {
-        int64_t n = nEndRel;
-        n += Rules::get().Shielded.MaxWindowBacklog;
-        n -= Rules::get().Shielded.MaxIns; // safety thershold.
-
-        static_assert(sizeof(n) == sizeof(nShieldedOutsRel)); // both should be 64bit
-        n -= nShieldedOutsRel;
-
-        return CastSaturated<int32_t>(n);
+            Cast::Down<ShieldedCoin::SpendData::Stats>(*this) = sc.get_SpendData(shRange).m_Stats;
     }
 
     bool ShieldedCoin::UnlinkStatus::IsLargeSpendWindowLost() const
     {
-        return m_WndReserve1 < 0;
+        return m_Reserve.m_Any < 0;
     }
 
     int ShieldedCoin::UnlinkStatus::get_SpendPriority() const
@@ -7661,7 +7701,7 @@ namespace beam::wallet
             return 0;
 
         const int32_t nWndThresholdHi = 100; // Urgently spend if window will close in less than this
-        if (m_WndReserve1 < nWndThresholdHi)
+        if (m_Reserve.m_Any < nWndThresholdHi)
             return 2;
 
         if (100 == m_Progress)
@@ -7687,9 +7727,9 @@ namespace beam::wallet
                 if (-1 == na)
                 {
                     // if both are washing - spend the one that is cleaner
-                    if (a.second.m_WndReserve0 < b.second.m_WndReserve0)
+                    if (a.second.m_Reserve.m_Optimal < b.second.m_Reserve.m_Optimal)
                         return true;
-                    if (a.second.m_WndReserve0 > b.second.m_WndReserve0)
+                    if (a.second.m_Reserve.m_Optimal > b.second.m_Reserve.m_Optimal)
                         return false;
                 }
 

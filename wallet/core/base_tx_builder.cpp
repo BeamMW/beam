@@ -531,7 +531,6 @@ namespace beam::wallet
             MyList m_Lst;
 
             TxoID m_Wnd0;
-            uint32_t m_N;
             uint32_t m_Count;
 
             bool OnDoneItem(BaseTxBuilder& b) override
@@ -665,50 +664,19 @@ namespace beam::wallet
         m_Method.m_pKernel = std::make_unique<TxKernelShieldedInput>();
         m_Method.m_pKernel->m_Fee = si.m_Fee;
 
-        TxoID nShieldedCurrently = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
-        std::setmax(nShieldedCurrently, c.m_TxoID + 1); // assume stored shielded count may be inaccurate, the being-spent element must be present
+        auto shRange = b.m_Tx.GetWalletDB()->get_ShieldedOuts();
+        auto sd = c.get_SpendData(shRange);
 
-        ShieldedCoin::UnlinkStatus us(c, nShieldedCurrently);
-
-        bool bWndLost = us.IsLargeSpendWindowLost();
-        m_Method.m_pKernel->m_SpendProof.m_Cfg = bWndLost ?
+        m_Method.m_pKernel->m_SpendProof.m_Cfg = sd.m_LargeWindowLost ?
             Rules::get().Shielded.m_ProofMin :
             Rules::get().Shielded.m_ProofMax;
 
-        m_N = m_Method.m_pKernel->m_SpendProof.m_Cfg.get_N();
-        if (!m_N)
-            return false;
+        m_Method.m_pKernel->m_WindowEnd = sd.m_End;
+        m_Method.m_iIdx = static_cast<uint32_t>(c.m_TxoID - sd.m_Begin);
+        m_Wnd0 = sd.m_Begin;
+        m_Count = static_cast<uint32_t>(sd.m_End - sd.m_Begin);
 
-        m_Method.m_iIdx = c.get_WndIndex(m_N);
-
-        if (!bWndLost && (us.m_WndReserve0 < 0))
-        {
-            // move the selected window forward
-            m_Method.m_iIdx += us.m_WndReserve0; // actually decrease
-            assert(m_Method.m_iIdx < m_N);
-        }
-
-        m_Wnd0 = c.m_TxoID - m_Method.m_iIdx;
-        m_Count = m_N;
-
-        TxoID nWndEnd = m_Wnd0 + m_N;
-        if (nWndEnd > nShieldedCurrently)
-        {
-            // move the selected window backward
-            uint32_t nExtra = static_cast<uint32_t>(nWndEnd - nShieldedCurrently);
-            if (nExtra < m_Wnd0)
-                m_Wnd0 -= nExtra;
-            else
-            {
-                nExtra = static_cast<uint32_t>(m_Wnd0);
-                m_Wnd0 = 0;
-            }
-
-            m_Method.m_iIdx += nExtra;
-            m_Count += nExtra;
-        }
-
-        BEAM_LOG_INFO() << "ShieldedInput window N=" << m_N << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID << ", PoolSize=" << nShieldedCurrently;
+        BEAM_LOG_INFO() << "ShieldedInput window N=" << m_Count << ", Wnd0=" << m_Wnd0 << ", iIdx=" << m_Method.m_iIdx << ", TxoID=" << c.m_TxoID;
 
         b.m_Tx.GetGateway().get_shielded_list(b.m_Tx.GetTxID(), m_Wnd0, m_Count,
             [pHandler = shared_from_this(), weakTx = b.m_Tx.weak_from_this()](TxoID, uint32_t, proto::ShieldedList& msg)
@@ -754,16 +722,18 @@ namespace beam::wallet
         m_Method.m_pKernel->m_Height = b.m_Height;
         m_Method.m_pKernel->m_WindowEnd = m_Wnd0 + nItems;
 
-        if (nItems > m_N)
+        auto N = m_Method.m_pKernel->m_SpendProof.m_Cfg.get_N();
+
+        if (nItems > N)
         {
-            uint32_t nDelta = nItems - m_N;
+            uint32_t nDelta = nItems - N;
             m_Lst.m_p0 += nDelta;
 
             assert(m_Method.m_iIdx >= nDelta);
             m_Method.m_iIdx -= nDelta;
         }
 
-        if (nItems < m_N)
+        if (nItems < N)
         {
             if (m_Wnd0 || (nItems <= m_Method.m_iIdx))
             {
@@ -771,11 +741,11 @@ namespace beam::wallet
                 return false;
             }
 
-            uint32_t nDelta = m_N - nItems;
+            uint32_t nDelta = N - nItems;
             m_Lst.m_Skip = nDelta;
 
             m_Method.m_iIdx += nDelta;
-            assert(m_Method.m_iIdx < m_N);
+            assert(m_Method.m_iIdx < N);
         }
 
         b.m_Tx.get_KeyKeeperStrict()->InvokeAsync(m_Method, shared_from_this());

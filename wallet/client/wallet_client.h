@@ -89,7 +89,7 @@ namespace beam::wallet
         } update;
 
         HeightHash stateID = {};
-        TxoID shieldedTotalCount = std::numeric_limits<beam::TxoID>::max();
+        std::pair<TxoID, TxoID> shieldedTotalCounts = std::make_pair(0, std::numeric_limits<beam::TxoID>::max());
         mutable std::map<Asset::ID, AssetStatus> all;
         std::set<Asset::ID> nzAssets;
     };
@@ -380,7 +380,7 @@ namespace beam::wallet
         void updateNotifications();
         void updateConnectionTrust(bool trustedConnected);
         bool isConnected() const;
-        beam::TxoID getTotalShieldedCount() const;
+        std::pair<beam::TxoID, beam::TxoID> getTotalShieldedCounts() const;
         const Rules& getRules() const;
 
     private:
