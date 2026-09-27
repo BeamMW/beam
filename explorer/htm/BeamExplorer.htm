@@ -5611,6 +5611,12 @@
     }
   }
 
+  // We initialise two reusable collators for sorting:
+  // One for 'alphabetical sorting' (character by character, insensitive to case and accents).
+  // One for 'natural sorting' (same, except numbers are treated numerically: 'Asset-1' < 'Asset-2' < 'Asset-10').
+  const g_collatorAlphabetical = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
+  const g_collatorNatural = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
+
   // SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
   function sortTable(e) {
     // Get element, table and column number of the event
@@ -5659,20 +5665,14 @@
       return valArray;
     });
 
-    // We initialise two collators for sorting:
-    // One for 'alphabetical sorting' (character by character, insensitive to case and accents).
-    // One for 'natural sorting' (same, except numbers are treated numerically: 'Asset-1' < 'Asset-2' < 'Asset-10').
-    const collator1 = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
-    const collator2 = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: 'false' });
-
     // Sort the array (in ascending order by default)
     colArray.sort(function ([a, b], [c, d]) {
       // Compare as numbers
       if (!isNaN(a) && !isNaN(c)) { return a - c }
       // Compare as address
-      else if (/^[a-fA-F0-9]*$/.test(a) && /^[a-fA-F0-9]*$/.test(c)) { return collator1.compare(a, c) }
+      else if (/^[a-fA-F0-9]*$/.test(a) && /^[a-fA-F0-9]*$/.test(c)) { return g_collatorAlphabetical.compare(a, c) }
       // Compare as other strings
-      else { return collator2.compare(a, c) }
+      else { return g_collatorNatural.compare(a, c) }
     });
 
     // Reverse the array for descending order
@@ -5681,11 +5681,15 @@
     // Get the 'parent' of the sorted items (i.e. the tbody in the case of rows, or the table in the case of tbodies)
     // Remark: The parent of a row is always a tbody, even if not explictely defined.
     let parent = items[0].parentNode;
+    // Work in a DocumentFragment to update the actual DOM only once
+    const fragment = document.createDocumentFragment();
     // Loop through the array of sorted cells to reorder the table rows or tbodies
-    for (let sortedCol of colArray) {
+    for (let i = 0; i < colArray.length; i++) {
       // Move each corresponding row or tbody to the end of the table.
-      parent.appendChild(itemsArray[sortedCol[1]]);
+      fragment.appendChild(itemsArray[colArray[i][1]]);
     }
+    // Add the elements to DOM all at once
+    parent.appendChild(fragment);
 
     // Update class and title in header by adding the sorting direction
     input.classList.add(dir);
