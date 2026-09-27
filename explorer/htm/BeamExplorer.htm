@@ -5621,10 +5621,13 @@
   function sortTable(e) {
     // Get element, table and column number of the event
     const input = e.currentTarget;
-    const col = input.closest('th,td').cellIndex;
+    const th = input.closest('th,td');
+    const col = th.cellIndex;
     const headRow = input.closest('tr');
     const table = input.closest('table');
     const nbr_tbodies = table.tBodies.length;
+    // Check if this column was already tagged as numeric
+    const isColumnNumeric = (th.dataset.numeric === 'true');
 
     // Set the default sorting direction as descending
     // (or switch to ascending if already sorted descending)
@@ -5644,6 +5647,7 @@
     let itemsArray = Array.from(items);
 
     // Make an array from the content of the cells in the selected column
+    // (we add the initial index, as it will allow reordering the actual table rows or tbodies)
     let colArray = itemsArray.map(function (item, index) {
       // Get the content of the cell in the column being sorted
       // (for tbodies with multiple lines, we concatenate the content of their cells in that column)
@@ -5653,27 +5657,33 @@
         for (let trow of item.rows) {
           // Concatenate content of each cell
           if (val != '') { val += '\n' }
-          val += trow.cells[col].textContent; // We use 'textContent' because 'innerText' returns and empty string for hidden rows (thus only partially sorting filtered columns)
+          val += trow.cells[col] ? trow.cells[col].textContent : ''; // We use 'textContent' because 'innerText' returns and empty string for hidden rows (thus only partially sorting filtered columns)
         }
       } else {
         // Get content of the cell
-        val = item.cells[col].textContent;
+        val = item.cells[col] ? item.cells[col].textContent : '';
       }
-      // Remove comas (just for numbers to be recognized as such).
-      // And add its initial index (it will allow reordering the actual table rows or tbodies).
-      let valArray = [val.replace(/,/g, ''), index];
-      return valArray;
+      // If column is numeric, remove commas and parse as number
+      if (isColumnNumeric) {
+        let clean = val.replace(/,/g, '').trim(); // Remove commas
+        let num = (clean === '') ? 0 : Number(clean); // Empty cell = 0
+        return [num, index];
+      }
+      // If column is text or hex, keep the clean string
+      return [val.trim(), index];
     });
 
     // Sort the array (in ascending order by default)
-    colArray.sort(function ([a, b], [c, d]) {
-      // Compare as numbers
-      if (!isNaN(a) && !isNaN(c)) { return a - c }
-      // Compare as address
-      else if (/^[a-fA-F0-9]*$/.test(a) && /^[a-fA-F0-9]*$/.test(c)) { return g_collatorAlphabetical.compare(a, c) }
-      // Compare as other strings
-      else { return g_collatorNatural.compare(a, c) }
-    });
+    if (isColumnNumeric) { // Super fast native number subtraction
+      colArray.sort((a, b) => a[0] - b[0]);
+    } else { // Slower string sorting for text or hex
+      colArray.sort(function ([a, b], [c, d]) {
+        // Compare as hex addresses (with at least 16 characters, to differenciate from common words)
+        if (/^[a-fA-F0-9]{16,}$/.test(a) && /^[a-fA-F0-9]{16,}$/.test(c)) { return g_collatorAlphabetical.compare(a, c) }
+        // Compare as other strings
+        else { return g_collatorNatural.compare(a, c) }
+      });
+    }
 
     // Reverse the array for descending order
     if (dir == 'desc') { colArray.reverse() }
