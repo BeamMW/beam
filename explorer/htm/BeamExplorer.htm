@@ -4337,7 +4337,7 @@
       const code = header.firstElementChild?.dataset?.code; // Get the column code from the <span> (or 'null' if non-existent)
       if (!code) continue; // Skip if we can't get the code
       // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
-      const isNumeric = header.closest('th')?.dataset?.numeric === 'true' || code === 'T';
+      const isNumeric = header.closest('th')?.dataset?.type === 'numeric' || code === 'T';
       if (isNumeric) {
         // Add a checkbox to the right of the header title
         const checkboxHTML = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + col + '" data-column="' + col + '" autocomplete="off" onclick="checkboxGraph(event);">';
@@ -4469,7 +4469,7 @@
       }
     }
     // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
-    const isNumeric = headers[col]?.closest('th')?.dataset?.numeric === 'true' || code === 'T';
+    const isNumeric = headers[col]?.closest('th')?.dataset?.type === 'numeric' || code === 'T';
     if (col === null || !checkbox || !columnHeaders[code] || !isNumeric) {
       return false; // Code does not exist in table or is not graphable
     }
@@ -5554,8 +5554,8 @@
           } else {
             myRow.classList.add('filtersNot');
           }
-          // Tag columns with numeric (or empty) values
-          tagNumericColumns(myTable);
+          // Tag columns with data-type ('numeric', 'empty', or 'text') and store initial row order
+          tagTableColumns(myTable);
           // Compute column statistics and display them as tooltips
           computeTableStats(myTable);
         }
@@ -5627,7 +5627,7 @@
     const table = input.closest('table');
     const nbr_tbodies = table.tBodies.length;
     // Check if this column was already tagged as numeric
-    const isColumnNumeric = (th.dataset.numeric === 'true');
+    const isColumnNumeric = (th.dataset.type === 'numeric');
 
     // Set the default sorting direction as descending
     // (or switch to ascending if already sorted descending)
@@ -5641,7 +5641,7 @@
     }
 
     // Get the list of rows or tbodies to be sorted
-    // (Remark: There is always at least one tbody, even if not explictely defined)
+    // (Remark: There is always at least one tbody, even if not explicitly defined)
     const items = nbr_tbodies > 1 ? table.tBodies : table.tBodies[0].rows;
     // Make an array with the items to be sorted
     let itemsArray = Array.from(items);
@@ -6099,23 +6099,36 @@
     else { target.removeAttribute('title'); }
   }
 
-  // Check columns for numeric (or empty) values and tag their headers (data-numeric 'true' or 'false').
-  function tagNumericColumns(table) {
+  // Check columns and tag their headers with data-type ('numeric', 'empty', or 'text').
+  // Also, store the initial row order on each row or tbody (data-initial-order).
+  function tagTableColumns(table) {
     // Guard against non-existent or empty tables
     if (!table || !table.rows || table.rows.length <= 1) { return; }
+
+    // Store the initial order of each row or tbody
+    const items = table.tBodies.length > 1 ? table.tBodies : table.tBodies[0].rows;
+    for (let i = 0; i < items.length; i++) { items[i].dataset.initialOrder = i; }
+
     // Get header row (addFilterOption() already structured the tables)
     const headerCells = table.rows[0].cells;
     const numRows = table.rows.length;
     // Check values in all rows for each column
     for (let c = 0; c < headerCells.length; c++) {
-      let isNumeric = true; // We start with 'true' so that columns with only empty cells are still tagged as 'numeric'
+      let isEmpty = true;
+      let isNumeric = true;
       for (let r = 1; r < numRows; r++) { // We skip the header row
         const val = parseCellNumericValue(table.rows[r].cells[c]);
-        if (val !== null && isNaN(val)) { isNumeric = false; break; } // Stop if non-numeric text is found
+        if (val !== null) {
+          isEmpty = false;
+          if (isNaN(val)) { isNumeric = false; break; } // Stop immediately if non-numeric text is found
+        }
       }
-      // Tag the header cell with the evaluation result
-      headerCells[c].dataset.numeric = isNumeric ? 'true' : 'false';
+
+      // Tag the header cell with the column data type: 'text', 'empty' or 'numeric'
+      headerCells[c].dataset.type = isEmpty ? 'empty' : (isNumeric ? 'numeric' : 'text');
     }
+    // Tag the table as indexed
+    table.dataset.indexed = 'true';
   }
 
   // Compute stats for all columns in a table (asynchronously) and update tooltips
@@ -6158,12 +6171,10 @@
       // If all rows are hidden, tooltips are already reset to default in Step 1
       if (totalRows === 0) { return; }
 
-      // Tag numeric columns if not already done
-      if (headerCells.some(cell => cell.dataset.numeric === undefined)) { tagNumericColumns(table); }
       // Identify numeric columns to analyze
       const numericColumnsIndices = [];
       for (let c = 0; c < headerCells.length; c++) {
-        if (headerCells[c].dataset.numeric === 'true') { numericColumnsIndices.push(c); }
+        if (headerCells[c].dataset.type === 'numeric') { numericColumnsIndices.push(c); }
       }
       if (numericColumnsIndices.length === 0) { return; }
 
