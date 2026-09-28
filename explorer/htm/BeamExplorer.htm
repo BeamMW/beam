@@ -5630,15 +5630,17 @@
     // Check column type ('numeric', 'empty', or 'text')
     const colType = th.dataset.type || 'text';
 
-    // Determine the sorting direction:
-    // If the column is already sorted, toggle its direction (desc <-> asc).
-    // If the column is not sorted yet (first click on it), pick contextual default:
-    // - 'text' columns first sort ascending (asc = A-Z)
-    // - 'numeric' and 'empty' columns first sort descending (desc = largest/newest first)
+    // Cycle sorting over 3 directions:
     let dir;
-    if (input.classList.contains('desc')) { dir = 'asc'; }
-    else if (input.classList.contains('asc')) { dir = 'desc'; }
-    else { dir = (colType === 'text') ? 'asc' : 'desc'; }
+    if (colType === 'text') { // 'text' columns sort first from A to Z (asc -> desc -> none)
+      if (input.classList.contains('asc')) { dir = 'desc'; }
+      else if (input.classList.contains('desc')) { dir = 'none'; }
+      else { dir = 'asc'; }
+    } else { // 'numeric' and 'empty' columns sort first from largest/newest (desc -> asc -> none)
+      if (input.classList.contains('desc')) { dir = 'asc'; }
+      else if (input.classList.contains('asc')) { dir = 'none'; }
+      else { dir = 'desc'; }
+    }
 
     // Reset sorting classes and titles in all headers of this table
     for (let myHeader of headRow.getElementsByClassName('sortable')) {
@@ -5647,51 +5649,62 @@
       myHeader.title = 'Sort column';
     }
 
-    // Update class and title in header by adding the sorting direction
-    input.classList.add(dir);
-    input.title = (dir == 'desc') ? 'Sort ascending' : 'Sort descending';
-
-    // For empty columns, return with no change in order
-    if (colType === 'empty') { return col; }
+    // Update class and title in header with the sorting direction
+    if (dir !== 'none') {
+      input.classList.add(dir);
+      if (colType === 'text') { input.title = (dir === 'asc') ? 'Sort descending' : 'Restore initial order'; }
+      else { input.title = (dir === 'desc') ? 'Sort ascending' : 'Restore initial order'; }
+    } else {
+      input.title = 'Sort column';
+    }
 
     // Get the list of rows or tbodies to be sorted
     // (Remark: There is always at least one tbody, even if not explicitly defined)
     const items = nbr_tbodies > 1 ? table.tBodies : table.tBodies[0].rows;
     // Make an array with the items to be sorted
     let itemsArray = Array.from(items);
-
-    // Make an array from the content of the cells in the selected column
-    // (we add the initial index, as it will allow reordering the actual table rows or tbodies)
-    let colArray = itemsArray.map(function (item, index) {
-      // Get the content of the cell in the column being sorted
-      // (for tbodies with multiple lines, we concatenate the content of their cells in that column)
-      let val = '';
-      if (nbr_tbodies > 1) {
-        // Loop on all rows of the tbody
-        for (let trow of item.rows) {
-          // Concatenate content of each cell
-          if (val != '') { val += '\n' }
-          val += trow.cells[col] ? trow.cells[col].textContent : ''; // We use 'textContent' because 'innerText' returns an empty string for hidden rows (thus only partially sorting filtered columns)
+    // Sort items
+    if (dir === 'none') { // Fast return to initial order
+      itemsArray.sort((a, b) => a.dataset.initialOrder - b.dataset.initialOrder);
+    } else {
+      // For empty columns, return with no change in order (asc = desc)
+      if (colType === 'empty') { return col; }
+      // Make an array from the content of the cells in the selected column
+      // (we add the initial index, as it will allow reordering the actual table rows or tbodies)
+      let colArray = itemsArray.map(function (item, index) {
+        // Get the content of the cell in the column being sorted
+        // (for tbodies with multiple lines, we concatenate the content of their cells in that column)
+        let val = '';
+        if (nbr_tbodies > 1) {
+          // Loop on all rows of the tbody
+          for (let trow of item.rows) {
+            // Concatenate content of each cell
+            if (val != '') { val += '\n' }
+            val += trow.cells[col] ? trow.cells[col].textContent : ''; // We use 'textContent' because 'innerText' returns an empty string for hidden rows (thus only partially sorting filtered columns)
+          }
+        } else {
+          // Get content of the cell
+          val = item.cells[col] ? item.cells[col].textContent : '';
         }
-      } else {
-        // Get content of the cell
-        val = item.cells[col] ? item.cells[col].textContent : '';
-      }
-      // If column is numeric, remove commas and parse as number
-      if (colType === 'numeric') {
-        let clean = val.replace(/,/g, '').trim(); // Remove commas
-        let num = (clean === '') ? 0 : Number(clean); // Empty cell = 0
-        return [num, index];
-      }
-      // If column is text or hex, keep the clean string
-      return [val.trim(), index];
-    });
+        // If column is numeric, remove commas and parse as number
+        if (colType === 'numeric') {
+          let clean = val.replace(/,/g, '').trim(); // Remove commas
+          let num = (clean === '') ? 0 : Number(clean); // Empty cell = 0
+          return [num, index];
+        }
+        // If column is text or hex, keep the clean string
+        return [val.trim(), index];
+      });
 
-    // Sort the array in the requested direction (asc or desc)
-    if (colType === 'numeric') { // Super fast native number comparison
-      colArray.sort((a, b) => (dir === 'asc' ? a[0] - b[0] : b[0] - a[0]));
-    } else { // String sorting for text and hex
-      colArray.sort((a, b) => (dir === 'asc' ? g_collatorNatural.compare(a[0], b[0]) : g_collatorNatural.compare(b[0], a[0])));
+      // Sort the array in the requested direction (asc or desc)
+      if (colType === 'numeric') { // Super fast native number comparison
+        colArray.sort((a, b) => (dir === 'asc' ? a[0] - b[0] : b[0] - a[0]));
+      } else { // String sorting for text and hex
+        colArray.sort((a, b) => (dir === 'asc' ? g_collatorNatural.compare(a[0], b[0]) : g_collatorNatural.compare(b[0], a[0])));
+      }
+
+      // Reorder itemsArray according to the sorted indices
+      itemsArray = colArray.map(entry => itemsArray[entry[1]]);
     }
 
     // Get the 'parent' of the sorted items (i.e. the tbody in the case of rows, or the table in the case of tbodies)
@@ -5700,9 +5713,9 @@
     // Work in a DocumentFragment to update the actual DOM only once
     const fragment = document.createDocumentFragment();
     // Loop through the array of sorted cells to reorder the table rows or tbodies
-    for (let i = 0; i < colArray.length; i++) {
+    for (let i = 0; i < itemsArray.length; i++) {
       // Move each corresponding row or tbody to the end of the table.
-      fragment.appendChild(itemsArray[colArray[i][1]]);
+      fragment.appendChild(itemsArray[i]);
     }
     // Add the elements to DOM all at once
     parent.appendChild(fragment);
