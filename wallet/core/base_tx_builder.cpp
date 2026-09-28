@@ -530,6 +530,7 @@ namespace beam::wallet
             IPrivateKeyKeeper2::Method::CreateInputShielded m_Method;
             MyList m_Lst;
 
+            TxoID m_Epoch0;
             TxoID m_Wnd0;
             uint32_t m_Count;
 
@@ -674,6 +675,7 @@ namespace beam::wallet
 
         m_Method.m_pKernel->m_WindowEnd = sd.m_End;
         m_Method.m_iIdx = static_cast<uint32_t>(c.m_TxoID - sd.m_Begin);
+        m_Epoch0 = sd.m_OldEpoch ? 0 : shRange.first;
         m_Wnd0 = sd.m_Begin;
         m_Count = static_cast<uint32_t>(sd.m_End - sd.m_Begin);
 
@@ -707,13 +709,17 @@ namespace beam::wallet
     {
         // we can get fewer coins than requested, if during this period there was a reorg, and some recent coins from the shielded pool are gone
         // it's ok as long as our coin stays
-        if ((msg.m_Items.size() > m_Count) || (msg.m_Items.size() <= m_Method.m_iIdx))
+        uint32_t nItems = static_cast<uint32_t>(msg.m_Items.size());
+        bool bInvalid =
+            (nItems > m_Count) || // invalid response
+            (nItems <= m_Method.m_iIdx) || // our input reorged
+            ((nItems < m_Count) && (m_Wnd0 > m_Epoch0)); // reorg, some items gone, selected window needs to slide left, we didn't ask for the new start elements. Currently in this unlikely case - fail. Possible mitigations: either ask a little more elements than needed, or retry (but no more than N times).
+
+        if (bInvalid)
         {
-            BEAM_LOG_ERROR() << "ShieldedList got=" << msg.m_Items.size() << ", requested=" << m_Count << ", iIdx=" << m_Method.m_iIdx;
+            BEAM_LOG_ERROR() << "ShieldedList got=" << nItems << ", requested=" << m_Count << ", iIdx=" << m_Method.m_iIdx << ", Wnd0=" << m_Wnd0;
             return false;
         }
-
-        uint32_t nItems = static_cast<uint32_t>(msg.m_Items.size());
 
         m_Lst.m_p0 = &msg.m_Items.front();
         m_Lst.m_Skip = 0;
@@ -726,15 +732,7 @@ namespace beam::wallet
         m_Method.m_pKernel->m_WindowEnd = m_Wnd0 + nItems;
 
         auto N = m_Method.m_pKernel->m_SpendProof.m_Cfg.get_N();
-
-        if (nItems > N)
-        {
-            uint32_t nDelta = nItems - N;
-            m_Lst.m_p0 += nDelta;
-
-            assert(m_Method.m_iIdx >= nDelta);
-            m_Method.m_iIdx -= nDelta;
-        }
+        assert(nItems <= N);
 
         if (nItems < N)
         {
