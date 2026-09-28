@@ -5611,10 +5611,10 @@
     }
   }
 
-  // We initialise two reusable collators for sorting:
+  // We initialise reusable collators for sorting:
   // One for 'alphabetical sorting' (character by character, insensitive to case and accents).
+  //const g_collatorAlphabetical = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
   // One for 'natural sorting' (same, except numbers are treated numerically: 'Asset-1' < 'Asset-2' < 'Asset-10').
-  const g_collatorAlphabetical = Intl.Collator('en-US', { numeric: false, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
   const g_collatorNatural = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
 
   // SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
@@ -5626,8 +5626,11 @@
     const headRow = input.closest('tr');
     const table = input.closest('table');
     const nbr_tbodies = table.tBodies.length;
-    // Check if this column was already tagged as numeric
-    const isColumnNumeric = (th.dataset.type === 'numeric');
+
+    // Check column type ('numeric', 'empty', or 'text')
+    const colType = th.dataset.type || 'text';
+    // For empty columns, return with no change in order
+    if (colType === 'empty') { return col; }
 
     // Set the default sorting direction as descending
     // (or switch to ascending if already sorted descending)
@@ -5657,14 +5660,14 @@
         for (let trow of item.rows) {
           // Concatenate content of each cell
           if (val != '') { val += '\n' }
-          val += trow.cells[col] ? trow.cells[col].textContent : ''; // We use 'textContent' because 'innerText' returns and empty string for hidden rows (thus only partially sorting filtered columns)
+          val += trow.cells[col] ? trow.cells[col].textContent : ''; // We use 'textContent' because 'innerText' returns an empty string for hidden rows (thus only partially sorting filtered columns)
         }
       } else {
         // Get content of the cell
         val = item.cells[col] ? item.cells[col].textContent : '';
       }
       // If column is numeric, remove commas and parse as number
-      if (isColumnNumeric) {
+      if (colType === 'numeric') {
         let clean = val.replace(/,/g, '').trim(); // Remove commas
         let num = (clean === '') ? 0 : Number(clean); // Empty cell = 0
         return [num, index];
@@ -5673,20 +5676,12 @@
       return [val.trim(), index];
     });
 
-    // Sort the array (in ascending order by default)
-    if (isColumnNumeric) { // Super fast native number subtraction
-      colArray.sort((a, b) => a[0] - b[0]);
-    } else { // Slower string sorting for text or hex
-      colArray.sort(function ([a, b], [c, d]) {
-        // Compare as hex addresses (with at least 16 characters, to differenciate from common words)
-        if (/^[a-fA-F0-9]{16,}$/.test(a) && /^[a-fA-F0-9]{16,}$/.test(c)) { return g_collatorAlphabetical.compare(a, c) }
-        // Compare as other strings
-        else { return g_collatorNatural.compare(a, c) }
-      });
+    // Sort the array in the requested direction (asc or desc)
+    if (colType === 'numeric') { // Super fast native number comparison
+      colArray.sort((a, b) => (dir === 'asc' ? a[0] - b[0] : b[0] - a[0]));
+    } else { // String sorting for text and hex
+      colArray.sort((a, b) => (dir === 'asc' ? g_collatorNatural.compare(a[0], b[0]) : g_collatorNatural.compare(b[0], a[0])));
     }
-
-    // Reverse the array for descending order
-    if (dir == 'desc') { colArray.reverse() }
 
     // Get the 'parent' of the sorted items (i.e. the tbody in the case of rows, or the table in the case of tbodies)
     // Remark: The parent of a row is always a tbody, even if not explictely defined.
