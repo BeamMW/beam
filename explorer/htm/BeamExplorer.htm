@@ -6066,11 +6066,14 @@
 
   // Format the calculated statistics into a compact multi-line text (for the tooltip)
   function formatStatsText(stats) {
+    // If no valid numbers are present (e.g. empty column), display only row count metrics
+    if (stats.validCount === 0) {
+      return `Rows: ${formatNumber(stats.totalCount)}  |  Valid: 0  |  Empty: ${formatNumber(stats.emptyCount)}`;
+    }
     const zerosText = formatNumber(stats.zeroCount) + (stats.validCount > 0 ? ' (' + stats.zeroPercent.toFixed(1) + '%)' : '');
     const cvText = (stats.cv !== null) ? stats.cv.toFixed(2) + '%' : 'N/A';
     let modeText = '';
-    if (stats.validCount === 0) { modeText = 'N/A' }
-    else if (stats.mode === null) { modeText = 'All unique' }
+    if (stats.mode === null) { modeText = 'All unique' }
     else { modeText = `${formatNumber(stats.mode)}  |  Count: ${formatNumber(stats.modeCount)} (${stats.modePercent.toFixed(2)}%)` }
     const lines = [
       `Rows: ${formatNumber(stats.totalCount)}  |  Valid: ${formatNumber(stats.validCount)}  |  Empty: ${formatNumber(stats.emptyCount)}`,
@@ -6166,10 +6169,11 @@
       // If all rows are hidden, tooltips are already reset to default in Step 1
       if (totalRows === 0) { return; }
 
-      // Identify numeric columns to analyze
+      // Identify numeric (or empty) columns to analyze
       const numericColumnsIndices = [];
       for (let c = 0; c < headerCells.length; c++) {
-        if (headerCells[c].dataset.type === 'numeric') { numericColumnsIndices.push(c); }
+        const type = headerCells[c].dataset.type;
+        if (type === 'numeric' || type === 'empty') { numericColumnsIndices.push(c); }
       }
       if (numericColumnsIndices.length === 0) { return; }
 
