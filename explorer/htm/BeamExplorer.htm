@@ -5629,8 +5629,6 @@
 
     // Check column type ('numeric', 'empty', or 'text')
     const colType = th.dataset.type || 'text';
-    // For empty columns, return with no change in order
-    if (colType === 'empty') { return col; }
 
     // Set the default sorting direction as descending
     // (or switch to ascending if already sorted descending)
@@ -5642,6 +5640,13 @@
       myHeader.classList.remove('desc');
       myHeader.title = 'Sort column';
     }
+
+    // Update class and title in header by adding the sorting direction
+    input.classList.add(dir);
+    input.title = (dir == 'desc') ? 'Sort ascending' : 'Sort descending';
+
+    // For empty columns, return with no change in order
+    if (colType === 'empty') { return col; }
 
     // Get the list of rows or tbodies to be sorted
     // (Remark: There is always at least one tbody, even if not explicitly defined)
@@ -5695,10 +5700,6 @@
     }
     // Add the elements to DOM all at once
     parent.appendChild(fragment);
-
-    // Update class and title in header by adding the sorting direction
-    input.classList.add(dir);
-    input.title = (dir == 'desc') ? 'Sort ascending' : 'Sort descending';
 
     // Return the column number (just in case it might be useful)
     return col;
