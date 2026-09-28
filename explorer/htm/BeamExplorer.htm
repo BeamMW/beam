@@ -5713,7 +5713,8 @@
 
   // CREATE A CELL FILTER FUNCTION FOR A GIVEN FILTER QUERY
   // Supports: Case-insensitive match, Wildcards (* or ?), Negation (!), Numeric comparison (< > <= >= =) and Regular Expressions (/pattern/)
-  function createCellFilter(query) {
+  // Takes optional column type (colType: 'numeric', 'empty', or 'text') for performance optimizations.
+  function createCellFilter(query, colType = 'text') {
     // Clean query string
     let cleanQuery = query.trim();
 
@@ -5735,16 +5736,18 @@
     if (opMatch) {
       let op = opMatch[1]; // Retrieve comparison operator
       let target = Number(opMatch[2].replace(/,/g, '')); // Remove commas and convert to number
-      matcher = function(cellText, cell) {
-         // Check if cell has a pure numeric value
-        let cellVal = parseCellNumericValue(cell);
-        // If not, try extracting a leading numeric value (in cells like "1,200.5 BEAM")
-        if (cellVal === null || isNaN(cellVal)) {
-          let numMatch = cellText.match(/^[+-]?[0-9,]+(\.[0-9]+)?/); // Try extracting leading number
-          if (numMatch) { cellVal = Number(numMatch[0].replace(/,/g, '')); } // Convert to actual number
-        }
+      // Optimize parsing strategy for a numeric column, or fallback for text column
+      const parseVal = (colType === 'numeric')
+        ? (str) => (str === '' ? NaN : Number(str.replace(/,/g, ''))) // Numeric: Remove commas and convert to number
+        : (str) => { // Other: Try extracting leading number, and convert it to Number (NaN otherwise)
+            let numMatch = str.match(/^[+-]?[0-9,]+(\.[0-9]+)?/);
+            return numMatch ? Number(numMatch[0].replace(/,/g, '')) : NaN;
+          };
+      // Create matcher function
+      matcher = function(cellText) {
+        let cellVal = parseVal(cellText); // Optimized for this specific column
         // Perform comparison if numeric values are available
-        if (cellVal !== null && !isNaN(cellVal) && !isNaN(target)) {
+        if (!isNaN(cellVal) && !isNaN(target)) {
           switch (op) { // Apply comparison operator
             case '>':  return cellVal > target;
             case '>=': return cellVal >= target;
@@ -5775,17 +5778,21 @@
       // Remark: The 's' flag makes '.' match newlines also (since cell text can have multiple lines)
       matcher = function(cellText) { return rx.test(cellText); };
     }
-    // Default: Case-insensitive substring match
+    // Default: Substring match
     else {
-      let queryUpper = cleanQuery.toUpperCase(); // We convert everything to uppercase
-      matcher = function(cellText) { return cellText.toUpperCase().includes(queryUpper); };
+      if (colType === 'numeric') { // Optimized version for columns with numeric values (no upper/lower cases)
+        matcher = function(cellText) { return cellText.includes(cleanQuery); };
+      } else { // Case-insensitive string match for text columns
+        let queryUpper = cleanQuery.toUpperCase(); // Convert everything to uppercase
+        matcher = function(cellText) { return cellText.toUpperCase().includes(queryUpper); };
+      }
     }
 
     // Return the reusable cell filter function
     return function(cell) {
       if (!cell) { return false; }
       let cellText = cell.textContent.replace(/\u00A0/g, ' ').trim(); // Get text content and remove leading/trailing/non-breaking spaces
-      let matched = matcher(cellText, cell); // Apply filter function
+      let matched = matcher(cellText); // Apply filter function
       return isNegation ? !matched : matched; // Invert match if negation was specified
     };
   }
@@ -5812,8 +5819,10 @@
       if (!input) { continue; }
       // Get search query
       let filter = input.value;
+      // Get column data-type ('numeric', 'empty', or 'text')
+      const colType = headers[j].dataset.type || 'text';
       // For performance, create a cell filter function once, and only then apply it to each row in the column
-      let cellFilter = createCellFilter(filter);
+      let cellFilter = createCellFilter(filter, colType);
       if (cellFilter) {
         // Performance: Use a general row index counter (independent of tbodies)
         // to avoid expensive .rowIndex calls (which trigger layout reflows)
@@ -5852,6 +5861,8 @@
           }
           overallRowIndex += trows.length; // Increase counter
         }
+        // Early exit: If all rows (or tbodies) are already hidden, subsequent filters have no effect
+        if (tbodies.length > 1 ? !results_tbodies.includes(1) : !results_rows.includes(1)) { break; }
       }
     }
     // Special hack to avoid a display bug on Chrome 83 (when used as Beam Wallet DApp):
