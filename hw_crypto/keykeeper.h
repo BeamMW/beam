@@ -233,7 +233,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 //////////////////
 // Protocol
 #define BeamCrypto_Signature "BeamHW"
-#define BeamCrypto_CurrentVersion 6
+#define BeamCrypto_CurrentVersion 7
 
 #define BeamCrypto_ProtoRequest_Version(macro)
 #define BeamCrypto_ProtoResponse_Version(macro) \
@@ -292,8 +292,10 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(ShieldedInput_SpendParams, SpendParams) /* 32 bytes */ \
 	macro(UintBig, ShieldedState) \
 	macro(CompactPoint, ptAssetGen) \
+	macro(uint8_t, bDisclose) \
 
-#define BeamCrypto_ProtoResponse_CreateShieldedInput_1(macro)
+#define BeamCrypto_ProtoResponse_CreateShieldedInput_1(macro) \
+	macro(Signature, Signature)
 
 #define BeamCrypto_ProtoRequest_CreateShieldedInput_2(macro) \
 	macro(CompactPoint, pABCD[4]) \

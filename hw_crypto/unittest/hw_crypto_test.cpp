@@ -1467,6 +1467,8 @@ void TestShielded()
 		krn.m_WindowEnd = 423125;
 		krn.m_NotSerialized.m_hvShieldedState = 145U;
 
+		m.m_Disclose = (3 == i) || !i;
+
 		{
 			// get the input commitment (normally this is not necessary, but this is a test, we'll substitute the correct to-be-withdrawn commitment)
 			ShieldedTxo::Data::Params pars;
@@ -1509,6 +1511,16 @@ void TestShielded()
 			verify_test(hGen.ImportNnz(krn.m_pAsset->m_hGen));
 
 		verify_test(krn.m_SpendProof.IsValid(bc, oracle, &vKs.front(), &hGen));
+
+		verify_test(m.m_Disclose == !!krn.m_pDisclosure);
+		if (krn.m_pDisclosure)
+		{
+			ECC::Point::Native comm;
+			verify_test(comm.ImportNnz(krn.m_SpendProof.m_Commitment));
+			verify_test(krn.m_pDisclosure->IsValid(comm));
+
+		}
+
 
 		lst.Calculate(bc.m_Sum, 0, N, &vKs.front());
 

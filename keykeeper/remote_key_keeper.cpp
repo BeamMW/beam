@@ -806,7 +806,6 @@ namespace beam::wallet
     {
         Method::CreateInputShielded& m_M;
 
-
         Lelantus::Prover m_Prover;
         ECC::Hash::Value m_hvSigmaSeed;
         ECC::Oracle m_Oracle;
@@ -912,6 +911,17 @@ namespace beam::wallet
                 auto pMsg = ReadReq_T<hw::Proto::CreateShieldedInput_1>();
                 if (!pMsg)
                     return;
+
+                if (m_M.m_Disclose)
+                {
+                    m_M.m_pKernel->m_pDisclosure = std::make_unique<Disclosure>();
+                    auto& d = *m_M.m_pKernel->m_pDisclosure;
+                    d.m_Amount = m_M.m_Value;
+                    d.m_Aid = m_M.m_AssetID;
+
+                    Ecc2BC(d.m_Signature.m_NoncePub) = pMsg->m_Signature.m_NoncePub;
+                    Ecc2BC(d.m_Signature.m_k.m_Value) = pMsg->m_Signature.m_k;
+                }
             }
 
             if (7 == m_Phase)
@@ -975,10 +985,6 @@ namespace beam::wallet
                     m_Prover.Generate(m_hvSigmaSeed, m_Oracle, nullptr, Lelantus::Prover::Phase::Step2);
 
                     // finished
-
-                    if (m_M.m_Disclose)
-                        m_M.m_pKernel->AddDisclosure(m_Prover, m_M.m_AssetID);
-
                     Fin();
                     return;
                 }
@@ -995,6 +1001,8 @@ namespace beam::wallet
             ShieldedTxo::Data::Params pars;
             pars.Set(*m_GetKey.m_pPKdf, m);
             ShieldedTxo::Data::Params::Plus plus(pars);
+
+            msgOut1.m_bDisclose = !!m_M.m_Disclose;
 
             Import(msgOut1.m_InpBlob, msgOut1.m_InpFmt, m, krn.m_Fee);
 

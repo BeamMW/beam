@@ -3878,6 +3878,14 @@ PROTO_METHOD(SignOfflineAddr)
 	return c_KeyKeeper_Status_Ok;
 }
 
+__stack_hungry__
+void SignDisclosure(Signature* p, const secp256k1_scalar* pK)
+{
+	UintBig msg;
+	ZERO_OBJ(msg);
+	Signature_Sign(p, &msg, pK);
+}
+
 //////////////////////////////
 // KeyKeeper - CreateShieldedInput
 PROTO_METHOD(CreateShieldedInput_1)
@@ -3966,6 +3974,10 @@ PROTO_METHOD(CreateShieldedInput_1)
 	p->u.m_Ins.m_Remaining = sip.m_Sigma_M;
 
 	p->m_State = c_KeyKeeper_State_CreateShielded_1;
+
+	if (pIn->m_bDisclose)
+		SignDisclosure(&pOut->m_Signature, &p->u.m_Ins.m_skOutp);
+
 	return c_KeyKeeper_Status_Ok;
 }
 
