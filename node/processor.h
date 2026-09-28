@@ -372,6 +372,9 @@ public:
 
 	} m_Extra;
 
+	TxoID get_ShieldedOutputs0For(Height);
+	TxoID get_ShieldedOutputs0(const Rules&);
+
 	struct SyncData
 	{
 		NodeDB::StateID m_Target; // can move fwd during sync

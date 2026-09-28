@@ -538,10 +538,28 @@ void NodeProcessor::InitCursor(bool bMovingUp, const NodeDB::StateID& sid)
 	if (r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
 	{
 		if (std::numeric_limits<TxoID>::max() == m_Extra.m_ShieldedOutputs0)
-			m_Extra.m_ShieldedOutputs0 = m_DB.ShieldedOutpGet(r.pForks[7].m_Height);
+			m_Extra.m_ShieldedOutputs0 = get_ShieldedOutputs0(r);
 	}
 	else
 		m_Extra.m_ShieldedOutputs0 = std::numeric_limits<TxoID>::max();
+}
+
+TxoID NodeProcessor::get_ShieldedOutputs0(const Rules& r)
+{
+	auto h7 = r.pForks[7].m_Height;
+	return h7 ? m_DB.ShieldedOutpGet(h7 - 1) : 0; // number of shielded outputs BEFORE hf7
+}
+
+TxoID NodeProcessor::get_ShieldedOutputs0For(Height h)
+{
+	const Rules& r = Rules::get();
+	if (!r.IsPastFork_<7>(h))
+		return 0;
+
+	if (std::numeric_limits<TxoID>::max() != m_Extra.m_ShieldedOutputs0)
+		return m_Extra.m_ShieldedOutputs0;
+
+	return get_ShieldedOutputs0(r);
 }
 
 Block::SystemState::ID NodeProcessor::Cursor::get_ID() const
@@ -3123,7 +3141,9 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (bFirstTime)
 		mbc.OnNextBlockPid(pid);
 
-	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number, m_Extra.m_ShieldedOutputs0);
+	auto nShieldedOutputs0 = get_ShieldedOutputs0For(id.m_Height);
+
+	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number, nShieldedOutputs0);
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
@@ -7286,7 +7306,8 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.Prepare(tx, *this, h);
 
-		bool bValid = msc.IsValid(tx, m_Extra.m_ShieldedOutputs0, h, bc, 0, 1, m_ValCache);
+		auto nShieldedOutputs0 = get_ShieldedOutputs0For(h);
+		bool bValid = msc.IsValid(tx, nShieldedOutputs0, h, bc, 0, 1, m_ValCache);
 		if (bValid)
 		{
 			msc.Calculate(bc.m_Sum, *this);
