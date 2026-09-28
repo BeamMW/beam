@@ -5617,7 +5617,7 @@
   // One for 'natural sorting' (same, except numbers are treated numerically: 'Asset-1' < 'Asset-2' < 'Asset-10').
   const g_collatorNatural = Intl.Collator('en-US', { numeric: true, sensitivity: 'base', usage: 'sort', ignorePunctuation: false });
 
-  // SORT ROWS BY CLICKING ON HEADERS (first ascending, then descending)
+  // SORT ROWS BY CLICKING ON HEADERS
   function sortTable(e) {
     // Get element, table and column number of the event
     const input = e.currentTarget;
@@ -5630,9 +5630,15 @@
     // Check column type ('numeric', 'empty', or 'text')
     const colType = th.dataset.type || 'text';
 
-    // Set the default sorting direction as descending
-    // (or switch to ascending if already sorted descending)
-    const dir = input.classList.contains('desc') ? 'asc' : 'desc';
+    // Determine the sorting direction:
+    // If the column is already sorted, toggle its direction (desc <-> asc).
+    // If the column is not sorted yet (first click on it), pick contextual default:
+    // - 'text' columns first sort ascending (asc = A-Z)
+    // - 'numeric' and 'empty' columns first sort descending (desc = largest/newest first)
+    let dir;
+    if (input.classList.contains('desc')) { dir = 'asc'; }
+    else if (input.classList.contains('asc')) { dir = 'desc'; }
+    else { dir = (colType === 'text') ? 'asc' : 'desc'; }
 
     // Reset sorting classes and titles in all headers of this table
     for (let myHeader of headRow.getElementsByClassName('sortable')) {
