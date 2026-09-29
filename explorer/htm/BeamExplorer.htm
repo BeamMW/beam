@@ -3561,9 +3561,9 @@
 
   // Helper function to load and synchronize graph colors for the current network from defaults or localStorage
   function loadGraphColors() {
-    g_graph.color = {}; // Reset the global color object
-    for (let code of Object.keys(columnHeaders)) { // Fill it with default colors (when defined)
-      if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; }
+    g_graph.color = g_graph.color || {}; // Preserve existing colors (or reset)
+    for (let code of Object.keys(columnHeaders)) { // Fill with default colors (when defined and not already set)
+      if (columnHeaders[code].color && !g_graph.color[code]) { g_graph.color[code] = columnHeaders[code].color; }
     }
     try { // Try to retrieve user-saved colors from localStorage (per network)
       const storedColors = JSON.parse(localStorage.getItem('g_' + g_network + '_graph_colors'));
@@ -4619,7 +4619,8 @@
   // Reset all graph colors to the default ones (or generate new ones when omitted)
   function resetGraphColors() {
     localStorage.removeItem('g_' + g_network + '_graph_colors'); // Remove locally saved colors for the current network
-    loadGraphColors(); // Reset and reload default colors into the global variable
+    g_graph.color = {}; // Reset in-memory colors so new defaults or random colors are generated
+    loadGraphColors(); // Reload default colors into the global variable
     for (let code in g_graph.y) {
       if (!g_graph.color[code]) { g_graph.color[code] = getRandomGraphColor(); }
       applyGraphColor(code, g_graph.color[code]); // Apply updated colors to graphs, legends and axis
