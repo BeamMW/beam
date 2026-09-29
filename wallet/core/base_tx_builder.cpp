@@ -633,6 +633,18 @@ namespace beam::wallet
             auto pHandler = std::make_shared<HandlerInOuts::HandlerInput>(*this, m_GeneratingInOuts, pShared);
             auto& h = *pHandler;
 
+            // do we need disclosure?
+            // disclosure isn't required for coinbase TXOs. We don't have explicit flag for this, instead we'll use the coin key type
+            const Rules& r = Rules::get();
+            if (r.IsPastFork_<7>(m_Height.m_Min) && (cid.m_Type.V != Key::Type::Coinbase))
+            {
+                Coin coin;
+                coin.m_ID = cid;
+                if (m_Tx.GetWalletDB()->findCoin(coin) && !r.IsPastFork_<7>(coin.m_confirmHeight))
+                    h.m_Method.m_Disclose = true;
+
+            }
+
             h.m_Method.m_Cid = cid;
             m_Tx.get_KeyKeeperStrict()->InvokeAsync(h.m_Method, pHandler);
         }
