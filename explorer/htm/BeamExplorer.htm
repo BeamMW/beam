@@ -4302,41 +4302,47 @@
     loadGraphColors();
 
     // A neat trick to systematically update the graphs every time the table is filtered or sorted:
-    // Wrap the original filterTable() and sortTable() functions into new versions... with added function calls!
-    const originalFilterTable = filterTable; // Save the orignal function
-    filterTable = function(...args) { // Wrap the function into a new one, with the same name
-      originalFilterTable.apply(this, args); // Call the original function first
-      const graphCollapsible = document.getElementById('graphCollapsible');
-      if (!graphCollapsible || !graphCollapsible.open) { return; } // Skip graph updates when collapsible is absent or closed
-      updateGraphDataX(); // Then, update X graph data
-      updateGraphDataY(); // Update Y graph data
-      drawXAxis(); // Redraw X axis
-      drawGraph(); // Redraw all graphs
-      graphUpdateCursor(); // Update or reset cursor
-    };
-    const originalSortTable = sortTable; // Save the orignal function
-    sortTable = function(...args) { // Wrap the function into a new one, with the same name
-      const col = originalSortTable.apply(this, args); // Call the original function first
-      const graphCollapsible = document.getElementById('graphCollapsible');
-      if (!graphCollapsible || !graphCollapsible.open) { return col; } // Skip graph updates when collapsible is absent or closed
-      // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
-      g_graph.xcode = 'row';
-      const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
-      const headerCode = headers[col]?.firstElementChild?.dataset?.code; // Get the code of the sorted column from the <span> in its header (or 'null' if non-existent)
-      const isValid = headerCode && (headerCode in g_graph.xcodes); // Check if the sorted column is an X axis option
-
-      // Disable all alternative X axis options if the sorted column is NOT one of them
-      for (let code of Object.keys(g_graph.xcodes)) {
-        const properties = { selected: (code == 'row'), disabled: (code == 'row') ? false : !isValid };
-        Object.assign(document.getElementById('xAxisOption_' + code), properties); // Apply properties to the '<option>' element
-      }
-      updateGraphDataX(); // Then, update X graph data
-      updateGraphDataY(); // Update Y graph data
-      drawXAxis(); // Redraw X axis
-      drawGraph(); // Redraw all graphs
-      graphUpdateCursor(); // Update or reset cursor
-      return col; // To remain consistent with the original sortTable()
-    };
+    // Wrap the original filterTable() and sortTable() functions (but only once)
+    // Remark: Functions are objects and we can attach properties to them (like a 'isWrapped' flag)
+    if (!filterTable.isWrapped) {
+      const originalFilterTable = filterTable; // Save the original function
+      filterTable = function(...args) { // Wrap the function into a new one, with the same name
+        originalFilterTable.apply(this, args); // Call the original function first
+        const graphCollapsible = document.getElementById('graphCollapsible');
+        if (!graphCollapsible || !graphCollapsible.open) { return; } // Skip graph updates when collapsible is absent or closed
+        updateGraphDataX(); // Then, update X graph data
+        updateGraphDataY(); // Update Y graph data
+        drawXAxis(); // Redraw X axis
+        drawGraph(); // Redraw all graphs
+        graphUpdateCursor(); // Update or reset cursor
+      };
+      filterTable.isWrapped = true; // Add a flag to avoid wrapping again on new visit
+    }
+    if (!sortTable.isWrapped) {
+      const originalSortTable = sortTable; // Save the original function
+      sortTable = function(...args) { // Wrap the function into a new one, with the same name
+        const col = originalSortTable.apply(this, args); // Call the original function first
+        const graphCollapsible = document.getElementById('graphCollapsible');
+        if (!graphCollapsible || !graphCollapsible.open) { return col; } // Skip graph updates when collapsible is absent or closed
+        // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
+        g_graph.xcode = 'row';
+        const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
+        const headerCode = headers[col]?.firstElementChild?.dataset?.code; // Get the code of the sorted column from the <span> in its header (or 'null' if non-existent)
+        const isValid = headerCode && (headerCode in g_graph.xcodes); // Check if the sorted column is an X axis option
+        // Disable all alternative X axis options if the sorted column is NOT one of them
+        for (let code of Object.keys(g_graph.xcodes)) {
+          const properties = { selected: (code == 'row'), disabled: (code == 'row') ? false : !isValid };
+          Object.assign(document.getElementById('xAxisOption_' + code), properties); // Apply properties to the '<option>' element
+        }
+        updateGraphDataX(); // Then, update X graph data
+        updateGraphDataY(); // Update Y graph data
+        drawXAxis(); // Redraw X axis
+        drawGraph(); // Redraw all graphs
+        graphUpdateCursor(); // Update or reset cursor
+        return col; // To remain consistent with the original sortTable()
+      };
+      sortTable.isWrapped = true; // Add a flag to avoid wrapping again on new visit
+    }
 
     // Add checkboxes for selecting columns to display as graphs (and identify data usable as X coordinates)
     const headers = document.querySelectorAll('#divTableBlocks .th');
