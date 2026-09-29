@@ -2121,9 +2121,12 @@
   }
 
   function UrlSelf(type, params = {}) { // Params is made of pairs { key: value, ... }
-    // We HTML-encode stringfy's special characters to avoid breaking the link
-    const text = JSON.stringify(params).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); // First '&', then double-quotes    
-    return `javascript:showPage('${type}', ${text});`;
+    // Stringify and URI-encode params protect against code injections in 'javascript:' links
+    // because encodeURIComponent outputs only alphanumeric characters plus ~, !, *, (, ), '.
+    // We then also encode single quotes (%27) to avoid breaking out of the string delimiters in the link.
+    const encoded = encodeURIComponent(JSON.stringify(params)).replace(/'/g, '%27');
+    const safeType = encodeURIComponent(type).replace(/'/g, '%27');
+    return `javascript:showPage(decodeURIComponent('${safeType}'), JSON.parse(decodeURIComponent('${encoded}')));`;
   }
 
   function MakeCell(text, extra = '') {
