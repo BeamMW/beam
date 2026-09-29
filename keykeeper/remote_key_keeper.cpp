@@ -704,10 +704,10 @@ namespace beam::wallet
                 CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
 
                 ptG.Export(m_M.m_Result.m_Commitment);
-                m_Phase += 10;
+                m_Phase = 20;
             }
 
-            if (2 == m_Phase)
+            if (12 == m_Phase)
             {
                 assert(m_GetKey.m_pPKdf);
 
@@ -715,10 +715,10 @@ namespace beam::wallet
                 CoinID::Worker(m_M.m_Cid).Recover(comm, *m_GetKey.m_pPKdf);
 
                 comm.Export(m_M.m_Result.m_Commitment);
-                m_Phase += 10;
+                m_Phase = 20;
             }
 
-            if (12 == m_Phase)
+            if (20 == m_Phase)
             {
                 if (m_M.m_Disclose)
                 {
@@ -730,7 +730,7 @@ namespace beam::wallet
                     m_Phase += 2;
             }
 
-            if (13 == m_Phase)
+            if (21 == m_Phase)
             {
                 auto pMsg = ReadReq_T<hw::Proto::CreateDisclosure>();
                 if (!pMsg)
@@ -739,7 +739,7 @@ namespace beam::wallet
                 MakeDisclosure(m_M.m_Result.m_pDisclosure, pMsg->m_Signature, m_M.m_Cid.m_Value, m_M.m_Cid.m_AssetID);
             }
 
-            if (14 == m_Phase)
+            if (22 == m_Phase)
                 Fin();
         }
     };

@@ -270,6 +270,8 @@ namespace beam::wallet
         if (x.m_Disclose)
         {
             x.m_Result.m_pDisclosure = std::make_unique<Disclosure>();
+            x.m_Result.m_pDisclosure->m_Amount = x.m_Cid.m_Value;
+            x.m_Result.m_pDisclosure->m_Aid = x.m_Cid.m_AssetID;
             x.m_Result.m_pDisclosure->Create(sk);
         }
 

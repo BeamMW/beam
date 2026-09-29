@@ -230,7 +230,7 @@ namespace beam
 
 	Input& Input::operator = (Input&& v) noexcept
 	{
-		if (*this != v)
+		if (this != &v)
 		{
 			Cast::Down<TxElement>(*this) = std::move(v);
 			m_pDisclosure = std::move(v.m_pDisclosure);
