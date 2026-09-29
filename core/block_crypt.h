@@ -849,8 +849,8 @@ namespace beam
 
 		Input() = default;
 		Input(const Input& v)
-			:TxElement(v)
 		{
+			operator = (v);
 		}
 		Input(Input&& v) noexcept
 			:TxElement(std::move(v))
