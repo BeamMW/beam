@@ -241,7 +241,9 @@ namespace beam::wallet
                 m_Builder.m_Tx.GetWalletDB()->selectCoins2(m_Builder.m_Height.m_Min, -val, aid, vSelStd, vSelShielded, nShieldedMax, true);
 
                 for (const auto& c : vSelStd)
+                {
                     Add(c.m_ID, false);
+                }
 
                 for (const auto& c : vSelShielded)
                     Add(c.m_CoinID);
@@ -484,14 +486,11 @@ namespace beam::wallet
 
             virtual ~HandlerInput() {} // auto
 
-            IPrivateKeyKeeper2::Method::get_Commitment m_Method;
+            IPrivateKeyKeeper2::Method::get_Input m_Method;
 
             bool OnDoneItem(BaseTxBuilder& b) override
             {
-                auto& s = *m_pShared;
-                s.m_InOuts.m_vInputs.emplace_back();
-                s.m_InOuts.m_vInputs.back().reset(new Input);
-                s.m_InOuts.m_vInputs.back()->m_Commitment = m_Method.m_Result;
+                m_pShared->m_InOuts.m_vInputs.push_back(std::make_unique<Input>(std::move(m_Method.m_Result)));
                 return true;
             }
         };

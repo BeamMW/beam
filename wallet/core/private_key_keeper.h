@@ -86,9 +86,10 @@ namespace beam::wallet
                 Slot::Type m_Count;
             };
 
-            struct get_Commitment {
+            struct get_Input {
                 CoinID m_Cid;
-                ECC::Point m_Result;
+                bool m_Disclose = false;
+                Input m_Result;
             };
 
             struct CreateOutput {
@@ -206,7 +207,7 @@ namespace beam::wallet
 #define KEY_KEEPER_METHODS(macro) \
 		macro(get_Kdf) \
 		macro(get_NumSlots) \
-		macro(get_Commitment) \
+		macro(get_Input) \
 		macro(CreateOutput) \
 		macro(CreateInputShielded) \
 		macro(CreateVoucherShielded) \

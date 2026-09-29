@@ -160,7 +160,7 @@ using namespace beam;
 int g_TestsFailed = 0;
 
 const Height g_hFork = 3; // whatever
-const Height g_hFork6 = 1000;
+const Height g_hFork7 = 1000;
 
 void TestFailed(const char* szExpr, uint32_t nLine)
 {
@@ -1158,24 +1158,29 @@ wallet::IPrivateKeyKeeper2::ShieldedInput& KeyKeeperWrap::AddSh(std::vector<wall
 
 Height KeyKeeperWrap::ExportTx(Transaction& tx, const wallet::IPrivateKeyKeeper2::Method::TxCommon& tx2)
 {
+	Height hScheme = tx2.m_pKernel ? tx2.m_pKernel->m_Height.m_Min : g_hFork;
+
 	tx.m_vInputs.reserve(tx.m_vInputs.size() + tx2.m_vInputs.size());
-
-	ECC::Point::Native pt;
-
 	for (unsigned int i = 0; i < tx2.m_vInputs.size(); i++)
 	{
-		wallet::IPrivateKeyKeeper2::Method::get_Commitment m;
+		wallet::IPrivateKeyKeeper2::Method::get_Input m;
 		m.m_Cid = tx2.m_vInputs[i];
+		m.m_Disclose = !!(i & 1u) && (hScheme >= g_hFork7);
 		Cast::Down<wallet::IPrivateKeyKeeper2>(m_kkEmu).InvokeSync(m);
 
 		Input::Ptr& pInp = tx.m_vInputs.emplace_back();
-		pInp = std::make_unique<Input>();
-		pInp->m_Commitment = m.m_Result;
+		pInp = std::make_unique<Input>(std::move(m.m_Result));
+
+		if (m.m_Disclose)
+		{
+			verify_test(pInp->m_pDisclosure);
+			ECC::Point::Native pt;
+			verify_test(pt.ImportNnz(pInp->m_Commitment));
+			verify_test(pInp->m_pDisclosure->IsValid(pt));
+		}
 	}
 
 	tx.m_vOutputs.reserve(tx.m_vOutputs.size() + tx2.m_vOutputs.size());
-
-	Height hScheme = tx2.m_pKernel ? tx2.m_pKernel->m_Height.m_Min : g_hFork;
 
 	for (unsigned int i = 0; i < tx2.m_vOutputs.size(); i++)
 	{
@@ -1563,7 +1568,7 @@ void TestShielded()
 		else
 			m.m_pVoucher = std::make_unique<ShieldedTxo::Voucher>(vVouchers.front());
 
-		Height hScheme = (4 & i) ? g_hFork6 : g_hFork;
+		Height hScheme = (4 & i) ? g_hFork7 : g_hFork;
 
 		m.m_pKernel = std::make_unique<TxKernelStd>();
 		m.m_pKernel->m_Height.m_Min = hScheme;
@@ -1685,8 +1690,8 @@ int main()
 
 	r.CA.Enabled = true;
 	r.SetForks_<1, 6>(g_hFork);
-	r.SetForks_<6, 7>(g_hFork6);
-	r.DisableForksFrom_<7>();
+	r.SetForks_<6, 8>(g_hFork7);
+	r.DisableForksFrom_<8>();
 
 	io::Reactor::Ptr pReactor(io::Reactor::create());
 	io::Reactor::Scope scope(*pReactor);

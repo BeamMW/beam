@@ -262,12 +262,17 @@ namespace beam::wallet
         return Status::Success;
     }
 
-    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_Commitment& x)
+    IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::get_Input& x)
     {
-        ECC::Point::Native pt;
-        CoinID::Worker(x.m_Cid).Recover(pt, *x.m_Cid.get_ChildKdf(m_pKdf));
+        ECC::Scalar::Native sk;
+        CoinID::Worker(x.m_Cid).Create(sk, x.m_Result.m_Commitment, *x.m_Cid.get_ChildKdf(m_pKdf));
 
-        x.m_Result = pt;
+        if (x.m_Disclose)
+        {
+            x.m_Result.m_pDisclosure = std::make_unique<Disclosure>();
+            x.m_Result.m_pDisclosure->Create(sk);
+        }
+
         return Status::Success;
     }
 

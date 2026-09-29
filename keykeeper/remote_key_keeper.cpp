@@ -202,6 +202,7 @@ namespace beam::wallet
 
 	    static Amount CalcTxBalance(Asset::ID* pAid, const Method::TxCommon&);
 	    static void CalcTxBalance(Amount&, Asset::ID* pAid, Amount, Asset::ID);
+        static void MakeDisclosure(Disclosure::Ptr&, const hw::Signature&, Amount, Asset::ID);
 
 
         struct RemoteCall
@@ -483,6 +484,18 @@ namespace beam::wallet
         }
     }
 
+    void RemoteKeyKeeper::Impl::MakeDisclosure(Disclosure::Ptr& pOut, const hw::Signature& s, Amount val, Asset::ID aid)
+    {
+        pOut = std::make_unique<Disclosure>();
+        auto& d = *pOut;
+        d.m_Amount = val;
+        d.m_Aid = aid;
+
+        Ecc2BC(d.m_Signature.m_NoncePub) = s.m_NoncePub;
+        Ecc2BC(d.m_Signature.m_k.m_Value) = s.m_k;
+    }
+
+
     //////////////
     // RemoteKeyKeeper
     RemoteKeyKeeper::RemoteKeyKeeper()
@@ -644,16 +657,16 @@ namespace beam::wallet
     };
 
 
-    struct RemoteKeyKeeper::Impl::RemoteCall_get_Commitment
+    struct RemoteKeyKeeper::Impl::RemoteCall_get_Input
         :public RemoteCall_WithOwnerKey
     {
-        RemoteCall_get_Commitment(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::get_Commitment& m)
+        RemoteCall_get_Input(RemoteKeyKeeper& kk, Handler::Ptr&& h, Method::get_Input& m)
             :RemoteCall_WithOwnerKey(kk, std::move(h))
             ,m_M(m)
         {
         }
 
-        Method::get_Commitment& m_M;
+        Method::get_Input& m_M;
 
         void Update() override
         {
@@ -690,20 +703,44 @@ namespace beam::wallet
 
                 CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
 
-                ptG.Export(m_M.m_Result);
-                Fin();
+                ptG.Export(m_M.m_Result.m_Commitment);
+                m_Phase += 10;
             }
 
-            if (12 == m_Phase)
+            if (2 == m_Phase)
             {
                 assert(m_GetKey.m_pPKdf);
 
                 ECC::Point::Native comm;
                 CoinID::Worker(m_M.m_Cid).Recover(comm, *m_GetKey.m_pPKdf);
 
-                comm.Export(m_M.m_Result);
-                Fin();
+                comm.Export(m_M.m_Result.m_Commitment);
+                m_Phase += 10;
             }
+
+            if (12 == m_Phase)
+            {
+                if (m_M.m_Disclose)
+                {
+                    hw::Proto::CreateDisclosure::Out msg;
+                    CidCvt(msg.m_Cid, m_M.m_Cid);
+                    SendReq_T(msg);
+                }
+                else
+                    m_Phase += 2;
+            }
+
+            if (13 == m_Phase)
+            {
+                auto pMsg = ReadReq_T<hw::Proto::CreateDisclosure>();
+                if (!pMsg)
+                    return;
+
+                MakeDisclosure(m_M.m_Result.m_pDisclosure, pMsg->m_Signature, m_M.m_Cid.m_Value, m_M.m_Cid.m_AssetID);
+            }
+
+            if (14 == m_Phase)
+                Fin();
         }
     };
 
@@ -720,7 +757,7 @@ namespace beam::wallet
         Method::CreateOutput& m_M;
 
         Output::Ptr m_pOutput;
-        Method::get_Commitment m_GetCommitment;
+        Method::get_Input m_GetCommitment;
 
         void Update() override
         {
@@ -743,7 +780,7 @@ namespace beam::wallet
             {
                 // have owner key and commitment
                 m_pOutput = std::make_unique<Output>();
-                m_pOutput->m_Commitment = m_GetCommitment.m_Result;
+                m_pOutput->m_Commitment = m_GetCommitment.m_Result.m_Commitment;
 
                 // rangeproof
                 CalcLocal(Output::OpCode::Mpc_1);
@@ -913,15 +950,7 @@ namespace beam::wallet
                     return;
 
                 if (m_M.m_Disclose)
-                {
-                    m_M.m_pKernel->m_pDisclosure = std::make_unique<Disclosure>();
-                    auto& d = *m_M.m_pKernel->m_pDisclosure;
-                    d.m_Amount = m_M.m_Value;
-                    d.m_Aid = m_M.m_AssetID;
-
-                    Ecc2BC(d.m_Signature.m_NoncePub) = pMsg->m_Signature.m_NoncePub;
-                    Ecc2BC(d.m_Signature.m_k.m_Value) = pMsg->m_Signature.m_k;
-                }
+                    MakeDisclosure(m_M.m_pKernel->m_pDisclosure, pMsg->m_Signature, m_M.m_Value, m_M.m_AssetID);
             }
 
             if (7 == m_Phase)

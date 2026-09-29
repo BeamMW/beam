@@ -2819,13 +2819,13 @@ namespace beam::wallet
             if (!pKeyKeeper)
                 return false;
 
-            IPrivateKeyKeeper2::Method::get_Commitment m;
+            IPrivateKeyKeeper2::Method::get_Input m;
             m.m_Cid = cid;
 
             if (IPrivateKeyKeeper2::Status::Success != pKeyKeeper->InvokeSync(m))
                 return false;
 
-            comm = m.m_Result;
+            comm = m.m_Result.m_Commitment;
         }
         else
         {
