@@ -4307,7 +4307,7 @@
     filterTable = function(...args) { // Wrap the function into a new one, with the same name
       originalFilterTable.apply(this, args); // Call the original function first
       const graphCollapsible = document.getElementById('graphCollapsible');
-      if (graphCollapsible && !graphCollapsible.open) { return; } // Skip the heavy graph updates when collapsible is closed
+      if (!graphCollapsible || !graphCollapsible.open) { return; } // Skip graph updates when collapsible is absent or closed
       updateGraphDataX(); // Then, update X graph data
       updateGraphDataY(); // Update Y graph data
       drawXAxis(); // Redraw X axis
@@ -4317,6 +4317,8 @@
     const originalSortTable = sortTable; // Save the orignal function
     sortTable = function(...args) { // Wrap the function into a new one, with the same name
       const col = originalSortTable.apply(this, args); // Call the original function first
+      const graphCollapsible = document.getElementById('graphCollapsible');
+      if (!graphCollapsible || !graphCollapsible.open) { return col; } // Skip graph updates when collapsible is absent or closed
       // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
       g_graph.xcode = 'row';
       const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
@@ -4333,6 +4335,7 @@
       drawXAxis(); // Redraw X axis
       drawGraph(); // Redraw all graphs
       graphUpdateCursor(); // Update or reset cursor
+      return col; // To remain consistent with the original sortTable()
     };
 
     // Add checkboxes for selecting columns to display as graphs (and identify data usable as X coordinates)
