@@ -3878,12 +3878,33 @@ PROTO_METHOD(SignOfflineAddr)
 	return c_KeyKeeper_Status_Ok;
 }
 
+//////////////////////////////
+// KeyKeeper - CreateDisclosure
 __stack_hungry__
 void SignDisclosure(Signature* p, const secp256k1_scalar* pK)
 {
 	UintBig msg;
 	ZERO_OBJ(msg);
 	Signature_Sign(p, &msg, pK);
+}
+
+__stack_hungry__
+void CoinID_SignDisclosure(const Kdf* p, const CoinID* pCid, Signature* pSig)
+{
+	secp256k1_scalar sk;
+	CoinID_getSkComm(p, pCid, &sk, 0);
+	SignDisclosure(pSig, &sk);
+}
+
+PROTO_METHOD(CreateDisclosure)
+{
+	PROTO_UNUSED_ARGS;
+
+	CoinID cid;
+	N2H_CoinID(&cid, &pIn->m_Cid);
+
+	CoinID_SignDisclosure(&p->m_MasterKey, &cid, &pOut->m_Signature);
+	return c_KeyKeeper_Status_Ok;
 }
 
 //////////////////////////////

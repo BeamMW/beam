@@ -611,6 +611,18 @@ void TestCoin(const CoinID& cid, Key::IKdf& kdf, const hw::Kdf& kdf2)
 	verify_test(cid == cid3);
 	verify_test(!memcmp(&user, &user2, sizeof(user)));
 
+	// disclosure
+	hw::Signature sig2;
+	hw::CoinID_SignDisclosure(&kdf2, &cid2, &sig2);
+
+	Disclosure dis;
+	dis.m_Aid = cid.m_AssetID;
+	dis.m_Amount = cid.m_Value;
+	Ecc2BC(dis.m_Signature.m_NoncePub) = sig2.m_NoncePub;
+	Ecc2BC(dis.m_Signature.m_k.m_Value) = sig2.m_k;
+
+	verify_test(dis.IsValid(comm));
+
 }
 
 void TestCoins()

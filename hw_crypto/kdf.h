@@ -14,6 +14,7 @@
 
 #pragma once
 #include "coinid.h"
+#include "sign.h"
 
 typedef struct
 {
@@ -28,3 +29,4 @@ void Kdf_Derive_SKey(const Kdf*, const UintBig* pHv, secp256k1_scalar* pK);
 void Kdf_getChild(Kdf*, uint32_t iChild, const Kdf* pParent);
 
 void CoinID_getSkComm(const Kdf*, const CoinID*, secp256k1_scalar*, CompactPoint*);
+void CoinID_SignDisclosure(const Kdf*, const CoinID*, Signature*);

@@ -261,6 +261,12 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(CompactPoint, pT[2]) \
 	macro(UintBig, TauX) \
 
+#define BeamCrypto_ProtoRequest_CreateDisclosure(macro) \
+	macro(CoinID, Cid)
+
+#define BeamCrypto_ProtoResponse_CreateDisclosure(macro) \
+	macro(Signature, Signature)
+
 #define BeamCrypto_ProtoRequest_TxAddCoins(macro) \
 	macro(uint8_t, Reset) \
 	macro(uint8_t, Ins) \
@@ -398,6 +404,7 @@ void KeyKeeper_GetPKdf(const KeyKeeper*, KdfPub*, const uint32_t* pChild); // if
 	macro(0x04, GetImage) \
 	macro(0x05, DisplayEndpoint) \
 	macro(0x10, CreateOutput) \
+	macro(0x13, CreateDisclosure) \
 	macro(0x18, TxAddCoins) \
 	macro(0x1a, CreateShieldedInput_1) \
 	macro(0x1b, CreateShieldedInput_2) \
