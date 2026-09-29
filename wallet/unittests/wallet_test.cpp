@@ -4764,13 +4764,10 @@ void TestKeyKeeper(IPrivateKeyKeeper2::Ptr externalKeyKeeper = {}, size_t index 
             const CoinID& cid = io.m_vInputs[j];
 
             // build input commitment
-            IPrivateKeyKeeper2::Method::get_Commitment m;
+            IPrivateKeyKeeper2::Method::get_Input m;
             m.m_Cid = cid;
             WALLET_CHECK(IPrivateKeyKeeper2::Status::Success == p.m_pKk->InvokeSync(m));
-
-            tx.m_vInputs.emplace_back();
-            tx.m_vInputs.back().reset(new Input);
-            tx.m_vInputs.back()->m_Commitment = m.m_Result;
+            tx.m_vInputs.push_back(std::make_unique<Input>(std::move(m.m_Result)));
         }
 
         for (size_t j = 0; j < io.m_vOutputs.size(); j++)
