@@ -3897,8 +3897,8 @@
   // Parse metadata to add classes
   function addClassesToMetadata() {
     for (let str of document.querySelectorAll('.metadata')) { // 'querySelectorAll' returns a static node list (i.e. no risk when changing the DOM)
-      // Add a class around the asset name (the name field is detected with a regexp)
-      str.innerHTML = str.innerHTML.replace(/(:|;)N=([^;]*)/,'$1N=<span class="metadataAssetName">$2</span>');
+      // Add a class around the asset name (the name field is detected with a regexp up to the next ';KEY=' or end of string)
+      str.innerHTML = str.innerHTML.replace(/(:|;)N=(.*?)(?=;[A-Z_]+=|$)/, '$1N=<span class="metadataAssetName">$2</span>');
     }
     for (let str of document.querySelectorAll('.metadataAssetName')) {
       // Add another class to AMML asset names
