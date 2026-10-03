@@ -1620,24 +1620,23 @@
   }
 
   /* SORT OPTIONS IN HEADERS */
+  .filtersOn .th::before, .filtersOn .th::after { /* Placeholders for sorting symbols (both sides, to keep text centered) */
+    content: '\21c5 \00a0'; /* Initial symbol for columns not sorted */
+    display: inline-block;
+    visibility: hidden; /* Symbols hidden by default, but width maintained */
+    text-align: center;
+    width: 1.3em;
+    margin: 0;
+  }
+  .filtersOn {
+    cursor: default; /* Default cursor for all headers */
+  }
   .sortable {
-    cursor: pointer; /* Change mouse pointer to show it's clickable */
+    cursor: pointer; /* Special cursor on sortable headers to show they are clickable */
   }
-  .sortable .th::before { /* Add sorting indicators */
-    content: '\21c5 \00a0'; /* Symbol when not sorted */
+  .sortable .th::before { /* Make left sorting symbol visible for sortable columns */
+    visibility: visible;
     color: var(--color_sorting_indicator);
-    display: inline-block;
-    text-align: center;
-    width: 1.3em;
-    margin: 0;
-  }
-  .sortable .th::after { /* Hidden symbol, just to keep the text centered */
-    content: '\00a0 \21c5';
-    display: inline-block;
-    visibility: hidden;
-    text-align: center;
-    width: 1.3em;
-    margin: 0;
   }
   .sortable:hover .th::before { /* Highlight symbol on hover */
     color: var(--color_sorting_indicator_hover);
@@ -5604,9 +5603,14 @@
 
     // Apply to each cell of the first row (whether 'th' or 'td', it doesn't matter)
     for (let myHeader of Array.from(myRow.cells)) { // 'Array.from' makes the live collection into a static one
-      // Add a class to the existing div (it will be clickable for sorting),
-      myHeader.querySelector('div').classList.add('sortable');
-      myHeader.querySelector('div').title = 'Sort column';
+      // Make column sortable if it's not empty
+      if (myHeader.dataset.type !== 'empty') {
+        // Add a class to the existing div and make it clickable for sorting
+        const sortableDiv = myHeader.querySelector('div');
+        sortableDiv.classList.add('sortable');
+        sortableDiv.title = 'Sort column';
+        sortableDiv.addEventListener('click', sortTable);
+      }
       // And then add another div below, with a search input.
       let myDiv = document.createElement('div');
       myDiv.classList.add('searchable');
@@ -5619,8 +5623,6 @@
         '• Negation: !\n' +
         '• Numeric: > < >= <= =\n' +
         '• RegExp: /pattern/';
-      // Add event listeners to these elements
-      myHeader.querySelector('.sortable').addEventListener('click', sortTable);
       let filterTimeout;
       searchInput.addEventListener('input', function() {
         clearTimeout(filterTimeout);
@@ -5657,6 +5659,8 @@
 
     // Check column type ('numeric', 'empty', or 'text')
     const colType = th.dataset.type || 'text';
+    // For empty columns, return immediately
+    if (colType === 'empty') { return col; }
 
     // Cycle sorting over 3 directions:
     let dir;
@@ -5695,8 +5699,6 @@
     if (dir === 'none') { // Fast return to initial order
       itemsArray.sort((a, b) => a.dataset.initialOrder - b.dataset.initialOrder);
     } else {
-      // For empty columns, return with no change in order (asc = desc)
-      if (colType === 'empty') { return col; }
       // Make an array from the content of the cells in the selected column
       // (we add the initial index, as it will allow reordering the actual table rows or tbodies)
       let colArray = itemsArray.map(function (item, index) {
