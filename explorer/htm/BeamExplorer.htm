@@ -5902,8 +5902,8 @@
           }
           overallRowIndex += trows.length; // Increase counter
         }
-        // Early exit: If all rows (or tbodies) are already hidden, subsequent filters have no effect
-        if (tbodies.length > 1 ? !results_tbodies.includes(1) : !results_rows.includes(1)) { break; }
+        // Early exit: If all rows (or tbodies) are already hidden (except for the header row), subsequent filters have no effect
+        if (tbodies.length > 1 ? !results_tbodies.includes(1) : !results_rows.includes(1, 1)) { break; }
       }
     }
     // Special hack to avoid a display bug on Chrome 83 (when used as Beam Wallet DApp):
