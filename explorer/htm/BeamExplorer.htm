@@ -3561,9 +3561,9 @@
 
   // Helper function to load and synchronize graph colors for the current network from defaults or localStorage
   function loadGraphColors() {
-    g_graph.color = g_graph.color || {}; // Preserve existing colors (or reset)
-    for (let code of Object.keys(columnHeaders)) { // Fill with default colors (when defined and not already set)
-      if (columnHeaders[code].color && !g_graph.color[code]) { g_graph.color[code] = columnHeaders[code].color; }
+    g_graph.color = {}; // Reset colors for the current network
+    for (let code of Object.keys(columnHeaders)) { // Fill with default colors (when defined)
+      if (columnHeaders[code].color) { g_graph.color[code] = columnHeaders[code].color; }
     }
     try { // Try to retrieve user-saved colors from localStorage (per network)
       const storedColors = JSON.parse(localStorage.getItem('g_' + g_network + '_graph_colors'));
@@ -4270,7 +4270,7 @@
       ysvg: {}, // Proportional y coordinates over the SVG height
       timeText: [], // If available, the human-readable timestamps will be saved here (as plotting will use the raw data instead)
       yTicks: {}, // Nice ticks for the vertical scale of each displayed graph
-      color: g_graph.color || {}, // CSS color of each graph (preserved if already in memory)
+      color: {}, // CSS color of each graph
       width: 2040, // Arbitrary SVG width (we set it here to 2000 max data points + 2*10 margins + 2*10 padding)
       height: 600, // Arbitrary SVG height
       margin: 10, // Margin around the graph area
@@ -4488,8 +4488,8 @@
     if (col === null || !checkbox || !columnHeaders[code] || !isNumeric) {
       return false; // Code does not exist in table or is not graphable
     }
-    // Assign a random color when needed
-    if (!g_graph.color[code]) { g_graph.color[code] = columnHeaders[code].color || getRandomGraphColor(); }
+    // Assign a default or pseudo-random color when needed
+    if (!g_graph.color[code]) { g_graph.color[code] = columnHeaders[code].color || getRandomGraphColor(code); }
 	  // Check the checkbox
     checkbox.checked = true;
 
@@ -4599,12 +4599,24 @@
     return ctx.fillStyle;
   }
 
-  // Generate a random, visually pleasing and distinct hex color (with good contrast and saturation)
-  function getRandomGraphColor() {
-    // Generate random hue across 360 degrees, with high saturation (65-85%) and balanced lightness (40-55%)
-    const hue = Math.floor(Math.random() * 360);
-    const sat = Math.floor(Math.random() * 20) + 65;
-    const light = Math.floor(Math.random() * 15) + 40;
+  // Generate a pseudo-random, visually pleasing and distinct hex color, with good contrast and saturation
+  // (the color is in fact deterministically defined based on the column code string)
+  function getRandomGraphColor(code) {
+    let hue = 0, sat = 75, light = 45;
+    if (typeof code === 'string' && code.length > 0) {
+      let sum = 0;
+      // Simple character code sum (multiplied by position, so anagrams differ)
+      for (let i = 0; i < code.length; i++) { sum += code.charCodeAt(i) * (i + 1); }
+      // Compute hue across 360 degrees, with high saturation (65-85%) and balanced lightness (40-55%)
+      hue = (sum * 53) % 360; // Sums for one letter codes might differ by only a few units. Multiplying them by 53 (prime, ~1/7th of 360-degres) spreads them over the full color wheel.
+      sat = (Math.floor(sum / 7) % 20) + 65; // We divide by a prime to decorrelate it from hue.
+      light = (Math.floor(sum / 11) % 15) + 40; // We divide by another prime to decorrelate it from hue and saturation.
+    } else {
+      // Fallback: Random hue across 360 degrees, with high saturation (65-85%) and balanced lightness (40-55%).
+      hue = Math.floor(Math.random() * 360);
+      sat = Math.floor(Math.random() * 20) + 65;
+      light = Math.floor(Math.random() * 15) + 40;
+    }
     return convertColorToHex(`hsl(${hue}, ${sat}%, ${light}%)`);
   }
 
@@ -4619,10 +4631,10 @@
   // Reset all graph colors to the default ones (or generate new ones when omitted)
   function resetGraphColors() {
     localStorage.removeItem('g_' + g_network + '_graph_colors'); // Remove locally saved colors for the current network
-    g_graph.color = {}; // Reset in-memory colors so new defaults or random colors are generated
+    g_graph.color = {}; // Reset colors so new defaults or pseudo-random colors are generated
     loadGraphColors(); // Reload default colors into the global variable
     for (let code in g_graph.y) {
-      if (!g_graph.color[code]) { g_graph.color[code] = getRandomGraphColor(); }
+      if (!g_graph.color[code]) { g_graph.color[code] = getRandomGraphColor(code); }
       applyGraphColor(code, g_graph.color[code]); // Apply updated colors to graphs, legends and axis
     }
   }
