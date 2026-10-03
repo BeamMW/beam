@@ -4322,8 +4322,6 @@
       const originalSortTable = sortTable; // Save the original function
       sortTable = function(...args) { // Wrap the function into a new one, with the same name
         const col = originalSortTable.apply(this, args); // Call the original function first
-        const graphCollapsible = document.getElementById('graphCollapsible');
-        if (!graphCollapsible || !graphCollapsible.open) { return col; } // Skip graph updates when collapsible is absent or closed
         // Keep the graph X axis intuitive by switching back to 'rows' and only allowing sorted alternatives
         g_graph.xcode = 'row';
         const headers = document.querySelectorAll('#divTableBlocks .th'); // Get table headers
@@ -4334,6 +4332,8 @@
           const properties = { selected: (code == 'row'), disabled: (code == 'row') ? false : !isValid };
           Object.assign(document.getElementById('xAxisOption_' + code), properties); // Apply properties to the '<option>' element
         }
+        const graphCollapsible = document.getElementById('graphCollapsible');
+        if (!graphCollapsible || !graphCollapsible.open) { return col; } // Skip redrawing when collapsible is absent or closed
         updateGraphDataX(); // Then, update X graph data
         updateGraphDataY(); // Update Y graph data
         drawXAxis(); // Redraw X axis
