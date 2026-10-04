@@ -7,7 +7,7 @@
   - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.9.1
+  - Current version of the file is defined in 'g_version' below.
 
   General rules for developement:
   - Everything is kept in one single standalone file, without external dependencies.
@@ -64,6 +64,9 @@
       'https://BeamSmart.net:8001/',
     ]},
   };
+
+  // Current version of this app
+  const g_version = 'v0.9.1';
 
   // Text content for the "What's new" popup
   const whatsNewText = `
@@ -2027,7 +2030,7 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"><a href="javascript:openWhatsNew();" title="What's new">v0.9.1</a></span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"></span></h1>
 
           <!-- Popup for What's new -->
           <dialog class="popupDialog" id="whatsNewPopup">
@@ -3529,6 +3532,7 @@
   // Add the elements to HTML
   document.getElementById('NodeSelectionList').innerHTML = nodesList;
   document.getElementById('NetworkSelect').innerHTML = networkOptions;
+  document.getElementById('Version').innerHTML = '<a href="javascript:openWhatsNew();" title="What\'s new">' + g_version + '</a>';
 
   // Add reload event to network selection dropdown
   document.getElementById('NetworkSelect').addEventListener('change', function() {
@@ -3848,8 +3852,11 @@
   // Listen to popstate to support browser back/forward buttons
   window.addEventListener('popstate', loadPageFromURL);
 
-  // On page load, initialize page based on URL parameters
-  window.addEventListener('load', loadPageFromURL);
+  // On page load, initialize page based on URL parameters (and check if "What's new" should be shown)
+  window.addEventListener('load', function() {
+    loadPageFromURL();
+    checkWhatsNew();
+  });
 
 </script>
 
@@ -3915,6 +3922,13 @@
     const el = document.getElementById('WhatsNewContent');
     if (el) { el.innerHTML = whatsNewText; } // Populate content from global variable
     openDialog('whatsNewPopup');
+    // Save the version string in localStorage so it doesn't open automatically again
+    localStorage.setItem('g_version', g_version);
+  }
+
+  function checkWhatsNew() { // Automatically open "What's new" if it has never been seen for the current version
+    const lastSeenVersion = localStorage.getItem('g_version');
+    if (lastSeenVersion !== g_version) { openWhatsNew(); }
   }
 </script>
 
