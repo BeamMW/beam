@@ -2002,7 +2002,7 @@
         <div id="BannerLeft">
           <div id="BeamLogo">
             <!-- Clicking on the logo sends back to the main page -->
-            <a href="javascript:showPage('status')" title="Main page">
+            <a href="?type=status" title="Main page">
               <!-- A simplified SVG version of the BEAM logo -->
               <svg height="6em" width="6em" viewBox="42 42 460 460"><defs><linearGradient id="Gradient1" x1="-24.6" y1="683.51" x2="-23.57" y2="683.51" gradientTransform="matrix(98, 0, 0, -47, 2497.75, 32364.11)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient><linearGradient id="Gradient2" x1="-28.7" y1="703.17" x2="-27.72" y2="703.17" gradientTransform="matrix(-98, 0, 0, 26, -2353.25, -18019.72)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9d6eff" stop-opacity="0"/><stop offset="1" stop-color="#a18cff"/></linearGradient><linearGradient id="Gradient3" x1="-28.69" y1="682.8" x2="-27.57" y2="682.8" gradientTransform="translate(-2353.25 29603.78) rotate(180) scale(98 43)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ae60d6" stop-opacity="0"/><stop offset="1" stop-color="#ab38e6"/></linearGradient><linearGradient id="Gradient4" x1="-28.68" y1="685.09" x2="-27.47" y2="685.09" gradientTransform="translate(-2353.25 41328.94) rotate(180) scale(98 60)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fd76fd" stop-opacity="0"/><stop offset="1" stop-color="#ff51ff"/></linearGradient></defs><circle id="circle" fill="#0b1624" cx="272" cy="272" r="230"/><g id="logo"><path id="Triangle-left" fill="#24c1ff" d="M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z"/><path id="Triangle-right" fill="#0b76ff" d="M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z"/><polygon id="Triangle-small-left" fill="#39fff2" points="272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3"/><polygon id="Triangle-small-right" fill="#00e2c2" points="272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3"/><polygon id="Ray1-left" fill="url(#Gradient1)" points="86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81"/><polygon id="Ray2-right-low" fill="url(#Gradient2)" points="458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33"/><polygon id="Ray3-right-mid" fill="url(#Gradient3)" points="458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67"/><polygon id="Ray4-right-top" fill="url(#Gradient4)" points="458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83"/></g></svg>
             </a>
@@ -2042,17 +2042,17 @@
 
           <div id="Menu">
             <!-- Main explorer menu -->
-            <span class="menuItem" data-page="hdrs"><a href="javascript:showPage('hdrs')" title="List of recent Block Headers">Block Headers</a></span>
+            <span class="menuItem" data-page="hdrs"><a href="?type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem" data-page="assets"><a href="javascript:showPage('assets')" title="List of current Confidential Assets">Confidential Assets</a></span>
+            <span class="menuItem" data-page="assets"><a href="?type=assets" title="List of current Confidential Assets">Confidential Assets</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem" data-page="contracts"><a href="javascript:showPage('contracts')" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+            <span class="menuItem" data-page="contracts"><a href="?type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem" data-page="swap_offers"><a href="javascript:showPage('swap_offers')" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
+            <span class="menuItem" data-page="swap_offers"><a href="?type=swap_offers" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem" data-page="asset_swaps"><a href="javascript:showPage('asset_swaps')" title="List of current Asset Swap offers">Asset Swaps</a></span>
+            <span class="menuItem" data-page="asset_swaps"><a href="?type=asset_swaps" title="List of current Asset Swap offers">Asset Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem" data-page="historical"><a href="javascript:showPage('historical')" title="List of special historical blocks">Historical blocks</a></span>
+            <span class="menuItem" data-page="historical"><a href="?type=historical" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
             <!-- Search field -->
@@ -2120,12 +2120,14 @@
   }
 
   function UrlSelf(type, params = {}) { // Params is made of pairs { key: value, ... }
-    // Stringify and URI-encode params protect against code injections in 'javascript:' links
-    // because encodeURIComponent outputs only alphanumeric characters plus ~, !, *, (, ), '.
-    // We then also encode single quotes (%27) to avoid breaking out of the string delimiters in the link.
-    const encoded = encodeURIComponent(JSON.stringify(params)).replace(/'/g, '%27');
-    const safeType = encodeURIComponent(type).replace(/'/g, '%27');
-    return `javascript:showPage(decodeURIComponent('${safeType}'), JSON.parse(decodeURIComponent('${encoded}')));`;
+    // Build a standard relative query URL: ?network=...&type=...&param1=...
+    const searchParams = new URLSearchParams(); // URLSearchParams() safely encodes all parameters
+    searchParams.set('network', params.network || g_network);
+    searchParams.set('type', type);
+    for (const [key, val] of Object.entries(params)) {
+      if (key !== 'network' && key !== 'type' && val != null && val !== '') { searchParams.set(key, val); }
+    }
+    return '?' + searchParams.toString();
   }
 
   function MakeCell(text, extra = '') {
@@ -3593,6 +3595,12 @@
       netSelect.style.width = (g_network.length + 3) + 'ch';
     }
 
+    // Update logo and top menu links to point to the current network
+    document.querySelector('#BeamLogo a').href = UrlSelf('status');
+    document.querySelectorAll('#Menu .menuItem').forEach(item => {
+      item.querySelector('a').href = UrlSelf(item.dataset.page);
+    });
+
     // Put the current network name in ad-hoc text elements
     document.querySelectorAll('.queried-node').forEach(item => { item.textContent = g_urlPrefix; });
     document.querySelectorAll('.queried-network').forEach(item => { item.textContent = g_network; });
@@ -3770,7 +3778,7 @@
       document.getElementById('MainContent').innerHTML = `
         <h2 class="title errorMessage">Error Loading Data</h2>
         <p class="querying">Problem querying the explorer node for network <span class="queried-network">${g_network}</span> on <span class="nodeURL queried-node">${g_urlPrefix}</span></p>
-        <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry request</a>.</p>
+        <p class="querying">&#9656; <a href="${UrlSelf(page_id)}" data-retry="true">Retry request</a>.</p>
         <p class="querying">&#9656; <a href="javascript:openNodeSelection();">Choose a different node URL</a>.</p>
       `;
       return; // Stop execution on fetch error
@@ -3786,7 +3794,7 @@
       document.getElementById('MainContent').innerHTML = `
         <h2 class="title errorMessage">Error Displaying Data</h2>
         <p class="querying">An error occurred while rendering data for page <b>${page_id}</b>.</p>
-        <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry</a>.</p>
+        <p class="querying">&#9656; <a href="${UrlSelf(page_id)}" data-retry="true">Retry</a>.</p>
       `;
       return; // Stop execution on error
     }
@@ -3801,6 +3809,41 @@
     params.forEach((value, key) => { if (key !== 'type') { showParams[key] = value; } });
     showPage(page_id, { ...showParams, replaceState: true }); // showPage() shall handle null/empty/wrong parameters...
   }
+
+  // Intercept clicks to route internal links through showPage() (instead of reloading the whole HTML)
+  document.addEventListener('click', function(event) {
+    // Look for the closest enclosing link element
+    const anchor = event.target.closest('a');
+    if (!anchor) { return; }
+    // Let the browser handle middle-clicks or modifier keys for opening in new tabs/windows
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) { return; }
+    // Check if link has a target attribute other than _self (e.g., target="_blank")
+    const target = anchor.getAttribute('target');
+    if (target && target !== '_self') { return; }
+    // Check special href attributes
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('javascript:') || href.startsWith('#') || href.startsWith('mailto:')) { return; }
+    // Parse the clicked link URL relative to current location
+    let url;
+    try { url = new URL(anchor.href, window.location.origin); }
+    catch { return; } // Invalid URL, leave alone
+    // Only intercept links on the same origin and pathname
+    if (url.origin !== window.location.origin || url.pathname !== window.location.pathname) { return; }
+    // Check if the query string specifies a page 'type' (e.g. '?type=hdrs')
+    const page_id = url.searchParams.get('type');
+    if (!page_id) { return; } // Link without 'type' parameter
+    // Intercept click: Prevent normal full page reload
+    event.preventDefault();
+    // Extract all parameters from the URL
+    const params = {};
+    url.searchParams.forEach((value, key) => { if (key !== 'type') { params[key] = value; } });
+    // If no network was specified in the link, use the current active network
+    if (!params.network) { params.network = g_network; }
+    // If marked as retry, replace current history state
+    if (anchor.dataset && anchor.dataset.retry === 'true') { params.replaceState = true; } // Retries replace browsing history instead of adding more pages to it
+    // Display the page via showPage()
+    showPage(page_id, params);
+  });
 
   // Listen to popstate to support browser back/forward buttons
   window.addEventListener('popstate', loadPageFromURL);
