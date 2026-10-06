@@ -122,6 +122,12 @@ namespace beam::wallet
         res["metadata_v60"]     = meta.isStd_v6_0();
         res["metadata_std"]     = meta.isStd();
 
+        if (!meta.isStd() && !meta.GetParseError().empty())
+        {
+            // explains why metadata_std is false
+            res["metadata_std_error"] = meta.GetParseError();
+        }
+
         if (!pairs.empty())
         {
             res["metadata_pairs"] = json::object();
