@@ -505,7 +505,7 @@ namespace beam
 				GroupMap::iterator it = map.find(h);
 				bool bNew = (map.end() == it);
 				if (bNew)
-					it = map.emplace(h, Data::Group()).first;
+					it = map.try_emplace(h).first; // in place: copying a not-yet-initialized Group is what GCC 14 rejects (#2022)
 
 				Data::Group& gOut = it->second;
 				if (bNew)
