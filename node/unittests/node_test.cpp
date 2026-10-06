@@ -440,11 +440,46 @@ namespace beam
 
 		}
 
+		// lookup by hash: the index is built over the existing states, creating it again is a no-op
+		db.CreateStateHashIndex();
+		db.CreateStateHashIndex();
+
+		for (uint32_t i = 0; i < hMax; i++)
+		{
+			Merkle::Hash hv;
+			vStates[i].get_Hash(hv);
+
+			NodeDB::StateID sidH;
+			verify_test(db.FindActiveStateByHash(sidH, hv));
+			verify_test((sidH.m_Row == pRows[i]) && (sidH.m_Number.v == i + 1));
+		}
+
+		{
+			// the fork isn't active, unknown hash isn't there
+			Merkle::Hash hv;
+			NodeDB::StateID sidH;
+			db.get_StateHash(r0, hv);
+			verify_test(!db.FindActiveStateByHash(sidH, hv));
+			db.get_StateHash(rowLast1, hv);
+			verify_test(!db.FindActiveStateByHash(sidH, hv));
+
+			hv = Zero;
+			verify_test(!db.FindActiveStateByHash(sidH, hv));
+		}
+
 		tr.Commit();
 		tr.Start(db);
 
 		while (sid.m_Row)
 			db.MoveBack(sid);
+
+		{
+			// not active anymore after the rollback
+			Merkle::Hash hv;
+			NodeDB::StateID sidH;
+			vStates[hMax - 1].get_Hash(hv);
+			verify_test(!db.FindActiveStateByHash(sidH, hv));
+		}
 
 		tr.Commit();
 		tr.Start(db);

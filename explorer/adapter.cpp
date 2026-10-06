@@ -267,6 +267,10 @@ private:
         bool bForceReset = (s_TotalsVer != nVer);
 
         EnsureHaveCumulativeStats(bForceReset);
+
+        // for block lookups by hash. Built once (scans all the states), then kept up to date by sqlite
+        BEAM_LOG_INFO() << "Ensuring the block hash index...";
+        db.CreateStateHashIndex();
     }
 
     /// Returns body for /status request
@@ -2929,6 +2933,25 @@ private:
         }
 
         return get_block_not_found(h);
+    }
+
+    json get_block_by_hash(const Blob& hash) override
+    {
+        Merkle::Hash hv;
+        if (hash.n != hv.nBytes)
+            return json{ { "found", false } };
+        hv = hash;
+
+        NodeDB::StateID sid;
+        if (_nodeBackend.get_DB().FindActiveStateByHash(sid, hv))
+        {
+            Block::SystemState::Full s;
+            _nodeBackend.get_DB().get_State(sid.m_Row, s);
+            return extract_block_from_row(sid, s, s.get_Height());
+        }
+
+        char buf[80];
+        return json{ { "found", false }, { "hash", hash_to_hex(buf, hv) } };
     }
 
     json get_blocks(Height startHeight, uint64_t n, int adj) override {
