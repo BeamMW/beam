@@ -842,6 +842,13 @@ namespace
 
     int InitWallet(const po::variables_map& vm)
     {
+        if (vm.count(cli::SEED_PHRASE))
+        {
+            // init always generates a new seed. Silently ignoring the given phrase would create a different wallet than the user expects
+            BEAM_LOG_ERROR() << "'" << cli::INIT << "' creates a wallet with a new seed phrase and doesn't use --" << cli::SEED_PHRASE
+                             << ". To create a wallet from your seed phrase, use '" << cli::RESTORE << "'.";
+            return -1;
+        }
         return InitDataBase(vm, InitKind::GenerateSeed);
     }
 
