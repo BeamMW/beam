@@ -68,7 +68,7 @@ using namespace beam::wallet;
 
 namespace
 {
-    const unsigned LOG_ROTATION_PERIOD = 3 * 60 * 60 * 1000; // 3 hours
+    const unsigned LOG_ROTATION_PERIOD_SEC = 3 * 60 * 60; // 3 hours. LogRotation takes seconds (#1218)
     const size_t PACKER_FRAGMENTS_SIZE = 4096;
     constexpr size_t LINE_FRAGMENT_SIZE = 4096;
 
@@ -175,6 +175,11 @@ namespace
             , _whitelist(whitelist)
         {
             start();
+        }
+
+        bool isStarted() const
+        {
+            return !!_server;
         }
 
         ~WalletApiServer()
@@ -650,7 +655,7 @@ int main(int argc, char* argv[])
 
     struct
     {
-        uint16_t port;
+        int port;
         std::string walletPath;
         std::string nodeURI;
         Nonnegative<uint32_t> pollPeriod_ms;
@@ -747,11 +752,14 @@ int main(int argc, char* argv[])
         auto cfgApi = ReadCfgFromFile(vm, desc);
         vm.notify();
 
+        options.logCleanupPeriod = vm[cli::LOG_CLEANUP_DAYS].as<uint32_t>() * 24 * 3600; // #1218
+
         int logLevel = getLogLevel(cli::LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
         int fileLogLevel = getLogLevel(cli::FILE_LOG_LEVEL, vm, BEAM_LOG_LEVEL_DEBUG);
 
         const auto path = boost::filesystem::system_complete("./logs");
         auto logger = beam::Logger::create(logLevel, logLevel, fileLogLevel, "api_", path.string());
+        clean_old_logfiles(path.string(), "api_", options.logCleanupPeriod); // like the other binaries (#1218)
 
         // Since ReadCfg outputs file name to std::cout print also to logs
         if (cfgCommon)
@@ -827,6 +835,12 @@ int main(int argc, char* argv[])
                 }
             }
 
+            if (options.port <= 0 || options.port > 0xffff)
+            {
+                BEAM_LOG_ERROR() << "invalid port: " << options.port << ", it should be in [1, 65535]"; // #1213
+                return -1;
+            }
+
             if (vm.count(cli::NODE_ADDR) == 0)
             {
                 BEAM_LOG_ERROR() << "node address should be specified";
@@ -862,11 +876,11 @@ int main(int argc, char* argv[])
         }
 
         io::Reactor::Ptr reactor = io::Reactor::create();
-        io::Address listenTo = io::Address().port(options.port);
+        io::Address listenTo = io::Address().port(static_cast<uint16_t>(options.port));
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
 
-        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD, options.logCleanupPeriod);
+        LogRotation logRotation(*reactor, LOG_ROTATION_PERIOD_SEC, options.logCleanupPeriod);
         auto wallet = std::make_shared<Wallet>(walletDB);
         wallet->EnableBodyRequests(options.enableBodyRequests);
 
@@ -902,6 +916,8 @@ int main(int argc, char* argv[])
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
+        if (!server.isStarted())
+            return -1; // e.g. the port is in use, the error is logged already (#1217)
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
         RegisterSwapTxCreators(wallet, walletDB);
