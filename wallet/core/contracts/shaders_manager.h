@@ -69,6 +69,7 @@ namespace beam::wallet {
         void CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) override;
         void CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) override;
         void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) override;
+        void AbortCallsWaitingForNode(const std::string& error) override;
 
     protected:
         void OnDone(const std::exception *pExc) override;
@@ -80,6 +81,7 @@ namespace beam::wallet {
         void compileAppShader(const std::vector<uint8_t> &shader);
 
         bool _done = true;
+        bool _waitingForSync = false;
         bool _logResult = true;
         std::string _currentAppId;
         std::string _currentAppName;
