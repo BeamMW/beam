@@ -4020,6 +4020,69 @@ namespace
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
     }
 
+    void TestShieldedInputsLimit()
+    {
+        cout << "\nTesting the failure reason when the shielded inputs limit is hit...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        auto senderDB = createSenderWalletDB(false, AmountList{}); // no std coins
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor, senderDB](const TxID& txID)
+        {
+            // a tx that fails while selecting the inputs completes on the sender side only
+            auto tx = senderDB->getTx(txID);
+            if (!--completedCount || (tx && (wallet::TxStatus::Failed == tx->m_status)))
+                mainReactor->stop();
+        };
+
+        TestNode node;
+        TestWalletRig sender(senderDB, f, TestWalletRig::Type::Regular, false, 0);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+
+        auto& fs = Transaction::FeeSettings::get(node.GetHeight());
+        const uint32_t nMaxIns = Rules::get().Shielded.MaxIns;
+        Amount nStdFee = fs.get_DefaultStd();
+        const Amount nValNetto = nStdFee * 10; // per coin, after its input fee
+        StoreShieldedCoins(nMaxIns + 5, fs.m_ShieldedInputTotal + nValNetto, sender.m_WalletDB, node);
+
+        auto send = [&](Amount nVal)
+        {
+            auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+                .SetParameter(TxParameterID::MyAddr, sender.m_BbsAddr)
+                .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+                .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint)
+                .SetParameter(TxParameterID::Amount, nVal)
+                .SetParameter(TxParameterID::Fee, nStdFee)
+                .SetParameter(TxParameterID::Lifetime, Height(200))
+                .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+            completedCount = 2;
+            mainReactor->run();
+
+            auto stx = sender.m_WalletDB->getTx(txId);
+            WALLET_CHECK(stx.is_initialized());
+            return stx;
+        };
+
+        // the funds are there, but take nMaxIns + 2 shielded inputs
+        auto stx = send((nMaxIns + 1) * nValNetto + nValNetto / 2 - nStdFee);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Failed);
+        WALLET_CHECK(stx->m_failureReason == TxFailureReason::TooManyShieldedInputs);
+
+        // not enough funds, regardless to the limit
+        stx = send((nMaxIns + 5) * nValNetto);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Failed);
+        WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
+
+        // takes exactly nMaxIns shielded inputs, still fine. Nothing was locked by the failed txs
+        stx = send((nMaxIns - 1) * nValNetto + nValNetto / 2 - nStdFee);
+        WALLET_CHECK(stx->m_status == wallet::TxStatus::Completed);
+    }
+
     void TestCalculateCoinsSelection()
     {
         cout << "\nTesting coins selection...\n";
@@ -5886,6 +5949,7 @@ int main()
     r.UpdateChecksum();
 
     TestSendingShielded();
+    TestShieldedInputsLimit();
     TestCalculateCoinsSelection();
     TestCalculateAssetCoinsSelection();
 

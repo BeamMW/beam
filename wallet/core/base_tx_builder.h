@@ -81,6 +81,7 @@ namespace beam::wallet
             void Add(const ShieldedTxo::ID&); // same as above, assuming default fee
 
             void CompleteBalance(); // completes the balance.
+            TxFailureReason get_NoInputsReason(Asset::ID, Amount); // NoInputs, or TooManyShieldedInputs if that's what prevented it
         };
 
         void SaveCoins();
