@@ -41,14 +41,19 @@ namespace beam::wallet {
         
     }
 
-    void BaseMessageEndpoint::Subscribe()
+    uint32_t BaseMessageEndpoint::Subscribe()
     {
+        uint32_t nCount = 0;
         auto myAddresses = m_WalletDB->getAddresses(true);
         for (const auto& address : myAddresses)
             if (!address.isExpired())
+            {
                 AddOwnAddress(address);
+                nCount++;
+            }
 
         m_AddressExpirationTimer->start(AddressUpdateInterval_ms, false, [this] { OnAddressTimer(); });
+        return nCount;
     }
 
     void BaseMessageEndpoint::Unsubscribe()
@@ -182,7 +187,8 @@ namespace beam::wallet {
         pAddr->m_Refs |= Addr::s_InternalRef;
         pAddr->m_ExpirationTime = address.getExpirationTime();
 
-        BEAM_LOG_INFO() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
+        // per address, so debug only: a wallet may have thousands of them, and every endpoint subscribes all of them on start
+        BEAM_LOG_DEBUG() << "WalletID " << to_string(address.m_BbsAddr) << " subscribes to BBS channel " << pAddr->m_Channel.m_Value;
     }
 
     void BaseMessageEndpoint::DeleteOwnAddress(const WalletID& wid)
@@ -478,7 +484,7 @@ namespace beam::wallet {
         , BbsProcessor(net, std::make_shared<TimestampHolder>(pWalletDB, BBS_TIMESTAMPS))
         , m_WalletDB(pWalletDB)
     {
-        Subscribe();
+        BEAM_LOG_INFO() << "Subscribed to BBS for " << Subscribe() << " own address(es)";
         m_WalletDB->Subscribe(this);
         ProcessStoredIncoming();
 	}
