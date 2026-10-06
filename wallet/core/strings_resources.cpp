@@ -96,6 +96,7 @@ namespace beam
     const char kErrorImportPathInvalid[] = "Operation failed: provided path \"%1%\" is not valid";
     const char kErrorFileLocationParamReqired[] = "Failed, --file_location param required";
     const char kErrorConnectionFailed[] = "Connection Failed - Please check your network";
+    const char kErrorNodeProtocolIncompatible[] = "The node uses an incompatible protocol version. If the network has been upgraded, please update your wallet to the latest version.";
     const char kErrorNotEnoughtCoins[] = "Not enough coins for these transaction parameters";
 
     // Swap Tx statuses

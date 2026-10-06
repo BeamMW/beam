@@ -15,6 +15,8 @@
 #include "node_network.h"
 #include "utility/logger.h"
 #include "wallet/core/default_peers.h"
+#include "wallet/core/common.h"
+#include "wallet/core/strings_resources.h"
 
 namespace beam::wallet
 {
@@ -101,6 +103,12 @@ namespace beam::wallet
 
     void NodeNetwork::OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason)
     {
+        if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type &&
+            ErrorType::NodeProtocolIncompatible == getWalletError(reason.m_ExceptionDetails.m_ExceptionType))
+        {
+            BEAM_LOG_ERROR() << kErrorNodeProtocolIncompatible << " reason: " << reason;
+        }
+
         std::stringstream ss;
         ss << reason;
         m_disconnectReason = ss.str();
