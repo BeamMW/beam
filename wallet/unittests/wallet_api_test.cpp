@@ -1719,8 +1719,8 @@ void testJsonDepth()
 
 void testDeepJsonRequest()
 {
-    // used to overflow the stack and crash the process (HTTP mode accepts bodies up to 1 MB)
-    const auto deep = std::string(80000, '[') + std::string(80000, ']');
+    // used to overflow the stack and crash the process
+    const auto deep = std::string(1000000, '[') + std::string(1000000, ']');
     testInvalidJsonRpc(NoFork, ApiError::InvalidJsonRpc, deep);
 
     // the limit applies to the whole request, params included
@@ -1743,7 +1743,7 @@ void testReadMessagesUntrusted()
     auto walletDB = WalletDB::init(dbName, SecString("pass"), seed);
 
     WalletID peer = Zero;
-    const auto deep = std::string(80000, '[') + std::string(80000, ']');
+    const auto deep = std::string(1000000, '[') + std::string(1000000, ']');
     walletDB->storeIM(1, peer, peer, deep, true, false);
     walletDB->storeIM(2, peer, peer, "not a json", true, false);
     walletDB->storeIM(3, peer, peer, R"({"text":"hi"})", true, false);
