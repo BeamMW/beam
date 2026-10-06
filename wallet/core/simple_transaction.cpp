@@ -279,8 +279,14 @@ namespace beam::wallet
                 builder.CheckMinimumFee(&tsExtra);
             }
 
+            // self tx without peer address is a split, with own peer address it's a send to own address
+            WalletID widPeer;
+            const char* szAction = pMutualBuilder ?
+                (pMutualBuilder->m_IsSender ? " Sending " : " Receiving ") :
+                (GetParameter(TxParameterID::PeerAddr, widPeer) ? " Sending " : " Splitting ");
+
             stringstream ss;
-            ss << GetTxID() << (pMutualBuilder ? pMutualBuilder->m_IsSender ? " Sending " : " Receiving " : " Splitting ")
+            ss << GetTxID() << szAction
                << PrintableAmount(builder.m_Amount, false, builder.m_AssetID)
                << " (fee: " << PrintableAmount(builder.m_Fee) << ")";
 
