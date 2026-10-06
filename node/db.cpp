@@ -1190,6 +1190,31 @@ uint64_t NodeDB::StateFindSafe(const Block::SystemState::ID& k)
 	return rowid;
 }
 
+// The hash is random, so its prefix is as selective as the whole of it, while the index is about 2.4 times smaller.
+// The full hash is compared anyway, a prefix collision only costs an extra row read.
+#define StateHashIndex_Expr "substr(" TblStates_Hash ",1,8)"
+static const uint32_t s_StateHashIndex_Bytes = 8;
+
+void NodeDB::CreateStateHashIndex()
+{
+	ExecQuick("CREATE INDEX IF NOT EXISTS [Idx" TblStates "Hash] ON [" TblStates "] (" StateHashIndex_Expr ");");
+}
+
+bool NodeDB::FindActiveStateByHash(StateID& sid, const Merkle::Hash& hv)
+{
+	Recordset rs(*this, Query::StateFindByHash, "SELECT rowid," TblStates_Number " FROM " TblStates
+		" WHERE " StateHashIndex_Expr "=? AND " TblStates_Hash "=? AND (" TblStates_Flags " & ?)");
+	rs.put(0, Blob(hv.m_pData, s_StateHashIndex_Bytes));
+	rs.put(1, hv);
+	rs.put(2, StateFlags::Active);
+	if (!rs.Step())
+		return false;
+
+	rs.get(0, sid.m_Row);
+	rs.get(1, sid.m_Number.v);
+	return true;
+}
+
 uint64_t NodeDB::FindActiveStateStrict(Block::Number num)
 {
 	Recordset rs(*this, Query::StateFindWithFlag, "SELECT rowid FROM " TblStates " WHERE " TblStates_Number "=? AND (" TblStates_Flags " & ?)");

@@ -35,6 +35,39 @@ struct NodeParams {
 
 static const uint16_t NODE_PORT=20000;
 
+#define verify_test(x) \
+    do { \
+        if (!(x)) { \
+            BEAM_LOG_ERROR() << "Test failed: " #x " at line " << __LINE__; \
+            exit(1); \
+        } \
+    } while (false)
+
+// every mined block is found by its hash, and the answer is the same as by its height
+void test_block_by_hash(Node& node, explorer::IAdapter& adapter) {
+    auto& proc = node.get_Processor();
+    const Height hTip = proc.m_Cursor.m_hh.m_Height;
+    verify_test(hTip > 0);
+
+    for (Block::Number n(1); n.v <= proc.m_Cursor.m_Full.m_Number.v; n.v++) {
+        Block::SystemState::Full s;
+        proc.get_DB().get_State(proc.FindActiveAtStrict(n), s);
+
+        Merkle::Hash hv;
+        s.get_Hash(hv);
+
+        json byHash = adapter.get_block_by_hash(hv);
+        verify_test(byHash["found"] == true);
+        verify_test(byHash == adapter.get_block(s.get_Height(), 0));
+    }
+
+    Merkle::Hash hvUnknown = Zero;
+    verify_test(adapter.get_block_by_hash(hvUnknown)["found"] == false);
+    verify_test(adapter.get_block_by_hash(Blob("short", 5))["found"] == false);
+
+    BEAM_LOG_INFO() << "block by hash: all " << hTip << " blocks found";
+}
+
 WaitHandle run_node(const NodeParams& params) {
     WaitHandle ret;
     io::Reactor::Ptr reactor = io::Reactor::create();
@@ -70,7 +103,10 @@ WaitHandle run_node(const NodeParams& params) {
 
             BEAM_LOG_INFO() << "starting a node on " << node.m_Cfg.m_Listen.port() << " port...";
             node.Initialize();
+            adapter->Initialize();
             reactor->run();
+
+            test_block_by_hash(node, *adapter);
         }
     );
 
@@ -138,6 +174,8 @@ int main(int argc, char* argv[]) {
     if (seconds == 0) {
         seconds = 4;
         r.m_Consensus = Rules::Consensus::FakePoW;
+        r.TreasuryChecksum = Zero; // no treasury, otherwise the node waits for it and mines nothing
+        r.UpdateChecksum();
     }
 
     int ret = test_adapter(seconds);
