@@ -2085,6 +2085,12 @@ namespace
         explicit CliNodeConnection(proto::FlyClient& fc) : proto::FlyClient::NetworkStd(fc) {};
         void OnConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
         {
+            if (proto::NodeConnection::DisconnectReason::ProcessingExc == reason.m_Type &&
+                ErrorType::NodeProtocolIncompatible == getWalletError(reason.m_ExceptionDetails.m_ExceptionType))
+            {
+                BEAM_LOG_ERROR() << kErrorNodeProtocolIncompatible << " reason: " << reason;
+                return;
+            }
             BEAM_LOG_ERROR() << kErrorConnectionFailed << " reason: " << reason;
         };
     };
