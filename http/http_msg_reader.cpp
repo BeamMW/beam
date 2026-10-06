@@ -318,6 +318,7 @@ public:
             _body.clear();
         }
         _bodyCursor = 0;
+        _chunkedDecoder = {};
         _methodCached.clear();
         _pathCached.clear();
         _headersCached.clear();
@@ -385,13 +386,14 @@ public:
         error = HttpMsgReader::nothing;
         completed = false;
 
-        struct phr_chunked_decoder decoder = {};
-
+        // _body[0, _bodyCursor) holds already decoded data. New raw bytes are appended
+        // after it and decoded in place; the decoder state persists across calls so
+        // that chunk headers/data/CRLFs split between network reads are handled
         _body.resize(_bodyCursor + sz);
         memcpy(_body.data() + _bodyCursor, p, sz);
 
         size_t rsize = sz;
-        ssize_t pret = phr_decode_chunked(&decoder, (char*)(_body.data() + _bodyCursor), &rsize);
+        ssize_t pret = phr_decode_chunked(&_chunkedDecoder, (char*)(_body.data() + _bodyCursor), &rsize);
         
         if (pret == -1) { 
             // TODO process error
@@ -408,6 +410,8 @@ public:
     }
 
 private:
+    // chunked transfer-encoding decoder state, must survive between feed_chunked_body() calls
+    struct phr_chunked_decoder _chunkedDecoder = {};
     mutable std::string _methodCached;
     mutable std::string _pathCached;
     mutable std::map<std::string, std::string> _headersCached;
