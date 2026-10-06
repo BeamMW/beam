@@ -18,6 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "utility/logger.h"
 #include "common.h"
+#include "utility/json_depth.h"
 
 using json = nlohmann::json;
 
@@ -129,7 +130,7 @@ namespace beam::bitcoin
 
                         try
                         {
-                            json reply = json::parse(strResponse);
+                            json reply = ParseUntrustedJson(strResponse);
 
                             if (!reply["error"].empty())
                             {

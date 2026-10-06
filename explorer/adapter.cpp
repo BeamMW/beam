@@ -38,6 +38,7 @@
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/client/extensions/dex_board/dex_board.h"
+#include "utility/json_depth.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
 namespace beam { namespace explorer {
@@ -1094,7 +1095,10 @@ private:
             {
                 if (!s.empty())
                 {
-                    m_json = json::parse(s, nullptr, false); // won't throw exc
+                    if (FindJsonDepthExcess(s.data(), s.data() + s.size()))
+                        m_json = json::object();
+                    else
+                        m_json = json::parse(s, nullptr, false); // won't throw exc
 
                     if (!m_json.is_object())
                         m_json = json::object();

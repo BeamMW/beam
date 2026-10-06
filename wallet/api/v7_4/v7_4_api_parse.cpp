@@ -14,6 +14,7 @@
 #include "v7_4_api.h"
 #include "version.h"
 #include "wallet/core/base58.h"
+#include "utility/json_depth.h"
 
 namespace beam::wallet
 {
@@ -67,6 +68,21 @@ std::pair<ReadSbbsMessages, IWalletApi::MethodInfo> V74Api::onParseReadSbbsMessa
     return std::make_pair(std::move(message), MethodInfo());
 }
 
+// Messages come from anyone who knows the address. One that isn't acceptable JSON is returned as a string.
+// Otherwise read_messages fails, and the new messages it has already marked as read are lost,
+// or the stack overflows, if the message is nested too deep
+static json MessageToJson(const std::string& message)
+{
+    try
+    {
+        return ParseUntrustedJson(message);
+    }
+    catch (const json::exception&)
+    {
+        return message;
+    }
+}
+
 void V74Api::getResponse(const JsonRpcId& id, const ReadSbbsMessages::Response& res, json& msg)
 {
     msg = json
@@ -82,7 +98,7 @@ void V74Api::getResponse(const JsonRpcId& id, const ReadSbbsMessages::Response& 
                 {"id", message.m_id},
                 {"timestamp", message.m_timestamp},
                 {"sender", std::to_string(message.m_counterpart)},
-                {"message", json::parse(message.m_message)}
+                {"message", MessageToJson(message.m_message)}
             });
     }
 }

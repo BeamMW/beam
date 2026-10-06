@@ -20,6 +20,10 @@
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
 #include "wallet/api/i_swaps_provider.h"
+#include "wallet/core/wallet.h"
+#include "wallet/core/wallet_db.h"
+#include "utility/json_depth.h"
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace beam;
@@ -1674,6 +1678,105 @@ void testCalcChange()
     }));
 }
 
+// #2144: nlohmann::json recurses without a depth limit, untrusted input must be bounded before parsing
+void testJsonDepth()
+{
+    auto nested = [](size_t depth) {
+        return std::string(depth, '[') + std::string(depth, ']');
+    };
+    auto excess = [](const std::string& s) {
+        const char* p = FindJsonDepthExcess(s.data(), s.data() + s.size());
+        return p ? static_cast<size_t>(p - s.data()) : std::string::npos;
+    };
+
+    WALLET_CHECK(excess(nested(MaxJsonDepth)) == std::string::npos);
+    WALLET_CHECK(excess(nested(MaxJsonDepth + 1)) == MaxJsonDepth);
+    WALLET_CHECK(excess("{\"a\":" + nested(MaxJsonDepth - 1) + "}") == std::string::npos);
+    WALLET_CHECK(excess("{\"a\":" + nested(MaxJsonDepth) + "}") == MaxJsonDepth + 4);
+
+    // brackets inside strings don't count, escaped quotes don't end a string
+    WALLET_CHECK(excess("[\"" + nested(1000) + "\"]") == std::string::npos);
+    WALLET_CHECK(excess("[\"\\\"" + nested(1000) + "\"]") == std::string::npos);
+    // ...but an escaped backslash does end it
+    WALLET_CHECK(excess("[\"\\\\\"" + nested(1000) + "]") != std::string::npos);
+
+    // closing brackets don't make the depth negative
+    WALLET_CHECK(excess("]]]]" + nested(MaxJsonDepth)) == std::string::npos);
+
+    // the parse error is a regular one, and nothing is parsed
+    try
+    {
+        ParseUntrustedJson(nested(80000));
+        WALLET_CHECK(!"must throw");
+    }
+    catch (const nlohmann::json::parse_error& e)
+    {
+        WALLET_CHECK(e.byte == MaxJsonDepth + 1);
+    }
+
+    WALLET_CHECK(ParseUntrustedJson(nested(MaxJsonDepth)).is_array());
+}
+
+void testDeepJsonRequest()
+{
+    // used to overflow the stack and crash the process (HTTP mode accepts bodies up to 1 MB)
+    const auto deep = std::string(80000, '[') + std::string(80000, ']');
+    testInvalidJsonRpc(NoFork, ApiError::InvalidJsonRpc, deep);
+
+    // the limit applies to the whole request, params included
+    const auto params = std::string(MaxJsonDepth, '[') + std::string(MaxJsonDepth, ']');
+    testInvalidJsonRpc(NoFork, ApiError::InvalidJsonRpc,
+        R"({"jsonrpc":"2.0","id":1,"method":"wallet_status","params":{"x":)" + params + "}}");
+}
+
+// Instant messages are stored as they come from anyone who knows the address
+void testReadMessagesUntrusted()
+{
+    io::Reactor::Ptr reactor = io::Reactor::create();
+    io::Reactor::Scope scope(*reactor);
+
+    const char* dbName = "wallet_api_test_im.db";
+    boost::filesystem::remove(dbName);
+
+    ECC::NoLeak<ECC::uintBig> seed;
+    seed.V = 11U;
+    auto walletDB = WalletDB::init(dbName, SecString("pass"), seed);
+
+    WalletID peer = Zero;
+    const auto deep = std::string(80000, '[') + std::string(80000, ']');
+    walletDB->storeIM(1, peer, peer, deep, true, false);
+    walletDB->storeIM(2, peer, peer, "not a json", true, false);
+    walletDB->storeIM(3, peer, peer, R"({"text":"hi"})", true, false);
+
+    struct Handler : IWalletApiHandler
+    {
+        json m_Res;
+        void sendAPIResponse(const json& res) override { m_Res = res; }
+    } handler;
+
+    ApiInitData init;
+    init.walletDB = walletDB;
+    init.wallet = std::make_shared<Wallet>(walletDB);
+    auto api = IWalletApi::CreateInstance(ApiVerCurrent, handler, init);
+
+    const std::string req = R"({"jsonrpc":"2.0","id":1,"method":"read_messages","params":{"all":true}})";
+    api->executeAPIRequest(req.data(), req.size());
+
+    const auto& res = handler.m_Res["result"];
+    WALLET_CHECK(res.is_array() && (res.size() == 3));
+    std::map<uint32_t, json> byId; // newest first in the response
+    for (const auto& m : res)
+        byId[m["id"].get<uint32_t>()] = m["message"];
+
+    WALLET_CHECK(byId[1] == deep); // returned as a string, not parsed
+    WALLET_CHECK(byId[2] == "not a json");
+    WALLET_CHECK(byId[3]["text"] == "hi");
+
+    api.reset();
+    walletDB.reset();
+    boost::filesystem::remove(dbName);
+}
+
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
@@ -2394,6 +2497,9 @@ int main()
 
     testAppsApi();
     testCalcChange();
+    testJsonDepth();
+    testDeepJsonRequest();
+    testReadMessagesUntrusted();
 
     return WALLET_CHECK_RESULT;
 }
