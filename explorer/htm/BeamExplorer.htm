@@ -4201,7 +4201,7 @@
     //localStorage.setItem('g_' + g_network + '_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
     //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
-    let args = new URL(document.location).searchParams;
+    let args = new URL(window.location).searchParams;
     args.set('nMaxTxs', g_nMaxTxs);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
@@ -4261,7 +4261,7 @@
     //localStorage.setItem('g_' + g_network + '_hMin', g_hMin);  // We don't store this one in localStorage. It's either in the URL or empty.
     //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
-    let args = new URL(document.location).searchParams;
+    let args = new URL(window.location).searchParams;
     args.set('nMaxOps', g_nMaxOps);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
@@ -4297,7 +4297,7 @@
     g_height = document.getElementById('maxHeight').value;
     // Remark: We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
-    let args = new URL(document.location).searchParams;
+    let args = new URL(window.location).searchParams;
     args.set('height', g_height);
     // Update the URL (without full HTML reload) and reload only the page part
     history.pushState(null, '', window.location.pathname + '?' + args.toString());
@@ -5515,7 +5515,7 @@
     localStorage.setItem('g_' + g_network + '_dh', g_dh);
     //localStorage.setItem('g_' + g_network + '_hMax', g_hMax);  // We don't store this one in localStorage. It's either in the URL or empty.
     // Create or replace these parameters in the URL search parameters
-    let args = new URL(document.location).searchParams;
+    let args = new URL(window.location).searchParams;
     args.set('cols', g_cols);
     args.set('nMax', g_nMax);
     args.set('dh', g_dh);
