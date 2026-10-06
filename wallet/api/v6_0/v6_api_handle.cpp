@@ -619,6 +619,8 @@ namespace beam::wallet
             }
 
             ApiCoin::EmplaceCoin(response.coins, c);
+            if (!data.filter.statuses.empty() && !data.filter.statuses.count(response.coins.back().status))
+                response.coins.pop_back();
             return true;
         };
 
