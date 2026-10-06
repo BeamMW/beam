@@ -774,6 +774,29 @@ namespace beam::wallet
         if (hasParam(params, "filter"))
         {
             getUtxo.filter.assetId = readOptionalAssetID(*this, params["filter"]);
+            getUtxo.filter.txId = getOptionalParam<ValidTxID>(params["filter"], "tx_id");
+
+            if (hasParam(params["filter"], "status"))
+            {
+                // a status code or an array of them, e.g. [0,1,2,3,4] for all the unspent coins
+                const auto& st = params["filter"]["status"];
+                auto add = [&](const json& v)
+                {
+                    if (!v.is_number_unsigned())
+                        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter 'status' must be a coin status code or an array of them.");
+                    getUtxo.filter.statuses.insert(v.get<uint32_t>());
+                };
+
+                if (st.is_array())
+                {
+                    if (st.empty())
+                        throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, "Parameter 'status' must be a coin status code or an array of them.");
+                    for (const auto& v : st)
+                        add(v);
+                }
+                else
+                    add(st);
+            }
         }
 
         if (auto skip = getOptionalParam<uint32_t>(params, "skip"))

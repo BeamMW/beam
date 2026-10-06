@@ -593,6 +593,7 @@ namespace beam::wallet
     {
         BEAM_LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << getCAEnabled()
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
+                    << " tx_id = " << (data.filter.txId ? std::to_string(*data.filter.txId) : "none")
                     << ")";
 
         auto walletDB = getWalletDB();
@@ -612,7 +613,14 @@ namespace beam::wallet
                 return true;
             }
 
+            if (data.filter.txId && c.m_createTxId != data.filter.txId)
+            {
+                return true;
+            }
+
             ApiCoin::EmplaceCoin(response.coins, c);
+            if (!data.filter.statuses.empty() && !data.filter.statuses.count(response.coins.back().status))
+                response.coins.pop_back();
             return true;
         };
 

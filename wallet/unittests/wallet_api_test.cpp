@@ -433,6 +433,7 @@ namespace
             {
                 WALLET_CHECK(id > 0);
                 WALLET_CHECK(data.filter.assetId && *data.filter.assetId == 1);
+                WALLET_CHECK(!data.filter.txId);
             }
 
             explicit ApiTest(Fork fork): WalletApiTest(fork, ApiInitData()) {}
@@ -473,6 +474,68 @@ namespace
                 WALLET_CHECK(result[i]["maturity"] == 60);
             }
         }
+    }
+
+    void testGetUtxoTxIdFilterJsonRpc(const std::string& msg, const std::string& expectedTxId)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid get_utxo api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleGetUtxo(const JsonRpcId& id, GetUtxo&& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(!data.filter.assetId);
+                WALLET_CHECK(data.filter.txId);
+                WALLET_CHECK(std::to_string(*data.filter.txId) == _expectedTxId);
+            }
+
+            explicit ApiTest(const std::string& expectedTxId)
+                : WalletApiTest(NoFork, ApiInitData())
+                , _expectedTxId(expectedTxId)
+            {}
+
+        private:
+            std::string _expectedTxId;
+        };
+
+        ApiTest api(expectedTxId);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+    }
+
+    void testGetUtxoStatusFilterJsonRpc(const std::string& msg, const std::set<uint32_t>& expected)
+    {
+        class ApiTest : public WalletApiTest
+        {
+        public:
+            void onAPIError(const json& msg) override
+            {
+                WALLET_CHECK(!"invalid get_utxo api json!!!");
+                cout << msg["error"] << endl;
+            }
+
+            void onHandleGetUtxo(const JsonRpcId& id, GetUtxo&& data) override
+            {
+                WALLET_CHECK(id > 0);
+                WALLET_CHECK(data.filter.statuses == _expected);
+            }
+
+            explicit ApiTest(const std::set<uint32_t>& expected)
+                : WalletApiTest(NoFork, ApiInitData())
+                , _expected(expected)
+            {}
+
+        private:
+            std::set<uint32_t> _expected;
+        };
+
+        ApiTest api(expected);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
     }
 
     void testSendJsonRpc(Fork fork, const std::string& msg)
@@ -1807,6 +1870,77 @@ int main()
             "filter":
             {
                 "asset_id": 1
+            }
+        }
+    }));
+
+    // filter by id of the transaction which created the UTXO
+    testGetUtxoTxIdFilterJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params":
+        {
+            "filter":
+            {
+                "tx_id": "10c4b760c842433cb58339a0fafef3db"
+            }
+        }
+    }), "10c4b760c842433cb58339a0fafef3db");
+
+    // status filter: a single status, or an array of them (e.g. all the unspent ones)
+    testGetUtxoStatusFilterJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params": { "filter": { "status": 1 } }
+    }), {1});
+
+    testGetUtxoStatusFilterJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params": { "filter": { "status": [0, 1, 2, 3, 4] } }
+    }), {0, 1, 2, 3, 4});
+
+    testGetUtxoStatusFilterJsonRpc(JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params": { "filter": { "tx_id": "10c4b760c842433cb58339a0fafef3db" } }
+    }), {});
+
+    testInvalidJsonRpc(NoFork, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params": { "filter": { "status": "spent" } }
+    }));
+
+    testInvalidJsonRpc(NoFork, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params": { "filter": { "status": [] } }
+    }));
+
+    // invalid tx_id in get_utxo filter
+    testInvalidJsonRpc(NoFork, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "get_utxo",
+        "params":
+        {
+            "filter":
+            {
+                "tx_id": "10c4b760"
             }
         }
     }));
