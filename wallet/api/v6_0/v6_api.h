@@ -52,6 +52,10 @@ namespace beam::wallet
         virtual void fillCoins(json& arr, const std::vector<ApiCoin>& coins);
         virtual void fillTransactions(json& arr, const std::vector<Status::Response>& txs);
 
+        // Throws if the wallet has no connection to a node. Shader calls need to query
+        // the node and would otherwise wait forever, blocking all subsequent shader calls
+        void checkNodeConnection() const;
+
     private:
         void FillAddressData(const AddressData& data, WalletAddress& address);
         void doTxAlreadyExistsError(const JsonRpcId& id);
@@ -82,6 +86,7 @@ namespace beam::wallet
         Wallet::Ptr          _wallet;
         ISwapsProvider::Ptr  _swaps;
         IShadersManager::Ptr _contracts;
+        NodeNetwork::Ptr     _nodeNetwork;
 
         #ifdef BEAM_IPFS_SUPPORT
         IPFSService::Ptr _ipfs;

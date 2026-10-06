@@ -4297,6 +4297,52 @@ namespace
         WALLET_CHECK(txHistory[0].m_txId == txId);
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
     }
+
+    void TestInvokeContractNoNodeConnection()
+    {
+        cout << "\nTesting invoke_contract without node connection...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        TestWalletRig sender(createSenderWalletDB(), Wallet::TxCompletedAction(), TestWalletRig::Type::Offline);
+
+        // node network that is never connected
+        auto nodeNetwork = std::make_shared<NodeNetwork>(*sender.m_Wallet);
+        sender.m_Wallet->SetNodeEndpoint(nodeNetwork);
+        WALLET_CHECK(nodeNetwork->getConnections() == 0);
+
+        ApiInitData data;
+        data.walletDB    = sender.m_WalletDB;
+        data.wallet      = sender.m_Wallet;
+        data.contracts   = IShadersManager::CreateInstance(*sender.m_Wallet, "", "", 0);
+        data.nodeNetwork = nodeNetwork;
+
+        ApiTest api(data);
+
+        // every call must fail immediately and must not leave the shader manager busy
+        for (int i = 0; i < 2; ++i)
+        {
+            InvokeContract message;
+            message.contract = { 0, 'a', 's', 'm' };
+            message.createTx = false;
+
+            bool thrown = false;
+            try
+            {
+                api.onHandleInvokeContract(1, std::move(message));
+            }
+            catch (const jsonrpc_exception& ex)
+            {
+                thrown = true;
+                WALLET_CHECK(ex.code() == ApiError::ContractError);
+            }
+
+            WALLET_CHECK(thrown);
+            WALLET_CHECK(api.m_Messages.empty());
+            WALLET_CHECK(data.contracts->IsDone());
+        }
+    }
 }
 
 bool RunNegLoop(beam::Negotiator::IBase& a, beam::Negotiator::IBase& b, const char* szTask)
@@ -5890,6 +5936,7 @@ int main()
     TestCalculateAssetCoinsSelection();
 
     TestContractInvoke();
+    TestInvokeContractNoNodeConnection();
 
     assert(g_failureCount == 0);
     return WALLET_CHECK_RESULT;

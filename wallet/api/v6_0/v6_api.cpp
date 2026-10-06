@@ -21,6 +21,7 @@ namespace beam::wallet
         , _wallet(init.wallet)
         , _swaps(init.swaps)
         , _contracts(init.contracts)
+        , _nodeNetwork(init.nodeNetwork)
         #ifdef BEAM_IPFS_SUPPORT
         , _ipfs(init.ipfs)
         #endif
@@ -111,6 +112,15 @@ namespace beam::wallet
 
         assertWalletThread();
         return _contracts;
+    }
+
+    void V6Api::checkNodeConnection() const
+    {
+        // nodeNetwork is not provided by every API host, in that case we cannot tell
+        if (_nodeNetwork && _nodeNetwork->getConnections() == 0)
+        {
+            throw jsonrpc_exception(ApiError::ContractError, "No connection to the node");
+        }
     }
 
     #ifdef BEAM_IPFS_SUPPORT
