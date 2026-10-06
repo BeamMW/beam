@@ -7514,6 +7514,13 @@ namespace beam::wallet
                 m_duration = getTimestamp() - m_createTime - 1;
                 break;
             }
+        case ExpirationStatus::OneDay:
+            {
+                // set expiration date since current timestamp
+                auto delta = getTimestamp() - m_createTime;
+                m_duration = delta + WalletAddress::AddressExpiration24h;
+                break;
+            }
         case ExpirationStatus::Auto:
             {
                 // set expiration date since current timestamp
