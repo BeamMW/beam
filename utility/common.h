@@ -31,6 +31,7 @@
 #include <list>
 #include <map>
 #include <utility>
+#include <type_traits>
 #include <cstdint>
 #include <memory>
 #include <functional>
@@ -140,7 +141,8 @@ namespace Cast
 	{
 		// type are unrelated. But must have the same size
 		static_assert(sizeof(TT) == sizeof(T));
-		return (TT&)x;
+		// same as the C-style cast (TT&)x, but explicit: GCC 14 -Wcast-user-defined flags a C cast that bypasses a TT(T) ctor (#2022)
+		return reinterpret_cast<TT&>(const_cast<std::remove_const_t<T>&>(x));
 	}
 
 } // namespace Cast
