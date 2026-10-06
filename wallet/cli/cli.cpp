@@ -3522,7 +3522,7 @@ int main(int argc, char* argv[])
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
         {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
         {cli::WALLET_ADDRESS_VERIFY, VerifyAddress,                 "verify your Endpoint on the attached HW wallet"},
-        {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
+        {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (fast with a node configured with the wallet's owner key; with any other node the wallet downloads and scans all blocks itself, which takes much longer)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
         {cli::IMPORT_DATA,          ImportWalletData,               "import wallet data from a JSON file"},
         {cli::BLOCK_DETAILS,        ShowBlockDetails,               "print information about specified block"},
