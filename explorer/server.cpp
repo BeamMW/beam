@@ -693,12 +693,28 @@ bool get_UrlHexArg(const HttpUrl& url, const std::string_view& name, uintBig_t<n
     return get_UrlHexArg(url, name, val.m_pData, nBytes);
 }
 
+// Height is unsigned, so a negative height arg would wrap around to a huge value (#2065).
+// No block can have a negative height: answer "not found", reporting the height as requested.
+bool get_NegativeHeightNotFound(const HttpUrl& url, json& res)
+{
+    auto height = url.get_int_arg("height", 0);
+    if (height >= 0)
+        return false;
+
+    res = json{ { "found", false }, { "height", height } };
+    return true;
+}
+
 OnRequest(block)
 {
 
     ECC::Hash::Value hv;
     if (get_UrlHexArg(_currentUrl, "kernel", hv))
         return _backend.get_block_by_kernel(hv);
+
+    json res;
+    if (get_NegativeHeightNotFound(_currentUrl, res))
+        return res;
 
     // An explicit height=0 requests the treasury (pseudo-block at height 0).
     // A missing height means "latest block" (see get_block).
@@ -859,6 +875,10 @@ OnRequest(asset)
 
 OnRequest(assets)
 {
+    json res;
+    if (get_NegativeHeightNotFound(_currentUrl, res))
+        return res;
+
     auto height = _currentUrl.get_int_arg("height", MaxHeight);
     return _backend.get_assets_at(height);
 }
