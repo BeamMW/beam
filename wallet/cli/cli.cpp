@@ -1187,7 +1187,14 @@ namespace
         return 0;
     }
 
-    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {})
+    // 0 means no limit
+    uint32_t GetInfoListCount(const po::variables_map& vm)
+    {
+        auto it = vm.find(cli::LIST_COUNT);
+        return it != vm.end() ? it->second.as<Positive<uint32_t>>().value : 0;
+    }
+
+    void ShowAssetCoins(const IWalletDB::Ptr& walletDB, Asset::ID assetId, boost::optional<TxID> txID = {}, uint32_t maxCount = 0)
     {
         auto [unitName, nthName] = GetAssetNames(walletDB, assetId);
         const uint8_t idWidth = assetId == Asset::s_InvalidID ? 49 : 57;
@@ -1273,6 +1280,26 @@ namespace
             return getSortHeight(a) < getSortHeight(b);
         });
 
+        const size_t totalCoins = reliable.size() + unreliable.size();
+        if (maxCount && totalCoins > maxCount)
+        {
+            // keep the newest coins: reliable ones are sorted by height ascending,
+            // unreliable ones precede the asset lock height and are dropped first
+            std::sort(unreliable.begin(), unreliable.end(), [&](boost::any& a, boost::any& b) {
+                return getSortHeight(a) < getSortHeight(b);
+            });
+            if (reliable.size() >= maxCount)
+            {
+                reliable.erase(reliable.begin(), reliable.end() - static_cast<std::ptrdiff_t>(maxCount));
+                unreliable.clear();
+            }
+            else
+            {
+                const size_t keepUnreliable = maxCount - reliable.size();
+                unreliable.erase(unreliable.begin(), unreliable.end() - static_cast<std::ptrdiff_t>(keepUnreliable));
+            }
+        }
+
         const auto displayCoins = [&](const std::vector<boost::any>& coins) {
             if (coins.empty())
             {
@@ -1340,6 +1367,10 @@ namespace
                 cout << kTxHistoryUnreliableCoins;
                 displayCoins(unreliable);
             }
+            if (maxCount && totalCoins > maxCount)
+            {
+                cout << boost::format(kInfoListLimited) % maxCount % totalCoins % "coins" << endl;
+            }
         }
         else
         {
@@ -1392,6 +1423,13 @@ namespace
         txHistory.erase(std::remove_if(txHistory.begin(), txHistory.end(), [&assetId](const auto& tx) {
             return tx.m_assetId != assetId;
         }), txHistory.end());
+
+        const size_t totalTxs = txHistory.size();
+        const auto maxCount = GetInfoListCount(vm);
+        if (maxCount && totalTxs > maxCount)
+        {
+            txHistory.erase(txHistory.begin() + maxCount, txHistory.end()); // sorted newest first
+        }
 
         if (txHistory.empty())
         {
@@ -1487,6 +1525,11 @@ namespace
                     cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
                 cout << std::string(120, '-') << std::endl;
             }
+
+            if (maxCount && totalTxs > maxCount)
+            {
+                cout << boost::format(kInfoListLimited) % maxCount % totalTxs % "transactions" << endl;
+            }
         }
     }
 
@@ -1513,7 +1556,7 @@ namespace
 
             if (vm.count(cli::UTXO_LIST))
             {
-                ShowAssetCoins(walletDB, totals.AssetId);
+                ShowAssetCoins(walletDB, totals.AssetId, {}, GetInfoListCount(vm));
             }
 
             ShowAssetTxs(vm, walletDB, totals.AssetId);
@@ -1631,7 +1674,7 @@ namespace
 
         if (vm.count(cli::UTXO_LIST))
         {
-            ShowAssetCoins(walletDB, Zero);
+            ShowAssetCoins(walletDB, Zero, {}, GetInfoListCount(vm));
         }
         else if (vm.count(cli::TX_HISTORY))
         {
@@ -1664,6 +1707,13 @@ namespace
                  std::sort(txHistory.begin(), txHistory.end(), [](const TxDescription& a, const TxDescription& b) -> bool {
                     return a.m_createTime > b.m_createTime;
                 });
+
+                const size_t totalTxs = txHistory.size();
+                const auto maxCount = GetInfoListCount(vm);
+                if (maxCount && totalTxs > maxCount)
+                {
+                    txHistory.erase(txHistory.begin() + maxCount, txHistory.end()); // sorted newest first
+                }
 
                 cout << "TRANSACTIONS" << std::endl << std::endl << std::string(120, '-') << std::endl;
 
@@ -1703,6 +1753,11 @@ namespace
                     if (!token.empty())
                         cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
                     cout << std::string(120, '-') << std::endl;
+                }
+
+                if (maxCount && totalTxs > maxCount)
+                {
+                    cout << boost::format(kInfoListLimited) % maxCount % totalTxs % "transactions" << endl;
                 }
             }
         }

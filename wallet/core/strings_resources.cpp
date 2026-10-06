@@ -200,6 +200,7 @@ namespace beam
     const char kTxDirectionOut[] = "outgoing";
     const char kTxDirectionIn[] = "incoming";
     const char kTxHistoryEmpty[] = "No transactions";
+    const char kInfoListLimited[] = "Showing the latest %1% of %2% %3%";
     const char kNoCoins[] = "No coins";
     const char kNoShieldedCoins[] = "No Shielded coins";
     const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";

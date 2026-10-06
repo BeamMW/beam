@@ -160,6 +160,7 @@ namespace beam
         const char* INFO = "info";
         const char* TX_HISTORY = "tx_history";
         const char* UTXO_LIST = "utxo_list";
+        const char* LIST_COUNT = "count";
         const char* CANCEL_TX = "cancel_tx";
         const char* DELETE_TX = "delete_tx";
         const char* TX_DETAILS = "tx_details";
@@ -478,6 +479,7 @@ namespace beam
             (cli::CONFIRMATIONS_COUNT, po::value<Nonnegative<uint32_t>>()->default_value(Nonnegative<uint32_t>(0)), "count of confirmations before you can't spend coin")
             (cli::TX_HISTORY, "print transaction history (should be used with info command)")
             (cli::UTXO_LIST, "print the list of UTXOs (should be used with info command)")
+            (cli::LIST_COUNT, po::value<Positive<uint32_t>>(), "with 'info': limit the number of transactions (--tx_history) or UTXOs (--utxo_list) shown, newest first")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
             (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
