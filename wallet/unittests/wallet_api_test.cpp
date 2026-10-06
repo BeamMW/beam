@@ -2392,6 +2392,57 @@ int main()
             }
         }));
 
+    // non-byte array data, error must name the parameter (#1739)
+    testInvalidJsonRpc(Fork3, [](const json& msg)
+    {
+        testErrorHeader(msg);
+        WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidParamsJsonRpc);
+        WALLET_CHECK(msg["error"]["data"] == "Parameter 'data' must be a non-empty array of bytes (unsigned integers 0-255).");
+    }, JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": ["a", "b", "c"]
+            }
+        }));
+
+    // out of range byte in data
+    testInvalidJsonRpc(Fork3, [](const json& msg)
+    {
+        testErrorHeader(msg);
+        WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidParamsJsonRpc);
+        WALLET_CHECK(msg["error"]["data"] == "Parameter 'data' must be a non-empty array of bytes (unsigned integers 0-255).");
+    }, JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "process_invoke_data",
+            "params":
+            {
+                "data": [1, 256, 3]
+            }
+        }));
+
+    // non-byte array contract, error must name the parameter (#1739)
+    testInvalidJsonRpc(Fork3, [](const json& msg)
+    {
+        testErrorHeader(msg);
+        WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidParamsJsonRpc);
+        WALLET_CHECK(msg["error"]["data"] == "Parameter 'contract' must be a non-empty array of bytes (unsigned integers 0-255).");
+    }, JSON_CODE(
+        {
+            "jsonrpc": "2.0",
+            "id": "123",
+            "method": "invoke_contract",
+            "params":
+            {
+                "contract": [1, -2, 3]
+            }
+        }));
+
     testAppsApi();
     testCalcChange();
 

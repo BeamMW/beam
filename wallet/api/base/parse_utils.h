@@ -330,4 +330,37 @@ namespace beam::wallet
     {
         return NonEmptyJsonArray(j);
     }
+
+    BOOST_STRONG_TYPEDEF(ByteBuffer, NonEmptyByteArray)
+
+    template<>
+    inline const char* type_name<NonEmptyByteArray>()
+    {
+        return "non-empty array of bytes (unsigned integers 0-255)";
+    }
+
+    template<>
+    inline bool type_check<NonEmptyByteArray>(const json& j)
+    {
+        if (!type_check<NonEmptyJsonArray>(j))
+        {
+            return false;
+        }
+
+        for (const auto& b: j)
+        {
+            if (!b.is_number_unsigned() || b.get<uint64_t>() > 0xFF)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    template<>
+    inline NonEmptyByteArray type_get<NonEmptyByteArray>(const json& j)
+    {
+        return NonEmptyByteArray(j.get<ByteBuffer>());
+    }
 }
