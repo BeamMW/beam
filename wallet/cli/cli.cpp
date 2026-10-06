@@ -185,6 +185,65 @@ namespace
 #endif  // BEAM_ATOMIC_SWAP_SUPPORT
     }
 
+    // Contract txs keep their amounts in ContractDataPacked, their m_amount is 0 (#1716, #1639).
+    // Same convention as the CSV export (tx_history_to_csv.cpp): a positive spend is sent to the contract,
+    // a negative one is received; received BEAM is shown net of the fee.
+    struct ContractTxAmounts
+    {
+        bool m_Valid = false;
+        std::string m_Sent;
+        std::string m_Received;
+        std::string m_Cids;
+        std::string m_Comment;
+        Amount m_Fee = 0;
+    };
+
+    ContractTxAmounts GetContractTxAmounts(const IWalletDB::Ptr& walletDB, const TxDescription& tx)
+    {
+        ContractTxAmounts res;
+        bvm2::ContractInvokeData vData;
+        if (!tx.GetParameter(TxParameterID::ContractDataPacked, vData))
+            return res;
+
+        res.m_Valid = true;
+        res.m_Fee = vData.get_FullFee(tx.m_minHeight);
+        res.m_Comment = vData.get_FullComment();
+
+        if (!vData.m_vec.empty())
+        {
+            res.m_Cids = vData.m_vec[0].m_Cid.str();
+            if (vData.m_vec.size() > 1)
+                res.m_Cids += " +" + std::to_string(vData.m_vec.size() - 1);
+        }
+
+        for (const auto& [aid, val] : vData.get_FullSpend())
+        {
+            auto amount = val;
+            if (aid == Asset::s_BeamID && amount < 0)
+                amount += res.m_Fee;
+            if (!amount)
+                continue;
+
+            std::string unitName = "BEAM";
+            if (aid != Asset::s_BeamID)
+            {
+                unitName = kAmountASSET;
+                if (const auto info = walletDB->findAsset(aid); info.is_initialized())
+                {
+                    unitName = WalletAssetMeta(*info).GetUnitName();
+                    trimAssetName(unitName, 28);
+                }
+                unitName += " (asset " + std::to_string(aid) + ")";
+            }
+
+            std::string& out = (amount < 0) ? res.m_Received : res.m_Sent;
+            if (!out.empty())
+                out += " | ";
+            out += to_string(PrintableAmount(static_cast<Amount>(std::abs(amount)), true)) + " " + unitName;
+        }
+        return res;
+    }
+
     std::string TxDetailsInfo(const IWalletDB::Ptr& walletDB, const TxID& txID)
     {
         auto tx = walletDB->getTx(txID);
@@ -260,7 +319,19 @@ namespace
             s << "Receiver wallet's signature: " << receiverIdentity << std::endl;
         }
 
-        if (desc.m_assetId == Asset::s_BeamID)
+        if (desc.m_txType == wallet::TxType::Contract)
+        {
+            if (const auto ca = GetContractTxAmounts(walletDB, desc); ca.m_Valid)
+            {
+                s << "Contract ID:       " << ca.m_Cids << std::endl;
+                s << "Sent:              " << (ca.m_Sent.empty() ? "-" : ca.m_Sent) << std::endl;
+                s << "Received:          " << (ca.m_Received.empty() ? "-" : ca.m_Received) << std::endl;
+                s << "Fee:               " << to_string(PrintableAmount(ca.m_Fee, true)) << " BEAM" << std::endl;
+                if (!ca.m_Comment.empty())
+                    s << "Comment:           " << ca.m_Comment << std::endl;
+            }
+        }
+        else if (desc.m_assetId == Asset::s_BeamID)
         {
             s << "Amount:            " << PrintableAmount(desc.m_amount) << std::endl;
         }
@@ -1682,8 +1753,20 @@ namespace
                         cout << std::string(4, ' ') << "asset swap: true" << std::endl;
                     }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
-                    cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
-                    cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
+                    if (tx.m_txType == TxType::Contract)
+                    {
+                        // contract txs: show what was sent to / received from the contract, not m_amount (always 0)
+                        const auto ca = GetContractTxAmounts(walletDB, tx);
+                        cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": contract" << std::endl;
+                        cout << std::string(4, ' ') << "sent: " << (ca.m_Sent.empty() ? "-" : ca.m_Sent) << std::endl;
+                        cout << std::string(4, ' ') << "received: " << (ca.m_Received.empty() ? "-" : ca.m_Received) << std::endl;
+                        cout << std::string(4, ' ') << "fee, BEAM: " << to_string(PrintableAmount(ca.m_Fee, true)) << std::endl;
+                    }
+                    else
+                    {
+                        cout << std::string(4, ' ') << kTxHistoryColumnDirection << ": " << direction << std::endl;
+                        cout << std::string(4, ' ') << kTxHistoryColumnAmount << ": " << amount << std::endl;
+                    }
                     #ifdef BEAM_ASSET_SWAP_SUPPORT
                     if (tx.m_txType == TxType::DexSimpleSwap)
                     {
