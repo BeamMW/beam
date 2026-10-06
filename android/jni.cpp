@@ -828,6 +828,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(cancelTx)(JNIEnv *env, jobject
 
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
+    if (buffer.size() != id.size())
+    {
+        BEAM_LOG_ERROR() << "Transaction ID is not valid!!!";
+        return;
+    }
 
     std::copy_n(buffer.begin(), id.size(), id.begin());
     walletModel->getAsync()->cancelTx(id);
@@ -841,6 +846,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(deleteTx)(JNIEnv *env, jobject
 
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
+    if (buffer.size() != id.size())
+    {
+        BEAM_LOG_ERROR() << "Transaction ID is not valid!!!";
+        return;
+    }
 
     std::copy_n(buffer.begin(), id.size(), id.begin());
     walletModel->getAsync()->deleteTx(id);
@@ -882,6 +892,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getPaymentInfo)(JNIEnv *env, j
 {
     auto buffer = from_hex(JString(env, txID).value());
     TxID id;
+    if (buffer.size() != id.size())
+    {
+        BEAM_LOG_ERROR() << "Transaction ID is not valid!!!";
+        return;
+    }
 
     std::copy_n(buffer.begin(), id.size(), id.begin());
 
@@ -945,6 +960,11 @@ JNIEXPORT void JNICALL BEAM_JAVA_WALLET_INTERFACE(getCoinsByTx)(JNIEnv *env, job
 {
     auto buffer = from_hex(JString(env, txID).value());
     TxID id;
+    if (buffer.size() != id.size())
+    {
+        BEAM_LOG_ERROR() << "Transaction ID is not valid!!!";
+        return;
+    }
 
     std::copy_n(buffer.begin(), id.size(), id.begin());
 
@@ -1112,6 +1132,11 @@ JNIEXPORT jlong JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionRate)(JNIEnv *e
 {
     auto buffer = from_hex(JString(env, txId).value());
     TxID id;
+    if (buffer.size() != id.size())
+    {
+        BEAM_LOG_ERROR() << "Transaction ID is not valid!!!";
+        return 0;
+    }
 
     std::copy_n(buffer.begin(), id.size(), id.begin());
 

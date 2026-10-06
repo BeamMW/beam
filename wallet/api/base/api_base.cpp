@@ -37,6 +37,20 @@ namespace beam::wallet
             return res;
         }
 
+        // Compare without early exit so response time does not reveal how many
+        // leading characters of a guessed API key are correct
+        bool IsEqualConstTime(const std::string& a, const std::string& b)
+        {
+            if (a.size() != b.size())
+                return false;
+
+            unsigned char diff = 0;
+            for (size_t i = 0; i < a.size(); ++i)
+                diff |= static_cast<unsigned char>(a[i] ^ b[i]);
+
+            return diff == 0;
+        }
+
         void FilterRequest(json& root)
         {
             for (auto& item : root.items())
@@ -195,12 +209,23 @@ namespace beam::wallet
             if (_acl)
             {
                 const std::string key = getMandatoryParam<NonEmptyString>(pinfo->message, "key");
-                if (_acl->count(key) == 0)
+
+                // scan the whole ACL and do not stop on the first match (constant time)
+                bool found = false;
+                bool canWrite = false;
+                for (const auto& entry : *_acl)
+                {
+                    const bool match = IsEqualConstTime(entry.first, key);
+                    found |= match;
+                    canWrite |= (match && entry.second);
+                }
+
+                if (!found)
                 {
                     throw jsonrpc_exception(ApiError::UnknownApiKey, key);
                 }
 
-                if(minfo.writeAccess && !_acl.get()[key])
+                if(minfo.writeAccess && !canWrite)
                 {
                     throw jsonrpc_exception(ApiError::InternalErrorJsonRpc,"User doesn't have permissions to call this method.");
                 }
