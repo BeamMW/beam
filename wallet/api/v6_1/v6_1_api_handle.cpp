@@ -196,6 +196,7 @@ namespace beam::wallet
     {
         BEAM_LOG_VERBOSE() << "InvokeContract(id = " << id << ")";
         auto contracts = getContracts();
+        checkNodeConnection();
 
         if (data.createTx)
         {

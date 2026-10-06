@@ -836,6 +836,8 @@ namespace beam::wallet
             throw jsonrpc_exception(ApiError::UnexpectedError, "Previous shader call is still in progress");
         }
 
+        checkNodeConnection();
+
         if (data.createTx)
         {
             onHandleInvokeContractWithTX(id, std::move(data));
