@@ -3782,7 +3782,7 @@
       document.getElementById('MainContent').innerHTML = `
         <h2 class="title errorMessage">Error Loading Data</h2>
         <p class="querying">Problem querying the explorer node for network <span class="queried-network">${g_network}</span> on <span class="nodeURL queried-node">${g_urlPrefix}</span></p>
-        <p class="querying">&#9656; <a href="${UrlSelf(page_id)}" data-retry="true">Retry request</a>.</p>
+        <p class="querying">&#9656; <a href="${window.location.search}" data-retry="true">Retry request</a>.</p>
         <p class="querying">&#9656; <a href="javascript:openNodeSelection();">Choose a different node URL</a>.</p>
       `;
       return; // Stop execution on fetch error
@@ -3798,7 +3798,7 @@
       document.getElementById('MainContent').innerHTML = `
         <h2 class="title errorMessage">Error Displaying Data</h2>
         <p class="querying">An error occurred while rendering data for page <b>${page_id}</b>.</p>
-        <p class="querying">&#9656; <a href="${UrlSelf(page_id)}" data-retry="true">Retry</a>.</p>
+        <p class="querying">&#9656; <a href="${window.location.search}" data-retry="true">Retry</a>.</p>
       `;
       return; // Stop execution on error
     }
