@@ -938,7 +938,7 @@ public:
     {
         WalletDB::isValidPassword(dbName, SecString(pass));
         auto res = WalletDB::isValidPassword(dbName, SecString(pass));
-        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(pass) << TRACE(res);
+        BEAM_LOG_DEBUG() << __FUNCTION__ << TRACE(dbName) << TRACE(res);
         auto cbPtr = std::make_unique<CallbackResult>(std::move(cb), res);
         emscripten_async_run_in_main_runtime_thread(
             EM_FUNC_SIG_VI,
