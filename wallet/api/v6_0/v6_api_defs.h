@@ -296,6 +296,7 @@ namespace beam::wallet
         struct
         {
             boost::optional<Asset::ID> assetId;
+            boost::optional<TxID> txId; // id of the transaction which created the UTXO
         }
         filter;
 

@@ -593,6 +593,7 @@ namespace beam::wallet
     {
         BEAM_LOG_DEBUG() << "GetUtxo(id = " << id << " assets = " << getCAEnabled()
                     << " asset_id = " << (data.filter.assetId ? *data.filter.assetId : 0)
+                    << " tx_id = " << (data.filter.txId ? std::to_string(*data.filter.txId) : "none")
                     << ")";
 
         auto walletDB = getWalletDB();
@@ -608,6 +609,11 @@ namespace beam::wallet
             }
 
             if (data.filter.assetId && !c.isAsset(*data.filter.assetId))
+            {
+                return true;
+            }
+
+            if (data.filter.txId && c.m_createTxId != data.filter.txId)
             {
                 return true;
             }

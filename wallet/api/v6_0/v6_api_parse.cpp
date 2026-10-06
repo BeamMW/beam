@@ -774,6 +774,7 @@ namespace beam::wallet
         if (hasParam(params, "filter"))
         {
             getUtxo.filter.assetId = readOptionalAssetID(*this, params["filter"]);
+            getUtxo.filter.txId = getOptionalParam<ValidTxID>(params["filter"], "tx_id");
         }
 
         if (auto skip = getOptionalParam<uint32_t>(params, "skip"))
