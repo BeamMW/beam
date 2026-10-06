@@ -1724,6 +1724,25 @@ int main()
         "params" : "bar"
     }));
 
+    // #2144: deeply nested JSON is rejected instead of overflowing the stack
+    {
+        auto nested = [](size_t depth) { return std::string(depth, '[') + std::string(depth, ']'); };
+        auto request = [](const std::string& method, const std::string& params) {
+            return R"({"jsonrpc":"2.0","id":1,"method":")" + method + R"(","params":)" + params + "}";
+        };
+        auto checkDepthError = [](const json& msg) {
+            testErrorHeader(msg);
+            WALLET_CHECK(msg["error"]["code"] == ApiError::InvalidJsonRpc);
+            WALLET_CHECK(msg["error"]["data"].get<std::string>().find("nesting") != std::string::npos);
+        };
+
+        testInvalidJsonRpc(NoFork, checkDepthError, nested(1000000));
+        testInvalidJsonRpc(NoFork, checkDepthError, request("balance123", nested(128))); // root object + 128 = 129 levels
+        testInvalidJsonRpc(NoFork, ApiError::NotFoundJsonRpc, request("balance123", nested(127))); // 128 levels parse
+        testInvalidJsonRpc(NoFork, ApiError::NotFoundJsonRpc, request(std::string(200, '['), "1")); // brackets in strings don't count
+        testInvalidJsonRpc(NoFork, ApiError::NotFoundJsonRpc, request(R"(\")" + std::string(200, '{'), "1")); // nor after escaped quotes
+    }
+
     testCreateAddressJsonRpc(JSON_CODE(
     {
         "jsonrpc": "2.0",

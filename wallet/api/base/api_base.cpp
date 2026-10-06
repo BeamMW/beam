@@ -55,6 +55,47 @@ namespace beam::wallet
                 }
             }
         }
+
+        // nlohmann::json parses recursively without a depth limit, so a deeply nested
+        // request would overflow the stack. Mirrors the lexer just enough to bound the
+        // depth the parser can reach: brackets inside strings don't count.
+        constexpr size_t MaxJsonDepth = 128;
+
+        bool IsJsonDepthAllowed(const char* p, const char* end)
+        {
+            size_t depth = 0;
+            bool inString = false;
+            for (; p != end; ++p)
+            {
+                const char c = *p;
+                if (inString)
+                {
+                    if (c == '\\')
+                    {
+                        if (++p == end)
+                            break;
+                    }
+                    else if (c == '"')
+                    {
+                        inString = false;
+                    }
+                }
+                else if (c == '"')
+                {
+                    inString = true;
+                }
+                else if (c == '[' || c == '{')
+                {
+                    if (++depth > MaxJsonDepth)
+                        return false;
+                }
+                else if ((c == ']' || c == '}') && depth)
+                {
+                    --depth;
+                }
+            }
+            return true;
+        }
     }
 
     ApiBase::ApiBase(IWalletApiHandler& handler, const ApiInitData& initData)
@@ -97,6 +138,11 @@ namespace beam::wallet
 
         try
         {
+            if (!IsJsonDepthAllowed(request.data(), request.data() + request.size()))
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "JSON nesting is too deep.");
+            }
+
             const auto parsed = json::parse(request);
             rpcId = parsed["id"];
         }
@@ -122,6 +168,11 @@ namespace beam::wallet
             if (size == 0)
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "Empty JSON request");
+            }
+
+            if (!IsJsonDepthAllowed(data, data + size))
+            {
+                throw jsonrpc_exception(ApiError::InvalidJsonRpc, "JSON nesting is too deep.");
             }
 
             ApiCallInfo info;
