@@ -693,6 +693,42 @@ namespace
         return -1;
     }
 
+    int ShowContactList(const po::variables_map& vm)
+    {
+        auto walletDB = OpenDataBase(vm);
+
+        std::vector<WalletAddress> contacts;
+        for (auto& address : walletDB->getAddresses(false))
+            if (!address.isOwn())
+                contacts.push_back(std::move(address));
+
+        if (contacts.empty())
+        {
+            std::cout << "You do not have any contacts." << std::endl;
+            return 0;
+        }
+
+        std::cout << endl;
+        for (const auto& contact : contacts)
+        {
+            std::cout
+                << kAddrListComment << contact.m_label << std::endl
+                << kAddrListAddress << (contact.m_Token.empty() ? std::to_string(contact.m_BbsAddr) : contact.m_Token) << std::endl;
+
+            if (contact.m_BbsAddr.IsValid())
+                std::cout << kAddrListBbsAddr << std::to_string(contact.m_BbsAddr) << std::endl;
+
+            if (contact.m_Endpoint != Zero)
+                std::cout << kAddrListEndpoint << std::to_base58(contact.m_Endpoint) << std::endl;
+
+            std::cout
+                << kAddrListCreated << format_timestamp(kTimeStampFormat3x3, contact.getCreateTime() * 1000, false) << std::endl
+                << std::endl;
+        }
+
+        return 0;
+    }
+
     bool CreateNewAddress(const po::variables_map& vm,
                          const IWalletDB::Ptr& walletDB,
                          const std::string& defaultComment = "")
@@ -3521,6 +3557,7 @@ int main(int argc, char* argv[])
         {cli::PAYMENT_PROOF_VERIFY, VerifyPaymentProof,             "verify payment proof"},
         {cli::GENERATE_PHRASE,      GeneratePhrase,                 "generate new seed phrase"},
         {cli::WALLET_ADDRESS_LIST,  ShowAddressList,                "print addresses"},
+        {cli::WALLET_CONTACT_LIST,  ShowContactList,                "print contacts (addresses of peers you sent to) with their comments"},
         {cli::WALLET_ADDRESS_VERIFY, VerifyAddress,                 "verify your Endpoint on the attached HW wallet"},
         {cli::WALLET_RESCAN,        Rescan,                         "rescan the blockchain for owned UTXO (works only with node configured with an owner key)"},
         {cli::EXPORT_DATA,          ExportWalletData,               "export wallet data (UTXO, transactions, addresses) to a JSON file"},
