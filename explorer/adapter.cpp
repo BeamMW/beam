@@ -2071,6 +2071,7 @@ private:
         ExtraInfo::Writer wr;
         wr.m_json["Asset history"] = get_asset_history(aid, hMin, hMax, nMaxOps);
         wr.m_json["Asset distribution"] = get_asset_distribution(aid);
+        add_current_height(wr.m_json); // the distribution is as of the current height (#2010)
         return wr.m_json;
     }
 
