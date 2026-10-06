@@ -37,6 +37,21 @@ namespace beam::wallet
             return res;
         }
 
+        // Requests come from untrusted clients and may be megabytes long, log only their beginning
+        struct RequestForLog
+        {
+            std::string_view m_Request;
+        };
+
+        std::ostream& operator << (std::ostream& os, const RequestForLog& x)
+        {
+            constexpr size_t MaxSize = 1024;
+            if (x.m_Request.size() <= MaxSize)
+                return os << x.m_Request;
+
+            return os << x.m_Request.substr(0, MaxSize) << "... (" << x.m_Request.size() << " bytes)";
+        }
+
         void FilterRequest(json& root)
         {
             for (auto& item : root.items())
@@ -102,7 +117,7 @@ namespace beam::wallet
         }
         catch(...)
         {
-            BEAM_LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << request;
+            BEAM_LOG_WARNING() << "ApiBase::fromError - failed to parse request, " << RequestForLog{request};
         }
 
         const auto err = formError(rpcId, code, errorText);
@@ -177,7 +192,7 @@ namespace beam::wallet
         auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
-            BEAM_LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
+            BEAM_LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << RequestForLog{{data, size}};
             return ApiSyncMode::DoneSync;
         }
 
