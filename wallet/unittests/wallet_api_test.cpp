@@ -17,6 +17,7 @@
 #include "test_helpers.h"
 #include "wallet/api/i_wallet_api.h"
 #include "wallet/api/v6_0/v6_api.h"
+#include "wallet/api/v6_1/v6_1_api.h"
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
 #include "wallet/api/i_swaps_provider.h"
@@ -1674,6 +1675,324 @@ void testCalcChange()
     }));
 }
 
+namespace
+{
+    std::string walletStatusRequest(const std::string& params)
+    {
+        return std::string(R"({"jsonrpc": "2.0", "id": 12345, "method": "wallet_status")")
+            + (params.empty() ? std::string() : std::string(R"(, "params": )") + params)
+            + "}";
+    }
+
+    //
+    // v6.1+ API requires node network, provide a stub fly client for it
+    //
+    struct StubFlyClient : public proto::FlyClient
+    {
+        Block::SystemState::IHistory& get_History() override
+        {
+            return m_History;
+        }
+
+        Block::SystemState::HistoryMap m_History;
+    };
+
+    class WalletApiV61Test
+        : public wallet::V61Api
+        , IWalletApiHandler
+    {
+    public:
+        explicit WalletApiV61Test(const ApiInitData& initData)
+            : V61Api(*this, 6, 1, initData)
+        {}
+
+        void sendAPIResponse(const json& resp) override
+        {
+            if (resp["error"].empty())
+            {
+                onAPISuccess(resp);
+            }
+            else
+            {
+                onAPIError(resp);
+            }
+        }
+
+        void onParseError(const json& msg) override
+        {
+            onAPIError(msg);
+        }
+
+        void onHandleWalletStatusV61(const JsonRpcId& id, WalletStatusV61&& data) override
+        {
+            WALLET_CHECK(id == 12345);
+            m_Handled++;
+            m_NzOnly = data.nzOnly;
+        }
+
+        void onAPISuccess(const json&)
+        {
+            WALLET_CHECK(!"invalid api test - success");
+        }
+
+        void onAPIError(const json& msg)
+        {
+            cout << msg << endl;
+            testErrorHeader(msg);
+            m_ErrorCode = msg["error"]["code"].get<ApiError>();
+        }
+
+        int m_Handled = 0;
+        boost::optional<bool> m_NzOnly;
+        boost::optional<ApiError> m_ErrorCode;
+    };
+
+    ApiInitData makeV61InitData(proto::FlyClient& fc, bool asApp)
+    {
+        ApiInitData data;
+        data.nodeNetwork = std::make_shared<NodeNetwork>(fc);
+        if (asApp)
+        {
+            data.appName = "appname";
+            data.appId   = "appid";
+        }
+        return data;
+    }
+}
+
+void testWalletStatus()
+{
+    struct ApiTest : public WalletApiTest
+    {
+        void onAPIError(const json& msg) override
+        {
+            cout << msg << endl;
+            WALLET_CHECK(!"wallet_status must not fail");
+        }
+
+        void onHandleWalletStatusApi(const JsonRpcId& id, WalletStatusApi&& data) override
+        {
+            WALLET_CHECK(id == 12345);
+            m_Handled++;
+        }
+
+        ApiTest() : WalletApiTest(NoFork, ApiInitData()) {}
+        int m_Handled = 0;
+    };
+
+    //
+    // v6.0 wallet_status has no parameters, anything passed is ignored.
+    // 'nz_totals' is supported since v6.1 only.
+    //
+    for (const auto& params: {
+        std::string(),
+        std::string("{}"),
+        std::string(R"({"nz_totals": true})"),
+        std::string(R"({"nz_totals": "abc"})")
+    })
+    {
+        ApiTest api;
+        const auto msg = walletStatusRequest(params);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(api.m_Handled == 1);
+    }
+
+    ApiTest api;
+    WalletStatusApi::Response status;
+    status.currentHeight = 100;
+    memset(status.currentStateHash.m_pData, 0xaa, status.currentStateHash.nBytes);
+    memset(status.prevStateHash.m_pData, 0xbb, status.prevStateHash.nBytes);
+    status.difficulty = 1.5;
+    status.available = 1;
+    status.receiving = 2;
+    status.sending = 3;
+    status.maturing = 4;
+
+    // no totals
+    {
+        json res;
+        api.getResponse(123, status, res);
+        testResultHeader(res);
+
+        WALLET_CHECK(res["id"] == 123);
+        auto& r = res["result"];
+        WALLET_CHECK(r["current_height"] == 100);
+        WALLET_CHECK(r["current_state_hash"] == std::string(64, 'a'));
+        WALLET_CHECK(r["prev_state_hash"] == std::string(64, 'b'));
+        WALLET_CHECK(r["difficulty"] == 1.5);
+        WALLET_CHECK(r["available"] == 1);
+        WALLET_CHECK(r["receiving"] == 2);
+        WALLET_CHECK(r["sending"] == 3);
+        WALLET_CHECK(r["maturing"] == 4);
+        CHECK_JSON_FIELD_ABSENT(r, "totals");
+        WALLET_CHECK(r.size() == 8);
+    }
+
+    // default totals, BEAM only
+    {
+        status.totals = storage::Totals();
+
+        json res;
+        api.getResponse(123, status, res);
+        testResultHeader(res);
+
+        auto& r = res["result"];
+        WALLET_CHECK(r.size() == 9);
+        CHECK_JSON_FIELD(r, "totals");
+        WALLET_CHECK(r["totals"].is_array());
+        WALLET_CHECK(r["totals"].size() == 1);
+
+        auto& t = r["totals"][0];
+        WALLET_CHECK(t["asset_id"] == 0);
+        WALLET_CHECK(t["available"] == 0);
+        WALLET_CHECK(t["available_str"] == "0");
+        WALLET_CHECK(t["receiving"] == 0);
+        WALLET_CHECK(t["receiving_str"] == "0");
+        WALLET_CHECK(t["sending"] == 0);
+        WALLET_CHECK(t["sending_str"] == "0");
+        WALLET_CHECK(t["maturing"] == 0);
+        WALLET_CHECK(t["maturing_str"] == "0");
+        WALLET_CHECK(t.size() == 9);
+    }
+}
+
+void testWalletStatusV61()
+{
+    StubFlyClient fc;
+
+    auto testParse = [&fc](const std::string& params, boost::optional<bool> expected)
+    {
+        WalletApiV61Test api(makeV61InitData(fc, false));
+        const auto msg = walletStatusRequest(params);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(!api.m_ErrorCode);
+        WALLET_CHECK(api.m_Handled == 1);
+        WALLET_CHECK(api.m_NzOnly == expected);
+    };
+
+    testParse(std::string(), boost::none);
+    testParse("{}", boost::none);
+    testParse(R"({"nz_totals": true})", true);
+    testParse(R"({"nz_totals": false})", false);
+
+    auto testInvalid = [&fc](const std::string& params)
+    {
+        WalletApiV61Test api(makeV61InitData(fc, false));
+        const auto msg = walletStatusRequest(params);
+        WALLET_CHECK(ApiSyncMode::DoneSync == api.executeAPIRequest(msg.data(), msg.size()));
+        WALLET_CHECK(api.m_Handled == 0);
+        WALLET_CHECK(api.m_ErrorCode && *api.m_ErrorCode == ApiError::InvalidParamsJsonRpc);
+    };
+
+    testInvalid(R"({"nz_totals": "true"})");
+    testInvalid(R"({"nz_totals": 1})");
+    testInvalid(R"({"nz_totals": null})");
+    testInvalid(R"({"nz_totals": [true]})");
+    testInvalid(R"({"nz_totals": {}})");
+
+    // unlike v6.0, apps are allowed to call wallet_status since v6.1
+    {
+        WalletApiV61Test api(makeV61InitData(fc, true));
+        const auto msg = walletStatusRequest(R"({"nz_totals": true})");
+        auto pres = api.parseAPIRequest(msg.data(), msg.size());
+        WALLET_CHECK(pres.is_initialized());
+        WALLET_CHECK(pres->acinfo.appsAllowed);
+    }
+
+    WalletStatusV61::Response status;
+    status.currentHeight = 100;
+    memset(status.currentStateHash.m_pData, 0xaa, status.currentStateHash.nBytes);
+    memset(status.prevStateHash.m_pData, 0xbb, status.prevStateHash.nBytes);
+    status.currentStateTimestamp = 1600000000;
+    status.isInSync = true;
+    status.difficulty = 1.5;
+    status.available = 1;
+    status.receiving = 2;
+    status.sending = 3;
+    status.maturing = 4;
+
+    auto checkCommon = [](json& res)
+    {
+        testResultHeader(res);
+        WALLET_CHECK(res["id"] == 123);
+
+        auto& r = res["result"];
+        WALLET_CHECK(r["current_height"] == 100);
+        WALLET_CHECK(r["current_state_hash"] == std::string(64, 'a'));
+        WALLET_CHECK(r["prev_state_hash"] == std::string(64, 'b'));
+        WALLET_CHECK(r["current_state_timestamp"] == 1600000000);
+        WALLET_CHECK(r["is_in_sync"] == true);
+    };
+
+    // regular client, no totals
+    {
+        WalletApiV61Test api(makeV61InitData(fc, false));
+
+        json res;
+        api.getResponse(123, status, res);
+        checkCommon(res);
+
+        auto& r = res["result"];
+        WALLET_CHECK(r["difficulty"] == 1.5);
+        WALLET_CHECK(r["available"] == 1);
+        WALLET_CHECK(r["receiving"] == 2);
+        WALLET_CHECK(r["sending"] == 3);
+        WALLET_CHECK(r["maturing"] == 4);
+        CHECK_JSON_FIELD_ABSENT(r, "totals");
+        WALLET_CHECK(r.size() == 10);
+    }
+
+    // regular client, default totals (BEAM only)
+    {
+        WalletApiV61Test api(makeV61InitData(fc, false));
+        status.totals = storage::Totals();
+
+        json res;
+        api.getResponse(123, status, res);
+        checkCommon(res);
+
+        auto& r = res["result"];
+        WALLET_CHECK(r.size() == 11);
+        WALLET_CHECK(r["totals"].is_array());
+        WALLET_CHECK(r["totals"].size() == 1);
+
+        auto& t = r["totals"][0];
+        WALLET_CHECK(t["asset_id"] == 0);
+        for (const auto& name: {"available", "receiving", "sending", "maturing"})
+        {
+            const std::string sname(name);
+            for (const auto& suffix: {"", "_regular", "_mp"})
+            {
+                CHECK_JSON_FIELD(t, sname + suffix);
+                CHECK_JSON_FIELD(t, sname + suffix + "_str");
+                WALLET_CHECK(t[sname + suffix] == 0);
+                WALLET_CHECK(t[sname + suffix + "_str"] == "0");
+            }
+        }
+        WALLET_CHECK(t["change"] == 0);
+        WALLET_CHECK(t["change_str"] == "0");
+        WALLET_CHECK(t["locked"] == 0);
+        WALLET_CHECK(t["locked_str"] == "0");
+        WALLET_CHECK(t.size() == 29);
+    }
+
+    // apps get only the chain state, no balances
+    {
+        WalletApiV61Test api(makeV61InitData(fc, true));
+
+        json res;
+        api.getResponse(123, status, res);
+        checkCommon(res);
+
+        auto& r = res["result"];
+        for (const auto& name: {"available", "receiving", "sending", "maturing", "difficulty", "totals"})
+        {
+            CHECK_JSON_FIELD_ABSENT(r, name);
+        }
+        WALLET_CHECK(r.size() == 5);
+    }
+}
+
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
@@ -2394,6 +2713,8 @@ int main()
 
     testAppsApi();
     testCalcChange();
+    testWalletStatus();
+    testWalletStatusV61();
 
     return WALLET_CHECK_RESULT;
 }
