@@ -308,6 +308,7 @@ private:
 public:
     std::vector<uint8_t> _body;
     size_t _bodyCursor=0;
+    size_t _bodyExpected=0;
 
     void reset(size_t bodySizeThreshold) {
         reset_headers();
@@ -318,6 +319,7 @@ public:
             _body.clear();
         }
         _bodyCursor = 0;
+        _bodyExpected = 0;
         _methodCached.clear();
         _pathCached.clear();
         _headersCached.clear();
@@ -340,8 +342,11 @@ public:
                     error = HttpMsgReader::message_too_long;
                     return size_t(-1);
                 }
-                _body.resize(ret);
+                // do not allocate the declared size up front: grow the buffer
+                // as bytes actually arrive, so a bare header cannot reserve memory
+                _body.clear();
                 _bodyCursor = 0;
+                _bodyExpected = ret;
             }
         }
         return ret;
@@ -366,8 +371,8 @@ public:
     }
 
     size_t feed_body(const uint8_t* p, size_t sz, bool& completed) {
-        assert(_bodyCursor <= _body.size());
-        size_t maxBytes = _body.size() - _bodyCursor;
+        assert(_bodyCursor <= _bodyExpected);
+        size_t maxBytes = _bodyExpected - _bodyCursor;
         if (sz < maxBytes) {
             maxBytes = sz;
             completed = false;
@@ -375,13 +380,13 @@ public:
             completed = true;
         }
         if (maxBytes > 0) {
-            memcpy(_body.data() + _bodyCursor, p, maxBytes);
+            _body.insert(_body.end(), p, p + maxBytes);
             _bodyCursor += maxBytes;
         }
         return maxBytes;
     }
 
-    size_t feed_chunked_body(const uint8_t* p, size_t sz, bool& completed, HttpMsgReader::What& error) {
+    size_t feed_chunked_body(const uint8_t* p, size_t sz, size_t maxLength, bool& completed, HttpMsgReader::What& error) {
         error = HttpMsgReader::nothing;
         completed = false;
 
@@ -397,12 +402,20 @@ public:
             // TODO process error
             error = HttpMsgReader::message_corrupted;
             return sz;
-        } else if (pret >= 0) {
-            completed = true;
         }
 
         _bodyCursor += rsize;
         _body.resize(_bodyCursor);
+
+        if (_bodyCursor > maxLength) {
+            // chunked bodies must obey the same limit as Content-Length ones
+            error = HttpMsgReader::message_too_long;
+            return sz;
+        }
+
+        if (pret >= 0) {
+            completed = true;
+        }
 
         return sz;
     }
@@ -521,7 +534,7 @@ size_t HttpMsgReader::feed_body(const uint8_t* p, size_t sz) {
 size_t HttpMsgReader::feed_chunked_body(const uint8_t* p, size_t sz) {
     bool completed = false;
     What error = nothing;
-    size_t consumed = _msg->feed_chunked_body(p, sz, completed, error);
+    size_t consumed = _msg->feed_chunked_body(p, sz, _maxBodySize, completed, error);
     if (completed) {
         _state = reading_header;
         bool proceed = _callback(_streamId, Message(_msg));
