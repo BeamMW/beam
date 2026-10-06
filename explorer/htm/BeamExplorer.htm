@@ -4407,14 +4407,14 @@
       const header = headers[col];
       const code = header.firstElementChild?.dataset?.code; // Get the column code from the <span> (or 'null' if non-existent)
       if (!code) continue; // Skip if we can't get the code
-      // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
-      const isNumeric = header.closest('th')?.dataset?.type === 'numeric' || code === 'T';
-      if (isNumeric) {
+      // All columns verified as numeric or empty (as well as timestamps 'T') can be displayed as graphs
+      const columnType = header.closest('th')?.dataset?.type;
+      if (columnType === 'numeric' || columnType === 'empty' || code === 'T') {
         // Add a checkbox to the right of the header title
         const checkboxHTML = '<input type="checkbox" class="tableGraphCheckbox" title="Display as graph" id="checkbox_column_' + col + '" data-column="' + col + '" autocomplete="off" onclick="checkboxGraph(event);">';
         header.insertAdjacentHTML('beforeend', checkboxHTML);
         // If the data can be used as X coordinates, add its code and column to the list
-        if (g_graph.xcodes_valid.includes(code)) { g_graph.xcodes[code] = col; }
+        if (g_graph.xcodes_valid.includes(code) && columnType !== 'empty') { g_graph.xcodes[code] = col; }
       }
     }
 
@@ -4539,9 +4539,10 @@
         break;
       }
     }
-    // All columns verified as numeric (as well as timestamps 'T') can be displayed as graphs
-    const isNumeric = headers[col]?.closest('th')?.dataset?.type === 'numeric' || code === 'T';
-    if (col === null || !checkbox || !columnHeaders[code] || !isNumeric) {
+    // All columns verified as numeric or empty (as well as timestamps 'T') can be displayed as graphs
+    const thType = headers[col]?.closest('th')?.dataset?.type;
+    const isGraphable = thType === 'numeric' || thType === 'empty' || code === 'T';
+    if (col === null || !checkbox || !columnHeaders[code] || !isGraphable) {
       return false; // Code does not exist in table or is not graphable
     }
     // Assign a default or pseudo-random color when needed
