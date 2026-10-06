@@ -198,6 +198,7 @@ namespace beam
     extern const char kTxHistoryUnreliableTxs[];
     extern const char kTxHistoryUnreliableCoins[];
     extern const char kTxAddress[];
+    extern const char kTxComment[];
     extern const char kNoCoins[];
     extern const char kNoShieldedCoins[];
     extern const char kSwapTxHistoryEmpty[];

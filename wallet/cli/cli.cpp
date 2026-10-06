@@ -1485,6 +1485,8 @@ namespace
                     cout << std::string(4, ' ') <<  kTxHistoryColumnKernelId << ": " << kernelId << std::endl;
                 if (!token.empty())
                     cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
+                if (!tx.m_message.empty())
+                    cout << std::string(4, ' ') << kTxComment << ": " << std::string(tx.m_message.begin(), tx.m_message.end()) << std::endl;
                 cout << std::string(120, '-') << std::endl;
             }
         }
@@ -1702,6 +1704,8 @@ namespace
                         cout << std::string(4, ' ') << kTxHistoryColumnKernelId << ": " << krnid << std::endl;
                     if (!token.empty())
                         cout << std::string(4, ' ') << kTxAddress << ": " << token << std::endl;
+                    if (!tx.m_message.empty())
+                        cout << std::string(4, ' ') << kTxComment << ": " << std::string(tx.m_message.begin(), tx.m_message.end()) << std::endl;
                     cout << std::string(120, '-') << std::endl;
                 }
             }
@@ -2530,6 +2534,9 @@ namespace
                     .SetParameter(TxParameterID::Fee, fee)
                     .SetParameter(TxParameterID::AssetID, assetId)
                     .SetParameter(TxParameterID::PreselectedCoins, GetPreselectedCoinIDs(vm));
+
+                if (const auto& comment = vm[cli::NEW_ADDRESS_COMMENT].template as<string>(); !comment.empty())
+                    params.SetParameter(TxParameterID::Message, ByteBuffer(comment.begin(), comment.end()));
 
                 if (vm.count(cli::SLATEPACK) && vm[cli::SLATEPACK].template as<bool>())
                     params.SetParameter(TxParameterID::ManualTransport, true);

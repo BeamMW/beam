@@ -480,7 +480,7 @@ namespace beam
             (cli::UTXO_LIST, "print the list of UTXOs (should be used with info command)")
             (cli::LISTEN, "start listen after new_addr command")
             (cli::TX_ID, po::value<string>()->default_value(""), "transaction id")
-            (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address")
+            (cli::NEW_ADDRESS_COMMENT, po::value<string>()->default_value(""), "comment for the newly created token or address, or for the transaction (with 'send')")
             (cli::EXPIRATION_TIME, po::value<string>()->default_value(cli::EXPIRATION_TIME_AUTO), "expiration time for own address [auto|never|now]")
             (cli::GENERATE_PHRASE, "generate seed phrase which will be used to create a secret according to BIP-39")
             (cli::KEY_SUBKEY, po::value<Positive<uint32_t>>(), "miner key index (use with export_miner_key)")
