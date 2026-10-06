@@ -205,6 +205,7 @@ namespace beam
     const char kTxHistoryUnreliableTxs[] = "\n    ---- Transactions below might belong to another asset ----\n\n";
     const char kTxHistoryUnreliableCoins[] = "\n    ---- Coins below might belong to another asset ----\n\n";
     const char kTxAddress[] = "address";
+    const char kTxComment[] = "comment";
     const char kSwapTxHistoryEmpty[] = "No swap transactions";
     const char kSwapTxHistoryTableHead[] = "SWAP TRANSACTIONS\n\n  | %1% | %2% | %3% | %4% | %5% | %6% | %7% |";
     const char kSwapTxHistoryTableFormat[] = "    %1%   %2%   %3%   %4%   %5%   %6%  ";
