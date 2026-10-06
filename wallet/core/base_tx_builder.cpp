@@ -235,6 +235,7 @@ namespace beam::wallet
                 nShieldedMax = (nShieldedMax + nNeedInputs - 1) / nNeedInputs; // leave some reserve to other assets
 
                 Asset::ID aid = it->first;
+                Amount valNeeded = -val;
 
                 std::vector<Coin> vSelStd;
                 std::vector<ShieldedCoin> vSelShielded;
@@ -254,7 +255,7 @@ namespace beam::wallet
                         << " Missing "
                         << PrintableAmount(Amount(-val), false, aid);
 
-                    throw TransactionFailedException(!m_Builder.m_Tx.IsInitiator(), TxFailureReason::NoInputs);
+                    throw TransactionFailedException(!m_Builder.m_Tx.IsInitiator(), get_NoInputsReason(aid, valNeeded));
                 }
 
                 nNeedInputs--;
@@ -277,6 +278,17 @@ namespace beam::wallet
 
             assert(!v.second.m_Value);
         }
+    }
+
+    TxFailureReason BaseTxBuilder::Balance::get_NoInputsReason(Asset::ID aid, Amount val)
+    {
+        // The funds may be there, but only reachable with more shielded inputs than a tx may have (#2056).
+        // Retry the selection without the limit. It returns nothing if the amount still can't be reached.
+        std::vector<Coin> vSelStd;
+        std::vector<ShieldedCoin> vSelShielded;
+        m_Builder.m_Tx.GetWalletDB()->selectCoins2(m_Builder.m_Height.m_Min, val, aid, vSelStd, vSelShielded, std::numeric_limits<uint32_t>::max(), false);
+
+        return vSelShielded.empty() ? TxFailureReason::NoInputs : TxFailureReason::TooManyShieldedInputs;
     }
 
     ///////////////////////////////////////
