@@ -43,8 +43,10 @@ namespace beam::wallet::slatepack
     {
         ByteBuffer body;
         body.reserve(kHeaderSize + payload.size() + kChecksumSize);
-        body.push_back(kVersion);
-        body.push_back(static_cast<uint8_t>(type));
+        // header written in place: push_back after reserve() makes GCC 14 -O3 report a false -Werror=free-nonheap-object (#2022)
+        body.resize(kHeaderSize);
+        body[0] = kVersion;
+        body[1] = static_cast<uint8_t>(type);
         body.insert(body.end(), payload.begin(), payload.end());
 
         uint8_t cs[kChecksumSize];
