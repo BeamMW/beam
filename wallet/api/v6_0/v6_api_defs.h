@@ -159,6 +159,7 @@ namespace beam::wallet
         boost::optional<CoinIDList>  coins;
         boost::optional<TxID>        txId;
         boost::optional<Asset::ID>   assetId;
+        boost::optional<Height>      lifetime;
 
         struct Response
         {
