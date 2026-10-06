@@ -105,7 +105,8 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         (cli::NODE_PEER, po::value<string>()->default_value("eu-node03.masternet.beam.mw:8100"), "peer address")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the local node on")
         (API_PORT_PARAMETER, po::value<uint16_t>()->default_value(8888), "port to start the local api server on")
-        (cli::KEY_OWNER, po::value<string>()->default_value(""), "owner viewer key")
+        (cli::OWNER_KEY, po::value<string>(), "owner viewer key")
+        (cli::KEY_OWNER, po::value<string>(), "owner viewer key (deprecated)")
         (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
@@ -156,7 +157,15 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         o.nodeListenTo.port(vm[cli::PORT].as<uint16_t>());
         o.explorerListenTo.port(vm[API_PORT_PARAMETER].as<uint16_t>());
 
-        std::string keyOwner = vm[cli::KEY_OWNER].as<string>();
+        std::string keyOwner;
+        if (vm.count(cli::OWNER_KEY))
+            keyOwner = vm[cli::OWNER_KEY].as<string>();
+        else if (vm.count(cli::KEY_OWNER))
+        {
+            keyOwner = vm[cli::KEY_OWNER].as<string>();
+            cout << "The \"" << cli::KEY_OWNER << "\" parameter is deprecated, use \"" << cli::OWNER_KEY << "\" instead." << std::endl;
+        }
+
         if (!keyOwner.empty())
         {
             SecString pass;
