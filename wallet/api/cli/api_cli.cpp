@@ -393,6 +393,7 @@ namespace
                 : _server(server)
                 , _stream(std::move(newStream))
                 , _lineProtocol(BIND_THIS_MEMFN(on_raw_message), BIND_THIS_MEMFN(on_write), LINE_FRAGMENT_SIZE, options.maxLineSize)
+                , _maxLineSize(options.maxLineSize)
             {
                 _walletApi = IWalletApi::CreateInstance(apiVersion, *this, walletData);
                 _stream->enable_keepalive(2);
@@ -426,7 +427,13 @@ namespace
 
                 if (!_lineProtocol.new_data_from_stream(data, size))
                 {
-                    BEAM_LOG_INFO() << "stream corrupted";
+                    // on_raw_message never rejects a line, so the only failure
+                    // is a request exceeding --tcp_max_line. Respond with an error
+                    // instead of silently dropping the connection.
+                    BEAM_LOG_INFO() << "stream corrupted, request exceeds max line size " << _maxLineSize;
+                    std::stringstream ss;
+                    ss << "Request is too long, max allowed size is " << _maxLineSize << " bytes";
+                    sendAPIResponse(json::parse(_walletApi->fromError("{}", ApiError::InvalidJsonRpc, ss.str())));
                     closeConnection();
                     return false;
                 }
@@ -445,6 +452,7 @@ namespace
             IWalletApiServer& _server;
             io::TcpStream::Ptr _stream;
             LineProtocol _lineProtocol;
+            size_t _maxLineSize;
         };
 
         class HttpApiConnection
