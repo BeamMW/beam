@@ -25,7 +25,7 @@ ChannelIDPtr Channel::ChannelIdFromString(const std::string& chIdStr)
     bool isValid = false;
     auto buffer = from_hex(chIdStr, &isValid);
 
-    if (isValid)
+    if (isValid && buffer.size() == ChannelID::nBytes)
     {
         auto chId = std::make_shared<ChannelID>(Zero);
         memcpy(&(chId->m_pData), buffer.data(), buffer.size());
