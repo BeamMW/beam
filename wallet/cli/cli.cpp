@@ -963,7 +963,7 @@ namespace
             if (phrase.size() != WORD_COUNT
                 || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase)))
             {
-                BEAM_LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % tempPhrase;
+                BEAM_LOG_ERROR() << boost::format(kErrorSeedPhraseInvalid) % phrase.size(); // never log the phrase itself
                 return false;
             }
         }
