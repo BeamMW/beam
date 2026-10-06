@@ -499,6 +499,11 @@ namespace
                 {
                     WALLET_CHECK(*data.tokenFrom == "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6");
                 }
+
+                if(data.lifetime)
+                {
+                    WALLET_CHECK(*data.lifetime == 60);
+                }
             }
         };
 
@@ -1922,6 +1927,51 @@ int main()
             "from" : "19d0adff5f02787819d8df43b442a49b43e72a8b0d04a7cf995237a0422d2be83b6",
             "address" : "wagagel",
             "asset_id": 1
+        }
+    }));
+
+    // custom tx lifetime
+    testSendJsonRpc(Fork2, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "lifetime" : 60,
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
+    // lifetime must be positive
+    testInvalidJsonRpc(Fork2, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "lifetime" : 0,
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
+        }
+    }));
+
+    // lifetime cannot exceed the default limit (120 blocks)
+    testInvalidJsonRpc(Fork2, ApiError::InvalidParamsJsonRpc, JSON_CODE(
+    {
+        "jsonrpc": "2.0",
+        "id" : 12345,
+        "method" : "tx_send",
+        "params" :
+        {
+            "asset_id": 1,
+            "value" : 12342342,
+            "lifetime" : 121,
+            "address" : "472e17b0419055ffee3b3813b98ae671579b0ac0dcd6f1a23b11a75ab148cc67"
         }
     }));
 
