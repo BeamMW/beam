@@ -25,6 +25,7 @@
 #include <boost/format.hpp>
 
 #include <bitcoin/bitcoin.hpp>
+#include "utility/json_depth.h"
 
 using json = nlohmann::json;
 
@@ -739,7 +740,7 @@ void EthereumBridge::sendRequest(
 
                 try
                 {
-                    json reply = json::parse(strResponse);
+                    json reply = ParseUntrustedJson(strResponse);
                     if (!reply["error"].empty())
                     {
                         error.m_type = ErrorType::EthError;

@@ -28,6 +28,7 @@
 #include "wallet/client/wallet_client.h"
 #include "wallet/client/extensions/broadcast_gateway/broadcast_router.h"
 #include "wallet/core/wallet_network.h"
+#include "utility/json_depth.h"
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
 #include <boost/algorithm/string.hpp>
 #include <boost/serialization/nvp.hpp>
@@ -1094,7 +1095,10 @@ private:
             {
                 if (!s.empty())
                 {
-                    m_json = json::parse(s, nullptr, false); // won't throw exc
+                    if (FindJsonDepthExcess(s.data(), s.data() + s.size()))
+                        m_json = json::object();
+                    else
+                        m_json = json::parse(s, nullptr, false); // won't throw exc
 
                     if (!m_json.is_object())
                         m_json = json::object();
