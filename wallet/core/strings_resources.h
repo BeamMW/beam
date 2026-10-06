@@ -168,7 +168,8 @@ namespace beam
     extern const char kWalletSummaryFieldCurStateID[];
     extern const char kWalletSummaryFieldAvailable[];
     extern const char kWalletSummaryFieldMaturing[];
-    extern const char kWalletSummaryFieldInProgress[];
+    extern const char kWalletSummaryFieldReceiving[];
+    extern const char kWalletSummaryFieldSending[];
     extern const char kWalletSummaryFieldUnavailable[];
     extern const char kWalletSummaryFieldAvailableCoinbase[];
     extern const char kWalletSummaryFieldTotalCoinbase[];
