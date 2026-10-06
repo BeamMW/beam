@@ -66,8 +66,7 @@ namespace beam::wallet
         IPFSAdd message;
         message.timeout = parseTimeout(*this, params);
 
-        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
-        data.get<std::vector<uint8_t>>().swap(message.data);
+        message.data = getMandatoryParam<NonEmptyByteArray>(params, "data");
 
         if (auto opin = getOptionalParam<bool>(params, "pin"))
         {
@@ -97,8 +96,7 @@ namespace beam::wallet
         IPFSHash message;
         message.timeout = parseTimeout(*this, params);
 
-        json data = getMandatoryParam<NonEmptyJsonArray>(params, "data");
-        data.get<std::vector<uint8_t>>().swap(message.data);
+        message.data = getMandatoryParam<NonEmptyByteArray>(params, "data");
 
         return std::make_pair(std::move(message), MethodInfo());
     }
