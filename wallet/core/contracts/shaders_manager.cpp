@@ -319,9 +319,11 @@ namespace beam::wallet {
         }
 
         _done = false;
+        _waitingForSync = true;
         _startEvent = io::AsyncEvent::create(io::Reactor::get_Current(),
             [this, method = req.method]()
             {
+                _waitingForSync = false;
                 StartRun(method);
             });
 
@@ -330,6 +332,36 @@ namespace beam::wallet {
                 if (auto sp = wp.lock())
                     sp->post();
             });
+    }
+
+    void ShadersManager::AbortCallsWaitingForNode(const std::string& error)
+    {
+        if (_done)
+            return; // nothing in progress, hence nothing queued
+
+        // a shader waiting for a peer message (Comm_Wait) has its own timeout and doesn't need the node
+        const bool waitsForNodeResponse = m_Pending.m_pBlocker && (m_Pending.m_pBlocker != m_Pending.m_pCommMsg.get());
+        if (!_waitingForSync && !waitsForNodeResponse)
+            return;
+
+        _startEvent.reset(); // cancels the start, DoInSyncedWallet holds only a weak reference to it
+        _waitingForSync = false;
+        Reset(); // drops the pending node requests of a running shader
+        _done = true;
+
+        RequestsQueue aborted;
+        std::swap(aborted, _queue);
+        BEAM_LOG_WARNING() << "Aborting " << aborted.size() << " shader call(s): " << error;
+
+        // the queue is clean already, handlers may start new calls
+        for (; !aborted.empty(); aborted.pop())
+        {
+            const auto& req = aborted.top();
+            if (req.doneAll)
+                req.doneAll(boost::none, boost::none, error);
+            else
+                req.doneCall(boost::none, boost::none, error);
+        }
     }
 
     void ShadersManager::ProcessTxData(const ByteBuffer& buffer, DoneTxHandler doneHandler)
