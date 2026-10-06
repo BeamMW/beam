@@ -32,7 +32,7 @@ struct Options {
     io::Address explorerListenTo;
     int logLevel;
     Key::IPKdf::Ptr ownerKey;
-    static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
+    static const unsigned logRotationPeriod = 3*60*60; // 3 hours. LogRotation takes seconds
     std::vector<uint32_t> whitelist;
     uint32_t logCleanupPeriod;
     ByteBuffer m_RichParser;
