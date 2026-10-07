@@ -53,6 +53,12 @@ std::string getToken(const TxParameters& txParams)
     return token ? *token : "";
 }
 
+std::string getBlockHeight(const TxDescription& tx)
+{
+    auto height = tx.GetParameter<Height>(TxParameterID::KernelProofHeight);
+    return height ? std::to_string(*height) : "";
+}
+
 std::string convertAmount(const Amount& amount, const Amount& rate, uint32_t precision)
 {
     if (!rate) return "";
@@ -85,6 +91,7 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
        << "Comment" << "," 
        << "Transaction ID" << ","
        << "Kernel ID" << "," 
+       << "Block height" << ","
        << "Sending address" << ","
        << "Sending wallet's signature" << ","
        << "Receiving address" << ","
@@ -134,6 +141,7 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
            << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
            << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
+           << getBlockHeight(tx) << ","                                                     // Block height
            << std::to_string(tx.m_sender ? tx.m_myAddr : tx.m_peerAddr) << ","              // Sending address
            << getEndpoint(tx, tx.m_sender) << ","                                           // Sending wallet's endpoint
            << std::to_string(!tx.m_sender ? tx.m_myAddr : tx.m_peerAddr) << ","             // Receiving address
@@ -201,6 +209,7 @@ std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db)
        << "Comment" << "," 
        << "Transaction ID" << ","
        << "Kernel ID" << "," 
+       << "Block height" << ","
        << "Peer address" << ","
        << "My address" << std::endl;
 
@@ -220,6 +229,7 @@ std::string ExportAssetsSwapTxHistoryToCsv(const IWalletDB& db)
             << "\"" << std::string { tx.m_message.begin(), tx.m_message.end() } << "\"" << "," // Comment
             << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                               // Transaction ID
             << std::to_string(tx.m_kernelID) << ","                                            // Kernel ID
+            << getBlockHeight(tx) << ","                                                       // Block height
             << std::to_string(tx.m_peerAddr) << ","                                            // Peer address
             << std::to_string(tx.m_myAddr) << std::endl;                                       // My address
     }
@@ -240,7 +250,8 @@ std::string ExportContractTxHistoryToCsv(const IWalletDB& db)
        << "Application shader ID" << ","
        << "Description" << "," 
        << "Transaction ID" << ","
-       << "Kernel ID" << std::endl;
+       << "Kernel ID" << ","
+       << "Block height" << std::endl;
 
     auto contractTransactions = db.getTxHistory(TxType::Contract);
     for (const auto& tx : contractTransactions)
@@ -312,7 +323,8 @@ std::string ExportContractTxHistoryToCsv(const IWalletDB& db)
             << contractCids << ","                                                             // Application shader ID
             << "\"" << std::string { tx.m_message.begin(), tx.m_message.end() } << "\"" << "," // Description
             << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                               // Transaction ID
-            << std::to_string(tx.m_kernelID) << std::endl;                                     // Kernel ID
+            << std::to_string(tx.m_kernelID) << ","                                            // Kernel ID
+            << getBlockHeight(tx) << std::endl;                                                // Block height
     }
 
     return ss.str();
