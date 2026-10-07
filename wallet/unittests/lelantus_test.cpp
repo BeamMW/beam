@@ -572,7 +572,7 @@ void TestPublicAddressTx(Rules& r)
     io::Reactor::Ptr mainReactor{ io::Reactor::create() };
     io::Reactor::Scope scope(*mainReactor);
 
-    int completedCount = 1;
+    int completedCount = 2;
     auto completeAction = [&mainReactor, &completedCount](auto)
     {
         --completedCount;
@@ -597,6 +597,7 @@ void TestPublicAddressTx(Rules& r)
     WALLET_CHECK(receiver.m_WalletDB->get_KeyKeeper()->InvokeSync(mAddr) == IPrivateKeyKeeper2::Status::Success);
 
     TxID txID = {};
+    TxID txIDLegacy = {};
     Node node;
     NodeObserver observer([&]()
     {
@@ -612,6 +613,19 @@ void TestPublicAddressTx(Rules& r)
 
             txID = sender.m_Wallet->StartTransaction(parameters);
         }
+        else if (cursor.m_hh.m_Height == Rules::get().pForks[2].m_Height + 5)
+        {
+            // legacy public address: no signature, the sender makes up the voucher and a random receiver endpoint
+            TxParameters receiverParams;
+            receiverParams.SetParameter(TxParameterID::PublicAddreessGen, mAddr.m_Addr);
+
+            auto parameters = lelantus::CreatePushTransactionParameters();
+            WALLET_CHECK(LoadReceiverParams(receiverParams, parameters, TxAddressType::PublicOffline));
+            parameters.SetParameter(TxParameterID::Amount, 18000000)
+                .SetParameter(TxParameterID::Fee, 12000000);
+
+            txIDLegacy = sender.m_Wallet->StartTransaction(parameters);
+        }
         else if (cursor.m_hh.m_Height == 50)
         {
             mainReactor->stop();
@@ -625,18 +639,32 @@ void TestPublicAddressTx(Rules& r)
     WALLET_CHECK(completedCount == 0);
     {
         auto txHistory = sender.m_WalletDB->getTxHistory(TxType::ALL);
-        WALLET_CHECK(txHistory.size() == 1);
-        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
+        WALLET_CHECK(txHistory.size() == 2);
+        for (const auto& tx : txHistory)
+        {
+            WALLET_CHECK(tx.m_txType == TxType::PushTransaction && tx.m_status == TxStatus::Completed);
+        }
+
+        // the sender doesn't know the receiver of a public offline tx, so there's no payment proof to give
+        WALLET_CHECK(storage::ExportPaymentProof(*sender.m_WalletDB, txID).empty());
+        WALLET_CHECK(storage::ExportPaymentProof(*sender.m_WalletDB, txIDLegacy).empty());
     }
 
     {
         auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
-        WALLET_CHECK(txHistory.size() == 1);
-        WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
-        WALLET_CHECK(txHistory[0].m_txId == txID);
+        WALLET_CHECK(txHistory.size() == 2);
+        for (const auto& tx : txHistory)
+        {
+            WALLET_CHECK(tx.m_txType == TxType::PushTransaction && tx.m_status == TxStatus::Completed);
+            WALLET_CHECK(tx.m_txId == txID || tx.m_txId == txIDLegacy);
+        }
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
-        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
-        WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
+        WALLET_CHECK(shieldedCoins.size() == 2);
+        for (const auto& coin : shieldedCoins)
+        {
+            WALLET_CHECK(coin.m_CoinID.m_Value == 18000000);
+            WALLET_CHECK(coin.m_CoinID.m_Key.m_IsCreatedByViewer == false);
+        }
     }
 }
 

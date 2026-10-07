@@ -56,6 +56,7 @@ namespace beam
     extern const char kErrorPpExportFailedTxNotCompleted[];
     extern const char kErrorPpNotProvided[];
     extern const char kErrorPpInvalid[];
+    extern const char kErrorPpPublicOffline[];
     extern const char kErrorSubkeyNotSpecified[];
     extern const char kErrorExportDataFail[];
     extern const char kErrorReceiverAddrMissing[];

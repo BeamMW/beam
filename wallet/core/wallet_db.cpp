@@ -7281,6 +7281,16 @@ namespace beam::wallet
 
             ByteBuffer ExportShieldedPaymentProof(const IWalletDB& walletDB, const TxID& txID)
             {
+                TxAddressType addressType = TxAddressType::Unknown;
+                if (storage::getTxParameter(walletDB, txID, TxParameterID::AddressType, addressType) &&
+                    addressType == TxAddressType::PublicOffline)
+                {
+                    // The receiver of a public offline tx is not known to the sender: a legacy address stores
+                    // a random one-time key as PeerEndpoint, a signed one stores no voucher. A proof can't name the receiver.
+                    BEAM_LOG_WARNING() << kErrorPpPublicOffline;
+                    return ByteBuffer();
+                }
+
                 ShieldedPaymentInfo pi;
                 TxKernel::Ptr rootKernel;
                 ShieldedTxo::Voucher voucher;
