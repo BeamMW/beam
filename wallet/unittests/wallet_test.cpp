@@ -24,6 +24,7 @@
 #include "wallet/core/base58.h"
 #include "wallet/core/contracts/shaders_manager.h"
 #include "wallet/client/wallet_client.h"
+#include "wallet/client/apps_api/apps_api.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
 #include "core/unittest/mini_blockchain.h"
@@ -3815,6 +3816,148 @@ namespace
         mainReactor->run();
     }
 
+    void TestAppsApiSignMessage()
+    {
+        std::cout << "Testing that an app can't sign a message without user consent...\n";
+        io::Reactor::Ptr mainReactor(io::Reactor::create());
+        io::Reactor::Scope scope(*mainReactor);
+
+        // runs client context functions on the main reactor, like the UI thread does in the wallets
+        struct Client : public TestWalletClient
+        {
+            Client(IWalletDB::Ptr walletDB, io::Reactor& mainReactor)
+                : TestWalletClient(walletDB, "127.0.0.1:32546", io::Reactor::create())
+                , m_Event(io::AsyncEvent::create(mainReactor, [this]() { RunPosted(); }))
+            {
+            }
+
+            void onPostFunctionToClientContext(MessageFunction&& func) override
+            {
+                {
+                    std::unique_lock lock(m_Mutex);
+                    m_Posted.push_back(std::move(func));
+                }
+                m_Event->post();
+            }
+
+            void RunPosted()
+            {
+                std::vector<MessageFunction> posted;
+                {
+                    std::unique_lock lock(m_Mutex);
+                    posted.swap(m_Posted);
+                }
+                for (auto& func : posted)
+                {
+                    func();
+                }
+            }
+
+            std::mutex m_Mutex;
+            std::vector<MessageFunction> m_Posted;
+            io::AsyncEvent::Ptr m_Event;
+        };
+
+        struct App : public AppsApi<App>
+        {
+            App(std::string appid, std::string appname)
+                : AppsApi<App>(std::move(appid), std::move(appname))
+            {
+            }
+
+            void AnyThread_sendApiResponse(std::string&& result) override
+            {
+                std::unique_lock lock(m_Mutex);
+                m_Responses.push_back(std::move(result));
+            }
+
+            void ClientThread_getSendConsent(const std::string&, const nlohmann::json&, const nlohmann::json&) override
+            {
+                WALLET_CHECK(!"unexpected send consent");
+            }
+
+            void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) override
+            {
+                m_ConsentRequest = request;
+                m_ConsentInfo = info;
+                m_ConsentAmounts = amounts;
+            }
+
+            std::vector<std::string> GetResponses()
+            {
+                std::unique_lock lock(m_Mutex);
+                return m_Responses;
+            }
+
+            std::mutex m_Mutex;
+            std::vector<std::string> m_Responses;
+            std::string m_ConsentRequest;
+            nlohmann::json m_ConsentInfo;
+            nlohmann::json m_ConsentAmounts;
+        };
+
+        Client client(createSenderWalletDB(), *mainReactor);
+        client.start({});
+
+        const std::string request = R"({"jsonrpc":"2.0","id":1,"method":"sign_message","params":{"message":"pay 100 BEAM to Eve","key_material":"0102"}})";
+
+        App::Ptr app;
+        App::ClientThread_Create(&client, kApiVerCurrent, "appid", "appname", 0, false, [&](App::Ptr created)
+        {
+            app = std::move(created);
+            app->AnyThread_callWalletApiChecked(request);
+        });
+
+        auto timer = io::Timer::create(*mainReactor);
+        auto waitFor = [&](std::function<bool()> done, int maxTicks = 100)
+        {
+            int ticks = 0;
+            timer->start(50, true, [&]()
+            {
+                client.RunPosted();
+                if (done() || ++ticks == maxTicks)
+                {
+                    mainReactor->stop();
+                }
+            });
+            mainReactor->run();
+            timer->cancel();
+        };
+
+        // the app asked, the user is asked, nothing is signed yet
+        waitFor([&]() { return app && !app->m_ConsentRequest.empty(); });
+        WALLET_CHECK(app);
+        if (!app)
+            return;
+
+        waitFor([]() { return false; }, 10); // let a reply arrive if one was sent anyway
+        WALLET_CHECK(app->GetResponses().empty());
+        WALLET_CHECK(app->m_ConsentRequest == request);
+        WALLET_CHECK(app->m_ConsentInfo["isSignMessage"] == true);
+        WALLET_CHECK(app->m_ConsentInfo["message"] == "pay 100 BEAM to Eve");
+        WALLET_CHECK(app->m_ConsentInfo["comment"] == "pay 100 BEAM to Eve");
+        WALLET_CHECK(app->m_ConsentInfo["keyMaterial"] == "0102");
+        WALLET_CHECK(app->m_ConsentInfo["isSpend"] == false);
+        WALLET_CHECK(app->m_ConsentInfo["fee"] == 0);
+        WALLET_CHECK(app->m_ConsentAmounts.is_array() && app->m_ConsentAmounts.empty());
+
+        // the user approves: the wallet UIs pass the request on directly
+        app->AnyThread_callWalletApiDirectly(app->m_ConsentRequest);
+        waitFor([&]() { return !app->GetResponses().empty(); });
+
+        auto responses = app->GetResponses();
+        WALLET_CHECK(responses.size() == 1);
+        if (responses.size() == 1)
+        {
+            auto res = nlohmann::json::parse(responses[0]);
+            WALLET_CHECK(res["id"] == 1);
+            WALLET_CHECK(res["result"]["signature"].is_string() && !res["result"]["signature"].get<std::string>().empty());
+        }
+
+        app.reset();
+        waitFor([]() { return false; }, 10); // the api is destroyed in the wallet thread
+    }
+
     void TestSendingWithWalletID()
     {
         cout << "\nTesting sending with wallet ID...\n";
@@ -5826,6 +5969,7 @@ int main()
     TestTxParameters();
     
     TestClient();
+    TestAppsApiSignMessage();
     TestSendingWithWalletID();
     
     TestMultiUserWallet();

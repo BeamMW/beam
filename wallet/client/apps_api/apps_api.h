@@ -184,8 +184,9 @@ namespace beam::wallet
 
         void AnyThread_callWalletApiChecked(const std::string& request)
         {
+            enum class Consent { Send, Contract, SignMessage };
             struct CheckInfo {
-                bool send = true;
+                Consent consent;
                 IWalletApi::ParseResult data;
             };
 
@@ -199,13 +200,19 @@ namespace beam::wallet
                         {
                             if (acinfo.method == "tx_send")
                             {
-                                CheckInfo info{true, *pres};
+                                CheckInfo info{Consent::Send, *pres};
                                 return info;
                             }
 
                             if (acinfo.method == "process_invoke_data")
                             {
-                                CheckInfo info{false, *pres};
+                                CheckInfo info{Consent::Contract, *pres};
+                                return info;
+                            }
+
+                            if (acinfo.method == "sign_message")
+                            {
+                                CheckInfo info{Consent::SignMessage, *pres};
                                 return info;
                             }
 
@@ -247,13 +254,17 @@ namespace beam::wallet
                     }
 
                     auto cr = boost::any_cast<CheckInfo>(any);
-                    if (cr.send)
+                    switch (cr.consent)
                     {
+                    case Consent::Send:
                         ClientThread_prepareSendConsent(request, cr.data);
-                    }
-                    else
-                    {
+                        break;
+                    case Consent::Contract:
                         ClientThread_prepareContractConsent(request, cr.data);
+                        break;
+                    case Consent::SignMessage:
+                        ClientThread_prepareSignConsent(request, cr.data);
+                        break;
                     }
                 }
             );
@@ -281,6 +292,13 @@ namespace beam::wallet
         virtual void AnyThread_sendApiResponse(std::string&& result) = 0;
         virtual void ClientThread_getSendConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
         virtual void ClientThread_getContractConsent(const std::string& request, const nlohmann::json& info, const nlohmann::json& amounts) = 0;
+
+        // info has "message" and "keyMaterial" for a dedicated dialog. By default the user is asked
+        // with the contract dialog: no amounts, no fee, the message shown as the comment
+        virtual void ClientThread_getSignConsent(const std::string& request, const nlohmann::json& info)
+        {
+            ClientThread_getContractConsent(request, info, nlohmann::json::array());
+        }
 
     private:
 
@@ -391,6 +409,25 @@ namespace beam::wallet
             info.push_back({"isEnough", isEnough});
             printApproveLog("Get user consent for contract tx", getAppId(), getAppName(), info, amounts);
             ClientThread_getContractConsent(request, info, amounts);
+        }
+
+        void ClientThread_prepareSignConsent(const std::string& request, IWalletApi::ParseResult& parse)
+        {
+            const auto& params = parse.acinfo.params;
+            const auto message = params["message"].get<std::string>();
+
+            json info = {
+                {"comment",       message},
+                {"fee",           0},
+                {"isSpend",       false},
+                {"isEnough",      true},
+                {"isSignMessage", true},
+                {"message",       message},
+                {"keyMaterial",   params["key_material"].get<std::string>()}
+            };
+
+            printApproveLog("Get user consent for sign message", getAppId(), getAppName(), info, json::array());
+            ClientThread_getSignConsent(request, info);
         }
 
         void ClientThread_prepareSendConsent(const std::string& request, IWalletApi::ParseResult& parse)
