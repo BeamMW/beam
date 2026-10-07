@@ -27,6 +27,7 @@ namespace beam::wallet
         : public PrivateKeyKeeper_AsyncNotify
     {
         static void UpdateOffset(Method::TxCommon&, const ECC::Scalar::Native& kDiff, const ECC::Scalar::Native& kKrn);
+        bool get_SelfEndpoint(const Method::TxEndpoints&, ECC::Scalar::Native&, PeerID&);
 
         struct Aggregation;
 

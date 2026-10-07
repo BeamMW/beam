@@ -682,7 +682,7 @@ void TestDirectAnonymousPayment(Rules& r)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // preassing the voucher
-                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::MyAddressID, sender.m_OwnID)
                     .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
 
                 sender.m_Wallet->StartTransaction(parameters);
@@ -695,7 +695,7 @@ void TestDirectAnonymousPayment(Rules& r)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
                     .SetParameter(TxParameterID::Voucher, vouchers.front()) // attempt to reuse same voucher
-                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::MyAddressID, sender.m_OwnID)
                     .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
             
                 sender.m_Wallet->StartTransaction(parameters);
@@ -706,7 +706,7 @@ void TestDirectAnonymousPayment(Rules& r)
                     .SetParameter(TxParameterID::Amount, 18000000)
                     .SetParameter(TxParameterID::Fee, 12000000)
                     .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
-                    .SetParameter(TxParameterID::MyEndpoint, sender.m_Endpoint)
+                    .SetParameter(TxParameterID::MyAddressID, sender.m_OwnID)
                     .SetParameter(TxParameterID::PeerEndpoint, receiver.m_Endpoint);
             
                 sender.m_Wallet->StartTransaction(parameters);

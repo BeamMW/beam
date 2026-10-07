@@ -7,7 +7,7 @@
   - This is an interactive portable display of the data queried to a Beam explorer node.
   - The IP addresses of the authorized explorer nodes can be changed in variable 'explorerNodes'.
   - Reference repository: https://github.com/BeamMW/beam/tree/master/explorer/htm
-  - Current version of the file: v0.8.4
+  - Current version of the file: v0.9
 
   General rules for developement:
   - Let's keep everything in one single standalone file, without external dependencies.
@@ -25,7 +25,7 @@
   - SECTION 2 : All the CSS styling.
   - SECTION 3 : Base static HTML (banner, content, footer, etc.).
   - SECTION 4 : Core JS functions to parse the data into HTML.
-  - SECTION 5 : Main JS code for additional global variables, and to request the node explorer data.
+  - SECTION 5 : Main JS code for additional global variables, and to request the explorer node data.
   - SECTION 6 : Extra JS functions for adjustments, filtering, sorting, etc.
 
   Disclaimer:
@@ -58,13 +58,41 @@
     'mainnet': { type: 'PoW', description: 'PoW, ~1-min blocks', url: [
       'https://BeamSmart.net:8000/',
       'https://explorer.0xmx.net/api/mainnet/',
-      //'https://explorer-api.beamprivacy.community/',
       //'http://localhost:8888/',
     ]},
     'dappnet': { type: 'PoW', description: 'FakePoW, ~15-sec blocks', url: [
       'https://BeamSmart.net:8001/',
     ]},
   };
+
+  // Text content for the "What's new" popup
+  const whatsNewText = `
+    <div class="popupSubtitle">v0.9</div>
+    <ul>
+      <li>Remove full HTML reloads to make navigation faster.</li>
+      <li>Add this "What's new" popup!</li>
+    </ul>
+    <div class="popupSubtitle">v0.8.4</div>
+    <ul>
+      <li>Ignore spaces, dots and commas in search.</li>
+      <li>Add collapsibles to Inputs/Outputs/Kernels.</li>
+      <li>Update list of explorer nodes.</li>
+      <li>Add hard fork 6 to historical blocks.</li>
+      <li>Add id:0 to CA ranges of post-HF6 UTXOs.</li>
+      <li>Other small improvements.</li>
+    </ul>
+    <div class="popupSubtitle">v0.8.3</div>
+    <ul>
+      <li>Add Peer nodes list.</li>
+      <li>Add Atomic Swap list.</li>
+      <li>Propose multiple options for the X axis of graphs.</li>
+      <li>Display all graph values directly on the graph axis.</li>
+      <li>Make timestamps human-readable.</li>
+      <li>Use ms in timestamps for PoS chains.</li>
+      <li>Adjust columns names for PoS chains.</li>
+      <li>Code cleaning and optimization.</li>
+    </ul>
+  `;
 
 </script>
 
@@ -404,6 +432,9 @@
     font-size: 1.6rem;
     padding: 5px 0 5px 0;
   }
+  p.errorMessage {
+    font-style: italic;
+  }
   summary > * { /* This will avoid new lines if tags are used within a summary */ 
     display: inline;
   }
@@ -649,7 +680,7 @@
     color: var(--color_neg);
   }
   .th {
-    /* This class is a "header" type provided by the node explorer. The javascript will also add it on other table headers. */
+    /* This class is a "header" type provided by the explorer node. The javascript will also add it on other table headers. */
   }
   .more, .more a {
     font-weight: bold;
@@ -790,6 +821,7 @@
     filter: drop-shadow(0 0 3px var(--color_network_select_shadow)); /* Add a halo */
   }
   .popupDialog { /* Dialog popup */
+    white-space: normal;
     border: solid 5px var(--color_popup_border);
     border-radius: var(--round-corner-radius-large);
     box-shadow: 15px 15px 15px -10px #000;
@@ -805,7 +837,7 @@
     color: var(--color_popup_text);
     text-align: center;
     font-weight: bold;
-    padding: 0px 2px 10px 2px;
+    padding: 5px 2px 10px 2px;
   }
   .popupSubtitle { /* Popup subtitle */
     font-size: 1.3rem;
@@ -883,6 +915,29 @@
   #Version {
     font-size: 1rem;
     color: var(--color_banner_version);
+  }
+  #Version a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  #Version a:hover {
+    color: var(--color_banner_menu_link_hover);
+    filter: drop-shadow(0 0 3px var(--color_banner_menu_link_shadow));
+  }
+  #WhatsNewContent {
+    max-width: 80vw;
+    max-height: 70vh;
+    overflow-y: auto;
+    line-height: 1.2;
+    padding: 5px 10px 10px 10px;
+  }
+  #WhatsNewContent ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  #WhatsNewContent li {
+    margin-bottom: 0;
   }
   #Menu {
     font-size: 1.5rem;
@@ -1894,7 +1949,7 @@
         <div id="BannerLeft">
           <div id="BeamLogo">
             <!-- Clicking on the logo sends back to the main page -->
-            <a href="?network=$network" title="Main page">
+            <a href="javascript:showPage('status')" title="Main page">
               <!-- A simplified SVG version of the BEAM logo -->
               <svg height="6em" width="6em" viewBox="42 42 460 460"><defs><linearGradient id="Gradient1" x1="-24.6" y1="683.51" x2="-23.57" y2="683.51" gradientTransform="matrix(98, 0, 0, -47, 2497.75, 32364.11)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient><linearGradient id="Gradient2" x1="-28.7" y1="703.17" x2="-27.72" y2="703.17" gradientTransform="matrix(-98, 0, 0, 26, -2353.25, -18019.72)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9d6eff" stop-opacity="0"/><stop offset="1" stop-color="#a18cff"/></linearGradient><linearGradient id="Gradient3" x1="-28.69" y1="682.8" x2="-27.57" y2="682.8" gradientTransform="translate(-2353.25 29603.78) rotate(180) scale(98 43)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ae60d6" stop-opacity="0"/><stop offset="1" stop-color="#ab38e6"/></linearGradient><linearGradient id="Gradient4" x1="-28.68" y1="685.09" x2="-27.47" y2="685.09" gradientTransform="translate(-2353.25 41328.94) rotate(180) scale(98 60)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fd76fd" stop-opacity="0"/><stop offset="1" stop-color="#ff51ff"/></linearGradient></defs><circle id="circle" fill="#0b1624" cx="272" cy="272" r="230"/><g id="logo"><path id="Triangle-left" fill="#24c1ff" d="M272.25,327.21H194.72l77.5-135V110.45L120.31,370.64H272.25Z"/><path id="Triangle-right" fill="#0b76ff" d="M272.25,327.21h77.53l-77.5-135V110.45L424.19,370.64H272.25Z"/><polygon id="Triangle-small-left" fill="#39fff2" points="272.25 226.3 272.25 313.57 224.77 313.67 272.25 226.3"/><polygon id="Triangle-small-right" fill="#00e2c2" points="272.25 226.3 272.25 313.57 319.73 313.67 272.25 226.3"/><polygon id="Ray1-left" fill="url(#Gradient1)" points="86.13 191.81 272.25 277.83 272.25 286.83 86.13 246.1 86.13 191.81"/><polygon id="Ray2-right-low" fill="url(#Gradient2)" points="458.75 274.33 272.25 286.83 272.25 283.83 458.75 238.5 458.75 274.33"/><polygon id="Ray3-right-mid" fill="url(#Gradient3)" points="458.75 202.67 272.25 280.83 272.25 283.83 458.75 238.5 458.75 202.67"/><polygon id="Ray4-right-top" fill="url(#Gradient4)" points="458.75 166.83 272.25 277.83 272.25 280.83 458.75 202.67 458.75 166.83"/></g></svg>
             </a>
@@ -1918,20 +1973,32 @@
           </div>
         </div>
         <div id="BannerCenter">
-          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version">v0.8.4</span></h1>
+          <h1 id="BeamTitle">Beam Smart Explorer <span id="Version"><a href="javascript:openWhatsNew();" title="What's new">v0.9</a></span></h1>
+
+          <!-- Popup for What's new -->
+          <dialog class="popupDialog" id="whatsNewPopup">
+            <form id="whatsNewForm" name="whatsNewForm" method="dialog">
+              <div class="popupTitle">- What's new -</div>
+              <div id="WhatsNewContent" class="popupText"></div>
+              <div class="popupButtons">
+                <button type="submit" class="popupButton" id="whatsNewClose" title="Close">Close</button>
+              </div>
+            </form>
+          </dialog>
+
           <div id="Menu">
             <!-- Main explorer menu -->
-            <span class="menuItem"><a href="?network=$network&type=hdrs" title="List of recent Block Headers">Block Headers</a></span>
+            <span class="menuItem"><a href="javascript:showPage('hdrs')" title="List of recent Block Headers">Block Headers</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?network=$network&type=assets" title="List of current Confidential Assets">Confidential Assets</a></span>
+            <span class="menuItem"><a href="javascript:showPage('assets')" title="List of current Confidential Assets">Confidential Assets</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?network=$network&type=contracts" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
+            <span class="menuItem"><a href="javascript:showPage('contracts')" title="List of currently deployed Smart Contracts">Smart Contracts</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?network=$network&type=swap_offers" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
+            <span class="menuItem"><a href="javascript:showPage('swap_offers')" title="List of current Atomic Swap offers">Atomic Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?network=$network&type=asset_swaps" title="List of current Asset Swap offers">Asset Swaps</a></span>
+            <span class="menuItem"><a href="javascript:showPage('asset_swaps')" title="List of current Asset Swap offers">Asset Swaps</a></span>
             <span class="menuSeparator"> | </span>
-            <span class="menuItem"><a href="?network=$network&type=historical" title="List of special historical blocks">Historical blocks</a></span>
+            <span class="menuItem"><a href="javascript:showPage('historical')" title="List of special historical blocks">Historical blocks</a></span>
           </div>
           <div id="SearchArea">
             <!-- Search field -->
@@ -1945,7 +2012,7 @@
         <div id="Navigation">
           <div class="NavRow">
             <a id="Back" href="javascript:history.back();" title="Back"><svg width="1.2em" height="1.2em"><use href="#back_icon"/></svg></a>
-            <a id="Reload" href="" title="Reload"><svg width="1.1em" height="1.1em"><use href="#reload_icon"/></svg></a>
+            <a id="Reload" href="" title="Full reload"><svg width="1.1em" height="1.1em"><use href="#reload_icon"/></svg></a>
           </div>
           <div class="NavRow">
             <a id="ExpandAll" href="javascript:expandEverything();" title="Expand everything"><svg width="1.2em" height="1.2em"><use href="#eye_icon"/></svg></a>
@@ -1983,8 +2050,10 @@
     return '<a href="' + link + '" target="' + target + '">' + text + '</a>';
   }
 
-  function UrlSelf(type, extra = '') {
-    return window.location.pathname + '?network=' + g_network + '&type=' + type + extra;
+  function UrlSelf(type, params = {}) { // Params is made of pairs { key: value, ... }
+    // We HTML-encode stringfy's special characters to avoid breaking the link
+    const text = JSON.stringify(params).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); // First '&', then double-quotes    
+    return `javascript:showPage('${type}', ${text});`;
   }
 
   function MakeCell(text, extra = '') {
@@ -2013,8 +2082,8 @@
     return '<div class="' + className + '" ' + extra + '>' + txt + '</div>';
   }
 
-  function UrlBlock(h) {
-    return UrlSelf('block', '&height=' + h);
+  function UrlBlock(h, adj = 1) { // adj (1 or -1) indicates the search direction for PoS chains (which might miss certain blockheights)
+    return UrlSelf('block', { height: h, adj: adj });
   }
 
   function MakeBlock(h) {
@@ -2027,11 +2096,11 @@
 
   function MakeAsset(aid) {
     if (aid == 0) return AddClass('Beam', 'assetName');
-    return AddClass(MakeRef(UrlSelf('asset', '&id=' + aid), 'Asset-' + aid), 'assetName');
+    return AddClass(MakeRef(UrlSelf('asset', { id: aid }), 'Asset-' + aid), 'assetName');
   }
 
   function MakeCid(cid) {
-    return AddClass(MakeRef(UrlSelf('contract', '&id=' + cid), cid), 'cid', 'title="' + cid + '"');
+    return AddClass(MakeRef(UrlSelf('contract', { id: cid }), cid), 'cid', 'title="' + cid + '"');
   }
 
   function MakeFundsTbl(jFunds) {
@@ -2126,9 +2195,8 @@
     d = new Date((time - diff * 60) * 1000); // Get date object from miliseconds
     const iso = d.toISOString(); // Convert to ISO format YYYY-MM-DDTHH:MM:SS.OOOZ
     const txt = g_IsPos ?
-        iso.replace(/(.*)T(.*)\.([0-9]+)Z/, '$1 $2.$3') : // Convert to simple format YYYY-MM-DD HH:MM:SS.ZZZ
-        iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
-
+      iso.replace(/(.*)T(.*)\.([0-9]+)Z/, '$1 $2.$3') : // Convert to simple format YYYY-MM-DD HH:MM:SS.ZZZ
+      iso.replace(/(.*)T(.*)\..*/,'$1 $2'); // Convert to simple format YYYY-MM-DD HH:MM:SS
     // Alternative: The 'Intl.DateTimeFormat' with 'sv-SE' also happens to match this format...
     return txt;
   }
@@ -2400,7 +2468,7 @@
   }
 
   function MakeCAs(h) {
-    return '<h3>' + MakeRef(UrlSelf('assets', '&height=' + h), 'Confidential Assets at this block height') + '</h3>';
+    return '<h3>' + MakeRef(UrlSelf('assets', { height: h }), 'Confidential Assets at this block height') + '</h3>';
   }
 
   function DisplayBlock() {
@@ -2414,7 +2482,7 @@
       return;
     }
 
-    // the returned height may be adjusted
+    // The returned height may be adjusted (by 'adj' parameter in PoS chains)
     let jH = jData['h'];
     if (jH != null) { g_height = jH; }
 
@@ -2427,17 +2495,17 @@
 
     text += '<h2 class="title">';
     if (g_height > 0) {
-      text += AddClass(MakeRef(UrlSelf('hdrs', '&hMax=' + g_height), '<svg width="1em" height="1em"><use href="#list_icon"/></svg>'), 'listOfBlockHeaders', 'title="List of blocks up to this one"');
+      text += AddClass(MakeRef(UrlSelf('hdrs', { hMax: g_height }), '<svg width="1em" height="1em"><use href="#list_icon"/></svg>'), 'listOfBlockHeaders', 'title="List of blocks up to this one"');
       text += '&nbsp;';
       text += 'Block ' + AddClass(g_height, 'blockHeight');
       text += '&nbsp;';
-      text += AddClass(MakeRef(UrlBlock(g_height - 1) + '&adj=-1', '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
+      text += AddClass(MakeRef(UrlBlock(Number(g_height) - 1, -1), '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
     } else {
       text += 'Treasury';
       text += '&nbsp;';
       text += AddClass('<svg width="1em" height="1em"><use href="#left_icon"/></svg>', 'previousBlock off', 'title=""');
     }
-    text += AddClass(MakeRef(UrlBlock(g_height - 1 + 2) + '&adj=1', '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
+    text += AddClass(MakeRef(UrlBlock(Number(g_height) + 1, +1), '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     // If a search was made, add a link to scroll down to the result
     if (g_kernel) { text += AddClass(`&nbsp;<a href="javascript:scrollTo('.rowHighlight','center');" title="Scroll down to the searched kernel">Kernel found!</a>`,'scrollToSearchResult'); }
     text += '</h2>';
@@ -2600,41 +2668,47 @@
   }
 
   function MakeLinkToOlderBlocks(jTblObj) {
-    // This function uses the information given by the node explorer to go backwards one page of older blocks
+    // Use the information given by the explorer node to go backwards one page of older blocks
     const jMore = jTblObj['more'];
     if (!jMore) { return '' }
 
-    let urlObj = new URL(document.location);
-    let args = urlObj.searchParams;
+    let params = {};
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.forEach((value, key) => {
+      if (key !== 'network' && key !== 'type') { params[key] = value; } // Remark: value will be passed as a string here
+    });
 
     for (let key in jMore) {
-      args.set(key, jMore[key])
+      if (jMore.hasOwnProperty(key)) { // hasOwnProperty ensures we don't use inherited properties
+        params[key] = jMore[key];
+      }
     }
 
-    return urlObj.pathname + '?' + args;
+    return UrlSelf(g_type, params);
   }
 
   function MakeLinkToNewerBlocks(jTblObj) {
     // Link to go forward one page of newer blocks
     // Temporary hack:
-    // The node explorer does not provide (yet?) parameters to move pages forward.
+    // The explorer node does not provide (yet?) parameters to move pages forward.
     // Until then, we use the parameter given to go backwards and simply add twice g_nMax to it.
     // This is imperfect, temporary, and -of course- only works for the Block Headers page...
     const jMore = jTblObj['more'];
     if (!jMore) { return '' }
 
-    let urlObj = new URL(document.location);
-    let args = urlObj.searchParams;
+    let params = {};
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.forEach((value, key) => {
+      if (key !== 'network' && key !== 'type') { params[key] = value; } // Remark: value will be passed as a string here
+    });
 
     for (let key in jMore) {
-      if (key == 'hMax') {
-        args.set(key, jMore[key] - 0 + g_nMax * 2);
-      } else {
-        args.set(key, jMore[key]);
+      if (jMore.hasOwnProperty(key)) { // hasOwnProperty ensures we don't use inherited properties
+        params[key] = (key == 'hMax') ? Number(jMore[key]) + g_nMax * 2 : jMore[key] ;
       }
     }
 
-    return urlObj.pathname + '?' + args;
+    return UrlSelf(g_type, params);
   }
 
   function DisplayContractState() {
@@ -2773,6 +2847,11 @@
     text += Obj2Html(jData);
     text += '</div>';
 
+    // Replace some terms
+    text = text.replace(/Treasury Released/g, 'Treasury Emission');
+    text = text.replace(/Current Circulation/g, 'Current Supply');
+    text = text.replace(/Total Circulation/g, 'Total Supply');
+
     // Add link to connected peers
     text += '<h3>' + MakeRef(UrlSelf('peers'), 'Connected Peers') + '</h3>';
 
@@ -2801,12 +2880,13 @@
     text += 'Confidential Assets at block height ' + MakeBlock(g_height);
     text += '&nbsp;';
     if (g_height > 1) {
-      text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1)), '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
+      text += AddClass(MakeRef(UrlSelf('assets', { height: Number(g_height) - 1, adj: -1 }), '<svg width="1em" height="1em"><use href="#left_icon"/></svg>'), 'previousBlock', 'title="Previous block"');
     } else {
       text += AddClass('<svg width="1em" height="1em"><use href="#left_icon"/></svg>', 'previousBlock off', 'title=""');
     }
-    text += AddClass(MakeRef(UrlSelf('assets', '&height=' + (g_height - 1 + 2)), '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
+    text += AddClass(MakeRef(UrlSelf('assets', { height: Number(g_height) + 1, adj: 1 }), '<svg width="1em" height="1em"><use href="#right_icon"/></svg>'), 'nextBlock', 'title="Next block"');
     text += '</h2>';
+    // Remark: 'adj' is currently ignored by explorer nodes for 'assets', but it doesn't hurt including it anyways.
 
     // Display table options
     text += DisplayAssetsOptions();
@@ -2882,17 +2962,23 @@
 
     // Get Atomic Swap totals (new node request)
     if (jData.length !== 0) {
-      const xmlhttp = new XMLHttpRequest();
-      xmlhttp.onload = DisplayAtomicSwapTotals;
-      xmlhttp.open('GET', urlPrefix + 'swap_totals' + '?exp_am=1');
-      xmlhttp.send();
+      fetchAPI('swap_totals')
+        .then(data => {
+          DisplayAtomicSwapTotals.call({ responseText: JSON.stringify(data) });
+        })
+        .catch(err => {
+          console.error('Failed to load atomic swap totals:', err);
+          const el = document.getElementById('divSwapTotals');
+          if (el) el.innerHTML = '<p class="errorMessage">Error loading totals.</p>';
+        });
     }
   }
 
   function DisplayAtomicSwapTotals() { // Query node for Atomic Swap totals and display them in existing 'div'
     const jData = JSON.parse(this.responseText);
     let text = Obj2Html(jData);
-    document.getElementById('divSwapTotals').innerHTML = text;
+    const el = document.getElementById('divSwapTotals'); // Check the div still exists
+    if (el) el.innerHTML = text;
   }
 
   function DisplayAssetSwaps() {
@@ -2930,10 +3016,15 @@
 
     // Get Asset Swap totals (new node request)
     if (jData.length !== 0) {
-      const xmlhttp = new XMLHttpRequest();
-      xmlhttp.onload = DisplayAssetSwapTotals;
-      xmlhttp.open('GET', urlPrefix + 'asset_swaps_totals');
-      xmlhttp.send();
+      fetchAPI('asset_swaps_totals')
+        .then(data => {
+          DisplayAssetSwapTotals.call({ responseText: JSON.stringify(data) });
+        })
+        .catch(err => {
+          console.error('Failed to load asset swap totals:', err);
+          const el = document.getElementById('divAssetSwapTotals');
+          if (el) el.innerHTML = '<p class="errorMessage">Error loading totals.</p>';
+        });
     }
   }
 
@@ -2952,7 +3043,8 @@
             + '</tr>';
     }
     text += '</table>';
-    document.getElementById('divAssetSwapTotals').innerHTML = text;
+    const el = document.getElementById('divAssetSwapTotals'); // Check the div still exists
+    if (el) el.innerHTML = text;
   }
 
   function DisplayHistoricalBlocks() {
@@ -3001,7 +3093,7 @@
   // (columns with 'null' color won't be displayable as graphs)
   const columnDefaultOrder = 'NTHgGdDfFkKiIoOuUyYzZbBpPcCaA'; // Without 't' (which is redundant with 'g')
   const columnDefaultDisplay = 'THdfkioyzp';
-  let columnHeaders = {
+  const columnHeaders_pow = {
     'h': { color: '#000000', original: 'Height', title: 'Height', description: 'Block height' }, // Remark: The code here is useless as this is always the default first column
     'H': { color: null, original: 'Hash', title: 'Hash', description: 'Block hash' },
     'N': { color: '#606060', original: 'Number', title: 'Number', description: 'Block number (identical to Block height)' },
@@ -3042,6 +3134,8 @@
     'd': { color: '#008484', original: 'Difficulty', title: 'Span', description: 'Block span since previous non-empty block' },
     'D': { color: '#00bdbd', original: 'Chainwork', title: 'Total span', description: 'Total block span (identical to Block height)' },
   };
+  // Start with PoW names by default
+  let columnHeaders = { ...columnHeaders_pow }; // Copy content (only works for one level deep)
 
   // Array of objects listing the special historical blocks.
   // Remarks:
@@ -3053,7 +3147,7 @@
     {
       block_list: [0],
       title: 'Treasury',
-      description: `Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href="?network=mainnet&type=treasury" title="Treasury">Treasury</a> is also represented in the explorer as a <a href="?network=mainnet&type=block&height=0" title="Treasury as block height 0">pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate "maturity" (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury plan lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href="?network=mainnet&type=treasury" title="List Treasury UTXOs">60 such groups</a>.`,
+      description: `Beam emission schedule is inspired by Bitcoin's, but with 10 times more blocks (1 block per minute). The first halving occured after 1 year, and the following ones every 4 years. The total supply is 262,800,000 Beam. <b>For the first 5 years, 20% of the block rewards were sent to a Treasury</b>, that the <b>Beam Foundation</b> used to repay investors and fund development.<br>This <a href="?network=mainnet&type=treasury" title="Treasury">Treasury</a> is also represented in the explorer as a <a href="?network=mainnet&type=block&height=0" title="Treasury as block height 0">pseudo-block at height 0</a>, that contains pre-allocated UTXOs. Each UTXO corresponds to a particular allocation, and has an appropriate "maturity" (which is the block height after which it can be spent). As usual, UTXOs amounts and their owners are concealed. However those UTXOs are arranged in groups of identical validity, and the blockchain source code contains a proof that allows verifying the total value of the group. That way, it's possible to verify how much value was released at each height. Since the treasury emission lasted 5 years, with UTXOs maturing each month (i.e. every 43,800 blocks), we can see <a href="?network=mainnet&type=treasury" title="List Treasury UTXOs">60 such groups</a>.`,
       links: [
         ['Beam emission schedule', 'https://medium.com/beam-mw/mimblewimble-emission-schedule-215551948259'],
         ['Beam Foundation', 'https://www.beam-foundation.org'],
@@ -3207,47 +3301,73 @@
       ]
     }
   ];
-
-  // Get URL parameters
+ 
+  // Declare all global variables with their initial values (generally '').
+  // On page load, loadPageFromURL() will trigger showPage(), which will initialize,
+  // sanitize, cache, and synchronize all global variables with the URL query parameters.
+  // Every new call to showPage() will then keep them updated.
+  // Remark: 'var' (global-scope) is used instead of 'let' (block-scope) to allow calling them with 'window[name]'.
   const URLparams = new URL(document.location).searchParams;
-  let g_IsPos = false;
-  let g_network = URLparams.get('network'); // Should be one of those defined in global variable 'explorerNodes'
-  let g_type = URLparams.get('type'); // Remark: We add two URL 'types' not used by the explorer node ('historical' and 'treasury')
-  let g_id = URLparams.get('id'); // Used for type=asset & contract
-  let g_height = URLparams.get('height'); // Used for type=block & blocks & assets
-  let g_kernel = URLparams.get('kernel'); // Used for type=block
-  let g_hMin = URLparams.get('hMin'); // Used for type=asset & contract
-  let g_hMax = URLparams.get('hMax'); // Used for type=asset & contract & hdrs
-  //let g_n = URLparams.get('n'); // Used for type=blocks
-  let g_nMax = URLparams.get('nMax'); // Used for type=hdrs
-  let g_nMaxOps = URLparams.get('nMaxOps'); // Used for type=asset
-  let g_nMaxTxs = URLparams.get('nMaxTxs'); // Used for type=contract
-  let g_cols = URLparams.get('cols'); // Used for type=hdrs
-  let g_dh = URLparams.get('dh'); // Used for type=hdrs
+  var g_IsPos = false;
+  var g_network = URLparams.get('network') || 'mainnet'; // Should be one of those defined in global variable 'explorerNodes'
+  var g_type = URLparams.get('type') || 'status'; // Remark: We add two URL 'types' not used by the explorer node ('historical' and 'treasury')
+  var g_id = ''; // Used for type=asset & contract
+  var g_height = ''; // Used for type=block & blocks & assets
+  var g_kernel = ''; // Used for type=block
+  var g_adj = ''; // Used for type=block (on PoS chains) - Might also be used for blocks & assets one day...
+  //var g_n = ''; // Used for type=blocks (NOT USED HERE)
+  var g_hMin = ''; // Used for type=asset & contract
+  var g_hMax = ''; // Used for type=asset & contract & hdrs
+  var g_nMax = ''; // Used for type=hdrs
+  var g_nMaxOps = ''; // Used for type=asset
+  var g_nMaxTxs = ''; // Used for type=contract
+  var g_cols = ''; // Used for type=hdrs
+  var g_dh = ''; // Used for type=hdrs
 
-  // If no parameter was given in the URL, then we look in localStorage.
-  // If nothing is there either, then we set the default values.
-  // Remark: All these global variables will thus be defined (even if only with '')
-  if (!g_height) { g_height = '' } // We don't store this one in localStorage. It's either in the URL or empty.
-  if (!g_hMin) { g_hMin = '' } // We don't store this one in localStorage. It's either in the URL or empty.
-  if (!g_hMax) { g_hMax = '' } // We don't store this one in localStorage. It's either in the URL or empty.
-  //if (!g_n) { g_n = localStorage.getItem('g_n') }
-  //if (!g_n) { g_n = 1 }
-  if (!g_nMax) { g_nMax = localStorage.getItem('g_nMax') }
-  if (!g_nMax) { g_nMax = 100 }
-  if (!g_nMaxOps) { g_nMaxOps = localStorage.getItem('g_nMaxOps') }
-  if (!g_nMaxOps) { g_nMaxOps = 100 }
-  if (!g_nMaxTxs) { g_nMaxTxs = localStorage.getItem('g_nMaxTxs') }
-  if (!g_nMaxTxs) { g_nMaxTxs = 100 }
-  if (!g_cols) { g_cols = localStorage.getItem('g_cols') } // CHANGE NAME?
-  if (!g_cols) { g_cols = columnDefaultDisplay; }
-  if (!g_dh) { g_dh = localStorage.getItem('g_dh'); }
-  if (!g_dh) { g_dh = 1 }
+  // Configuration of each page (node query & URL parameters, and Display function, including for static pages).
+  const pageConfig = {
+    'status': { display: DisplayStatus, params: [] },
+    'peers': { display: DisplayPeers, params: [] },
+    'hdrs': { display: DisplayHdrs, params: ['cols', 'nMax', 'dh', 'hMax'] },
+    'block': { display: DisplayBlock, params: ['height', 'kernel', 'adj'] }, // We let the explorer node handle the case where both 'height' AND 'kernel' are requested...
+    //'blocks': { display: DisplayBlocks, params: ['height', 'adj', 'n'] }, // Query details of multiple blocks (NOT USED HERE)
+    'assets': { display: DisplayAssets, params: ['height', 'adj'] }, // 'adj' is currently ignored by explorer nodes, but it doesn't hurt including it. 
+    'asset': { display: DisplayAssetHistory, params: ['id', 'nMaxOps', 'hMin', 'hMax'] },
+    'contracts': { display: DisplayContracts, params: [] },
+    'contract': { display: DisplayContractState, params: ['id', 'nMaxTxs', 'hMin', 'hMax'] },
+    'swap_offers': { display: DisplayAtomicSwaps, params: [] }, // 'swap_totals' will be called from within 'DisplayAtomicSwaps()'
+    'asset_swaps': { display: DisplayAssetSwaps, params: [] }, // 'asset_swaps_totals' will be called from within 'DisplayAssetSwaps()'
+    'historical': { display: DisplayHistoricalBlocks, static: true, params: [] }, // Specific to this front end (it's a static page)
+    'treasury': { display: DisplayBlock, params: [] } //  Specific to this front end (it's type 'block' with 'height=0')
+  };
+
+  // Configuration of query parameters
+  // (associated global variable, persistence in localStorage, type, default value, sanitization rules)
+  const paramConfig = {
+    id: { globalVar: 'g_id', persistent: false, type: 'string', defaultValue: '' },
+    height: { globalVar: 'g_height', persistent: false, type: 'number', defaultValue: '',
+      sanitize: (val) => (isNaN(val) || Number(val) < 0) ? '' : Number(val) // Keep it as a positive number
+    },
+    kernel: { globalVar: 'g_kernel', persistent: false, type: 'string', defaultValue: '' },
+    adj: { globalVar: 'g_adj', persistent: false, type: 'number', defaultValue: '',
+      sanitize: (val) => isNaN(val) ? '' : (Number(val) > 0 ? 1 : -1) // Keep it as 1, -1 or empty
+    },
+    //n: { globalVar: 'g_n', persistent: true, type: 'number', defaultValue: 1 } // (NOT USED HERE)
+    hMin: { globalVar: 'g_hMin', persistent: false, type: 'number', defaultValue: '' },
+    hMax: { globalVar: 'g_hMax', persistent: false, type: 'number', defaultValue: '' },
+    nMax: { globalVar: 'g_nMax', persistent: true, type: 'number', defaultValue: 100 },
+    nMaxOps: { globalVar: 'g_nMaxOps', persistent: true, type: 'number', defaultValue: 100 },
+    nMaxTxs: { globalVar: 'g_nMaxTxs', persistent: true, type: 'number', defaultValue: 100 },
+    cols: { globalVar: 'g_cols', persistent: true, type: 'string', defaultValue: columnDefaultDisplay },
+    dh: { globalVar: 'g_dh', persistent: true, type: 'number', defaultValue: 1 }
+  };
 
 </script>
 
-<script> // UPDATE DISPLAY WITH AVAILABLE NETWORKS AND EXPLORER NODES
+<script> // UPDATE NETWORK AND NODE URL SELECTION
 
+  // Declare the variable for the node URL query prefix (it will be updated in showPage).
+  let g_urlPrefix;
   // Define default explorer node URLs to query
   let g_defaultNodesURL;
   try { // Try to read list from local storage (getItem returns 'null' if the variable doesn't exist)
@@ -3300,124 +3420,205 @@
   document.getElementById('NodeSelectionList').innerHTML = nodesList;
   document.getElementById('NetworkSelect').innerHTML = networkOptions;
 
-  // Get the node URL to query for the requested network
-  let urlPrefix = g_defaultNodesURL[g_network];
-  // If the requested network in the URL was not found, then default to 'mainnet'
-  if (urlPrefix === undefined) {
-    g_network = 'mainnet';
-    urlPrefix = g_defaultNodesURL['mainnet'];
-  }
-
-  // Put the current network in all links
-  const encodedNetwork = encodeURIComponent(g_network);
-  document.querySelectorAll('a[href]').forEach(link => {
-    const href = link.getAttribute('href');
-    if (href.includes('$network')) {
-      link.href = href.replace(/\$network/g, encodedNetwork); // Using regexp because replaceAll is not available in Chrome 83
-    }
-  });
-
-  // Put the current network in ad-hoc text elements
-  document.querySelectorAll('.queried-node').forEach(item => { item.textContent = urlPrefix; });
-  document.querySelectorAll('.queried-network').forEach(item => { item.textContent = g_network; });
-
-  // Set current value in the network dropdown
-  document.getElementById('NetworkSelect').value = g_network;
   // Add reload event to network selection dropdown
   document.getElementById('NetworkSelect').addEventListener('change', function() {
-    window.location.search = '?network=' + encodeURIComponent(this.value);
+    showPage(g_type, { network: this.value });
   });
-
-  // Use variations of data names and descriptions if the current network is PoS
-  g_IsPos = explorerNodes[g_network].type == 'PoS';
-  if (g_IsPos) {
-    for (let code of Object.keys(columnHeaders_pos)) { columnHeaders[code] = columnHeaders_pos[code]; }
-  }
 
 </script>
 
-<script> // QUERY EXPLORER NODE
+<script> // QUERY EXPLORER NODE USING AN ASYNC SINGLE-PAGE-APPLICATION (SPA) ARCHITECTURE
 
-  // Request 'nice' formatting from the node (amounts as XXX,XXX,XXX.YYYYYYYY)
-  let urlSuffix = '?exp_am=1';
-
-  // Case of static page
-  if (g_type == 'historical') { // Arguments for 'historical': (none)
-    window.onload = DisplayHistoricalBlocks;
+  // Query the explorer node using the standard async 'fetch',
+  // with a given type ('hdrs', 'block', etc.) and the key:value pairs parameters.
+  async function fetchAPI(type, params = {}) {
+    // 'exp_am=1' requests nice formatting from the node (amounts as XXX,XXX,XXX.YYYYYYYY)
+    let url = g_urlPrefix + type + '?exp_am=1';
+    for (let key in params) {
+      if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+        url += '&' + key + '=' + encodeURIComponent(params[key]);
+      }
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Explorer node responded with HTTP status: ' + response.status);
+    }
+    return await response.json();
   }
-  // Case of dynamic pages (explorer node requests)
-  else {
-    const xmlhttp = new XMLHttpRequest();
 
-    // Build request
-    if (g_type == 'asset') { // Arguments for 'asset': id, hMin, hMax, nMaxOps
-      // In case Asset 0 is requested (which is not accepted by node explorer), reload the page with ALL assets instead
-      if (g_id == 0) { window.location.href = UrlSelf('assets') }
-      // Otherwise, process request
-      urlSuffix += '&id=' + g_id + '&nMaxOps=' + g_nMaxOps;
-      if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
-      if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
-      xmlhttp.onload = DisplayAssetHistory;
+  // Display a specific page dynamically and asynchronously.
+  // Most 'page_id' are identical to the node 'type' (i.e. 'hdrs', 'block', etc.).
+  // The parameters are the key:value pairs for the query.
+  let g_showPageCounter = 0; // Use counter to avoid mixing fetched data when switching between pages too quickly
+  async function showPage(page_id, parameters = {}) {
 
-    } else if (g_type == 'block') { // Arguments for 'block': height OR kernel (we let the explorer node handle the case where both are requested)
-      if (g_kernel) { urlSuffix += '&kernel=' + g_kernel; }
-      if (g_height) { urlSuffix += '&height=' + g_height; }
-      adj = URLparams.get('adj'); // Used to adjust the block height, if there's no exact match
-      if (adj != null) { urlSuffix += '&adj=' + adj; }
-      xmlhttp.onload = DisplayBlock;
+    const showPageCounter = ++g_showPageCounter; // Increase and copy the global showPage counter
 
-    } else if (g_type == 'treasury') { // 'treasury' is type 'block' but with height=0
-      g_type = 'block';
-      g_height = 0;
-      urlSuffix += '&height=' + g_height;
-      xmlhttp.onload = DisplayBlock;
+    // Update the global parameters to ensure sync with navigation
+    if (parameters.network !== undefined) { g_network = parameters.network; }
+    // Ensure network and node url are any of those defined in explorerNodes, otherwise revert to 'mainnet'
+    if (explorerNodes[g_network] === undefined || g_defaultNodesURL[g_network] === undefined) { g_network = 'mainnet'; }
+    // Update g_urlPrefix to match the current network
+    g_urlPrefix = g_defaultNodesURL[g_network];
 
-    // Option to query and display the details of multiple blocks (NOT USED HERE)
-    //} else if (g_type == 'blocks') { // Arguments for 'blocks': height, n
-    //  if (!g_n) { g_n = 5 }
-    //  urlSuffix += '&height=' + g_height + '&n=' + g_n;
-    //  xmlhttp.onload = DisplayBlocks; // Display function to be done...
+    // Set current value in the network dropdown
+    document.getElementById('NetworkSelect').value = g_network;
 
-    } else if (g_type == 'contract') { // Arguments for 'contract': id, hMin, hMax, nMaxTxs
-      urlSuffix += '&id=' + g_id + '&nMaxTxs=' + g_nMaxTxs;
-      if (g_hMin) { urlSuffix += '&hMin=' + g_hMin }
-      if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
-      xmlhttp.onload = DisplayContractState;
+    // Put the current network in ad-hoc text elements
+    document.querySelectorAll('.queried-node').forEach(item => { item.textContent = g_urlPrefix; });
+    document.querySelectorAll('.queried-network').forEach(item => { item.textContent = g_network; });
 
-    } else if (g_type == 'hdrs') { // Arguments for 'hdrs': cols, hMax, nMax, dh
-      // Remark: The data will be provided in the same order as in 'cols'.
-      urlSuffix += '&cols=' + g_cols + '&nMax=' + g_nMax + '&dh=' + g_dh;
-      if (g_hMax) { urlSuffix += '&hMax=' + g_hMax }
-      xmlhttp.onload = DisplayHdrs;
-
-    } else if (g_type == 'contracts') { // Arguments for 'contracts': (none)
-      xmlhttp.onload = DisplayContracts;
-
-    } else if (g_type == 'assets') { // Arguments for 'assets': height
-      if (isNaN(g_height) || (!isNaN(g_height) && g_height < 0)) { g_height = '' } // For inexistant blocks, display current assets 
-      urlSuffix += '&height=' + g_height;
-      xmlhttp.onload = DisplayAssets;
-
-    } else if (g_type == 'peers') { // Arguments for 'peers': (none)
-      xmlhttp.onload = DisplayPeers;
-
-    } else if (g_type == 'swap_offers') { // Arguments for 'swap_offers': (none)
-      xmlhttp.onload = DisplayAtomicSwaps;
-    // Remark: The query for 'swap_totals' is made from within the 'DisplayAtomicSwaps' function.
-
-    } else if (g_type == 'asset_swaps') { // Arguments for 'asset_swaps': (none)
-      xmlhttp.onload = DisplayAssetSwaps;
-    // Remark: The query for 'asset_swaps_totals' is made from within the 'DisplayAssetSwaps' function.
-
-    } else {
-      g_type = 'status'; // Arguments for 'status': (none)
-      xmlhttp.onload = DisplayStatus;
+    // Update PoW/PoS columnHeaders for the current network
+    g_IsPos = explorerNodes[g_network].type == 'PoS';
+    for (let code of Object.keys(columnHeaders_pos)) {
+      columnHeaders[code] = (g_IsPos) ? columnHeaders_pos[code] : columnHeaders_pow[code];
     }
 
-    // Submit request
-    xmlhttp.open('GET', urlPrefix + g_type + urlSuffix);
-    xmlhttp.send();
+    // Replace the MainContent container with the loading message
+    document.getElementById('MainContent').innerHTML = `
+      <h2 id="Loading">Loading<span style="--t:1">.</span><span style="--t:2">.</span><span style="--t:3">.</span></h2>
+      <p class="querying">Querying explorer node for network <span class="queried-network">${g_network}</span> on <span class="nodeURL queried-node">${g_urlPrefix}</span></p>
+      <p class="querying">&#9656; <a href="javascript:openNodeSelection();" title="Show list of explorer nodes">List of available nodes.</a></p>
+    `;
+
+    // Scroll to top (to give a natural multi-page feel on switch)
+    topFunction();
+
+    // Get active parameters list for the current page (or default to 'status')
+    const page = pageConfig[page_id] || (page_id = 'status', pageConfig['status']);
+    const activeParams = page.params || [];
+
+    // Helper function to get or reset persistent parameters from localStorage
+    // Remark: If defaultValue is a number, paramVal will be define as such too
+    function getPersistentParam(name, defaultValue, paramVal) {
+      if (paramVal !== undefined && paramVal !== null) {
+        const val = (paramVal !== '') ? (typeof defaultValue === 'number' ? Number(paramVal) : paramVal) : defaultValue;
+        localStorage.setItem('g_' + name, val);
+        return val;
+      } else {
+        const cached = localStorage.getItem('g_' + name);
+        return (cached !== null && cached !== '') ? (typeof defaultValue === 'number' ? Number(cached) : cached) : defaultValue;
+      }
+    }
+
+    // Update and synchronize all global parameters for the current page
+    // (provided value, cache from localStorage, default value or '')
+    Object.keys(paramConfig).forEach(paramName => {
+      const config = paramConfig[paramName];
+      let val = '';
+
+      if (activeParams.includes(paramName)) {
+        if (config.persistent) { // Persistent parameters, stored in localStorage.
+          val = getPersistentParam(paramName, config.defaultValue, parameters[paramName]);
+        } else { // Transient parameters, not stored in localStorage.
+          const paramVal = parameters[paramName];
+          if (paramVal != null && (typeof paramVal !== 'string' || paramVal.trim() !== '')) { // First test for both null & undefined, and second test for any empty or whitespace string
+            if (config.sanitize) { // If some sanitization rules are defined
+              val = config.sanitize(paramVal);
+            } else { // Otherwise, simply make it a number when applicable
+              val = (config.type === 'number') ? Number(paramVal) : paramVal;
+            }
+          } else {
+            val = config.defaultValue;
+          }
+        }
+      }
+      // Update the associated global variable
+      window[config.globalVar] = val;
+    });
+
+    // Update the browser URL query string (without page reload)
+    g_type = page_id || 'status';
+    const newParams = new URLSearchParams();
+    newParams.set('network', g_network);
+    newParams.set('type', g_type);
+    activeParams.forEach(paramName => {
+      const val = window[paramConfig[paramName].globalVar];
+      if (val !== undefined && val !== null && val !== '') { newParams.set(paramName, val); }
+    });
+    const newUrl = window.location.pathname + '?' + newParams.toString();
+    if (parameters.replaceState) { // Modify browser's current history entry (to avoid endless loops with the Back button)
+      history.replaceState(null, '', newUrl);
+    } else { // Add a new entry to browser's session history
+      history.pushState(null, '', newUrl);
+    }
+
+    // Case of static pages (no explorer node query)
+    if (page.static) { page.display.call(); return; }
+
+    // Populate fetchParams from the active parameters
+    let fetchType = page_id;
+    const fetchParams = {};
+    activeParams.forEach(paramName => {
+      const val = window[paramConfig[paramName].globalVar]; // Retrieve value of global variable
+      if (val != null && val !== '') { fetchParams[paramName] = val; } // First test catches both null & undefined
+    });
+
+    // Handling some special cases (ideally, these should be moved to pageConfig,
+    // to keep showPage() fully generic, but that's probably a bit overkill...)
+
+    // Since asset 0 is not accepted by the explorer node, we display ALL assets instead
+    if (page_id === 'asset' && g_id == 0) {
+      showPage('assets', { replaceState: true });
+      return;
+    }
+    // To get the treasury, we call 'block' with height 0
+    if (page_id === 'treasury') {
+      fetchType = 'block';
+      fetchParams.height = 0;
+    }
+
+    // Call the explorer node to asynchronously fetch the data
+    let data;
+    try {
+      data = await fetchAPI(fetchType, fetchParams);
+    } catch (err) {
+      // If another page has already been called during fetch, interrupt this old one
+      if (showPageCounter !== g_showPageCounter) { return; }
+      // Otherwise, display a network error message
+      console.error('Failed to load page ' + page_id + ':', err);
+      document.getElementById('MainContent').innerHTML = `
+        <h2 class="title errorMessage">Error Loading Data</h2>
+        <p class="querying">Problem querying the explorer node for network <span class="queried-network">${g_network}</span> on <span class="nodeURL queried-node">${g_urlPrefix}</span></p>
+        <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry request</a>.</p>
+        <p class="querying">&#9656; <a href="javascript:openNodeSelection();">Choose a different node URL</a>.</p>
+      `;
+      return; // Stop execution on fetch error
+    }
+
+    // If another page has already been called during fetch, interrupt this old one
+    if (showPageCounter !== g_showPageCounter) { return; }
+    // Call the associated Display function
+    try {
+      page.display.call({ responseText: JSON.stringify(data) });
+    } catch (err) {
+      console.error('Failed to display page ' + page_id + ':', err);
+      document.getElementById('MainContent').innerHTML = `
+        <h2 class="title errorMessage">Error Displaying Data</h2>
+        <p class="querying">An error occurred while rendering data for page <b>${page_id}</b>.</p>
+        <p class="querying">&#9656; <a href="javascript:showPage('${page_id}', { replaceState: true });">Retry</a>.</p>
+      `;
+      return; // Stop execution on error
+    }
+
   }
+
+  // Helper function to extract parameters from the URL and display the corresponding page
+  function loadPageFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('type') || 'status';
+    const page_id = type;
+    const showParams = {};
+    params.forEach((value, key) => { if (key !== 'type') { showParams[key] = value; } });
+    showPage(page_id, { ...showParams, replaceState: true });
+  }
+
+  // Listen to popstate to support browser back/forward buttons
+  window.addEventListener('popstate', loadPageFromURL);
+
+  // On page load, initialize page based on URL parameters
+  window.addEventListener('load', loadPageFromURL);
+
 </script>
 
 <!-- ************ SECTION 6 - EXTRA JS FUNCTIONS ************ -->
@@ -3426,8 +3627,12 @@
   function openDialog(id) { // Open popup
     const popup = document.getElementById(id);
     popup.showModal(); // Display popup
-    // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
-    popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+    // Check if event listener exists (to avoid adding a new one each time a popup opens)
+    if (!popup.dataset.hasBackdropListener) {
+      // Close popup if we click outside of it (...I'm not sure I understand how this one works!)
+      popup.addEventListener('click', function (event) { if (event.target === popup) { popup.close(); } });
+      popup.dataset.hasBackdropListener = true;
+    }
   }
 
   function closeDialog(id) { // Close popup
@@ -3469,8 +3674,15 @@
     }
     // Save in local storage
     localStorage.setItem('g_defaultNodesURL',JSON.stringify(g_defaultNodesURL));
-    // Reload the page
-    location.reload();
+    // Reload the current page
+    loadPageFromURL();
+    // Remark: No need to close the popup (submitting a form with a 'dialog' method automatically closes the dialog)
+  }
+
+  function openWhatsNew() { // Open "What's new" popup
+    const el = document.getElementById('WhatsNewContent');
+    if (el) { el.innerHTML = whatsNewText; } // Populate content from global variable
+    openDialog('whatsNewPopup');
   }
 </script>
 
@@ -3480,10 +3692,11 @@
   function submitSearch() {
     // Get search string (and remove spaces, dots and commas)
     let query = document.getElementById('SearchField').value.replace(/[ ,.]/g,'');
+    if (query === '') return;
     // Simplistic test to check if search string is rather block height or kernel id
-    let key = query.length < 10 ? '&height=' : '&kernel=';
-    // Load the corresponding URL
-    window.location.href = UrlSelf('block', key + query);
+    let params = query.length < 10 ? { height: query } : { kernel: query };
+    // Display the corresponding page
+    showPage('block', params);
   }
 
   // Parse metadata to add classes
@@ -3741,8 +3954,9 @@
     args.set('nMaxTxs', g_nMaxTxs);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -3800,8 +4014,9 @@
     args.set('nMaxOps', g_nMaxOps);
     args.set('hMin', g_hMin);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -3833,8 +4048,9 @@
     // Create or replace these parameters in the URL search parameters
     let args = new URL(document.location).searchParams;
     args.set('height', g_height);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 </script>
 
@@ -4705,7 +4921,7 @@
     text += '</form>';
 
     // Popup for pasting column codes (we use 'dialog' because 'popover' does not work on Chrome 83)
-    // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the node explorer accepts them...
+    // Remark: We reject repetions for now (using a way too complex regexp!), but we should see how to manage them because the explorer node accepts them...
     text += '<dialog class="popupDialog" id="pasteColumnsPopup">';
     text += `<form id="pasteColumnsForm" name="pasteColumnsForm" method="dialog" onsubmit="applyPasteColumns();">
                <div class="popupText">Copy/Paste codes for columns:</div>
@@ -4933,8 +5149,9 @@
     args.set('nMax', g_nMax);
     args.set('dh', g_dh);
     args.set('hMax', g_hMax);
-    // Update the query part of the URL and reload page
-    window.location.search = args.toString(); // toString() returns the 'foo=1&bar=2&baz=3' part (without '?')
+    // Update the URL (without full HTML reload) and reload only the page part
+    history.pushState(null, '', window.location.pathname + '?' + args.toString());
+    loadPageFromURL();
   }
 
   // DRAG-AND-DROP OPTIONS FOR THE COLUMN HEADERS CHECKBOXES

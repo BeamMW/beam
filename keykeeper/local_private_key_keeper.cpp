@@ -397,6 +397,16 @@ namespace beam::wallet
         tx.m_kOffset += k;
     }
 
+    bool LocalPrivateKeyKeeper2::get_SelfEndpoint(const Method::TxEndpoints& m, ECC::Scalar::Native& sk, PeerID& pid)
+    {
+        if (m.m_IsBbs && IsTrustless())
+            return false;
+
+        m_pKdf->DeriveKey(sk, Key::ID(m.m_iEndpoint, m.m_IsBbs ? Key::Type::Bbs : Key::Type::EndPoint));
+        pid.FromSk(sk);
+        return true;
+    }
+
     IPrivateKeyKeeper2::Status::Type LocalPrivateKeyKeeper2::InvokeSync(Method::SignReceiver& x)
     {
         Aggregation aggr(*this);
@@ -477,15 +487,11 @@ namespace beam::wallet
             pc.m_Value = vals.m_Asset;
             pc.m_AssetID = aggr.m_AssetID;
 
-            if (x.m_IsBbs && IsTrustless())
+            PeerID pidMe;
+            if (!get_SelfEndpoint(x, kKrn, pidMe))
                 return Status::Unspecified;
 
-            m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, x.m_IsBbs ? Key::Type::Bbs : Key::Type::EndPoint));
-
-            PeerID wid;
-            wid.FromSk(kKrn);
             pc.Sign(kKrn);
-
             x.m_PaymentProofSignature = pc.m_Signature;
         }
 
@@ -516,14 +522,9 @@ namespace beam::wallet
             return Status::Unspecified;
 
         Scalar::Native kNonce;
-
-        if (x.m_IsBbs && IsTrustless())
-            return Status::Unspecified;
-
         PeerID pidMe;
-
-        m_pKdf->DeriveKey(kNonce, Key::ID(x.m_iEndpoint, x.m_IsBbs ? Key::Type::Bbs : Key::Type::EndPoint));
-        pidMe.FromSk(kNonce);
+        if (!get_SelfEndpoint(x, kNonce, pidMe))
+            return Status::Unspecified;
 
         get_Nonce(kNonce, x.m_Slot);
 
@@ -668,21 +669,15 @@ namespace beam::wallet
                     return Status::Unspecified;
             }
 
-            if (x.m_iEndpoint)
-            {
-                m_pKdf->DeriveKey(kKrn, Key::ID(x.m_iEndpoint, Key::Type::EndPoint));
-
-                PeerID pid;
-                pid.FromSk(kKrn);
-                if (pid != x.m_Peer)
-                    return Status::Unspecified;
-            }
+            if (!get_SelfEndpoint(x, kKrn, x.m_User.m_Sender))
+                return Status::Unspecified;
         }
 
         ShieldedTxo::Data::Params pars;
         pars.m_Output.m_Value = vals.m_Asset;
         pars.m_Output.m_AssetID = aggr.m_AssetID;
         pars.m_Output.m_User = x.m_User;
+
         pars.m_Output.Restore_kG(pVoucher->m_SharedSecret);
 
         TxKernelShieldedOutput::Ptr pOutp = std::make_unique<TxKernelShieldedOutput>();

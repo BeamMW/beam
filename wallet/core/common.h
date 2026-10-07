@@ -385,6 +385,18 @@ namespace beam::wallet
 
         UserConfirmationToken = 143,
 
+        // Manual transport (Slatepack). Both are PRIVATE, and deliberately so: the flag means
+        // "this negotiation arrived, and continues, by hand", which only the local endpoint that
+        // received it can know. Were it a public parameter a peer could set it on us and push our
+        // replies off SBBS, so it is never serialized to the wire - SlatepackEndpoint::Commit()
+        // sets it when a pasted Slatepack is confirmed.
+        //
+        // Routes this tx's negotiation via Slatepack armor instead of SBBS.
+        ManualTransport = 144,
+        // Last armored negotiation message produced for this tx, kept so the user can
+        // re-copy/re-save it after dismissing the produce dialog.
+        SlatepackOutgoing = 145,
+
         Status = 151,
         KernelID = 152,
         MyAddressID = 158, // in case the address used in the tx is eventually deleted, the user should still be able to prove it was owned
