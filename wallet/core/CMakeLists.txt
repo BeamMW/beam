@@ -6,7 +6,6 @@ target_sources(wallet_core
     PRIVATE
         common.cpp
         common_utils.cpp
-        default_peers.cpp
         wallet.cpp
         base_transaction.cpp
         base_tx_builder.cpp
