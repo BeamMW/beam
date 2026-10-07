@@ -16,7 +16,7 @@
 #include "wallet/core/wallet_db.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/client/wallet_model_async.h"
-#include "wallet/core/default_peers.h"
+#include "core/default_peers.h"
 #include "keykeeper/local_private_key_keeper.h"
 #include "wallet/transactions/lelantus/push_transaction.h"
 #include "wallet/core/simple_transaction.h"

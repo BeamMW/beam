@@ -14,7 +14,7 @@
 
 #include "node_network.h"
 #include "utility/logger.h"
-#include "wallet/core/default_peers.h"
+#include "core/default_peers.h"
 
 namespace beam::wallet
 {
