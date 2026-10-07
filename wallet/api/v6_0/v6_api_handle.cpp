@@ -797,6 +797,10 @@ namespace beam::wallet
         {
             throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpExportFailedTxNotCompleted);
         }
+        else if (tx->GetParameter<TxAddressType>(TxParameterID::AddressType) == TxAddressType::PublicOffline)
+        {
+            throw jsonrpc_exception(ApiError::PaymentProofExportError, kErrorPpPublicOffline);
+        }
         else
         {
             doResponse(id, ExportPaymentProof::Response{ wallet::storage::ExportPaymentProof(*walletDB, data.txId) });

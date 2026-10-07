@@ -56,6 +56,7 @@ namespace beam
     const char kErrorPpExportFailedTxNotCompleted[] = "Failed to export payment proof. Transaction is not completed.";
     const char kErrorPpNotProvided[] = "No payment proof provided: --payment_proof parameter is missing";
     const char kErrorPpInvalid[] = "Payment proof is invalid";
+    const char kErrorPpPublicOffline[] = "Cannot export payment proof for a transaction to a public offline address: the receiver is not known.";
     const char kErrorSubkeyNotSpecified[] = "Please, specify Subkey number --subkey=N (N > 0)";
     const char kErrorExportDataFail[] = "Failed to save exported data.";
     const char kErrorReceiverAddrMissing[] = "receiver's address is missing";
