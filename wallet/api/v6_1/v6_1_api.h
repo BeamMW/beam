@@ -15,6 +15,9 @@
 
 #include "wallet/api/v6_0/v6_api.h"
 #include "v6_1_api_defs.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_observer.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
@@ -22,6 +25,12 @@ namespace beam::wallet
         : public V6Api
         , public IWalletObserver
         , public INodeConnectionObserver
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        , public ISwapOffersObserver
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        , public DexBoard::IObserver
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     {
     public:
         // CTOR MUST BE SAFE TO CALL FROM ANY THREAD
@@ -31,6 +40,10 @@ namespace beam::wallet
         V6_1_API_METHODS(BEAM_API_PARSE_FUNC)
         V6_1_API_METHODS(BEAM_API_RESPONSE_FUNC)
         V6_1_API_METHODS(BEAM_API_HANDLE_FUNC)
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        virtual DexBoard::Ptr getDexBoard() const;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 
     protected:
         //
@@ -55,6 +68,23 @@ namespace beam::wallet
         void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason&) override;
         void onNodeConnectedStatusChanged(bool isNodeConnected) override;
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        //
+        // ISwapOffersObserver
+        //
+        void onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers) override;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        //
+        // DexBoard::IObserver
+        //
+        void onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders) override;
+        void onFindDexOrder(const DexOrder&) override {}
+
+        void fillDexOrders(json& arr, const std::vector<DexOrder>& orders);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
         //
         // V6 behavior changes
         //
@@ -76,6 +106,8 @@ namespace beam::wallet
             static const uint32_t AddrsChanged   = 1 << 4;
             static const uint32_t TXsChanged     = 1 << 5;
             static const uint32_t ConnectChanged = 1 << 6;
+            static const uint32_t SwapOffersChanged       = 1 << 7;
+            static const uint32_t AssetsSwapOffersChanged = 1 << 8;
         };
 
         bool _subscribedToListener = false;
@@ -86,5 +118,14 @@ namespace beam::wallet
         Wallet::Ptr _wallet;
         NodeNetwork::Ptr _network;
         std::string _disconnectReason;
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        ISwapsProvider::Ptr _swapOffersSource;
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        // kept apart from V72Api::_dexBoard, which is already released when ~V61Api unsubscribes
+        DexBoard::Ptr _dexOffersSource;
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     };
 }
