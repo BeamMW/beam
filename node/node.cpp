@@ -4306,7 +4306,7 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 			tx.m_vKernels.pop_back();
 
 		// verify that all the outputs correspond to our viewer's Kdf (in case our comm was hacked this'd prevent mining for someone else)
-		for (size_t i = 0; i < tx.m_vOutputs.size(); i++)
+		for (size_t i = 0; !m_This.m_Cfg.m_MiningFinalization.m_ForeignOutputs && (i < tx.m_vOutputs.size()); i++)
 		{
 			CoinID cid;
 			if (!tx.m_vOutputs[i]->Recover(m_This.m_Processor.m_Cursor.m_hh.m_Height + 1, *m_This.m_Keys.m_pOwner, cid))
@@ -4332,6 +4332,11 @@ void Node::Peer::OnMsg(proto::BlockFinalization&& msg)
 	if (!bRes)
 	{
 		BEAM_LOG_WARNING() << "Block finalization failed";
+
+		// A foreign coinbase can be invalid in the chain context (e.g. a kernel that's already visible),
+		// or too large for the block. Drop the finalizer, so that the node goes on mining without it.
+		if (m_This.m_Cfg.m_MiningFinalization.m_ForeignOutputs)
+			ThrowUnexpected("finalization failed");
 		return;
 	}
 
@@ -4894,7 +4899,10 @@ bool Node::Miner::Restart()
 	bc.m_pParent = get_ParentObj().m_TxDependent.m_pBest;
 
 	if (m_pFinalizer)
+	{
 		bc.m_Mode = NodeProcessor::BlockContext::Mode::Assemble;
+		bc.m_SizeReserve = get_ParentObj().m_Cfg.m_MiningFinalization.m_Reserve;
+	}
 
 	bool bRes = get_ParentObj().m_Processor.GenerateNewBlock(bc);
 

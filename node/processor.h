@@ -664,6 +664,7 @@ public:
 		};
 
 		Mode m_Mode = Mode::SinglePass;
+		size_t m_SizeReserve = 0; // Assemble: extra space left for the coinbase that comes with Finalize
 
 		BlockContext(TxPool::Fluff& txp, Key::Index, Key::IKdf& coin, Key::IPKdf& tag);
 	};

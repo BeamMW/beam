@@ -84,6 +84,16 @@ struct Node
 
 		bool m_PreferOnlineMining = true;
 
+		// Online mining: the block is finalized by the owner wallet, which supplies the coinbase
+		struct MiningFinalization
+		{
+			// Accept coinbase outputs that the node's owner key doesn't recognize. Lets a pool pay its miners
+			// directly in the coinbase, with outputs and kernels the miners created and signed themselves.
+			bool m_ForeignOutputs = false;
+			// Block space kept free for the coinbase, on top of a single output and kernel
+			uint32_t m_Reserve = 0;
+		} m_MiningFinalization;
+
 		// Number of verification threads for CPU-hungry cryptography. Currently used for block validation only.
 		// 0: single threaded
 		// negative: number of cores minus number of mining threads.
