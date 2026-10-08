@@ -401,6 +401,13 @@ int main(int argc, char* argv[])
 					else
 					{
 						node.m_Cfg.m_MiningThreads = 0; // by default disabled
+
+						// A FakePoW test chain mines when asked to explicitly: threads with the fake solver, or the stratum server
+						if ((Rules::Consensus::FakePoW == Rules::get().m_Consensus) && !vm[cli::POW_SOLVE_TIME].defaulted())
+						{
+							node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+							node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = vm[cli::POW_SOLVE_TIME].as<uint32_t>();
+						}
 					}
 
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
