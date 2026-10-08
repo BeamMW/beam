@@ -487,6 +487,12 @@ int main(int argc, char* argv[])
 					if (vm.count(cli::MINE_ONLINE))
 						node.m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
+					if (vm.count(cli::MINE_ONLINE_FOREIGN))
+						node.m_Cfg.m_MiningFinalization.m_ForeignOutputs = vm[cli::MINE_ONLINE_FOREIGN].as<bool>();
+
+					if (vm.count(cli::MINE_ONLINE_RESERVE))
+						node.m_Cfg.m_MiningFinalization.m_Reserve = vm[cli::MINE_ONLINE_RESERVE].as<uint32_t>();
+
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 
 					for (size_t i = 0; i < vPeers.size(); i++)
