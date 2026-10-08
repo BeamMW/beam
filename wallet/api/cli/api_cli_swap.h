@@ -111,7 +111,7 @@ private:
         return swapClient ? swapClient->GetSettings().GetMaxFeeRate() : 0;
     }
 
-    [[nodiscard]] const SwapOffersBoard& getSwapOffersBoard() const override
+    [[nodiscard]] SwapOffersBoard& getSwapOffersBoard() const override
     {
         return *_offersBulletinBoard;
     }

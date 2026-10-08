@@ -32,26 +32,7 @@ void V72Api::getResponse(const JsonRpcId& id, const AssetsSwapOffersList::Respon
     };
 
     msg["offers"] = json::array();
-    auto& joffers = msg["offers"];
-
-    for (auto& order: res.orders)
-    {
-        auto jorded = json
-        {
-            {"id", order.getID().to_string()},
-            {"sendAmount", order.getSendAmount()},
-            {"sendCurrencyName", order.getSendAssetSName()},
-            {"sendAssetId", order.getSendAssetId()},
-            {"receiveAmount", order.getReceiveAmount()},
-            {"receiveCurrencyName", order.getReceiveAssetSName()},
-            {"receiveAssetId", order.getReceiveAssetId()},
-            {"create_time", order.getCreation()},
-            {"expire_time", order.getExpiration()},
-            {"isMy", order.isMine()}
-        };
-
-        joffers.emplace_back(std::move(jorded));
-    }
+    fillDexOrders(msg["offers"], res.orders);
 }
 
 std::pair<AssetsSwapCreate, IWalletApi::MethodInfo> V72Api::onParseAssetsSwapCreate(const JsonRpcId& id, const nlohmann::json& params)

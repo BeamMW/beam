@@ -82,7 +82,7 @@ namespace
         Amount getRecommendedFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getMinFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
         Amount getMaxFeeRate(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
-        const SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
+        SwapOffersBoard& getSwapOffersBoard() const override { throw std::runtime_error("not impl"); }
         bool isCoinClientConnected(AtomicSwapCoin swapCoin) const override { throw std::runtime_error("not impl"); }
     };
 

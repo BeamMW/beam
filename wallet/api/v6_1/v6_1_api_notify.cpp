@@ -386,6 +386,105 @@ namespace beam::wallet
         }
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    void V61Api::onSwapOffersChanged(ChangeAction action, const std::vector<SwapOffer>& offers)
+    {
+        if ((_evSubs & SubFlags::SwapOffersChanged) == 0)
+        {
+            return;
+        }
+
+        if (action != ChangeAction::Reset && offers.empty())
+        {
+            return;
+        }
+
+        try
+        {
+            auto walletDB = getWalletDB();
+            json board;
+            V6Api::getResponse("ev_swap_offers_changed", OffersBoard::Response{walletDB->getAddresses(true), walletDB->getCurrentHeight(), offers}, board);
+
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_swap_offers_changed"},
+                {"result",
+                    {
+                        {"change", action},
+                        {"change_str", std::to_string(action)},
+                        {"offers", board["result"]}
+                    }
+                }
+            };
+
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            BEAM_LOG_ERROR() << "V61Api::onSwapOffersChanged failed: " << e.what();
+        }
+    }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    void V61Api::fillDexOrders(json& arr, const std::vector<DexOrder>& orders)
+    {
+        for (const auto& order: orders)
+        {
+            arr.push_back(json
+            {
+                {"id", order.getID().to_string()},
+                {"sendAmount", order.getSendAmount()},
+                {"sendCurrencyName", order.getSendAssetSName()},
+                {"sendAssetId", order.getSendAssetId()},
+                {"receiveAmount", order.getReceiveAmount()},
+                {"receiveCurrencyName", order.getReceiveAssetSName()},
+                {"receiveAssetId", order.getReceiveAssetId()},
+                {"create_time", order.getCreation()},
+                {"expire_time", order.getExpiration()},
+                {"isMy", order.isMine()}
+            });
+        }
+    }
+
+    void V61Api::onDexOrdersChanged(ChangeAction action, const std::vector<DexOrder>& orders)
+    {
+        if ((_evSubs & SubFlags::AssetsSwapOffersChanged) == 0)
+        {
+            return;
+        }
+
+        if (action != ChangeAction::Reset && orders.empty())
+        {
+            return;
+        }
+
+        try
+        {
+            json msg = json
+            {
+                {JsonRpcHeader, JsonRpcVersion},
+                {"id", "ev_assets_swap_offers_changed"},
+                {"result",
+                    {
+                        {"change", action},
+                        {"change_str", std::to_string(action)},
+                        {"offers", json::array()}
+                    }
+                }
+            };
+
+            fillDexOrders(msg["result"]["offers"], orders);
+            _handler.sendAPIResponse(msg);
+        }
+        catch(std::exception& e)
+        {
+            BEAM_LOG_ERROR() << "V61Api::onDexOrdersChanged failed: " << e.what();
+        }
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+
     void V61Api::onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& dr)
     {
         sendConnectionStatus();
