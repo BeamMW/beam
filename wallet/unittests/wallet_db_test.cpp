@@ -1323,6 +1323,40 @@ void TestSelect7()
     SelectCoins(db, 6'456'001'778'569 + 1000, false);
 }
 
+void TestChats()
+{
+    cout << "\nWallet database chats test\n";
+    auto db = createSqliteWalletDB();
+
+    WALLET_CHECK(db->getChats().empty());
+
+    WalletID peerA = Zero, peerB = Zero, my1 = Zero, my2 = Zero;
+    WALLET_CHECK(peerA.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4a"));
+    WALLET_CHECK(peerB.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4b"));
+    WALLET_CHECK(my1.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4c"));
+    WALLET_CHECK(my2.FromHex("6b5992ffed7cb3c86bb7e408edfecafa047701eaa197ebf5b9e2df2f21b40caa4d"));
+
+    db->storeIM(1, peerA, my1, "a1", true, true);
+    db->storeIM(2, peerA, my2, "a2", true, false);
+    db->storeIM(3, peerB, my1, "b1", true, true);
+    db->storeIM(4, peerA, my1, "a3", false, true);
+
+    auto chats = db->getChats();
+    WALLET_CHECK(chats.size() == 2);
+
+    WALLET_CHECK(chats[0].m_counterpart == peerA);
+    WALLET_CHECK(chats[0].m_hasUnread);
+    WALLET_CHECK(chats[0].m_myAddresses.size() == 2);
+    WALLET_CHECK(std::find(chats[0].m_myAddresses.begin(), chats[0].m_myAddresses.end(), my1) != chats[0].m_myAddresses.end());
+    WALLET_CHECK(std::find(chats[0].m_myAddresses.begin(), chats[0].m_myAddresses.end(), my2) != chats[0].m_myAddresses.end());
+
+    // unread messages of another chat must not affect this one
+    WALLET_CHECK(chats[1].m_counterpart == peerB);
+    WALLET_CHECK(!chats[1].m_hasUnread);
+    WALLET_CHECK(chats[1].m_myAddresses.size() == 1);
+    WALLET_CHECK(chats[1].m_myAddresses[0] == my1);
+}
+
 void TestWalletMessages()
 {
     cout << "\nWallet database wallet messages test\n";
@@ -1735,6 +1769,7 @@ int main()
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
+    TestChats();
     TestNotifications();
     TestExchangeRates();
     TestVouchers();

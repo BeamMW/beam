@@ -5371,30 +5371,42 @@ namespace beam::wallet
         return messages;
     }
 
-    std::vector<std::pair<WalletID, bool>> WalletDB::getChats()
+    std::vector<ChatInfo> WalletDB::getChats()
     {
-        const char* req = "SELECT DISTINCT counterpart FROM " IM_NAME ";";
+        const char* req = "SELECT counterpart, mySbbs, SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) FROM " IM_NAME
+                          " GROUP BY counterpart, mySbbs ORDER BY MIN(id);";
 
         sqlite::Statement stm(this, req);
 
-        std::vector<std::pair<WalletID, bool>> chats;
+        std::vector<ChatInfo> chats;
+        std::map<WalletID, size_t> chatIndices;
         while (stm.step())
         {
             ByteBuffer counterpartID;
             stm.get(0, counterpartID);
             WalletID peerID;
-            if (peerID.FromBuf(counterpartID)) {
-                const char* req2 = "SELECT count(*) FROM " IM_NAME " WHERE is_read = 0;";
-                sqlite::Statement stm2(this, req2);
-                bool hasUnread = false;
-                if (stm2.step()) {
-                    int unreadCnt = 0;
-                    stm2.get(0, unreadCnt);
-                    hasUnread = unreadCnt > 0;
-                }
-                chats.push_back(std::make_pair(peerID, hasUnread));
+            if (!peerID.FromBuf(counterpartID))
+                continue;
+
+            auto [it, inserted] = chatIndices.emplace(peerID, chats.size());
+            if (inserted)
+            {
+                auto& chat = chats.emplace_back();
+                chat.m_counterpart = peerID;
+            }
+            auto& chat = chats[it->second];
+
+            ByteBuffer mySbbsID;
+            stm.get(1, mySbbsID);
+            WalletID myID;
+            if (myID.FromBuf(mySbbsID))
+            {
+                chat.m_myAddresses.push_back(myID);
             }
 
+            int unreadCnt = 0;
+            stm.get(2, unreadCnt);
+            chat.m_hasUnread = chat.m_hasUnread || unreadCnt > 0;
         }
         return chats;
     }
