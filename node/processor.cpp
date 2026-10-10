@@ -545,14 +545,21 @@ void NodeProcessor::UpdateEpoch0(Height hNext)
 	if (r.IsPastFork_<7>(hNext))
 	{
 		auto h7 = r.pForks[7].m_Height;
-		if (m_Extra.m_Epoch0.m_Shielded || !h7)
+		if (m_Extra.m_Epoch0.m_Shielded || m_Extra.m_Epoch0.m_Txos || !h7)
 			return; // already set
 
 		if (r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
+		{
 			m_Extra.m_Epoch0.m_Shielded = m_DB.ShieldedOutpGet(h7 - 1); // number of shielded outputs BEFORE hf7
+			auto num = FindAtivePastHeight(h7);
+			m_Extra.m_Epoch0.m_Txos = get_TxosBefore(num);
+		}
 		else
+		{
 			// no need to search, current state is the last per-HF7
+			m_Extra.m_Epoch0.m_Txos = m_Extra.m_Txos;
 			m_Extra.m_Epoch0.m_Shielded = m_Extra.m_ShieldedOutputs;
+		}
 	}
 	else
 		ZeroObject(m_Extra.m_Epoch0);
@@ -2791,7 +2798,16 @@ struct NodeProcessor::BlockInterpretCtx
 			*m_pTxErrorInfo << "asset range oob " << p->m_Begin << ", limit=" << m_AidMax;
 
 		return false;
+	}
 
+	bool ValidateInputDisclose(const Input& v, bool bNeeded)
+	{
+		if (bNeeded == !!v.m_pDisclosure)
+			return true;
+
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "input " << v.m_Commitment << " needDisclose=" << bNeeded;
+		return false;
 	}
 
 	void AddKrnInfo(Serializer&);
@@ -4971,6 +4987,9 @@ bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 		assert(d.m_Maturity < m_Height);
 
 		TxoID nID = p->m_ID;
+		bool needDisclose = (nID < m_Proc.m_Extra.m_Epoch0.m_Txos);
+		if (!ValidateInputDisclose(v, needDisclose))
+			return false;
 
 		if (!p->IsExt())
 			m_Proc.m_Mapped.m_Utxo.Delete(cu);
@@ -7256,13 +7275,17 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
 				break;
 
-		if (!ValidateInputs(v.m_Commitment, nCount))
+		bool disclose = false;
+		if (!ValidateInputs(v.m_Commitment, disclose, nCount))
 		{
 			if (pExtraInfo)
 				*pExtraInfo << "Inputs missing";
 
 			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
 		}
+
+		if (!bic.ValidateInputDisclose(v, disclose))
+			return false;
 	}
 
 	nBvmCharge = bic.m_ChargePerBlock;
@@ -7324,14 +7347,26 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	return proto::TxStatus::Ok;
 }
 
-bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /* = 1 */)
+bool NodeProcessor::ValidateInputs(const ECC::Point& comm, bool& disclose, Input::Count nCount /* = 1 */)
 {
 	struct Traveler :public UtxoTree::ITraveler
 	{
 		uint32_t m_Count;
+		TxoID m_ID = 0;
 		bool OnLeaf(const RadixTree::Leaf& x) override
 		{
 			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
+
+			// theoretically there can be several IDs. Ignore this for now
+			if (!n.IsExt())
+				m_ID = n.m_ID;
+			else
+			{
+				UtxoTree::MyLeaf::IDQueue& q = *n.m_pIDs.get_Strict();
+				assert(q.m_Count);
+				m_ID = q.m_pTop.get_Strict()->m_ID;
+			}
+
 			Input::Count nCount = n.get_Count();
 			assert(m_Count && nCount);
 			if (m_Count <= nCount)
@@ -7342,7 +7377,6 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 		}
 	} t;
 	t.m_Count = nCount;
-
 
 	UtxoTree::Key kMin, kMax;
 
@@ -7358,7 +7392,11 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, Input::Count nCount /
 	t.m_pBound[0] = kMin.V.m_pData;
 	t.m_pBound[1] = kMax.V.m_pData;
 
-	return !m_Mapped.m_Utxo.Traverse(t);
+	if (m_Mapped.m_Utxo.Traverse(t))
+		return false;
+
+	disclose = (t.m_ID < m_Extra.m_Epoch0.m_Txos);
+	return true;
 }
 
 size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& bc)

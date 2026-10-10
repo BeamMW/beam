@@ -3078,13 +3078,23 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 	// bounds
 	ECC::Point comm;
 	CoinID::Worker(cid).Create(sk, comm, *pKdf);
+	bool needDisclose = false;
 
-	if (!m_Processor.ValidateInputs(comm))
+	if (!m_Processor.ValidateInputs(comm, needDisclose))
 		return false;
 
 	// unspent
 	auto pInp = std::make_unique<Input>();
 	pInp->m_Commitment = comm;
+
+	if (needDisclose)
+	{
+		pInp->m_pDisclosure = std::make_unique<Disclosure>();
+		auto& d = *pInp->m_pDisclosure;
+		d.m_Aid = 0;
+		d.m_Amount = 0;
+		d.Create(sk);
+	}
 
 	tx.m_vInputs.push_back(std::move(pInp));
 	tx.m_Offset = ECC::Scalar::Native(tx.m_Offset) + ECC::Scalar::Native(sk);

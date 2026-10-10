@@ -360,6 +360,7 @@ public:
 
 	struct Epoch0 {
 		TxoID m_Shielded;
+		TxoID m_Txos;
 	};
 
 	struct Extra
@@ -640,7 +641,7 @@ public:
 	void FindAtivePastHeight(NodeDB::StateID&, Height);
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew); // assuming context-free validation is already performed, but 
-	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
+	bool ValidateInputs(const ECC::Point&, bool& disclose, Input::Count = 1);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
