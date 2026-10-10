@@ -104,12 +104,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	Merkle::Hash hv;
 	Blob blob(hv);
 
-	NodeDB::StateID sid;
-	m_DB.get_Cursor(sid);
-
-	m_Extra.m_ShieldedOutputs0 = std::numeric_limits<TxoID>::max();
-	InitCursor(false, sid);
-
 	bool bUpdateChecksum = !m_DB.ParamGet(NodeDB::ParamID::CfgChecksum, NULL, &blob);
 	if (!bUpdateChecksum)
 	{
@@ -147,14 +141,6 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	m_Extra.m_TxoLo.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoLo);
 	m_Extra.m_TxoHi.v = m_DB.ParamIntGetDef(NodeDB::ParamID::NumberTxoHi);
 
-	ZeroObject(m_SyncData);
-
-	blob.p = &m_SyncData;
-	blob.n = sizeof(m_SyncData);
-	m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
-
-	LogSyncData();
-
 	if (r.TreasuryChecksum == Zero)
 		m_Extra.m_TxosTreasury = 1; // artificial gap
 	else
@@ -172,8 +158,22 @@ void NodeProcessor::Initialize(const char* szPath, const StartParams& sp, ILongA
 	m_Mmr.m_Shielded.m_Count = m_DB.ParamIntGetDef(NodeDB::ParamID::ShieldedInputs);
 	m_Mmr.m_Shielded.m_Count += m_Extra.m_ShieldedOutputs;
 
+	NodeDB::StateID sid;
+	m_DB.get_Cursor(sid);
+	m_Extra.m_Txos = get_TxosBefore(Block::Number(sid.m_Number.v + 1));
+
+	ZeroObject(m_Extra.m_Epoch0);
+	InitCursor(false, sid);
+
+	ZeroObject(m_SyncData);
+
+	blob.p = &m_SyncData;
+	blob.n = sizeof(m_SyncData);
+	m_DB.ParamGet(NodeDB::ParamID::SyncData, nullptr, &blob);
+
+	LogSyncData();
+
 	InitializeMapped(szPath);
-	m_Extra.m_Txos = get_TxosBefore(Block::Number(m_Cursor.m_Full.m_Number.v + 1));
 
 	bool bRebuildNonStd = false;
 	if ((StartParams::RichInfo::Off | StartParams::RichInfo::On) & sp.m_RichInfoFlags)
@@ -534,32 +534,28 @@ void NodeProcessor::InitCursor(bool bMovingUp, const NodeDB::StateID& sid)
 
 	m_Cursor.m_DifficultyNext = get_NextDifficulty();
 
+	UpdateEpoch0(m_Cursor.m_hh.m_Height + 1);
+}
+
+void NodeProcessor::UpdateEpoch0(Height hNext)
+{
+	assert(hNext > m_Cursor.m_hh.m_Height);
+
 	const Rules& r = Rules::get();
-	if (r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
+	if (r.IsPastFork_<7>(hNext))
 	{
-		if (std::numeric_limits<TxoID>::max() == m_Extra.m_ShieldedOutputs0)
-			m_Extra.m_ShieldedOutputs0 = get_ShieldedOutputs0(r);
+		auto h7 = r.pForks[7].m_Height;
+		if (m_Extra.m_Epoch0.m_Shielded || !h7)
+			return; // already set
+
+		if (r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
+			m_Extra.m_Epoch0.m_Shielded = m_DB.ShieldedOutpGet(h7 - 1); // number of shielded outputs BEFORE hf7
+		else
+			// no need to search, current state is the last per-HF7
+			m_Extra.m_Epoch0.m_Shielded = m_Extra.m_ShieldedOutputs;
 	}
 	else
-		m_Extra.m_ShieldedOutputs0 = std::numeric_limits<TxoID>::max();
-}
-
-TxoID NodeProcessor::get_ShieldedOutputs0(const Rules& r)
-{
-	auto h7 = r.pForks[7].m_Height;
-	return h7 ? m_DB.ShieldedOutpGet(h7 - 1) : 0; // number of shielded outputs BEFORE hf7
-}
-
-TxoID NodeProcessor::get_ShieldedOutputs0For(Height h)
-{
-	const Rules& r = Rules::get();
-	if (!r.IsPastFork_<7>(h))
-		return 0;
-
-	if (std::numeric_limits<TxoID>::max() != m_Extra.m_ShieldedOutputs0)
-		return m_Extra.m_ShieldedOutputs0;
-
-	return get_ShieldedOutputs0(r);
+		ZeroObject(m_Extra.m_Epoch0);
 }
 
 Block::SystemState::ID NodeProcessor::Cursor::get_ID() const
@@ -3141,9 +3137,9 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 	if (bFirstTime)
 		mbc.OnNextBlockPid(pid);
 
-	auto nShieldedOutputs0 = get_ShieldedOutputs0For(id.m_Height);
+	UpdateEpoch0(id.m_Height);
 
-	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number, nShieldedOutputs0);
+	MultiblockContext::MyTask::SharedBlock::Ptr pShared = std::make_shared<MultiblockContext::MyTask::SharedBlock>(mbc, s.m_Number, m_Extra.m_Epoch0.m_Shielded);
 	Block::Body& block = pShared->m_Body;
 
 	const auto& r = Rules::get();
@@ -7228,6 +7224,8 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		return proto::TxStatus::InvalidContext;
 	}
 
+	UpdateEpoch0(h);
+
 	BlockInterpretCtx bic(*this, h, true);
 
 	bic.m_Temporary = true;
@@ -7306,8 +7304,7 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.Prepare(tx, *this, h);
 
-		auto nShieldedOutputs0 = get_ShieldedOutputs0For(h);
-		bool bValid = msc.IsValid(tx, nShieldedOutputs0, h, bc, 0, 1, m_ValCache);
+		bool bValid = msc.IsValid(tx, m_Extra.m_Epoch0.m_Shielded, h, bc, 0, 1, m_ValCache);
 		if (bValid)
 		{
 			msc.Calculate(bc.m_Sum, *this);

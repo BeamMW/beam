@@ -4350,12 +4350,10 @@ void Node::Peer::OnMsg(proto::GetStateSummary&& msg)
 	msgOut.m_TxoLo = p.m_Extra.m_TxoLo;
 	msgOut.m_Txos = p.m_Extra.m_Txos - p.m_Cursor.m_Full.m_Number.v; // by convention after each block there's an artificial gap in Txo counting
 	msgOut.m_ShieldedOuts = p.m_Extra.m_ShieldedOutputs;
+	msgOut.m_ShieldedOuts0 = p.m_Extra.m_Epoch0.m_Shielded;
 	msgOut.m_ShieldedIns = p.m_Mmr.m_Shielded.m_Count - p.m_Extra.m_ShieldedOutputs;
 	msgOut.m_AssetsMax = p.get_AidMax();
 	msgOut.m_AssetsActive = static_cast<Asset::ID>(p.get_DB().ParamIntGetDef(NodeDB::ParamID::AssetsActive));
-
-	if (std::numeric_limits<TxoID>::max() != p.m_Extra.m_ShieldedOutputs0)
-		msgOut.m_ShieldedOuts0 = p.m_Extra.m_ShieldedOutputs0;
 
 	Send(msgOut);
 }

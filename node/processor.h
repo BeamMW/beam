@@ -358,6 +358,10 @@ public:
 
 	void EnsureCursorKernels();
 
+	struct Epoch0 {
+		TxoID m_Shielded;
+	};
+
 	struct Extra
 	{
 		TxoID m_TxosTreasury;
@@ -368,12 +372,11 @@ public:
 		Block::Number m_TxoHi;
 
 		TxoID m_ShieldedOutputs;
-		TxoID m_ShieldedOutputs0;
+		Epoch0 m_Epoch0;
 
 	} m_Extra;
 
-	TxoID get_ShieldedOutputs0For(Height);
-	TxoID get_ShieldedOutputs0(const Rules&);
+	void UpdateEpoch0(Height hNext);
 
 	struct SyncData
 	{

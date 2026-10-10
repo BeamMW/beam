@@ -793,7 +793,7 @@ struct Context
         pKrn->m_Height = hr;
         pKrn->m_Fee = fee;
 
-        auto sd = txo.get_SpendData(txo.m_ID.m_Value, std::make_pair(m_pProc->m_Extra.m_ShieldedOutputs0, m_pProc->m_Extra.m_ShieldedOutputs));
+        auto sd = txo.get_SpendData(txo.m_ID.m_Value, std::make_pair(m_pProc->m_Extra.m_Epoch0.m_Shielded, m_pProc->m_Extra.m_ShieldedOutputs));
         pKrn->m_WindowEnd = sd.m_End;
 
         const Rules& r = Rules::get();
