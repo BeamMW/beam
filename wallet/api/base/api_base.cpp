@@ -192,6 +192,7 @@ namespace beam::wallet
         const auto result = callGuarded<ApiSyncMode>(pinfo->rpcid, [this, &pinfo] () -> ApiSyncMode {
             const auto& minfo = _methods[pinfo->method];
 
+            // ACL is opt-in; without it every caller has full access by design (see the listen address in api_cli.cpp).
             if (_acl)
             {
                 const std::string key = getMandatoryParam<NonEmptyString>(pinfo->message, "key");

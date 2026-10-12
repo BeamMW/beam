@@ -862,6 +862,8 @@ int main(int argc, char* argv[])
         }
 
         io::Reactor::Ptr reactor = io::Reactor::create();
+        // By design: wallet-api is a trusted service that binds all interfaces with no auth unless use_acl/ip_whitelist/use_tls are set.
+        // Whoever reaches the port controls the wallet; restricting that is the operator's job. Not a vulnerability.
         io::Address listenTo = io::Address().port(options.port);
         io::Reactor::Scope scope(*reactor);
         io::Reactor::GracefulIntHandler gih(*reactor);
