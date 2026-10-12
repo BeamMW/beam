@@ -27,7 +27,7 @@ namespace beam::wallet
         macro(IPFSPin,          "ipfs_pin",             API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSUnpin,        "ipfs_unpin",           API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
         macro(IPFSGc,           "ipfs_gc",              API_WRITE_ACCESS, API_ASYNC, APPS_ALLOWED) \
-        macro(SignMessage,      "sign_message",         API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) \
+        macro(SignMessage,      "sign_message",         API_WRITE_ACCESS, API_SYNC,  APPS_ALLOWED) \
         macro(VerifySignature,  "verify_signature",     API_READ_ACCESS,  API_SYNC,  APPS_ALLOWED) 
         // TODO:IPFS add ipfs_caps/ev_ipfs_state methods that returns all available capabilities and ipfs state
 
