@@ -68,6 +68,8 @@ namespace beam
         extern const char* AMOUNT_FULL;
         extern const char* RECEIVER_ADDR;
         extern const char* RECEIVER_ADDR_FULL;
+        extern const char* RECEIVERS;
+        extern const char* RECEIVERS_FILE;
         extern const char* NODE_ADDR;
         extern const char* NODE_ADDR_FULL;
         extern const char* SWAP_WALLET_ADDR;

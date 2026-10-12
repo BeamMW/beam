@@ -716,6 +716,71 @@ namespace
         WALLET_CHECK(stx->m_failureReason == TxFailureReason::NoInputs);
     }
 
+    // 'beam-wallet send --receivers' starts one tx per receiver back to back in the same session.
+    // Make sure such txs don't select the same coins and all complete.
+    void TestSendToManyReceivers()
+    {
+        cout << "\nTesting sending to several receivers at once...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 4; // 2 on the sender side, 1 on each receiver side
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            if (--completedCount == 0)
+                mainReactor->stop();
+        };
+
+        TestNode node;
+        TestWalletRig sender(createSenderWalletDB(), f); // coins 5, 2, 1, 9
+        TestWalletRig receiver1(createReceiverWalletDB(), f);
+        TestWalletRig receiver2(createSqliteWalletDB("receiver_wallet2.db", false, true), f);
+
+        auto txId1 = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::PeerAddr, receiver1.m_BbsAddr)
+            .SetParameter(TxParameterID::Amount, Amount(1))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+        auto txId2 = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::PeerAddr, receiver2.m_BbsAddr)
+            .SetParameter(TxParameterID::Amount, Amount(3))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200))
+            .SetParameter(TxParameterID::PeerResponseTime, Height(20)));
+
+        mainReactor->run();
+
+        auto stx1 = sender.m_WalletDB->getTx(txId1);
+        auto stx2 = sender.m_WalletDB->getTx(txId2);
+        WALLET_CHECK(stx1 && stx1->m_status == wallet::TxStatus::Completed);
+        WALLET_CHECK(stx2 && stx2->m_status == wallet::TxStatus::Completed);
+
+        auto receiver1Coins = receiver1.GetCoins();
+        auto receiver2Coins = receiver2.GetCoins();
+        WALLET_CHECK(receiver1Coins.size() == 1 && receiver1Coins[0].m_ID.m_Value == 1);
+        WALLET_CHECK(receiver2Coins.size() == 1 && receiver2Coins[0].m_ID.m_Value == 3);
+
+        // every spent coin was spent by exactly one of the txs, and each tx had its own inputs
+        size_t spentBy1 = 0, spentBy2 = 0;
+        Amount spentTotal = 0;
+        for (const auto& c : sender.GetCoins())
+        {
+            if (c.m_status != Coin::Spent)
+                continue;
+            WALLET_CHECK(c.m_spentTxId == txId1 || c.m_spentTxId == txId2);
+            if (c.m_spentTxId == txId1)
+                ++spentBy1;
+            if (c.m_spentTxId == txId2)
+                ++spentBy2;
+            spentTotal += c.m_ID.m_Value;
+        }
+        WALLET_CHECK(spentBy1 > 0 && spentBy2 > 0);
+        WALLET_CHECK(spentTotal >= 1 + 2 + 3 + 2);
+    }
+
     void TestTxRollback()
     {
         cout << "\nTesting transaction restore on tip rollback...\n";
@@ -5833,6 +5898,7 @@ int main()
     TestNegotiation();
     
     TestP2PWalletNegotiationST();
+    TestSendToManyReceivers();
     
     TestTxRollback();
     

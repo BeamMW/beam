@@ -79,6 +79,7 @@
 
 #include <iomanip>
 #include <iterator>
+#include <set>
 #include <future>
 #include <regex>
 #include <core/block_crypt.h>
@@ -132,6 +133,9 @@ namespace
     // process-wide handle to the manual-transport endpoint is safe. Mirrors
     // WalletClient's m_slatepackEndpoint weak_ptr member.
     std::weak_ptr<beam::wallet::SlatepackEndpoint> g_cliSlatepack;
+
+    // Transactions started by 'send --receivers': the CLI keeps running until all of them complete.
+    std::set<beam::wallet::TxID> g_pendingTxIDs;
 
     // Emit a produced/stored Slatepack: print it, or write it to a file when --save is given
     // (bare --save -> <wallet_dir>/<txid>.slatepack, --save=<dir>, or --save=<file>).
@@ -2401,6 +2405,8 @@ namespace
         {
             if (currentTxID.is_initialized() && (currentTxID.get() == txID))
                 io::Reactor::get_Current().stop();
+            else if (g_pendingTxIDs.erase(txID) && g_pendingTxIDs.empty())
+                io::Reactor::get_Current().stop();
         };
 
         auto txCompletedAction = isServer ? Wallet::TxCompletedAction() : onTxCompleteAction;
@@ -2501,8 +2507,141 @@ namespace
         return 0;
     }
 
+    // 'send' with --receivers/--receivers_file: one transaction per receiver, all started in this session.
+    // Every tx selects its inputs and tags them as spent by itself in one synchronous step when it starts,
+    // so the transactions never pick the same coins. The CLI waits until all of them have completed.
+    int SendMany(const po::variables_map& vm)
+    {
+        if (vm.count(cli::RECEIVER_ADDR) || vm.count(cli::AMOUNT) || vm.count(cli::UTXO) || vm[cli::SLATEPACK].as<bool>())
+        {
+            BEAM_LOG_ERROR() << "--" << cli::RECEIVERS << " and --" << cli::RECEIVERS_FILE << " can't be combined with --"
+                << cli::RECEIVER_ADDR << ", --" << cli::AMOUNT << ", --" << cli::UTXO << " or --" << cli::SLATEPACK;
+            return -1;
+        }
+
+        std::string list;
+        if (vm.count(cli::RECEIVERS))
+        {
+            list = vm[cli::RECEIVERS].as<string>();
+        }
+
+        if (vm.count(cli::RECEIVERS_FILE))
+        {
+            const auto& path = vm[cli::RECEIVERS_FILE].as<string>();
+            std::ifstream file(path);
+            if (!file)
+            {
+                BEAM_LOG_ERROR() << "Cannot read the receivers file " << path;
+                return -1;
+            }
+            list += "\n";
+            list.append(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+        }
+
+        std::vector<ReceiverAmount> receivers;
+        std::string error;
+        if (!ParseReceiversList(list, receivers, error))
+        {
+            BEAM_LOG_ERROR() << error;
+            return -1;
+        }
+
+        return DoWalletFunc(vm, [&receivers](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
+            {
+                Asset::ID assetId = Asset::s_BeamID;
+                if (vm.count(cli::ASSET_ID))
+                {
+                    assetId = vm[cli::ASSET_ID].template as<Positive<uint32_t>>().value;
+                    CheckAssetsAllowed(vm);
+                }
+
+                // Validate all receivers and the total before starting anything
+                std::vector<TxParameters> txs;
+                Amount totalAmount = 0;
+                Amount totalFee = 0;
+                bool hasShieldedOutputs = false;
+                const Amount maxTotal = std::numeric_limits<AmountSigned>::max();
+
+                for (const auto& r : receivers)
+                {
+                    auto params = CreateSimpleTransactionParameters();
+                    if (!LoadReceiverParams(r.m_Address, vm[cli::SEND_OFFLINE].template as<bool>(), params))
+                    {
+                        BEAM_LOG_ERROR() << "Invalid receiver address: " << r.m_Address;
+                        return -1;
+                    }
+
+                    bool isPushTx = false;
+                    if (auto txType = params.GetParameter<TxType>(TxParameterID::TransactionType))
+                    {
+                        isPushTx = *txType == TxType::PushTransaction;
+                    }
+
+                    Amount fee = 0;
+                    if (!ReadFee(vm, fee, *wallet, isPushTx))
+                    {
+                        return -1;
+                    }
+
+                    if (r.m_Amount > maxTotal - totalAmount || fee > maxTotal - totalFee)
+                    {
+                        BEAM_LOG_ERROR() << "The total amount to send is too big";
+                        return -1;
+                    }
+
+                    totalAmount += r.m_Amount;
+                    totalFee += fee;
+                    hasShieldedOutputs = hasShieldedOutputs || isPushTx;
+
+                    params
+                        .SetParameter(TxParameterID::Amount, r.m_Amount)
+                        // fee for shielded inputs included automatically
+                        .SetParameter(TxParameterID::Fee, fee)
+                        .SetParameter(TxParameterID::AssetID, assetId);
+
+                    txs.push_back(std::move(params));
+                }
+
+                CoinsSelectionInfo csi;
+                csi.m_requestedSum = totalAmount;
+                csi.m_assetID = assetId;
+                csi.m_explicitFee = totalFee;
+                csi.Calculate(walletDB->getCurrentHeight(), walletDB, hasShieldedOutputs);
+
+                if (!csi.m_isEnought)
+                {
+                    BEAM_LOG_ERROR() << "Not enough funds: " << txs.size() << " transactions need "
+                        << PrintableAmount(totalAmount, true, assetId) << " plus "
+                        << PrintableAmount(totalFee, true, Asset::s_BeamID) << " in fees";
+                    return -1;
+                }
+
+                // Register every tx before starting any, so a tx that completes (or fails) right away
+                // can't make the pending set empty while others are still to be started
+                for (const auto& params : txs)
+                {
+                    g_pendingTxIDs.insert(*params.GetTxID());
+                }
+
+                for (size_t i = 0; i < txs.size(); ++i)
+                {
+                    auto txID = wallet->StartTransaction(txs[i]);
+                    std::cout << "Transaction " << txID << " started: sending "
+                        << PrintableAmount(receivers[i].m_Amount, true, assetId)
+                        << " to " << receivers[i].m_Address << std::endl;
+                }
+
+                return 0;
+            });
+    }
+
     int Send(const po::variables_map& vm)
     {
+        if (vm.count(cli::RECEIVERS) || vm.count(cli::RECEIVERS_FILE))
+        {
+            return SendMany(vm);
+        }
+
         return DoWalletFunc(vm, [](auto&& vm, auto&& wallet, auto&& walletDB, auto& currentTxID)
             {
                 io::Address receiverAddr;

@@ -23,8 +23,21 @@ namespace beam::wallet
 {
 	class Wallet;
 
+    bool ParseAmount(const std::string& strAmount, Amount& amount, std::string& error, const Amount& limit = std::numeric_limits<AmountSigned>::max(), Asset::ID assetId = Asset::s_BeamID);
     bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit = std::numeric_limits<AmountSigned>::max(), Asset::ID assetId = Asset::s_BeamID);
     bool ReadFee(const po::variables_map& vm, Amount& fee, const Wallet&, bool hasShieldedOutputs = false);
     bool LoadReceiverParams(const po::variables_map& vm, TxParameters& params);
+    bool LoadReceiverParams(const std::string& addressOrToken, bool sendOffline, TxParameters& params);
     bool LoadBaseParamsForTX(const po::variables_map& vm, const Wallet&, Asset::ID& assetId, Amount& amount, Amount& fee, WalletID& receiverWalletID, bool skipReceiverWalletID = false);
+
+    struct ReceiverAmount
+    {
+        std::string m_Address;
+        Amount m_Amount = 0;
+    };
+
+    // Parses a list of <address>:<amount> entries (amount in Beams) separated by commas, semicolons
+    // or whitespace (so a file with one entry per line works too). '#' starts a comment till the end of the line.
+    // Fails on an empty list, a malformed entry, an invalid amount or a duplicate address.
+    bool ParseReceiversList(const std::string& str, std::vector<ReceiverAmount>& receivers, std::string& error);
 }
