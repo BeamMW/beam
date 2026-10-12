@@ -18,6 +18,16 @@
 
 namespace beam::wallet {
 
+    namespace
+    {
+        template <typename T>
+        bool hasParameter(const SetTxParameter& msg, TxParameterID id, const T& expected)
+        {
+            T val{};
+            return msg.GetParameter(id, val) && val == expected;
+        }
+    }
+
     DexBoard::DexBoard(IBroadcastMsgGateway& gatewayBroadcast, IRawCommGateway& gatewayCtlListen, IWalletDB& wdb)
         : _gatewayBroadcast(gatewayBroadcast)
         , _gatewayCtlListen(gatewayCtlListen)
@@ -181,10 +191,17 @@ namespace beam::wallet {
         auto it = _orders.find(id);
         if (it == _orders.end()) return false;
 
-        if (!it->second.isMine()
-            || it->second.isExpired()
-            || it->second.isCanceled()
-            || it->second.isAccepted()) return false;
+        const auto& order = it->second;
+        if (!order.isMine()
+            || order.isExpired()
+            || order.isCanceled()
+            || order.isAccepted()) return false;
+
+        // The peer supplies the swap terms, they must mirror the order (see DexSimpleSwapBuilder::SendToPeer)
+        if (!hasParameter(msg, TxParameterID::Amount, order.getSendAmount())
+            || !hasParameter(msg, TxParameterID::AssetID, order.getSendAssetId())
+            || !hasParameter(msg, TxParameterID::DexReceiveAmount, order.getReceiveAmount())
+            || !hasParameter(msg, TxParameterID::DexReceiveAsset, order.getReceiveAssetId())) return false;
 
         it->second.setAccepted(true);
         publishOrder(it->second);

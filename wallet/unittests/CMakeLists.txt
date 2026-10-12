@@ -62,6 +62,10 @@ if(BEAM_HW_WALLET)
     target_compile_definitions(wallet_test PRIVATE BEAM_HW_WALLET)
 endif()
 
+if (BEAM_ASSET_SWAP_SUPPORT)
+    add_test_snippet(dex_board_test dex_board)
+endif()
+
 if (BEAM_ATOMIC_SWAP_SUPPORT)
     add_test_snippet(bitcoin_rpc_test swap)
     #add_test_snippet(swap_test node swap http wallet_test_node)
