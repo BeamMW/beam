@@ -90,6 +90,7 @@ namespace beam
         const char* NODE_PEER = "peer";
         const char* NODE_PEERS_PERSISTENT = "peers_persistent";
         const char* PASS = "pass";
+        const char* OWNER_KEY_PASS = "owner_key_pass";
         const char* SET_SWAP_SETTINGS = "set_swap_settings";
         const char* ACTIVE_CONNECTION = "active_connection";
         const char* SWAP_WALLET_PASS = "swap_wallet_pass";
@@ -465,6 +466,7 @@ namespace beam
         wallet_options.add_options()
             (cli::COMMAND, po::value<string>(), "execute a specific command")
             (cli::PASS, po::value<string>(), "wallet password")
+            (cli::OWNER_KEY_PASS, po::value<string>(), "password to encrypt the exported owner key with (export_owner_key), so the node doesn't need the wallet password. Default: the wallet password")
             (cli::SEED_PHRASE, po::value<string>(), "seed phrase to generate the secret key from according to BIP-39.")
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Positive<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
