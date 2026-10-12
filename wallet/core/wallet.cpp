@@ -2576,6 +2576,16 @@ namespace beam::wallet
             return;
         }
 
+        // GetParameter reads any sub-tx, but only default sub-tx values reach the tx; Simple and DEX txs never carry another one
+        for (const auto& p : msg.m_Parameters)
+        {
+            if (p.first == TxParameterID::SubTxIndex)
+            {
+                BEAM_LOG_WARNING() << msg.m_TxID << " Incoming tx with sub-tx parameters rejected";
+                return;
+            }
+        }
+
         bool isSender = false;
         if (!msg.GetParameter(TxParameterID::IsSender, isSender))
         {

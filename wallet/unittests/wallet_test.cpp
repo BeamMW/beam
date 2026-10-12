@@ -3972,6 +3972,63 @@ namespace
         }
     }
 
+    void TestUnsolicitedSenderRole()
+    {
+        cout << "\nTesting incoming tx cannot make us the sender...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            if (--completedCount == 0)
+                mainReactor->stop();
+        };
+
+        TestNode node;
+        TestWalletRig victim(createSenderWalletDB(), f);
+        TestWalletRig attacker(createReceiverWalletDB(), f);
+
+        auto attack = [&](bool decoy)
+        {
+            SetTxParameter msg;
+            msg.m_From = attacker.m_BbsAddr;
+            msg.m_TxID = GenerateTxID();
+            msg.m_Type = TxType::Simple;
+            if (decoy)
+            {
+                // IsSender=false in a sub-tx that is never applied, true in the default one
+                msg.AddParameter(TxParameterID::SubTxIndex, SubTxID(2))
+                    .AddParameter(TxParameterID::IsSender, false)
+                    .AddParameter(TxParameterID::SubTxIndex, kDefaultSubTxID);
+            }
+            msg.AddParameter(TxParameterID::IsSender, true)
+                .AddParameter(TxParameterID::Amount, Amount(4))
+                .AddParameter(TxParameterID::Fee, Amount(2))
+                .AddParameter(TxParameterID::Lifetime, Height(200))
+                .AddParameter(TxParameterID::PeerProtoVersion, BaseTransaction::s_ProtoVersion);
+
+            completedCount = 2;
+            io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+            timer->start(10000, false, [mainReactor]() { mainReactor->stop(); });
+
+            attacker.m_messageEndpoint->Send(victim.m_BbsAddr, msg);
+            mainReactor->run();
+
+            auto tx = victim.m_WalletDB->getTx(msg.m_TxID);
+            if (tx)
+                cout << "victim tx status=" << static_cast<int>(tx->m_status) << " amount=" << tx->m_amount << " sender=" << tx->m_sender << endl;
+            cout << "attacker coins=" << attacker.GetCoins().size() << endl;
+
+            WALLET_CHECK(!tx);
+            WALLET_CHECK(attacker.GetCoins().empty());
+        };
+
+        attack(false);
+        attack(true);
+    }
+
     void TestSendingShielded()
     {
         cout << "\nTesting consuming shielded TXOs...\n";
@@ -5827,7 +5884,8 @@ int main()
     
     TestClient();
     TestSendingWithWalletID();
-    
+    TestUnsolicitedSenderRole();
+
     TestMultiUserWallet();
     
     TestNegotiation();
