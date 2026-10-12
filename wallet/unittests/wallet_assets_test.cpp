@@ -638,10 +638,34 @@ void TestAssets(Rules& r) {
 
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
+void TestAssetLockPeriod()
+{
+    // The asset can be unregistered once CA.LockPeriod has passed since it was burned,
+    // independently of MaxRollback (they're equal on mainnet, but not on test networks)
+    std::cout << "Testing asset lock period..." << std::endl;
+
+    WalletAsset wa;
+    wa.m_LockHeight = 100;
+
+    for (const auto& [lockPeriod, maxRollback] : { std::pair<Height, Height>{10, 20}, {20, 10}, {20, 20} })
+    {
+        Rules r;
+        Rules::Scope scope(r);
+        r.CA.LockPeriod = lockPeriod;
+        r.MaxRollback = maxRollback;
+
+        WALLET_CHECK(wa.IsLocked(100));
+        WALLET_CHECK(wa.IsLocked(100 + lockPeriod - 1));
+        WALLET_CHECK(!wa.IsLocked(100 + lockPeriod));
+    }
+}
+
 int main () {
     const auto logLevel = BEAM_LOG_LEVEL_DEBUG;
     const auto logger = beam::Logger::create(logLevel, logLevel);
     BEAM_LOG_INFO() << "Assets test - starting";
+
+    TestAssetLockPeriod();
 
     beam::Rules r;
     beam::Rules::Scope scopeRules(r);
