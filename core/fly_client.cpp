@@ -25,7 +25,9 @@ FlyClient::NetworkStd::~NetworkStd()
 
 void FlyClient::NetworkStd::Connect()
 {
-    if (m_Connections.size() == m_Cfg.m_vNodes.size())
+    const size_t nHosts = m_Cfg.m_UseProxy ? m_Cfg.m_vNodeHosts.size() : 0;
+
+    if (m_Connections.size() == m_Cfg.m_vNodes.size() + nHosts)
     {
         // force (re) connect
         for (ConnectionList::iterator it = m_Connections.begin(); m_Connections.end() != it; ++it)
@@ -35,10 +37,7 @@ void FlyClient::NetworkStd::Connect()
                 continue;
 
             c.ResetAll();
-            if (m_Cfg.m_UseProxy)
-                c.Connect(c.m_Addr, m_Cfg.m_ProxyAddr);
-            else
-                c.Connect(c.m_Addr);
+            c.ConnectNode();
         }
     }
     else
@@ -49,12 +48,29 @@ void FlyClient::NetworkStd::Connect()
         {
             Connection* pConn = new Connection(*this);
             pConn->m_Addr = m_Cfg.m_vNodes[i];
-            if (m_Cfg.m_UseProxy)
-                pConn->Connect(pConn->m_Addr, m_Cfg.m_ProxyAddr);
-            else
-                pConn->Connect(pConn->m_Addr);
+            pConn->ConnectNode();
+        }
+
+        for (size_t i = 0; i < nHosts; i++)
+        {
+            Connection* pConn = new Connection(*this);
+            uint16_t port = 0;
+            if (!io::parse_host_port(m_Cfg.m_vNodeHosts[i], pConn->m_Host, port))
+                pConn->m_Host = m_Cfg.m_vNodeHosts[i]; // port 0, the connect attempt fails and is reported
+            pConn->m_Addr.port(port);
+            pConn->ConnectNode();
         }
     }
+}
+
+void FlyClient::NetworkStd::Connection::ConnectNode()
+{
+    if (!m_This.m_Cfg.m_UseProxy)
+        Connect(m_Addr);
+    else if (m_Host.empty())
+        Connect(m_Addr, m_This.m_Cfg.m_ProxyAddr);
+    else
+        Connect(m_Host, m_Addr.port(), m_This.m_Cfg.m_ProxyAddr);
 }
 
 void FlyClient::NetworkStd::Disconnect()
@@ -251,8 +267,7 @@ void FlyClient::NetworkStd::Connection::OnTimer()
     else
     {
         ResetAll();
-        if (m_This.m_Cfg.m_UseProxy) Connect(m_Addr, m_This.m_Cfg.m_ProxyAddr);
-        else Connect(m_Addr);
+        ConnectNode();
     }
 }
 

@@ -18,6 +18,8 @@
 #include "utility/config.h"
 #include "utility/helpers.h"
 
+#include <new>
+
 #ifndef LOG_VERBOSE_ENABLED
     #define LOG_VERBOSE_ENABLED 0
 #endif
@@ -46,13 +48,16 @@ ProxyConnector::OnConnect ProxyConnector::create_connection(
         Address destination,
         const OnConnect& on_proxy_establish,
         int timeoutMsec,
-        bool isTls) {
+        bool isTls,
+        const std::string& destinationHost) {
 
     assert(_connectRequests.count(tag) == 0);
     
-    ProxyConnectRequest* request_ptr = _connectRequestsPool.alloc();
+    // pool memory is raw, construct the request (it is destroyed in release_connection)
+    ProxyConnectRequest* request_ptr = new (_connectRequestsPool.alloc()) ProxyConnectRequest();
     request_ptr->tag = tag;
     request_ptr->destination = destination;
+    request_ptr->destinationHost = destinationHost;
     request_ptr->on_connection_establish = OnConnect(on_proxy_establish);
     request_ptr->on_proxy_reply = OnReply();
     request_ptr->timeoutMsec = timeoutMsec;
@@ -182,15 +187,32 @@ bool ProxyConnector::on_auth_method_resp(uint64_t tag, ErrorCode errorCode, void
 }
 
 void ProxyConnector::send_connect_request(uint64_t tag) {
+    ProxyConnectRequest* request = _connectRequests[tag];
     // set callback for proxy connection request reply
-    _connectRequests[tag]->on_proxy_reply = &ProxyConnector::on_connect_resp;
-    
-    auto conn_req = Socks5_Protocol::makeRequest(
-        _connectRequests[tag]->destination,
-        Socks5_Protocol::Command::CONNECT);
+    request->on_proxy_reply = &ProxyConnector::on_connect_resp;
 
-    // Send connection request to proxy server
-    Result res = _connectRequests[tag]->stream->write(conn_req.data(), conn_req.size());
+    Result res;
+    if (request->destinationHost.empty()) {
+        auto conn_req = Socks5_Protocol::makeRequest(
+            request->destination,
+            Socks5_Protocol::Command::CONNECT);
+
+        // Send connection request to proxy server
+        res = request->stream->write(conn_req.data(), conn_req.size());
+    }
+    else {
+        // The host name is resolved by the proxy server, no local DNS lookup
+        auto conn_req = Socks5_Protocol::makeRequest(
+            request->destinationHost,
+            request->destination.port(),
+            Socks5_Protocol::Command::CONNECT);
+        if (conn_req.empty()) {
+            res = make_unexpected(EC_EINVAL);
+        }
+        else {
+            res = request->stream->write(conn_req.data(), conn_req.size());
+        }
+    }
     if (!res) {
         release_connection(tag, res);
     }
@@ -281,6 +303,31 @@ std::array<uint8_t,10> Socks5_Protocol::makeRequest(const Address& addr, Command
         static_cast<uint8_t>((port >> 8) & 0xFF),
         static_cast<uint8_t>(port & 0xFF)
     };
+}
+
+std::vector<uint8_t> Socks5_Protocol::makeRequest(const std::string& host, uint16_t port, Command cmd) {
+    std::vector<uint8_t> req;
+    if (host.empty() || host.size() > MaxDomainNameLength) {
+        return req;
+    }
+
+    in_addr ip4;
+    if (uv_inet_pton(AF_INET, host.c_str(), &ip4) == 0) {
+        auto ipReq = makeRequest(Address(ntohl(ip4.s_addr), port), cmd);
+        req.assign(ipReq.cbegin(), ipReq.cend());
+        return req;
+    }
+
+    req.reserve(7 + host.size());
+    req.push_back(ProtoVersion);
+    req.push_back(static_cast<uint8_t>(cmd));
+    req.push_back(Reserved);
+    req.push_back(static_cast<uint8_t>(AddrType::DOMAINNAME));
+    req.push_back(static_cast<uint8_t>(host.size()));
+    req.insert(req.end(), host.cbegin(), host.cend());
+    req.push_back(static_cast<uint8_t>((port >> 8) & 0xFF));
+    req.push_back(static_cast<uint8_t>(port & 0xFF));
+    return req;
 }
 
 Socks5_Protocol::Reply Socks5_Protocol::parseReply(void* data) {

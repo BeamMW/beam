@@ -671,15 +671,46 @@ Result Reactor::tcp_connect_with_proxy(
     int timeoutMsec,
     bool tlsConnect
 ) {
+    assert(!destAddr.empty());
+    if (destAddr.empty()) {
+        return make_unexpected(EC_EINVAL);
+    }
+    return tcp_connect_with_proxy_impl(destAddr, std::string(), proxyAddr, tag, callback, timeoutMsec, tlsConnect);
+}
+
+Result Reactor::tcp_connect_with_proxy(
+    const std::string& destHost,
+    uint16_t destPort,
+    Address proxyAddr,
+    uint64_t tag,
+    const ConnectCallback& callback,
+    int timeoutMsec,
+    bool tlsConnect
+) {
+    if (destHost.empty() || destHost.size() > Socks5_Protocol::MaxDomainNameLength || !destPort) {
+        return make_unexpected(EC_EINVAL);
+    }
+    // only the port is taken from the address, the host is resolved by the proxy server
+    return tcp_connect_with_proxy_impl(Address(0, destPort), destHost, proxyAddr, tag, callback, timeoutMsec, tlsConnect);
+}
+
+Result Reactor::tcp_connect_with_proxy_impl(
+    Address destAddr,
+    const std::string& destHost,
+    Address proxyAddr,
+    uint64_t tag,
+    const ConnectCallback& callback,
+    int timeoutMsec,
+    bool tlsConnect
+) {
     // TODO dh: clarify proxy connection timeout calculation
     // timeoutMsec = proxyServerConnectionTO + proxyToDestinationConnectionTO + proxyServerResponseTO
     // now only proxyServerConnectionTO is set
     assert(callback);
-    assert(!destAddr.empty());
     assert(!proxyAddr.empty());
     assert(_tcpConnectors->is_tag_free(tag));
 
-    if (!callback || destAddr.empty() || !_tcpConnectors->is_tag_free(tag)) {
+    if (!callback || !_tcpConnectors->is_tag_free(tag)) {
         return make_unexpected(EC_EINVAL);
     }
 
@@ -691,7 +722,7 @@ Result Reactor::tcp_connect_with_proxy(
     }
 
     ConnectCallback on_tcp_connect = _proxyConnector->
-        create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect);
+        create_connection(tag, destAddr, callback, timeoutMsec, tlsConnect, destHost);
     Result res = _tcpConnectors->tcp_connect((uv_tcp_t*)h, proxyAddr, tag, on_tcp_connect, timeoutMsec, io::TlsConfig(false));
     if (!res) {
         async_close(h);

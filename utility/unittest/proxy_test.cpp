@@ -23,6 +23,7 @@
 #include <iostream>
 #include <iomanip>
 #include <assert.h>
+#include <vector>
 
 
 using namespace beam;
@@ -280,6 +281,134 @@ void proxy_test() {
 	assert(connTimeoutCalled & successfulCalled & failedCalled & repplyTimeoutCalled);
 }
 
+// Explicit checks: assert() is compiled out in Release builds
+int g_failures = 0;
+
+#define PROXY_CHECK(x) \
+	do { \
+		if (!(x)) { \
+			BEAM_LOG_ERROR() << "CHECK failed: " #x " (line " << __LINE__ << ")"; \
+			++g_failures; \
+		} \
+	} while (false)
+
+std::vector<uint8_t> domain_request(const std::string& host, uint16_t port) {
+	std::vector<uint8_t> req = {0x05, 0x01, 0x00, 0x03, static_cast<uint8_t>(host.size())};
+	req.insert(req.end(), host.begin(), host.end());
+	req.push_back(static_cast<uint8_t>(port >> 8));
+	req.push_back(static_cast<uint8_t>(port & 0xFF));
+	return req;
+}
+
+/**
+ * Host names are sent to the proxy (socks5 ATYP=DOMAINNAME) instead of being resolved locally.
+ */
+void proxy_domain_name_request_test() {
+	using Cmd = Socks5_Protocol::Command;
+
+	// encoding
+	PROXY_CHECK(Socks5_Protocol::makeRequest(std::string("node.invalid"), 8100, Cmd::CONNECT) == domain_request("node.invalid", 8100));
+	{
+		std::vector<uint8_t> ipReq = Socks5_Protocol::makeRequest(std::string("123.45.67.89"), 80, Cmd::CONNECT);
+		std::vector<uint8_t> reference = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
+		PROXY_CHECK(ipReq == reference);
+	}
+	{
+		std::string maxHost(Socks5_Protocol::MaxDomainNameLength, 'a');
+		PROXY_CHECK(Socks5_Protocol::makeRequest(maxHost, 1, Cmd::CONNECT) == domain_request(maxHost, 1));
+		PROXY_CHECK(Socks5_Protocol::makeRequest(maxHost + "a", 1, Cmd::CONNECT).empty());
+		PROXY_CHECK(Socks5_Protocol::makeRequest(std::string(), 1, Cmd::CONNECT).empty());
+	}
+
+	// "host:port" parsing, no DNS lookup
+	{
+		std::string host;
+		uint16_t port = 0;
+		PROXY_CHECK(parse_host_port("eu-nodes.mainnet.beam.mw:8100", host, port) && host == "eu-nodes.mainnet.beam.mw" && port == 8100);
+		PROXY_CHECK(parse_host_port("node.invalid:65535", host, port) && host == "node.invalid" && port == 65535);
+		PROXY_CHECK(!parse_host_port("node.invalid", host, port));
+		PROXY_CHECK(!parse_host_port("node.invalid:", host, port));
+		PROXY_CHECK(!parse_host_port(":8100", host, port));
+		PROXY_CHECK(!parse_host_port("node.invalid:0", host, port));
+		PROXY_CHECK(!parse_host_port("node.invalid:65536", host, port));
+		PROXY_CHECK(!parse_host_port("node.invalid:81a", host, port));
+	}
+
+	Reactor::Ptr reactor = Reactor::create();
+	const Address proxyAddr = Address::localhost().port(dummyProxyServerPort + 1);
+
+	// invalid host names are rejected before connecting
+	auto noCallback = [](uint64_t, unique_ptr<TcpStream>&&, ErrorCode) {};
+	PROXY_CHECK(!reactor->tcp_connect_with_proxy(std::string(), 8100, proxyAddr, 10, noCallback, 1000));
+	PROXY_CHECK(!reactor->tcp_connect_with_proxy(std::string(256, 'a'), 8100, proxyAddr, 11, noCallback, 1000));
+	PROXY_CHECK(!reactor->tcp_connect_with_proxy(std::string("node.invalid"), 0, proxyAddr, 12, noCallback, 1000));
+
+	// mini socks5 server, records the CONNECT requests it receives
+	struct Session {
+		TcpStream::Ptr stream;
+		std::vector<uint8_t> buf;
+		bool authDone = false;
+	};
+	std::vector<std::unique_ptr<Session>> sessions;
+	std::vector<std::vector<uint8_t>> requests;
+
+	TcpServer::Ptr server = TcpServer::create(
+		*reactor,
+		proxyAddr,
+		[&sessions, &requests](TcpStream::Ptr&& newStream, ErrorCode errorCode) {
+			if (errorCode != EC_OK) return;
+			sessions.push_back(std::make_unique<Session>());
+			Session* sess = sessions.back().get();
+			sess->stream = std::move(newStream);
+			sess->stream->enable_read([sess, &requests](ErrorCode errorCode, void* data, size_t size) {
+				if (errorCode != EC_OK || !data) return false;
+				const uint8_t* p = static_cast<const uint8_t*>(data);
+				sess->buf.insert(sess->buf.end(), p, p + size);
+				if (!sess->authDone) {
+					if (sess->buf.size() < 3) return true;
+					sess->buf.erase(sess->buf.begin(), sess->buf.begin() + 3);
+					sess->authDone = true;
+					uint8_t authReply[] = {0x05, 0x00};
+					sess->stream->write(authReply, sizeof(authReply));
+				}
+				if (sess->buf.size() < 5) return true;
+				size_t expected = sess->buf[3] == 0x03 ? 7 + sess->buf[4] : 10;
+				if (sess->buf.size() < expected) return true;
+				requests.push_back(sess->buf);
+				sess->buf.clear();
+				uint8_t connReply[] = {0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+				sess->stream->write(connReply, sizeof(connReply));
+				return true;
+			});
+		});
+
+	int connected = 0;
+	auto onConnected = [&connected, &reactor](uint64_t tag, unique_ptr<TcpStream>&& newStream, ErrorCode status) {
+		BEAM_LOG_DEBUG() << "Proxy connection tag " << tag << ": " << error_str(status);
+		PROXY_CHECK(status == EC_OK && newStream);
+		if (++connected == 2) reactor->stop();
+	};
+	// "node.invalid" can never be resolved locally, only the proxy may resolve it
+	PROXY_CHECK(reactor->tcp_connect_with_proxy(std::string("node.invalid"), 8100, proxyAddr, 20, onConnected, 2000));
+	PROXY_CHECK(reactor->tcp_connect_with_proxy(std::string("123.45.67.89"), 80, proxyAddr, 21, onConnected, 2000));
+
+	Timer::Ptr timer = Timer::create(*reactor);
+	timer->start(3000, false, [&reactor] { BEAM_LOG_ERROR() << "proxy_domain_name_request_test watchdog"; reactor->stop(); });
+	reactor->run();
+
+	PROXY_CHECK(connected == 2);
+	PROXY_CHECK(requests.size() == 2);
+	if (requests.size() == 2) {
+		std::vector<uint8_t> ipReference = {0x05, 0x01, 0x00, 0x01, 0x7B, 0x2D, 0x43, 0x59, 0x00, 0x50};
+		const auto domainReference = domain_request("node.invalid", 8100);
+		// the order of the requests depends on the connection order
+		PROXY_CHECK((requests[0] == domainReference && requests[1] == ipReference) ||
+					(requests[1] == domainReference && requests[0] == ipReference));
+	}
+	reactor->cancel_tcp_connect(20);
+	reactor->cancel_tcp_connect(21);
+}
+
 }	// namespace
 
 int main() {
@@ -288,6 +417,11 @@ int main() {
 	auto logger = Logger::create(logLevel, logLevel);
 
 	proxy_test();
+	proxy_domain_name_request_test();
 
+	if (g_failures) {
+		BEAM_LOG_ERROR() << "proxy_test: " << g_failures << " check(s) failed";
+		return 1;
+	}
 	return 0;
 }
