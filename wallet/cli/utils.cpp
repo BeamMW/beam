@@ -22,6 +22,9 @@
 #include <boost/serialization/nvp.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
+#include <cctype>
+#include <set>
+
 using namespace std;
 using namespace beam;
 using namespace beam::wallet;
@@ -29,6 +32,57 @@ using namespace ECC;
 
 namespace beam::wallet
 {
+    bool ParseAmount(const std::string& strAmount, Amount& amount, std::string& error, const Amount& limit, Asset::ID assetId)
+    {
+        try
+        {
+            boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount.c_str());
+            preciseAmount *= Rules::Coin;
+
+            if (boost::multiprecision::isnan(preciseAmount))
+            {
+                error = "the amount ('" + strAmount + "') is invalid.";
+                return false;
+            }
+
+            if (preciseAmount == 0)
+            {
+                error = kErrorZeroAmount;
+                return false;
+            }
+
+            if (preciseAmount < 0)
+            {
+                error = (boost::format(kErrorNegativeAmount) % strAmount).str();
+                return false;
+            }
+
+            boost::multiprecision::cpp_dec_float_50 preciseLimit(limit);
+            if (preciseAmount > preciseLimit)
+            {
+                std::stringstream ssLimit;
+                ssLimit << PrintableAmount(limit, true, assetId);
+                error = (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
+                return false;
+            }
+
+            amount = preciseAmount.convert_to<Amount>();
+            if (amount == 0)
+            {
+                // less than 1 groth
+                error = kErrorZeroAmount;
+                return false;
+            }
+        }
+        catch (const std::runtime_error& err)
+        {
+            error = "the amount ('" + strAmount + "') is invalid. " + err.what();
+            return false;
+        }
+
+        return true;
+    }
+
     bool ReadAmount(const po::variables_map& vm, Amount& amount, const Amount& limit, Asset::ID assetId)
     {
         if (vm.count(cli::AMOUNT) == 0)
@@ -39,39 +93,76 @@ namespace beam::wallet
 
         const auto strAmount = vm[cli::AMOUNT].as<std::string>();
 
-        try
+        std::string error;
+        if (!ParseAmount(strAmount, amount, error, limit, assetId))
         {
-            boost::multiprecision::cpp_dec_float_50 preciseAmount(strAmount.c_str());
-            preciseAmount *= Rules::Coin;
-
-            if (preciseAmount == 0)
-            {
-                BEAM_LOG_ERROR() << kErrorZeroAmount;
-                return false;
-            }
-
-            if (preciseAmount < 0)
-            {
-                BEAM_LOG_ERROR() << (boost::format(kErrorNegativeAmount) % strAmount).str();
-                return false;
-            }
-
-            boost::multiprecision::cpp_dec_float_50 preciseLimit(limit);
-            if (preciseAmount > preciseLimit)
-            {
-                std::stringstream ssLimit;
-                ssLimit << PrintableAmount(limit, true, assetId);
-                BEAM_LOG_ERROR() << (boost::format(kErrorTooBigAmount) % strAmount % ssLimit.str()).str();
-                return false;
-            }
-
-            amount = preciseAmount.convert_to<Amount>();
-        }
-        catch (const std::runtime_error& err)
-        {
-            BEAM_LOG_ERROR() << "the argument ('" << strAmount << "') for option '--amount' is invalid.";
-            BEAM_LOG_ERROR() << err.what();
+            BEAM_LOG_ERROR() << error;
             return false;
+        }
+
+        return true;
+    }
+
+    bool ParseReceiversList(const std::string& str, std::vector<ReceiverAmount>& receivers, std::string& error)
+    {
+        receivers.clear();
+
+        std::vector<std::string> entries;
+        std::string entry;
+        bool comment = false;
+        for (char c : str + "\n")
+        {
+            if (comment)
+            {
+                comment = (c != '\n');
+                continue;
+            }
+
+            if (c == '#' || c == ',' || c == ';' || std::isspace(static_cast<unsigned char>(c)))
+            {
+                if (!entry.empty())
+                    entries.push_back(std::move(entry));
+                entry.clear();
+                comment = (c == '#');
+                continue;
+            }
+
+            entry.push_back(c);
+        }
+
+        if (entries.empty())
+        {
+            error = "no receivers given, expected a list of <address>:<amount> entries";
+            return false;
+        }
+
+        std::set<std::string> addresses;
+        for (const auto& e : entries)
+        {
+            auto pos = e.rfind(':');
+            if (pos == std::string::npos || pos == 0 || pos + 1 == e.size())
+            {
+                error = "invalid receiver entry '" + e + "', expected <address>:<amount>";
+                return false;
+            }
+
+            ReceiverAmount r;
+            r.m_Address = e.substr(0, pos);
+
+            std::string amountError;
+            if (!ParseAmount(e.substr(pos + 1), r.m_Amount, amountError))
+            {
+                error = "invalid amount for receiver '" + r.m_Address + "': " + amountError;
+                return false;
+            }
+
+            if (!addresses.insert(r.m_Address).second)
+            {
+                error = "duplicate receiver '" + r.m_Address + "'";
+                return false;
+            }
+
+            receivers.push_back(std::move(r));
         }
 
         return true;
@@ -111,7 +202,11 @@ namespace beam::wallet
             return false;
         }
 
-        auto addressOrToken = vm[cli::RECEIVER_ADDR].as<string>();
+        return LoadReceiverParams(vm[cli::RECEIVER_ADDR].as<string>(), vm[cli::SEND_OFFLINE].as<bool>(), params);
+    }
+
+    bool LoadReceiverParams(const std::string& addressOrToken, bool sendOffline, TxParameters& params)
+    {
         auto receiverParams = ParseParameters(addressOrToken);
 
         if (!receiverParams)
@@ -129,7 +224,7 @@ namespace beam::wallet
         case TxAddressType::Regular:
             break;
         case TxAddressType::Offline:
-            if (!vm[cli::SEND_OFFLINE].as<bool>())
+            if (!sendOffline)
             {
                 // Since v6.0 by default offline address triggers the regular online transaction
                 // To execute and offline payment the --offline switch should be specified

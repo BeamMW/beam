@@ -106,6 +106,8 @@ namespace beam
         const char* AMOUNT_FULL = "amount,a";
         const char* RECEIVER_ADDR = "receiver_addr";
         const char* RECEIVER_ADDR_FULL = "receiver_addr,r";
+        const char* RECEIVERS = "receivers";
+        const char* RECEIVERS_FILE = "receivers_file";
         const char* NODE_ADDR = "node_addr";
         const char* NODE_ADDR_FULL = "node_addr,n";
         const char* SWAP_WALLET_ADDR = "swap_wallet_addr";
@@ -469,6 +471,8 @@ namespace beam
             (cli::AMOUNT_FULL, po::value<string>(), "amount to send (in Beams, 1 Beam = 100,000,000 groth)")
             (cli::FEE_FULL, po::value<Positive<Amount>>(), "transaction fee (in Groth, 100,000,000 groth = 1 Beam)")
             (cli::RECEIVER_ADDR_FULL, po::value<string>(), "receiver address or token")
+            (cli::RECEIVERS, po::value<string>(), "with 'send': pay several receivers at once, one transaction each. List of <address>:<amount> entries separated by commas, e.g. \"addr1:1.5,addr2:0.25\" (amounts in Beams, the same --fee and --asset_id apply to each)")
+            (cli::RECEIVERS_FILE, po::value<string>(), "with 'send': like --receivers, but read the <address>:<amount> entries from a file (one per line, '#' starts a comment)")
             (cli::NODE_ADDR_FULL, po::value<string>(), "beam node address")
             (cli::WALLET_STORAGE, po::value<string>()->default_value("wallet.db"), "path to the wallet database file")
             (cli::SLATEPACK, po::bool_switch(), "with 'send': produce a Slatepack for manual copy-paste transfer instead of sending over SBBS")
