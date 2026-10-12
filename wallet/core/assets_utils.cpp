@@ -245,6 +245,11 @@ namespace beam::wallet {
         return m_LockHeight + maxRollback > from;
     }
 
+    bool WalletAsset::IsLocked(Height h) const
+    {
+        return m_LockHeight + Rules::get().CA.LockPeriod > h;
+    }
+
     bool WalletAsset::IsExpired(IWalletDB& wdb)
     {
         const auto getRange = [](const WalletAsset& info) -> auto {
