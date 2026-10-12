@@ -2562,10 +2562,7 @@ namespace beam::wallet
         {
             TxType type = TxType::Simple;
             if (storage::getTxParameter(*m_WalletDB, msg.m_TxID, TxParameterID::TransactionType, type)) {
-                // This request has already been processed
-                // assert should always be OK, if triggered means that we have mistake in the code OR
-                // somebody is trying to tamper with our transactions
-                assert(type == msg.m_Type);
+                // This request has already been processed; a different type here comes from the peer, not from us
                 return;
             }
         }
@@ -2596,7 +2593,7 @@ namespace beam::wallet
         if (isSender)
         {
             // TxParameterID::IsSender should always be false if it is coming from outside
-            assert(false);
+            BEAM_LOG_WARNING() << msg.m_TxID << " Incoming tx that makes us the sender rejected";
             return;
         }
 
@@ -2655,7 +2652,6 @@ namespace beam::wallet
         }
         else
         {
-            assert(false);
             BEAM_LOG_WARNING() << "Unsupported TX Type requested via SBBS: "
                           << " type: " << static_cast<unsigned int>(msg.m_Type)
                           << " txid: " << msg.m_TxID;
