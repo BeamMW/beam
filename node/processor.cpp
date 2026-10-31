@@ -2156,6 +2156,7 @@ Height NodeProcessor::RaiseTxoLo(Block::Number numTrg)
 
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
+	bool bPastHf7 = false;
 
 	while (m_Extra.m_TxoLo.v < numTrg.v)
 	{
@@ -2164,12 +2165,19 @@ Height NodeProcessor::RaiseTxoLo(Block::Number numTrg)
 		if (!m_DB.get_StateInputs(rowid, v))
 			continue;
 
+		if (!bPastHf7 && Rules::get().IsPastFork_<7>(Num2Height(m_Extra.m_TxoLo)))
+			bPastHf7 = true;
+
 		size_t iRes = 0;
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			const NodeDB::StateInput& inp = v[i];
 			TxoID id = inp.get_ID();
-			if (id >= m_Extra.m_TxosTreasury)
+			bool canDelete =
+				(id >= m_Extra.m_TxosTreasury) && // not a treasury
+				!(bPastHf7 && (id < m_Extra.m_Epoch0.m_Txos)); // doesn't cross the lustration threshold
+
+			if (canDelete)
 				m_DB.TxoDel(id);
 			else
 			{
@@ -2199,17 +2207,21 @@ Height NodeProcessor::RaiseTxoHi(Block::Number numTrg)
 
 	LongActionPlus la("Raising TxoHi...", m_Extra.m_TxoHi.v, numTrg.v, m_pExternalHandler);
 
-
 	Height hRet = 0;
 	std::vector<NodeDB::StateInput> v;
+	bool bPastHf7 = false;
 
 	NodeDB::WalkerTxo wlk;
+	ByteBuffer buf;
 
 	while (m_Extra.m_TxoHi.v < numTrg.v)
 	{
 		++m_Extra.m_TxoHi.v;
 		uint64_t rowid = FindActiveAtStrict(m_Extra.m_TxoHi);
 		m_DB.get_StateInputs(rowid, v);
+
+		if (!bPastHf7 && Rules::get().IsPastFork_<7>(Num2Height(m_Extra.m_TxoHi)))
+			bPastHf7 = true;
 
 		for (size_t i = 0; i < v.size(); i++)
 		{
@@ -2218,10 +2230,39 @@ Height NodeProcessor::RaiseTxoHi(Block::Number numTrg)
 			m_DB.TxoGetValue(wlk, id);
 
 			if (TxoIsNaked(wlk.m_Value))
-				continue; //?!
+				continue; // could happen, if/when lustration height changes, and RaiseTxo called again
 
-			uint8_t pNaked[s_TxoNakedMax];
-			TxoToNaked(pNaked, wlk.m_Value);
+			if (bPastHf7 && (id < m_Extra.m_Epoch0.m_Txos))
+			{
+				// careful, preserve either the disclosure (if present) or the public rangeproof
+				Deserializer der;
+				der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+				Output outp;
+				der & outp;
+
+				// strip
+				outp.m_pConfidential.reset();
+				outp.m_pAsset.reset();
+
+				if (!outp.m_Coinbase)
+					outp.m_pPublic.reset();
+
+				auto trailingSize = static_cast<uint32_t>(der.bytes_left()); // not included for coinbase, nevermind
+
+				Serializer ser;
+				buf.clear();
+				ser.swap_buf(buf);
+				ser & outp; // stripped Txo
+				ser.WriteRaw(((const uint8_t*) wlk.m_Value.p) + wlk.m_Value.n - trailingSize, trailingSize); // remaining part (disclosure or nothing if it's a coinbase)
+				ser.swap_buf(buf);
+				wlk.m_Value = buf;
+			}
+			else
+			{
+				uint8_t pNaked[s_TxoNakedMax];
+				TxoToNaked(pNaked, wlk.m_Value);
+			}
 
 			m_DB.TxoSetValue(id, wlk.m_Value);
 			hRet++;
@@ -2800,67 +2841,8 @@ struct NodeProcessor::BlockInterpretCtx
 		return false;
 	}
 
-	bool HandleInputDisclose(const Input& v, TxoID id)
-	{
-		if (id >= m_Proc.m_Extra.m_Epoch0.m_Txos)
-		{
-			// no barrier crossing, disclosure isn't needed.
-			if (!v.m_pDisclosure)
-				return true;
-
-			if (m_pTxErrorInfo)
-				*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant disclosure";
-
-			return false;
-		}
-
-		// disclosure is needed. Check the txo type
-		NodeDB::WalkerTxo wlk;
-		m_Proc.m_DB.TxoGetValue(wlk, id);
-
-		Deserializer der;
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-
-		Output outp;
-		der & outp;
-
-		Asset::ID aid = 0;
-		Amount amount = 0;
-
-		if (outp.m_Coinbase)
-		{
-			if (v.m_pDisclosure)
-			{
-				if (m_pTxErrorInfo)
-					*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant coinbase disclosure";
-				return false;
-			}
-
-			if (!outp.m_pPublic)
-				OnCorrupted();
-			amount = outp.m_pPublic->m_Value;
-		}
-		else
-		{
-			if (!v.m_pDisclosure)
-			{
-				if (m_pTxErrorInfo)
-					*m_pTxErrorInfo << "input " << v.m_Commitment << " missing disclosure";
-				return false;
-			}
-
-			aid = v.m_pDisclosure->m_Aid;
-			amount = v.m_pDisclosure->m_Amount;
-		}
-
-		if (!m_Temporary)
-		{
-			// TODO save disclosure if given, update counters
-		}
-
-		return true;
-	}
-
+	bool HandleInputDisclose(const Input& v, TxoID id, bool& crossed);
+	void UndoInput(const Input&, const InputAux&);
 	void AddKrnInfo(Serializer&);
 
 	static uint64_t get_AssetEvtIdx(uint32_t nKrnIdx, uint32_t nSubIdx) {
@@ -3370,7 +3352,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 				// make sure no spent txos above the requested h0
 				for (size_t i = 0; i < bic.m_vInpAux.size(); i++)
 				{
-					if (bic.m_vInpAux[i].m_ID >= mbc.m_id0)
+					if (bic.m_vInpAux[i].get_ID() >= mbc.m_id0)
 					{
 						BEAM_LOG_WARNING() << id << " Invalid input in sparse block";
 						bOk = false;
@@ -3442,10 +3424,13 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		for (size_t i = 0; i < block.m_vInputs.size(); i++)
 		{
 			const Input& x = *block.m_vInputs[i];
-			auto txoID = bic.m_vInpAux[i].m_ID;
+			const auto& aux = bic.m_vInpAux[i];
+			auto txoID = aux.get_ID();
 
 			m_DB.TxoSetSpent(txoID, id.m_Height);
-			v.emplace_back().Set(txoID, x.m_Commitment);
+			auto& si = v.emplace_back();
+			si.Set(txoID, x.m_Commitment);
+			si.m_Txo_AndY |= (aux.m_ID_WithFlags & aux.s_Crossed);
 		}
 
 		if (!v.empty())
@@ -5038,7 +5023,8 @@ bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 		assert(d.m_Maturity < m_Height);
 
 		const TxoID nID = p->get_LastID();
-		if (!HandleInputDisclose(v, nID))
+		bool crossed = false;
+		if (!HandleInputDisclose(v, nID, crossed))
 			return false;
 
 		if (!p->IsExt())
@@ -5052,21 +5038,104 @@ bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 
 		auto& aux = m_vInpAux.emplace_back();
 		aux.m_Maturity = d.m_Maturity;
-		aux.m_ID = nID;
+		aux.m_ID_WithFlags = nID;
 
+		if (crossed)
+			aux.m_ID_WithFlags |= aux.s_Crossed;
 	} else
 	{
 		assert(!m_vInpAux.empty());
 		auto aux = std::move(m_vInpAux.back());
 		m_vInpAux.pop_back();
 
-		m_Proc.UndoInput(v, aux, !m_Temporary);
+		UndoInput(v, aux);
 	}
 
 	return true;
 }
 
-void NodeProcessor::UndoInput(const Input& v, const InputAux& aux, bool handleDisclosure)
+bool NodeProcessor::BlockInterpretCtx::HandleInputDisclose(const Input& v, TxoID id, bool& crossed)
+{
+	crossed = (id < m_Proc.m_Extra.m_Epoch0.m_Txos);
+	if (!crossed)
+	{
+		// no barrier crossing, disclosure isn't needed.
+		if (!v.m_pDisclosure)
+			return true;
+
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant disclosure";
+
+		return false;
+	}
+
+	// disclosure is needed. Check the txo type
+	NodeDB::WalkerTxo wlk;
+	m_Proc.m_DB.TxoGetValue(wlk, id);
+
+	Deserializer der;
+	der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+	Output outp;
+	der & outp;
+
+	if (der.bytes_left())
+		OnCorrupted(); // already disclosed? Shouldn't happen
+
+	Asset::ID aid = 0;
+	Amount amount = 0;
+
+	if (outp.m_Coinbase)
+	{
+		if (v.m_pDisclosure)
+		{
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant coinbase disclosure";
+			return false;
+		}
+
+		if (!outp.m_pPublic)
+			OnCorrupted();
+		amount = outp.m_pPublic->m_Value;
+	}
+	else
+	{
+		if (!v.m_pDisclosure)
+		{
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "input " << v.m_Commitment << " missing disclosure";
+			return false;
+		}
+
+		aid = v.m_pDisclosure->m_Aid;
+		amount = v.m_pDisclosure->m_Amount;
+	}
+
+	if (!m_Temporary)
+	{
+		// update counters, check for overflow
+
+		if (!outp.m_Coinbase)
+		{
+			// append disclosure
+			ByteBuffer buf;
+			buf.reserve(wlk.m_Value.n + sizeof(Disclosure) + 10);
+			buf.resize(wlk.m_Value.n);
+			memcpy(&buf.front(), wlk.m_Value.p, wlk.m_Value.n);
+
+			Serializer ser;
+			ser.swap_buf(buf);
+			ser & *v.m_pDisclosure;
+			ser.swap_buf(buf);
+
+			m_Proc.m_DB.TxoSetValue(id, buf);
+		}
+	}
+
+	return true;
+}
+
+void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux& aux)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
@@ -5076,24 +5145,61 @@ void NodeProcessor::UndoInput(const Input& v, const InputAux& aux, bool handleDi
 	UtxoTree::Key key;
 	key = d;
 
-	m_Mapped.m_Utxo.EnsureReserve();
+	m_Proc.m_Mapped.m_Utxo.EnsureReserve();
 
 	UtxoTree::Cursor cu;
-	UtxoTree::MyLeaf* p = m_Mapped.m_Utxo.Find(cu, key, bCreate);
+	UtxoTree::MyLeaf* p = m_Proc.m_Mapped.m_Utxo.Find(cu, key, bCreate);
 
+	auto id = aux.get_ID();
 	if (bCreate)
-		p->m_ID = aux.m_ID;
+		p->m_ID = id;
 	else
 	{
-		m_Mapped.m_Utxo.PushID(aux.m_ID, *p);
+		m_Proc.m_Mapped.m_Utxo.PushID(id, *p);
 		cu.InvalidateElement();
-		m_Mapped.m_Utxo.OnDirty();
+		m_Proc.m_Mapped.m_Utxo.OnDirty();
 	}
 
-	if (handleDisclosure)
+	if (!m_Temporary && (aux.m_ID_WithFlags & aux.s_Crossed))
 	{
-		// TODO erase disclosure if given, update counters
+		NodeDB::WalkerTxo wlk;
+		m_Proc.m_DB.TxoGetValue(wlk, id);
+
+		Deserializer der;
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+		Output outp;
+		der & outp;
+
+		Asset::ID aid = 0;
+		Amount amount = 0;
+
+		if (outp.m_Coinbase)
+		{
+			if (!outp.m_pPublic)
+				OnCorrupted();
+
+			amount = outp.m_pPublic->m_Value;
+		}
+		else
+		{
+			wlk.m_Value.n -= static_cast<uint32_t>(der.bytes_left()); // trim the disclosure
+
+			Disclosure dis;
+			der & dis;
+
+			aid = dis.m_Aid;
+			amount = dis.m_Amount;
+
+			m_Proc.m_DB.TxoSetValue(id, wlk.m_Value); // save the txo back, without the diclosure
+		}
+
+		if ((id < m_Proc.m_Extra.m_Epoch0.m_Txos) && Rules::get().IsPastFork_<7>(m_Height))
+		{
+			// TODO: counters
+		}
 	}
+
 }
 
 bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Output& v)
@@ -6743,6 +6849,9 @@ void NodeProcessor::RollbackTo(Block::Number num)
 
 		while (sid.m_Number.v > num.v)
 		{
+			Height h = Num2Height(sid);
+			BlockInterpretCtx bic(*this, h, false);
+
 			// inputs
 			std::vector<NodeDB::StateInput> v;
 			m_DB.get_StateInputs(sid.m_Row, v);
@@ -6758,10 +6867,10 @@ void NodeProcessor::RollbackTo(Block::Number num)
 				src.Get(inp.m_Commitment);
 
 				InputAux inpAux;
-				inpAux.m_ID = id;
+				inpAux.m_ID_WithFlags = id | (src.m_Txo_AndY & src.s_Crossed);
 				inpAux.m_Maturity = GetInputMaturity(id);
 
-				UndoInput(inp, inpAux, true);
+				bic.UndoInput(inp, inpAux);
 
 				m_DB.TxoSetSpent(id, MaxHeight);
 			}
@@ -6778,9 +6887,6 @@ void NodeProcessor::RollbackTo(Block::Number num)
 			der.reset(bbE);
 			der & Cast::Down<TxVectors::Eternal>(txve);
 
-			Height h = Num2Height(sid);
-
-			BlockInterpretCtx bic(*this, h, false);
 			bic.m_Rollback.swap(bbR);
 			bic.m_ShieldedIns = static_cast<uint32_t>(-1); // suppress assertion
 			bic.m_ShieldedOuts = static_cast<uint32_t>(-1);
@@ -7338,8 +7444,11 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		}
 
 		for (Input::Count j = 0; j < nCount; j++)
-			if (!bic.HandleInputDisclose(*tx.m_vInputs[i + j], vInpIds[j]))
+		{
+			bool crossed;
+			if (!bic.HandleInputDisclose(*tx.m_vInputs[i + j], vInpIds[j], crossed))
 				return proto::TxStatus::InvalidInput;
+		}
 
 		i += nCount;
 	}
@@ -7987,6 +8096,25 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return false;
 }
 
+void NodeProcessor::TxoInfo::FromSer(const Blob& blob)
+{
+	Deserializer der;
+	der.reset(blob.p, blob.n);
+	der & m_Outp;
+
+	const Rules& r = Rules::get();
+	bool needDisclosure =
+		(MaxHeight != m_hSpent) &&
+		!r.IsPastFork_<7>(m_hCreate) &&
+		r.IsPastFork_<7>(m_hSpent);
+
+	if (needDisclosure && der.bytes_left())
+	{
+		m_pDisclosure = std::make_unique<Disclosure>();
+		der & *m_pDisclosure;
+	}
+}
+
 void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>& vC)
 {
 	{
@@ -8007,7 +8135,6 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 			der.reset(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
 			der & info;
 		}
-
 	}
 
 	{
@@ -8016,7 +8143,6 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 		m_DB.get_StateInputs(sid.m_Row, v);
 
 		vIns.resize(v.size());
-
 		for (uint32_t i = 0; i < v.size(); i++)
 		{
 			TxoID txoID = v[i].get_ID();
@@ -8025,13 +8151,10 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 			NodeDB::WalkerTxo wlk;
 			m_DB.TxoGetValue(wlk, txoID);
 
-			Deserializer der;
-			der.reset(wlk.m_Value.p, wlk.m_Value.n);
-			der & dst.m_Outp;
-
 			dst.m_hSpent = h;
-
 			FindHeightByTxoID(dst.m_hCreate, txoID);
+
+			dst.FromSer(wlk.m_Value);
 		}
 	}
 
@@ -8048,13 +8171,9 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 				break;
 
 			auto& dst = vOuts.emplace_back();
-
-			Deserializer der;
-			der.reset(wlk.m_Value.p, wlk.m_Value.n);
-			der & dst.m_Outp;
-
 			dst.m_hCreate = h;
 			dst.m_hSpent = wlk.m_SpendHeight;
+			dst.FromSer(wlk.m_Value);
 		}
 	}
 }
@@ -8068,13 +8187,9 @@ void NodeProcessor::ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts)
 			break;
 
 		auto& dst = vOuts.emplace_back();
-
-		Deserializer der;
-		der.reset(wlk.m_Value.p, wlk.m_Value.n);
-		der & dst.m_Outp;
-
 		dst.m_hCreate = 0;
 		dst.m_hSpent = wlk.m_SpendHeight;
+		dst.FromSer(wlk.m_Value);
 	}
 }
 

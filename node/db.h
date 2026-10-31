@@ -397,6 +397,7 @@ public:
 		TxoID m_Txo_AndY;
 
 		static const TxoID s_Y = TxoID(1) << (sizeof(TxoID) * 8 - 1);
+		static const TxoID s_Crossed = s_Y >> 1;
 
 		void Set(TxoID, const ECC::Point&);
 		void Set(TxoID, const ECC::uintBig& x, uint8_t y);

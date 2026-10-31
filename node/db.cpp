@@ -1560,7 +1560,7 @@ void NodeDB::StateInput::Set(TxoID id, const ECC::uintBig& x, uint8_t y)
 
 TxoID NodeDB::StateInput::get_ID() const
 {
-	return m_Txo_AndY & ~s_Y;
+	return m_Txo_AndY & ~(s_Y | s_Crossed);
 }
 
 void NodeDB::StateInput::Get(ECC::Point& pt) const

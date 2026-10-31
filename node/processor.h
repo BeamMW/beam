@@ -141,8 +141,11 @@ class NodeProcessor
 	} m_ReserveBlockSize;
 
 	struct InputAux {
-		TxoID m_ID = 0;
+		static const TxoID s_Crossed = NodeDB::StateInput::s_Crossed;
+		TxoID m_ID_WithFlags = 0;
 		Height m_Maturity = 0;
+
+		TxoID get_ID() const { return m_ID_WithFlags & ~s_Crossed; }
 	};
 
 	struct MultiblockContext;
@@ -172,8 +175,6 @@ class NodeProcessor
 
 	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
-
-	void UndoInput(const Input&, const InputAux&, bool handleDisclosure);
 
 	struct DependentContextSwitch;
 
@@ -460,6 +461,9 @@ public:
 		Output m_Outp;
 		Height m_hCreate;
 		Height m_hSpent;
+		std::unique_ptr<Disclosure> m_pDisclosure;
+
+		void FromSer(const Blob&);
 	};
 
 	void ExtractBlockWithExtra(const NodeDB::StateID&, Height, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
