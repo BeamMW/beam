@@ -344,10 +344,6 @@ function(CreateBoostComponentTargets listOfComponents root libPrefix libSuffix)
     endforeach()
 endfunction()
 
-if (!MSVC)
-    add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
-endif()
-
 if(IOS)
     set(BEAM_WALLET_CLIENT_LIBRARY TRUE)
     set(BEAM_TESTS_ENABLED FALSE)
