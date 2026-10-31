@@ -686,7 +686,10 @@ namespace beam::wallet
                 ECC::Point::Native ptG, ptJ;
                 if (!ptG.ImportNnz(Cast::Reinterpret<ECC::Point>(pMsg->m_ptImageG)) ||
                     !ptJ.ImportNnz(Cast::Reinterpret<ECC::Point>(pMsg->m_ptImageJ)))
+                {
                     Fin(Status::Unspecified);
+                    return;
+                }
 
                 CoinID::Worker(m_M.m_Cid).Recover(ptG, ptJ);
 
