@@ -3078,16 +3078,16 @@ bool Node::AddDummyInputRaw(Transaction& tx, const CoinID& cid)
 	// bounds
 	ECC::Point comm;
 	CoinID::Worker(cid).Create(sk, comm, *pKdf);
-	bool needDisclose = false;
+	TxoID txoID = 0;
 
-	if (!m_Processor.ValidateInputs(comm, needDisclose))
+	if (!m_Processor.FindInputs(comm, &txoID))
 		return false;
 
 	// unspent
 	auto pInp = std::make_unique<Input>();
 	pInp->m_Commitment = comm;
 
-	if (needDisclose)
+	if (txoID < m_Processor.m_Extra.m_Epoch0.m_Txos)
 	{
 		pInp->m_pDisclosure = std::make_unique<Disclosure>();
 		auto& d = *pInp->m_pDisclosure;

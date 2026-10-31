@@ -2800,14 +2800,65 @@ struct NodeProcessor::BlockInterpretCtx
 		return false;
 	}
 
-	bool ValidateInputDisclose(const Input& v, bool bNeeded)
+	bool HandleInputDisclose(const Input& v, TxoID id)
 	{
-		if (bNeeded == !!v.m_pDisclosure)
-			return true;
+		if (id >= m_Proc.m_Extra.m_Epoch0.m_Txos)
+		{
+			// no barrier crossing, disclosure isn't needed.
+			if (!v.m_pDisclosure)
+				return true;
 
-		if (m_pTxErrorInfo)
-			*m_pTxErrorInfo << "input " << v.m_Commitment << " needDisclose=" << bNeeded;
-		return false;
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant disclosure";
+
+			return false;
+		}
+
+		// disclosure is needed. Check the txo type
+		NodeDB::WalkerTxo wlk;
+		m_Proc.m_DB.TxoGetValue(wlk, id);
+
+		Deserializer der;
+		der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+		Output outp;
+		der & outp;
+
+		Asset::ID aid = 0;
+		Amount amount = 0;
+
+		if (outp.m_Coinbase)
+		{
+			if (v.m_pDisclosure)
+			{
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "input " << v.m_Commitment << " redundant coinbase disclosure";
+				return false;
+			}
+
+			if (!outp.m_pPublic)
+				OnCorrupted();
+			amount = outp.m_pPublic->m_Value;
+		}
+		else
+		{
+			if (!v.m_pDisclosure)
+			{
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "input " << v.m_Commitment << " missing disclosure";
+				return false;
+			}
+
+			aid = v.m_pDisclosure->m_Aid;
+			amount = v.m_pDisclosure->m_Amount;
+		}
+
+		if (!m_Temporary)
+		{
+			// TODO save disclosure if given, update counters
+		}
+
+		return true;
 	}
 
 	void AddKrnInfo(Serializer&);
@@ -4986,16 +5037,15 @@ bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 		assert(d.m_Commitment == v.m_Commitment);
 		assert(d.m_Maturity < m_Height);
 
-		TxoID nID = p->m_ID;
-		bool needDisclose = (nID < m_Proc.m_Extra.m_Epoch0.m_Txos);
-		if (!ValidateInputDisclose(v, needDisclose))
+		const TxoID nID = p->get_LastID();
+		if (!HandleInputDisclose(v, nID))
 			return false;
 
 		if (!p->IsExt())
 			m_Proc.m_Mapped.m_Utxo.Delete(cu);
 		else
 		{
-			nID = m_Proc.m_Mapped.m_Utxo.PopID(*p);
+			m_Proc.m_Mapped.m_Utxo.PopID(*p);
 			cu.InvalidateElement();
 			m_Proc.m_Mapped.m_Utxo.OnDirty();
 		}
@@ -5010,13 +5060,13 @@ bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
 		auto aux = std::move(m_vInpAux.back());
 		m_vInpAux.pop_back();
 
-		m_Proc.UndoInput(v, aux);
+		m_Proc.UndoInput(v, aux, !m_Temporary);
 	}
 
 	return true;
 }
 
-void NodeProcessor::UndoInput(const Input& v, const InputAux& aux)
+void NodeProcessor::UndoInput(const Input& v, const InputAux& aux, bool handleDisclosure)
 {
 	UtxoTree::Key::Data d;
 	d.m_Commitment = v.m_Commitment;
@@ -5040,6 +5090,10 @@ void NodeProcessor::UndoInput(const Input& v, const InputAux& aux)
 		m_Mapped.m_Utxo.OnDirty();
 	}
 
+	if (handleDisclosure)
+	{
+		// TODO erase disclosure if given, update counters
+	}
 }
 
 bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Output& v)
@@ -6707,7 +6761,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 				inpAux.m_ID = id;
 				inpAux.m_Maturity = GetInputMaturity(id);
 
-				UndoInput(inp, inpAux);
+				UndoInput(inp, inpAux, true);
 
 				m_DB.TxoSetSpent(id, MaxHeight);
 			}
@@ -7264,19 +7318,18 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	TemporarySwap ts(bic.m_AlreadyValidated, bNewVal);
 
 	// Cheap tx verification. No need to update the internal structure, recalculate definition, or etc.
-
-	// Ensure input UTXOs are present
-	for (size_t i = 0; i < tx.m_vInputs.size(); i++)
+	std::vector<TxoID> vInpIds;
+	for (size_t i = 0; i < tx.m_vInputs.size(); )
 	{
 		Input::Count nCount = 1;
-		const Input& v = *tx.m_vInputs[i];
+		const auto& comm = tx.m_vInputs[i]->m_Commitment;
 
-		for (; i + 1 < tx.m_vInputs.size(); i++, nCount++)
-			if (tx.m_vInputs[i + 1]->m_Commitment != v.m_Commitment)
+		for (; i + nCount < tx.m_vInputs.size(); nCount++)
+			if (tx.m_vInputs[i + nCount]->m_Commitment != comm)
 				break;
 
-		bool disclose = false;
-		if (!ValidateInputs(v.m_Commitment, disclose, nCount))
+		vInpIds.resize(nCount);
+		if (FindInputs(comm, &vInpIds.front(), nCount) < nCount)
 		{
 			if (pExtraInfo)
 				*pExtraInfo << "Inputs missing";
@@ -7284,8 +7337,11 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 			return proto::TxStatus::InvalidInput; // some input UTXOs are missing
 		}
 
-		if (!bic.ValidateInputDisclose(v, disclose))
-			return false;
+		for (Input::Count j = 0; j < nCount; j++)
+			if (!bic.HandleInputDisclose(*tx.m_vInputs[i + j], vInpIds[j]))
+				return proto::TxStatus::InvalidInput;
+
+		i += nCount;
 	}
 
 	nBvmCharge = bic.m_ChargePerBlock;
@@ -7347,36 +7403,40 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 	return proto::TxStatus::Ok;
 }
 
-bool NodeProcessor::ValidateInputs(const ECC::Point& comm, bool& disclose, Input::Count nCount /* = 1 */)
+Input::Count NodeProcessor::FindInputs(const ECC::Point& comm, TxoID* pIds, Input::Count nCount /* = 1 */)
 {
 	struct Traveler :public UtxoTree::ITraveler
 	{
-		uint32_t m_Count;
-		TxoID m_ID = 0;
+		TxoID* m_pIds;
+		const uint32_t m_Count;
+		uint32_t m_Done = 0;
 		bool OnLeaf(const RadixTree::Leaf& x) override
 		{
+			assert(m_Done < m_Count);
 			const UtxoTree::MyLeaf& n = Cast::Up<UtxoTree::MyLeaf>(x);
 
-			// theoretically there can be several IDs. Ignore this for now
-			if (!n.IsExt())
-				m_ID = n.m_ID;
-			else
+			if (n.IsExt())
 			{
-				UtxoTree::MyLeaf::IDQueue& q = *n.m_pIDs.get_Strict();
+				const auto& q = *n.m_pIDs.get_Strict();
 				assert(q.m_Count);
-				m_ID = q.m_pTop.get_Strict()->m_ID;
+				for (const auto* pNode = q.m_pTop.get_Strict(); ; )
+				{
+					m_pIds[m_Done++] = pNode->m_ID;
+					if (m_Done == m_Count)
+						break;
+
+					pNode = pNode->m_pNext.get();
+					if (!pNode)
+						break;
+				}
 			}
+			else
+				m_pIds[m_Done++] = n.m_ID;
 
-			Input::Count nCount = n.get_Count();
-			assert(m_Count && nCount);
-			if (m_Count <= nCount)
-				return false; // stop iteration
-
-			m_Count -= nCount;
-			return true;
+			return (m_Done < m_Count); // stop if collected enough ids
 		}
-	} t;
-	t.m_Count = nCount;
+		Traveler(TxoID* pIds, Input::Count nCount) :m_pIds(pIds), m_Count(nCount) {}
+	} t(pIds, nCount);
 
 	UtxoTree::Key kMin, kMax;
 
@@ -7392,11 +7452,9 @@ bool NodeProcessor::ValidateInputs(const ECC::Point& comm, bool& disclose, Input
 	t.m_pBound[0] = kMin.V.m_pData;
 	t.m_pBound[1] = kMax.V.m_pData;
 
-	if (m_Mapped.m_Utxo.Traverse(t))
-		return false;
+	m_Mapped.m_Utxo.Traverse(t);
 
-	disclose = (t.m_ID < m_Extra.m_Epoch0.m_Txos);
-	return true;
+	return t.m_Done;
 }
 
 size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& bc)

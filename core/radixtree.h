@@ -278,6 +278,7 @@ public:
 
 		bool IsExt() const;
 		bool IsCommitmentDuplicated() const;
+		TxoID get_LastID() const;
 
 		void get_Hash(Merkle::Hash&) const;
 		static void get_Hash(Merkle::Hash&, const Key&, Input::Count);
@@ -293,7 +294,7 @@ public:
 	~UtxoTree() { Clear(); }
 
 	void PushID(TxoID, MyLeaf&);
-	TxoID PopID(MyLeaf&);
+	void PopID(MyLeaf&);
 
     template<typename Archive>
     Archive& save(Archive& ar) const

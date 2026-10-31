@@ -593,6 +593,17 @@ bool UtxoTree::MyLeaf::IsExt() const
 	return 0 != (s_User & m_Bits);
 }
 
+TxoID UtxoTree::MyLeaf::get_LastID() const
+{
+	if (!IsExt())
+		return m_ID;
+
+	MyLeaf::IDQueue& q = *m_pIDs.get_Strict();
+	assert(q.m_Count);
+
+	return q.m_pTop.get_Strict()->m_ID;
+}
+
 bool UtxoTree::MyLeaf::IsCommitmentDuplicated() const
 {
 	const uint16_t nBitsPostCommitment = Key::s_Bits - Key::s_BitsCommitment;
@@ -655,12 +666,12 @@ TxoID UtxoTree::PopIDRaw(MyLeaf::IDQueue& q)
 	return ret;
 }
 
-TxoID UtxoTree::PopID(MyLeaf& x)
+void UtxoTree::PopID(MyLeaf& x)
 {
 	assert(x.IsExt());
 	MyLeaf::IDQueue& q = *x.m_pIDs.get_Strict();
 
-	TxoID ret = PopIDRaw(q);
+	PopIDRaw(q);
 
 	assert(q.m_Count);
 	if (1 == q.m_Count)
@@ -672,8 +683,6 @@ TxoID UtxoTree::PopID(MyLeaf& x)
 
 		x.m_ID = val;
 	}
-
-	return ret;
 }
 
 void UtxoTree::SaveIntenral(ISerializer& s) const

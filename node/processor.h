@@ -173,7 +173,7 @@ class NodeProcessor
 	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
 
-	void UndoInput(const Input&, const InputAux&);
+	void UndoInput(const Input&, const InputAux&, bool handleDisclosure);
 
 	struct DependentContextSwitch;
 
@@ -641,7 +641,7 @@ public:
 	void FindAtivePastHeight(NodeDB::StateID&, Height);
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew); // assuming context-free validation is already performed, but 
-	bool ValidateInputs(const ECC::Point&, bool& disclose, Input::Count = 1);
+	Input::Count FindInputs(const ECC::Point&, TxoID* pIds, Input::Count = 1);
 
 	bool IsShieldedInPool(const Transaction&);
 	bool IsShieldedInPool(const TxKernelShieldedInput&);
