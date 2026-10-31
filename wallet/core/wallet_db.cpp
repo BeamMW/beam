@@ -6672,6 +6672,43 @@ namespace beam::wallet
                 }
                 return ts;
             }
+
+            bool IsOwnSelfPushTx(const IWalletDB& db, const TxID& txID)
+            {
+                TxType type = TxType::Simple;
+                bool isSelfTx = false;
+                return
+                    getTxParameter(db, txID, TxParameterID::TransactionType, type) &&
+                    (TxType::PushTransaction == type) &&
+                    getTxParameter(db, txID, TxParameterID::IsSelfTx, isSelfTx) &&
+                    isSelfTx;
+            }
+
+            // The TxID packed into a shielded coin is chosen by its sender. It's used only if it names our own
+            // self-push tx (such a TxID never leaves this wallet), otherwise the receive record gets an ID derived from the coin.
+            TxID get_ShieldedCoinTxID(const IWalletDB& db, const ShieldedCoin& coin)
+            {
+                if (coin.m_createTxId)
+                    return *coin.m_createTxId; // assigned locally
+
+                TxID txID;
+                const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
+                std::copy_n(message->m_TxID.m_pData, txID.size(), txID.begin());
+                if (IsOwnSelfPushTx(db, txID))
+                    return txID;
+
+                const auto& key = coin.m_CoinID.m_Key;
+                ECC::Hash::Value hv;
+                ECC::Hash::Processor()
+                    << "shielded.rcv.txid"
+                    << key.m_kSerG
+                    << key.m_nIdx
+                    << key.m_IsCreatedByViewer
+                    >> hv;
+
+                std::copy_n(hv.m_pData, txID.size(), txID.begin());
+                return txID;
+            }
         }
 
         void restoreTransactionFromShieldedCoin(IWalletDB& db, ShieldedCoin& coin, INegotiatorGateway& gateway)
@@ -6688,9 +6725,24 @@ namespace beam::wallet
                 return;
             }
 
+            TxID txID = get_ShieldedCoinTxID(db, coin);
+            if (!coin.m_createTxId)
+            {
+                coin.m_createTxId = txID;
+                db.saveShieldedCoin(coin);
+            }
+
+            if (db.getTx(txID))
+            {
+                // our own push tx, or the receive record made earlier. Nothing from the coin may modify it
+                TxType type = TxType::Simple;
+                if (getTxParameter(db, txID, TxParameterID::TransactionType, type) && (TxType::PushTransaction == type))
+                    storage::setTxParameter(db, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
+                return;
+            }
+
+            // A new receive record. Only the sender endpoint and the advisory max-privacy hint are taken from the coin
             const auto* message = ShieldedTxo::User::ToPackedMessage(coin.m_CoinID.m_User);
-            TxID txID;
-            std::copy_n(message->m_TxID.m_pData, 16, txID.begin());
 
             TxAddressType addressType = TxAddressType::Offline;
             if (message->m_MaxPrivacyMinAnonymitySet)
@@ -6701,22 +6753,11 @@ namespace beam::wallet
             {
                 addressType = TxAddressType::PublicOffline;
             }
-            storage::setTxParameter(db, txID, TxParameterID::AddressType, addressType, true);
 
-            bool isSelfTx = message->m_Flags & kIsSelfTxBit;
-            storage::setTxParameter(db, txID, TxParameterID::IsSelfTx, isSelfTx, true);
-            storage::setTxParameter(db, txID, TxParameterID::IsSender, isSelfTx, true);
-
-            auto tx = db.getTx(txID);
-            if (tx)
             {
-                storage::setTxParameter(db, txID, TxParameterID::KernelProofHeight, coin.m_confirmHeight, true);
-                return;
-            }
-            else
-            {
-
                 auto params = CreateTransactionParameters(TxType::PushTransaction, txID)
+                    .SetParameter(TxParameterID::AddressType, addressType)
+                    .SetParameter(TxParameterID::IsSelfTx, false)
                     .SetParameter(TxParameterID::Status, TxStatus::Completed)
                     .SetParameter(TxParameterID::Amount, coin.m_CoinID.m_Value)
                     .SetParameter(TxParameterID::AssetID, coin.m_CoinID.m_AssetID)

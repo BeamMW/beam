@@ -558,7 +558,7 @@ void TestMaxPrivacyTx(Rules& r)
         auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
-        WALLET_CHECK(txHistory[0].m_txId == txID);
+        WALLET_CHECK(txHistory[0].m_txId != txID); // the receiver doesn't take the TxID from the sender
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == true);
@@ -633,7 +633,7 @@ void TestPublicAddressTx(Rules& r)
         auto txHistory = receiver.m_WalletDB->getTxHistory(TxType::ALL);
         WALLET_CHECK(txHistory.size() == 1);
         WALLET_CHECK(txHistory[0].m_txType == TxType::PushTransaction && txHistory[0].m_status == TxStatus::Completed);
-        WALLET_CHECK(txHistory[0].m_txId == txID);
+        WALLET_CHECK(txHistory[0].m_txId != txID); // the receiver doesn't take the TxID from the sender
         auto shieldedCoins = receiver.m_WalletDB->getShieldedCoins(Asset::Asset::s_BeamID);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Value == 18000000);
         WALLET_CHECK(shieldedCoins[0].m_CoinID.m_Key.m_IsCreatedByViewer == false);
@@ -746,7 +746,8 @@ void TestDirectAnonymousPayment(Rules& r)
         }
 
         {
-            TxID txID = *txHistory[0].GetTxID();
+            // the payment proof is the sender's, and the receiver's records have their own TxIDs
+            TxID txID = *sender.m_WalletDB->getTxHistory(TxType::PushTransaction).front().GetTxID();
 
             WALLET_CHECK(txHistory[0].getSenderEndpoint() == std::to_base58(sender.m_Endpoint));
 //            WALLET_CHECK(txHistory[0].getReceiverEndpoint() == std::to_base58(receiver.m_Endpoint));

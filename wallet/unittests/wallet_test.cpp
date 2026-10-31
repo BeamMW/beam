@@ -4048,6 +4048,89 @@ namespace
 #endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
+    void TestShieldedCoinTxID()
+    {
+        cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        auto db = createSenderWalletDB();
+        EmptyTestGateway gateway;
+
+        auto saveTx = [&](TxType type, bool isSender, bool isSelfTx)
+        {
+            TxDescription tr(GenerateTxID());
+            tr.m_txType = type;
+            tr.m_amount = 34;
+            tr.m_sender = isSender;
+            tr.m_selfTx = isSelfTx;
+            tr.m_status = TxStatus::InProgress;
+            db->saveTx(tr);
+            return tr.m_txId;
+        };
+
+        uint32_t nCoin = 0;
+        auto restoreCoin = [&](const TxID& packedTxID, uint8_t flags)
+        {
+            ShieldedTxo::DataParams pars;
+            pars.m_Output.m_Value = 100;
+            pars.m_Output.m_AssetID = 0;
+
+            auto* msg = ShieldedTxo::User::ToPackedMessage(pars.m_Output.m_User);
+            std::copy_n(packedTxID.begin(), packedTxID.size(), msg->m_TxID.m_pData);
+            msg->m_Flags = flags;
+
+            ShieldedCoin c;
+            c.m_CoinID.m_Key.m_nIdx = 0;
+            pars.ToID(c.m_CoinID);
+            c.m_CoinID.m_Key.m_kSerG.m_Value = ++nCoin; // distinct coins
+            c.m_TxoID = nCoin;
+            c.m_confirmHeight = 1;
+            c.m_spentHeight = 2;
+
+            db->saveShieldedCoin(c);
+            storage::restoreTransactionFromShieldedCoin(*db, c, gateway);
+            return c;
+        };
+
+        // the peer of a real tx knows its TxID
+        TxID victimID = saveTx(TxType::Simple, true, false);
+
+        for (uint8_t flags : { uint8_t(0), kIsSelfTxBit })
+        {
+            auto c = restoreCoin(victimID, flags);
+
+            bool val = false;
+            WALLET_CHECK(storage::getTxParameter(*db, victimID, TxParameterID::IsSender, val) && val);
+            WALLET_CHECK(storage::getTxParameter(*db, victimID, TxParameterID::IsSelfTx, val) && !val);
+            TxAddressType addrType = TxAddressType::Unknown;
+            WALLET_CHECK(!storage::getTxParameter(*db, victimID, TxParameterID::AddressType, addrType));
+
+            // the coin gets a receive record of its own
+            WALLET_CHECK(c.m_createTxId && *c.m_createTxId != victimID);
+            auto rcv = db->getTx(*c.m_createTxId);
+            WALLET_CHECK(rcv && rcv->m_txType == TxType::PushTransaction && !rcv->m_sender && !rcv->m_selfTx);
+
+            // re-processing the coin is idempotent
+            TxID rcvID = *c.m_createTxId;
+            storage::restoreTransactionFromShieldedCoin(*db, c, gateway);
+            WALLET_CHECK(*c.m_createTxId == rcvID);
+        }
+
+        // a coin from our own self-push is linked to that tx
+        TxID selfID = saveTx(TxType::PushTransaction, true, true);
+        auto c = restoreCoin(selfID, kIsSelfTxBit);
+        WALLET_CHECK(c.m_createTxId && *c.m_createTxId == selfID);
+
+        // but not to our push to someone else
+        TxID pushID = saveTx(TxType::PushTransaction, true, false);
+        c = restoreCoin(pushID, kIsSelfTxBit);
+        WALLET_CHECK(c.m_createTxId && *c.m_createTxId != pushID);
+
+        WALLET_CHECK(db->getTxHistory(TxType::PushTransaction).size() == 5);
+    }
+
     void TestSendingShielded()
     {
         cout << "\nTesting consuming shielded TXOs...\n";
@@ -5904,6 +5987,7 @@ int main()
     TestClient();
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
+    TestShieldedCoinTxID();
 
     TestMultiUserWallet();
     

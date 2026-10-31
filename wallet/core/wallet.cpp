@@ -2052,12 +2052,8 @@ namespace beam::wallet
             shieldedCoin->m_spentHeight = std::min(shieldedCoin->m_spentHeight, h);
         }
 
-        const auto* message = ShieldedTxo::User::ToPackedMessage(shieldedCoin->m_CoinID.m_User);
-        if (!memis0(message->m_TxID.m_pData, sizeof(TxID)))
-        {
-            shieldedCoin->m_createTxId.emplace();
-            std::copy_n(message->m_TxID.m_pData, sizeof(TxID), shieldedCoin->m_createTxId->begin());
-        }
+        // m_createTxId is kept if assigned locally, it's never taken from the TxID the sender packed into the coin.
+        // See restoreTransactionFromShieldedCoin
 
         // Check if this Coin participates in any active transaction
         for (const auto& [txid, txptr] : m_ActiveTransactions)
