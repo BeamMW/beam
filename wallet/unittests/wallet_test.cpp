@@ -23,6 +23,10 @@
 #include "wallet/core/secstring.h"
 #include "wallet/core/base58.h"
 #include "wallet/core/contracts/shaders_manager.h"
+#include "wallet/core/simple_transaction.h"
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+#include "wallet/transactions/dex/dex_tx.h"
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/client/wallet_client.h"
 #include "utility/test_helpers.h"
 #include "core/radixtree.h"
@@ -4027,6 +4031,21 @@ namespace
 
         attack(false);
         attack(true);
+
+        // IsSender is set locally on both sides, a peer must not be able to set it
+        auto checkNotSettable = [&](BaseTransaction::Creator& creator)
+        {
+            auto pTx = creator.Create(BaseTransaction::TxContext(*victim.m_Wallet, *victim.m_Wallet, GenerateTxID()));
+            WALLET_CHECK(!pTx->IsTxParameterExternalSettable(TxParameterID::IsSender, kDefaultSubTxID));
+            WALLET_CHECK(pTx->IsTxParameterExternalSettable(TxParameterID::Amount, kDefaultSubTxID));
+        };
+
+        SimpleTransaction::Creator simpleCreator(victim.m_WalletDB);
+        checkNotSettable(simpleCreator);
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        DexTransaction::Creator dexCreator(victim.m_WalletDB);
+        checkNotSettable(dexCreator);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     void TestSendingShielded()

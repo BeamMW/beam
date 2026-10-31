@@ -2631,6 +2631,7 @@ namespace beam::wallet
             pTx->SetParameter(TxParameterID::MyAddr, myID, false);
             pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             pTx->SetParameter(TxParameterID::IsInitiator, false, false);
+            pTx->SetParameter(TxParameterID::IsSender, false, false); // set locally, peers can't set it
             pTx->SetParameter(TxParameterID::Status, TxStatus::Pending, true);
 
             auto address = m_WalletDB->getAddress(myID);

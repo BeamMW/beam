@@ -123,7 +123,6 @@ namespace beam::wallet
 
         switch (paramID)
         {
-        case TxParameterID::IsSender: // TODO:DEX - change this. It should be checked and set by Creator during construction
         case TxParameterID::Amount:
         case TxParameterID::AssetID:
         case TxParameterID::DexReceiveAmount:
