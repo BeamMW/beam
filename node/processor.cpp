@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "processor.h"
+#include "locked_funds.h"
 #include "../core/treasury.h"
 #include "../core/shielded.h"
 #include "../bvm/bvm2.h"
@@ -571,6 +572,68 @@ bool NodeProcessor::IsLustrationCrossing(TxoID id, Height hSpend) const
 		(id < m_Extra.m_Epoch0.m_Txos) &&
 		(MaxHeight != hSpend) &&
 		Rules::get().IsPastFork_<7>(hSpend);
+}
+
+bool LockedFunds::FindNextContract(NodeDB& db, ContractID& cid)
+{
+	ContractID cidMax;
+	cidMax = Zero;
+	cidMax.Inv();
+
+	NodeDB::WalkerContractData wlk;
+	db.ContractDataEnum(wlk, Blob(&cid, sizeof(cid)), Blob(&cidMax, sizeof(cidMax)));
+	if (!wlk.MoveNext() || (wlk.m_Key.n < sizeof(cid)))
+		return false;
+
+	memcpy(&cid, wlk.m_Key.p, sizeof(cid));
+	return true;
+}
+
+void LockedFunds::SetKey(Key& k, const ContractID& cid, Asset::ID aid)
+{
+	k.m_Prefix.m_Cid = cid;
+	k.m_Prefix.m_Tag = Shaders::KeyTag::LockedAmount;
+	k.m_KeyInContract = aid;
+}
+
+void LockedFunds::Enum(NodeDB& db, const ContractID& cid)
+{
+	SetKey(m_pRange[0], cid, 0);
+	SetKey(m_pRange[1], cid, static_cast<Asset::ID>(-1));
+
+	// the keys must be alive during the enum
+	db.ContractDataEnum(m_Wlk, Blob(m_pRange, sizeof(Key)), Blob(m_pRange + 1, sizeof(Key)));
+}
+
+bool LockedFunds::MoveNext()
+{
+	while (m_Wlk.MoveNext())
+	{
+		if ((sizeof(Key) != m_Wlk.m_Key.n) || (sizeof(AmountBig::Type) != m_Wlk.m_Val.n))
+			continue;
+
+		reinterpret_cast<const Key*>(m_Wlk.m_Key.p)->m_KeyInContract.Export(m_Aid);
+		m_Value = reinterpret_cast<const AmountBig::Type*>(m_Wlk.m_Val.p)->ToNumber();
+
+		if (m_Value != Zero)
+			return true;
+	}
+
+	return false;
+}
+
+bool LockedFunds::Find(NodeDB& db, const ContractID& cid, Asset::ID aid, AmountBig::Number& res)
+{
+	Key kf;
+	SetKey(kf, cid, aid);
+
+	Blob blobVal;
+	NodeDB::Recordset rs;
+	if (!db.ContractDataFind(Blob(&kf, sizeof(kf)), blobVal, rs) || (sizeof(AmountBig::Type) != blobVal.n))
+		return false;
+
+	res = reinterpret_cast<const AmountBig::Type*>(blobVal.p)->ToNumber();
+	return true;
 }
 
 Block::SystemState::ID NodeProcessor::Cursor::get_ID() const

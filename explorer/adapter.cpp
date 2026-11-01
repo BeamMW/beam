@@ -14,6 +14,7 @@
 
 #include "adapter.h"
 #include "node/node.h"
+#include "node/locked_funds.h"
 #include "core/serialization_adapters.h"
 #include "bvm/bvm2.h"
 #include "http/http_msg_creator.h"
@@ -1513,48 +1514,14 @@ private:
         }
     };
 
-#pragma pack (push, 1)
-    struct KeyFund
-    {
-        bvm2::ContractID m_Cid;
-        uint8_t m_Tag = Shaders::KeyTag::LockedAmount;
-        uintBigFor<Asset::ID>::Type m_Aid;
-    };
-#pragma pack (pop)
-
-    static bool get_ValueFromContract(AmountBig::Number& res, const Blob& b)
-    {
-        if (sizeof(AmountBig::Type) != b.n)
-            return false;
-
-        res = reinterpret_cast<const AmountBig::Type*>(b.p)->ToNumber();
-        return true;
-    }
-
     void get_LockedFunds(json& jArr, const bvm2::ContractID& cid)
     {
-        KeyFund k0, k1;
-        k0.m_Cid = cid;
-        k0.m_Aid = Zero;
-        k1.m_Cid = cid;
-        k1.m_Aid = static_cast<Asset::ID>(-1);
-
-        NodeDB::WalkerContractData wlk;
-        for (_nodeBackend.get_DB().ContractDataEnum(wlk, Blob(&k0, sizeof(k0)), Blob(&k1, sizeof(k1))); wlk.MoveNext(); )
+        LockedFunds lf;
+        for (lf.Enum(_nodeBackend.get_DB(), cid); lf.MoveNext(); )
         {
-            if (sizeof(KeyFund) != wlk.m_Key.n)
-                continue;
-
-            Asset::ID aid;
-            reinterpret_cast<const KeyFund*>(wlk.m_Key.p)->m_Aid.Export(aid);
-
-            AmountBig::Number valLocked;
-            if (!get_ValueFromContract(valLocked, wlk.m_Val))
-                continue;
-
             json jEntry = json::array();
-            jEntry.push_back(MakeObjAid(aid));
-            jEntry.push_back(MakeObjAmount(valLocked));
+            jEntry.push_back(MakeObjAid(lf.m_Aid));
+            jEntry.push_back(MakeObjAmount(lf.m_Value));
 
             jArr.push_back(std::move(jEntry));
         }
@@ -2198,25 +2165,12 @@ private:
             MakeTableHdr("Locked Value"),
             }));
 
-        KeyFund kf;
-        kf.m_Aid = aid;
-
         const auto& vIDs = get_contracts_vec();
         for (const auto& x : vIDs)
         {
             AmountBig::Number valLocked;
-
-            {
-                kf.m_Cid = x.first.m_Cid;
-
-                Blob blobVal;
-                NodeDB::Recordset rs;
-                if (!db.ContractDataFind(Blob(&kf, sizeof(kf)), blobVal, rs))
-                    continue;
-
-                if (!get_ValueFromContract(valLocked, blobVal))
-                    continue;
-            }
+            if (!LockedFunds::Find(db, x.first.m_Cid, aid, valLocked))
+                continue;
 
             json jItem = json::array();
             jItem.push_back(MakeObjCid(x.first.m_Cid));
