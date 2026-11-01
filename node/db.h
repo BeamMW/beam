@@ -168,6 +168,8 @@ public:
 			TxoEnum,
 			TxoSetValue,
 			TxoGetValue,
+			TxoSetDisclosure,
+			TxoGetDisclosure,
 			StreamIns,
 			StreamDel,
 			EnumSystemStatesBkwd,
@@ -599,6 +601,8 @@ public:
 	void EnumTxos(WalkerTxo&, TxoID id0);
 	void TxoSetValue(TxoID, const Blob&);
 	void TxoGetValue(WalkerTxo&, TxoID);
+	void TxoSetDisclosure(TxoID, const Blob*);
+	void TxoGetDisclosure(WalkerTxo&, TxoID);
 
 	void ShieldedResize(uint64_t n, uint64_t n0) {
 		StreamResize_T<ECC::Point::Storage>(StreamType::Shielded, n, n0);
@@ -859,6 +863,7 @@ private:
 	void CreateTables31();
 	void CreateTables36();
 	void CreateTables37();
+	void CreateTables38();
 	void ExecQuick(const char*);
 	std::string ExecTextOut(const char*);
 	bool ExecStep(sqlite3_stmt*);

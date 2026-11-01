@@ -93,6 +93,7 @@ namespace beam {
 #define TblTxo_ID				"ID"
 #define TblTxo_Value			"Value"
 #define TblTxo_SpendHeight		"SpendHeight"
+#define TblTxo_Disclosure		"Disclosure"
 
 #define TblStreams				"Streams"
 #define TblStream_ID			"ID"
@@ -399,7 +400,7 @@ void NodeDB::Open(const char* szPath)
 		bCreate = !rs.Step();
 	}
 
-	const uint64_t nVersionTop = 38;
+	const uint64_t nVersionTop = 39;
 
 
 	Transaction t(*this);
@@ -498,6 +499,11 @@ void NodeDB::Open(const char* szPath)
 		case 37: // bridge
 			CreateTables37();
 			// no break;
+
+
+		case 38: // Lustration
+			ExecQuick("ALTER TABLE " TblTxo " ADD " TblTxo_Disclosure " BLOB");
+			CreateTables38();
 
 			ParamIntSet(ParamID::DbVer, nVersionTop);
 			// no break;
@@ -608,7 +614,8 @@ void NodeDB::Create()
 	ExecQuick("CREATE TABLE [" TblTxo "] ("
 		"[" TblTxo_ID				"] INTEGER NOT NULL PRIMARY KEY,"
 		"[" TblTxo_Value			"] BLOB NOT NULL,"
-		"[" TblTxo_SpendHeight		"] INTEGER)");
+		"[" TblTxo_SpendHeight		"] INTEGER,"
+		"[" TblTxo_Disclosure		"] BLOB)");
 
 	CreateTables20();
 	CreateTables21();
@@ -620,6 +627,7 @@ void NodeDB::Create()
 	CreateTables31();
 	CreateTables36();
 	CreateTables37();
+	CreateTables38();
 }
 
 void NodeDB::CreateTables20()
@@ -732,6 +740,11 @@ void NodeDB::CreateTables37()
 		"[" TblBridge_Value		"] BLOB) WITHOUT ROWID");
 
 	ExecQuick("CREATE INDEX [Idx" TblBridge "] ON [" TblBridge "] ([" TblBridge_Key "],[" TblBridge_Pos "]);");
+}
+
+void NodeDB::CreateTables38()
+{
+	// TODO: lustration counters
 }
 
 void NodeDB::Vacuum()
@@ -2451,6 +2464,26 @@ void NodeDB::TxoGetValue(WalkerTxo& wlk, TxoID id0)
 	wlk.m_Rs.Reset(*this, Query::TxoGetValue, "SELECT " TblTxo_Value " FROM " TblTxo " WHERE " TblTxo_ID "=?");
 	wlk.m_Rs.put(0, id0);
 
+	wlk.m_Rs.StepStrict();
+	wlk.m_Rs.get(0, wlk.m_Value);
+}
+
+void NodeDB::TxoSetDisclosure(TxoID id, const Blob* p)
+{
+	Recordset rs(*this, Query::TxoSetDisclosure, "UPDATE " TblTxo " SET " TblTxo_Disclosure "=? WHERE " TblTxo_ID "=?");
+	if (p)
+		rs.put(0, *p);
+	else
+		rs.putNull(0);
+	rs.put(1, id);
+	rs.Step();
+	TestChanged1Row();
+}
+
+void NodeDB::TxoGetDisclosure(WalkerTxo& wlk, TxoID id)
+{
+	wlk.m_Rs.Reset(*this, Query::TxoGetDisclosure, "SELECT " TblTxo_Disclosure " FROM " TblTxo " WHERE " TblTxo_ID "=?");
+	wlk.m_Rs.put(0, id);
 	wlk.m_Rs.StepStrict();
 	wlk.m_Rs.get(0, wlk.m_Value);
 }
