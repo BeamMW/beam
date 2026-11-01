@@ -2667,6 +2667,39 @@ namespace beam
 			return nCrossing;
 		}
 
+		// an input that spends a txo created within the given range, and not spent up to (including) the given height
+		Input::Ptr FindUnspentInput(Height hCreate0, Height hCreate1, Height hSpendMax) const
+		{
+			std::set<ECC::Point> setTxos;
+
+			for (Height h = hCreate0; h <= hCreate1; h++)
+			{
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				ReadPerishable(m_vBlocks[h - 1]->m_Body.m_Perishable, bbb, txvp);
+
+				for (const auto& pOutp : txvp.m_vOutputs)
+					setTxos.insert(pOutp->m_Commitment);
+			}
+
+			for (Height h = hCreate0; h <= hSpendMax; h++)
+			{
+				Block::BodyBase bbb;
+				TxVectors::Perishable txvp;
+				ReadPerishable(m_vBlocks[h - 1]->m_Body.m_Perishable, bbb, txvp);
+
+				for (const auto& pInp : txvp.m_vInputs)
+					setTxos.erase(pInp->m_Commitment);
+			}
+
+			if (setTxos.empty())
+				return nullptr;
+
+			auto pRet = std::make_unique<Input>();
+			pRet->m_Commitment = *setTxos.begin();
+			return pRet;
+		}
+
 		void VerifySynced(NodeProcessor& np) const
 		{
 			verify_test(!np.IsFastSync());
@@ -2679,6 +2712,8 @@ namespace beam
 			std::string szC = std::string(g_sz) + ".c";
 			std::string szE = std::string(g_sz) + ".e";
 			std::string szF = std::string(g_sz) + ".f";
+			std::string szG = std::string(g_sz) + ".g";
+			std::string szH = std::string(g_sz) + ".h";
 
 			NodeProcessor npFull; // the main chain node, full history
 			npFull.Initialize(g_sz);
@@ -2778,9 +2813,84 @@ namespace beam
 				VerifySynced(npF);
 			}
 
+			{
+				// malicious source: a crossing input is omitted in a sparse block past the threshold, i.e. the txo remains unspent.
+				// Detected by the utxo set verification at TxoLo, fast-sync is restarted with no sparse blocks
+				NodeProcessor npG;
+				InitFastSync(npG, szG.c_str());
+
+				bool bTampered = false;
+				Tamper t = [&](Block::Number num, ByteBuffer& bbP)
+				{
+					if (bTampered || (num.v < m_h7) || (num.v >= npG.m_SyncData.m_TxoLo.v))
+						return;
+
+					Block::BodyBase bbb;
+					TxVectors::Perishable txvp;
+					ReadPerishable(bbP, bbb, txvp);
+
+					if (txvp.m_vInputs.empty())
+						return;
+
+					txvp.m_vInputs.pop_back();
+					WritePerishable(bbP, bbb, txvp);
+					bTampered = true;
+				};
+
+				FeedFastSync(npG, npFull, Block::Number(1), &t);
+				verify_test(bTampered);
+				verify_test(npG.IsFastSync());
+				verify_test(!npG.m_SyncData.m_TxoLo.v);
+
+				FeedFastSync(npG, npFull, Block::Number(1), nullptr);
+				VerifySynced(npG);
+			}
+
+			{
+				// malicious source: a non-crossing input is added to a sparse block past the threshold.
+				// It spends a txo that the peer does have (created past the threshold, unspent at TxoLo), so it's caught only by the sparse block check.
+				// The block is rejected (the downloaded range is re-fetched), but the fast-sync isn't restarted with a lower TxoLo
+				NodeProcessor npH;
+				InitFastSync(npH, szH.c_str());
+
+				const Block::Number numTrg(npH.m_SyncData.m_TxoLo.v - 5); // not the 1st block past TxoLo, that'd be a fast-sync failure
+				const Height hCreateMax = numTrg.v - m_Rules.Maturity.Coinbase - 1; // must be mature anyway
+
+				Input::Ptr pInp = FindUnspentInput(m_h7, hCreateMax, npH.m_SyncData.m_TxoLo.v);
+				verify_test(pInp);
+
+				bool bTampered = false;
+				Tamper t = [&](Block::Number num, ByteBuffer& bbP)
+				{
+					if (num.v != numTrg.v)
+						return;
+
+					Block::BodyBase bbb;
+					TxVectors::Perishable txvp;
+					ReadPerishable(bbP, bbb, txvp);
+
+					txvp.m_vInputs.push_back(std::make_unique<Input>(*pInp));
+					std::sort(txvp.m_vInputs.begin(), txvp.m_vInputs.end(), [](const Input::Ptr& a, const Input::Ptr& b) { return *a < *b; });
+
+					WritePerishable(bbP, bbb, txvp);
+					bTampered = true;
+				};
+
+				FeedFastSync(npH, npFull, Block::Number(1), &t);
+				verify_test(bTampered);
+				verify_test(npH.IsFastSync());
+				verify_test(npH.m_Cursor.m_Full.m_Number.v < numTrg.v);
+				verify_test(npH.m_SyncData.m_TxoLo.v); // not restarted with a lower TxoLo
+
+				FeedFastSync(npH, npFull, Block::Number(npH.m_Cursor.m_Full.m_Number.v + 1), nullptr);
+				VerifySynced(npH);
+			}
+
 			DeleteDB(szC.c_str());
 			DeleteDB(szE.c_str());
 			DeleteDB(szF.c_str());
+			DeleteDB(szG.c_str());
+			DeleteDB(szH.c_str());
 		}
 
 		/////////////////////////////
