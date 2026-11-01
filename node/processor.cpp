@@ -565,6 +565,14 @@ void NodeProcessor::UpdateEpoch0(Height hNext)
 		ZeroObject(m_Extra.m_Epoch0);
 }
 
+bool NodeProcessor::IsLustrationCrossing(TxoID id, Height hSpend) const
+{
+	return
+		(id < m_Extra.m_Epoch0.m_Txos) &&
+		(MaxHeight != hSpend) &&
+		Rules::get().IsPastFork_<7>(hSpend);
+}
+
 Block::SystemState::ID NodeProcessor::Cursor::get_ID() const
 {
 	Block::SystemState::ID id;
@@ -1429,6 +1437,7 @@ struct NodeProcessor::MultiblockContext
 
 	size_t m_SizePending = 0;
 	bool m_bFail = false;
+	bool m_bFastSyncFail = false; // not a specific block's fault, the whole fast-sync should be restarted
 	bool m_bBatchDirty = false;
 	std::string m_sErr;
 
@@ -1870,8 +1879,13 @@ void NodeProcessor::TryGoTo(NodeDB::StateID& sidTrg)
 		{
 			bContextFail = mbc.m_bFail = true;
 
-			if (m_Cursor.m_Full.m_Number.v + 1 == m_SyncData.m_TxoLo.v)
-				mbc.OnFastSyncFailedOnLo();
+			if (mbc.m_bFastSyncFail)
+				mbc.OnFastSyncFailed(true);
+			else
+			{
+				if (m_Cursor.m_Full.m_Number.v + 1 == m_SyncData.m_TxoLo.v)
+					mbc.OnFastSyncFailedOnLo();
+			}
 
 			break;
 		}
@@ -2212,7 +2226,6 @@ Height NodeProcessor::RaiseTxoHi(Block::Number numTrg)
 	bool bPastHf7 = false;
 
 	NodeDB::WalkerTxo wlk;
-	ByteBuffer buf;
 
 	while (m_Extra.m_TxoHi.v < numTrg.v)
 	{
@@ -2232,37 +2245,12 @@ Height NodeProcessor::RaiseTxoHi(Block::Number numTrg)
 			if (TxoIsNaked(wlk.m_Value))
 				continue; // could happen, if/when lustration height changes, and RaiseTxo called again
 
-			if (bPastHf7 && (id < m_Extra.m_Epoch0.m_Txos))
-			{
-				// careful, preserve either the disclosure (if present) or the public rangeproof
-				Deserializer der;
-				der.reset(wlk.m_Value.p, wlk.m_Value.n);
+			if (bPastHf7 && (id < m_Extra.m_Epoch0.m_Txos) && TxoIsCoinbase(wlk.m_Value))
+				continue; // crossing coinbase: keep as-is. It consists of the commitment and the public rangeproof (value is needed), nothing to strip
 
-				Output outp;
-				der & outp;
-
-				// strip
-				outp.m_pConfidential.reset();
-				outp.m_pAsset.reset();
-
-				if (!outp.m_Coinbase)
-					outp.m_pPublic.reset();
-
-				auto trailingSize = static_cast<uint32_t>(der.bytes_left()); // not included for coinbase, nevermind
-
-				Serializer ser;
-				buf.clear();
-				ser.swap_buf(buf);
-				ser & outp; // stripped Txo
-				ser.WriteRaw(((const uint8_t*) wlk.m_Value.p) + wlk.m_Value.n - trailingSize, trailingSize); // remaining part (disclosure or nothing if it's a coinbase)
-				ser.swap_buf(buf);
-				wlk.m_Value = buf;
-			}
-			else
-			{
-				uint8_t pNaked[s_TxoNakedMax];
-				TxoToNaked(pNaked, wlk.m_Value);
-			}
+			// for the rest (including crossing non-coinbase) - only the commitment is needed. The disclosure is kept separately.
+			uint8_t pNaked[s_TxoNakedMax];
+			TxoToNaked(pNaked, wlk.m_Value);
 
 			m_DB.TxoSetValue(id, wlk.m_Value);
 			hRet++;
@@ -2324,6 +2312,15 @@ bool NodeProcessor::TxoIsNaked(const Blob& v)
 
 	return !(pSrc[0] & 0xc);
 
+}
+
+bool NodeProcessor::TxoIsCoinbase(const Blob& v)
+{
+	if (v.n < s_TxoNakedMin)
+		OnCorrupted();
+
+	const uint8_t* pSrc = reinterpret_cast<const uint8_t*>(v.p);
+	return !!(pSrc[0] & 2);
 }
 
 struct NodeProcessor::KrnFlyMmr
@@ -3175,6 +3172,33 @@ bool NodeProcessor::HandleBlock(const HeightHash& id, uint64_t row, const Block:
 	return HandleBlockInternal(id, s, mbc, bufs, bFirstTime, false, pid, row);
 }
 
+bool NodeProcessor::ValidateUtxosAtLustration(Height hNext)
+{
+	// During fast-sync the sparse blocks contain only the txos needed to restore the final state, plus those that cross the lustration threshold.
+	// Hence the full utxo set can be verified right before the 1st post-lustration block is applied.
+	// For PBFT block numbers and heights differ, so the check is on the transition, not on a specific height.
+	if (!IsFastSync() || !m_Cursor.m_Full.m_Number.v)
+		return true;
+
+	if (m_Cursor.m_Full.m_Number.v >= m_SyncData.m_TxoLo.v)
+		return true; // last block wasn't sparse, its utxo set is already verified
+
+	const Rules& r = Rules::get();
+	if (!r.pForks[7].m_Height || !r.IsPastFork_<7>(hNext) || r.IsPastFork_<7>(m_Cursor.m_hh.m_Height))
+		return true; // not the transition
+
+	if (!r.IsPastFork_<3>(m_Cursor.m_hh.m_Height))
+		return true; // utxo set isn't committed
+
+	Merkle::Hash hv;
+	get_Utxos().get_Hash(hv);
+	if (hv == m_Cursor.m_Full.m_Kernels)
+		return true;
+
+	BEAM_LOG_WARNING() << "Utxo set mismatch at lustration threshold, fast-sync failed";
+	return false;
+}
+
 bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full& s, MultiblockContext& mbc, const proto::BodyBuffers& bufs, bool bFirstTime, bool bTestOnly, const PeerID& pid, uint64_t row)
 {
 	if (s.m_Number.v == m_ManualSelection.m_Sid.m_Number.v)
@@ -3185,6 +3209,12 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 	if (bFirstTime)
 		mbc.OnNextBlockPid(pid);
+
+	if (bFirstTime && !bTestOnly && !ValidateUtxosAtLustration(id.m_Height))
+	{
+		mbc.m_bFastSyncFail = true;
+		return false;
+	}
 
 	UpdateEpoch0(id.m_Height);
 
@@ -3349,10 +3379,11 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 
 			if (s.m_Number.v <= m_SyncData.m_TxoLo.v)
 			{
-				// make sure no spent txos above the requested h0
+				// make sure no spent txos above the requested h0, except those that cross the lustration threshold
 				for (size_t i = 0; i < bic.m_vInpAux.size(); i++)
 				{
-					if (bic.m_vInpAux[i].get_ID() >= mbc.m_id0)
+					const auto& aux = bic.m_vInpAux[i];
+					if ((aux.get_ID() >= mbc.m_id0) && !(aux.m_ID_WithFlags & aux.s_Crossed))
 					{
 						BEAM_LOG_WARNING() << id << " Invalid input in sparse block";
 						bOk = false;
@@ -5079,9 +5110,6 @@ bool NodeProcessor::BlockInterpretCtx::HandleInputDisclose(const Input& v, TxoID
 	Output outp;
 	der & outp;
 
-	if (der.bytes_left())
-		OnCorrupted(); // already disclosed? Shouldn't happen
-
 	Asset::ID aid = 0;
 	Amount amount = 0;
 
@@ -5095,7 +5123,13 @@ bool NodeProcessor::BlockInterpretCtx::HandleInputDisclose(const Input& v, TxoID
 		}
 
 		if (!outp.m_pPublic)
-			OnCorrupted();
+		{
+			// Normally shouldn't happen. But during fast-sync may be received from a malicious peer
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "input " << v.m_Commitment << " coinbase txo has no value";
+			return false;
+		}
+
 		amount = outp.m_pPublic->m_Value;
 	}
 	else
@@ -5117,18 +5151,13 @@ bool NodeProcessor::BlockInterpretCtx::HandleInputDisclose(const Input& v, TxoID
 
 		if (!outp.m_Coinbase)
 		{
-			// append disclosure
-			ByteBuffer buf;
-			buf.reserve(wlk.m_Value.n + sizeof(Disclosure) + 10);
-			buf.resize(wlk.m_Value.n);
-			memcpy(&buf.front(), wlk.m_Value.p, wlk.m_Value.n);
-
 			Serializer ser;
-			ser.swap_buf(buf);
 			ser & *v.m_pDisclosure;
-			ser.swap_buf(buf);
 
-			m_Proc.m_DB.TxoSetValue(id, buf);
+			ByteBuffer buf;
+			ser.swap_buf(buf);
+			Blob blob(buf);
+			m_Proc.m_DB.TxoSetDisclosure(id, &blob);
 		}
 	}
 
@@ -5183,7 +5212,8 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 		}
 		else
 		{
-			wlk.m_Value.n -= static_cast<uint32_t>(der.bytes_left()); // trim the disclosure
+			m_Proc.m_DB.TxoGetDisclosure(wlk, id);
+			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
 			Disclosure dis;
 			der & dis;
@@ -5191,7 +5221,7 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 			aid = dis.m_Aid;
 			amount = dis.m_Amount;
 
-			m_Proc.m_DB.TxoSetValue(id, wlk.m_Value); // save the txo back, without the diclosure
+			m_Proc.m_DB.TxoSetDisclosure(id, nullptr);
 		}
 
 		if ((id < m_Proc.m_Extra.m_Epoch0.m_Txos) && Rules::get().IsPastFork_<7>(m_Height))
@@ -8096,22 +8126,31 @@ bool NodeProcessor::ValidateAndSummarize(TxBase::Context& ctx, const TxBase& txb
 	return false;
 }
 
-void NodeProcessor::TxoInfo::FromSer(const Blob& blob)
+void NodeProcessor::TxoInfoFromSer(TxoInfo& ti, const NodeDB::WalkerTxo& wlk)
 {
 	Deserializer der;
-	der.reset(blob.p, blob.n);
-	der & m_Outp;
+	der.reset(wlk.m_Value.p, wlk.m_Value.n);
+	der & ti.m_Outp;
+
+	ti.m_hSpent = wlk.m_SpendHeight;
 
 	const Rules& r = Rules::get();
 	bool needDisclosure =
-		(MaxHeight != m_hSpent) &&
-		!r.IsPastFork_<7>(m_hCreate) &&
-		r.IsPastFork_<7>(m_hSpent);
+		(MaxHeight != ti.m_hSpent) &&
+		!r.IsPastFork_<7>(ti.m_hCreate) &&
+		r.IsPastFork_<7>(ti.m_hSpent);
 
-	if (needDisclosure && der.bytes_left())
+	if (needDisclosure)
 	{
-		m_pDisclosure = std::make_unique<Disclosure>();
-		der & *m_pDisclosure;
+		NodeDB::WalkerTxo wlk2;
+		m_DB.TxoGetDisclosure(wlk2, wlk.m_ID);
+
+		if (wlk2.m_Value.n)
+		{
+			ti.m_pDisclosure = std::make_unique<Disclosure>();
+			der.reset(wlk2.m_Value.p, wlk2.m_Value.n);
+			der & *ti.m_pDisclosure;
+		}
 	}
 }
 
@@ -8150,11 +8189,12 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 
 			NodeDB::WalkerTxo wlk;
 			m_DB.TxoGetValue(wlk, txoID);
+			wlk.m_SpendHeight = h;
+			wlk.m_ID = txoID;
 
-			dst.m_hSpent = h;
 			FindHeightByTxoID(dst.m_hCreate, txoID);
 
-			dst.FromSer(wlk.m_Value);
+			TxoInfoFromSer(dst, wlk);
 		}
 	}
 
@@ -8172,8 +8212,7 @@ void NodeProcessor::ExtractBlockWithExtra(const NodeDB::StateID& sid, Height h, 
 
 			auto& dst = vOuts.emplace_back();
 			dst.m_hCreate = h;
-			dst.m_hSpent = wlk.m_SpendHeight;
-			dst.FromSer(wlk.m_Value);
+			TxoInfoFromSer(dst, wlk);
 		}
 	}
 }
@@ -8188,8 +8227,7 @@ void NodeProcessor::ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts)
 
 		auto& dst = vOuts.emplace_back();
 		dst.m_hCreate = 0;
-		dst.m_hSpent = wlk.m_SpendHeight;
-		dst.FromSer(wlk.m_Value);
+		TxoInfoFromSer(dst, wlk);
 	}
 }
 
@@ -8523,16 +8561,20 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	std::vector<NodeDB::StateInput> v;
 	m_DB.get_StateInputs(sid.m_Row, v);
 
+	Height hBlock = Num2Height(sid);
+
 	for (uint32_t iCycle = 0; ; iCycle++)
 	{
 		for (size_t i = 0; i < v.size(); i++)
 		{
 			TxoID id = v[i].get_ID();
+			bool bCrossing = IsLustrationCrossing(id, hBlock);
 
 			//	if SpendHeight > hLo1 then transfer
 			//	if CreateHeight <= h0 then transfer
+			//	if crosses the lustration threshold then transfer (the peer needs it to verify the utxo set at the threshold)
 			//	Otherwise - don't transfer
-			if ((sid.m_Number.v > nLo1.v) || (id < idInpCut))
+			if ((sid.m_Number.v > nLo1.v) || (id < idInpCut) || bCrossing)
 			{
 				if (iCycle)
 				{
@@ -8541,6 +8583,23 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 					// write
 					Input inp;
 					si.Get(inp.m_Commitment);
+
+					if (bCrossing)
+					{
+						// attach the disclosure, unless it's a coinbase
+						NodeDB::WalkerTxo wlk;
+						m_DB.TxoGetDisclosure(wlk, id);
+
+						if (wlk.m_Value.n) // otherwise it must be a coinbase
+						{
+							Deserializer der;
+							der.reset(wlk.m_Value.p, wlk.m_Value.n);
+
+							inp.m_pDisclosure = std::make_unique<Disclosure>();
+							der & *inp.m_pDisclosure;
+						}
+					}
+
 					ser & inp;
 				}
 				else
@@ -8561,6 +8620,7 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 	Height hHi1 = Num2Height(nHi1);
 
 	NodeDB::WalkerTxo wlk;
+	ByteBuffer bufTxo;
 	for (m_DB.EnumTxos(wlk, id0); wlk.MoveNext(); )
 	{
 		if (wlk.m_ID >= id1)
@@ -8568,14 +8628,21 @@ bool NodeProcessor::GetBlock(const NodeDB::StateID& sid, ByteBuffer* pEthernal, 
 
 		//	if SpendHeight > hHi1 (or null) then fully transfer
 		//	if SpendHeight > hLo1 then transfer naked (remove Confidential, Public, Asset::ID)
+		//	if crosses the lustration threshold then transfer naked (coinbase keeps the Public, its value is needed)
 		//	Otherwise - don't transfer
 
-		if (wlk.m_SpendHeight <= hLo1)
+		bool bCrossing = IsLustrationCrossing(wlk.m_ID, wlk.m_SpendHeight);
+
+		if ((wlk.m_SpendHeight <= hLo1) && !bCrossing)
 			continue;
 
+		bool bFull = (wlk.m_SpendHeight > hHi1);
 		uint8_t pNaked[s_TxoNakedMax];
 
-		if (wlk.m_SpendHeight <= hHi1)
+		bool bKeepAsIs = bFull ||
+			(bCrossing && TxoIsCoinbase(wlk.m_Value)); // crossing coinbase: keep Public
+
+		if (!bKeepAsIs)
 			TxoToNaked(pNaked, wlk.m_Value);
 
 		nCount++;

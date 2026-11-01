@@ -175,6 +175,7 @@ class NodeProcessor
 
 	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
 	bool HandleBlockInternal(const HeightHash& id, const Block::SystemState::Full&, MultiblockContext&, const proto::BodyBuffers&, bool bFirstTime, bool bTestOnly, const PeerID&, uint64_t row);
+	bool ValidateUtxosAtLustration(Height hNext);
 
 	struct DependentContextSwitch;
 
@@ -188,6 +189,7 @@ class NodeProcessor
 
 	static void TxoToNaked(uint8_t* pBuf, Blob&);
 	static bool TxoIsNaked(const Blob&);
+	static bool TxoIsCoinbase(const Blob&);
 
 	Height GetInputMaturity(TxoID);
 
@@ -462,10 +464,9 @@ public:
 		Height m_hCreate;
 		Height m_hSpent;
 		std::unique_ptr<Disclosure> m_pDisclosure;
-
-		void FromSer(const Blob&);
 	};
 
+	void TxoInfoFromSer(TxoInfo&, const NodeDB::WalkerTxo&);
 	void ExtractBlockWithExtra(const NodeDB::StateID&, Height, std::vector<TxoInfo>& vIns, std::vector<TxoInfo>& vOuts, TxVectors::Eternal& txe, std::vector<ContractInvokeExtraInfo>&);
 	void ExtractTreasurykWithExtra(std::vector<TxoInfo>& vOuts);
 	void get_ContractDescr(const ECC::uintBig& sid, const ECC::uintBig& cid, std::string&, bool bFullState);
@@ -643,6 +644,8 @@ public:
 	Height Num2Height(Block::Number);
 	Block::Number FindAtivePastHeight(Height);
 	void FindAtivePastHeight(NodeDB::StateID&, Height);
+
+	bool IsLustrationCrossing(TxoID, Height hSpend) const; // created before the current lustration threshold, spent after it
 
 	uint8_t ValidateTxContextEx(const Transaction&, const HeightRange&, bool bShieldedTested, uint32_t& nBvmCharge, TxPool::Dependent::Element* pParent, std::ostream* pExtraInfo, Merkle::Hash* pCtxNew); // assuming context-free validation is already performed, but 
 	Input::Count FindInputs(const ECC::Point&, TxoID* pIds, Input::Count = 1);
