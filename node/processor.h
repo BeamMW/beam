@@ -381,6 +381,7 @@ public:
 	} m_Extra;
 
 	void UpdateEpoch0(Height hNext);
+	void TakeLustrationSnapshot();
 
 	struct SyncData
 	{

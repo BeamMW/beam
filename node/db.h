@@ -170,6 +170,9 @@ public:
 			TxoGetValue,
 			TxoSetDisclosure,
 			TxoGetDisclosure,
+			LustrationGet,
+			LustrationSet,
+			LustrationDelAll,
 			StreamIns,
 			StreamDel,
 			EnumSystemStatesBkwd,
@@ -603,6 +606,16 @@ public:
 	void TxoGetValue(WalkerTxo&, TxoID);
 	void TxoSetDisclosure(TxoID, const Blob*);
 	void TxoGetDisclosure(WalkerTxo&, TxoID);
+
+	struct LustrationCounter
+	{
+		AmountBig::Type m_Total; // allowed to be consumed by txos that cross the lustration threshold
+		AmountBig::Type m_Consumed;
+	};
+
+	bool LustrationGet(Asset::ID, LustrationCounter&);
+	void LustrationSet(Asset::ID, const LustrationCounter&);
+	void LustrationDelAll();
 
 	void ShieldedResize(uint64_t n, uint64_t n0) {
 		StreamResize_T<ECC::Point::Storage>(StreamType::Shielded, n, n0);

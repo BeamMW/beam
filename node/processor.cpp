@@ -560,6 +560,8 @@ void NodeProcessor::UpdateEpoch0(Height hNext)
 			// no need to search, current state is the last per-HF7
 			m_Extra.m_Epoch0.m_Txos = m_Extra.m_Txos;
 			m_Extra.m_Epoch0.m_Shielded = m_Extra.m_ShieldedOutputs;
+
+			TakeLustrationSnapshot();
 		}
 	}
 	else
@@ -572,6 +574,90 @@ bool NodeProcessor::IsLustrationCrossing(TxoID id, Height hSpend) const
 		(id < m_Extra.m_Epoch0.m_Txos) &&
 		(MaxHeight != hSpend) &&
 		Rules::get().IsPastFork_<7>(hSpend);
+}
+
+void NodeProcessor::TakeLustrationSnapshot()
+{
+	// Must be called when the current state is the last before the lustration threshold.
+	// Total allowed consumption per asset: what's in txos and shielded, i.e. the supply, minus what's locked in contracts and asset deposits.
+	// Can be called several times (restart, reorgs): nothing is consumed yet at this state, so the snapshot is just (re)taken.
+
+	m_DB.LustrationDelAll();
+
+	FundsChangeMap fcm;
+
+	// beam: emission (coinbase). In pbft there's no coinbase, the rewards (fees) are accumulated in the contract
+	const Rules& r = Rules::get();
+	if (Rules::Consensus::Pbft != r.m_Consensus)
+	{
+		AmountBig::Number val;
+		r.get_Emission(val, HeightRange(1, m_Cursor.m_hh.m_Height));
+		if (val != Zero)
+			fcm.Add(val, 0);
+	}
+
+	// treasury
+	{
+		ByteBuffer buf;
+		if (m_DB.ParamGet(NodeDB::ParamID::Treasury, nullptr, nullptr, &buf) && !buf.empty())
+		{
+			Treasury::Data td;
+			if (ExtractTreasury(buf, td))
+				for (const auto& g : td.m_vGroups)
+					if (g.m_Value != Zero)
+						fcm.Add(g.m_Value, g.m_Aid);
+		}
+	}
+
+	// assets: emitted value, and the deposit (beams) locked system-wide while the asset exists
+	{
+		Asset::Full ai;
+		ai.m_ID = 0;
+		while (m_DB.AssetGetNext(ai))
+		{
+			AmountBig::Number val = ai.m_Value.ToNumber();
+			if (val != Zero)
+				fcm.Add(val, ai.m_ID);
+
+			fcm.Add(ai.m_Deposit, 0, true);
+		}
+	}
+
+	// locked in contracts
+	ContractID cid = Zero;
+	while (LockedFunds::FindNextContract(m_DB, cid))
+	{
+		LockedFunds lf;
+		for (lf.Enum(m_DB, cid); lf.MoveNext(); )
+		{
+			AmountBig::Number val;
+			val = -lf.m_Value;
+			fcm.Add(val, lf.m_Aid);
+		}
+
+		cid.Inc(); // skip the rest of this contract
+		if (cid == Zero)
+			break; // wrapped around
+	}
+
+	// only nonzero totals are kept
+	NodeDB::LustrationCounter lc;
+	lc.m_Consumed = Zero;
+
+	for (const auto& [aid, val] : fcm.m_Map)
+	{
+		if (val.get_Msb())
+		{
+			// can't be, unless the accounting is broken. Nothing is allowed then
+			BEAM_LOG_ERROR() << "Lustration snapshot aid=" << aid << " negative total";
+			continue;
+		}
+
+		lc.m_Total.FromNumber(val);
+		m_DB.LustrationSet(aid, lc);
+
+		BEAM_LOG_INFO() << "Lustration snapshot aid=" << aid << ", total=" << AmountBig::Printable(val);
+	}
 }
 
 bool LockedFunds::FindNextContract(NodeDB& db, ContractID& cid)
@@ -2721,6 +2807,21 @@ struct NodeProcessor::BlockInterpretCtx
 
 	std::vector<InputAux> m_vInpAux;
 
+	struct LustrationCached
+	{
+		AmountBig::Number m_Total;
+		AmountBig::Number m_Consumed;
+		AmountBig::Number m_Consumed0; // as in DB
+	};
+
+	std::map<Asset::ID, LustrationCached> m_LustrationCache; // loaded on demand, saved once the block is interpreted (never in temporary mode)
+	bool m_LustrationExceeded = false; // tx validation only: the limit is exceeded, the tx is not rejected, but won't be mined
+	bool m_SkipLustration = false; // non-std rebuild: the counters are already up-to-date (and txo consumption isn't replayed anyway)
+
+	bool HandleLustration(Asset::ID, Amount, bool bFwd);
+	void LustrationFlush();
+	bool IsShieldedLustrationCrossing(const TxKernelShieldedInput&) const;
+
 	uint32_t m_ShieldedIns = 0;
 	uint32_t m_ShieldedOuts = 0;
 	Asset::ID m_AidMax = static_cast<Asset::ID>(-1); // last valid Asset ID
@@ -3559,6 +3660,7 @@ bool NodeProcessor::HandleBlockInternal(const HeightHash& id, const Block::Syste
 		m_RecentStates.Push(row, s);
 
 		cf.Do(*this, id.m_Height);
+		bic.LustrationFlush();
 
 		if (bic.m_pvC)
 			bic.AddKrnInfo(ser);
@@ -4858,8 +4960,25 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedIn
 
 				return false; // references invalid pool window
 			}
+
+			if (krn.m_pDisclosure && (krn.m_WindowEnd > m_Proc.m_Extra.m_Epoch0.m_Shielded))
+			{
+				// the window is (at least partially) past the lustration, it's restricted to the post-lustration pool. Disclosure isn't needed
+				if (m_pTxErrorInfo)
+					*m_pTxErrorInfo << "Shielded inp redundant disclosure";
+
+				return false;
+			}
 		}
- 
+
+		// before any other state change, in case of failure there's nothing to undo
+		if (IsShieldedLustrationCrossing(krn) && !HandleLustration(krn.m_pDisclosure->m_Aid, krn.m_pDisclosure->m_Amount, true))
+		{
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "Shielded inp lustration limit exceeded";
+			return false;
+		}
+
 		ShieldedInpPacked sip;
 		sip.m_Height = m_Height;
 		sip.m_MmrIndex = m_Proc.m_Mmr.m_Shielded.m_Count;
@@ -4867,6 +4986,9 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedIn
 		Blob blobVal(&sip, sizeof(sip));
 		if (!ValidateUniqueNoDup(blobKey, &blobVal))
 		{
+			if (IsShieldedLustrationCrossing(krn))
+				HandleLustration(krn.m_pDisclosure->m_Aid, krn.m_pDisclosure->m_Amount, false); // revert
+
 			if (m_pTxErrorInfo)
 				*m_pTxErrorInfo << "Shielded inp duplicate";
 			return false;
@@ -4895,6 +5017,9 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedIn
 
 		assert(m_ShieldedIns);
 		m_ShieldedIns--;
+
+		if (IsShieldedLustrationCrossing(krn))
+			HandleLustration(krn.m_pDisclosure->m_Aid, krn.m_pDisclosure->m_Amount, false);
 	}
 
 	return true;
@@ -5208,23 +5333,113 @@ bool NodeProcessor::BlockInterpretCtx::HandleInputDisclose(const Input& v, TxoID
 		amount = v.m_pDisclosure->m_Amount;
 	}
 
-	if (!m_Temporary)
+	if (!HandleLustration(aid, amount, true))
 	{
-		// update counters, check for overflow
+		if (m_pTxErrorInfo)
+			*m_pTxErrorInfo << "input " << v.m_Commitment << " lustration limit exceeded";
+		return false;
+	}
 
-		if (!outp.m_Coinbase)
-		{
-			Serializer ser;
-			ser & *v.m_pDisclosure;
+	if (!m_Temporary && !outp.m_Coinbase)
+	{
+		Serializer ser;
+		ser & *v.m_pDisclosure;
 
-			ByteBuffer buf;
-			ser.swap_buf(buf);
-			Blob blob(buf);
-			m_Proc.m_DB.TxoSetDisclosure(id, &blob);
-		}
+		ByteBuffer buf;
+		ser.swap_buf(buf);
+		Blob blob(buf);
+		m_Proc.m_DB.TxoSetDisclosure(id, &blob);
 	}
 
 	return true;
+}
+
+bool NodeProcessor::BlockInterpretCtx::HandleLustration(Asset::ID aid, Amount amount, bool bFwd)
+{
+	if (!amount || m_SkipLustration)
+		return true; // i.e. decoys
+
+	auto val = MultiWord::From(amount);
+
+	auto it = m_LustrationCache.find(aid);
+	if (m_LustrationCache.end() == it)
+	{
+		it = m_LustrationCache.emplace(aid, LustrationCached()).first;
+		auto& x = it->second;
+
+		NodeDB::LustrationCounter lc;
+		if (m_Proc.m_DB.LustrationGet(aid, lc))
+		{
+			x.m_Total = lc.m_Total.ToNumber();
+			x.m_Consumed = lc.m_Consumed.ToNumber();
+		}
+		else
+		{
+			// unknown asset, nothing is allowed
+			x.m_Total = Zero;
+			x.m_Consumed = Zero;
+		}
+
+		x.m_Consumed0 = x.m_Consumed;
+	}
+
+	auto& x = it->second;
+
+	if (!bFwd)
+	{
+		if (x.m_Consumed < val)
+			OnCorrupted();
+
+		x.m_Consumed -= val;
+		return true;
+	}
+
+	AmountBig::Number valConsumed = x.m_Consumed;
+	valConsumed += val;
+
+	if (valConsumed > x.m_Total)
+	{
+		if (!m_TxValidation)
+		{
+			if (m_pTxErrorInfo)
+				*m_pTxErrorInfo << "lustration limit exceeded, aid=" << aid;
+			return false;
+		}
+
+		m_LustrationExceeded = true; // tx is not rejected
+	}
+
+	x.m_Consumed = valConsumed;
+	return true;
+}
+
+void NodeProcessor::BlockInterpretCtx::LustrationFlush()
+{
+	assert(!m_Temporary);
+
+	for (const auto& [aid, x] : m_LustrationCache)
+	{
+		if (x.m_Consumed == x.m_Consumed0)
+			continue;
+
+		assert(x.m_Total != Zero); // otherwise nothing could be consumed. Rows with zero totals don't exist
+
+		NodeDB::LustrationCounter lc;
+		lc.m_Total.FromNumber(x.m_Total);
+		lc.m_Consumed.FromNumber(x.m_Consumed);
+		m_Proc.m_DB.LustrationSet(aid, lc);
+	}
+
+	m_LustrationCache.clear();
+}
+
+bool NodeProcessor::BlockInterpretCtx::IsShieldedLustrationCrossing(const TxKernelShieldedInput& krn) const
+{
+	// The disclosure is mandatory if the window is entirely within the pre-lustration pool
+	return
+		krn.m_pDisclosure &&
+		(krn.m_WindowEnd <= m_Proc.m_Extra.m_Epoch0.m_Shielded) &&
+		Rules::get().IsPastFork_<7>(m_Height);
 }
 
 void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux& aux)
@@ -5252,7 +5467,19 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 		m_Proc.m_Mapped.m_Utxo.OnDirty();
 	}
 
-	if (!m_Temporary && (aux.m_ID_WithFlags & aux.s_Crossed))
+	if (!(aux.m_ID_WithFlags & aux.s_Crossed))
+		return;
+
+	Asset::ID aid = 0;
+	Amount amount = 0;
+
+	if (m_Temporary && v.m_pDisclosure)
+	{
+		// nothing was saved in temporary mode, the original input is at hand
+		aid = v.m_pDisclosure->m_Aid;
+		amount = v.m_pDisclosure->m_Amount;
+	}
+	else
 	{
 		NodeDB::WalkerTxo wlk;
 		m_Proc.m_DB.TxoGetValue(wlk, id);
@@ -5263,9 +5490,6 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 		Output outp;
 		der & outp;
 
-		Asset::ID aid = 0;
-		Amount amount = 0;
-
 		if (outp.m_Coinbase)
 		{
 			if (!outp.m_pPublic)
@@ -5275,6 +5499,9 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 		}
 		else
 		{
+			if (m_Temporary)
+				OnCorrupted(); // non-coinbase input without disclosure couldn't be interpreted
+
 			m_Proc.m_DB.TxoGetDisclosure(wlk, id);
 			der.reset(wlk.m_Value.p, wlk.m_Value.n);
 
@@ -5286,13 +5513,10 @@ void NodeProcessor::BlockInterpretCtx::UndoInput(const Input& v, const InputAux&
 
 			m_Proc.m_DB.TxoSetDisclosure(id, nullptr);
 		}
-
-		if ((id < m_Proc.m_Extra.m_Epoch0.m_Txos) && Rules::get().IsPastFork_<7>(m_Height))
-		{
-			// TODO: counters
-		}
 	}
 
+	if ((id < m_Proc.m_Extra.m_Epoch0.m_Txos) && Rules::get().IsPastFork_<7>(m_Height))
+		HandleLustration(aid, amount, false);
 }
 
 bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Output& v)
@@ -6991,6 +7215,7 @@ void NodeProcessor::RollbackTo(Block::Number num)
 			bic.m_Rollback.swap(bbR);
 			assert(bbR.empty());
 
+			bic.LustrationFlush();
 			m_DB.MoveBack(sid);
 		}
 
@@ -7009,6 +7234,9 @@ void NodeProcessor::RollbackTo(Block::Number num)
 	m_Mmr.m_States.ShrinkTo(m_Mmr.m_States.N2I(sid.m_Number));
 
 	InitCursor(false, sid);
+
+	if (!Rules::get().IsPastFork_<7>(m_Cursor.m_hh.m_Height + 1))
+		m_DB.LustrationDelAll(); // the snapshot (if taken) refers to the state that's no more valid. Note: inputs created and spent within the rolled-back range aren't undone, so the consumed counters are inaccurate anyway
 
 	if (!bFictive)
 	{
@@ -7601,6 +7829,10 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 
 		msc.MoveToGlobalCache(m_ValCache);
 	}
+
+	if (bic.m_LustrationExceeded)
+		// Don't reject the tx, it must propagate. But it won't be included in a block
+		BEAM_LOG_WARNING() << "Tx exceeds the lustration limit, it won't be mined";
 
 	return proto::TxStatus::Ok;
 }
@@ -8826,6 +9058,7 @@ void NodeProcessor::RebuildNonStd()
 
 			m_pBic->m_pvC = m_pvC;
 			bic.m_AlreadyValidated = true;
+			bic.m_SkipLustration = true;
 			bic.m_Rollback.swap(m_Rollback); // optimization
 
 			Process(v);

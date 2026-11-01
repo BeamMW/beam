@@ -108,6 +108,11 @@ namespace beam {
 #define TblBridge_Key			"Key"
 #define TblBridge_Value			"Value"
 
+#define TblLustration			"Lustration"
+#define TblLustration_Aid		"Aid"
+#define TblLustration_Total		"Total"
+#define TblLustration_Consumed	"Consumed"
+
 #define TblAssets				"Assets"
 #define TblAssets_ID			"ID"
 #define TblAssets_Owner			"Owner"
@@ -744,7 +749,10 @@ void NodeDB::CreateTables37()
 
 void NodeDB::CreateTables38()
 {
-	// TODO: lustration counters
+	ExecQuick("CREATE TABLE [" TblLustration "] ("
+		"[" TblLustration_Aid		"] INTEGER NOT NULL PRIMARY KEY,"
+		"[" TblLustration_Total		"] BLOB NOT NULL,"
+		"[" TblLustration_Consumed	"] BLOB NOT NULL)");
 }
 
 void NodeDB::Vacuum()
@@ -2478,6 +2486,33 @@ void NodeDB::TxoSetDisclosure(TxoID id, const Blob* p)
 	rs.put(1, id);
 	rs.Step();
 	TestChanged1Row();
+}
+
+bool NodeDB::LustrationGet(Asset::ID aid, LustrationCounter& x)
+{
+	Recordset rs(*this, Query::LustrationGet, "SELECT " TblLustration_Total "," TblLustration_Consumed " FROM " TblLustration " WHERE " TblLustration_Aid "=?");
+	rs.put(0, aid);
+	if (!rs.Step())
+		return false;
+
+	rs.get_As(0, x.m_Total);
+	rs.get_As(1, x.m_Consumed);
+	return true;
+}
+
+void NodeDB::LustrationSet(Asset::ID aid, const LustrationCounter& x)
+{
+	Recordset rs(*this, Query::LustrationSet, "INSERT OR REPLACE INTO " TblLustration "(" TblLustration_Aid "," TblLustration_Total "," TblLustration_Consumed ") VALUES(?,?,?)");
+	rs.put(0, aid);
+	rs.put_As(1, x.m_Total);
+	rs.put_As(2, x.m_Consumed);
+	rs.Step();
+}
+
+void NodeDB::LustrationDelAll()
+{
+	Recordset rs(*this, Query::LustrationDelAll, "DELETE FROM " TblLustration);
+	rs.Step();
 }
 
 void NodeDB::TxoGetDisclosure(WalkerTxo& wlk, TxoID id)
