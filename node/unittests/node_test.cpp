@@ -17,6 +17,7 @@
 #include "../node.h"
 #include "../db.h"
 #include "../processor.h"
+#include "../locked_funds.h"
 #include "../bridge.h"
 #include "../../core/fly_client.h"
 #include "../../core/serialization_adapters.h"
@@ -41,6 +42,7 @@ namespace Shaders {
 #	include "../bvm/Shaders/sidechain_pos/contract_l2.h"
 #	include "../bvm/Shaders/pbft/pbft_dpos.h"
 #	include "../bvm/Shaders/pbft/pbft_stat.h"
+#	include "../bvm/Shaders/vault/contract.h"
 } // namespace Shaders
 
 namespace ECC {
@@ -903,6 +905,7 @@ namespace beam
 		struct MyUtxo
 		{
 			CoinID m_Cid;
+			Height m_hCreate = 0;
 		};
 
 		void ToOutput(const MyUtxo& utxo, Transaction& tx, Height h, Height hIncubation) const
@@ -925,12 +928,64 @@ namespace beam
 			CoinID::Worker(utxo.m_Cid).Create(k, comm, *m_pKdf);
 		}
 
-		void ToInput(const MyUtxo& utxo, Transaction& tx) const
+		// lustration test support: the same input with the disclosure toggled, to craft invalid blocks
+		struct AltInput
+		{
+			enum Kind {
+				Strip, // crossing non-coinbase, disclosure removed
+				AddCoinbase, // crossing coinbase, redundant disclosure
+				AddNonCrossing, // doesn't cross, redundant disclosure
+			};
+
+			Input::Ptr m_pInp;
+			Kind m_Kind;
+		};
+
+		std::map<ECC::Point, AltInput>* m_pAltInputs = nullptr;
+		Amount m_CrossingSum = 0; // beams consumed by crossing inputs
+
+		static void AttachDisclosure(Input& inp, const CoinID& cid, const ECC::Scalar::Native& k)
+		{
+			inp.m_pDisclosure = std::make_unique<Disclosure>();
+			inp.m_pDisclosure->m_Amount = cid.m_Value;
+			inp.m_pDisclosure->m_Aid = cid.m_AssetID;
+			inp.m_pDisclosure->Create(k);
+		}
+
+		void ToInput(const MyUtxo& utxo, Transaction& tx, Height hSpend = 0)
 		{
 			ECC::Scalar::Native k;
 			Input::Ptr pInp(new Input);
 
 			ToCommtiment(utxo, pInp->m_Commitment, k);
+
+			// crosses the lustration threshold: non-coinbase must disclose its value
+			const Rules& r = Rules::get();
+			bool bPast7 = r.IsPastFork_<7>(hSpend);
+			bool bCrossing = bPast7 && !r.IsPastFork_<7>(utxo.m_hCreate);
+			bool bCoinbase = (Key::Type::Coinbase == utxo.m_Cid.m_Type);
+			bool bDisclose = bCrossing && !bCoinbase;
+
+			if (bDisclose)
+				AttachDisclosure(*pInp, utxo.m_Cid, k);
+
+			if (bCrossing && !utxo.m_Cid.m_AssetID)
+				m_CrossingSum += utxo.m_Cid.m_Value;
+
+			if (m_pAltInputs && bPast7)
+			{
+				auto& x = (*m_pAltInputs)[pInp->m_Commitment];
+				x.m_pInp = std::make_unique<Input>();
+				x.m_pInp->m_Commitment = pInp->m_Commitment;
+
+				if (bDisclose)
+					x.m_Kind = AltInput::Strip;
+				else
+				{
+					AttachDisclosure(*x.m_pInp, utxo.m_Cid, k);
+					x.m_Kind = bCrossing ? AltInput::AddCoinbase : AltInput::AddNonCrossing;
+				}
+			}
 
 			tx.m_vInputs.push_back(std::move(pInp));
 			UpdateOffset(tx, k, false);
@@ -960,7 +1015,10 @@ namespace beam
 			if (Key::Type::Coinbase == cid.m_Type)
 				h += Rules::get().Maturity.Coinbase;
 
-			return AddMyUtxo(cid, h);
+			const MyUtxo* pRet = AddMyUtxo(cid, h);
+			if (pRet)
+				const_cast<MyUtxo*>(pRet)->m_hCreate = cid.m_Idx;
+			return pRet;
 		}
 
 		struct MyKernel
@@ -1040,7 +1098,7 @@ namespace beam
 			const MyUtxo& utxo = it->second;
 			assert(utxo.m_Cid.m_Value);
 
-			ToInput(utxo, *pTx);
+			ToInput(utxo, *pTx, h + 1);
 
 			Amount ret = utxo.m_Cid.m_Value;
 			m_MyUtxos.erase(it);
@@ -1084,6 +1142,7 @@ namespace beam
 				utxoOut.m_Cid.m_Idx = ++m_nRunningIndex;
 				utxoOut.m_Cid.set_Subkey(0);
 				utxoOut.m_Cid.m_Type = Key::Type::Regular;
+				utxoOut.m_hCreate = h + 1;
 
 				ToOutput(utxoOut, tx, h, hIncubation);
 
@@ -1626,6 +1685,1143 @@ namespace beam
 		np.TryGoUp();
 		verify_test(!np.IsFastSync());
 		verify_test(np.m_Cursor.m_Full.m_Number.v == blockChain.size());
+	}
+
+	namespace bvm2
+	{
+		void Compile(ByteBuffer& res, const char* sz, Processor::Kind kind);
+	}
+
+	struct LustrationTest
+	{
+		// Txos and shielded elements created before the lustration threshold, and spent after it.
+		// Covers:
+		//	- snapshot: exact totals (emission, treasury, asset deposit, asset emission, funds locked in a contract), retaken after reorgs and restarts
+		//	- MW inputs: disclosure required iff crossing and not a coinbase. Crafted invalid blocks: missing/redundant/forged disclosures.
+		//	  Coin of an asset unknown at the threshold (as if forged): nothing allowed, zero-value decoys are ok
+		//	- shielded inputs: disclosure required iff the window is within the pre-lustration pool, no mixing of the pools, redundant disclosure
+		//	- counters: block interpretation (incl. a block exceeding the limit), tx validation (not rejected), block generation (tx not mined),
+		//	  rollback (below/exactly at the threshold), reorg to another branch, restart, non-std rebuild
+		//	- fast-sync: from a full node, from a pruned node, 2nd generation (from a node that fast-synced itself), invalid sparse blocks
+
+		Rules& m_Rules;
+		const Height m_h7 = 40;
+		const Height m_hTip = 80;
+		const Height m_hIncubation = 3;
+
+		LustrationTest(Rules& r) :m_Rules(r) {}
+
+		std::vector<BlockPlus::Ptr> m_vBlocks;
+
+		Asset::ID m_Aid = 0;
+		static const Asset::ID s_AidUnknown = 777;
+
+		struct Counters
+		{
+			static const uint32_t s_Count = 3; // beam, our asset, unknown asset
+			bool m_pExists[s_Count];
+			NodeDB::LustrationCounter m_pVal[s_Count];
+
+			bool operator == (const Counters& x) const
+			{
+				for (uint32_t i = 0; i < s_Count; i++)
+				{
+					if (m_pExists[i] != x.m_pExists[i])
+						return false;
+					if (m_pExists[i] && ((m_pVal[i].m_Total != x.m_pVal[i].m_Total) || (m_pVal[i].m_Consumed != x.m_pVal[i].m_Consumed)))
+						return false;
+				}
+				return true;
+			}
+		};
+
+		std::vector<Counters> m_vCounters; // per height, of the main chain
+
+		Counters ReadCounters(NodeProcessor& np) const
+		{
+			Counters ret;
+			const Asset::ID pAid[Counters::s_Count] = { 0, m_Aid, s_AidUnknown };
+			for (uint32_t i = 0; i < Counters::s_Count; i++)
+				ret.m_pExists[i] = np.get_DB().LustrationGet(pAid[i], ret.m_pVal[i]);
+			return ret;
+		}
+
+		// leave only the beam counter, i.e. our asset becomes unknown wrt lustration. Returns what to restore
+		Counters RemoveAssetCounter(NodeProcessor& np) const
+		{
+			Counters c = ReadCounters(np);
+			verify_test(c.m_pExists[0] && c.m_pExists[1]);
+
+			np.get_DB().LustrationDelAll();
+			np.get_DB().LustrationSet(0, c.m_pVal[0]);
+			return c;
+		}
+
+		void RestoreCounters(NodeProcessor& np, const Counters& c) const
+		{
+			const Asset::ID pAid[Counters::s_Count] = { 0, m_Aid, s_AidUnknown };
+			for (uint32_t i = 0; i < Counters::s_Count; i++)
+				if (c.m_pExists[i])
+					np.get_DB().LustrationSet(pAid[i], c.m_pVal[i]);
+		}
+
+		static void DeleteDB(const char* sz)
+		{
+			DeleteFile(sz);
+			std::string s;
+			NodeProcessor::get_MappingPath(s, sz);
+			DeleteFile(s.c_str());
+		}
+
+		/////////////////////////////
+		// txs
+		static uint8_t ValidateTx(NodeProcessor& np, const Transaction& tx)
+		{
+			HeightRange hr(np.m_Cursor.m_hh.m_Height + 1, MaxHeight);
+			uint32_t nBvmCharge = 0;
+			return np.ValidateTxContextEx(tx, hr, false, nBvmCharge, nullptr, nullptr, nullptr);
+		}
+
+		static TxPool::Fluff::Element* AddTx(MyNodeProcessor1& np, Transaction::Ptr&& pTx)
+		{
+			verify_test(proto::TxStatus::Ok == ValidateTx(np, *pTx));
+
+			Transaction::Context ctx;
+			ctx.m_Height.m_Min = np.m_Cursor.m_hh.m_Height + 1; // not limited from above, txs may be mined later
+			verify_test(pTx->IsValid(ctx));
+
+			Transaction::KeyType key;
+			pTx->get_Key(key);
+
+			TxPool::Stats stats;
+			stats.From(*pTx, ctx, 0, 0);
+
+			return np.m_TxPool.AddValidTx(std::move(pTx), stats, key, TxPool::Fluff::State::Fluffed);
+		}
+
+		static void TestTxRejected(NodeProcessor& np, const Transaction::Ptr& pTx)
+		{
+			verify_test(proto::TxStatus::Ok != ValidateTx(np, *pTx));
+		}
+
+		struct ShieldedCoin
+		{
+			ShieldedTxo::Data::Params m_Params;
+			ECC::Scalar::Native m_skSpend;
+			TxoID m_ID = MaxHeight;
+		};
+
+		static Transaction::Ptr MakeShieldedOutput(MiniWallet& w, Height h, ShieldedCoin& sc, uint32_t nNonce)
+		{
+			Transaction::Ptr pTx;
+			Amount val = w.MakeTxInput(pTx, h);
+			verify_test(val);
+
+			auto& fs = Transaction::FeeSettings::get(h + 1);
+			Amount fee = fs.get_DefaultStd() + fs.m_ShieldedOutputTotal;
+			verify_test(val > fee);
+
+			ShieldedTxo::Data::Params& sdp = sc.m_Params;
+			sdp.m_Output.m_Value = val - fee;
+			sdp.m_Output.m_AssetID = 0;
+			ZeroObject(sdp.m_Output.m_User);
+
+			TxKernelShieldedOutput::Ptr pKrn(new TxKernelShieldedOutput);
+			pKrn->m_Height.m_Min = h + 1;
+			pKrn->m_Fee = fee;
+
+			ShieldedTxo::Viewer viewer;
+			viewer.FromOwner(*w.m_pKdf, 0);
+
+			ShieldedTxo::Data::TicketParams sp;
+			sp.Generate(pKrn->m_Txo.m_Ticket, viewer, nNonce);
+			sdp.m_Ticket = sp;
+
+			ECC::Oracle oracle;
+			oracle << pKrn->get_Msg();
+			sdp.GenerateOutp(pKrn->m_Txo, h + 1, oracle);
+
+			Key::IKdf::Ptr pSerPrivate;
+			ShieldedTxo::Viewer::GenerateSerPrivate(pSerPrivate, *w.m_pKdf, 0);
+			pSerPrivate->DeriveKey(sc.m_skSpend, sdp.m_Ticket.m_SerialPreimage);
+
+			verify_test(pKrn->IsValid(h + 1));
+
+			pTx->m_vKernels.push_back(std::move(pKrn));
+			w.UpdateOffset(*pTx, sdp.m_Output.m_k, true);
+
+			pTx->Normalize();
+			return pTx;
+		}
+
+		// idMin: the elements below it are zeroed in the prover's list (i.e. what the prover believes is the anonymity set)
+		static Transaction::Ptr MakeShieldedSpend(NodeProcessor& np, MiniWallet& w, const ShieldedCoin& sc, TxoID wndEnd, TxoID idMin, bool bDisclose, Height h)
+		{
+			const Lelantus::Cfg& cfg = Rules::get().Shielded.m_ProofMax;
+			uint32_t N = cfg.get_N();
+
+			verify_test((sc.m_ID >= idMin) && (sc.m_ID < wndEnd) && (wndEnd <= N)); // our pool is tiny
+
+			Lelantus::CmListVec lst;
+			lst.m_vec.resize(N);
+			for (auto& v : lst.m_vec)
+			{
+				v.m_X = Zero;
+				v.m_Y = Zero;
+			}
+			np.get_DB().ShieldedRead(idMin, &lst.m_vec[N - wndEnd + idMin], wndEnd - idMin);
+
+			TxKernelShieldedInput::Ptr pKrn(new TxKernelShieldedInput);
+			pKrn->m_Height.m_Min = h + 1;
+			pKrn->m_WindowEnd = wndEnd;
+			pKrn->m_SpendProof.m_Cfg = cfg;
+			np.get_DB().ShieldedStateRead(wndEnd - 1, &pKrn->m_NotSerialized.m_hvShieldedState, 1);
+
+			Lelantus::Prover p(lst, pKrn->m_SpendProof);
+			p.m_Witness.m_L = static_cast<uint32_t>(N - wndEnd + sc.m_ID);
+			p.m_Witness.m_R = sc.m_Params.m_Ticket.m_pK[0] + sc.m_Params.m_Output.m_k; // total blinding factor of the shielded element
+			p.m_Witness.m_SpendSk = sc.m_skSpend;
+			p.m_Witness.m_V = sc.m_Params.m_Output.m_Value;
+
+			pKrn->Sign(p, 0, bDisclose);
+			verify_test(!pKrn->m_pDisclosure == !bDisclose);
+
+			auto& fs = Transaction::FeeSettings::get(h + 1);
+			Amount fee = fs.get_DefaultStd() + fs.m_ShieldedInputTotal;
+
+			Transaction::Ptr pTx = std::make_shared<Transaction>();
+			pTx->m_Offset = Zero;
+			pTx->m_vKernels.push_back(std::move(pKrn));
+			w.UpdateOffset(*pTx, p.m_Witness.m_R_Output, false);
+
+			w.MakeTxOutput(*pTx, h, 0, sc.m_Params.m_Output.m_Value, fee);
+			return pTx;
+		}
+
+		/////////////////////////////
+		// blocks
+		static void ReadPerishable(const ByteBuffer& bb, Block::BodyBase& bbb, TxVectors::Perishable& txvp)
+		{
+			Deserializer der;
+			der.reset(bb);
+			der & bbb;
+			der & txvp;
+		}
+
+		static void WritePerishable(ByteBuffer& bb, Block::BodyBase& bbb, TxVectors::Perishable& txvp)
+		{
+			Serializer ser;
+			ser & bbb;
+			ser & txvp;
+			ser.swap_buf(bb);
+		}
+
+		void FeedRange(NodeProcessor& np, Height h0, Height h1) const
+		{
+			for (Height h = h0; h <= h1; h++)
+			{
+				const BlockPlus& bp = *m_vBlocks[h - 1];
+				np.OnState(bp.m_Hdr, PeerID());
+
+				Block::SystemState::ID id;
+				bp.m_Hdr.get_ID(id);
+				np.OnBlock(id, bp.m_Body.m_Perishable, bp.m_Body.m_Eternal, PeerID());
+			}
+		}
+
+		void FeedUpTo(NodeProcessor& np, Height h1) const
+		{
+			FeedRange(np, np.m_Cursor.m_hh.m_Height + 1, h1);
+			np.TryGoUp();
+			verify_test(np.m_Cursor.m_hh.m_Height == h1);
+		}
+
+		// the block (with the header already known) must be rejected without any effect. Then the valid body may be fed for the same header
+		void TestBadBody(NodeProcessor& np, const Block::SystemState::ID& id, const ByteBuffer& bbP, const ByteBuffer& bbE) const
+		{
+			Height h = np.m_Cursor.m_hh.m_Height;
+			Counters c0 = ReadCounters(np);
+
+			verify_test(np.OnBlock(id, bbP, bbE, PeerID()) == NodeProcessor::DataStatus::Accepted);
+			np.TryGoUp();
+
+			verify_test(np.m_Cursor.m_hh.m_Height == h);
+			verify_test(ReadCounters(np) == c0);
+		}
+
+		std::map<ECC::Point, MiniWallet::AltInput> m_mapAlt;
+		uint32_t m_pTampered[4] = { 0 }; // per AltInput::Kind, and forged disclosure
+
+		void TestTamperedInputs(NodeProcessor& np, const Block::SystemState::ID& id, const proto::BodyBuffers& body)
+		{
+			Block::BodyBase bbb;
+			TxVectors::Perishable txvp;
+			ReadPerishable(body.m_Perishable, bbb, txvp);
+
+			for (uint32_t iKind = 0; iKind < _countof(m_pTampered); iKind++)
+			{
+				if (m_pTampered[iKind])
+					continue;
+
+				for (size_t i = 0; i < txvp.m_vInputs.size(); i++)
+				{
+					const Input& inp = *txvp.m_vInputs[i];
+					Input::Ptr pAlt;
+
+					if (iKind < 3)
+					{
+						auto it = m_mapAlt.find(inp.m_Commitment);
+						if ((m_mapAlt.end() == it) || (static_cast<uint32_t>(it->second.m_Kind) != iKind))
+							continue;
+						pAlt = std::make_unique<Input>(*it->second.m_pInp);
+					}
+					else
+					{
+						if (!inp.m_pDisclosure)
+							continue;
+						pAlt = std::make_unique<Input>(inp);
+						pAlt->m_pDisclosure->m_Amount++; // forged, the signature doesn't match
+					}
+
+					ByteBuffer bbP;
+					std::swap(txvp.m_vInputs[i], pAlt);
+					WritePerishable(bbP, bbb, txvp);
+					std::swap(txvp.m_vInputs[i], pAlt);
+
+					TestBadBody(np, id, bbP, body.m_Eternal);
+					m_pTampered[iKind]++;
+					break;
+				}
+			}
+		}
+
+		bool TestTamperedShielded(NodeProcessor& np, const Block::SystemState::ID& id, const proto::BodyBuffers& body) const
+		{
+			TxVectors::Eternal txve;
+			{
+				Deserializer der;
+				der.reset(body.m_Eternal);
+				der & txve;
+			}
+
+			for (auto& pKrn : txve.m_vKernels)
+			{
+				if (TxKernel::Subtype::ShieldedInput != pKrn->get_Subtype())
+					continue;
+
+				auto& krn = Cast::Up<TxKernelShieldedInput>(*pKrn);
+				if (!krn.m_pDisclosure)
+					continue;
+
+				// strip it. The kernel ID doesn't depend on it, the block is invalid only due to the missing disclosure
+				krn.m_pDisclosure.reset();
+
+				Serializer ser;
+				ser & txve;
+				ByteBuffer bbE;
+				ser.swap_buf(bbE);
+
+				TestBadBody(np, id, body.m_Perishable, bbE);
+				return true;
+			}
+
+			return false;
+		}
+
+		void ReturnTo(NodeProcessor& np, Block::Number numRolledBack, Height h) const
+		{
+			// return to the same branch, after manual rollback
+			Block::SystemState::ID idRet;
+			m_vBlocks[numRolledBack.v]->m_Hdr.get_ID(idRet); // the next block, forbidden by the manual rollback
+			np.ManualSelect(idRet);
+			np.TryGoUp();
+			verify_test(np.m_Cursor.m_hh.m_Height == h);
+		}
+
+		/////////////////////////////
+		// main chain
+		void RunMain()
+		{
+			MyNodeProcessor1 np;
+			np.m_Horizon.m_Branching = 35;
+			np.Initialize(g_sz);
+			np.OnTreasury(g_Treasury);
+
+			MiniWallet& w = np.m_Wallet;
+			w.m_pAltInputs = &m_mapAlt;
+
+			const Height hShielded1 = 20; // pre-lustration shielded element
+			const Height hAssetCreate = 25;
+			const Height hAssetEmit = 28;
+			const Height hVaultCreate = 30;
+			const Height hVaultDeposit = 31; // funds locked in a contract
+			const Height hZero = 33; // zero-value txo, spent with a decoy disclosure
+			const Height hShielded2 = m_h7; // post-lustration shielded element
+			const Height hSpendS1 = m_h7 + 1;
+			const Height hSpendS2 = m_h7 + 2;
+			const Height hSpendAsset = m_h7 + 1;
+			const Height hOverLimit = m_h7 + 4; // incoming block exceeds the limit
+			const Height hRollback1 = m_h7 + 5;
+			const Height hRollback2 = m_h7 + 6;
+			const Height hExhaust = m_h7 + 8; // the limit is exhausted: txs are accepted, but not mined
+
+			const Amount nVault = 700000;
+			const Amount nAssetValue = 100500;
+			Amount nDeposit = 0;
+
+			Asset::Metadata md;
+			md.m_Value.assign(3, 'x');
+			md.UpdateHash();
+
+			ContractID cidVault;
+			ShieldedCoin s1, s2;
+			MiniWallet::MyUtxo utxoAsset, utxoZero;
+
+			AmountBig::Number valExpected = Zero; // beams consumed by crossing txos and shielded
+			AmountBig::Number valExhausted = Zero;
+			AmountBig::Number valAssetExpected = Zero;
+			NodeDB::LustrationCounter lcSaved;
+
+			m_vCounters.resize(m_hTip + 1);
+
+			for (Height h = 1; h <= m_hTip; h++)
+			{
+				const Height hPrev = h - 1;
+				verify_test(np.m_Cursor.m_hh.m_Height == hPrev);
+
+				w.m_CrossingSum = 0;
+				AmountBig::Number valIter = Zero;
+				TxPool::Fluff::Element* pAssetElem = nullptr;
+
+				bool bExhaust = (h == hExhaust);
+				if (bExhaust)
+				{
+					verify_test(np.get_DB().LustrationGet(0, lcSaved));
+
+					NodeDB::LustrationCounter lcX = lcSaved;
+					lcX.m_Total = lcX.m_Consumed;
+					np.get_DB().LustrationSet(0, lcX);
+				}
+
+				std::vector<TxPool::Fluff::Element*> vExhausted;
+				w.m_AutoAddTxOutputs = !bExhaust; // those txs will be mined later than expected, don't track their outputs
+
+				if (h == hShielded1)
+					AddTx(np, MakeShieldedOutput(w, hPrev, s1, 13U));
+				if (h == hShielded2)
+					AddTx(np, MakeShieldedOutput(w, hPrev, s2, 14U));
+
+				if (h == hAssetCreate)
+				{
+					Transaction::Ptr pTx;
+					Amount val = w.MakeTxInput(pTx, hPrev);
+
+					const Amount nFee = 330;
+					nDeposit = Rules::get().get_DepositForCA(h);
+					verify_test(val > nDeposit + nFee);
+
+					ECC::Scalar::Native sk;
+					ECC::SetRandom(sk);
+
+					TxKernelAssetCreate::Ptr pKrn(new TxKernelAssetCreate);
+					pKrn->m_Fee = nFee;
+					pKrn->m_Height.m_Min = h;
+					pKrn->m_MetaData = md;
+					pKrn->Sign(sk, *w.m_pKdf);
+
+					pTx->m_vKernels.push_back(std::move(pKrn));
+					w.UpdateOffset(*pTx, sk, true);
+
+					w.MakeTxOutput(*pTx, hPrev, m_hIncubation, val - nDeposit - nFee);
+					AddTx(np, std::move(pTx));
+				}
+
+				if (h == hAssetEmit)
+				{
+					Transaction::Ptr pTx;
+					Amount val = w.MakeTxInput(pTx, hPrev);
+
+					const Amount nFee = 300;
+					ECC::Scalar::Native sk;
+					ECC::SetRandom(sk);
+
+					TxKernelAssetEmit::Ptr pKrn(new TxKernelAssetEmit);
+					pKrn->m_AssetID = m_Aid;
+					pKrn->m_Fee = nFee;
+					pKrn->m_Value = nAssetValue;
+					pKrn->m_Height.m_Min = h;
+					pKrn->Sign(sk, *w.m_pKdf, md);
+
+					pTx->m_vKernels.push_back(std::move(pKrn));
+					w.UpdateOffset(*pTx, sk, true);
+
+					utxoAsset.m_Cid = CoinID(nAssetValue, ++w.m_nRunningIndex, Key::Type::Regular);
+					utxoAsset.m_Cid.m_AssetID = m_Aid;
+					utxoAsset.m_hCreate = h;
+					w.ToOutput(utxoAsset, *pTx, hPrev, 0);
+
+					w.MakeTxOutput(*pTx, hPrev, m_hIncubation, val - nFee);
+					AddTx(np, std::move(pTx));
+				}
+
+				if ((h == hVaultCreate) || (h == hVaultDeposit))
+				{
+					Transaction::Ptr pTx;
+					Amount val = w.MakeTxInput(pTx, hPrev);
+
+					ECC::Scalar::Native sk;
+					sk.GenRandomNnz();
+					ECC::Point::Native ptFunds(Zero);
+
+					if (h == hVaultCreate)
+					{
+						auto pKrn = std::make_unique<TxKernelContractCreate>();
+						bvm2::Compile(pKrn->m_Data, "vault/contract.wasm", bvm2::Processor::Kind::Contract);
+						pKrn->m_Height.m_Min = h;
+						pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+						bvm2::get_Cid(cidVault, pKrn->m_Data, pKrn->m_Args);
+						pTx->m_vKernels.push_back(std::move(pKrn));
+					}
+					else
+					{
+						auto pKrn = std::make_unique<TxKernelContractInvoke>();
+						pKrn->m_Cid = cidVault;
+						pKrn->m_iMethod = Shaders::Vault::Deposit::s_iMethod;
+						pKrn->m_Args.resize(sizeof(Shaders::Vault::Deposit));
+
+						auto& args = *reinterpret_cast<Shaders::Vault::Deposit*>(&pKrn->m_Args.front());
+						ZeroObject(args);
+						args.m_Amount = nVault;
+
+						pKrn->m_Height.m_Min = h;
+
+						CoinID::Generator(0).AddValue(ptFunds, nVault);
+						pKrn->Sign(&sk, 1, ptFunds, nullptr);
+
+						pTx->m_vKernels.push_back(std::move(pKrn));
+						val -= nVault;
+					}
+
+					w.UpdateOffset(*pTx, sk, true);
+					w.MakeTxOutput(*pTx, hPrev, m_hIncubation, val);
+					AddTx(np, std::move(pTx));
+				}
+
+				if (h == hZero)
+				{
+					Transaction::Ptr pTx;
+					Amount val = w.MakeTxInput(pTx, hPrev);
+
+					utxoZero.m_Cid = CoinID(0, ++w.m_nRunningIndex, Key::Type::Regular);
+					utxoZero.m_hCreate = h;
+
+					// confidential, public rangeproof doesn't support zero value
+					ECC::Scalar::Native k;
+					Output::Ptr pOut(new Output);
+					pOut->Create(h, k, *w.m_pKdf, utxoZero.m_Cid, *w.m_pKdf, Output::OpCode::Standard);
+					pTx->m_vOutputs.push_back(std::move(pOut));
+					w.UpdateOffset(*pTx, k, true);
+
+					w.MakeTxOutput(*pTx, hPrev, m_hIncubation, val);
+					AddTx(np, std::move(pTx));
+				}
+
+				if (h == hSpendS1)
+				{
+					TxoID rubicon = np.m_Extra.m_Epoch0.m_Shielded;
+					verify_test(rubicon == s1.m_ID + 1);
+					verify_test(s2.m_ID == rubicon);
+
+					w.m_AutoAddTxOutputs = false; // the following are rejected
+					// window crosses the rubicon: it's restricted to the post-lustration pool, the pre-lustration element isn't in the anonymity set
+					TestTxRejected(np, MakeShieldedSpend(np, w, s1, rubicon + 1, 0, false, hPrev));
+					// same + redundant disclosure
+					TestTxRejected(np, MakeShieldedSpend(np, w, s1, rubicon + 1, 0, true, hPrev));
+					// window within the pre-lustration pool, missing disclosure
+					TestTxRejected(np, MakeShieldedSpend(np, w, s1, rubicon, 0, false, hPrev));
+					w.m_AutoAddTxOutputs = true;
+
+					AddTx(np, MakeShieldedSpend(np, w, s1, rubicon, 0, true, hPrev));
+					valIter += MultiWord::From(s1.m_Params.m_Output.m_Value);
+				}
+
+				if (h == hSpendS2)
+				{
+					TxoID rubicon = np.m_Extra.m_Epoch0.m_Shielded;
+
+					w.m_AutoAddTxOutputs = false; // the following are rejected
+					// post-lustration element, redundant disclosure
+					TestTxRejected(np, MakeShieldedSpend(np, w, s2, s2.m_ID + 1, rubicon, true, hPrev));
+					// double-spend of the crossing element
+					TestTxRejected(np, MakeShieldedSpend(np, w, s1, rubicon, 0, true, hPrev));
+					w.m_AutoAddTxOutputs = true;
+
+					AddTx(np, MakeShieldedSpend(np, w, s2, s2.m_ID + 1, rubicon, false, hPrev)); // not counted
+				}
+
+				if (h == hSpendAsset)
+				{
+					Transaction::Ptr pTx;
+					Amount val = w.MakeTxInput(pTx, hPrev);
+
+					// asset txo crosses: disclosure with its asset
+					w.ToInput(utxoAsset, *pTx, h);
+
+					MiniWallet::MyUtxo utxoAsset2 = utxoAsset;
+					utxoAsset2.m_Cid.m_Idx = ++w.m_nRunningIndex;
+					utxoAsset2.m_hCreate = h;
+					w.ToOutput(utxoAsset2, *pTx, hPrev, 0);
+
+					{
+						// zero-value txo: a disclosure with an arbitrary (unknown) asset is ok, it's a decoy
+						ECC::Scalar::Native k;
+						Input::Ptr pInp(new Input);
+						w.ToCommtiment(utxoZero, pInp->m_Commitment, k);
+
+						pInp->m_pDisclosure = std::make_unique<Disclosure>();
+						pInp->m_pDisclosure->m_Amount = 0;
+						pInp->m_pDisclosure->m_Aid = s_AidUnknown;
+						pInp->m_pDisclosure->Create(k);
+
+						pTx->m_vInputs.push_back(std::move(pInp));
+						w.UpdateOffset(*pTx, k, false);
+					}
+
+					w.MakeTxOutput(*pTx, hPrev, m_hIncubation, val);
+					pAssetElem = AddTx(np, std::move(pTx));
+
+					valAssetExpected += MultiWord::From(nAssetValue);
+				}
+
+				while (true)
+				{
+					Transaction::Ptr pTx;
+					if (!w.MakeTx(pTx, hPrev, m_hIncubation))
+						break;
+
+					auto* pElem = AddTx(np, std::move(pTx));
+					if (bExhaust)
+						vExhausted.push_back(pElem);
+				}
+
+				if (h == hSpendAsset)
+				{
+					// As if the asset coin was forged (e.g. a pair of positive+negative coins via a rangeproof exploit): the asset is unknown at the threshold.
+					// Nonzero disclosure: the tx isn't rejected (must propagate), but isn't mined
+					verify_test(pAssetElem);
+					Counters c0 = RemoveAssetCounter(np);
+
+					verify_test(proto::TxStatus::Ok == ValidateTx(np, *pAssetElem->m_pValue));
+
+					NodeProcessor::BlockContext bcX(np.m_TxPool, 0, *w.m_pKdf, *w.m_pKdf);
+					verify_test(np.GenerateNewBlock(bcX));
+					verify_test(TxPool::Fluff::State::Outdated == pAssetElem->m_State);
+					np.m_TxPool.SetState(*pAssetElem, TxPool::Fluff::State::Fluffed); // revive
+
+					RestoreCounters(np, c0);
+				}
+
+				NodeProcessor::BlockContext bc(np.m_TxPool, 0, *w.m_pKdf, *w.m_pKdf);
+				verify_test(np.GenerateNewBlock(bc));
+
+				np.OnState(bc.m_Hdr, PeerID());
+
+				Block::SystemState::ID id;
+				bc.m_Hdr.get_ID(id);
+
+				if (h >= m_h7)
+				{
+					// crafted invalid variants of this block
+					TestTamperedInputs(np, id, bc.m_Body);
+
+					if (h == hSpendS1)
+						verify_test(TestTamperedShielded(np, id, bc.m_Body));
+
+					if (h == hSpendAsset)
+					{
+						// the block with the spend of the "forged" (unknown asset) coin must be rejected, and no counter created
+						Counters c0 = RemoveAssetCounter(np);
+						TestBadBody(np, id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal);
+						RestoreCounters(np, c0);
+					}
+
+					if (h == hOverLimit)
+					{
+						// the limit allows all but the last crossing input. The block must be rejected, nothing saved
+						verify_test(w.m_CrossingSum > 1);
+
+						NodeDB::LustrationCounter lc, lcX;
+						verify_test(np.get_DB().LustrationGet(0, lc));
+
+						lcX = lc;
+						AmountBig::Number val = lc.m_Consumed.ToNumber();
+						val += MultiWord::From(w.m_CrossingSum - 1);
+						lcX.m_Total.FromNumber(val);
+						np.get_DB().LustrationSet(0, lcX);
+
+						TestBadBody(np, id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal);
+
+						np.get_DB().LustrationSet(0, lc);
+					}
+				}
+
+				TxoID nShieldedOuts = np.m_Extra.m_ShieldedOutputs;
+
+				verify_test(np.OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID()) == NodeProcessor::DataStatus::Accepted);
+				np.TryGoUp();
+				verify_test(np.m_Cursor.m_hh.m_Height == h);
+
+				if (h == hShielded1)
+					s1.m_ID = nShieldedOuts;
+				if (h == hShielded2)
+					s2.m_ID = nShieldedOuts;
+
+				if (h == hAssetCreate)
+				{
+					Asset::Full ai;
+					ai.m_ID = 0;
+					verify_test(np.get_DB().AssetGetNext(ai));
+					m_Aid = ai.m_ID;
+					verify_test(ai.m_Deposit == nDeposit);
+				}
+
+				if (bExhaust)
+				{
+					// the block builder rejects txs that exceed the limit. Revive them, so that they're mined in the next block
+					uint32_t nRejected = 0;
+					for (auto* pElem : vExhausted)
+					{
+						if (TxPool::Fluff::State::Outdated == pElem->m_State)
+						{
+							np.m_TxPool.SetState(*pElem, TxPool::Fluff::State::Fluffed);
+							nRejected++;
+						}
+					}
+					verify_test(nRejected > 0);
+				}
+
+				if (Rules::get().IsPastFork_<6>(h))
+					w.AddMyUtxo(CoinID(Rules::get().get_Emission(h) + bc.m_Fees, h, Key::Type::Coinbase)); // fees are merged into the coinbase
+				else
+				{
+					w.AddMyUtxo(CoinID(bc.m_Fees, h, Key::Type::Comission));
+					w.AddMyUtxo(CoinID(Rules::get().get_Emission(h), h, Key::Type::Coinbase));
+				}
+
+				BlockPlus::Ptr pBlock(new BlockPlus);
+				pBlock->m_Hdr = std::move(bc.m_Hdr);
+				pBlock->m_Body = std::move(bc.m_Body);
+				m_vBlocks.push_back(std::move(pBlock));
+
+				// counters
+				valIter += MultiWord::From(w.m_CrossingSum);
+				if (bExhaust)
+					valExhausted = valIter;
+				else
+				{
+					valExpected += valIter;
+					valExpected += valExhausted;
+					valExhausted = Zero;
+				}
+
+				Counters c = ReadCounters(np);
+				verify_test(c.m_pExists[0] == (h + 1 >= m_h7)); // taken when the state is the last before the threshold
+				verify_test(!c.m_pExists[2]); // decoys aren't counted
+
+				if (h + 1 == m_h7)
+				{
+					// exact totals
+					AmountBig::Number valExp;
+					Rules::get().get_Emission(valExp, HeightRange(1, h));
+
+					Treasury::Data td;
+					verify_test(NodeProcessor::ExtractTreasury(g_Treasury, td));
+					for (const auto& g : td.m_vGroups)
+						if (!g.m_Aid)
+							valExp += g.m_Value;
+
+					verify_test(nDeposit);
+					valExp -= MultiWord::From(nDeposit); // locked system-wide
+					valExp -= MultiWord::From(nVault); // locked in the contract
+
+					verify_test(c.m_pVal[0].m_Total.ToNumber() == valExp);
+
+					AmountBig::Number valLocked, valVault;
+					valVault = nVault;
+					verify_test(LockedFunds::Find(np.get_DB(), cidVault, 0, valLocked));
+					verify_test(valLocked == valVault);
+
+					AmountBig::Number valAsset;
+					valAsset = nAssetValue;
+
+					verify_test(c.m_pExists[1]);
+					verify_test(c.m_pVal[1].m_Total.ToNumber() == valAsset);
+				}
+
+				if (h >= m_h7)
+				{
+					if (bExhaust)
+					{
+						verify_test(c.m_pVal[0].m_Consumed == lcSaved.m_Consumed); // no crossing txos were mined
+
+						c.m_pVal[0].m_Total = lcSaved.m_Total; // restore
+						np.get_DB().LustrationSet(0, c.m_pVal[0]);
+					}
+
+					verify_test(c.m_pVal[0].m_Consumed.ToNumber() == valExpected);
+					verify_test(c.m_pExists[1]);
+					verify_test(c.m_pVal[1].m_Consumed.ToNumber() == valAssetExpected);
+				}
+				else
+				{
+					verify_test(!c.m_pExists[1] || (c.m_pVal[1].m_Consumed == Zero));
+					verify_test(!c.m_pExists[0] || (c.m_pVal[0].m_Consumed == Zero));
+				}
+
+				if (h == hRollback1)
+				{
+					// below the threshold: the snapshot is erased, and retaken when crossed again
+					np.ManualRollbackTo(Block::Number(m_h7 - 3));
+					verify_test(np.m_Cursor.m_Full.m_Number.v == m_h7 - 3);
+
+					Counters c2 = ReadCounters(np);
+					verify_test(!c2.m_pExists[0] && !c2.m_pExists[1]);
+
+					ReturnTo(np, Block::Number(m_h7 - 3), h);
+					verify_test(ReadCounters(np) == c);
+				}
+
+				if (h == hRollback2)
+				{
+					// exactly to the last pre-threshold state: the snapshot is kept, all the consumption is undone
+					np.ManualRollbackTo(Block::Number(m_h7 - 1));
+					verify_test(np.m_Cursor.m_Full.m_Number.v == m_h7 - 1);
+					verify_test(ReadCounters(np) == m_vCounters[m_h7 - 1]);
+
+					ReturnTo(np, Block::Number(m_h7 - 1), h);
+					verify_test(ReadCounters(np) == c);
+				}
+
+				m_vCounters[h] = c;
+			}
+
+			for (uint32_t i = 0; i < _countof(m_pTampered); i++)
+				verify_test(m_pTampered[i]); // all the variants were tested
+		}
+
+		/////////////////////////////
+		void TestRebuild()
+		{
+			// non-std data rebuild replays the kernels (incl. crossing shielded inputs), the counters must not be affected.
+			// The limit is exhausted, so that counting again would fail
+			Counters c = m_vCounters[m_hTip];
+			verify_test(c.m_pExists[0]);
+			c.m_pVal[0].m_Total = c.m_pVal[0].m_Consumed;
+
+			{
+				NodeDB db;
+				db.Open(g_sz);
+				db.ParamIntSet(NodeDB::ParamID::Flags1, NodeDB::Flags1::PendingRebuildNonStd);
+				db.LustrationSet(0, c.m_pVal[0]);
+			}
+
+			NodeProcessor np;
+			np.Initialize(g_sz);
+			verify_test(np.m_Cursor.m_hh.m_Height == m_hTip);
+			verify_test(ReadCounters(np) == c);
+
+			np.get_DB().LustrationSet(0, m_vCounters[m_hTip].m_pVal[0]); // restore
+		}
+
+		/////////////////////////////
+		void TestReplay()
+		{
+			// another node: restarts, reorg across the threshold
+			DeleteDB(g_sz2);
+
+			std::unique_ptr<MyNodeProcessor1> pNp;
+			auto fnOpen = [&](bool bNew)
+			{
+				pNp.reset(); // close the previous
+				pNp = std::make_unique<MyNodeProcessor1>();
+				pNp->m_Horizon.m_Branching = 35;
+				pNp->Initialize(g_sz2);
+				if (bNew)
+					pNp->OnTreasury(g_Treasury);
+			};
+
+			fnOpen(true);
+			FeedUpTo(*pNp, m_h7 - 1);
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 - 1]);
+
+			// restart at the last pre-threshold state: the snapshot is retaken
+			fnOpen(false);
+			verify_test(pNp->m_Cursor.m_hh.m_Height == m_h7 - 1);
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 - 1]);
+
+			FeedUpTo(*pNp, m_h7 + 3);
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 + 3]);
+
+			// restart past the threshold: the epoch is recovered
+			fnOpen(false);
+			verify_test(pNp->m_Cursor.m_hh.m_Height == m_h7 + 3);
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 + 3]);
+
+			FeedUpTo(*pNp, m_h7 + 5); // crossing spends after restart
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 + 5]);
+
+			// reorg across the threshold, to a branch without crossing spends
+			pNp->ManualRollbackTo(Block::Number(m_h7 - 3));
+
+			for (uint32_t i = 0; i < 9; i++)
+			{
+				NodeProcessor::BlockContext bc(pNp->m_TxPool, 0, *pNp->m_Wallet.m_pKdf, *pNp->m_Wallet.m_pKdf);
+				verify_test(pNp->GenerateNewBlock(bc));
+				pNp->OnState(bc.m_Hdr, PeerID());
+
+				Block::SystemState::ID id;
+				bc.m_Hdr.get_ID(id);
+				pNp->OnBlock(id, bc.m_Body.m_Perishable, bc.m_Body.m_Eternal, PeerID());
+				pNp->TryGoUp();
+			}
+
+			verify_test(pNp->m_Cursor.m_hh.m_Height == m_h7 + 6);
+
+			Counters c = ReadCounters(*pNp);
+			const Counters& c0 = m_vCounters[m_h7 - 1];
+			for (uint32_t i = 0; i < 2; i++)
+			{
+				verify_test(c.m_pExists[i]);
+				verify_test(c.m_pVal[i].m_Total == c0.m_pVal[i].m_Total); // same totals, as all the relevant txs are below the branching
+				verify_test(c.m_pVal[i].m_Consumed == Zero);
+			}
+
+			// back to the main branch, which is longer
+			Block::SystemState::ID idRet;
+			m_vBlocks[m_h7 - 3]->m_Hdr.get_ID(idRet);
+			pNp->ManualSelect(idRet);
+
+			FeedRange(*pNp, m_h7 - 2, m_h7 + 12); // the body of the forbidden block was deleted, feed it again
+			pNp->TryGoUp();
+
+			verify_test(pNp->m_Cursor.m_hh.m_Height == m_h7 + 12);
+			verify_test(ReadCounters(*pNp) == m_vCounters[m_h7 + 12]);
+		}
+
+		/////////////////////////////
+		// fast-sync
+		void InitFastSync(NodeProcessor& np, const char* sz) const
+		{
+			DeleteDB(sz);
+
+			np.m_Horizon.m_Branching = 5;
+			np.m_Horizon.m_Sync.Hi = 12;
+			np.m_Horizon.m_Sync.Lo = 20;
+			np.m_Horizon.m_Local = np.m_Horizon.m_Sync;
+			np.Initialize(sz);
+			np.OnTreasury(g_Treasury);
+
+			for (const auto& pBlock : m_vBlocks)
+				verify_test(np.OnState(pBlock->m_Hdr, PeerID()) == NodeProcessor::DataStatus::Accepted);
+
+			np.EnumCongestions();
+			verify_test(np.IsFastSync());
+			verify_test(np.m_SyncData.m_TxoLo.v > m_h7); // the sparse range crosses the threshold
+		}
+
+		typedef std::function<void(Block::Number, ByteBuffer& bbP)> Tamper;
+
+		// feed blocks from the given number, returns the number of the crossing inputs in sparse blocks past the threshold
+		uint32_t FeedFastSync(NodeProcessor& np, NodeProcessor& src, Block::Number num0, const Tamper* pTamper) const
+		{
+			uint32_t nCrossing = 0;
+
+			for (Block::Number num = num0; num.v <= m_vBlocks.size(); num.v++)
+			{
+				NodeDB::StateID sid;
+				sid.m_Row = src.FindActiveAtStrict(num);
+				sid.m_Number = num;
+
+				ByteBuffer bbE, bbP;
+				verify_test(src.GetBlock(sid, &bbE, &bbP, Block::Number(0), np.m_SyncData.m_TxoLo, np.m_SyncData.m_Target.m_Number, true));
+
+				if ((num.v >= m_h7) && (num.v <= np.m_SyncData.m_TxoLo.v))
+				{
+					// sparse block past the threshold: only the crossing inputs are there
+					Block::BodyBase bbb;
+					TxVectors::Perishable txvp;
+					ReadPerishable(bbP, bbb, txvp);
+					nCrossing += static_cast<uint32_t>(txvp.m_vInputs.size());
+				}
+
+				if (pTamper)
+					(*pTamper)(num, bbP);
+
+				Block::SystemState::ID id;
+				m_vBlocks[num.v - 1]->m_Hdr.get_ID(id);
+				np.OnBlock(id, bbP, bbE, PeerID());
+			}
+
+			np.TryGoUp();
+			return nCrossing;
+		}
+
+		void VerifySynced(NodeProcessor& np) const
+		{
+			verify_test(!np.IsFastSync());
+			verify_test(np.m_Cursor.m_Full.m_Number.v == m_vBlocks.size());
+			verify_test(ReadCounters(np) == m_vCounters[m_hTip]);
+		}
+
+		void TestFastSync()
+		{
+			std::string szC = std::string(g_sz) + ".c";
+			std::string szE = std::string(g_sz) + ".e";
+			std::string szF = std::string(g_sz) + ".f";
+
+			NodeProcessor npFull; // the main chain node, full history
+			npFull.Initialize(g_sz);
+			verify_test(npFull.m_Cursor.m_hh.m_Height == m_hTip);
+
+			{
+				// pruned node: spent txos below its horizon are erased, except those that cross the threshold. Naked, except coinbases
+				NodeProcessor npC;
+				DeleteDB(szC.c_str());
+				npC.m_Horizon.m_Branching = 5;
+				npC.m_Horizon.m_Sync.Hi = 12;
+				npC.m_Horizon.m_Sync.Lo = 20;
+				npC.m_Horizon.m_Local = npC.m_Horizon.m_Sync;
+				npC.Initialize(szC.c_str());
+				npC.OnTreasury(g_Treasury);
+
+				for (Height h = 1; h <= m_hTip; h++)
+					FeedUpTo(npC, h);
+
+				verify_test(npC.m_Extra.m_TxoLo.v > m_h7);
+				verify_test(npC.m_Extra.m_TxoHi.v > m_h7);
+				verify_test(ReadCounters(npC) == m_vCounters[m_hTip]);
+
+				{
+					// fast-sync from the pruned node. One sparse block is tampered: a crossing input without the disclosure
+					NodeProcessor npD;
+					InitFastSync(npD, g_sz2);
+
+					Block::Number numTampered(0);
+					Tamper t = [&](Block::Number num, ByteBuffer& bbP)
+					{
+						if (numTampered.v || (num.v < m_h7) || (num.v > npD.m_SyncData.m_TxoLo.v))
+							return;
+
+						Block::BodyBase bbb;
+						TxVectors::Perishable txvp;
+						ReadPerishable(bbP, bbb, txvp);
+
+						for (auto& pInp : txvp.m_vInputs)
+						{
+							if (pInp->m_pDisclosure)
+							{
+								pInp->m_pDisclosure.reset();
+								WritePerishable(bbP, bbb, txvp);
+								numTampered = num;
+								break;
+							}
+						}
+					};
+
+					FeedFastSync(npD, npC, Block::Number(1), &t);
+					verify_test(numTampered.v);
+					verify_test(npD.IsFastSync());
+					verify_test(npD.m_Cursor.m_Full.m_Number.v < numTampered.v);
+
+					uint32_t nCrossing = FeedFastSync(npD, npC, Block::Number(npD.m_Cursor.m_Full.m_Number.v + 1), nullptr);
+					verify_test(nCrossing > 0);
+					VerifySynced(npD);
+
+					// 2nd generation: from the node that fast-synced itself
+					NodeProcessor npE;
+					InitFastSync(npE, szE.c_str());
+					FeedFastSync(npE, npD, Block::Number(1), nullptr);
+					VerifySynced(npE);
+				}
+			}
+
+			{
+				// malicious source: a txo is omitted in a sparse block before the threshold.
+				// Detected by the utxo set verification at the threshold, fast-sync is restarted with no sparse blocks
+				NodeProcessor npF;
+				InitFastSync(npF, szF.c_str());
+
+				bool bTampered = false;
+				Tamper t = [&](Block::Number num, ByteBuffer& bbP)
+				{
+					if (bTampered || (num.v != m_h7 - 2))
+						return;
+
+					Block::BodyBase bbb;
+					TxVectors::Perishable txvp;
+					ReadPerishable(bbP, bbb, txvp);
+
+					verify_test(!txvp.m_vOutputs.empty());
+					txvp.m_vOutputs.pop_back();
+					WritePerishable(bbP, bbb, txvp);
+					bTampered = true;
+				};
+
+				FeedFastSync(npF, npFull, Block::Number(1), &t);
+				verify_test(bTampered);
+				verify_test(npF.IsFastSync());
+				verify_test(!npF.m_Cursor.m_Full.m_Number.v);
+				verify_test(!npF.m_SyncData.m_TxoLo.v);
+
+				FeedFastSync(npF, npFull, Block::Number(1), nullptr);
+				VerifySynced(npF);
+			}
+
+			DeleteDB(szC.c_str());
+			DeleteDB(szE.c_str());
+			DeleteDB(szF.c_str());
+		}
+
+		/////////////////////////////
+		void Run()
+		{
+			HeightHash pForksPrev[_countof(m_Rules.pForks)];
+			for (size_t i = 0; i < _countof(m_Rules.pForks); i++)
+				pForksPrev[i] = m_Rules.pForks[i];
+
+			Lelantus::Cfg pCfgPrev[] = { m_Rules.Shielded.m_ProofMax, m_Rules.Shielded.m_ProofMin };
+
+			for (size_t i = 2; i < 7; i++)
+				m_Rules.pForks[i].m_Height = 17;
+			m_Rules.pForks[7].m_Height = m_h7;
+			m_Rules.Shielded.m_ProofMax = { 4, 3 }; // 64, debug build is slow
+			m_Rules.Shielded.m_ProofMin = { 4, 2 };
+			m_Rules.UpdateChecksum();
+
+			DeleteDB(g_sz);
+			DeleteDB(g_sz2);
+
+			RunMain();
+			TestRebuild();
+			TestReplay();
+			TestFastSync();
+
+			DeleteDB(g_sz);
+			DeleteDB(g_sz2);
+
+			for (size_t i = 0; i < _countof(m_Rules.pForks); i++)
+				m_Rules.pForks[i] = pForksPrev[i];
+			m_Rules.Shielded.m_ProofMax = pCfgPrev[0];
+			m_Rules.Shielded.m_ProofMin = pCfgPrev[1];
+			m_Rules.UpdateChecksum();
+		}
+	};
+
+	void TestLustration(Rules& r)
+	{
+		LustrationTest t(r);
+		t.Run();
 	}
 
 	const uint16_t g_Port = 25003; // don't use the default port to prevent collisions with running nodes, beacons and etc.
@@ -4546,6 +5742,11 @@ void TestAll()
 			beam::TestNodeProcessor3(blockChain);
 			beam::DeleteFile(beam::g_sz);
 			beam::DeleteFile(beam::g_sz2);
+
+			printf("Lustration test...\n");
+			fflush(stdout);
+
+			beam::TestLustration(r);
 		}
 
 		printf("NodeX2 concurrent test...\n");
