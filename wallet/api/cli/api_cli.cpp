@@ -688,6 +688,7 @@ int main(int argc, char* argv[])
             (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
             (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
             (cli::REQUEST_BODIES,   po::value<bool>(&options.enableBodyRequests)->default_value(false), "request and parse block bodies on the wallet side")
+            (cli::WALLET_BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS communication")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -899,15 +900,22 @@ int main(int argc, char* argv[])
         nnet->m_Cfg.m_vNodes.push_back(node_addr);
         nnet->Connect();
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
-        wallet->AddMessageEndpoint(wnet);
+        std::shared_ptr<IWalletMessageEndpoint> wnet;
+        if (vm[cli::WALLET_BBS_ENABLE].as<bool>())
+        {
+            wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
+            wallet->AddMessageEndpoint(wnet);
+        }
         wallet->SetNodeEndpoint(nnet);
 
         WalletApiServer server(options.apiVersion, walletDB, wallet, nnet, *reactor, listenTo, connectionOptions, acl, whitelist);
 
         #ifdef BEAM_ATOMIC_SWAP_SUPPORT
-        RegisterSwapTxCreators(wallet, walletDB);
-        server.initSwapFeature(nnet, *wnet);
+        if (wnet)
+        {
+            RegisterSwapTxCreators(wallet, walletDB);
+            server.initSwapFeature(nnet, *wnet);
+        }
         #endif
 
         #ifdef BEAM_IPFS_SUPPORT
@@ -930,8 +938,11 @@ int main(int argc, char* argv[])
             RegisterAllAssetCreators(*wallet);
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-            wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
-            server.initDexFeature(nnet, *wnet, *wallet);
+            if (wnet)
+            {
+                wallet->RegisterTransactionType(TxType::DexSimpleSwap, std::make_shared<DexTransaction::Creator>(walletDB));
+                server.initDexFeature(nnet, *wnet, *wallet);
+            }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         }
 

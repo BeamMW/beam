@@ -144,6 +144,7 @@ namespace beam
         const char* MINER_JOB_LATENCY = "miner_job_latency";
         const char* MINE_ONLINE = "mine_online";
         const char* BBS_ENABLE = "bbs_enable";
+        const char* WALLET_BBS_ENABLE = "wallet_bbs_enable";
         const char* NEW_ADDRESS = "new_addr";
         const char* GET_ADDRESS = "get_address";
         const char* SET_CONFIRMATIONS_COUNT = "set_confirmations_count";
@@ -504,6 +505,7 @@ namespace beam
             (cli::PUBLIC_OFFLINE, po::bool_switch()->default_value(false), "generate an offline public address for donates (less secure, but more convenient)")
             (cli::SEND_OFFLINE, po::bool_switch()->default_value(false), "send an offline payment (offline transaction)")
             (cli::MINE_ONLINE, po::value<bool>(), "Support online mining when connected to owned miner node")
+            (cli::WALLET_BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS communication")
             (cli::BLOCK_HEIGHT, po::value<Nonnegative<Height>>(), "block height")
             (cli::REQUEST_BODIES, po::value<bool>()->default_value(false), "request and parse block bodies on the wallet side");
 

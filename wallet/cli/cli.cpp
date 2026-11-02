@@ -2329,6 +2329,14 @@ namespace
         throw std::runtime_error(kErrorAssetIdOrMetaRequired);
     }
 
+    std::shared_ptr<IWalletMessageEndpoint> MaybeCreateSbbsNetwork(const po::variables_map& vm, IWalletMessageConsumer& trg, const proto::FlyClient::INetwork::Ptr& net, const IWalletDB::Ptr& db)
+    {
+        if (!vm[cli::WALLET_BBS_ENABLE].as<bool>())
+            return {};
+
+        return make_shared<WalletNetworkViaBbs>(trg, net, db);
+    }
+
 #ifdef BEAM_LASER_SUPPORT
 
     int HandleLaser(const po::variables_map& vm)
@@ -2363,7 +2371,9 @@ namespace
             void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
         } msgConsumer;
 
-        auto wnet = std::make_shared<WalletNetworkViaBbs>(msgConsumer, nnet, walletDB);
+        auto wnet = MaybeCreateSbbsNetwork(vm, msgConsumer, nnet, walletDB);
+        if (!wnet)
+            return -1;
 
         laser->SetNetwork(nnet, *wnet);
         laser->ListenClosedChannelsWithPossibleRollback();
@@ -2460,8 +2470,9 @@ namespace
                 return -1;
             }
 
-            auto wnet = make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
-            wallet->AddMessageEndpoint(wnet);
+            auto wnet = MaybeCreateSbbsNetwork(vm, *wallet, nnet, walletDB);
+            if (wnet)
+                wallet->AddMessageEndpoint(wnet);
 
             // Manual (Slatepack) transport: prints the produced pack, or saves it to a
             // file when --save is given, then stops the reactor. Only fires for
@@ -2481,7 +2492,8 @@ namespace
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
             AssetsSwapCliHandler assetsSwapHandler;
-            assetsSwapHandler.init(wallet, walletDB, nnet, *wnet);
+            if (wnet)
+                assetsSwapHandler.init(wallet, walletDB, nnet, *wnet);
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
             int res = func(vm, wallet, walletDB, currentTxID);
@@ -2490,10 +2502,13 @@ namespace
                 return res;
             }
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-            res = func2(vm, wallet, walletDB, assetsSwapHandler.getDex());
-            if (res != 0)
+            if (wnet)
             {
-                return res;
+                res = func2(vm, wallet, walletDB, assetsSwapHandler.getDex());
+                if (res != 0)
+                {
+                    return res;
+                }
             }
 #endif  // BEAM_ASSET_SWAP_SUPPORT
         }
