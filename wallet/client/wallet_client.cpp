@@ -741,14 +741,18 @@ namespace beam::wallet
                     std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
 
                 std::shared_ptr<WalletNetworkViaBbs> walletNetwork;
-                if (m_isSbbsEnabled)
+                if (SbbsPolicy::Disabled != m_SbbsPolicy)
                 {
                     walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
                     m_walletNetwork = walletNetwork;
                 }
                 wallet->SetNodeEndpoint(nodeNetwork);
                 if (walletNetwork)
+                {
                     wallet->AddMessageEndpoint(walletNetwork);
+                    if (SbbsPolicy::DisabledForTxs == m_SbbsPolicy)
+                        wallet->m_pBlockedForTxs = walletNetwork.get();
+                }
 
                 auto slatepackEndpoint = make_shared<SlatepackEndpoint>(*wallet, m_walletDB,
                     [this](const TxID& txID, const std::string& armored)
@@ -948,7 +952,7 @@ namespace beam::wallet
                 assert(clientShaders.use_count() == 1);
                 clientShaders.reset();
 
-                assert(walletNetwork.use_count() == 1);
+                assert(walletNetwork.use_count() <= 1);
                 walletNetwork.reset();
 
                 nodeNetworkSubscriber.reset();

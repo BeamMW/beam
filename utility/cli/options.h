@@ -109,6 +109,7 @@ namespace beam
         extern const char* MINE_ONLINE;
         extern const char* BBS_ENABLE;
         extern const char* WALLET_BBS_ENABLE;
+        extern const char* WALLET_BBS_ENABLE_TXS;
         extern const char* NEW_ADDRESS;
         extern const char* GET_ADDRESS;
         extern const char* SET_CONFIRMATIONS_COUNT;

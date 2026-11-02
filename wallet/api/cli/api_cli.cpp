@@ -689,6 +689,7 @@ int main(int argc, char* argv[])
             (cli::API_TCP_MAX_LINE, po::value<size_t>(&connectionOptions.maxLineSize)->default_value(65536), "max line size in TCP mode")
             (cli::REQUEST_BODIES,   po::value<bool>(&options.enableBodyRequests)->default_value(false), "request and parse block bodies on the wallet side")
             (cli::WALLET_BBS_ENABLE, po::value<bool>()->default_value(true), "Enable SBBS communication")
+            (cli::WALLET_BBS_ENABLE_TXS, po::value<bool>()->default_value(true), "Enable SBBS as a transport for transactions")
         ;
 
         po::options_description authDesc("User authorization options");
@@ -905,6 +906,8 @@ int main(int argc, char* argv[])
         {
             wnet = std::make_shared<WalletNetworkViaBbs>(*wallet, nnet, walletDB);
             wallet->AddMessageEndpoint(wnet);
+            if (!vm[cli::WALLET_BBS_ENABLE_TXS].as<bool>())
+                wallet->m_pBlockedForTxs = wnet.get();
         }
         wallet->SetNodeEndpoint(nnet);
 

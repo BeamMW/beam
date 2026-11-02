@@ -174,6 +174,7 @@ namespace beam::wallet
         };
 
         IWidgetNotify* m_pWidgetNotify = nullptr;
+        IWalletMessageEndpoint* m_pBlockedForTxs = nullptr;
 
         bool IsWalletInSync() const;
         Height get_TipHeight() const;
@@ -302,6 +303,7 @@ namespace beam::wallet
         void ProcessWidget();
         bool IsNodeInSync() const;
 
+        static bool IsSpecialMsg(const SetTxParameter&);
         void SendSpecialMsg(const WalletID& peerID, SetTxParameter&);
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
         std::vector<BaseTransaction::Ptr> FindTxWaitingForVouchers(const WalletID& peerID) const;

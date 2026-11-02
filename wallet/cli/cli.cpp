@@ -2472,7 +2472,11 @@ namespace
 
             auto wnet = MaybeCreateSbbsNetwork(vm, *wallet, nnet, walletDB);
             if (wnet)
+            {
                 wallet->AddMessageEndpoint(wnet);
+                if (!vm[cli::WALLET_BBS_ENABLE_TXS].as<bool>())
+                    wallet->m_pBlockedForTxs = wnet.get();
+            }
 
             // Manual (Slatepack) transport: prints the produced pack, or saves it to a
             // file when --save is given, then stops the reactor. Only fires for

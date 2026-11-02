@@ -793,7 +793,8 @@ namespace beam::wallet
     {
         for (auto& endpoint : m_MessageEndpoints)
         {
-            endpoint->Send(peerID, msg);
+            if ((endpoint.get() != m_pBlockedForTxs) || IsSpecialMsg(msg))
+                endpoint->Send(peerID, msg);
         }
     }
 
@@ -1229,9 +1230,14 @@ namespace beam::wallet
             m_VoucherManager.CheckTimer();
     }
 
+    bool Wallet::IsSpecialMsg(const SetTxParameter& msg)
+    {
+        return memis0(&msg.m_TxID.front(), msg.m_TxID.size());
+    }
+
     void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg, IWalletMessageEndpoint* pFrom)
     {
-        if (memis0(&msg.m_TxID.front(), msg.m_TxID.size()))
+        if (IsSpecialMsg(msg))
         {
             // special command/request
             try
@@ -1245,7 +1251,8 @@ namespace beam::wallet
         }
         else
         {
-            OnTransactionMsg(myID, msg);
+            if (!(pFrom && (pFrom == m_pBlockedForTxs)))
+                OnTransactionMsg(myID, msg);
         }
     }
 
