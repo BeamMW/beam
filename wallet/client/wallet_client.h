@@ -124,6 +124,10 @@ namespace beam::wallet
         WalletClient(const Rules& rules, OpenDBFunction&& walletDBFunc, const std::string& nodeAddr, io::Reactor::Ptr reactor); // lazy DB creation ctor
         ~WalletClient() override;
 
+        // false: no SBBS at all. No SBBS transactions, vouchers or IMs, and no broadcast messages (swap offers, wallet updates, exchange rates, assets verification, DEX).
+        // Slatepack still works.
+        bool m_isSbbsEnabled = true;
+
         void start( std::map<Notification::Type,bool> activeNotifications,
                     bool withExchangeRates = false,
                     std::shared_ptr<std::unordered_map<TxType, BaseTransaction::Creator::Ptr>> txCreators = nullptr);

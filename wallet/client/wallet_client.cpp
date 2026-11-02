@@ -740,10 +740,15 @@ namespace beam::wallet
                 auto nodeNetworkSubscriber =
                     std::make_unique<NodeNetworkSubscriber>(static_cast<INodeConnectionObserver*>(this), nodeNetwork);
 
-                auto walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
-                m_walletNetwork = walletNetwork;
+                std::shared_ptr<WalletNetworkViaBbs> walletNetwork;
+                if (m_isSbbsEnabled)
+                {
+                    walletNetwork = make_shared<WalletNetworkViaBbs>(*wallet, nodeNetwork, m_walletDB);
+                    m_walletNetwork = walletNetwork;
+                }
                 wallet->SetNodeEndpoint(nodeNetwork);
-                wallet->AddMessageEndpoint(walletNetwork);
+                if (walletNetwork)
+                    wallet->AddMessageEndpoint(walletNetwork);
 
                 auto slatepackEndpoint = make_shared<SlatepackEndpoint>(*wallet, m_walletDB,
                     [this](const TxID& txID, const std::string& armored)
@@ -778,69 +783,94 @@ namespace beam::wallet
                 auto notificationsSubscriber =
                     make_unique<NotificationsSubscriber>(&notificationObserver, m_notificationCenter);
                 updateNotifications();
-                // Broadcast router and broadcast message consumers initialization
-                auto broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
-                m_broadcastRouter = broadcastRouter;
 
                 using WalletDbSubscriber = ScopedSubscriber<IWalletDbObserver, IWalletDB>;
-                // Swap offer board uses broadcasting messages
-#ifdef BEAM_ATOMIC_SWAP_SUPPORT
-                OfferBoardProtocolHandler protocolHandler(m_walletDB->get_SbbsKdf());
-
-                auto offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, protocolHandler, m_walletDB);
-                m_offersBulletinBoard = offersBulletinBoard;
-
-                using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
-
-                auto walletDbSubscriber = make_unique<WalletDbSubscriber>(
-                    static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
-                auto swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(
-                    static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
-#endif
-                // Broadcast validator initialization. It verifies messages signatures.
-                auto broadcastValidator = make_shared<BroadcastMsgValidator>();
-                {
-                    PeerID key;
-                    if (BroadcastMsgValidator::stringToPublicKey(get_BroadcastValidatorPublicKey(), key))
-                    {
-                        broadcastValidator->setPublisherKeys( { key } );
-                    }
-                }
-
-                // Other content providers using broadcast messages
-                auto walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
-                auto exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, withExchangeRates);
-                m_exchangeRateProvider = exchangeRateProvider;
-                m_walletUpdatesProvider = walletUpdatesProvider;
-                using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
-                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
-                auto walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), walletUpdatesProvider);
-                auto ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
                 auto notificationsDbSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(m_notificationCenter.get()), m_walletDB);
 
-                //
-                // Assets verification
-                //
-                auto verificationProvider = make_shared<VerificationProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
-                m_verificationProvider = verificationProvider;
+                // Broadcast router and broadcast message consumers. All of them work over SBBS, so with
+                // SBBS disabled none is created. They must live until the reactor stops, hence declared here.
+                using WalletUpdatesSubscriber = ScopedSubscriber<INewsObserver, WalletUpdatesProvider>;
+                using ExchangeRatesSubscriber = ScopedSubscriber<IExchangeRatesObserver, ExchangeRateProvider>;
                 using VerificationSubscriber = ScopedSubscriber<IVerificationObserver, VerificationProvider>;
-                auto verificationSubscriber = make_unique<VerificationSubscriber>(static_cast<IVerificationObserver*>(this), verificationProvider);
 
-                //
-                // DEX
-                //
+                std::shared_ptr<BroadcastRouter> broadcastRouter;
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+                using SwapOffersBoardSubscriber = ScopedSubscriber<ISwapOffersObserver, SwapOffersBoard>;
+                std::unique_ptr<OfferBoardProtocolHandler> protocolHandler;
+                std::shared_ptr<SwapOffersBoard> offersBulletinBoard;
+                std::unique_ptr<WalletDbSubscriber> walletDbSubscriber;
+                std::unique_ptr<SwapOffersBoardSubscriber> swapOffersBoardSubscriber;
+#endif
+                std::shared_ptr<BroadcastMsgValidator> broadcastValidator;
+                std::shared_ptr<WalletUpdatesProvider> walletUpdatesProvider;
+                std::shared_ptr<ExchangeRateProvider> exchangeRateProvider;
+                std::unique_ptr<WalletUpdatesSubscriber> walletUpdatesSubscriber;
+                std::unique_ptr<ExchangeRatesSubscriber> ratesSubscriber;
+                std::shared_ptr<VerificationProvider> verificationProvider;
+                std::unique_ptr<VerificationSubscriber> verificationSubscriber;
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-                auto dexBoard = make_shared<DexBoard>(*broadcastRouter, *wallet, *m_walletDB);
-                auto dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
-
                 using DexBoardSubscriber = ScopedSubscriber<DexBoard::IObserver, DexBoard>;
-                auto dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
-
                 using DexWalletSubscriber = ScopedSubscriber<wallet::ISimpleSwapHandler, wallet::Wallet>;
-                auto dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
+                std::shared_ptr<DexBoard> dexBoard;
+                std::unique_ptr<WalletDbSubscriber> dexWDBSubscriber;
+                std::unique_ptr<DexBoardSubscriber> dexBoardSubscriber;
+                std::unique_ptr<DexWalletSubscriber> dexWalletSubscriber;
+#endif
 
-                _dex = dexBoard;
+                if (walletNetwork)
+                {
+                    broadcastRouter = make_shared<BroadcastRouter>(nodeNetwork, *walletNetwork, std::make_shared<BroadcastRouter::BbsTsHolder>(m_walletDB));
+                    m_broadcastRouter = broadcastRouter;
+
+                    // Swap offer board uses broadcasting messages
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+                    protocolHandler = make_unique<OfferBoardProtocolHandler>(m_walletDB->get_SbbsKdf());
+
+                    offersBulletinBoard = make_shared<SwapOffersBoard>(*broadcastRouter, *protocolHandler, m_walletDB);
+                    m_offersBulletinBoard = offersBulletinBoard;
+
+                    walletDbSubscriber = make_unique<WalletDbSubscriber>(
+                        static_cast<IWalletDbObserver*>(offersBulletinBoard.get()), m_walletDB);
+                    swapOffersBoardSubscriber = make_unique<SwapOffersBoardSubscriber>(
+                        static_cast<ISwapOffersObserver*>(this), offersBulletinBoard);
+#endif
+                    // Broadcast validator initialization. It verifies messages signatures.
+                    broadcastValidator = make_shared<BroadcastMsgValidator>();
+                    {
+                        PeerID key;
+                        if (BroadcastMsgValidator::stringToPublicKey(get_BroadcastValidatorPublicKey(), key))
+                        {
+                            broadcastValidator->setPublisherKeys( { key } );
+                        }
+                    }
+
+                    // Other content providers using broadcast messages
+                    walletUpdatesProvider = make_shared<WalletUpdatesProvider>(*broadcastRouter, *broadcastValidator);
+                    exchangeRateProvider = make_shared<ExchangeRateProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB, withExchangeRates);
+                    m_exchangeRateProvider = exchangeRateProvider;
+                    m_walletUpdatesProvider = walletUpdatesProvider;
+                    walletUpdatesSubscriber = make_unique<WalletUpdatesSubscriber>(static_cast<INewsObserver*>(m_notificationCenter.get()), walletUpdatesProvider);
+                    ratesSubscriber = make_unique<ExchangeRatesSubscriber>(static_cast<IExchangeRatesObserver*>(this), exchangeRateProvider);
+
+                    //
+                    // Assets verification
+                    //
+                    verificationProvider = make_shared<VerificationProvider>(*broadcastRouter, *broadcastValidator, *m_walletDB);
+                    m_verificationProvider = verificationProvider;
+                    verificationSubscriber = make_unique<VerificationSubscriber>(static_cast<IVerificationObserver*>(this), verificationProvider);
+
+                    //
+                    // DEX
+                    //
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+                    dexBoard = make_shared<DexBoard>(*broadcastRouter, *wallet, *m_walletDB);
+                    dexWDBSubscriber = make_unique<WalletDbSubscriber>(static_cast<IWalletDbObserver*>(dexBoard.get()), m_walletDB);
+                    dexBoardSubscriber = make_unique<DexBoardSubscriber>(static_cast<DexBoard::IObserver*>(this), dexBoard);
+                    dexWalletSubscriber = make_unique<DexWalletSubscriber>(static_cast<ISimpleSwapHandler*>(dexBoard.get()), wallet);
+
+                    _dex = dexBoard;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
+                }
 
 
                 //
@@ -1338,8 +1368,7 @@ namespace beam::wallet
             {
                 if (!memis0(&tx.m_txId.front(), tx.m_txId.size())) // not special transaction
                 {
-                    assert(!m_exchangeRateProvider.expired());
-                    if (auto p = m_exchangeRateProvider.lock())
+                    if (auto p = m_exchangeRateProvider.lock()) // none if SBBS is disabled
                     {
                         m_walletDB->setTxParameter(tx.m_txId,
                             kDefaultSubTxID,
@@ -2229,8 +2258,7 @@ namespace beam::wallet
 
     void WalletClient::switchOnOffExchangeRates(bool isActive)
     {
-        assert(!m_exchangeRateProvider.expired());
-        if (auto s = m_exchangeRateProvider.lock())
+        if (auto s = m_exchangeRateProvider.lock()) // none if SBBS is disabled
         {
             s->setOnOff(isActive);
         }
@@ -2258,8 +2286,7 @@ namespace beam::wallet
 
     void WalletClient::getExchangeRates()
     {
-        assert(!m_exchangeRateProvider.expired());
-        if (auto s = m_exchangeRateProvider.lock())
+        if (auto s = m_exchangeRateProvider.lock()) // none if SBBS is disabled
         {
             onExchangeRates(s->getRates());
         }
@@ -2271,8 +2298,7 @@ namespace beam::wallet
 
     void WalletClient::getVerificationInfo()
     {
-        assert(!m_verificationProvider.expired());
-        if (auto s = m_verificationProvider.lock())
+        if (auto s = m_verificationProvider.lock()) // none if SBBS is disabled
         {
             const auto info = s->getInfo();
             onVerificationInfo(info);
