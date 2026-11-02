@@ -132,7 +132,7 @@ namespace beam::wallet {
                     if (!deliver)
                         return MsgResult::Decrypted;
 
-                    m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet);
+                    m_Wallet.OnWalletMessage(it->get_ParentObj().m_Wid.m_Value, msgWallet, this);
                     return MsgResult::Delivered;
                 }
             }

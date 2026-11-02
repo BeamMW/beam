@@ -1229,7 +1229,7 @@ namespace beam::wallet
             m_VoucherManager.CheckTimer();
     }
 
-    void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg)
+    void Wallet::OnWalletMessage(const WalletID& myID, const SetTxParameter& msg, IWalletMessageEndpoint* pFrom)
     {
         if (memis0(&msg.m_TxID.front(), msg.m_TxID.size()))
         {

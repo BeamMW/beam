@@ -1516,7 +1516,7 @@ namespace
                 return m_Headers;
             }
 
-            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p) override
+            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p, IWalletMessageEndpoint*) override
             {
             }
 
@@ -1563,7 +1563,7 @@ namespace
                 }
             }
 
-            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p) override
+            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p, IWalletMessageEndpoint*) override
             {
                 ++m_ReceivedCount;
                 cout << "Response message received[" << m_ReceivedCount << "] : " << p.m_TxID << '\n';
@@ -1597,7 +1597,7 @@ namespace
                 
             }
 
-            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p) override
+            void OnWalletMessage(const WalletID& peerID, const SetTxParameter& p, IWalletMessageEndpoint*) override
             {
                 ++m_ReceivedCount;
                 cout << "Message received[" << m_ReceivedCount<< "] : " << p.m_TxID << '\n';

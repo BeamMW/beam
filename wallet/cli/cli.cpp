@@ -2368,7 +2368,7 @@ namespace
         }
 
         struct EmptyMsgConsumer :public IWalletMessageConsumer {
-            void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
+            void OnWalletMessage(const WalletID&, const SetTxParameter&, IWalletMessageEndpoint*) override {}
         } msgConsumer;
 
         auto wnet = MaybeCreateSbbsNetwork(vm, msgConsumer, nnet, walletDB);

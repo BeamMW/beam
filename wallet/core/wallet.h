@@ -96,13 +96,6 @@ namespace beam::wallet
         virtual void onDexTxCreated(const SetTxParameter& msg, BaseTransaction::Ptr) {}
     };
     
-    // Interface for wallet message consumer
-    struct IWalletMessageConsumer
-    {
-        // Callback for receiving notifications on SBBS messages
-        virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) = 0;
-    };
-
     // Interface for sending wallet to wallet messages
     // Used as a base for SBBS and Cold walelt endpoints
     struct IWalletMessageEndpoint
@@ -111,6 +104,13 @@ namespace beam::wallet
         using Ptr = std::shared_ptr<IWalletMessageEndpoint>;
         virtual void Send(const WalletID& peerID, const SetTxParameter& msg) = 0;
         virtual void SendRawMessage(const WalletID& peerID, ByteBuffer&&) = 0;
+    };
+
+    // Interface for wallet message consumer
+    struct IWalletMessageConsumer
+    {
+        // Callback for receiving notifications on SBBS messages
+        virtual void OnWalletMessage(const WalletID& peerID, const SetTxParameter&, IWalletMessageEndpoint* pFrom) = 0;
     };
 
     inline constexpr char FallbackPeers[] = "FallbackPeers";
@@ -238,7 +238,7 @@ namespace beam::wallet
         const Merkle::Hash* get_DependentState(uint32_t& nCount) override;
 
         // IWalletMessageConsumer
-        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override;
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&, IWalletMessageEndpoint* pFrom) override;
 
         // FlyClient
         void OnNewTip() override;

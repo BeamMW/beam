@@ -75,7 +75,7 @@ struct TestLaserInst
     :public laser::Mediator
 {
     struct EmptyMsgConsumer :public IWalletMessageConsumer {
-        void OnWalletMessage(const WalletID&, const SetTxParameter&) override {}
+        void OnWalletMessage(const WalletID&, const SetTxParameter&, IWalletMessageEndpoint*) override {}
     } m_EmptyMsgConsumer;
 
     WalletNetworkViaBbs::Ptr m_pWNet;

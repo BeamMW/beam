@@ -197,7 +197,7 @@ namespace
         : public proto::FlyClient
         , public wallet::IWalletMessageConsumer
     {
-        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&) override
+        void OnWalletMessage(const WalletID& peerID, const SetTxParameter&, IWalletMessageEndpoint*) override
         {
         }
 
