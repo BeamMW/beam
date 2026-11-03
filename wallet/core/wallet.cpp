@@ -2553,6 +2553,11 @@ namespace beam::wallet
                 m_WalletDB->saveAddress(*addr);
             }
         }
+    }
+
+    void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
+    {
+        // the address expiration is extended once the message is accepted for a tx, not for any decryptable message
 
         //
         // Process transaction request
