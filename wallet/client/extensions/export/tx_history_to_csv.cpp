@@ -31,7 +31,8 @@ using boost::multiprecision::cpp_dec_float_50;
 std::string csvField(const std::string& s)
 {
     std::string out = "\"";
-    if (!s.empty() && (s[0] == '=' || s[0] == '+' || s[0] == '-' || s[0] == '@' || s[0] == '\t' || s[0] == '\r'))
+    size_t first = s.find_first_not_of(" \t\r\n"); // spreadsheets skip leading whitespace before a formula
+    if ((first != std::string::npos) && (s[first] == '=' || s[first] == '+' || s[first] == '-' || s[first] == '@'))
         out += '\'';
     for (char c : s)
     {
