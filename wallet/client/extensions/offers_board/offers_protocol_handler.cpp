@@ -45,7 +45,12 @@ namespace beam::wallet
              && fromByteBuffer(msg.m_signature, signHandler.m_Signature))
             {
                 signHandler.m_data = msg.m_content;
-                if (token.getPublicKey() && !signHandler.IsValid(token.getPublicKey()->m_Pk))
+                if (!token.getPublicKey())
+                {
+                    BEAM_LOG_WARNING() << "offer board message has no publisher key, can't verify it";
+                    return boost::none;
+                }
+                if (!signHandler.IsValid(token.getPublicKey()->m_Pk))
                 {
                     BEAM_LOG_WARNING() << "offer board message signature is invalid";
                     return boost::none;
