@@ -1131,6 +1131,20 @@ namespace beam
 
 		const Height hIncubation = 3; // artificial incubation period for outputs.
 
+		{
+			// a shielded input's window must end within the outputs confirmed before its tx/block
+			TxKernelShieldedInput krn;
+			krn.m_SpendProof.m_Cfg = Rules::get().Shielded.m_ProofMin;
+			TxoID nOuts = np.m_Extra.m_ShieldedOutputs;
+
+			krn.m_WindowEnd = nOuts;
+			verify_test(np.IsShieldedInPool(krn, 0) == (nOuts > 0));
+
+			krn.m_WindowEnd = nOuts + 1;
+			verify_test(!np.IsShieldedInPool(krn, 0));
+			verify_test(!np.IsShieldedInPool(krn, 1)); // a pending output of the same tx/block doesn't extend the window
+		}
+
 		for (Height h = 1; h <= 96; h++)
 		{
 			while (true)
@@ -4564,6 +4578,7 @@ void TestAll()
 	r.CA.LockPeriod = 2;
 	r.Shielded.m_ProofMax = { 4, 6 }; // 4K
 	r.Shielded.m_ProofMin = { 4, 5 }; // 1K
+	r.Shielded.WindowStrictFrom = 0;
     r.Evm.Groth2Wei = 10'000'000'000ull;
 
 	printf("Node <---> Client test (with proofs)...\n");

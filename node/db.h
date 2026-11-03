@@ -611,6 +611,11 @@ public:
 		StreamIO_T(StreamType::Shielded, pos, p, nCount, false);
 	}
 
+	// the shielded stream is allocated in whole blobs of this many elements
+	static uint64_t get_ShieldedElementsPerBlob() {
+		return s_StreamBlob / sizeof(ECC::Point::Storage);
+	}
+
 	void ShieldedStateResize(uint64_t n, uint64_t n0) {
 		StreamResize_T<ECC::Hash::Value>(StreamType::ShieldedState, n, n0);
 	}
