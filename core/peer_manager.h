@@ -163,7 +163,7 @@ namespace beam {
 		void Ban(PeerInfo&);
 		void ResetRatingBoost(PeerInfo&);
 		bool IsOutdated(const PeerInfo&) const;
-		void ModifyAddr(PeerInfo&, const io::Address&);
+		void ModifyAddr(PeerInfo&, const io::Address&, bool bAddrVerified = true);
 		void RemoveAddr(PeerInfo&);
 
 		PeerInfo* OnPeer(const PeerID&, const io::Address&, bool bAddrVerified);

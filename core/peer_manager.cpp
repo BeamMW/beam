@@ -260,10 +260,17 @@ void PeerManager::RemoveAddr(PeerInfo& pi)
 	}
 }
 
-void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
+void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr, bool bAddrVerified /* = true */)
 {
 	if (addr == pi.m_Addr.m_Value)
 		return;
+
+	PeerInfo::Addr pia;
+	pia.m_Value = addr;
+
+	AddrSet::iterator it = m_Addr.find(pia);
+	if ((m_Addr.end() != it) && !bAddrVerified)
+		return; // another peer holds this address; only a verified address may take it over
 
 	BEAM_LOG_VERBOSE() << pi << " Address changed to " << addr;
 
@@ -272,10 +279,6 @@ void PeerManager::ModifyAddr(PeerInfo& pi, const io::Address& addr)
 	if (addr.empty())
 		return;
 
-	PeerInfo::Addr pia;
-	pia.m_Value = addr;
-
-	AddrSet::iterator it = m_Addr.find(pia);
 	if (m_Addr.end() != it)
 		RemoveAddr(it->get_ParentObj());
 
@@ -318,7 +321,7 @@ PeerManager::PeerInfo* PeerManager::OnPeer(const PeerID& id, const io::Address& 
 	PeerInfo* pRet = Find(id, bCreate);
 
 	if (bAddrVerified || pRet->m_Addr.m_Value.empty() || IsOutdated(*pRet))
-		ModifyAddr(*pRet, addr);
+		ModifyAddr(*pRet, addr, bAddrVerified);
 
 	return pRet;
 }
