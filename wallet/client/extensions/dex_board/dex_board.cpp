@@ -114,6 +114,13 @@ namespace beam::wallet {
         }
         else
         {
+            if (order->getSBBSID() != it->second.getSBBSID())
+            {
+                // the signature was checked against the order's own sbbs key; a different key can't update or remove an existing order
+                BEAM_LOG_WARNING() << "DEX order " << order->getID().to_string() << " update from another publisher ignored";
+                return false;
+            }
+
             if (order->isCanceled() || order->isAccepted())
             {
                 notifyObservers(ChangeAction::Removed, std::vector<DexOrder>{ *order });
