@@ -4045,7 +4045,7 @@ void Node::Peer::OnMsg(proto::BbsMsg&& msg)
 	uint64_t id = db.BbsIns(wlk.m_Data);
 	m_This.m_Bbs.m_W.Delete(wlk.m_Data.m_Key);
 
-	std::setmax(m_This.m_Bbs.m_HighestPosted_s, msg.m_TimePosted);
+	std::setmax(m_This.m_Bbs.m_HighestPosted_s, std::min(msg.m_TimePosted, t)); // a message stamped ahead of time must not make older ones undeliverable
 	m_This.m_Bbs.m_Totals.m_Count++;
 	m_This.m_Bbs.m_Totals.m_Size += wlk.m_Data.m_Message.n;
 
