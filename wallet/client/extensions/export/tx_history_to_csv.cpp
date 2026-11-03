@@ -26,6 +26,23 @@ using namespace beam;
 using namespace beam::wallet;
 using boost::multiprecision::cpp_dec_float_50;
 
+// Quotes a text field for CSV: inner quotes are doubled and a leading formula character is neutralized,
+// so spreadsheets show the text instead of evaluating it (the comment comes from the peer)
+std::string csvField(const std::string& s)
+{
+    std::string out = "\"";
+    if (!s.empty() && (s[0] == '=' || s[0] == '+' || s[0] == '-' || s[0] == '@' || s[0] == '\t' || s[0] == '\r'))
+        out += '\'';
+    for (char c : s)
+    {
+        if (c == '"')
+            out += '"';
+        out += c;
+    }
+    out += '"';
+    return out;
+}
+
 std::string unitNameFromAssetId(const beam::wallet::IWalletDB& db, Asset::ID assetId)
 {
     std::string unitName = "BEAM";
@@ -131,7 +148,7 @@ std::string ExportTxHistoryToCsv(const IWalletDB& db)
            << "\"" << amountInBtc << "\"" << ","                                            // Amount, BTC
            << "\"" << PrintableAmount(tx.m_fee, true) << "\"" << ","                        // Transaction fee, BEAM
            << beam::wallet::interpretStatus(tx) << ","                                      // Status
-           << std::string { tx.m_message.begin(), tx.m_message.end() } << ","               // Comment
+           << csvField(std::string { tx.m_message.begin(), tx.m_message.end() }) << ","    // Comment
            << to_hex(tx.m_txId.data(), tx.m_txId.size()) << ","                             // Transaction ID
            << std::to_string(tx.m_kernelID) << ","                                          // Kernel ID
            << std::to_string(tx.m_sender ? tx.m_myAddr : tx.m_peerAddr) << ","              // Sending address
