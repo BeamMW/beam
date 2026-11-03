@@ -125,7 +125,6 @@ namespace beam::wallet
         case TxParameterID::AssetID:
         case TxParameterID::Fee:
         case TxParameterID::MinHeight:
-        case TxParameterID::MaxHeight:
         case TxParameterID::Message:
         case TxParameterID::Lifetime:
         case TxParameterID::PaymentConfirmation:

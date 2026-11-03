@@ -4269,6 +4269,7 @@ namespace
             .AddParameter(TxParameterID::Fee, Amount(2))
             .AddParameter(TxParameterID::MinHeight, Height(1))
             .AddParameter(TxParameterID::Lifetime, Height(1) << 62)
+            .AddParameter(TxParameterID::MaxHeight, Height(1) << 62) // the peer's MaxHeight is not taken, only PeerMaxHeight is
             .AddParameter(TxParameterID::PeerPublicExcess, pt)
             .AddParameter(TxParameterID::PeerPublicNonce, pt)
             .AddParameter(TxParameterID::PeerProtoVersion, BaseTransaction::s_ProtoVersion);

@@ -130,7 +130,6 @@ namespace beam::wallet
         case TxParameterID::ExternalDexOrderID:
         case TxParameterID::Fee:
         case TxParameterID::MinHeight: // TODO:DEX check where set
-        case TxParameterID::MaxHeight: // TODO:DEX check where set
         case TxParameterID::Message:
         case TxParameterID::Lifetime:  // TODO:DEX check where set
         case TxParameterID::PaymentConfirmation:
