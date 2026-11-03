@@ -2069,6 +2069,7 @@ namespace Wasm {
 		std::setmin(nOperand, nLabels); // fallback to 'def' if out-of-range
 
 		nLabels++;
+		Exc::Test(nLabels != 0); // overflow check
 		uint32_t nSize = sizeof(Word) * nLabels;
 		Exc::Test(nSize / sizeof(Word) == nLabels); // overflow check
 
