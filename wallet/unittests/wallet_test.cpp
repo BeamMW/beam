@@ -4103,6 +4103,67 @@ namespace
         WALLET_CHECK(balanceAfter == balanceBefore);
     }
 
+    void TestLateFailureReason()
+    {
+        cout << "\nTesting a peer failure message is ignored once the tx was handed to the node...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 2;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            if (--completedCount == 0)
+                mainReactor->stop();
+        };
+
+        TestNode node;
+        TestWalletRig sender(createSenderWalletDB(), f);
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+        sender.m_Wallet->SetBufferSize(2); // the tx reaches the node 1 s after register_tx
+
+        auto txId = sender.m_Wallet->StartTransaction(CreateSimpleTransactionParameters()
+            .SetParameter(TxParameterID::PeerAddr, receiver.m_BbsAddr)
+            .SetParameter(TxParameterID::Amount, Amount(4))
+            .SetParameter(TxParameterID::Fee, Amount(2))
+            .SetParameter(TxParameterID::Lifetime, Height(200)));
+
+        // the moment the sender holds the receiver's signature it has handed the tx to the node; the receiver then "cancels"
+        bool failureSent = false;
+        io::Timer::Ptr poll = io::Timer::create(*mainReactor);
+        poll->start(5, true, [&]()
+        {
+            ECC::Scalar sig;
+            if (failureSent || !storage::getTxParameter(*sender.m_WalletDB, txId, TxParameterID::PeerSignature, sig))
+                return;
+            failureSent = true;
+
+            SetTxParameter msg;
+            msg.m_From = receiver.m_BbsAddr;
+            msg.m_TxID = txId;
+            msg.m_Type = TxType::Simple;
+            msg.AddParameter(TxParameterID::FailureReason, TxFailureReason::Canceled);
+            receiver.m_messageEndpoint->Send(sender.m_BbsAddr, msg);
+        });
+
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(20000, false, [mainReactor]() { mainReactor->stop(); });
+        mainReactor->run();
+
+        auto stx = sender.m_WalletDB->getTx(txId);
+        auto rtx = receiver.m_WalletDB->getTx(txId);
+        TxFailureReason storedReason = TxFailureReason::Unknown;
+        bool reasonStored = storage::getTxParameter(*sender.m_WalletDB, txId, TxParameterID::FailureReason, storedReason);
+        cout << "failure sent=" << failureSent << " stored=" << reasonStored
+             << " sender status=" << (stx ? static_cast<int>(stx->m_status) : -1)
+             << " receiver status=" << (rtx ? static_cast<int>(rtx->m_status) : -1) << endl;
+
+        WALLET_CHECK(failureSent);
+        WALLET_CHECK(reasonStored); // the message was delivered and applied before the node answered
+        WALLET_CHECK(stx && stx->m_status == TxStatus::Completed); // ... and did not fail the payment
+        WALLET_CHECK(rtx && rtx->m_status == TxStatus::Completed);
+    }
+
     void TestShieldedCoinTxID()
     {
         cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
@@ -6043,6 +6104,7 @@ int main()
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
     TestUnsolicitedSelfSplit();
+    TestLateFailureReason();
     TestShieldedCoinTxID();
 
     TestMultiUserWallet();

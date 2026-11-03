@@ -244,6 +244,8 @@ namespace beam::wallet
 
                 _builder->FinalyzeTx();
 
+                // from here on the tx may reach the chain: a peer failure message must not fail it anymore (CheckExternalFailures)
+                UpdateTxDescription(TxStatus::Registering);
                 GetGateway().register_tx(GetTxID(), _builder->m_pTransaction);
                 SetState(State::Registration);
                 return;
