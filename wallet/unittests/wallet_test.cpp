@@ -24,6 +24,9 @@
 #include "wallet/core/base58.h"
 #include "wallet/core/contracts/shaders_manager.h"
 #include "wallet/core/simple_transaction.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/transactions/swaps/swap_transaction.h"
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
 #ifdef BEAM_ASSET_SWAP_SUPPORT
 #include "wallet/transactions/dex/dex_tx.h"
 #endif  // BEAM_ASSET_SWAP_SUPPORT
@@ -4164,6 +4167,31 @@ namespace
         WALLET_CHECK(rtx && rtx->m_status == TxStatus::Completed);
     }
 
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    void TestSwapRedeemParamsNotSettable()
+    {
+        cout << "\nTesting the Beam side of a swap does not take the redeem hashlock image from the peer...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        TestNode node;
+        TestWalletRig rig(createSenderWalletDB(), [](auto) {});
+
+        AtomicSwapTransaction::Creator swapCreator(rig.m_WalletDB);
+        BaseTransaction::Creator& creator = swapCreator;
+        auto pTx = creator.Create(BaseTransaction::TxContext(*rig.m_Wallet, *rig.m_Wallet, GenerateTxID()));
+        pTx->SetParameter(TxParameterID::AtomicSwapIsBeamSide, true);
+
+        // the peer's signature parts of the redeem kernel are still accepted
+        WALLET_CHECK(pTx->IsTxParameterExternalSettable(TxParameterID::PeerSignature, SubTxIndex::BEAM_REDEEM_TX));
+        // the hashlock scheme is not negotiated with any second side, so its lock image must not arrive from the peer
+        WALLET_CHECK(!pTx->IsTxParameterExternalSettable(TxParameterID::PeerLockImage, SubTxIndex::BEAM_REDEEM_TX));
+        WALLET_CHECK(!pTx->IsTxParameterExternalSettable(TxParameterID::PeerLockImage, SubTxIndex::BEAM_REFUND_TX));
+        WALLET_CHECK(!pTx->IsTxParameterExternalSettable(TxParameterID::PeerLockImage, SubTxIndex::BEAM_LOCK_TX));
+    }
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
+
     void TestShieldedCoinTxID()
     {
         cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
@@ -6106,6 +6134,9 @@ int main()
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
     TestUnsolicitedSelfSplit();
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+    TestSwapRedeemParamsNotSettable();
+#endif // BEAM_ATOMIC_SWAP_SUPPORT
     TestLateFailureReason();
     TestShieldedCoinTxID();
 

@@ -244,8 +244,8 @@ namespace beam::wallet
             case TxParameterID::PeerPublicNonce:
             case TxParameterID::PeerSignature:
                 return true;
-            case TxParameterID::PeerLockImage:
-                return isTxOwner && !isTxOwner.get();
+            // PeerLockImage (hashlock scheme) is not accepted from the peer: no second side enables that scheme
+            // (EthereumSide::IsHashLockScheme is false), and receiving it alone switched IsHashlockScheme() on
             default:
                 return false;
         }
@@ -1478,6 +1478,8 @@ namespace beam::wallet
         if (IsHashlockScheme())
         {
             TxKernelStd::Ptr pKrn = GetMandatoryParameter<TxKernelStd::Ptr>(TxParameterID::Kernel, SubTxIndex::BEAM_REDEEM_TX);
+            if (!pKrn->m_pHashLock)
+                throw TransactionFailedException(true, TxFailureReason::InvalidTransaction); // the on-chain redeem kernel carries no hashlock
             SetParameter(TxParameterID::PreImage, pKrn->m_pHashLock->m_Value, false, SubTxIndex::BEAM_REDEEM_TX);
         }
         else
