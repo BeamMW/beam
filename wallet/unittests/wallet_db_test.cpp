@@ -775,6 +775,29 @@ void TestImportProtections()
     WALLET_CHECK(subAmount == 7);
 }
 
+void TestChangePasswordSeparateDB()
+{
+    cout << "\nWallet database password change with a separate private DB\n";
+    {
+        auto db = createSqliteWalletDB(true);
+        db->changePassword(string("newpass"));
+    }
+    IWalletDB::Ptr db;
+    try
+    {
+        db = WalletDB::open("wallet.db", string("newpass"));
+    }
+    catch (const std::exception& e)
+    {
+        cout << "open failed: " << e.what() << endl;
+    }
+    WALLET_CHECK(db);
+    if (db)
+    {
+        WALLET_CHECK(db->get_MasterKdf());
+    }
+}
+
 void TestExportImportTx()
 {
     cout << "\nWallet database transactions export/import test\n";
@@ -1785,6 +1808,7 @@ int main()
     TestSelect7();
     TestAddresses();
     TestImportProtections();
+    TestChangePasswordSeparateDB();
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();

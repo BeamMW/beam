@@ -5488,6 +5488,13 @@ namespace beam::wallet
     {
         int ret = sqlite3_rekey(_db, password.data(), static_cast<int>(password.size()));
         throwIfError(ret, _db);
+
+        if (m_PrivateDB && m_PrivateDB != _db)
+        {
+            // both files are opened with the same password
+            ret = sqlite3_rekey(m_PrivateDB, password.data(), static_cast<int>(password.size()));
+            throwIfError(ret, m_PrivateDB);
+        }
     }
 
     bool WalletDB::setTxParameter(const TxID& txID, SubTxID subTxID, TxParameterID paramID, const ByteBuffer& blob, bool shouldNotifyAboutChanges, bool allowModify /* = true */)
