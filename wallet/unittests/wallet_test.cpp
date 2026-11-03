@@ -4192,6 +4192,55 @@ namespace
     }
 #endif // BEAM_ATOMIC_SWAP_SUPPORT
 
+    void TestMalformedTxParameter()
+    {
+        cout << "\nTesting a malformed incoming tx parameter is rejected before it reaches the DB...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        TestNode node;
+        TestWalletRig victim(createSenderWalletDB(), [](auto) {});
+        TestWalletRig attacker(createReceiverWalletDB(), [](auto) {});
+
+        SetTxParameter msg;
+        msg.m_From = attacker.m_BbsAddr;
+        msg.m_TxID = GenerateTxID();
+        msg.m_Type = TxType::Simple;
+        msg.AddParameter(TxParameterID::IsSender, false)
+            .AddParameter(TxParameterID::Fee, Amount(2))
+            .AddParameter(TxParameterID::Lifetime, Height(200))
+            .AddParameter(TxParameterID::PeerProtoVersion, BaseTransaction::s_ProtoVersion);
+        msg.m_Parameters.emplace_back(TxParameterID::Amount, ByteBuffer{ 0x08 }); // length prefix without the bytes
+
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(3000, false, [mainReactor]() { mainReactor->stop(); });
+
+        attacker.m_messageEndpoint->Send(victim.m_BbsAddr, msg);
+        mainReactor->run();
+
+        WALLET_CHECK(!victim.m_WalletDB->getTx(msg.m_TxID));
+
+        bool historyReadable = true;
+        try
+        {
+            victim.m_WalletDB->getTxHistory();
+            victim.m_Wallet->ResumeAllTransactions();
+        }
+        catch (const std::exception&)
+        {
+            historyReadable = false;
+        }
+        WALLET_CHECK(historyReadable);
+
+        // the blob check itself
+        WALLET_CHECK(!IsValidTxParameterBlob(TxParameterID::Amount, ByteBuffer{ 0x08 }));
+        WALLET_CHECK(!IsValidTxParameterBlob(TxParameterID::IsSender, ByteBuffer{ 0x01, 0x02 })); // trailing byte
+        WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Amount, toByteBuffer(Amount(5))));
+        WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Amount, ByteBuffer{})); // empty means default
+        WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Message, ByteBuffer{ 0xFF, 0xFE }));
+    }
+
     void TestShieldedCoinTxID()
     {
         cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
@@ -6134,6 +6183,7 @@ int main()
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
     TestUnsolicitedSelfSplit();
+    TestMalformedTxParameter();
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     TestSwapRedeemParamsNotSettable();
 #endif // BEAM_ATOMIC_SWAP_SUPPORT

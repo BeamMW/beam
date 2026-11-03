@@ -1268,7 +1268,17 @@ namespace beam::wallet
         else
         {
             if (!(pFrom && (pFrom == m_pBlockedForTxs)))
-                OnTransactionMsg(myID, msg);
+            {
+                try
+                {
+                    OnTransactionMsg(myID, msg);
+                }
+                catch (const std::exception& exc)
+                {
+                    // a bad peer message must not propagate into the node connection and drop it
+                    BEAM_LOG_WARNING() << msg.m_TxID << " Tx msg failed: " << exc.what();
+                }
+            }
         }
     }
 
@@ -2550,6 +2560,16 @@ namespace beam::wallet
         //
         // Process transaction request
         //
+        for (const auto& p : msg.m_Parameters)
+        {
+            // parameters are stored as blobs and parsed later by everything that reads the tx; a malformed one must not reach the DB
+            if (!IsValidTxParameterBlob(p.first, p.second))
+            {
+                BEAM_LOG_WARNING() << msg.m_TxID << " Incoming tx with malformed parameter " << static_cast<int>(p.first) << " rejected";
+                return;
+            }
+        }
+
         auto it = m_ActiveTransactions.find(msg.m_TxID);
         if (it != m_ActiveTransactions.end())
         {

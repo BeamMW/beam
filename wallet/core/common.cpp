@@ -512,26 +512,57 @@ namespace beam::wallet
         return result;
     }
 
+    namespace
+    {
+        template <typename T>
+        bool IsValidBlobOf(const ByteBuffer& blob)
+        {
+            if constexpr (std::is_same<T, ByteBuffer>::value)
+                return true; // stored raw, see fromByteBuffer(const ByteBuffer&, ByteBuffer&)
+
+            if (blob.empty())
+                return true; // fromByteBuffer yields a default value
+
+            try
+            {
+                T value;
+                Deserializer d;
+                d.reset(blob.data(), blob.size());
+                d & value;
+                if (d.bytes_left())
+                    return false; // trailing bytes
+
+                if constexpr (std::is_same<T, WalletID>::value)
+                    return value.IsValid();
+                return true;
+            }
+            catch (const std::exception&)
+            {
+                return false;
+            }
+        }
+    }
+
+    bool IsValidTxParameterBlob(TxParameterID id, const ByteBuffer& blob)
+    {
+        switch (id)
+        {
+#define MACRO(name, index, type) \
+        case TxParameterID::name: \
+            return IsValidBlobOf<type>(blob);
+            BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
+#undef MACRO
+        default:
+            return true;
+        }
+    }
+
     bool TxToken::IsValid() const
     {
         for (const auto& p : m_Parameters)
         {
-            switch (p.first)
-            {
-#define MACRO(name, index, type) \
-            case TxParameterID::name: \
-                { \
-                    type value; \
-                    if (!fromByteBuffer(p.second, value)) \
-                    { \
-                        return false; \
-                    } \
-                } break; 
-                BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
-#undef MACRO
-            default:
-                break;
-            }
+            if (!IsValidTxParameterBlob(p.first, p.second))
+                return false;
         }
         return true;
     }

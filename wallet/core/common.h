@@ -546,6 +546,9 @@ namespace beam::wallet
 
     boost::optional<TxParameters> ParseParameters(const std::string& text);
 
+    // true if the blob deserializes completely into the declared type of the parameter (unknown ids: no type to check against)
+    bool IsValidTxParameterBlob(TxParameterID id, const ByteBuffer& blob);
+
     enum struct TxAddressType : uint8_t
     {
         Unknown,
