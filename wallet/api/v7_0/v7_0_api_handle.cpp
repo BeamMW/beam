@@ -233,6 +233,9 @@ namespace beam::wallet
         MyProcessor::DeriveKeyPreimage(hv, Blob(req.keyMaterial));
         auto db = getWalletDB();
         auto pKdf = db->get_MasterKdf();
+        if (!pKdf)
+            throw jsonrpc_exception(ApiError::NotSupported, "sign_message needs the master key, this wallet has none"); // owner-key and HW wallets
+
         ECC::Scalar::Native sk;
         pKdf->DeriveKey(sk, hv);
 
