@@ -280,7 +280,7 @@ bool Node::Wanted::Add(const KeyType& key)
 		return false; // already waiting for it
 
 	if (m_lst.size() >= s_MaxItems)
-		return false; // enough outstanding requests, this one is not asked for
+		Delete(m_lst.front()); // the oldest key gives way, it is no longer re-requested on timeout; a received item is processed either way
 
 	bool bEmpty = m_lst.empty();
 
