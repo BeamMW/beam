@@ -2543,11 +2543,8 @@ namespace beam::wallet
         m_ssHandler = nullptr;
     }
 
-    void Wallet::OnTransactionMsg(const WalletID& myID, const SetTxParameter& msg)
+    void Wallet::ExtendAddressExpiration(const WalletID& myID)
     {
-        //
-        // Extend Auto addresses
-        //
         if (auto addr = m_WalletDB->getAddress(myID); addr)
         {
             if (!addr->isPermanent())
@@ -2591,6 +2588,8 @@ namespace beam::wallet
             {
                 pTx->SetParameter(TxParameterID::PeerAddr, msg.m_From, false);
             }
+
+            ExtendAddressExpiration(myID);
 
             if (ApplyTransactionParameters(pTx, msg.m_Parameters, false))
                 UpdateTransaction(pTx);
@@ -2686,6 +2685,8 @@ namespace beam::wallet
                 ByteBuffer message(address->m_label.begin(), address->m_label.end());
                 pTx->SetParameter(TxParameterID::Message, message);
             }
+
+            ExtendAddressExpiration(myID);
 
             MakeTransactionActive(pTx);
             ApplyTransactionParameters(pTx, msg.m_Parameters, false);
