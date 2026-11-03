@@ -4239,6 +4239,8 @@ namespace
         WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Amount, toByteBuffer(Amount(5))));
         WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Amount, ByteBuffer{})); // empty means default
         WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::Message, ByteBuffer{ 0xFF, 0xFE }));
+        WALLET_CHECK(!IsValidTxParameterBlob(TxParameterID::DexReceiveAmount, ByteBuffer{ 0x08 }));
+        WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::DexReceiveAsset, toByteBuffer(Asset::ID(7))));
     }
 
     void TestShieldedCoinTxID()

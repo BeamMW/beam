@@ -552,6 +552,11 @@ namespace beam::wallet
             return IsValidBlobOf<type>(blob);
             BEAM_TX_PUBLIC_PARAMETERS_MAP(MACRO)
 #undef MACRO
+        // private ids that DexTransaction accepts from the peer
+        case TxParameterID::DexReceiveAsset:
+            return IsValidBlobOf<Asset::ID>(blob);
+        case TxParameterID::DexReceiveAmount:
+            return IsValidBlobOf<Amount>(blob);
         default:
             return true;
         }
