@@ -4048,6 +4048,61 @@ namespace
 #endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
+    void TestUnsolicitedSelfSplit()
+    {
+        cout << "\nTesting incoming tx with forged own m_From cannot become a self-split paying an attacker-chosen fee...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        int completedCount = 1;
+        auto f = [&completedCount, mainReactor](auto)
+        {
+            if (--completedCount == 0)
+                mainReactor->stop();
+        };
+
+        TestNode node;
+        TestWalletRig victim(createSenderWalletDB(), f);   // coins {5,2,1,9} = 17
+        TestWalletRig attacker(createReceiverWalletDB(), f);
+
+        auto balanceOf = [](TestWalletRig& rig)
+        {
+            Amount total = 0;
+            for (const auto& c : rig.GetCoins())
+                if (c.m_status == Coin::Available)
+                    total += c.m_ID.m_Value;
+            return total;
+        };
+        const Amount balanceBefore = balanceOf(victim);
+        cout << "victim balance before=" << balanceBefore << endl;
+
+        SetTxParameter msg;
+        msg.m_From = victim.m_BbsAddr;          // forged: the victim's OWN address, known to anyone who ever paid it
+        msg.m_TxID = GenerateTxID();
+        msg.m_Type = TxType::Simple;
+        msg.AddParameter(TxParameterID::IsSender, false)
+            .AddParameter(TxParameterID::Amount, Amount(1))
+            .AddParameter(TxParameterID::Fee, Amount(15))   // attacker-chosen: nearly the whole balance
+            .AddParameter(TxParameterID::Lifetime, Height(200))
+            .AddParameter(TxParameterID::PeerProtoVersion, BaseTransaction::s_ProtoVersion);
+
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(10000, false, [mainReactor]() { mainReactor->stop(); });
+
+        attacker.m_messageEndpoint->Send(victim.m_BbsAddr, msg);
+        mainReactor->run();
+
+        auto tx = victim.m_WalletDB->getTx(msg.m_TxID);
+        if (tx)
+            cout << "victim tx status=" << static_cast<int>(tx->m_status) << " amount=" << tx->m_amount << " fee=" << tx->m_fee << " selfTx=" << tx->m_selfTx << endl;
+        const Amount balanceAfter = balanceOf(victim);
+        cout << "victim balance after=" << balanceAfter << endl;
+
+        WALLET_CHECK(!tx);
+        WALLET_CHECK(balanceAfter == balanceBefore);
+    }
+
     void TestShieldedCoinTxID()
     {
         cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
@@ -5987,6 +6042,7 @@ int main()
     TestClient();
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
+    TestUnsolicitedSelfSplit();
     TestShieldedCoinTxID();
 
     TestMultiUserWallet();

@@ -2576,6 +2576,13 @@ namespace beam::wallet
             return;
         }
 
+        if (auto fromAddr = m_WalletDB->getAddress(msg.m_From); fromAddr && fromAddr->isOwn())
+        {
+            // m_From is not authenticated. A tx "from" one of our own addresses would be treated as a self tx (split) and spend our coins
+            BEAM_LOG_WARNING() << msg.m_TxID << " Incoming tx from our own address rejected";
+            return;
+        }
+
         // GetParameter reads any sub-tx, but only default sub-tx values reach the tx; Simple and DEX txs never carry another one
         for (const auto& p : msg.m_Parameters)
         {

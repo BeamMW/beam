@@ -160,7 +160,20 @@ namespace beam::wallet
     {
         if (!m_TxBuilder)
         {
-            m_TxBuilder = IsSelfTx() ?
+            bool isSelfTx = IsSelfTx();
+            if (isSelfTx)
+            {
+                // a split is always started locally. An incoming tx whose PeerAddr is one of our own addresses must not become one
+                bool isInitiator = true; // txs created before IsInitiator existed are local
+                GetParameter(TxParameterID::IsInitiator, isInitiator);
+                if (!isInitiator)
+                {
+                    OnFailed(TxFailureReason::InvalidState, false);
+                    return;
+                }
+            }
+
+            m_TxBuilder = isSelfTx ?
                 make_shared<SimpleTxBuilder>(*this, kDefaultSubTxID) :
                 make_shared<MyBuilder>(*this, kDefaultSubTxID);
         }
