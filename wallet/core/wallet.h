@@ -308,6 +308,8 @@ namespace beam::wallet
         void OnSpecialMsg(const WalletID& myID, const SetTxParameter&);
         std::vector<BaseTransaction::Ptr> FindTxWaitingForVouchers(const WalletID& peerID) const;
         void FailTxWaitingForVouchers(const WalletID& peerID);
+        bool HasVoucherRequest(const WalletID& peerID, const WalletID& ownAddr) const;
+        void ExtendAddressExpiration(const WalletID& myID);
         void FailVoucherRequest(const WalletID& peerID, const WalletID& myID);
         void RestoreTransactionFromShieldedCoin(ShieldedCoin& coin);
         void SetTreasuryHandled(bool);

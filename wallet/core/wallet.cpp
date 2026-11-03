@@ -1109,6 +1109,13 @@ namespace beam::wallet
             {
                 std::vector<ShieldedTxo::Voucher> res;
                 msg.GetParameter(TxParameterID::ShieldedVoucherList, res);
+                if (!HasVoucherRequest(msg.m_From, myID))
+                {
+                    // m_From is not authenticated: only a response to a request we sent, to the address we sent it from, is consumed
+                    BEAM_LOG_WARNING() << "Unexpected voucher response from " << std::to_string(msg.m_From);
+                    return;
+                }
+
                 if (res.empty())
                 {
                     BEAM_LOG_WARNING() << "Received an empty voucher list";
@@ -1199,6 +1206,15 @@ namespace beam::wallet
         msgOut.AddParameter(TxParameterID::FailureReason, TxFailureReason::CannotGetVouchers);
 
         SendSpecialMsg(peerID, msgOut);
+    }
+
+    bool Wallet::HasVoucherRequest(const WalletID& peerID, const WalletID& ownAddr) const
+    {
+        VoucherManager::Request::Target key;
+        key.m_Value = peerID;
+
+        auto it = m_VoucherManager.m_setTrg.find(key);
+        return (m_VoucherManager.m_setTrg.end() != it) && (it->get_ParentObj().m_OwnAddr == ownAddr);
     }
 
     void Wallet::OnVouchersFrom(const WalletAddress& addr, const WalletID& ownAddr, std::vector<ShieldedTxo::Voucher>&& res)

@@ -5324,7 +5324,9 @@ void TestVouchers()
     addr.m_OwnID = 0;
     pDbSnd->saveAddress(addr);
 
-    sender.RequestVouchersFrom(receiver.m_MyAddr.m_BbsAddr, sender.m_MyAddr.m_BbsAddr, 15);
+    boost::optional<ShieldedTxo::Voucher> dummy;
+    twn->m_pListenSink = &sender; // the request listens on a fresh address of the sender
+    static_cast<INegotiatorGateway&>(sender).get_UniqueVoucher(receiver.m_MyAddr.m_BbsAddr, TxID{}, dummy); // none stored: requests them from the receiver
 
     io::Timer::Ptr timer = io::Timer::create(*mainReactor);
     timer->start(1000, true, []() { io::Reactor::get_Current().stop(); });

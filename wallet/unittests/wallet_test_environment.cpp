@@ -521,6 +521,15 @@ struct TestWalletNetwork
     typedef std::map<WalletID, Entry> WalletMap;
     WalletMap m_Map;
 
+    // the wallet that receives messages for addresses it starts listening on (e.g. a voucher request's own address)
+    IWalletMessageConsumer* m_pListenSink = nullptr;
+
+    void Listen(const WalletID& wid, const ECC::Scalar::Native&, IHandler* = nullptr) override
+    {
+        if (m_pListenSink)
+            m_Map[wid].m_pSink = m_pListenSink;
+    }
+
     void Send(const WalletID& peerID, const wallet::SetTxParameter& msg) override
     {
         WalletMap::iterator it = m_Map.find(peerID);
