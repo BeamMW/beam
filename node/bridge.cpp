@@ -200,9 +200,15 @@ void EventsExtractor2::Handler::OnComplete(proto::FlyClient::Request& r)
 	Merkle::Hash hv;
 	Block::get_HashContractLog(hv, get_ParentObj().m_Key, req.m_Event, req.m_Msg.m_Pos.m_Pos);
 
-	Block::SystemState::Full sTip;
-	get_ParentObj().get_Hist().get_Tip(sTip);
-	sTip.IsValidProofLog(hv, req.m_Res.m_Proof);
+	// the proof is relative to the definition of the block that holds the event, as in get_ProofContractLog
+	Block::SystemState::Full s;
+	if (!get_ParentObj().get_Hist().get_At(s, req.m_Msg.m_Pos.m_Height) || !s.IsValidProofLog(hv, req.m_Res.m_Proof))
+	{
+		// the L1 node served an event that isn't in that block's log tree: it is not imported
+		BEAM_LOG_ERROR() << "Bridge L1 event at " << req.m_Msg.m_Pos.m_Height << ":" << req.m_Msg.m_Pos.m_Pos << " failed proof verification";
+		Delete(req);
+		return;
+	}
 
 	// confirmed
 	r.m_pTrg = nullptr;
