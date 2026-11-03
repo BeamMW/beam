@@ -361,6 +361,8 @@ private:
 		typedef boost::intrusive::list<Item> List;
 		typedef boost::intrusive::multiset<Item> Set;
 
+		static const size_t s_MaxItems = 100000; // each one is re-requested from every peer on timeout
+
 		List m_lst;
 		Set m_set;
 		io::Timer::Ptr m_pTimer;

@@ -279,6 +279,9 @@ bool Node::Wanted::Add(const KeyType& key)
 	if (m_set.end() != it)
 		return false; // already waiting for it
 
+	if (m_lst.size() >= s_MaxItems)
+		return false; // enough outstanding requests, this one is not asked for
+
 	bool bEmpty = m_lst.empty();
 
 	Item* p = new Item;
@@ -2518,6 +2521,18 @@ void Node::Peer::OnMsg(proto::NewTransaction&& msg)
 		ThrowUnexpected(); // our deserialization permits NULL Ptrs.
 	// However the transaction body must have already been checked for NULLs
 
+	if (msg.m_Transaction->get_Reader().get_SizeNetto() > Rules::get().MaxBodySize)
+	{
+		// can't fit a block, not worth validating or queueing
+		if (!(Flags::PiRcvd & m_Flags))
+		{
+			proto::Status msgOut;
+			msgOut.m_Value = proto::TxStatus::LimitExceeded;
+			Send(msgOut);
+		}
+		return;
+	}
+
 	// Change in protocol!
 	// Historically the node replied with proto::Status message for transactions in stem phase only, for fluff phase no reply was necessary.
 	// Now we reply regardless to phase, but ONLY to non-node client (means - FlyClient).
@@ -4147,6 +4162,10 @@ void Node::Peer::OnMsg(proto::BbsSubscribe&& msg)
 
 	if (msg.m_On)
 	{
+		// a wallet listens on at most s_MaxWalletChannels plus the few system channels
+		if (m_Subscriptions.size() >= proto::Bbs::s_MaxWalletChannels + 16)
+			ThrowUnexpected();
+
 		Bbs::Subscription* pS = new Bbs::Subscription;
 		pS->m_pPeer = this;
 
