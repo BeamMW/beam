@@ -424,9 +424,17 @@ namespace Wasm {
 		inp.m_p0 = inp.m_p1; // skip the rest
 	}
 
-	void CompilerPlus::OnSection_Type(Reader& inp)
+	// an element count is bounded by the bytes left in the section, each element takes at least nMinBytes
+	uint32_t ReadCount(Reader& inp, uint32_t nMinBytes)
 	{
 		auto nCount = inp.Read<uint32_t>();
+		Exc::Test(nCount <= static_cast<size_t>(inp.m_p1 - inp.m_p0) / nMinBytes);
+		return nCount;
+	}
+
+	void CompilerPlus::OnSection_Type(Reader& inp)
+	{
+		auto nCount = ReadCount(inp, 3); // 0x60, args count, rets count
 		m_Types.resize(nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
@@ -511,7 +519,7 @@ namespace Wasm {
 
 	void CompilerPlus::OnSection_Funcs(Reader& inp)
 	{
-		auto nCount = inp.Read<uint32_t>();
+		auto nCount = ReadCount(inp, 1);
 		m_Functions.resize(nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
@@ -548,7 +556,7 @@ namespace Wasm {
 
 	void CompilerPlus::OnSection_Global(Reader& inp)
 	{
-		auto nCount = inp.Read<uint32_t>();
+		auto nCount = ReadCount(inp, 3); // type, mutability, init expr
 		m_Globals.resize(nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
@@ -565,7 +573,7 @@ namespace Wasm {
 
 	void CompilerPlus::OnSection_Export(Reader& inp)
 	{
-		auto nCount = inp.Read<uint32_t>();
+		auto nCount = ReadCount(inp, 3); // name length, kind, index
 		m_Exports.resize(nCount);
 
 		for (uint32_t i = 0; i < nCount; i++)
@@ -595,7 +603,7 @@ namespace Wasm {
 			uint32_t nOffset = ReadI32Initializer(inp);
 			Exc::Test(1 == nOffset); // seems irrelevant
 
-			auto nFuncs = inp.Read<uint32_t>();
+			auto nFuncs = ReadCount(inp, 1);
 			m_IndirectFuncs.m_vec.resize(nFuncs);
 
 			for (uint32_t iFunc = 0; iFunc < nFuncs; iFunc++)
@@ -628,12 +636,13 @@ namespace Wasm {
 			for (uint32_t iArg = 0; iArg < funcType.m_Args.n; iArg++)
 				x.m_Locals.Add(funcType.m_Args.p[iArg]);
 
-			auto nBlocks = inpFunc.Read<uint32_t>();
+			auto nBlocks = ReadCount(inpFunc, 2); // count, type
 			for (uint32_t iBlock = 0; iBlock < nBlocks; iBlock++)
 			{
 				auto nVarsCount = inpFunc.Read<uint32_t>();
 				uint8_t nType = inpFunc.Read1();
 
+				Exc::Test(static_cast<uint64_t>(x.m_Locals.m_v.size()) + nVarsCount <= Compiler::s_MaxLocals);
 				while (nVarsCount--)
 					x.m_Locals.Add(nType);
 			}
@@ -645,7 +654,7 @@ namespace Wasm {
 
 	void CompilerPlus::OnSection_Data(Reader& inp)
 	{
-		uint32_t nCount = inp.Read<uint32_t>();
+		uint32_t nCount = ReadCount(inp, 3); // flags, init expr, size
 
 		for (uint32_t i = 0; i < nCount; i++)
 		{
@@ -668,9 +677,10 @@ namespace Wasm {
 			{
 				nAddr -= m_cmplData0; // to rel
 
-				size_t n = nAddr + data.n;
+				uint64_t n = static_cast<uint64_t>(nAddr) + data.n;
+				Exc::Test(n <= Compiler::s_MaxDataSize);
 				if (m_Data.size() < n)
-					m_Data.resize(n);
+					m_Data.resize(static_cast<size_t>(n));
 
 				memcpy(&m_Data.front() + nAddr, data.p, data.n);
 			}
@@ -864,7 +874,7 @@ namespace Wasm {
 
 		void PutBranchLabel(uint32_t nLabel)
 		{
-			Exc::Test(nLabel + 1 < m_Blocks.size());
+			Exc::Test(static_cast<size_t>(nLabel) + 1 < m_Blocks.size());
 			assert(nLabel < m_This.m_Labels.m_Items.size());
 
 			auto iBlock = m_Blocks.size() - (nLabel + 1);

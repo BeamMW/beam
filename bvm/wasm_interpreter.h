@@ -99,6 +99,9 @@ namespace Wasm {
 
 	struct Compiler
 	{
+		static const uint32_t s_MaxDataSize = 0x1000000; // 16MB, bounds the zero-filled gaps between data segments
+		static const uint32_t s_MaxLocals = 0x10000; // per function
+
 		struct Context;
 
 		template <typename T>

@@ -552,6 +552,30 @@ void TestFailed(const char* szExpr, uint32_t nLine)
 namespace beam {
 namespace bvm2 {
 
+	void TestCompilerBounds()
+	{
+		// wasm header, then a data section whose 2nd segment starts 16 bytes below the 32-bit wrap and is 32 bytes long:
+		// in 32-bit arithmetic its end offset is 16, so without a 64-bit bound the copy lands 4 GB past the data buffer
+		static const uint8_t pWasm[] = {
+			0, 'a', 's', 'm', 1, 0, 0, 0,
+			11, 44, // data section, 44 bytes
+			2, // 2 segments
+			0, 0x41, 0x00, 0x0B, 1, 0xAA, // segment 0: flags 0, i32.const 0, end, 1 byte
+			0, 0x41, 0x70, 0x0B, 32, // segment 1: flags 0, i32.const -16, end, 32 bytes
+			0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB,
+			0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB,
+		};
+
+		ByteBuffer res;
+		bool bThrown = false;
+		try {
+			Processor::Compile(res, Blob(pWasm, sizeof(pWasm)), Processor::Kind::Contract);
+		} catch (const std::exception&) {
+			bThrown = true;
+		}
+		verify_test(bThrown);
+	}
+
 	void TestMergeSort()
 	{
 		std::vector<uint64_t> buf, buf2;
@@ -4798,6 +4822,7 @@ int main()
 		using namespace beam;
 		using namespace beam::bvm2;
 
+		TestCompilerBounds();
 		TestMergeSort();
 		TestRLP();
 		TestEthSeedForPoW();
