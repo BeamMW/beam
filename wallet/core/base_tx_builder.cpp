@@ -1254,12 +1254,17 @@ namespace beam::wallet
         GetParameter(TxParameterID::Lifetime, m_Lifetime); // refresh it too
 
         // receiver is allowed to adjust what was suggested by the sender
-        if (!m_IsSender && m_Lifetime)
+        if (!m_IsSender)
         {
-            // we're allowed to adjust peer's sugggested max height
+            // both come from the peer. A kernel can't live longer than MaxKernelValidityDH anyway, and the tx must expire with it
             Block::SystemState::Full s;
             if (m_Tx.GetTip(s))
-                m_Height.m_Max = s.get_Height() + m_Lifetime;
+            {
+                Height hLimit = s.get_Height() + Rules::get().MaxKernelValidityDH;
+                if (m_Lifetime)
+                    m_Height.m_Max = s.get_Height() + std::min(m_Lifetime, Rules::get().MaxKernelValidityDH);
+                std::setmin(m_Height.m_Max, hLimit);
+            }
         }
 
         // sanity check

@@ -4243,6 +4243,55 @@ namespace
         WALLET_CHECK(IsValidTxParameterBlob(TxParameterID::DexReceiveAsset, toByteBuffer(Asset::ID(7))));
     }
 
+    void TestIncomingTxLifetimeCap()
+    {
+        cout << "\nTesting the receiver caps the lifetime a sender may set...\n";
+
+        io::Reactor::Ptr mainReactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*mainReactor);
+
+        auto f = [](auto) {};
+
+        TestNode node;
+        TestWalletRig receiver(createReceiverWalletDB(), f);
+        TestWalletRig sender(createSenderWalletDB(), f);
+
+        ECC::Scalar::Native sk = 7U;
+        ECC::Point::Native ptN = ECC::Context::get().G * sk;
+        ECC::Point pt = ptN; // any public data makes the receiver proceed to its signature
+
+        SetTxParameter msg;
+        msg.m_From = sender.m_BbsAddr;
+        msg.m_TxID = GenerateTxID();
+        msg.m_Type = TxType::Simple;
+        msg.AddParameter(TxParameterID::IsSender, false)
+            .AddParameter(TxParameterID::Amount, Amount(4))
+            .AddParameter(TxParameterID::Fee, Amount(2))
+            .AddParameter(TxParameterID::MinHeight, Height(1))
+            .AddParameter(TxParameterID::Lifetime, Height(1) << 62)
+            .AddParameter(TxParameterID::PeerPublicExcess, pt)
+            .AddParameter(TxParameterID::PeerPublicNonce, pt)
+            .AddParameter(TxParameterID::PeerProtoVersion, BaseTransaction::s_ProtoVersion);
+
+        io::Timer::Ptr timer = io::Timer::create(*mainReactor);
+        timer->start(3000, false, [mainReactor]() { mainReactor->stop(); });
+
+        sender.m_messageEndpoint->Send(receiver.m_BbsAddr, msg);
+        mainReactor->run();
+
+        auto tx = receiver.m_WalletDB->getTx(msg.m_TxID);
+        WALLET_CHECK(tx);
+        if (tx)
+        {
+            Height maxHeight = 0;
+            WALLET_CHECK(storage::getTxParameter(*receiver.m_WalletDB, msg.m_TxID, TxParameterID::MaxHeight, maxHeight));
+            Block::SystemState::Full tip;
+            receiver.m_WalletDB->get_History().get_Tip(tip);
+            cout << "receiver MaxHeight=" << maxHeight << " tip=" << tip.get_Height() << endl;
+            WALLET_CHECK(maxHeight <= tip.get_Height() + Rules::get().MaxKernelValidityDH);
+        }
+    }
+
     void TestShieldedCoinTxID()
     {
         cout << "\nTesting incoming shielded coin cannot modify existing txs...\n";
@@ -6185,6 +6234,7 @@ int main()
     TestSendingWithWalletID();
     TestUnsolicitedSenderRole();
     TestUnsolicitedSelfSplit();
+    TestIncomingTxLifetimeCap();
     TestMalformedTxParameter();
 #ifdef BEAM_ATOMIC_SWAP_SUPPORT
     TestSwapRedeemParamsNotSettable();
