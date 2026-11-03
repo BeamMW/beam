@@ -195,7 +195,7 @@ namespace Lightning {
 
 		State::Enum get_State() const;
 		bool IsUnfairPeerClosed() const;
-		void DiscardLastRevision();
+		bool DiscardLastRevision(); // false if the revision can't be discarded: we already revealed the key of the one before it
 
 
 		bool Open(Amount nMy, Amount nOther, Height hOpenTxDh);

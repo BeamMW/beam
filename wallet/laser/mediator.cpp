@@ -592,11 +592,21 @@ bool Mediator::OnIncoming(Negotiator::Storage::Map& dataIn)
         return false;
     }          
 
+    auto pCid = std::make_shared<ChannelID>(cid);
+
+    {
+        // the peer chooses the id; it must not collide with a channel we already store, which it would overwrite
+        TLaserChannelEntity existing;
+        if (m_pWalletDB->getLaserChannel(pCid, &existing))
+        {
+            BEAM_LOG_ERROR() << "Incoming connection reuses the id of an existing channel, ignored";
+            return false;
+        }
+    }
+
     Unsubscribe();
 
     BEAM_LOG_INFO() << "Create channel by incoming connection";
-
-    auto pCid = std::make_shared<ChannelID>(cid);
 
     auto params = m_Params;
     params.m_Fee = fee;
@@ -816,16 +826,28 @@ void Mediator::UpdateChannels()
         if (state == Lightning::Channel::State::Updating && channel->IsUpdateStuck())
         {
             BEAM_LOG_WARNING() << "Update stuck, discarding last revision...";
-            channel->DiscardLastRevision();
-            revisionDiscarded = true;
+            if (channel->DiscardLastRevision())
+                revisionDiscarded = true;
+            else
+            {
+                // we already revealed the previous key: the new revision is the only one we may close with
+                BEAM_LOG_WARNING() << "Previous revision already revoked by us, closing the channel with the current one";
+                channel->Close();
+            }
         }
 
         bool closingDiscarded = false;
         if (state == Lightning::Channel::State::Closing1 && channel->IsGracefulCloseStuck())
         {
             BEAM_LOG_WARNING() << "Closing stuck, discarding last revision...";
-            channel->DiscardLastRevision();
-            closingDiscarded = true;
+            if (channel->DiscardLastRevision())
+                closingDiscarded = true;
+            else
+            {
+                // same as a stuck update: the graceful close revision is the only one we may close with
+                BEAM_LOG_WARNING() << "Previous revision already revoked by us, closing the channel with the current one";
+                channel->Close();
+            }
         }
 
         if (state != Lightning::Channel::State::None &&

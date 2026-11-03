@@ -131,15 +131,19 @@ bool Channel::IsUnfairPeerClosed() const
 	return p && p->m_PeerKeyValid;
 }
 
-void Channel::DiscardLastRevision()
+bool Channel::DiscardLastRevision()
 {
 	if (m_nRevision && !m_lstUpdates.empty())
 	{
+		if (m_lstUpdates.back().m_RevealedSelfKey)
+			return false; // the previous revision is revoked by us, the current one must stay
+
 		m_gracefulClose = false;
 		m_lstUpdates.DeleteBack();
 		--m_nRevision;
 		m_pNegCtx.reset();
 	}
+	return true;
 }
 
 void Channel::OnPeerData(Storage::Map& dataIn)
@@ -234,8 +238,7 @@ void Channel::OnPeerData(Storage::Map& dataIn)
 
 			if (m_pNegCtx && m_pNegCtx->m_eType == NegotiationCtx::Close)
 			{
-				DiscardLastRevision();
-				if (!m_iRole)
+				if (DiscardLastRevision() && !m_iRole)
 					Transfer(0, true);
 
 				return;
