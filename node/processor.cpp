@@ -1096,13 +1096,12 @@ struct NodeProcessor::MultiShieldedContext
 	}
 
 	bool IsValid(const TxVectors::Eternal&, Height, ECC::InnerProduct::BatchContext&, uint32_t iVerifier, uint32_t nTotal, ValidatedCache&);
-	void Prepare(const TxVectors::Eternal&, NodeProcessor&, Height, bool bStrict);
+	// bStrict: every window must end within the outputs confirmed before the tx/block. Returns false if one doesn't
+	bool Prepare(const TxVectors::Eternal&, NodeProcessor&, Height, bool bStrict);
 
 private:
 
 	Sigma::CmListVec m_Lst;
-	TxoID m_PoolSize = 0; // shielded outputs confirmed before the tx/block, set by Prepare
-	bool m_Strict = false; // windows must end within m_PoolSize
 
 	bool IsValid(const TxKernelShieldedInput&, Height hScheme, std::vector<ECC::Scalar::Native>& vBuf, ECC::InnerProduct::BatchContext&);
 
@@ -1115,10 +1114,10 @@ private:
 	{
 		m_Lst.m_vec.resize(s_Chunk); // will allocate if empty
 
-		// the stream is allocated in whole blobs up to m_PoolSize. Past that there is nothing to read:
-		// treat it as zero instead of failing the DB read
+		// the stream is allocated in whole blobs up to the current pool size. Past that there is nothing to read:
+		// treat it as zero instead of failing the DB read (strict windows never reach it)
 		const TxoID nPerBlob = NodeDB::get_ShieldedElementsPerBlob();
-		const TxoID nAllocated = (m_PoolSize + nPerBlob - 1) / nPerBlob * nPerBlob;
+		const TxoID nAllocated = (np.m_Extra.m_ShieldedOutputs + nPerBlob - 1) / nPerBlob * nPerBlob;
 
 		TxoID id0 = n.m_ID.m_Value + n.m_Min;
 		TxoID id1 = n.m_ID.m_Value + n.m_Max;
@@ -1148,14 +1147,6 @@ private:
 
 bool NodeProcessor::MultiShieldedContext::IsValid(const TxKernelShieldedInput& krn, Height hScheme, std::vector<ECC::Scalar::Native>& vKs, ECC::InnerProduct::BatchContext& bc)
 {
-	if (!krn.m_WindowEnd)
-		return false;
-
-	// strict: the window ends within the outputs confirmed before this tx/block, so the list never includes the
-	// tx's own outputs and nothing past m_PoolSize is read
-	if (m_Strict && (krn.m_WindowEnd > m_PoolSize))
-		return false;
-
 	const Lelantus::Proof& x = krn.m_SpendProof;
 	uint32_t N = x.m_Cfg.get_N();
 	if (!N)
@@ -1247,29 +1238,38 @@ bool NodeProcessor::MultiShieldedContext::IsValid(const TxVectors::Eternal& txve
 	return wlk.Process(txve.m_vKernels);
 }
 
-void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h, bool bStrict)
+bool NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve, NodeProcessor& np, Height h, bool bStrict)
 {
-	m_PoolSize = np.m_Extra.m_ShieldedOutputs;
-	m_Strict = bStrict;
-
-	if (!Rules::get().IsPastFork_<3>(h))
-		return;
-
 	struct MyWalker
 		:public Walker
 	{
 		NodeProcessor* m_pProc;
+		bool m_Strict;
+		bool m_SetState;
+		bool m_Ok = true;
 
 		bool OnKrn(const TxKernelShieldedInput& v) override
 		{
-			auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
-			// set it anyway, even if below HF3. This way the caching is more robust.
+			TxoID nPool = m_pProc->m_Extra.m_ShieldedOutputs; // outputs confirmed before this tx/block
 
-			auto nStatePos = v.m_WindowEnd - 1;
-			if (nStatePos < m_pProc->m_Extra.m_ShieldedOutputs)
-				m_pProc->get_DB().ShieldedStateRead(nStatePos, &hv, 1);
-			else
-				hv = Zero;
+			if (m_Strict && (!v.m_WindowEnd || (v.m_WindowEnd > nPool)))
+			{
+				// the list must not include the tx's own outputs, and nothing past the pool is read
+				m_Ok = false;
+				return false;
+			}
+
+			if (m_SetState)
+			{
+				auto& hv = Cast::NotConst(v.m_NotSerialized.m_hvShieldedState);
+				// set it anyway, even if below HF3. This way the caching is more robust.
+
+				auto nStatePos = v.m_WindowEnd - 1;
+				if (nStatePos < nPool)
+					m_pProc->get_DB().ShieldedStateRead(nStatePos, &hv, 1);
+				else
+					hv = Zero;
+			}
 
 			return true;
 		}
@@ -1277,8 +1277,11 @@ void NodeProcessor::MultiShieldedContext::Prepare(const TxVectors::Eternal& txve
 	} wlk;
 
 	wlk.m_pProc = &np;
+	wlk.m_Strict = bStrict;
+	wlk.m_SetState = Rules::get().IsPastFork_<3>(h);
 
 	wlk.Process(txve.m_vKernels);
+	return wlk.m_Ok;
 }
 
 struct NodeProcessor::MultiAssetContext
@@ -1611,7 +1614,11 @@ struct NodeProcessor::MultiblockContext
 			pKrn->EnsureID();
 
 		Height hBlock = pShared->m_Ctx.m_Height.m_Min;
-		m_Msc.Prepare(pShared->m_Body, m_This, hBlock, hBlock >= Rules::get().Shielded.WindowStrictFrom);
+		if (!m_Msc.Prepare(pShared->m_Body, m_This, hBlock, hBlock >= Rules::get().Shielded.WindowStrictFrom))
+		{
+			m_bFail = true;
+			return;
+		}
 
 		PushTasks(pShared, pShared->m_Ctx.m_Params);
 	}
@@ -4686,7 +4693,7 @@ bool NodeProcessor::BlockInterpretCtx::HandleKernelType(const TxKernelShieldedIn
 			}
 
 			bool bStrict = m_TxValidation || (m_Height >= Rules::get().Shielded.WindowStrictFrom);
-			if (!m_Proc.IsShieldedInPool(krn, bStrict ? m_ShieldedOuts : 0))
+			if (!m_Proc.IsShieldedInPool(krn, m_ShieldedOuts, bStrict))
 			{
 				if (m_pTxErrorInfo)
 					*m_pTxErrorInfo << "Shielded inp oob";
@@ -5246,7 +5253,7 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 			if (krn.get_Subtype() != TxKernel::Subtype::ShieldedInput)
 				return true;
 
-			return m_pThis->IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn), 0);
+			return m_pThis->IsShieldedInPool(Cast::Up<TxKernelShieldedInput>(krn), 0, true);
 		}
 	} wlk;
 	wlk.m_pThis = this;
@@ -5254,15 +5261,22 @@ bool NodeProcessor::IsShieldedInPool(const Transaction& tx)
 	return wlk.Process(tx.m_vKernels);
 }
 
-bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn, uint32_t nOutsPending)
+bool NodeProcessor::IsShieldedInPool(const TxKernelShieldedInput& krn, uint32_t nOutsPending, bool bStrict)
 {
 	const Rules& r = Rules::get();
 	if (!r.Shielded.Enabled)
 		return false;
 
-	// the window ends within the confirmed outputs, less the pending ones the caller excludes
-	TxoID nAvail = (nOutsPending <= m_Extra.m_ShieldedOutputs) ? (m_Extra.m_ShieldedOutputs - nOutsPending) : 0;
-	if (!krn.m_WindowEnd || (krn.m_WindowEnd > nAvail))
+	TxoID nAvail = m_Extra.m_ShieldedOutputs;
+	if (bStrict)
+	{
+		// the window ends within the confirmed outputs, less the pending ones of the tx/block being applied
+		if (!krn.m_WindowEnd)
+			return false;
+		nAvail = (nOutsPending <= nAvail) ? (nAvail - nOutsPending) : 0;
+	}
+
+	if (krn.m_WindowEnd > nAvail)
 		return false;
 
 	if (!(krn.m_SpendProof.m_Cfg == r.Shielded.m_ProofMin))
@@ -5745,6 +5759,9 @@ Height NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_Height()
 
 bool NodeProcessor::BlockInterpretCtx::MyEvmProcessor::get_BlockHeader(BlockHeader& res, Height h)
 {
+	if (h > m_Bic.m_Height - 1)
+		return false; // get_HdrAt expects an existing height
+
 	Block::SystemState::Full s;
 	if (!m_Bic.m_Proc.get_HdrAt(s, h))
 		return false;
@@ -7283,9 +7300,8 @@ uint8_t NodeProcessor::ValidateTxContextEx(const Transaction& tx, const HeightRa
 		ECC::InnerProduct::BatchContextEx<4> bc;
 		MultiShieldedContext msc;
 
-		msc.Prepare(tx, *this, h, true); // relay policy: a tx can't reference its own outputs
-
-		bool bValid = msc.IsValid(tx, h, bc, 0, 1, m_ValCache);
+		// relay policy: a tx can't reference its own outputs
+		bool bValid = msc.Prepare(tx, *this, h, true) && msc.IsValid(tx, h, bc, 0, 1, m_ValCache);
 		if (bValid)
 		{
 			msc.Calculate(bc.m_Sum, *this);

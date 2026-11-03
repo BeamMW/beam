@@ -636,7 +636,7 @@ public:
 	bool ValidateInputs(const ECC::Point&, Input::Count = 1);
 
 	bool IsShieldedInPool(const Transaction&);
-	bool IsShieldedInPool(const TxKernelShieldedInput&, uint32_t nOutsPending); // nOutsPending: outputs of the tx/block being applied that the window may not include
+	bool IsShieldedInPool(const TxKernelShieldedInput&, uint32_t nOutsPending, bool bStrict); // strict: the window ends before the nOutsPending outputs of the tx/block being applied
 
 	struct GeneratedBlock
 	{

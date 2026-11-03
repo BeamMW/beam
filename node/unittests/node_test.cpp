@@ -1138,11 +1138,12 @@ namespace beam
 			TxoID nOuts = np.m_Extra.m_ShieldedOutputs;
 
 			krn.m_WindowEnd = nOuts;
-			verify_test(np.IsShieldedInPool(krn, 0) == (nOuts > 0));
+			verify_test(np.IsShieldedInPool(krn, 0, true) == (nOuts > 0));
 
 			krn.m_WindowEnd = nOuts + 1;
-			verify_test(!np.IsShieldedInPool(krn, 0));
-			verify_test(!np.IsShieldedInPool(krn, 1)); // a pending output of the same tx/block doesn't extend the window
+			verify_test(!np.IsShieldedInPool(krn, 0, true));
+			verify_test(!np.IsShieldedInPool(krn, 1, true)); // a pending output of the same tx/block doesn't extend the window
+			verify_test(!np.IsShieldedInPool(krn, 1, false)); // non-strict: the old bound, which counts pending outputs
 		}
 
 		for (Height h = 1; h <= 96; h++)
