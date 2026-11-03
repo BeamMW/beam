@@ -89,6 +89,7 @@ namespace beam::wallet
         uint64_t m_blockCount = 0;
 
         uint32_t m_SwapLockTxConfirmations = 0;
+        bool m_SwapLockTxValidated = false; // the lock tx content (contract, value, input) matched this swap
         uint64_t m_SwapLockTxBlockNumber = 0;
         uint32_t m_WithdrawTxConfirmations = 0;
         uint64_t m_WithdrawTxBlockNumber = 0;

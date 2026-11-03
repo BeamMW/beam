@@ -120,9 +120,9 @@ bool EthereumSide::ConfirmLockTx()
     if (!m_tx.GetParameter(TxParameterID::AtomicSwapExternalTxID, txHash, SubTxIndex::LOCK_TX))
         return false;
 
-    if (!m_SwapLockTxBlockNumber)
+    if (!m_SwapLockTxValidated)
     {
-        // validate contract
+        // the lock tx content is checked first; confirmations are counted only for a tx that passed
         m_ethBridge->getTxByHash(txHash, [this, weak = this->weak_from_this()] (const ethereum::IBridge::Error& error, const nlohmann::json& txInfo)
         {
             if (weak.expired())
@@ -133,6 +133,7 @@ bool EthereumSide::ConfirmLockTx()
             if (error.m_type != ethereum::IBridge::None)
             {
                 BEAM_LOG_DEBUG() << m_tx.GetTxID() << "[" << static_cast<SubTxID>(SubTxIndex::LOCK_TX) << "]" << " Failed to get transaction: " << error.m_message;
+                m_tx.UpdateOnNextTip(); // retry
                 return;
             }
 
@@ -177,6 +178,9 @@ bool EthereumSide::ConfirmLockTx()
                     m_tx.UpdateAsync();
                     return;
                 }
+
+                m_SwapLockTxValidated = true;
+                m_tx.UpdateAsync();
             }
             catch (const std::exception& ex)
             {
@@ -187,6 +191,11 @@ bool EthereumSide::ConfirmLockTx()
             }
         });
 
+        return false;
+    }
+
+    if (!m_SwapLockTxBlockNumber)
+    {
         // get block number of transaction and check status of transaction
         m_ethBridge->getTxBlockNumber(txHash, [this, weak = this->weak_from_this()](const ethereum::IBridge::Error& error, uint64_t txBlockNumber)
         {
