@@ -4640,6 +4640,7 @@ PROTO_METHOD(TxSendShielded)
 	if (errCode)
 		return errCode;
 
-	errCode = TxSendShielded_FinalyzeTx(&ctx, !!addrID);
+	// same criterion as the confirmation flags above: a send to our own endpoint is a split, everything else shows the peer
+	errCode = TxSendShielded_FinalyzeTx(&ctx, !!(ctx.m_Txs.m_Flags & c_KeyKeeper_ConfirmTx_Split));
 	return errCode;
 }

@@ -716,7 +716,8 @@ namespace beam::wallet
 
         if (IsTrustless())
         {
-            Status::Type res = x.m_iEndpoint ?
+            // m_User.m_Sender was derived from m_iEndpoint by get_SelfEndpoint above, so this compares our own endpoint with the peer
+            Status::Type res = (x.m_User.m_Sender == x.m_Peer) ?
                 ConfirmSpend(0, 0, Zero, krn, aggr.m_TotalFee, true) : // sending to self, it's a split in fact
                 ConfirmSpend(vals.m_Asset, aggr.m_AssetID, x.m_Peer, krn, aggr.m_TotalFee, true);
 
