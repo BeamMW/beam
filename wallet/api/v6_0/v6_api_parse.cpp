@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "utility/string_helpers.h"
 #include <string_view>
 #include <locale>
 #include "v6_api.h"
@@ -196,7 +197,7 @@ namespace beam::wallet
             {"status_string", statusStr},
             {"sender", tx.getAddressFrom()},
             {"receiver", tx.getAddressTo()},
-            {"comment", std::string{ tx.m_message.begin(), tx.m_message.end() }},
+            {"comment", string_helpers::replaceInvalidUtf8(std::string{ tx.m_message.begin(), tx.m_message.end() })},
             {"create_time", tx.m_createTime},
             {"tx_type", tx.m_txType},
             {"tx_type_string", tx.getTxTypeString()}
@@ -1224,7 +1225,7 @@ namespace beam::wallet
         res["refreshHeight"] = info.m_RefreshHeight;
         res["ownerId"]       = info.m_Owner.str();
         res["isOwned"]       = info.m_IsOwned;
-        res["metadata"]      = strMeta;
+        res["metadata"]      = string_helpers::replaceInvalidUtf8(std::move(strMeta));
         res["emission_str"]  = std::to_string(info.m_Value);
 
         auto val = info.m_Value.ToNumber();

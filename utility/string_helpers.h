@@ -21,4 +21,9 @@ namespace string_helpers
 {
     std::vector<std::string> split(const std::string& s, char delim, bool trimSpaces = true);
     std::string trimCommas(const std::string& s);
+
+    // Replaces every byte that is not part of a well-formed UTF-8 sequence with U+FFFD, so the result
+    // can be serialized as JSON (nlohmann::json::dump throws on invalid UTF-8). Use on strings from peers or the chain.
+    // Works in place: a valid string is returned as is, without a copy
+    std::string replaceInvalidUtf8(std::string&& s);
 }

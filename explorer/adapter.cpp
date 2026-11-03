@@ -17,6 +17,7 @@
 #include "core/serialization_adapters.h"
 #include "bvm/bvm2.h"
 #include "http/http_msg_creator.h"
+#include "utility/string_helpers.h"
 #include "http/http_json_serializer.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -1273,7 +1274,7 @@ private:
                 md.get_String(s);
 
                 Writer wr;
-                wr.m_json["text"] = std::move(s);
+                wr.m_json["text"] = string_helpers::replaceInvalidUtf8(std::move(s)); // chain data, may not be valid UTF-8
                 wr.m_json["hash"] = MakeObjBlob(md.m_Hash);
 
                 m_json["metadata"] = std::move(wr.m_json);
@@ -1594,7 +1595,7 @@ private:
 
             json jEntry = json::array();
             jEntry.push_back(MakeObjAid(ai.m_ID));
-            jEntry.push_back(std::move(sMeta));
+            jEntry.push_back(string_helpers::replaceInvalidUtf8(std::move(sMeta)));
             jEntry.push_back(MakeObjAmount(ai.m_Value));
 
             jArr.push_back(std::move(jEntry));
@@ -2302,7 +2303,7 @@ private:
 
             std::string s;
             ai.m_Metadata.get_String(s);
-            wr.m_json.push_back(std::move(s));
+            wr.m_json.push_back(string_helpers::replaceInvalidUtf8(std::move(s)));
 
             jAssets.push_back(std::move(wr.m_json));
         }

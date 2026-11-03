@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "utility/string_helpers.h"
 #include "v6_1_api.h"
 
 namespace beam::wallet
@@ -127,7 +128,7 @@ namespace beam::wallet
             res["metadata_pairs"] = json::object();
             for (auto& pair: pairs)
             {
-                res["metadata_pairs"][pair.first] = pair.second;
+                res["metadata_pairs"][string_helpers::replaceInvalidUtf8(std::string(pair.first))] = string_helpers::replaceInvalidUtf8(std::move(pair.second));
             }
         }
     }
