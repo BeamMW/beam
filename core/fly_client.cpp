@@ -1162,7 +1162,7 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofKernel2&& msg)
                     if (!req.m_Msg.m_Fetch)
                         ThrowUnexpected();
 
-                    if (req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
+                    if (!req.m_Res.m_Kernel->IsValid(req.m_Res.m_Height))
                         ThrowUnexpected();
 
                     if (req.m_Res.m_Kernel->get_ID() != req.m_Msg.m_ID)
