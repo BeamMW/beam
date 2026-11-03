@@ -6872,6 +6872,20 @@ namespace beam::wallet
                             {
                                 address.m_Token = it->get<std::string>();
                             }
+                            if (!address.isOwn())
+                            {
+                                // saveAddress updates an existing row matched by token or by SBBS address; a contact must not take over one of ours
+                                boost::optional<WalletAddress> existing;
+                                if (!address.m_Token.empty())
+                                    existing = db.getAddressByToken(address.m_Token);
+                                if (!existing)
+                                    existing = db.getAddress(address.m_BbsAddr);
+                                if (existing && existing->isOwn())
+                                {
+                                    BEAM_LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has NOT been imported. It is one of the wallet's own addresses.";
+                                    return false;
+                                }
+                            }
                             db.saveAddress(address);
 
                             BEAM_LOG_INFO() << "The address [" << jsonAddress[Fields::BbsAddr] << "] has been successfully imported.";
@@ -6902,12 +6916,12 @@ namespace beam::wallet
                     return true;
                 }
 
-                std::unordered_map<
-                    TxID,
-                    std::unordered_map<
-                    TxParameterID,
-                    TxParameter>
-                > importedTransactionsMap;
+                struct ImportedTx
+                {
+                    std::unordered_map<TxParameterID, TxParameter> m_Main; // parameters of the main sub-tx, used for validation
+                    std::vector<TxParameter> m_All;
+                };
+                std::unordered_map<TxID, ImportedTx> importedTransactionsMap;
                 for (const auto& jsonTxParameter : obj[Fields::TransactionParameters])
                 {
                     TxParameter txParameter;
@@ -6918,13 +6932,16 @@ namespace beam::wallet
                     {
                         txParameter.m_value.push_back(v);
                     }
-                    importedTransactionsMap[txParameter.m_txID].emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
+                    auto& imported = importedTransactionsMap[txParameter.m_txID];
+                    if (static_cast<SubTxID>(txParameter.m_subTxID) == kDefaultSubTxID)
+                        imported.m_Main.emplace(static_cast<TxParameterID>(txParameter.m_paramID), txParameter);
+                    imported.m_All.push_back(std::move(txParameter));
                 }
 
                 uint32_t errorsCount = 0;
                 for (const auto& txPair : importedTransactionsMap)
                 {
-                    const auto& paramsMap = txPair.second;
+                    const auto& paramsMap = txPair.second.m_Main;
 
                     auto itype = paramsMap.find(TxParameterID::TransactionType);
                     if(itype == paramsMap.end())
@@ -6997,13 +7014,14 @@ namespace beam::wallet
                         }
                     }
                     
-                    for (const auto& paramPair : paramsMap)
+                    // an import adds what is missing; a parameter already stored for this tx is kept as it is
+                    for (const auto& p : txPair.second.m_All)
                     {
-                        const auto& p = paramPair.second;
                         db.setTxParameter(p.m_txID,
                             static_cast<SubTxID>(p.m_subTxID),
-                            paramPair.first,
+                            static_cast<TxParameterID>(p.m_paramID),
                             p.m_value,
+                            false,
                             false);
                     }
                     BEAM_LOG_INFO() << "Transaction " << txPair.first << " was imported.";

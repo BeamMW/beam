@@ -723,6 +723,58 @@ void TestAddresses()
     }
 }
 
+void TestImportProtections()
+{
+    cout << "\nWallet database import keeps own addresses and stored tx parameters\n";
+    auto db = createSqliteWalletDB();
+
+    WalletAddress a = {};
+    a.m_label = "own";
+    a.m_createTime = beam::getTimestamp();
+    a.m_duration = 0;
+    a.m_OwnID = 44;
+    db->get_SbbsWalletID(a.m_BbsAddr, a.m_OwnID);
+    a.m_Token = std::to_string(a.m_BbsAddr);
+    db->saveAddress(a);
+
+    // a contacts entry that carries our own SBBS address and token
+    std::string json = "{\"Contacts\":[{\"WalletID\":\"" + std::to_string(a.m_BbsAddr) + "\",\"Index\":0,\"Label\":\"x\",\"CreationTime\":1,\"Duration\":0,\"Address\":\"" + a.m_Token + "\"}]}";
+    WALLET_CHECK(!storage::ImportDataFromJson(*db, json.data(), json.size()));
+    auto own = db->getAddresses(true);
+    WALLET_CHECK(own.size() == 1 && own[0].m_BbsAddr == a.m_BbsAddr && own[0].m_Token == a.m_Token);
+
+    // the same without a token, matched by SBBS address
+    json = "{\"Contacts\":[{\"WalletID\":\"" + std::to_string(a.m_BbsAddr) + "\",\"Index\":0,\"Label\":\"x\",\"CreationTime\":1,\"Duration\":0}]}";
+    WALLET_CHECK(!storage::ImportDataFromJson(*db, json.data(), json.size()));
+    own = db->getAddresses(true);
+    WALLET_CHECK(own.size() == 1 && own[0].m_BbsAddr == a.m_BbsAddr && own[0].m_Token == a.m_Token);
+
+    TxDescription tr = { { {4, 5, 6, 7, 65} } };
+    tr.m_amount = 52;
+    tr.m_createTime = 45613;
+    tr.m_minHeight = 185;
+    tr.m_sender = false;
+    tr.m_status = TxStatus::Pending;
+    tr.m_myAddr = a.m_BbsAddr;
+    db->saveTx(tr);
+    storage::setTxParameter(*db, tr.m_txId, kDefaultSubTxID, TxParameterID::MyAddressID, a.m_OwnID, false);
+    storage::setTxParameter(*db, tr.m_txId, SubTxID(2), TxParameterID::Amount, Amount(7), false); // a sub-tx parameter
+    auto exported = storage::ExportDataToJson(*db);
+
+    // a parameter already stored is not changed by an import
+    storage::setTxParameter(*db, tr.m_txId, kDefaultSubTxID, TxParameterID::Amount, Amount(99), false);
+    WALLET_CHECK(storage::ImportDataFromJson(*db, exported.data(), exported.size()));
+    auto imported = db->getTx(tr.m_txId);
+    WALLET_CHECK(imported && imported->m_amount == 99);
+
+    // sub-tx parameters survive export and import
+    db->deleteTx(tr.m_txId);
+    WALLET_CHECK(storage::ImportDataFromJson(*db, exported.data(), exported.size()));
+    Amount subAmount = 0;
+    WALLET_CHECK(storage::getTxParameter(*db, tr.m_txId, SubTxID(2), TxParameterID::Amount, subAmount));
+    WALLET_CHECK(subAmount == 7);
+}
+
 void TestExportImportTx()
 {
     cout << "\nWallet database transactions export/import test\n";
@@ -1732,6 +1784,7 @@ int main()
     TestSelect6();
     TestSelect7();
     TestAddresses();
+    TestImportProtections();
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
