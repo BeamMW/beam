@@ -183,8 +183,40 @@ void msg_serializer_test_2() {
     assert(msg == handler.receivedObj);
 }
 
+// A frame shorter than the protocol's MAC must be rejected at the header, before the payload length is computed
+void msg_reader_short_frame_test() {
+    MsgType type = 222;
+
+    struct MacProtocol : Protocol {
+        using Protocol::Protocol;
+        uint32_t get_MacSize() override { return 8; }
+    };
+
+    struct Handler : MsgHandler {
+        int corrupt = 0;
+        void on_protocol_error(uint64_t, ProtocolError) override { ++corrupt; }
+    };
+
+    Handler handler;
+    MacProtocol protocol(0xAA, 0xBB, 0xCC, 256, handler, 50);
+    protocol.add_message_handler<MsgHandler, SomeObject, &MsgHandler::on_some_object>(type, &handler, 0, 1<<24);
+
+    MsgHeader header(0xAA, 0xBB, 0xCC, type, 7); // 7 < MAC size
+    uint8_t buf[MsgHeader::SIZE + 7] = {};
+    header.write(buf);
+
+    MsgReader reader(protocol, 1, 12);
+    bool ok = reader.new_data_from_stream(io::EC_OK, buf, sizeof(buf));
+
+    if (ok || handler.corrupt != 1 || !handler.receivedObj.ooo.empty()) {
+        cout << "msg_reader_short_frame_test failed" << endl;
+        abort();
+    }
+}
+
 int main() {
     fragment_writer_test();
     msg_serializer_test_1();
     msg_serializer_test_2();
+    msg_reader_short_frame_test();
 }

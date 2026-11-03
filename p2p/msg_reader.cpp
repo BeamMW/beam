@@ -113,6 +113,13 @@ bool MsgReader::new_data_from_stream(io::ErrorCode connectionStatus, const void*
 			if (!bAlive)
 				return false;
 
+			if (header.size < _protocol.get_MacSize())
+			{
+				// the MAC is part of the declared size; a shorter frame would make the payload length wrap
+				_protocol.on_corrupt_msg(_streamId);
+				return false;
+			}
+
 			// header deserialized successfully
 			_bytesLeft = header.size;
 			_msgBuffer.resize(MsgHeader::SIZE + _bytesLeft);
