@@ -46,7 +46,7 @@ namespace beam
     const char kErrorTreasuryPlanNotFound[] = "plan not found";
     const char kErrorTreasuryInvalidResponse[] = "invalid response";
     const char kErrorAddrExprTimeInvalid[] = "Operation failed: provided \"%1%\" parameter value \"%2%\" is not valid";
-    const char kErrorSeedPhraseInvalid[] = "Invalid seed phrase provided: %1%";
+    const char kErrorSeedPhraseInvalid[] = "Invalid seed phrase provided (%1% words parsed)";
     const char kErrorSeedPhraseNotProvided[] = "Seed phrase has not been provided.";
     const char kErrorTxIdParamReqired[] = "Failed, --tx_id param required";
     const char kErrorTxWithIdNotFound[] = "Failed, transaction with id: %1% does not exist.";

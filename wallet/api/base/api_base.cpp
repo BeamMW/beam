@@ -53,6 +53,11 @@ namespace beam::wallet
                 {
                     root[item.key()] = json::array();
                 }
+                else if (item.key() == "key" || item.key() == "new_pass")
+                {
+                    // never write the API (ACL) key or a new wallet password to the log
+                    root[item.key()] = "***";
+                }
             }
         }
     }
@@ -177,7 +182,8 @@ namespace beam::wallet
         auto pinfo = parseCallInfo(data, size);
         if (pinfo == boost::none)
         {
-            BEAM_LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for " << std::string_view(data, size);
+            // don't dump the raw body: it may carry the API (ACL) key or a password
+            BEAM_LOG_WARNING() << "executeAPIRequest, parseCallInfo returned none for a request of " << size << " bytes";
             return ApiSyncMode::DoneSync;
         }
 
