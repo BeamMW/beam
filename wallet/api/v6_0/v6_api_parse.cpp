@@ -870,10 +870,9 @@ namespace beam::wallet
     {
         InvokeContract message;
 
-        if(const auto contract = getOptionalParam<NonEmptyJsonArray>(params, "contract"))
+        if(const auto contract = getOptionalParam<NonEmptyByteArray>(params, "contract"))
         {
-            const json& bytes = *contract;
-            message.contract = bytes.get<std::vector<uint8_t>>();
+            message.contract = *contract;
         }
         else if(const auto fname = getOptionalParam<NonEmptyString>(params, "contract_file"))
         {
@@ -902,8 +901,7 @@ namespace beam::wallet
     {
         ProcessInvokeData message;
 
-        const json bytes = getMandatoryParam<NonEmptyJsonArray>(params, "data");
-        message.invokeData = bytes.get<std::vector<uint8_t>>();
+        message.invokeData = getMandatoryParam<NonEmptyByteArray>(params, "data");
 
         beam::bvm2::ContractInvokeData realData;
 
