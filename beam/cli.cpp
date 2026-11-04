@@ -401,6 +401,13 @@ int main(int argc, char* argv[])
 					else
 					{
 						node.m_Cfg.m_MiningThreads = 0; // by default disabled
+
+						// A FakePoW test chain mines when asked to explicitly: threads with the fake solver, or the stratum server
+						if ((Rules::Consensus::FakePoW == Rules::get().m_Consensus) && !vm[cli::POW_SOLVE_TIME].defaulted())
+						{
+							node.m_Cfg.m_MiningThreads = vm[cli::MINING_THREADS].as<uint32_t>();
+							node.m_Cfg.m_TestMode.m_FakePowSolveTime_ms = vm[cli::POW_SOLVE_TIME].as<uint32_t>();
+						}
 					}
 
 					node.m_Cfg.m_VerificationThreads = vm[cli::VERIFICATION_THREADS].as<int>();
@@ -486,6 +493,12 @@ int main(int argc, char* argv[])
 
 					if (vm.count(cli::MINE_ONLINE))
 						node.m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
+
+					if (vm.count(cli::MINE_ONLINE_FOREIGN))
+						node.m_Cfg.m_MiningFinalization.m_ForeignOutputs = vm[cli::MINE_ONLINE_FOREIGN].as<bool>();
+
+					if (vm.count(cli::MINE_ONLINE_RESERVE))
+						node.m_Cfg.m_MiningFinalization.m_Reserve = vm[cli::MINE_ONLINE_RESERVE].as<uint32_t>();
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
 

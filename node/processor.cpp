@@ -7380,6 +7380,8 @@ size_t NodeProcessor::BlockInterpretCtx::GenerateNewBlockInternal(BlockContext& 
 	}
 
 	ssc.m_Counter.m_Value += rbs.m_Size; // pre-add it
+	if (BlockContext::Mode::Assemble == bc.m_Mode)
+		ssc.m_Counter.m_Value += bc.m_SizeReserve;
 
 	const size_t nSizeMax = r.MaxBodySize;
 	if (ssc.m_Counter.m_Value > nSizeMax)
