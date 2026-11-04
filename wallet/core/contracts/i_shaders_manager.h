@@ -39,6 +39,9 @@ namespace beam::wallet
         virtual void CallShaderAndStartTx(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneAllHandler doneHandler) = 0;
         virtual void CallShader(std::vector<uint8_t>&& shader, std::string&& args, unsigned method, uint32_t priority, uint32_t unique, DoneCallHandler) = 0;
         virtual void ProcessTxData(const ByteBuffer& data, DoneTxHandler doneHandler) = 0;
+        // Fails the calls that can't progress without a node: the current one, if it waits for the wallet sync
+        // or for a node response, and all the queued ones. To be called when the node can't be reached
+        virtual void AbortCallsWaitingForNode(const std::string& error) = 0;
         [[nodiscard]] virtual  bool IsDone() const = 0;
     };
 }

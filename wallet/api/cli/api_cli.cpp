@@ -150,6 +150,7 @@ namespace
 
     class WalletApiServer
         : public IWalletApiServer
+        , private INodeConnectionObserver
 #ifdef BEAM_ASSET_SWAP_SUPPORT
         , private beam::wallet::DexBoard::IObserver
 #endif  // BEAM_ASSET_SWAP_SUPPORT
@@ -174,12 +175,14 @@ namespace
             , _acl(acl)
             , _whitelist(whitelist)
         {
+            _network->Subscribe(this);
             start();
         }
 
         ~WalletApiServer()
         {
             stop();
+            _network->Unsubscribe(this);
         }
 
         #ifdef BEAM_IPFS_SUPPORT
@@ -314,6 +317,23 @@ namespace
         }
 
     private:
+
+        // INodeConnectionObserver
+        void onNodeConnectionFailed(const proto::NodeConnection::DisconnectReason& reason) override
+        {
+            // Reported also when a live connection drops, before it's uncounted. Then the reconnect
+            // attempt follows, and only if that one fails too there's no node to wait for
+            if (_network->getConnections() || !_walletData || !_walletData->contracts)
+                return;
+
+            std::ostringstream ss;
+            ss << "No connection to the node: " << reason;
+            _walletData->contracts->AbortCallsWaitingForNode(ss.str());
+        }
+
+        void onNodeConnectedStatusChanged(bool) override
+        {
+        }
 
         void checkConnections()
         {
