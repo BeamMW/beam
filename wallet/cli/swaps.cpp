@@ -198,7 +198,8 @@ bool ParseElectrumSettings(const po::variables_map& vm, Settings& settings)
                 return a + kElectrumSeparateSymbol + b;
             });
 
-            BEAM_LOG_INFO() << "seed = " << strSeed;
+            // console only, like the generated Beam seed phrase: never through the logger, which also writes the log files
+            std::cout << "======\nGenerated Electrum seed phrase: \n\n\t" << strSeed << kSeedPhraseGeneratedMessage << std::endl;
         }
 
         settings.SetElectrumConnectionOptions(electrumSettings);
