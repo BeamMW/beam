@@ -52,6 +52,7 @@ namespace beam
         extern const char* NODE_PEER;
         extern const char* NODE_PEERS_PERSISTENT;
         extern const char* PASS;
+        extern const char* OWNER_KEY_PASS;
         extern const char* SET_SWAP_SETTINGS;
         extern const char* ACTIVE_CONNECTION;
         extern const char* SWAP_WALLET_PASS;

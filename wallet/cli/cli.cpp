@@ -1988,12 +1988,24 @@ namespace
 
         Key::IPKdf::Ptr pKey = walletDB->get_OwnerKdf();
 
+        // The node needs this password to use the key. A separate one keeps the wallet password off the node (#401, #891)
+        const bool hasKeyPass = vm.count(cli::OWNER_KEY_PASS) > 0;
+        SecString keyPass(hasKeyPass ? vm[cli::OWNER_KEY_PASS].as<std::string>() : std::string());
+        if (hasKeyPass && !keyPass.size())
+            throw std::runtime_error("--owner_key_pass must not be empty");
+
+        const SecString& usedPass = hasKeyPass ? keyPass : pass;
+
         KeyString ks;
-        ks.SetPassword(Blob(pass.data(), static_cast<uint32_t>(pass.size())));
+        ks.SetPassword(Blob(usedPass.data(), static_cast<uint32_t>(usedPass.size())));
         ks.m_sMeta = std::to_string(0);
 
         ks.ExportP(*pKey);
         cout << boost::format(kOwnerKeyInfo) % ks.m_sRes << std::endl;
+        cout << (hasKeyPass
+            ? "The key is encrypted with the --owner_key_pass password. Give the node that password, not the wallet password."
+            : "The key is encrypted with the wallet password. Use --owner_key_pass to encrypt it with a different password for the node.")
+            << std::endl;
 
         return 0;
     }
