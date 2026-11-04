@@ -180,7 +180,8 @@ namespace beam::wallet::imp
                     }
                     else
                     {
-                        BEAM_LOG_INFO() << "Custom IPFS swarm_key is provided: " << config.swarm_key;
+                        // the key itself is a secret. The IPFS node logs its standard fingerprint on start
+                        BEAM_LOG_INFO() << "Custom IPFS swarm_key is provided";
                     }
 
                     asio_ipfs::node::StateCB scb = [this](const std::string& error, uint32_t pcnt) {
