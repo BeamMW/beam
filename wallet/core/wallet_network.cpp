@@ -86,7 +86,7 @@ namespace beam::wallet {
             }
 
             ByteBuffer buf = msg.m_Message; // duplicate, copy
-            uint8_t* pMsg = &buf.front();
+            uint8_t* pMsg = buf.data(); // may be empty (e.g. crafted Slatepack): front() would be UB, Decrypt() rejects short input
             uint32_t nSize = static_cast<uint32_t>(buf.size());
 
             auto& x = it->get_ParentObj();
