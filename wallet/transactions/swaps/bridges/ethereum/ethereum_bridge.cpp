@@ -365,11 +365,23 @@ void EthereumBridge::processPendingApproveTx()
 void EthereumBridge::onGotTokenBalance(const Error& error, const std::string& result)
 {
     auto pendingTx = m_pendingApprovals.front();
+    Error tmp(error);
 
-    if (error.m_type == IBridge::None)
+    if (tmp.m_type == IBridge::None)
     {
-        pendingTx->m_tokenBalance = ConvertStrToUintBig(result);
+        try
+        {
+            pendingTx->m_tokenBalance = ConvertStrToUintBig(result);
+        }
+        catch (const std::exception& ex)
+        {
+            tmp.m_type = IBridge::InvalidResultFormat;
+            tmp.m_message = ex.what();
+        }
+    }
 
+    if (tmp.m_type == IBridge::None)
+    {
         libbitcoin::data_chunk data;
         data.reserve(ethereum::kEthContractMethodHashSize + 2 * ethereum::kEthContractABIWordSize);
         libbitcoin::decode_base16(data, ethereum::ERC20Hashes::kAllowanceHash);
@@ -387,7 +399,7 @@ void EthereumBridge::onGotTokenBalance(const Error& error, const std::string& re
     }
 
     // error
-    pendingTx->m_callback(error, "");
+    pendingTx->m_callback(tmp, "");
 
     // process next
     m_pendingApprovals.pop();

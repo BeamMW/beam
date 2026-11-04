@@ -106,8 +106,16 @@ ECC::uintBig ConvertStrToUintBig(const std::string& number, bool hex)
         dc = beam::from_hex(stream.str());
     }
 
+    // Leading zero bytes are harmless, but anything wider than 256 bits doesn't fit into the result.
+    // The input may come from an untrusted source (e.g. an Ethereum node response), so check it.
+    auto first = std::find_if(dc.cbegin(), dc.cend(), [](uint8_t x) { return x != 0; });
+    if (dc.cend() - first > static_cast<std::ptrdiff_t>(ECC::uintBig::nBytes))
+    {
+        throw std::runtime_error("number is too big");
+    }
+
     ECC::uintBig result = ECC::Zero;
-    std::copy(dc.crbegin(), dc.crend(), std::rbegin(result.m_pData));
+    std::copy_backward(first, dc.cend(), std::end(result.m_pData));
     return result;
 }
 
