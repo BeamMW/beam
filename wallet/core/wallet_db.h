@@ -366,6 +366,13 @@ namespace beam::wallet
         bool m_is_read;
     };
 
+    struct ChatInfo
+    {
+        WalletID m_counterpart;
+        bool m_hasUnread = false;
+        std::vector<WalletID> m_myAddresses; // own addresses used in this chat
+    };
+
     class CannotGenerateSecretException : public std::runtime_error
     {
     public:
@@ -637,7 +644,7 @@ namespace beam::wallet
         virtual void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) = 0;
         virtual std::vector<InstantMessage> readIMs(bool all = false) = 0;
         virtual std::vector<InstantMessage> readIMs(const WalletID& counterpart) = 0;
-        virtual std::vector<std::pair<WalletID, bool>> getChats() = 0;
+        virtual std::vector<ChatInfo> getChats() = 0;
         virtual void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) = 0;
         virtual void removeChat(const WalletID& counterpart) = 0;
 
@@ -817,7 +824,7 @@ namespace beam::wallet
         void storeIM(Timestamp time, const WalletID& counterpart, const WalletID& mySbbs, const std::string& message, bool isIncome, bool isRead) override;
         std::vector<InstantMessage> readIMs(bool all = false) override;
         std::vector<InstantMessage> readIMs(const WalletID& counterpart) override;
-        std::vector<std::pair<WalletID, bool>> getChats() override;
+        std::vector<ChatInfo> getChats() override;
         void markIMsasRead(const std::vector<std::pair<Timestamp, WalletID>>& ims) override;
         void removeChat(const WalletID& counterpart) override;
 
