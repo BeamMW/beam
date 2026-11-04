@@ -296,6 +296,8 @@ namespace beam::wallet
         struct
         {
             boost::optional<Asset::ID> assetId;
+            boost::optional<TxID> txId; // id of the transaction which created the UTXO
+            std::set<uint32_t> statuses; // if not empty, only coins with these statuses (as in the response "status"), e.g. unspent only
         }
         filter;
 
