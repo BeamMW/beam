@@ -15,6 +15,7 @@
 #include "http/http_msg_reader.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
+#include <vector>
 
 using namespace beam;
 using namespace std;
@@ -211,6 +212,94 @@ int test_chunked() {
     return REPORT(errors);
 }
 
+const std::string chunkedRequest =
+    "POST /zzz HTTP/1.1\r\nHost: example.com\r\nTransfer-Encoding: chunked\r\n\r\n"
+    "4\r\nWiki\r\n"
+    "1a\r\nabcdefghijklmnopqrstuvwxyz\r\n"
+    "5;ext=1\r\n01234\r\n"
+    "0\r\n\r\n";
+const std::string chunkedRequestBody = "Wikiabcdefghijklmnopqrstuvwxyz01234";
+
+// Feeds chunkedRequest split into fragments of the given sizes (the rest goes in the last fragment).
+// Returns the number of errors: the message must complete exactly once with the reassembled body
+int feed_chunked_request(const std::vector<size_t>& fragments) {
+    int errors = 0;
+    int calls = 0;
+    bool failed = false;
+
+    HttpMsgReader reader(
+        HttpMsgReader::server,
+        1,
+        [&errors, &calls, &failed](uint64_t streamId, const HttpMsgReader::Message& m) -> bool {
+            if (streamId != 1) ++errors;
+            if (m.what != HttpMsgReader::http_message) {
+                ++errors;
+                failed = true;
+                return false;
+            }
+            ++calls;
+            if (m.msg->get_method() != "POST") ++errors;
+            if (m.msg->get_path() != "/zzz") ++errors;
+            size_t bodySize = 0;
+            const void* body = m.msg->get_body(bodySize);
+            if (!body || std::string(static_cast<const char*>(body), bodySize) != chunkedRequestBody) ++errors;
+            return true;
+        },
+        100,
+        100
+    );
+
+    const char* p = chunkedRequest.data();
+    size_t remaining = chunkedRequest.size();
+    for (size_t i = 0; i <= fragments.size() && remaining > 0 && !failed; ++i) {
+        size_t s = (i < fragments.size() && fragments[i] < remaining) ? fragments[i] : remaining;
+        if (!reader.new_data_from_stream(io::EC_OK, p, s)) failed = true;
+        p += s;
+        remaining -= s;
+    }
+
+    if (calls != 1) ++errors;
+    return errors;
+}
+
+int test_chunked_fragmented() {
+    const size_t requestSize = chunkedRequest.size();
+    int errors = 0;
+
+    // single feed
+    if (feed_chunked_request({}) != 0) {
+        BEAM_LOG_ERROR() << __FUNCTION__ << " single feed failed";
+        ++errors;
+    }
+
+    // byte by byte
+    if (feed_chunked_request(std::vector<size_t>(requestSize, 1)) != 0) {
+        BEAM_LOG_ERROR() << __FUNCTION__ << " byte-by-byte feed failed";
+        ++errors;
+    }
+
+    // two reads, split at every possible position (inside chunk size, chunk ext,
+    // chunk data, CRLFs and the final 0-chunk)
+    for (size_t split = 1; split < requestSize; ++split) {
+        if (feed_chunked_request({ split }) != 0) {
+            BEAM_LOG_ERROR() << __FUNCTION__ << " split at " << split << " failed";
+            ++errors;
+        }
+    }
+
+    // three reads of varying sizes
+    for (size_t a = 1; a < requestSize; a += 7) {
+        for (size_t b = 1; b < requestSize; b += 5) {
+            if (feed_chunked_request({ a, b }) != 0) {
+                BEAM_LOG_ERROR() << __FUNCTION__ << " split at " << a << "," << b << " failed";
+                ++errors;
+            }
+        }
+    }
+
+    return REPORT(errors);
+}
+
 int compare(const HttpUrl& a, const HttpUrl& b) {
     int nErrors=0;
     if (a.dir != b.dir) ++nErrors;
@@ -288,6 +377,7 @@ int main() {
         retCode += test_request_with_body();
         retCode += test_multiple();
         retCode += test_chunked();
+        retCode += test_chunked_fragmented();
         retCode += test_query_strings();
     } catch (const exception& e) {
         BEAM_LOG_ERROR() << e.what();
