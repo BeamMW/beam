@@ -57,6 +57,13 @@ namespace beam::wallet
 
     TxParameters SimpleTransaction::Creator::CheckAndCompleteParameters(const TxParameters& parameters)
     {
+        if (!parameters.GetParameter<WalletID>(TxParameterID::PeerAddr))
+        {
+            // no receiver: a split, which IsSelfTx() treats as a self tx
+            TxParameters temp{ parameters };
+            temp.SetParameter(TxParameterID::IsSelfTx, true);
+            return temp;
+        }
         return ProcessReceiverAddress(parameters, m_WalletDB);
     }
 

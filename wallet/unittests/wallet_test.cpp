@@ -971,6 +971,7 @@ namespace
         WALLET_CHECK(txHistory[0].m_amount == 36);
         WALLET_CHECK(txHistory[0].m_fee == 2);
         WALLET_CHECK(txHistory[0].m_status == wallet::TxStatus::Completed);
+        WALLET_CHECK(txHistory[0].m_selfTx);
 
         // check coins
         vector<Coin> newSenderCoins;
