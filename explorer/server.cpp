@@ -700,6 +700,9 @@ OnRequest(block)
     if (get_UrlHexArg(_currentUrl, "kernel", hv))
         return _backend.get_block_by_kernel(hv);
 
+    if (get_UrlHexArg(_currentUrl, "hash", hv))
+        return _backend.get_block_by_hash(hv);
+
     // An explicit height=0 requests the treasury (pseudo-block at height 0).
     // A missing height means "latest block" (see get_block).
     auto itHeight = _currentUrl.args.find("height");

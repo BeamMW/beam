@@ -115,6 +115,7 @@ public:
 			StateSetRB,
 			StateGetTxos,
 			StateFindByTxos,
+			StateFindByHash,
 			TipAdd,
 			TipDel,
 			TipReachableAdd,
@@ -352,6 +353,12 @@ public:
 
 	uint64_t FindActiveStateStrict(Block::Number);
 	uint64_t StateFindSafe(const Block::SystemState::ID&);
+
+	// Lookup of a state by its hash alone needs an index that the base scheme doesn't have.
+	// It's optional: created on demand (e.g. by the explorer), so that ordinary nodes don't pay for it.
+	void CreateStateHashIndex();
+	bool FindActiveStateByHash(StateID&, const Merkle::Hash&); // requires CreateStateHashIndex(), otherwise a full scan
+
 	void get_State(uint64_t rowid, Block::SystemState::Full&);
 	void get_StateHash(uint64_t rowid, Merkle::Hash&);
 
