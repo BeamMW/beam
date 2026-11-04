@@ -76,6 +76,8 @@
 #include <fstream>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/erase.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <iomanip>
 #include <iterator>
@@ -957,8 +959,10 @@ namespace
         else if (vm.count(cli::SEED_PHRASE))
         {
             auto tempPhrase = vm[cli::SEED_PHRASE].as<string>();
-            boost::algorithm::trim_if(tempPhrase, [](char ch) { return ch == ';'; });
-            phrase = string_helpers::split(tempPhrase, ';');
+            // accept words separated by ';' and/or whitespace, e.g. "word;word", "word; word" or "word word"
+            const auto isSeparator = boost::algorithm::is_any_of("; \t\r\n");
+            boost::algorithm::trim_if(tempPhrase, isSeparator);
+            boost::algorithm::split(phrase, tempPhrase, isSeparator, boost::algorithm::token_compress_on);
 
             if (phrase.size() != WORD_COUNT
                 || (vm.count(cli::IGNORE_DICTIONARY) == 0 && !isValidMnemonic(phrase)))
