@@ -2164,11 +2164,19 @@ void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
 	hr.Intersect(msg.m_Height);
 	if (!hr.IsEmpty())
 	{
-		m_This.m_Processor.FindAtivePastHeight(sid, hr.m_Min);
-		auto num1 = m_This.m_Processor.FindAtivePastHeight(hr.m_Max);
+		// The pack is built backwards from sid, so sid is the top of the range: [Min, Max], or its first
+		// g_HdrPackMaxSize headers if longer.
+		auto num0 = m_This.m_Processor.FindAtivePastHeight(hr.m_Min);
+		m_This.m_Processor.FindAtivePastHeight(sid, hr.m_Max);
 
-		uint64_t dn = num1.v - sid.m_Number.v + 1;
-		nCount = (dn > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dn);
+		uint64_t dn = sid.m_Number.v - num0.v + 1;
+		if (dn > proto::g_HdrPackMaxSize)
+		{
+			dn = proto::g_HdrPackMaxSize;
+			sid.m_Number.v = num0.v + dn - 1;
+			sid.m_Row = m_This.m_Processor.FindActiveAtStrict(sid.m_Number);
+		}
+		nCount = static_cast<uint32_t>(dn);
 	}
 	else
 	{

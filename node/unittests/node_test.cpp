@@ -3969,6 +3969,17 @@ namespace beam
 			{
 				verify_test(this == r.m_pTrg);
 				verify_test(m_nProofsExpected);
+
+				if (Request::Type::EnumHdrs == r.get_Type())
+				{
+					// asked for [0, MaxHeight]: must get consecutive headers from height 1 up, truncated
+					const auto& v = r.As<RequestEnumHdrs>().m_vStates;
+					verify_test(!v.empty() && (1 == v.front().get_Height()));
+					for (size_t i = 1; i < v.size(); i++)
+						verify_test(v[i].get_Height() == v[i - 1].get_Height() + 1);
+					verify_test(v.size() > 1);
+					verify_test(v.size() <= proto::g_HdrPackMaxSize);
+				}
 				m_nProofsExpected--;
 				MaybeStop();
 			}
