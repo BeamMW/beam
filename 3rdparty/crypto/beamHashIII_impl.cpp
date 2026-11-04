@@ -178,7 +178,7 @@ std::vector<uint8_t> GetMinimalFromIndices(std::vector<uint32_t> sol) {
 	std::bitset<800> mask(0xFF);
 
 	inStream.reset();
-	for (int32_t i = static_cast<uint32_t>(sol.size()); i>=0; i--) {
+	for (int32_t i = static_cast<int32_t>(sol.size()) - 1; i>=0; i--) {
 		inStream = (inStream << (collisionBitSize+1));
 		inStream |= (uint64_t) sol[i];
 	}
