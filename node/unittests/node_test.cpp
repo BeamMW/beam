@@ -4449,6 +4449,22 @@ namespace beam
 		man.m_Args["amount"] = std::to_string(valDeposit);
 		man.BuildAndSend(*pNet);
 
+		// app reads in the dependent context must see the still-pending deposit
+		man.m_Args["action"] = "view";
+		man.m_Out.str("");
+		man.RunSync(1);
+		verify_test(!man.m_Err);
+		verify_test(man.m_Out.str().find(std::to_string(valDeposit)) != std::string::npos);
+
+		// and the log it emitted
+		man.m_Args["role"] = "manager";
+		man.m_Args["action"] = "view_logs";
+		man.m_Out.str("");
+		man.RunSync(1);
+		verify_test(!man.m_Err);
+		verify_test(man.m_Out.str().find(std::to_string(valDeposit)) != std::string::npos);
+		man.m_Args["role"] = "my_account";
+
 		// 3. Withdraw
 		valDeposit = 22 * Rules::Coin;
 

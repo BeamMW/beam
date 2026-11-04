@@ -2574,6 +2574,15 @@ struct NodeProcessor::BlockInterpretCtx
 	uint32_t m_ContractLogs = 0;
 	std::vector<Merkle::Hash> m_vLogs;
 
+	struct TempLog
+	{
+		HeightPos m_Pos;
+		ByteBuffer m_Key;
+		ByteBuffer m_Val;
+	};
+	bool m_KeepTempLogs = false; // temporary logs never reach the DB; keep them for EnumContractLogs
+	std::vector<TempLog> m_vTempLogs;
+
 	ByteBuffer m_Rollback;
 
 	Merkle::Hash m_hvDependentCtx;
@@ -4869,16 +4878,96 @@ bool NodeProcessor::ExecInDependentContext(IWorker& wrk, const Merkle::Hash* pCt
 			bic.m_SkipDefinition = true;
 			bic.m_AlreadyValidated = true;
 			bic.m_SkipInOuts = true;
+			bic.m_KeepTempLogs = true;
 
 			DependentContextSwitch dcs(bic);
 			if (!dcs.Apply(&itCtx->get_ParentObj()))
 				return false;
 
+			BlockInterpretCtx* pBic = &bic;
+			TemporarySwap<BlockInterpretCtx*> ts(m_pDependentBic, pBic);
 			wrk.Do();
 		}
 	}
 
 	return true;
+}
+
+void NodeProcessor::EnumContractVars(const Blob& kMin, const Blob& kMax, bool bSkipMin, IContractVarsWalker& w)
+{
+	if (!m_pDependentBic)
+	{
+		NodeDB::WalkerContractData wlk;
+		m_DB.ContractDataEnum(wlk, kMin, kMax);
+		while (wlk.MoveNext())
+		{
+			if (bSkipMin && (wlk.m_Key == kMin))
+				continue;
+			if (!w.OnVar(wlk.m_Key, wlk.m_Val))
+				break;
+		}
+		return;
+	}
+
+	// the dependent txs' changes live only in the temporary storage, merge it over the DB
+	auto& s = m_pDependentBic->m_Storage;
+	for (auto* pE = s.FindVarEx(kMin, !bSkipMin, true); pE; pE = s.FindVarEx(pE->ToBlob(), false, true))
+	{
+		Blob key = pE->ToBlob();
+		if (kMax < key)
+			break;
+		if (!w.OnVar(key, pE->m_Data))
+			break;
+	}
+}
+
+void NodeProcessor::EnumContractLogs(const Blob& kMin, const Blob& kMax, HeightPos posMin, HeightPos posMax, IContractLogsWalker& w)
+{
+	bool bByKey = kMin.n || kMax.n;
+
+	// the dependent txs' logs, all at the next height, so after any DB log of the same key
+	std::vector<const BlockInterpretCtx::TempLog*> vTemp;
+	if (m_pDependentBic)
+	{
+		for (const auto& x : m_pDependentBic->m_vTempLogs)
+		{
+			if ((x.m_Pos < posMin) || (posMax < x.m_Pos))
+				continue;
+			if (bByKey && ((Blob(x.m_Key) < kMin) || (kMax < Blob(x.m_Key))))
+				continue;
+			vTemp.push_back(&x);
+		}
+
+		if (bByKey)
+			std::stable_sort(vTemp.begin(), vTemp.end(), [](const BlockInterpretCtx::TempLog* a, const BlockInterpretCtx::TempLog* b) {
+				return Blob(a->m_Key) < Blob(b->m_Key);
+			});
+	}
+
+	NodeDB::ContractLog::Walker wlk;
+	if (bByKey)
+		m_DB.ContractLogEnum(wlk, kMin, kMax, posMin, posMax);
+	else
+		m_DB.ContractLogEnum(wlk, posMin, posMax);
+
+	auto it = vTemp.begin();
+	bool bDb = wlk.MoveNext();
+	while (bDb || (vTemp.end() != it))
+	{
+		bool bFromDb = bDb && ((vTemp.end() == it) || !bByKey || !(Blob((*it)->m_Key) < wlk.m_Entry.m_Key));
+		if (bFromDb)
+		{
+			if (!w.OnLog(wlk.m_Entry.m_Pos, wlk.m_Entry.m_Key, wlk.m_Entry.m_Val))
+				return;
+			bDb = wlk.MoveNext();
+		}
+		else
+		{
+			if (!w.OnLog((*it)->m_Pos, (*it)->m_Key, (*it)->m_Val))
+				return;
+			++it;
+		}
+	}
 }
 
 bool NodeProcessor::BlockInterpretCtx::HandleBlockElement(const Input& v)
@@ -6165,6 +6254,13 @@ uint32_t NodeProcessor::BlockInterpretCtx::Storage::OnLog(const Blob& key, const
 		x.m_Val = val;
 		bic.m_Proc.m_DB.ContractLogInsert(x);
 	}
+	else if (bic.m_KeepTempLogs)
+	{
+		auto& x = bic.m_vTempLogs.emplace_back();
+		x.m_Pos = HeightPos(bic.m_Height, bic.m_ContractLogs);
+		key.Export(x.m_Key);
+		val.Export(x.m_Val);
+	}
 
 	Ser ser(bic);
 	RecoveryTag::Type nTag = RecoveryTag::Log;
@@ -6368,6 +6464,8 @@ void NodeProcessor::BlockInterpretCtx::Storage::UndoVars()
 				bic.m_Proc.m_DB.ContractLogDel(pos, pos);
 				bic.m_Proc.m_DB.TestChanged1Row();
 			}
+			else if (bic.m_KeepTempLogs && !bic.m_vTempLogs.empty())
+				bic.m_vTempLogs.pop_back();
 
 			if (!bic.m_SkipDefinition)
 			{

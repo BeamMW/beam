@@ -4414,46 +4414,39 @@ void Node::Peer::OnMsg(proto::ContractVarsEnum&& msg)
 {
 	struct Wrk
 		:public NodeProcessor::IWorker
+		,public NodeProcessor::IContractVarsWalker
 	{
 		Peer& m_This;
 		proto::ContractVarsEnum& m_In;
 		proto::ContractVars m_Out;
+		Serializer m_Ser;
 
 		Wrk(Peer& x, proto::ContractVarsEnum& msgIn)
 			:m_This(x)
 			,m_In(msgIn)
 		{}
 
+		bool OnVar(const Blob& key, const Blob& val) override
+		{
+			m_Ser
+				& key.n
+				& val.n;
+
+			m_Ser.WriteRaw(key.p, key.n);
+			m_Ser.WriteRaw(val.p, val.n);
+
+			if (m_This.IsChocking(m_Ser.buffer().second))
+			{
+				m_Out.m_bMore = true;
+				return false;
+			}
+			return true;
+		}
+
 		void Do() override
 		{
-			NodeDB::WalkerContractData wlk;
-			m_This.m_This.m_Processor.get_DB().ContractDataEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax);
-
-			Serializer ser;
-
-			while (true)
-			{
-				if (!wlk.MoveNext())
-					break;
-
-				if (m_In.m_bSkipMin && (wlk.m_Key == m_In.m_KeyMin))
-					continue; // skip
-
-				ser
-					& wlk.m_Key.n
-					& wlk.m_Val.n;
-
-				ser.WriteRaw(wlk.m_Key.p, wlk.m_Key.n);
-				ser.WriteRaw(wlk.m_Val.p, wlk.m_Val.n);
-
-				if (m_This.IsChocking(ser.buffer().second))
-				{
-					m_Out.m_bMore = true;
-					break;
-				}
-			}
-
-			ser.swap_buf(m_Out.m_Result);
+			m_This.m_This.m_Processor.EnumContractVars(m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_bSkipMin, *this);
+			m_Ser.swap_buf(m_Out.m_Result);
 		}
 	};
 
@@ -4468,60 +4461,51 @@ void Node::Peer::OnMsg(proto::ContractLogsEnum&& msg)
 {
 	struct Wrk
 		:public NodeProcessor::IWorker
+		,public NodeProcessor::IContractLogsWalker
 	{
 		Peer& m_This;
 		proto::ContractLogsEnum& m_In;
 		proto::ContractLogs m_Out;
+		Serializer m_Ser;
 
 		Wrk(Peer& x, proto::ContractLogsEnum& msgIn)
 			:m_This(x)
 			, m_In(msgIn)
 		{}
 
-		void Do() override
+		bool OnLog(const HeightPos& pos, const Blob& key, const Blob& val) override
 		{
-			auto& db = m_This.m_This.m_Processor.get_DB();
-
-			NodeDB::ContractLog::Walker wlk;
-			if (m_In.m_KeyMin.empty() && m_In.m_KeyMax.empty())
-				db.ContractLogEnum(wlk, m_In.m_PosMin, m_In.m_PosMax);
-			else
-				db.ContractLogEnum(wlk, m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax);
-
-			Serializer ser;
-
-			while (true)
+			HeightPos dp;
+			dp.m_Height = pos.m_Height - m_In.m_PosMin.m_Height;
+			if (dp.m_Height)
 			{
-				if (!wlk.MoveNext())
-					break;
-
-				HeightPos dp;
-				dp.m_Height = wlk.m_Entry.m_Pos.m_Height - m_In.m_PosMin.m_Height;
-				if (dp.m_Height)
-				{
-					m_In.m_PosMin.m_Height = wlk.m_Entry.m_Pos.m_Height;
-					m_In.m_PosMin.m_Pos = 0;
-				}
-
-				dp.m_Pos = wlk.m_Entry.m_Pos.m_Pos - m_In.m_PosMin.m_Pos;
-				m_In.m_PosMin.m_Pos = wlk.m_Entry.m_Pos.m_Pos;
-
-				ser
-					& dp
-					& wlk.m_Entry.m_Key.n
-					& wlk.m_Entry.m_Val.n;
-
-				ser.WriteRaw(wlk.m_Entry.m_Key.p, wlk.m_Entry.m_Key.n);
-				ser.WriteRaw(wlk.m_Entry.m_Val.p, wlk.m_Entry.m_Val.n);
-
-				if (m_This.IsChocking(ser.buffer().second))
-				{
-					m_Out.m_bMore = true;
-					break;
-				}
+				m_In.m_PosMin.m_Height = pos.m_Height;
+				m_In.m_PosMin.m_Pos = 0;
 			}
 
-			ser.swap_buf(m_Out.m_Result);
+			dp.m_Pos = pos.m_Pos - m_In.m_PosMin.m_Pos;
+			m_In.m_PosMin.m_Pos = pos.m_Pos;
+
+			m_Ser
+				& dp
+				& key.n
+				& val.n;
+
+			m_Ser.WriteRaw(key.p, key.n);
+			m_Ser.WriteRaw(val.p, val.n);
+
+			if (m_This.IsChocking(m_Ser.buffer().second))
+			{
+				m_Out.m_bMore = true;
+				return false;
+			}
+			return true;
+		}
+
+		void Do() override
+		{
+			m_This.m_This.m_Processor.EnumContractLogs(m_In.m_KeyMin, m_In.m_KeyMax, m_In.m_PosMin, m_In.m_PosMax, *this);
+			m_Ser.swap_buf(m_Out.m_Result);
 		}
 	};
 

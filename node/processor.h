@@ -168,6 +168,8 @@ class NodeProcessor
 	struct BlockInterpretCtx;
 	struct ProcessorInfoParser;
 
+	BlockInterpretCtx* m_pDependentBic = nullptr; // set while ExecInDependentContext runs a worker
+
 	bool get_HdrAt(Block::SystemState::Full&, Height);
 
 	bool HandleBlock(const HeightHash&, uint64_t row, const Block::SystemState::Full&, MultiblockContext&);
@@ -931,6 +933,18 @@ public:
 		virtual void Do() = 0;
 	};
 	bool ExecInDependentContext(IWorker&, const Merkle::Hash*, const TxPool::Dependent&);
+
+	struct IContractVarsWalker {
+		virtual bool OnVar(const Blob& key, const Blob& val) = 0; // false stops the walk
+	};
+	// inside ExecInDependentContext this sees the applied dependent txs, not only the DB
+	void EnumContractVars(const Blob& kMin, const Blob& kMax, bool bSkipMin, IContractVarsWalker&);
+
+	struct IContractLogsWalker {
+		virtual bool OnLog(const HeightPos&, const Blob& key, const Blob& val) = 0; // false stops the walk
+	};
+	// empty keys: by position, else by key then position. Inside ExecInDependentContext this includes the dependent txs' logs
+	void EnumContractLogs(const Blob& kMin, const Blob& kMax, HeightPos posMin, HeightPos posMax, IContractLogsWalker&);
 
 	struct EvmAccount
 	{
