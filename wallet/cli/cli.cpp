@@ -2187,7 +2187,10 @@ namespace
             }
         }
 
-        throw std::runtime_error(kErrorAssetNonSTDMeta);
+        const auto& reason = meta.GetParseError();
+        throw std::runtime_error(reason.empty()
+            ? std::string(kErrorAssetNonSTDMeta)
+            : std::string(kErrorAssetNonSTDMeta) + ": " + reason);
     }
 
     std::string AssetID2Meta(const po::variables_map& vm, IWalletDB::Ptr walletDB)

@@ -26,6 +26,12 @@ namespace beam::wallet {
         bool isStd() const;
         bool isStd_v6_0() const;
         bool isStd_v5_0() const;
+
+        // Human-readable reason why the metadata is not fully standard (i.e. why isStd() is false).
+        // It describes the first failed check, in the same order the checks are performed,
+        // so if isStd_v5_0() is false it explains that as well. Empty if isStd() is true.
+        const std::string& GetParseError() const;
+
         void LogInfo(const std::string& prefix = "\t") const;
 
         std::string GetUnitName() const;
@@ -58,6 +64,7 @@ namespace beam::wallet {
         bool _std_v5_0 = false;
         bool _std_v6_0 = false;
         std::string _meta;
+        std::string _parseError;
     };
 
     struct IWalletDB;

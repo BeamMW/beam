@@ -13,6 +13,7 @@
 // limitations under the License.
 #include <boost/filesystem.hpp>
 #include "wallet/core/common.h"
+#include "wallet/core/assets_utils.h"
 #include "utility/logger.h"
 #include "wallet/core/wallet_network.h"
 #include "wallet/core/base_transaction.h"
@@ -636,6 +637,94 @@ void TestAssets(Rules& r) {
     BEAM_LOG_INFO() << "Finished testing assets...";
 }
 
+void TestAssetMetaErrors()
+{
+    BEAM_LOG_INFO() << "\nTesting asset metadata error messages...";
+
+    const auto check = [](const std::string& strMeta, bool v5, bool v6, bool isStd, const std::string& expectedError)
+    {
+        const WalletAssetMeta meta(strMeta);
+        BEAM_LOG_INFO() << "\tmeta: " << (strMeta.size() > 80 ? strMeta.substr(0, 80) + "..." : strMeta)
+                        << " -> " << (meta.GetParseError().empty() ? "OK" : meta.GetParseError());
+
+        WALLET_CHECK(meta.isStd_v5_0() == v5);
+        WALLET_CHECK(meta.isStd_v6_0() == v6);
+        WALLET_CHECK(meta.isStd() == isStd);
+        WALLET_CHECK(meta.GetParseError() == expectedError);
+    };
+
+    const std::string ok = "STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=coin;NTHUN=groth";
+    const std::string chars = "only letters, digits, spaces and \".,-_\" are allowed";
+
+    // valid standard metadata, all optional fields present
+    check(ok + ";OPT_SHORT_DESC=Short;OPT_LONG_DESC=Long;OPT_SITE_URL=https://beam.mw;OPT_PDF_URL=x.pdf;OPT_COLOR=#00FFaa",
+          true, true, true, "");
+    check(ok + ";OPT_COLOR=#0fA", true, true, true, "");
+    check(ok + ";OPT_SHORT_DESC=" + std::string(128, 'a') + ";OPT_LONG_DESC=" + std::string(1024, 'b'), true, true, true, "");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCNBCN;UN=coin;NTHUN=groth", true, true, true, "");
+
+    // old (v5.0) metadata: still accepted where old metadata is allowed, but not fully standard
+    check("STD:N=Beam Coin;SN=BCN;UN=coin;NTHUN=groth", true, false, false, "required field SCH_VER (schema version) is missing");
+
+    // not a standard metadata at all
+    check("N=Beam Coin;SN=BCN;UN=coin;NTHUN=groth", false, false, false, "metadata must start with \"STD:\"");
+    check("", false, false, false, "metadata must start with \"STD:\"");
+
+    // missing required fields
+    check("STD:SCH_VER=1;SN=BCN;UN=coin;NTHUN=groth", false, false, false, "required field N (asset name) is missing");
+    check("STD:SCH_VER=1;N=Beam Coin;UN=coin;NTHUN=groth", false, false, false, "required field SN (short name) is missing");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;NTHUN=groth", false, false, false, "required field UN (unit name) is missing");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=coin", false, false, false, "required field NTHUN (smallest unit name) is missing");
+    check("STD:SCH_VER=1;N;SN=BCN;UN=coin;NTHUN=groth", false, false, false, "required field N (asset name) is missing");
+
+    // bad characters in required fields
+    check("STD:SCH_VER=1;N=Beam Coin!;SN=BCN;UN=coin;NTHUN=groth", false, false, false, "N (asset name) contains invalid character '!', " + chars);
+    check("STD:SCH_VER=1;N=Beam Coin;SN=B$N;UN=coin;NTHUN=groth", false, false, false, "SN (short name) contains invalid character '$', " + chars);
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=co/in;NTHUN=groth", false, false, false, "UN (unit name) contains invalid character '/', " + chars);
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=coin;NTHUN=gro=th", false, false, false, "NTHUN (smallest unit name) contains invalid character '=', " + chars);
+    check(std::string("STD:SCH_VER=1;N=Beam\t") + "Coin;SN=BCN;UN=coin;NTHUN=groth", false, false, false, "N (asset name) contains invalid character 0x09, " + chars);
+
+    // schema version
+    check("STD:SCH_VER=2;N=Beam Coin;SN=BCN;UN=coin;NTHUN=groth", true, false, false, "unsupported SCH_VER (schema version) \"2\", must be 1");
+    check("STD:SCH_VER=one;N=Beam Coin;SN=BCN;UN=coin;NTHUN=groth", true, false, false, "unsupported SCH_VER (schema version) \"one\", must be 1");
+
+    // optional fields
+    check(ok + ";OPT_SHORT_DESC=" + std::string(129, 'a'), true, false, false, "OPT_SHORT_DESC is too long: 129 characters, maximum is 128");
+    check(ok + ";OPT_LONG_DESC=" + std::string(1025, 'b'), true, false, false, "OPT_LONG_DESC is too long: 1025 characters, maximum is 1024");
+    check(ok + ";OPT_COLOR=red", true, false, false, "OPT_COLOR \"red\" is invalid, must be a hex color like #RGB or #RRGGBB");
+    check(ok + ";OPT_COLOR=#12345", true, false, false, "OPT_COLOR \"#12345\" is invalid, must be a hex color like #RGB or #RRGGBB");
+    check(ok + ";OPT_COLOR=#" + std::string(40, 'Z'), true, false, false,
+          "OPT_COLOR \"#" + std::string(31, 'Z') + "...\" is invalid, must be a hex color like #RGB or #RRGGBB");
+
+    // empty required fields and short name length
+    check("STD:SCH_VER=1;N=;SN=BCN;UN=coin;NTHUN=groth", true, true, false, "N (asset name) must not be empty");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=;UN=coin;NTHUN=groth", true, true, false, "SN (short name) must not be empty");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=;NTHUN=groth", true, true, false, "UN (unit name) must not be empty");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BCN;UN=coin;NTHUN=", true, true, false, "NTHUN (smallest unit name) must not be empty");
+    check("STD:SCH_VER=1;N=Beam Coin;SN=BEAMCN1;UN=coin;NTHUN=groth", true, true, false, "SN (short name) is too long: 7 characters, maximum is 6");
+
+    // several problems: the first one (in validation order) is reported
+    check("STD:SCH_VER=2;SN=TOOLONGNAME;UN=coin;NTHUN=groth;OPT_COLOR=red", false, false, false, "required field N (asset name) is missing");
+    check("STD:SCH_VER=2;N=;SN=TOOLONGNAME;UN=coin;NTHUN=groth;OPT_COLOR=red", true, false, false, "unsupported SCH_VER (schema version) \"2\", must be 1");
+
+    // metadata taken from the asset info
+    {
+        Asset::Full info;
+        const WalletAssetMeta meta(info);
+        WALLET_CHECK(!meta.isStd());
+        WALLET_CHECK(meta.GetParseError() == "metadata is empty");
+    }
+    {
+        Asset::Full info;
+        info.m_Metadata.set_String(ok, false);
+        const WalletAssetMeta meta(info);
+        WALLET_CHECK(meta.isStd());
+        WALLET_CHECK(meta.GetParseError().empty());
+    }
+
+    BEAM_LOG_INFO() << "Finished testing asset metadata error messages...";
+}
+
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main () {
@@ -647,6 +736,8 @@ int main () {
     beam::Rules::Scope scopeRules(r);
 
     WALLET_CHECK(r.CA.LockPeriod == r.MaxRollback);
+
+    TestAssetMetaErrors();
 
     r.CA.Enabled          = true;
     r.CA.LockPeriod       = 20;

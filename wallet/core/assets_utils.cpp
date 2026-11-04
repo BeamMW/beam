@@ -16,8 +16,12 @@
 #include "wallet/core/strings_resources.h"
 #include "utility/logger.h"
 #include "wallet_db.h"
+#include <algorithm>
+#include <iomanip>
+#include <locale>
 #include <regex>
 #include <set>
+#include <sstream>
 
 namespace beam::wallet {
     namespace
@@ -36,6 +40,8 @@ namespace beam::wallet {
         const char ALLOWED_SYMBOLS[]   = " .,-_";
         const unsigned CURRENT_META_VERSION = 1;
         const size_t MAX_SHORT_NAME_LEN = 6;
+        const size_t MAX_SHORT_DESC_LEN = 128;
+        const size_t MAX_LONG_DESC_LEN  = 1024;
     }
 
     WalletAssetMeta::WalletAssetMeta(std::string meta)
@@ -52,12 +58,16 @@ namespace beam::wallet {
     {
         info.m_Metadata.get_String(_meta);
         if (_meta.empty())
+        {
+            _parseError = "metadata is empty";
             return;
+        }
 
         try {
             Parse();
         }
         catch (const std::exception& exc) {
+            _parseError = std::string("failed to parse metadata: ") + exc.what();
             BEAM_LOG_WARNING() << "AssetID " << info.m_ID << " failed to deserialize metadata: " << exc.what();
         }
     }
@@ -65,9 +75,24 @@ namespace beam::wallet {
     void WalletAssetMeta::Parse()
     {
         _std = false;
+        _parseError.clear();
+
+        // Remembers the first problem found and always returns false,
+        // so it can be used directly inside the validation expressions below
+        const auto fail = [this](const std::string& reason) -> bool {
+            if (_parseError.empty())
+            {
+                _parseError = reason;
+            }
+            return false;
+        };
 
         const auto STD_LEN = std::size(STD_META_MARK) - 1;
-        if(strncmp(_meta.c_str(), STD_META_MARK, STD_LEN) != 0) return;
+        if(strncmp(_meta.c_str(), STD_META_MARK, STD_LEN) != 0)
+        {
+            fail(std::string("metadata must start with \"") + STD_META_MARK + "\"");
+            return;
+        }
 
         std::regex rg{R"([^;]+)"};
         std::set<std::string> tokens{
@@ -84,39 +109,87 @@ namespace beam::wallet {
             _values[key] = val;
         }
 
-        const auto fieldValid = [&](const char* name) -> bool {
-            const auto it = _values.find(name);
-            if (it == _values.end()) return false;
+        const auto fieldTitle = [](const char* name, const char* descr) -> std::string {
+            return std::string(name) + " (" + descr + ")";
+        };
 
-            return std::all_of(it->second.begin(), it->second.end(), [](const char ch) -> bool {
+        const auto printChar = [](const char ch) -> std::string {
+            std::stringstream ss;
+            if (std::isprint(ch, std::locale::classic()))
+            {
+                ss << "'" << ch << "'";
+            }
+            else
+            {
+                ss << "0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+                   << static_cast<unsigned>(static_cast<unsigned char>(ch));
+            }
+            return ss.str();
+        };
+
+        // Quotes a user supplied value for an error message. Non-printable values are not echoed back
+        // and long values are truncated, so the message stays readable and safe to put into JSON.
+        const auto printValue = [](const std::string& value) -> std::string {
+            const size_t MAX_ECHO_LEN = 32;
+            const bool printable = std::all_of(value.begin(), value.end(), [](const char ch) -> bool {
+                return std::isprint(ch, std::locale::classic());
+            });
+
+            if (!printable) return "(non-printable value)";
+            if (value.length() <= MAX_ECHO_LEN) return "\"" + value + "\"";
+            return "\"" + value.substr(0, MAX_ECHO_LEN) + "...\"";
+        };
+
+        const auto fieldValid = [&](const char* name, const char* descr) -> bool {
+            const auto it = _values.find(name);
+            if (it == _values.end())
+            {
+                return fail("required field " + fieldTitle(name, descr) + " is missing");
+            }
+
+            const auto bad = std::find_if_not(it->second.begin(), it->second.end(), [](const char ch) -> bool {
                 return std::isalnum(ch, std::locale::classic()) || std::string(ALLOWED_SYMBOLS).find(ch) != std::string::npos;
             });
+
+            if (bad != it->second.end())
+            {
+                return fail(fieldTitle(name, descr) + " contains invalid character " + printChar(*bad) +
+                            ", only letters, digits, spaces and \"" + std::string(ALLOWED_SYMBOLS + 1) + "\" are allowed");
+            }
+
+            return true;
         };
 
         _std_v5_0 =
-               fieldValid(NAME_KEY) &&
-               fieldValid(SHORT_NAME_KEY) &&
-               fieldValid(UNIT_NAME_KEY) &&
-               fieldValid(NTH_UNIT_NAME_KEY);
+               fieldValid(NAME_KEY, "asset name") &&
+               fieldValid(SHORT_NAME_KEY, "short name") &&
+               fieldValid(UNIT_NAME_KEY, "unit name") &&
+               fieldValid(NTH_UNIT_NAME_KEY, "smallest unit name");
 
         const auto versionValid = [&] () -> bool {
             const auto it = _values.find(VERSION_KEY);
-            if (it == _values.end()) return false;
+            if (it == _values.end())
+            {
+                return fail(std::string("required field ") + VERSION_KEY + " (schema version) is missing");
+            }
 
             const auto version = std::to_unsigned(it->second, false);
-            return version == CURRENT_META_VERSION;
+            if (version != CURRENT_META_VERSION)
+            {
+                return fail(std::string("unsupported ") + VERSION_KEY + " (schema version) " + printValue(it->second) +
+                            ", must be " + std::to_string(CURRENT_META_VERSION));
+            }
+
+            return true;
         };
 
-        const auto optSDescValid = [&] () -> bool {
-            const auto it = _values.find(OPT_SDESC_KEY);
+        const auto optLenValid = [&] (const char* name, size_t maxLen) -> bool {
+            const auto it = _values.find(name);
             if (it == _values.end()) return true;
-            return it->second.length () <= 128;
-        };
+            if (it->second.length() <= maxLen) return true;
 
-        const auto optLDescValid = [&] () -> bool {
-            const auto it = _values.find(OPT_LDESC_KEY);
-            if (it == _values.end()) return true;
-            return it->second.length () <= 1024;
+            return fail(std::string(name) + " is too long: " + std::to_string(it->second.length()) +
+                        " characters, maximum is " + std::to_string(maxLen));
         };
 
         const auto optColorValid = [&] () -> bool {
@@ -124,15 +197,34 @@ namespace beam::wallet {
             if (it == _values.end()) return true;
 
             std::regex rg{R"(^#(?:[0-9a-fA-F]{3}){1,2}$)"};
-            return std::regex_match(it->second, rg);
+            if (std::regex_match(it->second, rg)) return true;
+
+            return fail(std::string(OPT_COLOR) + " " + printValue(it->second) + " is invalid, must be a hex color like #RGB or #RRGGBB");
         };
 
-        _std_v6_0 = _std_v5_0 && versionValid() && optSDescValid() && optLDescValid() && optColorValid();
+        _std_v6_0 = _std_v5_0 &&
+                versionValid() &&
+                optLenValid(OPT_SDESC_KEY, MAX_SHORT_DESC_LEN) &&
+                optLenValid(OPT_LDESC_KEY, MAX_LONG_DESC_LEN) &&
+                optColorValid();
+
+        const auto notEmpty = [&](const std::string& value, const char* name, const char* descr) -> bool {
+            return !value.empty() || fail(fieldTitle(name, descr) + " must not be empty");
+        };
+
+        const auto shortNameLenValid = [&]() -> bool {
+            const auto len = GetShortName().length();
+            if (len <= MAX_SHORT_NAME_LEN) return true;
+
+            return fail(fieldTitle(SHORT_NAME_KEY, "short name") + " is too long: " + std::to_string(len) +
+                        " characters, maximum is " + std::to_string(MAX_SHORT_NAME_LEN));
+        };
+
         _std = _std_v6_0 &&
-                !GetName().empty() &&
-                !GetShortName().empty() && GetShortName().length() <= MAX_SHORT_NAME_LEN &&
-                !GetUnitName().empty() &&
-                !GetNthUnitName().empty();
+                notEmpty(GetName(), NAME_KEY, "asset name") &&
+                notEmpty(GetShortName(), SHORT_NAME_KEY, "short name") && shortNameLenValid() &&
+                notEmpty(GetUnitName(), UNIT_NAME_KEY, "unit name") &&
+                notEmpty(GetNthUnitName(), NTH_UNIT_NAME_KEY, "smallest unit name");
     }
 
     void WalletAssetMeta::LogInfo(const std::string& pref) const
@@ -171,6 +263,11 @@ namespace beam::wallet {
     bool WalletAssetMeta::isStd_v6_0() const
     {
         return _std_v6_0;
+    }
+
+    const std::string& WalletAssetMeta::GetParseError() const
+    {
+        return _parseError;
     }
 
     std::string WalletAssetMeta::GetUnitName() const
