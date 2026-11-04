@@ -117,7 +117,7 @@ namespace beam::wallet
                 return;
             }
 
-            if (wa.CanRollback(builder.m_Height.m_Min))
+            if (wa.IsLocked(builder.m_Height.m_Min))
             {
                 OnFailed(TxFailureReason::AssetLocked);
                 return;

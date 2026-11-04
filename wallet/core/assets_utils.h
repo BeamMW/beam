@@ -69,6 +69,8 @@ namespace beam::wallet {
         ~WalletAsset() = default;
 
         bool CanRollback(Height from) const;
+        // same rule the node applies when the asset is unregistered
+        bool IsLocked(Height h) const;
         bool IsExpired(IWalletDB& wdb);
         void LogInfo(const std::string& prefix = std::string()) const;
         void LogInfo(const TxID& txId, const SubTxID& subTxId) const;
