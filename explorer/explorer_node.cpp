@@ -32,6 +32,7 @@ struct Options {
     io::Address explorerListenTo;
     int logLevel;
     Key::IPKdf::Ptr ownerKey;
+    Node::Keys::Accounts accounts; // extra owner keys to add / remove, as in beam-node (#2055)
     static const unsigned logRotationPeriod = 3*60*60*1000; // 3 hours
     std::vector<uint32_t> whitelist;
     uint32_t logCleanupPeriod;
@@ -105,8 +106,13 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         (cli::NODE_PEER, po::value<string>()->default_value("eu-node03.masternet.beam.mw:8100"), "peer address")
         (cli::PORT_FULL, po::value<uint16_t>()->default_value(10000), "port to start the local node on")
         (API_PORT_PARAMETER, po::value<uint16_t>()->default_value(8888), "port to start the local api server on")
-        (cli::KEY_OWNER, po::value<string>()->default_value(""), "owner viewer key")
+        (cli::OWNER_KEY, po::value<string>(), "owner viewer key")
+        (cli::KEY_OWNER, po::value<string>(), "owner viewer key (deprecated)")
         (cli::PASS, po::value<string>()->default_value(""), "password for owner key")
+        (cli::MULTI_OWNER_KEYS, po::value<vector<string> >(), "Extra Owner keys")
+        (cli::MULTI_PASSES, po::value<vector<string> >(), "Extra Owner key passwords")
+        (cli::OWNER_KEY_REMOVE_EP, po::value<vector<string> >(), "Remove extra Owner key")
+        (cli::OWNER_KEY_REMOVE_ALL, po::value<bool>()->default_value(false), "Remove all extra owner keys")
         (cli::IP_WHITELIST, po::value<std::string>()->default_value(""), "IP whitelist")
         (cli::LOG_CLEANUP_DAYS, po::value<uint32_t>()->default_value(5), "old logfiles cleanup period(days)")
         (cli::CONFIG_FILE_PATH, po::value<std::string>()->default_value("explorer-node.cfg"), "path to the config file")
@@ -156,7 +162,15 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
         o.nodeListenTo.port(vm[cli::PORT].as<uint16_t>());
         o.explorerListenTo.port(vm[API_PORT_PARAMETER].as<uint16_t>());
 
-        std::string keyOwner = vm[cli::KEY_OWNER].as<string>();
+        std::string keyOwner;
+        if (vm.count(cli::OWNER_KEY))
+            keyOwner = vm[cli::OWNER_KEY].as<string>();
+        else if (vm.count(cli::KEY_OWNER))
+        {
+            keyOwner = vm[cli::KEY_OWNER].as<string>();
+            cout << "The \"" << cli::KEY_OWNER << "\" parameter is deprecated, use \"" << cli::OWNER_KEY << "\" instead." << std::endl;
+        }
+
         if (!keyOwner.empty())
         {
             SecString pass;
@@ -176,6 +190,49 @@ bool parse_cmdline(int argc, char* argv[], Options& o, Rules& r) {
                 o.ownerKey = kdf;
             }
         }
+
+        // extra owner keys, same options and semantics as beam-node (#2055)
+        if (vm.count(cli::MULTI_OWNER_KEYS))
+        {
+            auto vKeys = vm[cli::MULTI_OWNER_KEYS].as<std::vector<std::string> >();
+
+            std::vector<std::string> vPasses;
+            if (vm.count(cli::MULTI_PASSES))
+                vPasses = vm[cli::MULTI_PASSES].as<std::vector<std::string> >();
+
+            vPasses.resize(vKeys.size()); // ignore redundant, add empty for missing
+
+            for (size_t i = 0; i < vKeys.size(); i++)
+            {
+                SecString ssPass;
+                if (vPasses[i].empty())
+                {
+                    std::ostringstream osPrompt;
+                    osPrompt << "Enter password for extra key " << i << ": ";
+                    read_password(osPrompt.str().c_str(), ssPass);
+                }
+                else
+                    ssPass.assign(vPasses[i].data(), vPasses[i].size());
+
+                KeyString ks;
+                ks.SetPassword(Blob(ssPass.data(), static_cast<uint32_t>(ssPass.size())));
+                ks.m_sRes = vKeys[i];
+
+                auto kdf = std::make_shared<ECC::HKdfPub>();
+                if (!ks.Import(*kdf))
+                    throw std::runtime_error("extra owner key " + std::to_string(i) + " import failed");
+
+                o.accounts.m_vAdd.push_back(std::move(kdf));
+            }
+        }
+
+        if (vm.count(cli::OWNER_KEY_REMOVE_EP))
+        {
+            for (auto& ep : vm[cli::OWNER_KEY_REMOVE_EP].as<std::vector<std::string> >())
+                o.accounts.m_Del.m_Eps.insert(ep);
+        }
+
+        o.accounts.m_Del.m_All = vm[cli::OWNER_KEY_REMOVE_ALL].as<bool>();
 
         auto& vArg = vm[cli::CONTRACT_RICH_PARSER];
         if (!vArg.empty())
@@ -251,6 +308,7 @@ void setup_node(Node& node, const Options& o) {
     node.m_Cfg.m_PeersPersistent = o.m_PeersPersistent;
 
     node.m_Keys.m_pOwner = o.ownerKey;
+    node.m_Keys.m_Accounts = o.accounts;
 
     auto& address = node.m_Cfg.m_Connect.emplace_back();
     address.resolve(o.nodeConnectTo.c_str());
