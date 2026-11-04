@@ -202,7 +202,8 @@ namespace beam::wallet
     MACRO(AssetsDisabledInRules,         49, "Asset transactions are disabled in blockchain configuration") \
     MACRO(NoPeerIdentity,                50, "Peer Identity required") \
     MACRO(CannotGetVouchers,             51, "The sender cannot get vouchers for offline transaction") \
-    MACRO(Count,                         52, "PLEASE KEEP THIS ALWAYS LAST")
+    MACRO(TooManyShieldedInputs,         52, "Too many shielded inputs to process the transaction. Consolidate them first by sending a smaller amount to yourself") \
+    MACRO(Count,                         53, "PLEASE KEEP THIS ALWAYS LAST")
 
     enum TxFailureReason : int32_t
     {

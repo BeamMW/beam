@@ -888,7 +888,7 @@ namespace beam::wallet
     {
         BEAM_LOG_ERROR() << GetTxID() << " Failed. " << GetFailureMessage(reason);
 
-        if (reason == TxFailureReason::NoInputs)
+        if (reason == TxFailureReason::NoInputs || reason == TxFailureReason::TooManyShieldedInputs)
         {
             NotifyFailure(TxFailureReason::Canceled);
         }
