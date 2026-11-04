@@ -2099,8 +2099,20 @@ namespace
         }
 
         string nodeURI = vm[cli::NODE_ADDR].as<string>();
+        const bool useProxy = vm[cli::PROXY_USE].as<bool>();
         io::Address nodeAddress;
-        if (!nodeAddress.resolve(nodeURI.c_str()))
+        if (useProxy)
+        {
+            // Don't resolve the node host locally, the proxy resolves it (no DNS leak outside the proxy)
+            string host;
+            uint16_t port = 0;
+            if (!io::parse_host_port(nodeURI, host, port))
+            {
+                BEAM_LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
+                return nullptr;
+            }
+        }
+        else if (!nodeAddress.resolve(nodeURI.c_str()))
         {
             BEAM_LOG_ERROR() << boost::format(kErrorNodeAddrUnresolved) % nodeURI;
             return nullptr;
@@ -2133,10 +2145,11 @@ namespace
             BEAM_LOG_WARNING() << boost::format(kErrorNodePoolPeriodTooMuch)
                           % uint32_t(responceTime_ms / 3'600'000);
         }
-        nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
-        nnet->m_Cfg.m_UseProxy = vm[cli::PROXY_USE].as<bool>();
+        nnet->m_Cfg.m_UseProxy = useProxy;
         if (nnet->m_Cfg.m_UseProxy)
         {
+            nnet->m_Cfg.m_vNodeHosts.push_back(nodeURI);
+
             string proxyURI = vm[cli::PROXY_ADDRESS].as<string>();
             io::Address proxyAddr;
             if (!proxyAddr.resolve(proxyURI.c_str()))
@@ -2145,6 +2158,10 @@ namespace
                 return nullptr;
             }
             nnet->m_Cfg.m_ProxyAddr = proxyAddr;
+        }
+        else
+        {
+            nnet->m_Cfg.m_vNodes.push_back(nodeAddress);
         }
         nnet->Connect();
 

@@ -20,6 +20,8 @@
 #include "utility/io/sslstream.h"
 
 #include <array>
+#include <string>
+#include <vector>
 
 namespace beam {
 namespace io {
@@ -37,13 +39,16 @@ public:
     /**
      * Allocate proxy connection request.
      * Callback will start process of connection establishment.
+     * If destinationHost is not empty, it is sent to the proxy server to be resolved
+     * on the remote side, and only the port of destination is used.
      * @return callback functor to be executed on tcp connect to proxy server.
      */
     OnConnect create_connection(uint64_t tag,   // unique identifier
                                 Address destination,
                                 const OnConnect& onProxyEstablish,
                                 int timeoutMsec,
-                                bool tlsConnect);
+                                bool tlsConnect,
+                                const std::string& destinationHost = std::string());
 
     /**
      * Cancel all active proxy connection requests.
@@ -71,6 +76,7 @@ private:
         // using Ptr = std::unique_ptr<ProxyConnectRequest>;
         uint64_t tag;
         beam::io::Address destination;
+        std::string destinationHost;    // resolved by the proxy server if not empty
         OnConnect on_connection_establish;
         OnReply on_proxy_reply;
         int timeoutMsec;
@@ -101,6 +107,7 @@ struct Socks5_Protocol {
 
     static constexpr uint8_t ProtoVersion = 0x05;
     static constexpr uint8_t Reserved = 0x00;
+    static constexpr size_t MaxDomainNameLength = 255;
 
     enum class AuthMethod : uint8_t {
         NO_AUTHENTICATION_REQUIRED = 0x00,
@@ -139,6 +146,9 @@ struct Socks5_Protocol {
     static std::array<uint8_t,3> makeAuthRequest(AuthMethod method);
     static bool parseAuthResp(void* data, AuthMethod& outMethod);
     static std::array<uint8_t,10> makeRequest(const Address& addr, Command cmd);
+    /// IPv4 address type for an IPv4 literal, domain name type otherwise.
+    /// @return empty vector if the host is empty or longer than MaxDomainNameLength
+    static std::vector<uint8_t> makeRequest(const std::string& host, uint16_t port, Command cmd);
     static Reply parseReply(void* data);
 
 };

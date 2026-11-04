@@ -92,6 +92,22 @@ public:
         bool tlsConnect=false
     );
 
+    /**
+     * Connect to remote destination using proxy server.
+     * The host name is not resolved locally: it is sent to the proxy server,
+     * which resolves it on the remote side (socks5 domain name address type).
+     * @destHost host name or IPv4 address, up to 255 characters
+     */
+    Result tcp_connect_with_proxy(
+        const std::string& destHost,
+        uint16_t destPort,
+        Address proxyAddr,
+        uint64_t tag,
+        const ConnectCallback& callback,
+        int timeoutMsec=-1,
+        bool tlsConnect=false
+    );
+
     void cancel_tcp_connect(uint64_t tag);
 
 	class Scope
@@ -182,6 +198,16 @@ private:
 
     using OnDataWritten = std::function<void(ErrorCode, size_t)>;
     ErrorCode async_write(Reactor::Object* o, BufferChain& unsent, const OnDataWritten& cb);
+
+    Result tcp_connect_with_proxy_impl(
+        Address destAddr,
+        const std::string& destHost,
+        Address proxyAddr,
+        uint64_t tag,
+        const ConnectCallback& callback,
+        int timeoutMsec,
+        bool tlsConnect
+    );
 
     ErrorCode init_object(ErrorCode errorCode, Object* o, uv_handle_t* h);
     void async_close(uv_handle_t*& handle);

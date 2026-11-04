@@ -123,6 +123,10 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const Address& a);
 
+// Splits "host:port" into its parts without resolving the host (no DNS lookup).
+// The port is required and must be in 1..65535
+bool parse_host_port(const std::string& str, std::string& host, uint16_t& port);
+
 }} //namespaces
 
 namespace std {

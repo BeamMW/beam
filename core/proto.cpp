@@ -541,6 +541,21 @@ void NodeConnection::Connect(const io::Address& addr, const boost::optional<io::
     m_ConnectPending = true;
 }
 
+void NodeConnection::Connect(const std::string& host, uint16_t port, const io::Address& proxyAddr)
+{
+    assert(!m_Connection && !m_ConnectPending);
+
+    io::Result res = io::Reactor::get_Current().tcp_connect_with_proxy(
+        host,
+        port,
+        proxyAddr,
+        uint64_t(this),
+        OnConnectInternal);
+
+    TestIoResultAsync(res);
+    m_ConnectPending = true;
+}
+
 void NodeConnection::Accept(io::TcpStream::Ptr&& newStream)
 {
     assert(!m_Connection && !m_ConnectPending);

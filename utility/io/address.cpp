@@ -90,6 +90,24 @@ std::string Address::str() const {
     return std::string(buf);
 }
 
+bool parse_host_port(const std::string& str, std::string& host, uint16_t& port) {
+    size_t colon = str.find(':');
+    if (colon == std::string::npos || colon == 0 || colon + 1 == str.size() || str.size() - colon > 6) {
+        return false;
+    }
+    uint32_t p = 0;
+    for (size_t i = colon + 1; i < str.size(); ++i) {
+        if (str[i] < '0' || str[i] > '9') return false;
+        p = p * 10 + (str[i] - '0');
+    }
+    if (p == 0 || p > 0xFFFF) {
+        return false;
+    }
+    host = str.substr(0, colon);
+    port = static_cast<uint16_t>(p);
+    return true;
+}
+
 std::ostream& operator<<(std::ostream& os, const Address& a) {
     uint32_t ip = a.ip();
     os << (ip >> 24) << '.' << ((ip >> 16) & 0xFF) << '.' << ((ip >> 8) & 0xFF) << '.' << (ip & 0xFF);
