@@ -17,6 +17,7 @@
 #include "nlohmann/json.hpp"
 #include "utility/helpers.h"
 #include "utility/logger.h"
+#include "utility/json_depth.h"
 
 using json = nlohmann::json;
 
@@ -76,7 +77,7 @@ ResultCode parse_json(const void* buf, size_t bufSize, json& o) {
     if (bufSize == 0) return message_corrupted;
     const char* bufc = (const char*)buf;
     try {
-        o = json::parse(bufc, bufc + bufSize);
+        o = ParseUntrustedJson(bufc, bufc + bufSize);
     } catch (const std::exception& e) {
         BEAM_LOG_ERROR() << "json parse: " << e.what() << "\n" << std::string(bufc, bufc + (bufSize > 1024 ? 1024 : bufSize));
         return message_corrupted;

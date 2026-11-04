@@ -14,6 +14,7 @@
 #include "api_errors_imp.h"
 #include "api_base.h"
 #include "utility/logger.h"
+#include "utility/json_depth.h"
 
 namespace beam::wallet
 {
@@ -97,7 +98,7 @@ namespace beam::wallet
 
         try
         {
-            const auto parsed = json::parse(request);
+            const auto parsed = ParseUntrustedJson(request);
             rpcId = parsed["id"];
         }
         catch(...)
@@ -126,7 +127,7 @@ namespace beam::wallet
 
             ApiCallInfo info;
 
-            info.message = json::parse(data, data + size); // do not make const pls, it would throw if no field present
+            info.message = ParseUntrustedJson(data, data + size); // do not make const pls, it would throw if no field present
             if(!info.message["id"].is_number_integer() && !info.message["id"].is_string())
             {
                 throw jsonrpc_exception(ApiError::InvalidJsonRpc, "ID can be integer or string only.");
