@@ -58,7 +58,7 @@ if(EMSCRIPTEN)
                    -s ALLOW_MEMORY_GROWTH=0 \
                    -s DYNAMIC_EXECUTION=0 \
                    -s USE_BOOST_HEADERS=1 \
-                   -s ASSERTIONS=1 \
+                   -s ASSERTIONS=0 \
                    -s PTHREAD_POOL_SIZE='window.navigator.hardwareConcurrency < ${BEAM_WEB_WALLET_THREADS_NUM} ? \
                                                             window.navigator.hardwareConcurrency : ${BEAM_WEB_WALLET_THREADS_NUM}' \
                    -s EXPORT_NAME='BeamModule' \
