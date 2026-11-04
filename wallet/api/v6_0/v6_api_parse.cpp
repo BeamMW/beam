@@ -607,6 +607,18 @@ namespace beam::wallet
             info.comment = *comment;
         }
 
+        if (auto lifetimeParam = getOptionalParam<PositiveHeight>(params, "lifetime"))
+        {
+            const Height lifetime = *lifetimeParam;
+            if (lifetime > kDefaultTxLifetime)
+            {
+                std::stringstream ss;
+                ss << "Parameter 'lifetime' cannot exceed " << kDefaultTxLifetime << " blocks.";
+                throw jsonrpc_exception(ApiError::InvalidParamsJsonRpc, ss.str());
+            }
+            send.lifetime = lifetime;
+        }
+
         info.confirm_comment = getOptionalParam<std::string>(params, "confirm_comment");
         send.txId  = getOptionalParam<ValidTxID>(params, "txId");
 

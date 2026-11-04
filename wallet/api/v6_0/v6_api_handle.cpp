@@ -282,6 +282,11 @@ namespace beam::wallet
                 params.SetParameter(TxParameterID::AssetID, *data.assetId);
             }
 
+            if (data.lifetime)
+            {
+                params.SetParameter(TxParameterID::Lifetime, *data.lifetime);
+            }
+
             params
                 .SetParameter(TxParameterID::Amount, data.value)
                 .SetParameter(TxParameterID::Fee, data.fee)
