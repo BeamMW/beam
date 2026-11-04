@@ -20,6 +20,10 @@
 #include "utility/logger.h"
 #include "nlohmann/json.hpp"
 #include "wallet/api/i_swaps_provider.h"
+#include "wallet/core/strings_resources.h"
+#include "utility/io/reactor.h"
+#include <boost/filesystem.hpp>
+#include <set>
 
 using namespace std;
 using namespace beam;
@@ -1674,6 +1678,321 @@ void testCalcChange()
     }));
 }
 
+namespace
+{
+    //
+    // Apps access tests that run the real V6Api handlers on a real wallet DB.
+    // Objects are tagged the same way the API tags them: txs get TxParameterID::AppID,
+    // addresses get the app id as category.
+    //
+    const char kAppsDBName[] = "wallet_api_apps_test.db";
+    const char kAppA[]       = "appid-a";
+    const char kAppAName[]   = "App A";
+    const char kAppB[]       = "appid-b";
+    const char kAppBName[]   = "App B";
+
+    class DbApiClient
+        : public wallet::V6Api
+        , public IWalletApiHandler
+    {
+    public:
+        DbApiClient(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, const std::string& appId = std::string(), const std::string& appName = std::string())
+            : V6Api(*this, makeInitData(walletDB, wallet, appId, appName))
+        {
+        }
+
+        void sendAPIResponse(const json& resp) override
+        {
+            _last = resp;
+        }
+
+        void onParseError(const json& msg) override
+        {
+            _last = msg;
+        }
+
+        Height get_TipHeight() const override
+        {
+            return Rules::get().pForks[3].m_Height;
+        }
+
+        json call(const std::string& method, const json& params = json::object())
+        {
+            const json req = {
+                {"jsonrpc", "2.0"},
+                {"id",      ++_callId},
+                {"method",  method},
+                {"params",  params}
+            };
+
+            const auto sreq = req.dump();
+            _last = json();
+            WALLET_CHECK(ApiSyncMode::DoneSync == executeAPIRequest(sreq.data(), sreq.size()));
+            return _last;
+        }
+
+    private:
+        static ApiInitData makeInitData(IWalletDB::Ptr walletDB, Wallet::Ptr wallet, const std::string& appId, const std::string& appName)
+        {
+            ApiInitData data;
+            data.walletDB = std::move(walletDB);
+            data.wallet   = std::move(wallet);
+            data.appId    = appId;
+            data.appName  = appName;
+            return data;
+        }
+
+        int  _callId = 0;
+        json _last;
+    };
+
+    bool isResult(const json& resp)
+    {
+        return resp.find("result") != resp.end() && resp.find("error") == resp.end();
+    }
+
+    bool isError(const json& resp, ApiError code)
+    {
+        if (resp.find("error") == resp.end())
+        {
+            return false;
+        }
+        const ApiError actual = resp["error"]["code"];
+        return actual == code;
+    }
+
+    struct AppsTestDB
+    {
+        IWalletDB::Ptr walletDB;
+        Wallet::Ptr    wallet;
+
+        AppsTestDB()
+        {
+            boost::filesystem::remove(kAppsDBName);
+
+            ECC::NoLeak<ECC::uintBig> seed;
+            seed.V = 10283UL;
+            walletDB = WalletDB::init(kAppsDBName, std::string("pass123"), seed);
+            wallet   = std::make_shared<Wallet>(walletDB);
+        }
+
+        ~AppsTestDB()
+        {
+            wallet.reset();
+            walletDB.reset();
+            boost::filesystem::remove(kAppsDBName);
+        }
+
+        TxID storeTx(const std::string& appId, const std::string& appName, TxStatus status)
+        {
+            TxDescription tx(GenerateTxID(), TxType::Simple, 1000, 100);
+            tx.m_status     = status;
+            tx.m_sender     = true;
+            tx.m_createTime = getTimestamp();
+            walletDB->saveTx(tx);
+
+            if (!appId.empty())
+            {
+                // this is what tx_send / invoke_contract store for app txs
+                storage::setTxParameter(*walletDB, tx.m_txId, TxParameterID::AppID, appId, true);
+                storage::setTxParameter(*walletDB, tx.m_txId, TxParameterID::AppName, appName, true);
+            }
+            return tx.m_txId;
+        }
+
+        std::string storeAddress(const std::string& category)
+        {
+            WalletAddress addr;
+            walletDB->createAddress(addr);
+            addr.setCategory(category);
+            walletDB->saveAddress(addr);
+            return addr.m_Token;
+        }
+    };
+
+    std::set<std::string> listTxIds(DbApiClient& client)
+    {
+        std::set<std::string> res;
+        const auto resp = client.call("tx_list");
+        WALLET_CHECK(isResult(resp));
+        if (isResult(resp))
+        {
+            for (const auto& tx : resp["result"])
+            {
+                res.insert(tx["txId"].get<std::string>());
+            }
+        }
+        return res;
+    }
+
+    std::set<std::string> listAddrTokens(DbApiClient& client)
+    {
+        std::set<std::string> res;
+        const auto resp = client.call("addr_list", json{{"own", true}});
+        WALLET_CHECK(isResult(resp));
+        if (isResult(resp))
+        {
+            for (const auto& addr : resp["result"])
+            {
+                res.insert(addr["address"].get<std::string>());
+            }
+        }
+        return res;
+    }
+
+    void TestAppsTxAccess()
+    {
+        cout << "\nTesting apps access to transactions (real wallet DB)...\n";
+
+        AppsTestDB db;
+        const auto txA = std::to_string(db.storeTx(kAppA, kAppAName, TxStatus::Completed));
+        const auto txB = std::to_string(db.storeTx(kAppB, kAppBName, TxStatus::Completed));
+        const auto txN = std::to_string(db.storeTx("", "", TxStatus::Completed));
+
+        DbApiClient wallet(db.walletDB, db.wallet);
+        DbApiClient appA(db.walletDB, db.wallet, kAppA, kAppAName);
+        DbApiClient appB(db.walletDB, db.wallet, kAppB, kAppBName);
+        DbApiClient appC(db.walletDB, db.wallet, "appid-c", "App C");
+
+        // tx_list: a normal client sees everything, an app sees only its own txs
+        WALLET_CHECK((listTxIds(wallet) == std::set<std::string>{txA, txB, txN}));
+        WALLET_CHECK((listTxIds(appA)   == std::set<std::string>{txA}));
+        WALLET_CHECK((listTxIds(appB)   == std::set<std::string>{txB}));
+        WALLET_CHECK(listTxIds(appC).empty());
+
+        {
+            const auto resp = appA.call("tx_list");
+            WALLET_CHECK(isResult(resp) && resp["result"].size() == 1);
+            if (isResult(resp) && resp["result"].size() == 1)
+            {
+                WALLET_CHECK(resp["result"][0]["appid"] == kAppA);
+                WALLET_CHECK(resp["result"][0]["appname"] == kAppAName);
+            }
+        }
+
+        // tx_status: foreign and non-app txs look like unknown ids to an app
+        for (const auto& id : {txA, txB, txN})
+        {
+            WALLET_CHECK(isResult(wallet.call("tx_status", json{{"txId", id}})));
+        }
+        WALLET_CHECK(isResult(appA.call("tx_status", json{{"txId", txA}})));
+        WALLET_CHECK(isError(appA.call("tx_status", json{{"txId", txB}}), ApiError::InvalidParamsJsonRpc));
+        WALLET_CHECK(isError(appA.call("tx_status", json{{"txId", txN}}), ApiError::InvalidParamsJsonRpc));
+        WALLET_CHECK(isError(appB.call("tx_status", json{{"txId", txA}}), ApiError::InvalidParamsJsonRpc));
+
+        // tx_cancel: access check comes first. Own tx -> "invalid status" (not active), foreign -> "unknown id"
+        WALLET_CHECK(isError(appA.call("tx_cancel", json{{"txId", txA}}), ApiError::InvalidTxStatus));
+        WALLET_CHECK(isError(appA.call("tx_cancel", json{{"txId", txB}}), ApiError::InvalidParamsJsonRpc));
+        WALLET_CHECK(isError(appA.call("tx_cancel", json{{"txId", txN}}), ApiError::InvalidParamsJsonRpc));
+
+        // tx_delete: an app cannot delete foreign txs, they stay in the DB
+        WALLET_CHECK(isError(appA.call("tx_delete", json{{"txId", txB}}), ApiError::InvalidParamsJsonRpc));
+        WALLET_CHECK(isError(appA.call("tx_delete", json{{"txId", txN}}), ApiError::InvalidParamsJsonRpc));
+        WALLET_CHECK((listTxIds(wallet) == std::set<std::string>{txA, txB, txN}));
+
+        WALLET_CHECK(isResult(appA.call("tx_delete", json{{"txId", txA}})));
+        WALLET_CHECK(isResult(wallet.call("tx_delete", json{{"txId", txN}})));
+        WALLET_CHECK((listTxIds(wallet) == std::set<std::string>{txB}));
+        WALLET_CHECK(listTxIds(appA).empty());
+        WALLET_CHECK((listTxIds(appB) == std::set<std::string>{txB}));
+    }
+
+    void TestAppsPaymentProofAccess()
+    {
+        cout << "\nTesting apps access to payment proofs (real wallet DB)...\n";
+
+        AppsTestDB db;
+        const auto txA = std::to_string(db.storeTx(kAppA, kAppAName, TxStatus::InProgress));
+        const auto txB = std::to_string(db.storeTx(kAppB, kAppBName, TxStatus::InProgress));
+        const auto txN = std::to_string(db.storeTx("", "", TxStatus::InProgress));
+
+        DbApiClient wallet(db.walletDB, db.wallet);
+        DbApiClient appA(db.walletDB, db.wallet, kAppA, kAppAName);
+
+        auto proofError = [](const json& resp) -> std::string
+        {
+            if (!isError(resp, ApiError::PaymentProofExportError) || resp["error"].find("data") == resp["error"].end())
+            {
+                return "";
+            }
+            return resp["error"]["data"].get<std::string>();
+        };
+
+        // Access allowed: the call gets as far as the tx status check
+        WALLET_CHECK(proofError(appA.call("export_payment_proof", json{{"txId", txA}})) == kErrorPpExportFailedTxNotCompleted);
+        WALLET_CHECK(proofError(wallet.call("export_payment_proof", json{{"txId", txB}})) == kErrorPpExportFailedTxNotCompleted);
+        WALLET_CHECK(proofError(wallet.call("export_payment_proof", json{{"txId", txN}})) == kErrorPpExportFailedTxNotCompleted);
+
+        // Access denied: reported exactly like a missing tx
+        WALLET_CHECK(proofError(appA.call("export_payment_proof", json{{"txId", txB}})) == kErrorPpExportFailed);
+        WALLET_CHECK(proofError(appA.call("export_payment_proof", json{{"txId", txN}})) == kErrorPpExportFailed);
+    }
+
+    void TestAppsAddressAccess()
+    {
+        cout << "\nTesting apps access to addresses (real wallet DB)...\n";
+
+        AppsTestDB db;
+        const auto addrA = db.storeAddress(kAppA);
+        const auto addrB = db.storeAddress(kAppB);
+        const auto addrN = db.storeAddress("");
+
+        DbApiClient wallet(db.walletDB, db.wallet);
+        DbApiClient appA(db.walletDB, db.wallet, kAppA, kAppAName);
+        DbApiClient appB(db.walletDB, db.wallet, kAppB, kAppBName);
+
+        // addr_list: a normal client sees all own addresses, an app sees only the ones it created
+        {
+            const auto all = listAddrTokens(wallet);
+            WALLET_CHECK(all.count(addrA) == 1 && all.count(addrB) == 1 && all.count(addrN) == 1);
+        }
+        WALLET_CHECK((listAddrTokens(appA) == std::set<std::string>{addrA}));
+        WALLET_CHECK((listAddrTokens(appB) == std::set<std::string>{addrB}));
+
+        // create_address by an app: tagged with the app id and visible to that app only
+        {
+            const auto resp = appA.call("create_address", json{{"comment", "app address"}});
+            WALLET_CHECK(isResult(resp));
+            if (isResult(resp))
+            {
+                const auto token = resp["result"].get<std::string>();
+                const auto stored = db.walletDB->getAddressByToken(token);
+                WALLET_CHECK(stored && stored->m_category == kAppA);
+                WALLET_CHECK((listAddrTokens(appA) == std::set<std::string>{addrA, token}));
+                WALLET_CHECK(listAddrTokens(appB).count(token) == 0);
+                WALLET_CHECK(listAddrTokens(wallet).count(token) == 1);
+            }
+        }
+
+        // edit_address / delete_address: foreign addresses look like missing ones
+        WALLET_CHECK(isError(appA.call("edit_address", json{{"address", addrB}, {"comment", "x"}}), ApiError::InvalidAddress));
+        WALLET_CHECK(isError(appA.call("edit_address", json{{"address", addrN}, {"comment", "x"}}), ApiError::InvalidAddress));
+        WALLET_CHECK(isError(appA.call("delete_address", json{{"address", addrB}}), ApiError::InvalidAddress));
+        WALLET_CHECK(isError(appA.call("delete_address", json{{"address", addrN}}), ApiError::InvalidAddress));
+        WALLET_CHECK(db.walletDB->getAddressByToken(addrB));
+        WALLET_CHECK(db.walletDB->getAddressByToken(addrN));
+
+        WALLET_CHECK(isResult(appA.call("edit_address", json{{"address", addrA}, {"comment", "renamed"}})));
+        {
+            const auto stored = db.walletDB->getAddressByToken(addrA);
+            WALLET_CHECK(stored && stored->m_label == "renamed");
+        }
+        WALLET_CHECK(isResult(appA.call("delete_address", json{{"address", addrA}})));
+        WALLET_CHECK(!db.walletDB->getAddressByToken(addrA));
+        WALLET_CHECK(db.walletDB->getAddressByToken(addrB));
+    }
+
+    void testAppsDbAccess()
+    {
+        io::Reactor::Ptr reactor{ io::Reactor::create() };
+        io::Reactor::Scope scope(*reactor);
+
+        TestAppsTxAccess();
+        TestAppsPaymentProofAccess();
+        TestAppsAddressAccess();
+    }
+}
+
 thread_local const beam::Rules* beam::Rules::s_pInstance = nullptr;
 
 int main()
@@ -2394,6 +2713,7 @@ int main()
 
     testAppsApi();
     testCalcChange();
+    testAppsDbAccess();
 
     return WALLET_CHECK_RESULT;
 }

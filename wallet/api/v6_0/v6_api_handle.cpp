@@ -93,7 +93,7 @@ namespace beam::wallet
         decltype(all) filtered;
         for(const auto& addr: all)
         {
-            if (!isApp() || addr.m_category == getAppName())
+            if (!isApp() || addr.m_category == getAppId())
             {
                 filtered.push_back(addr);
             }
