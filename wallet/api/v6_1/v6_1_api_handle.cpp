@@ -13,11 +13,40 @@
 // limitations under the License.
 #include "v6_1_api.h"
 #include "version.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
     void V61Api::onHandleEvSubUnsub(const JsonRpcId &id, EvSubUnsub&& data)
     {
+        if (data.swapOffersChanged.value_or(false))
+        {
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+            if (!_swapOffersSource)
+            {
+                _swapOffersSource = getSwaps();
+                _swapOffersSource->getSwapOffersBoard().Subscribe(this);
+            }
+#else  // !BEAM_ATOMIC_SWAP_SUPPORT
+            throw jsonrpc_exception(ApiError::NoSwapsError);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+        }
+
+        if (data.assetsSwapOffersChanged.value_or(false))
+        {
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+            if (!_dexOffersSource)
+            {
+                _dexOffersSource = getDexBoard();
+                _dexOffersSource->Subscribe(this);
+            }
+#else  // !BEAM_ASSET_SWAP_SUPPORT
+            throw jsonrpc_exception(ApiError::NoAssetsSwapsError);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
+        }
+
         auto oldSubs = _evSubs;
 
         if (data.systemState.is_initialized())
@@ -53,6 +82,16 @@ namespace beam::wallet
         if (data.connectChanged.is_initialized())
         {
             _evSubs = *data.connectChanged ? _evSubs | SubFlags::ConnectChanged : _evSubs & ~SubFlags::ConnectChanged;
+        }
+
+        if (data.swapOffersChanged.is_initialized())
+        {
+            _evSubs = *data.swapOffersChanged ? _evSubs | SubFlags::SwapOffersChanged : _evSubs & ~SubFlags::SwapOffersChanged;
+        }
+
+        if (data.assetsSwapOffersChanged.is_initialized())
+        {
+            _evSubs = *data.assetsSwapOffersChanged ? _evSubs | SubFlags::AssetsSwapOffersChanged : _evSubs & ~SubFlags::AssetsSwapOffersChanged;
         }
 
         if (_evSubs && !_subscribedToListener)
@@ -130,6 +169,20 @@ namespace beam::wallet
         {
             sendConnectionStatus();
         }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        if ((_evSubs & SubFlags::SwapOffersChanged) != 0 && (oldSubs & SubFlags::SwapOffersChanged) == 0)
+        {
+            onSwapOffersChanged(ChangeAction::Reset, _swapOffersSource->getSwapOffersBoard().getOffersList());
+        }
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        if ((_evSubs & SubFlags::AssetsSwapOffersChanged) != 0 && (oldSubs & SubFlags::AssetsSwapOffersChanged) == 0)
+        {
+            onDexOrdersChanged(ChangeAction::Reset, _dexOffersSource->getDexOrders());
+        }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
 
     void V61Api::onHandleGetVersion(const JsonRpcId& id, GetVersion&& params)

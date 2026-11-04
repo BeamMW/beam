@@ -26,6 +26,8 @@ namespace beam::wallet
         allowed.insert("ev_utxos_changed");
         allowed.insert("ev_txs_changed");
         allowed.insert("ev_connection_changed");
+        allowed.insert("ev_swap_offers_changed");
+        allowed.insert("ev_assets_swap_offers_changed");
 
         bool found = false;
         for (auto it : params.items())
@@ -44,7 +46,9 @@ namespace beam::wallet
             {
                 // Some events are not allowed for applications
                 if (it.key() == "ev_utxos_changed" ||
-                    it.key() == "ev_assets_changed")
+                    it.key() == "ev_assets_changed" ||
+                    it.key() == "ev_swap_offers_changed" ||
+                    it.key() == "ev_assets_swap_offers_changed")
                 {
                     throw jsonrpc_exception(ApiError::NotAllowedError);
                 }
@@ -66,6 +70,8 @@ namespace beam::wallet
         message.utxosChanged   = getOptionalParam<bool>(params, "ev_utxos_changed");
         message.txsChanged     = getOptionalParam<bool>(params, "ev_txs_changed");
         message.connectChanged = getOptionalParam<bool>(params, "ev_connection_changed");
+        message.swapOffersChanged       = getOptionalParam<bool>(params, "ev_swap_offers_changed");
+        message.assetsSwapOffersChanged = getOptionalParam<bool>(params, "ev_assets_swap_offers_changed");
 
         return std::make_pair(message, MethodInfo());
     }

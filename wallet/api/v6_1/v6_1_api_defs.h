@@ -30,6 +30,8 @@ namespace beam::wallet
         boost::optional<bool> addrsChanged   = boost::none;
         boost::optional<bool> txsChanged     = boost::none;
         boost::optional<bool> connectChanged = boost::none;
+        boost::optional<bool> swapOffersChanged       = boost::none;
+        boost::optional<bool> assetsSwapOffersChanged = boost::none;
 
         struct Response
         {

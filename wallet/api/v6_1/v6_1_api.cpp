@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "v6_1_api.h"
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+#include "wallet/client/extensions/offers_board/swap_offers_board.h"
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
 
 namespace beam::wallet
 {
@@ -42,5 +45,22 @@ namespace beam::wallet
 
             _subscribedToListener = false;
         }
+
+#ifdef BEAM_ATOMIC_SWAP_SUPPORT
+        if (_swapOffersSource)
+            _swapOffersSource->getSwapOffersBoard().Unsubscribe(this);
+#endif  // BEAM_ATOMIC_SWAP_SUPPORT
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+        if (_dexOffersSource)
+            _dexOffersSource->Unsubscribe(this);
+#endif  // BEAM_ASSET_SWAP_SUPPORT
     }
+
+#ifdef BEAM_ASSET_SWAP_SUPPORT
+    DexBoard::Ptr V61Api::getDexBoard() const
+    {
+        throw jsonrpc_exception(ApiError::NoAssetsSwapsError);
+    }
+#endif  // BEAM_ASSET_SWAP_SUPPORT
 }

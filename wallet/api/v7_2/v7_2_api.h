@@ -29,7 +29,7 @@ public:
     V7_2_API_METHODS(BEAM_API_HANDLE_FUNC)
 
 #ifdef BEAM_ASSET_SWAP_SUPPORT
-    virtual DexBoard::Ptr getDexBoard() const;
+    DexBoard::Ptr getDexBoard() const override;
 #endif  // BEAM_ASSET_SWAP_SUPPORT
 
 private:
