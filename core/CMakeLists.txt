@@ -23,6 +23,7 @@ set(CORE_SRC
     lelantus.cpp
     proto.cpp
     peer_manager.cpp
+    default_peers.cpp
     fly_client.cpp
     treasury.cpp
     shielded.cpp

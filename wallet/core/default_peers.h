@@ -13,11 +13,5 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
-
-namespace beam
-{
-    std::vector<std::string> getDefaultPeers();
-    std::vector<std::string> getOutdatedDefaultPeers();
-}
+// moved to core, beam-node uses the default peers too
+#include "core/default_peers.h"

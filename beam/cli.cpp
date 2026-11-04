@@ -20,6 +20,7 @@
 #include "core/ecc_native.h"
 #include "core/serialization_adapters.h"
 #include "core/block_rw.h"
+#include "core/default_peers.h"
 #include "bvm/bvm2.h"
 #include "utility/cli/options.h"
 #include "utility/log_rotation.h"
@@ -488,6 +489,18 @@ int main(int argc, char* argv[])
 						node.m_Cfg.m_PreferOnlineMining = vm[cli::MINE_ONLINE].as<bool>();
 
 					std::vector<std::string> vPeers = getCfgPeers(vm);
+					if (vPeers.empty())
+					{
+						vPeers = getDefaultPeers();
+						if (vPeers.empty())
+						{
+							BEAM_LOG_WARNING() << "No peers specified, use --" << cli::NODE_PEER << " to connect to the network";
+						}
+						else
+						{
+							BEAM_LOG_INFO() << "No peers specified, connecting to the default peers of " << Rules::get().get_NetworkName();
+						}
+					}
 
 					for (size_t i = 0; i < vPeers.size(); i++)
 					{
