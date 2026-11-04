@@ -1124,52 +1124,68 @@ boost::optional<TxID> AcceptSwap(const po::variables_map& vm, const IWalletDB::P
 
 int SetSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
 {
+    int ret = -1;
     switch (swapCoin)
     {
     case AtomicSwapCoin::Bitcoin:
     {
-        return SetSwapSettings<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
+        ret = SetSwapSettings<bitcoin::SettingsProvider, bitcoin::Settings, bitcoin::BitcoinCoreSettings, bitcoin::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
     case AtomicSwapCoin::Litecoin:
     {
-        return SetSwapSettings<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
+        ret = SetSwapSettings<litecoin::SettingsProvider, litecoin::Settings, litecoin::LitecoinCoreSettings, litecoin::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
     case AtomicSwapCoin::Qtum:
     {
-        return SetSwapSettings<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
+        ret = SetSwapSettings<qtum::SettingsProvider, qtum::Settings, qtum::QtumCoreSettings, qtum::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
 #if defined(BITCOIN_CASH_SUPPORT)
     case beam::wallet::AtomicSwapCoin::Bitcoin_Cash:
     {
-        return SetSwapSettings<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
+        ret = SetSwapSettings<bitcoin_cash::SettingsProvider, bitcoin_cash::Settings, bitcoin_cash::CoreSettings, bitcoin_cash::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
 #endif // BITCOIN_CASH_SUPPORT
     case AtomicSwapCoin::Dogecoin:
     {
-        return SetSwapSettings<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
+        ret = SetSwapSettings<dogecoin::SettingsProvider, dogecoin::Settings, dogecoin::DogecoinCoreSettings, dogecoin::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
     case AtomicSwapCoin::Dash:
     {
-        return SetSwapSettings<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
+        ret = SetSwapSettings<dash::SettingsProvider, dash::Settings, dash::DashCoreSettings, dash::ElectrumSettings>
             (vm, walletDB);
+        break;
     }
     case AtomicSwapCoin::Ethereum:
     case AtomicSwapCoin::Dai:
     case AtomicSwapCoin::Usdt:
     case AtomicSwapCoin::WBTC:
     {
-        return SetEthSettings(vm, walletDB, swapCoin);
+        ret = SetEthSettings(vm, walletDB, swapCoin);
+        break;
     }
     default:
     {
         throw std::runtime_error("Unsupported coin for swap");
     }
     }
+
+    if (!ret)
+    {
+        // confirm, and show what's stored now (#1378)
+        BEAM_LOG_INFO() << GetCoinName(swapCoin) << " settings saved.";
+        ShowSwapSettings(vm, walletDB, swapCoin);
+    }
+    return ret;
 }
 
 void ShowSwapSettings(const po::variables_map& vm, const IWalletDB::Ptr& walletDB, AtomicSwapCoin swapCoin)
