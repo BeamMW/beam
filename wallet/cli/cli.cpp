@@ -678,17 +678,18 @@ namespace
         }
         else
         {
-            if (auto address = walletDB->getAddressByToken(token, false))
-            {
-                address->setExpirationStatus(expirationStatus);
-                walletDB->saveAddress(*address);
-
-                std::cout << boost::format(kAddrExprChanged) % token % expiration << endl;
-            }
-            else
-            {
+            auto address = walletDB->getAddressByToken(token, false);
+            if (!address)
                 throw std::runtime_error("Cannot find specified existing address.");
-            }
+
+            // the address book also keeps contacts (peers' addresses), they have no expiration to change (#2048)
+            if (!address->isOwn())
+                throw std::runtime_error("Specified address is a contact, not your own address. Its expiration can't be changed.");
+
+            address->setExpirationStatus(expirationStatus);
+            walletDB->saveAddress(*address);
+
+            std::cout << boost::format(kAddrExprChanged) % token % expiration << endl;
         }
         return -1;
     }
