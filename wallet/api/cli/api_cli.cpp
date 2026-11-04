@@ -15,6 +15,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <map>
 
 #ifndef LOG_VERBOSE_ENABLED
@@ -411,6 +412,21 @@ namespace
 
             bool on_raw_message(void* data, size_t size)
             {
+                // A browser pointed at this port (e.g. fetch() from any web page) sends
+                // an HTTP request whose body line would otherwise be executed as a
+                // JSON-RPC call. Drop the connection on the HTTP request line.
+                std::string_view line(static_cast<const char*>(data), size);
+                while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))
+                {
+                    line.remove_suffix(1);
+                }
+
+                if (line.size() >= 9 && (line.substr(line.size() - 9) == " HTTP/1.1" || line.substr(line.size() - 9) == " HTTP/1.0"))
+                {
+                    BEAM_LOG_WARNING() << "-peer " << _stream->peer_address() << " : HTTP request received in TCP mode, closing";
+                    return false;
+                }
+
                 _walletApi->executeAPIRequest(static_cast<const char*>(data), size);
                 return size > 0;
             }
@@ -506,6 +522,12 @@ namespace
                     return send(_connection, 404, "Not Found");
                 }
 
+                if (isBrowserSimpleRequest(*msg.msg))
+                {
+                    BEAM_LOG_WARNING() << "-peer " << io::Address::from_u64(id) << " : rejected cross-origin request, origin: " << msg.msg->get_header("Origin");
+                    return send(_connection, 403, "Forbidden");
+                }
+
                 _body.clear();
 
                 size_t size = 0;
@@ -539,6 +561,24 @@ namespace
                 // and failed to send, we will be disconnected otherwise keep
                 // alive and let an opportunity to send response later
                 return _connection->is_connected();
+            }
+
+            // A web page opened in a browser can POST to this port without a CORS
+            // preflight when the body is text/plain or form data. Browsers always
+            // add an Origin header to such requests, so require application/json
+            // when Origin is present to stop any visited site from calling the API.
+            static bool isBrowserSimpleRequest(const HttpMessage& m)
+            {
+                if (m.get_header("Origin").empty())
+                {
+                    return false;
+                }
+
+                std::string type = m.get_header("Content-Type");
+                type = type.substr(0, type.find(';'));
+                boost::algorithm::trim(type);
+                boost::algorithm::to_lower(type);
+                return type != "application/json";
             }
 
             bool send(const HttpConnection::Ptr& conn, int code, const char* message)
