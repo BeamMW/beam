@@ -723,6 +723,39 @@ void TestAddresses()
     }
 }
 
+void TestAddressExpirationStatus()
+{
+    cout << "\nWallet address expiration status test\n";
+
+    WalletAddress a;
+    a.m_createTime = beam::getTimestamp() - 1000;
+
+    auto checkExpiresIn = [&a](uint64_t dt)
+    {
+        auto t = a.getExpirationTime();
+        auto now = beam::getTimestamp();
+        WALLET_CHECK((t + 2 >= now + dt) && (t <= now + dt + 2)); // allow for the clock moving
+    };
+
+    // "24h" (CLI and API) was silently ignored, the address kept its old expiration
+    a.setExpirationStatus(WalletAddress::ExpirationStatus::OneDay);
+    checkExpiresIn(WalletAddress::AddressExpiration24h);
+    WALLET_CHECK(!a.isExpired());
+
+    a.setExpirationStatus(WalletAddress::ExpirationStatus::Auto);
+    checkExpiresIn(WalletAddress::AddressExpirationAuto);
+
+    a.setExpirationStatus(WalletAddress::ExpirationStatus::Never);
+    WALLET_CHECK(a.isPermanent());
+
+    a.setExpirationStatus(WalletAddress::ExpirationStatus::OneDay);
+    WALLET_CHECK(!a.isPermanent());
+    checkExpiresIn(WalletAddress::AddressExpiration24h);
+
+    a.setExpirationStatus(WalletAddress::ExpirationStatus::Expired);
+    WALLET_CHECK(a.isExpired());
+}
+
 void TestExportImportTx()
 {
     cout << "\nWallet database transactions export/import test\n";
@@ -1732,6 +1765,7 @@ int main()
     TestSelect6();
     TestSelect7();
     TestAddresses();
+    TestAddressExpirationStatus();
     TestExportImportTx();
     TestTxParameters();
     TestWalletMessages();
