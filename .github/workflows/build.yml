@@ -1,6 +1,6 @@
 name: Build
 
-on: [push]
+on: [push,workflow_dispatch]
 
 permissions:
   id-token: write
