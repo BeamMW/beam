@@ -91,7 +91,7 @@ namespace beam::wallet
         bool CanDecrypt() const { return !!m_pKdfSbbs; }
         void Listen(const WalletID&, const ECC::Scalar::Native&, IHandler*) override;
         void Unlisten(const WalletID&, IHandler*) override;
-        void Subscribe();
+        uint32_t Subscribe(); // returns the number of own addresses subscribed
         void Unsubscribe();
         virtual void OnChannelAdded(BbsChannel channel) {};
         virtual void OnChannelDeleted(BbsChannel channel) {};
