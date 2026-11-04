@@ -1802,16 +1802,26 @@ namespace beam::wallet
         {
             int ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE, nullptr);
             throwIfError(ret, *db);
+            // the database may be locked by another process, wait for it instead of failing immediately
+            ret = sqlite3_busy_timeout(*db, BusyTimeoutMs);
+            throwIfError(ret, *db);
             enterKey(*db, password);
             // try to decrypt
             auto checkKey = [&]() {return sqlite3_exec(*db, "SELECT count(*) FROM sqlite_master;", NULL, NULL, NULL); };
             ret = checkKey();
             if (ret != SQLITE_OK)
             {
+                if (ret != SQLITE_NOTADB)
+                {
+                    // not a key/format problem (e.g. the database is busy), don't try to migrate it
+                    throwIfError(ret, *db);
+                }
                 BEAM_LOG_INFO() << "Applying PRAGMA cipher_migrate...";
                 ret = sqlite3_close(*db);
                 throwIfError(ret, *db);
                 ret = sqlite3_open_v2(path.c_str(), db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
+                throwIfError(ret, *db);
+                ret = sqlite3_busy_timeout(*db, BusyTimeoutMs);
                 throwIfError(ret, *db);
                 enterKey(*db, password);
                 ret = sqlite3_exec(*db, "PRAGMA cipher_migrate; ", nullptr, nullptr, nullptr);
@@ -5848,6 +5858,10 @@ namespace beam::wallet
         if (!m_DbTransaction)
         {
             m_DbTransaction.reset(new sqlite::Transaction(_db));
+            // Commit soon even if nothing gets modified (read-only statements start a transaction too):
+            // an open transaction holds the exclusive lock, and other processes on this wallet.db
+            // (e.g. CLI while wallet-api runs) fail with "database is locked" (#2008)
+            onModified();
         }
     }
 
