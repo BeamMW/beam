@@ -78,6 +78,11 @@ namespace beam
         void run()
         {
             GetDerived().GetStream().binary(true);
+            // Turn off the timeout on the tcp_stream, because the websocket stream has its own
+            // timeout system. DetectSession set it to 30 s for the TLS detection; the secure session
+            // turns it off after its handshake (SecureWebsocketSession::on_handshake), and a plain
+            // session has to do the same, or it is closed 30 s after it was opened.
+            beast::get_lowest_layer(GetDerived().GetStream()).expires_never();
             // Set suggested timeout settings for the websocket
             GetDerived().GetStream().set_option(
                 websocket::stream_base::timeout::suggested(
