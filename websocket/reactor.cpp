@@ -34,7 +34,7 @@ namespace beam
                         return;
                     }
 
-                    cback = pr->_queue.front();
+                    cback = std::move(pr->_queue.front());
                     pr->_queue.pop();
                 }
                 cback();
@@ -66,8 +66,14 @@ namespace beam
 
     void SafeReactor::callAsync(Callback cback)
     {
+        // Move, do not copy: the callback may own objects that must be destroyed
+        // in the reactor thread (e.g. a WebSocket client handler, see
+        // ~WebsocketSession). A copy left in `cback` would drop the last
+        // reference in the calling thread if the reactor thread runs and
+        // releases its copy before this function returns, and destructors
+        // that use io::Reactor::get_Current() then dereference a null reactor.
         std::unique_lock lock(_queueMutex);
-        _queue.push(cback);
+        _queue.push(std::move(cback));
         _event->post();
     }
 }

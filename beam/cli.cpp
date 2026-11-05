@@ -53,15 +53,18 @@ namespace
 		WebClient(WebSocketServer::SendFunc wsSend, WebSocketServer::CloseFunc wsClose, uint16_t nodePort)
 			: m_wsSend(std::move(wsSend))
 			, m_wsClose(std::move(wsClose))
+			, m_pReactor(io::Reactor::get_Current().shared_from_this())
 		{
-			auto& r = io::Reactor::get_Current();
-			r.tcp_connect(io::Address::localhost().port(nodePort), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
+			m_pReactor->tcp_connect(io::Address::localhost().port(nodePort), uint64_t(this), BIND_THIS_MEMFN(OnConnected));
 		}
 
 		~WebClient() noexcept override
 		{
-			auto& r = io::Reactor::get_Current();
-			r.cancel_tcp_connect(uint64_t(this));
+			// Use the reactor we connected with, not io::Reactor::get_Current():
+			// the handler can be released outside the reactor's scope, e.g. at
+			// shutdown, when SafeReactor drops its unprocessed queue after the
+			// io::Reactor::Scope in main() has ended. get_Current() is null there.
+			m_pReactor->cancel_tcp_connect(uint64_t(this));
 		}
 	private:
 		void ReactorThread_onWSDataReceived(std::string&& data) override
@@ -116,6 +119,7 @@ namespace
 	private:
 		WebSocketServer::SendFunc m_wsSend;
 		WebSocketServer::CloseFunc m_wsClose;
+		io::Reactor::Ptr m_pReactor;
 		io::TcpStream::Ptr m_Stream;
 		std::queue<std::string> m_DataQueue;
 
