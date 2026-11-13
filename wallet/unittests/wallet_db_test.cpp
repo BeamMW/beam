@@ -766,6 +766,13 @@ void TestExportImportTx()
     tr3.m_modifyTime = 45285;
     tr3.m_status = TxStatus::Completed;
     walletDB->saveTx(tr3);
+    storage::setTxParameter( // an offline receipt: the id of the address it came to, no MyAddr
+        *walletDB,
+        tr3.m_txId,
+        1,
+        TxParameterID::MyAddressID,
+        wa.m_OwnID,
+        false);
 
     auto exported = storage::ExportDataToJson(*walletDB);
     walletDB->deleteTx(tr.m_txId);

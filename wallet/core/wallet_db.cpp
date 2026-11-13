@@ -6981,10 +6981,11 @@ namespace beam::wallet
                             continue;
                         }
 
+                        // an offline (push) receipt has MyAddressID without MyAddr: there is no SBBS address to check the id against
                         uint64_t myAddrId = 0;
                         auto addressIt = paramsMap.find(TxParameterID::MyAddressID);
                         if (addressIt != paramsMap.end() && (!fromByteBuffer(addressIt->second.m_value, myAddrId) ||
-                            !db.ValidateSbbsWalletID(wid, myAddrId)))
+                            (wid != Zero && !db.ValidateSbbsWalletID(wid, myAddrId))))
                         {
                             BEAM_LOG_ERROR() << "Transaction " << txPair.first << " was not imported. Invalid MyAddressID parameter";
                             ++errorsCount;
