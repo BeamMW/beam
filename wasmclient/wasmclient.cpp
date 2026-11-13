@@ -249,7 +249,15 @@ private:
             MessageFunction func;
             if (auto sp = wp->lock())
             {
-                std::unique_lock lock(sp->m_Mutex);
+                // The main thread may not wait (ALLOW_BLOCKING_ON_MAIN_THREAD=0: a wait aborts the client). The wallet
+                // thread holds the lock only while it pushes a message, so when it is busy, come back for the queue
+                // a moment later instead of waiting for it.
+                std::unique_lock lock(sp->m_Mutex, std::try_to_lock);
+                if (!lock.owns_lock())
+                {
+                    emscripten_async_call([](void* p) { ProcessMessageOnMainThread(reinterpret_cast<int>(p)); }, wp.release(), 0);
+                    return;
+                }
                 if (sp->m_Messages.empty())
                 {
                     return;
