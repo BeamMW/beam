@@ -183,8 +183,14 @@ EventsExtractor2::Handler::~Handler()
 		Delete(m_lstPending.front());
 }
 
-void EventsExtractor2::Handler::Delete(Request& r)
+void EventsExtractor2::Handler::Delete(RequestProof& r)
 {
+	if (r.m_pRequestHdr)
+	{
+		r.m_pRequestHdr->m_pTrg = nullptr;
+		r.m_pRequestHdr.reset();
+	}
+
 	m_lstPending.erase(RequestList::s_iterator_to(r));
 	r.m_pTrg = nullptr;
 	r.Release();
@@ -194,15 +200,55 @@ void EventsExtractor2::Handler::OnComplete(proto::FlyClient::Request& r)
 {
 	assert(this == r.m_pTrg);
 
-	assert(r.get_Type() == proto::FlyClient::Request::Type::ContractLogProof);
-	auto& req = Cast::Up<Request>(r);
+	if (r.get_Type() == proto::FlyClient::Request::Type::EnumHdrs)
+		OnCompleteEx(Cast::Up<RequestHdr>(r));
+	else
+	{
+		assert(r.get_Type() == proto::FlyClient::Request::Type::ContractLogProof);
+		auto& req = Cast::Up<RequestProof>(r);
+		OnCompleteEx(req);
+	}
 
+	while (!m_lstPending.empty())
+	{
+		auto& x = m_lstPending.front();
+		if (x.m_pTrg || x.m_pRequestHdr)
+			break;
+
+		get_ParentObj().OnEvent2(x.m_Msg.m_Pos, std::move(x.m_Event));
+		Delete(x);
+	}
+}
+
+void EventsExtractor2::Handler::OnCompleteEx(RequestHdr& req)
+{
+	assert(req.m_pParent);
+	auto& rParent = *req.m_pParent;
+
+	if (!req.m_vStates.empty())
+	{
+		get_ParentObj().get_Hist().AddStates(&req.m_vStates.front(), req.m_vStates.size());
+
+		auto& s = req.m_vStates.front();
+		if (s.get_Height() == req.m_Msg.m_Height.m_Min)
+		{
+			rParent.m_Hdr = std::move(s);
+			rParent.m_pRequestHdr.reset();
+			get_ParentObj().m_Network.PostRequest(rParent, *this);
+			return;
+		}
+	}
+
+	BEAM_LOG_ERROR() << "Bridge L1 event at " << rParent.m_Msg.m_Pos.m_Height << ":" << rParent.m_Msg.m_Pos.m_Pos << " can't fetch hdr";
+	Delete(rParent);
+}
+
+void EventsExtractor2::Handler::OnCompleteEx(RequestProof& req)
+{
 	Merkle::Hash hv;
 	Block::get_HashContractLog(hv, get_ParentObj().m_Key, req.m_Event, req.m_Msg.m_Pos.m_Pos);
 
-	// the proof is relative to the definition of the block that holds the event, as in get_ProofContractLog
-	Block::SystemState::Full s;
-	if (!get_ParentObj().get_Hist().get_At(s, req.m_Msg.m_Pos.m_Height) || !s.IsValidProofLog(hv, req.m_Res.m_Proof))
+	if (!req.m_Hdr.IsValidProofLog(hv, req.m_Res.m_Proof))
 	{
 		// the L1 node served an event that isn't in that block's log tree: it is not imported
 		BEAM_LOG_ERROR() << "Bridge L1 event at " << req.m_Msg.m_Pos.m_Height << ":" << req.m_Msg.m_Pos.m_Pos << " failed proof verification";
@@ -211,17 +257,7 @@ void EventsExtractor2::Handler::OnComplete(proto::FlyClient::Request& r)
 	}
 
 	// confirmed
-	r.m_pTrg = nullptr;
-
-	while (!m_lstPending.empty())
-	{
-		auto& x = m_lstPending.front();
-		if (x.m_pTrg)
-			break;
-
-		get_ParentObj().OnEvent2(x.m_Msg.m_Pos, std::move(x.m_Event));
-		Delete(x);
-	}
+	req.m_pTrg = nullptr;
 }
 
 void EventsExtractor2::OnEvent(const Blob& val)
@@ -238,7 +274,7 @@ void EventsExtractor2::OnEvent(const Blob& val)
 	}
 	else
 	{
-		auto* pReq = new Handler::Request;
+		auto* pReq = new Handler::RequestProof;
 		m_Handler.m_lstPending.push_back(*pReq);
 		pReq->AddRef();
 
@@ -246,7 +282,17 @@ void EventsExtractor2::OnEvent(const Blob& val)
 		pReq->m_Msg.m_Pos = m_posLast;
 
 		if (Kind::ProofNeeded == kind)
-			m_Network.PostRequest(*pReq, m_Handler);
+		{
+			if (get_Hist().get_At(pReq->m_Hdr, m_posLast.m_Height))
+				m_Network.PostRequest(*pReq, m_Handler);
+			else
+			{
+				pReq->m_pRequestHdr = new Handler::RequestHdr;
+				pReq->m_pRequestHdr->m_pParent = pReq;
+				pReq->m_pRequestHdr->m_Msg.m_Height = m_posLast.m_Height;
+				m_Network.PostRequest(*pReq->m_pRequestHdr, m_Handler);
+			}
+		}
 	}
 }
 

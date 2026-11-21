@@ -89,19 +89,35 @@ namespace beam {
 		struct Handler
 			:public proto::FlyClient::Request::IHandler
 		{
-			struct Request
+			struct RequestProof;
+
+			struct RequestHdr
+				:public proto::FlyClient::RequestEnumHdrs
+			{
+				typedef boost::intrusive_ptr<RequestHdr> Ptr;
+				RequestProof* m_pParent;
+				virtual ~RequestHdr() {} // automatic
+			};
+
+			struct RequestProof
 				:public proto::FlyClient::RequestContractLogProof
 				,public boost::intrusive::list_base_hook<>
 			{
+				Block::SystemState::Full m_Hdr;
+				RequestHdr::Ptr m_pRequestHdr;
+
 				ByteBuffer m_Event;
-				virtual ~Request() {} // automatic
+				virtual ~RequestProof() {} // automatic
 			};
 
-			typedef intrusive::list<Request> RequestList;
+			typedef intrusive::list<RequestProof> RequestList;
 			RequestList m_lstPending;
 
 			~Handler();
-			void Delete(Request& r);
+			void Delete(RequestProof& r);
+
+			void OnCompleteEx(RequestHdr&);
+			void OnCompleteEx(RequestProof&);
 
 			// proto::FlyClient::Request::IHandler
 			void OnComplete(proto::FlyClient::Request& r) override;
