@@ -1084,12 +1084,12 @@ namespace bvm2 {
 
 		uint32_t nSizeOld = m_LinearMem.n;
 		uint32_t nReserve = m_Heap.get_UnusedAtEnd(nSizeOld);
-		assert(nReserve < size);
+		assert(nReserve < size || !size); // size==0 fails only if there are no free blocks at all
 		uint32_t nSizeNew = nSizeOld + size - nReserve;
 
 		uint32_t nHeapMax = get_HeapLimit();
-		if (nHeapMax < nSizeNew)
-			return false;
+		if ((nHeapMax < nSizeNew) || (nHeapMax <= nSizeOld))
+			return false; // the 2nd condition matters only for size==0: the heap must actually grow
 
 		// grow
 		std::setmax(nSizeNew, 0x1000U); // 4K 
@@ -1192,6 +1192,13 @@ namespace bvm2 {
 		Exc::Test(m_mapAllocated.end() != it);
 
 		auto& e = it->get_ParentObj();
+		if (!e.m_Size.m_Key)
+		{
+			// zero-size allocation. It covers no memory, and is never put in the free maps: TryMerge would find the entry itself
+			Delete(e, false);
+			return;
+		}
+
 		Remove(e, false);
 		Insert(e, true);
 

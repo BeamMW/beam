@@ -1017,24 +1017,198 @@ namespace bvm2 {
 			pRes = std::move(p);
 		}
 
+		static bool IsHeapEmpty(Heap& h, uint32_t nSize)
+		{
+			// the whole range is a single free block, and nothing is left allocated in it
+			if (h.get_UnusedAtEnd(nSize) != nSize)
+				return false;
+
+			uint32_t p;
+			if (!h.Alloc(p, nSize) || p)
+				return false;
+
+			bool bOk = true;
+			try {
+				// any leftover entry (a zero-size one included) would be found instead of the whole block
+				for (uint32_t i = 0; i < nSize; i += 16)
+					h.Test(i, std::min(16U, nSize - i));
+			}
+			catch (const std::exception&) {
+				bOk = false;
+			}
+
+			h.Free(p);
+
+			return bOk && (h.get_UnusedAtEnd(nSize) == nSize);
+		}
+
+		static void TestHeapZero()
+		{
+			// zero-size allocations don't occupy memory. They are placed at the start of a free block, so their position
+			// may coincide with a free block, with another zero-size entry, or with a later real allocation
+			const uint32_t nSize = 0x1000;
+
+			struct MyHeap :public Heap
+			{
+				MyHeap(uint32_t n)
+				{
+					m_vMem.resize(n);
+					OnGrow(0, n);
+				}
+
+				uint32_t AllocStrict(uint32_t size)
+				{
+					uint32_t p;
+					verify_test(Alloc(p, size));
+					return p;
+				}
+			};
+
+			{
+				// the sequence from the review: the zero-size entry ends up at the start of a merged free block
+				MyHeap h(nSize);
+				uint32_t a = h.AllocStrict(16);
+				uint32_t z = h.AllocStrict(0);
+				verify_test(!a && (16 == z));
+
+				h.Free(a); // merges with the free block at 16
+				h.Free(z);
+				verify_test(IsHeapEmpty(h, nSize));
+			}
+
+			{
+				// a chunk before the zero-size entry is freed, and its merge reaches the zero-size entry's position
+				for (uint32_t iOrder = 0; iOrder < 2; iOrder++)
+				{
+					MyHeap h(nSize);
+					uint32_t a = h.AllocStrict(16);
+					uint32_t b = h.AllocStrict(16);
+					h.Free(b); // free block at 16 again
+					uint32_t z = h.AllocStrict(0);
+					verify_test(16 == z);
+
+					if (iOrder)
+					{
+						h.Free(z);
+						h.Free(a);
+					}
+					else
+					{
+						h.Free(a);
+						h.Free(z);
+					}
+					verify_test(IsHeapEmpty(h, nSize));
+				}
+			}
+
+			{
+				// zero-size entry between 2 allocated chunks, a real allocation at the same position, a chunk after them
+				for (uint32_t iOrder = 0; iOrder < 3; iOrder++)
+				{
+					MyHeap h(nSize);
+					uint32_t a = h.AllocStrict(16);
+					uint32_t z = h.AllocStrict(0);
+					uint32_t b = h.AllocStrict(16);
+					uint32_t c = h.AllocStrict(16);
+					verify_test((16 == z) && (16 == b) && (32 == c));
+
+					// Free(16) releases the entry allocated first at that position (the zero-size one), then the other
+					switch (iOrder)
+					{
+					case 0:
+						h.Free(a);
+						h.Free(16);
+						h.Free(16); // merges back into a, and forward isn't free yet
+						h.Free(c);
+						break;
+
+					case 1:
+						h.Free(c);
+						h.Free(16);
+						h.Free(16); // merges forward with c's block
+						h.Free(a);
+						break;
+
+					default:
+						h.Free(16);
+						h.Free(a);
+						h.Free(c);
+						h.Free(16); // merges both ways
+					}
+
+					verify_test(IsHeapEmpty(h, nSize));
+				}
+			}
+
+			{
+				// several zero-size entries at the same position, and at the start of the heap
+				MyHeap h(nSize);
+				verify_test(!h.AllocStrict(0));
+				verify_test(!h.AllocStrict(0));
+				verify_test(!h.AllocStrict(16));
+				verify_test(16 == h.AllocStrict(0));
+
+				h.Free(0);
+				h.Free(16);
+				h.Free(0);
+				h.Free(0);
+				verify_test(IsHeapEmpty(h, nSize));
+			}
+
+			{
+				// heap fully allocated: no free block to place a zero-size entry
+				MyHeap h(nSize);
+				verify_test(!h.AllocStrict(nSize));
+
+				uint32_t p;
+				verify_test(!h.Alloc(p, 0));
+
+				h.Free(0);
+				verify_test(IsHeapEmpty(h, nSize));
+			}
+		}
+
 		void TestHeap()
 		{
+			TestHeapZero();
+
+			// processor level, starting with an empty heap: zero-size allocation has to grow it
+			verify_test(!m_Heap.m_vMem.size());
+
+			uint32_t z0, z1;
+			verify_test(HeapAllocEx(z0, 0));
+			verify_test(m_Heap.m_vMem.size());
+
 			uint32_t p1, p2, p3;
 			verify_test(HeapAllocEx(p1, 160));
 			verify_test(HeapAllocEx(p2, 300));
 			verify_test(HeapAllocEx(p3, 28));
 
 			HeapFreeEx(p2);
+			verify_test(HeapAllocEx(z1, 0)); // at the start of the hole left by p2
 			verify_test(HeapAllocEx(p2, 260));
 			HeapFreeEx(p2);
 			verify_test(HeapAllocEx(p2, 360));
 
 			HeapFreeEx(p1);
+			HeapFreeEx(z0);
 			HeapFreeEx(p3);
+			HeapFreeEx(z1);
 			HeapFreeEx(p2);
 
 			verify_test(HeapAllocEx(p1, 37443));
 			HeapFreeEx(p1);
+
+			verify_test(IsHeapEmpty(m_Heap, static_cast<uint32_t>(m_Heap.m_vMem.size())));
+
+			// heap at its limit and fully allocated: a zero-size allocation can't be placed, and the heap can't grow
+			uint32_t nMax = get_HeapLimit();
+			verify_test(HeapAllocEx(p1, nMax));
+			verify_test(m_Heap.m_vMem.size() == nMax);
+			verify_test(!HeapAllocEx(z0, 0));
+			HeapFreeEx(p1);
+
+			verify_test(IsHeapEmpty(m_Heap, nMax));
 		}
 
 		void RunMany(uint32_t iMethod)
