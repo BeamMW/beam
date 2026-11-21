@@ -2241,7 +2241,6 @@ namespace beam
 		// max shielded ins/outs per block
 		Shielded.MaxIns = 20; // input processing is heavy
 		Shielded.MaxOuts = 30; // dust protection
-		Shielded.WindowStrictFrom = MaxHeight; // consensus activation to be scheduled
 
 		// other
 		MaxRollback = 1440; // 1 day roughly

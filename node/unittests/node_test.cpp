@@ -1138,12 +1138,12 @@ namespace beam
 			TxoID nOuts = np.m_Extra.m_ShieldedOutputs;
 
 			krn.m_WindowEnd = nOuts;
-			verify_test(np.IsShieldedInPool(krn, 0, true) == (nOuts > 0));
+			verify_test(np.IsShieldedInPool(krn, 0) == (nOuts > 0));
+			if (nOuts)
+				verify_test(!np.IsShieldedInPool(krn, 1)); // a pending output of the same tx/block doesn't extend the window
 
 			krn.m_WindowEnd = nOuts + 1;
-			verify_test(!np.IsShieldedInPool(krn, 0, true));
-			verify_test(!np.IsShieldedInPool(krn, 1, true)); // a pending output of the same tx/block doesn't extend the window
-			verify_test(!np.IsShieldedInPool(krn, 1, false)); // non-strict: the old bound, which counts pending outputs
+			verify_test(!np.IsShieldedInPool(krn, 0));
 		}
 
 		for (Height h = 1; h <= 96; h++)
@@ -4579,7 +4579,6 @@ void TestAll()
 	r.CA.LockPeriod = 2;
 	r.Shielded.m_ProofMax = { 4, 6 }; // 4K
 	r.Shielded.m_ProofMin = { 4, 5 }; // 1K
-	r.Shielded.WindowStrictFrom = 0;
     r.Evm.Groth2Wei = 10'000'000'000ull;
 
 	printf("Node <---> Client test (with proofs)...\n");

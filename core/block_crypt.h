@@ -522,10 +522,6 @@ namespace beam
 			uint32_t MaxIns; // input processing is heavy
 			uint32_t MaxOuts; // dust protection
 
-			// From this height a shielded input's window must end within the outputs confirmed before its block.
-			// Below it the rule is relay policy only. Not part of the rules checksum, like MaxIns/MaxOuts.
-			Height WindowStrictFrom;
-
 		} Shielded;
 
 		struct
