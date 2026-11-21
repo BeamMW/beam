@@ -220,7 +220,12 @@ namespace beam::wallet
                 {
                     if (auto vouchers = p->GetParameter<ShieldedVoucherList>(TxParameterID::ShieldedVoucherList); vouchers)
                     {
-                        storage::SaveVouchers(*walletDB, *vouchers, *v);
+                        // save them only if they're signed by the token's endpoint, otherwise anyone could fill the store of an arbitrary address with junk
+                        auto peerEndpoint = p->GetParameter<PeerID>(TxParameterID::PeerEndpoint);
+                        if (peerEndpoint && IsValidVoucherList(*vouchers, *peerEndpoint))
+                            storage::SaveVouchers(*walletDB, *vouchers, *v);
+                        else
+                            isValid = false; // the send path rejects such a token too
                     }
                     offlinePayments = walletDB->getVoucherCount(*v);
                 }
