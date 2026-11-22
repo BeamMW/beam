@@ -67,7 +67,7 @@ namespace beam {
 			m_hvLive = 55U; // whatever
 		}
 
-		void Add()
+		void Add(const Difficulty* pDifficulty = nullptr)
 		{
 			size_t i = m_vStates.size();
 			m_vStates.emplace_back();
@@ -102,6 +102,9 @@ namespace beam {
 				s.m_Hdr.m_PoW.m_Difficulty.Unpack(raw);
 				s.m_Hdr.m_PoW.m_Difficulty.Calculate(raw, 1, 150, 140);
 			}
+
+			if (pDifficulty)
+				s.m_Hdr.m_PoW.m_Difficulty = *pDifficulty;
 
 			s.m_Hdr.m_ChainWork += s.m_Hdr.m_PoW.m_Difficulty;
 

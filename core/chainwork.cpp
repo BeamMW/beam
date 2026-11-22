@@ -250,6 +250,22 @@ namespace beam
 		}
 	}
 
+	bool Block::ChainWorkProof::IsWorkAboveSufficient(const SystemState::Full& sLo, const Difficulty::Raw& chainWorkHi)
+	{
+		if (chainWorkHi <= sLo.m_ChainWork)
+			return false;
+
+		Difficulty::Raw wrk = sLo.m_ChainWork;
+		wrk.Negate();
+		wrk += chainWorkHi; // work above sLo
+
+		Difficulty::Raw d, d8;
+		sLo.m_PoW.m_Difficulty.Unpack(d);
+		d.ShiftRight(3, d8);
+
+		return wrk >= d8;
+	}
+
 	bool Block::ChainWorkProof::IsValid(SystemState::Full* pTip /* = NULL */) const
 	{
 		size_t iState, iHash;
@@ -463,6 +479,10 @@ namespace beam
 						return false;
 				}
 			}
+
+			// whether consecutive or sampled, the work up to the previous (higher) state must be enough
+			if (!IsWorkAboveSufficient(s, s0.m_ChainWork))
+				return false;
 
 			dLoPrev = dLo;
 

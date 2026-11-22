@@ -401,6 +401,18 @@ void FlyClient::NetworkStd::Connection::OnMsg(PbftStamp&& msg)
     OnNewTip();
 }
 
+namespace
+{
+    bool IsWorkAboveSufficient(const Block::SystemState::Full& sLo, const Block::SystemState::Full& sHi)
+    {
+        // In PBFT mode difficulty is the block span, it may drop arbitrarily (an empty round, then a normal block)
+        if (Rules::Consensus::Pbft == Rules::get().m_Consensus)
+            return true;
+
+        return Block::ChainWorkProof::IsWorkAboveSufficient(sLo, sHi.m_ChainWork);
+    }
+}
+
 void FlyClient::NetworkStd::Connection::StartSync()
 {
     assert(ShouldSync());
@@ -411,6 +423,9 @@ void FlyClient::NetworkStd::Connection::StartSync()
     if (sTip.IsNext(m_Tip))
     {
         // simple case
+        if (!IsWorkAboveSufficient(sTip, m_Tip))
+            ThrowUnexpected();
+
         m_This.m_Client.get_History().AddStates(&m_Tip, 1);
         PrioritizeSelf();
         AssignRequests();
@@ -461,6 +476,9 @@ void FlyClient::NetworkStd::Connection::SearchBelow(Height h, uint32_t nCount)
         if (w.m_vStates.front().IsNext(m_Tip))
         {
             // only the last block has been rolled-back. Typical in pbft mode (cannibalization), but can happen in PoW mode too
+            if (!IsWorkAboveSufficient(w.m_vStates.front(), m_Tip))
+                ThrowUnexpected();
+
             m_pSync->m_Confirmed = w.m_vStates.front();
             PostChainworkProof();
         }
@@ -651,6 +669,15 @@ void FlyClient::NetworkStd::Connection::OnMsg(ProofChainWork&& msg)
             StartSync(); // again
             return;
         }
+    }
+
+    if (pSync->m_Confirmed.m_Number.v && !arr.m_vec.empty() && !IsWorkAboveSufficient(pSync->m_Confirmed, arr.m_vec.front()))
+    {
+        // The proof checks each step between its own states, this checks the step from m_Confirmed to the lowest of them.
+        // On the node's chain the block right above m_Confirmed alone has enough work. So either m_Confirmed is no longer in
+        // the node's chain (reorg), or cheap headers were added right above it. Repeat the sync, don't accept this tip.
+        StartSync(); // again
+        return;
     }
 
     PostChainworkProof(arr, pSync->m_LowHeight);

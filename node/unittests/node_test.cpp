@@ -3889,6 +3889,43 @@ namespace beam
 			verify_test(cwp.IsValid(&sTip));
 			verify_test(sRoot == sTip);
 		}
+
+		// The work above any valid block must be at least 1/8 of its difficulty, whether the proof samples consecutive blocks or not
+		for (uint32_t iVariant = 0; iVariant < 3; iVariant++)
+		{
+			MiniBlockChain cc2;
+
+			Difficulty d;
+			d.m_Packed = 20 << Difficulty::s_MantissaBits; // 2^20
+			for (uint32_t i = 0; i < 1000; i++)
+				cc2.Add(&d);
+
+			switch (iVariant)
+			{
+			case 0:
+				// the biggest drop the DA can produce (4x), then more blocks at that difficulty: valid
+				d.m_Packed = 18 << Difficulty::s_MantissaBits;
+				for (uint32_t i = 0; i < 50; i++)
+					cc2.Add(&d);
+				break;
+
+			default:
+				// almost free headers, the last one a bit harder. Variant 1: many, the proof skips them and lands on the last valid block.
+				// Variant 2: few, they're all in the proof
+				d.m_Packed = 0; // 1
+				for (uint32_t i = 0; i < ((1 == iVariant) ? 200U : 3U); i++)
+					cc2.Add(&d);
+
+				d.m_Packed = 4 << Difficulty::s_MantissaBits; // 16
+				cc2.Add(&d);
+			}
+
+			Block::ChainWorkProof cwp2;
+			cwp2.m_hvRootLive = cc2.m_hvLive;
+			cwp2.Create(cc2.m_Source, cc2.m_vStates.back().m_Hdr);
+
+			verify_test(cwp2.IsValid() == !iVariant);
+		}
 	}
 
 	void RaiseNumberTo(Node& node, Block::Number h)

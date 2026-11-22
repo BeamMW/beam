@@ -2102,6 +2102,11 @@ namespace beam
 		bool Crop(const ChainWorkProof& src);
 		bool IsEmpty() const { return m_Heading.m_vElements.empty(); }
 
+		// PoW difficulty adjustment can't lower the difficulty by more than ~4x per block (by any timestamps).
+		// Hence on a valid chain the work above any block, up to any higher block, is at least 1/8 of its difficulty.
+		// Doesn't prove the difficulties follow the rules, but makes cheap headers on top of a valid chain cost real work.
+		static bool IsWorkAboveSufficient(const SystemState::Full& sLo, const Difficulty::Raw& chainWorkHi);
+
 		template <typename Archive>
 		void serialize(Archive& ar)
 		{
