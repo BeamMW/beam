@@ -4038,11 +4038,20 @@ namespace beam
 
 				net.BbsSubscribe(m_LastBbsChannel, 0, this);
 
+				// headers of a range: exactly the requested heights, bottom up
 				RequestEnumHdrs::Ptr pHdrs(new RequestEnumHdrs);
-				pHdrs->m_Msg.m_Height.m_Min = 0;
-				pHdrs->m_Msg.m_Height.m_Max = MaxHeight; // result should be truncated
+				pHdrs->m_Msg.m_Height.m_Min = 5;
+				pHdrs->m_Msg.m_Height.m_Max = 20;
 
 				net.PostRequest(*pHdrs, *this);
+				m_nProofsExpected++;
+
+				// the whole chain: clipped to [1, tip]
+				RequestEnumHdrs::Ptr pHdrsAll(new RequestEnumHdrs);
+				pHdrsAll->m_Msg.m_Height.m_Min = 0;
+				pHdrsAll->m_Msg.m_Height.m_Max = MaxHeight;
+
+				net.PostRequest(*pHdrsAll, *this);
 				m_nProofsExpected++;
 
 				{
@@ -4057,7 +4066,29 @@ namespace beam
 				io::Reactor::get_Current().run();
 				KillTimer();
 
-				verify_test(!pHdrs->m_vStates.empty());
+				VerifyHdrs(pHdrs->m_vStates, 5, 20);
+				VerifyHdrs(pHdrsAll->m_vStates, 1, MaxHeight);
+			}
+
+			void VerifyHdrs(const std::vector<Block::SystemState::Full>& v, Height h0, Height h1)
+			{
+				// consecutive heights from h0, up to h1 or the tip, whichever is lower. Heights equal numbers here (FakePoW)
+				verify_test(!m_Hist.m_Map.empty());
+				if (m_Hist.m_Map.empty())
+					return;
+
+				Height hTip = m_Hist.m_Map.rbegin()->first;
+				verify_test(!v.empty() && (v.front().get_Height() == h0));
+
+				for (size_t i = 0; i < v.size(); i++)
+					verify_test(v[i].get_Height() == h0 + i);
+
+				if (!v.empty())
+				{
+					verify_test(v.back().get_Height() <= std::min(h1, hTip));
+					if (h1 <= hTip)
+						verify_test(v.back().get_Height() == h1);
+				}
 			}
 		};
 

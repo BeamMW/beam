@@ -2167,11 +2167,20 @@ void Node::Peer::OnMsg(proto::EnumHdrs&& msg)
 	hr.Intersect(msg.m_Height);
 	if (!hr.IsEmpty())
 	{
-		m_This.m_Processor.FindAtivePastHeight(sid, hr.m_Min);
-		auto num1 = m_This.m_Processor.FindAtivePastHeight(hr.m_Max);
+		// SendHdrs walks back from the top of the range. If the range is too big - keep its bottom part
+		auto& p = m_This.m_Processor;
+		auto num0 = p.FindAtivePastHeight(hr.m_Min);
+		p.FindAtivePastHeight(sid, hr.m_Max);
 
-		uint64_t dn = num1.v - sid.m_Number.v + 1;
-		nCount = (dn > proto::g_HdrPackMaxSize) ? proto::g_HdrPackMaxSize : static_cast<uint32_t>(dn);
+		uint64_t dn = sid.m_Number.v - num0.v + 1;
+		if (dn > proto::g_HdrPackMaxSize)
+		{
+			nCount = proto::g_HdrPackMaxSize;
+			sid.m_Number.v = num0.v + nCount - 1;
+			sid.m_Row = p.FindActiveAtStrict(sid.m_Number);
+		}
+		else
+			nCount = static_cast<uint32_t>(dn);
 	}
 	else
 	{
