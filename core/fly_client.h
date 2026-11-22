@@ -38,6 +38,7 @@ namespace proto {
 		macro(Asset) \
 		macro(StateSummary) \
 		macro(EnumHdrs) \
+		macro(HdrProof) \
 		macro(ContractVars) \
 		macro(ContractLogs) \
 		macro(ContractVar) \
@@ -63,6 +64,7 @@ namespace proto {
         macro(ShieldedOutputsAt, GetShieldedOutputsAt, ShieldedOutputsAt) \
         macro(BodyPack,          GetBodyPack,          BodyPack) \
         macro(Body,              GetBodyPack,          Body) \
+        macro(HdrProof,          GetProofState,        ProofState) \
 
 
 		class Request

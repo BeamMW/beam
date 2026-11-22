@@ -78,6 +78,7 @@ namespace Shaders {
 #	include "../bvm/Shaders/common.h"
 #	include "../bvm/Shaders/pbft/pbft_dpos.h"
 #	include "../bvm/Shaders/pbft/pbft_stat.h"
+#	include "../bvm/Shaders/sidechain_pos/contract_l1.h"
 } // namespace Shaders
 
 namespace
@@ -3300,6 +3301,107 @@ namespace
     }
 
 
+    void TestBridgeExtractorMissingHdrs(Node& node, const ContractID& cidL1, uint32_t nExpected)
+    {
+        // The bridge event extractor, with only the tip in its header history. None of the events' headers is there,
+        // so for each event it has to fetch the header, get it proven against the tip, and then verify the log proof
+        printf("Bridge extractor, missing headers...\n");
+
+        struct MyExtractor
+            :public EventsExtractor2
+        {
+            uint32_t m_nExpected = 0;
+            uint32_t m_nEvents = 0;
+            uint32_t m_nHdrMissing = 0;
+            bool m_Prune = true;
+
+            void OnNewTip() override
+            {
+                if (m_Prune)
+                {
+                    // keep the tip only
+                    auto& m = get_Hist().m_Map;
+                    while (m.size() > 1)
+                        m.erase(m.begin());
+                }
+            }
+
+            Kind get_EventKind(const Blob& val) override
+            {
+                return (sizeof(Shaders::SidechainPos::L1::Method::BridgeOp) == val.n) ? Kind::ProofNeeded : Kind::Drop;
+            }
+
+            void OnEvent(const Blob& val) override
+            {
+                if (Kind::ProofNeeded == get_EventKind(val))
+                {
+                    // the events were requested while the history was pruned. Stop pruning, so that fetched headers stay
+                    m_Prune = false;
+
+                    Block::SystemState::Full s;
+                    if (!get_Hist().get_At(s, m_posLast.m_Height))
+                        m_nHdrMissing++;
+                }
+
+                EventsExtractor2::OnEvent(val);
+            }
+
+            void OnEvent2(const HeightPos& pos, ByteBuffer&&) override
+            {
+                // delivered only once the log proof is verified. And the fetched header is added to the history only once its state proof is verified
+                Block::SystemState::Full s;
+                WALLET_CHECK(get_Hist().get_At(s, pos.m_Height));
+
+                if (++m_nEvents == m_nExpected)
+                    io::Reactor::get_Current().stop();
+            }
+        };
+
+        std::unique_ptr<MyExtractor> pExtr;
+
+        // start once the events are buried, so that none of them is in the tip block
+        Height hStart = node.get_Processor().m_Cursor.m_hh.m_Height + 2;
+        uint32_t nTicks = 0;
+
+        io::Timer::Ptr pTimer = io::Timer::create(io::Reactor::get_Current());
+        pTimer->start(100, true, [&]()
+        {
+            if (++nTicks > 600)
+            {
+                WALLET_CHECK(!"bridge extractor timeout");
+                io::Reactor::get_Current().stop();
+                return;
+            }
+
+            if (pExtr || (node.get_Processor().m_Cursor.m_hh.m_Height < hStart))
+                return;
+
+            pExtr = std::make_unique<MyExtractor>();
+            pExtr->m_nExpected = nExpected;
+
+            Shaders::Env::Key_T<uint8_t> key;
+            key.m_Prefix.m_Cid = cidL1;
+            key.m_Prefix.m_Tag = Shaders::KeyTag::Internal;
+            key.m_KeyInContract = Shaders::SidechainPos::L1::Tags::s_BridgeExp;
+            Blob(&key, sizeof(key)).Export(pExtr->m_Key);
+
+            io::Address addr;
+            addr.resolve("127.0.0.1");
+            addr.port(node.m_Cfg.m_Listen.port());
+            pExtr->Init(addr);
+        });
+
+        io::Reactor::get_Current().run();
+        pTimer->cancel();
+
+        WALLET_CHECK(pExtr);
+        if (pExtr)
+        {
+            WALLET_CHECK(pExtr->m_nEvents == nExpected);
+            WALLET_CHECK(pExtr->m_nHdrMissing == nExpected);
+        }
+    }
+
     void TestBridgeL2(Rules& r)
     {
         printf("Testing L2 bridge ...\n");
@@ -3460,6 +3562,8 @@ namespace
 
         manSender.RunSync(1);
         WALLET_CHECK(manSender.m_Done && !manSender.m_Err);
+
+        TestBridgeExtractorMissingHdrs(node, pars.m_cidBridgeL1, static_cast<uint32_t>(pars.m_xfToL2.size()));
 
         // wait for L2 to process import and export
         pars.m_WaitingForExport = true;

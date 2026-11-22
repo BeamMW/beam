@@ -94,9 +94,16 @@ namespace beam {
 			struct RequestHdr
 				:public proto::FlyClient::RequestEnumHdrs
 			{
-				typedef boost::intrusive_ptr<RequestHdr> Ptr;
 				RequestProof* m_pParent;
 				virtual ~RequestHdr() {} // automatic
+			};
+
+			struct RequestHdrProof
+				:public proto::FlyClient::RequestHdrProof
+			{
+				RequestProof* m_pParent;
+				std::vector<Block::SystemState::Full> m_vStates;
+				virtual ~RequestHdrProof() {} // automatic
 			};
 
 			struct RequestProof
@@ -104,7 +111,7 @@ namespace beam {
 				,public boost::intrusive::list_base_hook<>
 			{
 				Block::SystemState::Full m_Hdr;
-				RequestHdr::Ptr m_pRequestHdr;
+				Request::Ptr m_pSubRequest;
 
 				ByteBuffer m_Event;
 				virtual ~RequestProof() {} // automatic
@@ -117,6 +124,7 @@ namespace beam {
 			void Delete(RequestProof& r);
 
 			void OnCompleteEx(RequestHdr&);
+			void OnCompleteEx(RequestHdrProof&);
 			void OnCompleteEx(RequestProof&);
 
 			// proto::FlyClient::Request::IHandler

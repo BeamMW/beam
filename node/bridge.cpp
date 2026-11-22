@@ -185,10 +185,10 @@ EventsExtractor2::Handler::~Handler()
 
 void EventsExtractor2::Handler::Delete(RequestProof& r)
 {
-	if (r.m_pRequestHdr)
+	if (r.m_pSubRequest)
 	{
-		r.m_pRequestHdr->m_pTrg = nullptr;
-		r.m_pRequestHdr.reset();
+		r.m_pSubRequest->m_pTrg = nullptr;
+		r.m_pSubRequest.reset();
 	}
 
 	m_lstPending.erase(RequestList::s_iterator_to(r));
@@ -200,19 +200,27 @@ void EventsExtractor2::Handler::OnComplete(proto::FlyClient::Request& r)
 {
 	assert(this == r.m_pTrg);
 
-	if (r.get_Type() == proto::FlyClient::Request::Type::EnumHdrs)
-		OnCompleteEx(Cast::Up<RequestHdr>(r));
-	else
+	switch (r.get_Type())
 	{
-		assert(r.get_Type() == proto::FlyClient::Request::Type::ContractLogProof);
-		auto& req = Cast::Up<RequestProof>(r);
-		OnCompleteEx(req);
+	case proto::FlyClient::Request::Type::EnumHdrs:
+		OnCompleteEx(Cast::Up<RequestHdr>(r));
+		break;
+
+	case proto::FlyClient::Request::Type::HdrProof:
+		OnCompleteEx(Cast::Up<RequestHdrProof>(r));
+		break;
+
+	default:
+		assert(false);
+		// no break;
+	case proto::FlyClient::Request::Type::ContractLogProof:
+		OnCompleteEx(Cast::Up<RequestProof>(r));
 	}
 
 	while (!m_lstPending.empty())
 	{
 		auto& x = m_lstPending.front();
-		if (x.m_pTrg || x.m_pRequestHdr)
+		if (x.m_pTrg || x.m_pSubRequest)
 			break;
 
 		get_ParentObj().OnEvent2(x.m_Msg.m_Pos, std::move(x.m_Event));
@@ -227,19 +235,52 @@ void EventsExtractor2::Handler::OnCompleteEx(RequestHdr& req)
 
 	if (!req.m_vStates.empty())
 	{
-		get_ParentObj().get_Hist().AddStates(&req.m_vStates.front(), req.m_vStates.size());
-
 		auto& s = req.m_vStates.front();
 		if (s.get_Height() == req.m_Msg.m_Height.m_Min)
 		{
 			rParent.m_Hdr = std::move(s);
-			rParent.m_pRequestHdr.reset();
-			get_ParentObj().m_Network.PostRequest(rParent, *this);
+			rParent.m_pSubRequest.reset(); // safe, FlyClient still keeps our ref
+
+			auto* pReq2 = new Handler::RequestHdrProof;
+			rParent.m_pSubRequest = pReq2;
+			pReq2->m_pParent = &rParent;
+			pReq2->m_Msg.m_Number = req.m_vStates.back().m_Number;
+			pReq2->m_vStates.swap(req.m_vStates);
+
+			get_ParentObj().m_Network.PostRequest(*pReq2, *this);
 			return;
 		}
 	}
 
 	BEAM_LOG_ERROR() << "Bridge L1 event at " << rParent.m_Msg.m_Pos.m_Height << ":" << rParent.m_Msg.m_Pos.m_Pos << " can't fetch hdr";
+	Delete(rParent);
+}
+
+void EventsExtractor2::Handler::OnCompleteEx(RequestHdrProof& req)
+{
+	assert(req.m_pParent);
+	auto& rParent = *req.m_pParent;
+
+	if (!req.m_Res.m_Proof.empty())
+	{
+		Block::SystemState::Full sTip;
+		get_ParentObj().get_Hist().get_Tip(sTip);
+
+		Block::SystemState::ID id;
+		req.m_vStates.back().get_ID(id);
+
+		if (sTip.IsValidProofState(id, req.m_Res.m_Proof))
+		{
+			get_ParentObj().get_Hist().AddStates(&req.m_vStates.front(), req.m_vStates.size());
+
+			rParent.m_pSubRequest.reset(); // safe, FlyClient still keeps our ref
+
+			get_ParentObj().m_Network.PostRequest(rParent, *this);
+			return;
+		}
+	}
+
+	BEAM_LOG_ERROR() << "Bridge L1 event at " << rParent.m_Msg.m_Pos.m_Height << ":" << rParent.m_Msg.m_Pos.m_Pos << " not confirmed";
 	Delete(rParent);
 }
 
@@ -287,10 +328,11 @@ void EventsExtractor2::OnEvent(const Blob& val)
 				m_Network.PostRequest(*pReq, m_Handler);
 			else
 			{
-				pReq->m_pRequestHdr = new Handler::RequestHdr;
-				pReq->m_pRequestHdr->m_pParent = pReq;
-				pReq->m_pRequestHdr->m_Msg.m_Height = m_posLast.m_Height;
-				m_Network.PostRequest(*pReq->m_pRequestHdr, m_Handler);
+				auto* pReq2 = new Handler::RequestHdr;
+				pReq->m_pSubRequest = pReq2;
+				pReq2->m_pParent = pReq;
+				pReq2->m_Msg.m_Height = m_posLast.m_Height;
+				m_Network.PostRequest(*pReq2, m_Handler);
 			}
 		}
 	}
