@@ -264,7 +264,9 @@ JNIEXPORT jobject JNICALL BEAM_JAVA_WALLET_INTERFACE(getTransactionParameters)(J
         if (auto peerId = params->GetParameter<WalletID>(TxParameterID::PeerID); peerId)
         {
             ShieldedVoucherList trVouchers;
-            if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers))
+            auto peerEndpoint = params->GetParameter<PeerID>(TxParameterID::PeerEndpoint);
+            // save them only if they're signed by the token's endpoint, otherwise anyone could fill the store of an arbitrary address with junk
+            if (params->GetParameter(TxParameterID::ShieldedVoucherList, trVouchers) && peerEndpoint && IsValidVoucherList(trVouchers, *peerEndpoint))
             {
                 walletModel->getAsync()->saveVouchers(trVouchers, *peerId);
                 walletModel->getAsync()->getAddress(*peerId);
