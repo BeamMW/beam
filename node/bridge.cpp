@@ -671,9 +671,8 @@ void L2Bridge::Init(Params&& pars)
 	p1.m_hDelay = pars.m_hDelay;
 	p1.m_Addr = std::move(pars.m_Addr);
 
+	// the last imported event. The extractor's m_posLast is the last handled position, it resumes right after it
 	p1.m_Pos0 = m_Node.get_Processor().get_DB().BridgeGetLastPos();
-	p1.m_Pos0.m_Height++;
-	p1.m_Pos0.m_Pos = 0;
 
 	p1.m_pSkBbs = &m_Node.m_Keys.m_Validator.m_sk;
 	p1.m_Channel = ChannelFromPeerID(m_Node.m_Keys.m_Validator.m_Addr);
